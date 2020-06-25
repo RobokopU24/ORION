@@ -1,6 +1,13 @@
+import os
 import argparse
 from src.loadVP import VPLoader
 from src.loadUniRef2 import UniRefSimLoader
+
+from Common.utils import LoggingUtil
+from pathlib import Path
+
+# create a logger
+logger = LoggingUtil.init_logging("Data_services.ViralProteome.load_all", line_format='medium', log_file_path=os.path.join(Path(__file__).parents[2], 'logs'))
 
 
 if __name__ == '__main__':
@@ -19,7 +26,7 @@ if __name__ == '__main__':
     # get a reference to the processor
     vp = VPLoader()
 
-    vp.print_debug_msg(f'Starting UniProtKB viral proteome data processing.\n')
+    logger.info(f'Starting UniProtKB viral proteome data processing.\n')
 
     # assign the uniprot directory
     UniProtKB_data_dir = args['uniprot_dir']
@@ -34,7 +41,7 @@ if __name__ == '__main__':
     # load the data files and create KGX output
     vp.load(UniProtKB_data_dir, 'Virus_GOA_files/', file_list, 'VP_Virus')
 
-    vp.print_debug_msg(f'UniProtKB viral proteome processing complete. Starting UniRef processing.\n')
+    logger.info(f'UniProtKB viral proteome processing complete. Starting UniRef processing.\n')
 
     # assign the file list
     file_list: list = args['uniref_files'].split(',')
@@ -45,17 +52,17 @@ if __name__ == '__main__':
     # get a reference to the processor
     vp = UniRefSimLoader()
 
-    vp.print_debug_msg('Getting UniProtKB taxa list.')
+    logger.info('Getting UniProtKB taxa list.')
 
     # get the list of target taxon ids from the node list
     taxon_set: set = vp.get_virus_taxon_id_set(UniProtKB_data_dir, 'nodes.dmp', vp.TYPE_VIRUS)
 
-    vp.print_debug_msg(f'{len(taxon_set)} UniProtKB virus taxa identified.')
+    logger.info(f'{len(taxon_set)} UniProtKB virus taxa identified.')
 
     for f in file_list:
-        vp.print_debug_msg(f'Parsing UniRef file ({f}) with write data threshold of {5000} graph nodes collected.')
+        logger.debug(f'Parsing UniRef file ({f}) with write data threshold of {5000} graph nodes collected.')
 
         # load the data files and create KGX output
         vp.load(UniProtKB_data_dir, f, 'taxon_file_indexes.txt', taxon_set, block_size=5000, debug_files=False)
 
-    vp.print_debug_msg(f'UniRef data parsing and KGX file creation complete.\n')
+    logger.info(f'UniRef data parsing and KGX file creation complete.\n')

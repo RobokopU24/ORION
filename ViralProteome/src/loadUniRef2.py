@@ -1,13 +1,17 @@
 import os
 import argparse
-from io import TextIOBase
 import csv
 import hashlib
 import pandas as pd
 import requests
-from datetime import datetime as dt
+from io import TextIOBase
 from csv import reader
 from xml.etree import ElementTree as ETree
+from Common.utils import LoggingUtil
+from pathlib import Path
+
+# create a logger
+logger = LoggingUtil.init_logging("Data_services.ViralProteome.UniRefSimLoader", line_format='medium', log_file_path=os.path.join(Path(__file__).parents[2], 'logs'))
 
 
 ##############
@@ -83,30 +87,30 @@ class UniRefSimLoader:
 
                 # output a status indicator
                 if index_counter % 10000 == 0:
-                    self.print_debug_msg(f'Completed {index_counter} taxa.')
+                    logger.debug(f'Completed {index_counter} taxa.')
 
                 # start looking a bit before the location grep found
                 taxon_index = int(line.split(':')[0]) - 150
 
-                # self.print_debug_msg(f'Gather XML "entry" element string at index {taxon_index}.')
+                # logger.debug(f'Gather XML "entry" element string at index {taxon_index}.')
 
                 # get the next entry element
                 entry_element: str = self.get_entry_element(taxon_index, uniref_fp)
 
                 # did we get something back
                 if entry_element != '':
-                    # self.print_debug_msg('XML "entry" element string collected, Capturing data.')
+                    # logger.debug('XML "entry" element string collected, Capturing data.')
 
                     # call to get an entry and enter it into the node list
                     self.capture_entry_data(entry_element, node_list, target_taxa)
 
-                    # self.print_debug_msg('XML "entry" element capture complete.')
+                    # logger.debug('XML "entry" element capture complete.')
                 else:
-                    self.print_debug_msg(f'Error producing an entry node for {line} at line number {index_counter}.')
+                    logger.error(f'Error producing an entry node for {line} at line number {index_counter}.')
 
                 # is it time to write out the data we have collected so far
                 if len(node_list) > block_size:
-                    # self.print_debug_msg('Writing out data.')
+                    # logger.debug('Writing out data.')
 
                     # normalize the group of entries on the data frame.
                     # commented out for now as node norm os not returning anything that i dont already have for these nodes
@@ -115,7 +119,7 @@ class UniRefSimLoader:
                     # write out what we have so far
                     self.write_out_data(node_list, out_edge_f, out_node_f)
 
-                    # self.print_debug_msg('Data write complete.')
+                    # logger.debug('Data write complete.')
 
                     # clear out the node list for the next batch
                     node_list.clear()
@@ -123,7 +127,7 @@ class UniRefSimLoader:
         # save any remainders
         if len(node_list) > 0:
             self.write_out_data(node_list, out_edge_f, out_node_f)
-            self.print_debug_msg(f'Processing completed {index_counter} taxa processed.')
+            logger.info(f'Processing completed {index_counter} taxa processed.')
 
     def normalize_node_data(self, node_list: list) -> list:
         """
@@ -141,7 +145,7 @@ class UniRefSimLoader:
         node_count: int = len(node_list)
 
         # init a list to identify taxa that has not been node normed
-        tmp_normalize: set = []
+        tmp_normalize: set = set()
 
         # iterate through node groups and get only the taxa records.
         while node_idx < node_count:
@@ -151,7 +155,7 @@ class UniRefSimLoader:
                 if not node_list[node_idx]['id'] in self.cached_node_norms:
                     tmp_normalize.add(node_list[node_idx]['id'])
                 # else:
-                #     self.print_debug_msg(f"Cache hit: {node_list[node_idx]['id']}")
+                #     logger.debug(f"Cache hit: {node_list[node_idx]['id']}")
 
             node_idx += 1
 
@@ -167,7 +171,7 @@ class UniRefSimLoader:
         # get the last index of the list
         last_index: int = len(to_normalize)
 
-        # self.print_debug_msg(f'{last_index} unique nodes will be normalized.')
+        # logger.debug(f'{last_index} unique nodes will be normalized.')
 
         # grab chunks of the data frame
         while True:
@@ -179,7 +183,7 @@ class UniRefSimLoader:
                 if end_index >= last_index:
                     end_index = last_index
 
-                # self.print_debug_msg(f'Working block {start_index} to {end_index}.')
+                # logger.debug(f'Working block {start_index} to {end_index}.')
 
                 # collect a slice of records from the data frame
                 data_chunk: list = to_normalize[start_index: end_index]
@@ -199,7 +203,7 @@ class UniRefSimLoader:
                     self.cached_node_norms = merged
                 else:
                     # the 404 error that is trapped here means that the entire list of nodes didnt get normalized.
-                    # self.print_debug_msg(f'response code: {resp.status_code}')
+                    # logger.debug(f'response code: {resp.status_code}')
 
                     # since they all failed to normalize add to the list so we dont try them again
                     for item in data_chunk:
@@ -236,7 +240,7 @@ class UniRefSimLoader:
                     # find the id and replace it with the normalized value
                     node_list[node_idx]['id'] = self.cached_node_norms[rv['id']]['id']['identifier']
                 else:
-                    self.print_debug_msg(f"{rv['id']} has no normalized value")
+                    logger.debug(f"{rv['id']} has no normalized value")
 
             # go to the next index
             node_idx += 1
@@ -264,7 +268,7 @@ class UniRefSimLoader:
 
             # read 6 characters to see if it is the start of the entry
             uniref_line = uniref_fp.read(6)
-            # print(f'{uniref_fp.tell()}: {uniref_line1}')
+            # logger.debug(f'{uniref_fp.tell()}: {uniref_line1}')
 
             # did we find the entry start
             if uniref_line.decode("utf-8") == "<entry":
@@ -358,7 +362,7 @@ class UniRefSimLoader:
                 for member in iter(entry_child):
                     # look for the DB reference node.
                     if member.tag == 'dbReference':
-                        # self.print_debug_msg(f"\t\tCluster \"dbReference\" element member: \"{member.attrib['type']}\" is {member.attrib['id']}.")
+                        # logger.debug(f"\t\tCluster \"dbReference\" element member: \"{member.attrib['type']}\" is {member.attrib['id']}.")
                         member_uniprotkb_id: str = member.attrib['id']
 
                         # init node data with the node grouping mechanism
@@ -374,10 +378,10 @@ class UniRefSimLoader:
                                 if db_ref_prop.attrib['type'] == 'UniProtKB accession':
                                     if not found_uniprot_access:
                                         found_uniprot_access = True
-                                        # self.print_debug_msg(f"\t\t\tdbReference property: \"{db_ref_prop.attrib['type']}\" is {db_ref_prop.attrib['value']}")
+                                        # logger.debug(f"\t\t\tdbReference property: \"{db_ref_prop.attrib['type']}\" is {db_ref_prop.attrib['value']}")
                                         member_props.update({'id': member_uniprotkb_id, db_ref_prop.attrib['type']: db_ref_prop.attrib['value']})
                                 else:
-                                    # self.print_debug_msg(f"\t\t\tdbReference property: \"{db_ref_prop.attrib['type']}\" is {db_ref_prop.attrib['value']}")
+                                    # logger.debug(f"\t\t\tdbReference property: \"{db_ref_prop.attrib['type']}\" is {db_ref_prop.attrib['value']}")
                                     member_props.update({'id': member_uniprotkb_id, db_ref_prop.attrib['type']: db_ref_prop.attrib['value']})
 
                         try:
@@ -401,17 +405,17 @@ class UniRefSimLoader:
                                 node_counter += 1
 
                         except KeyError:
-                            # self.print_debug_msg(f"\t\t\t{e} cluster member element missing for {element.attrib['id']}. Continuing...")
+                            # logger.debug(f"\t\t\t{e} cluster member element missing for {element.attrib['id']}. Continuing...")
                             pass
 
         # did we get at least 3 node pairs (entry node pair, rep member node pair, at least 1 cluster member pair)
         if len(tmp_node_list) >= 6:
             node_list.extend(tmp_node_list)
         # else:
-        #     self.print_debug_msg(f'\nEntry {entry_element} disqualified.\n')
+        #     logger.debug(f'\nEntry {entry_element} disqualified.\n')
 
         # if not virus_capture:
-        #     self.print_debug_msg(f'{grp} not captured.')
+        #     logger.debug(f'{grp} not captured.')
 
     def write_out_data(self, node_list, out_edge_f: TextIOBase, out_node_f: TextIOBase):
         """
@@ -423,7 +427,7 @@ class UniRefSimLoader:
         :return:
         """
 
-        # self.print_debug_msg(f'Loading data frame with {len(node_list)} nodes.')
+        # logger.debug(f'Loading data frame with {len(node_list)} nodes.')
 
         # create a data frame with the node list
         df: pd.DataFrame = pd.DataFrame(node_list, columns=['grp', 'node_num', 'id', 'name', 'category', 'equivalent_identifiers', 'similarity_bin'])
@@ -435,13 +439,13 @@ class UniRefSimLoader:
         new_df = df.drop(['grp', 'node_num'], axis=1)
         new_df = new_df.drop_duplicates(keep='first')
 
-        # self.print_debug_msg(f'{len(new_df.index)} nodes found, writing to KGX node file.')
+        # logger.debug(f'{len(new_df.index)} nodes found, writing to KGX node file.')
 
         # write out the unique nodes
         for row in new_df.iterrows():
             out_node_f.write(f"{row[1]['id']},\"{row[1]['name']}\",{row[1]['category']},{row[1]['equivalent_identifiers']}\n")
 
-        # self.print_debug_msg(f"{len(new_df.index)} unique graph nodes with {len(final_edges)} corresponding edges were written.")  # {len(node_list)} graph node running total.
+        # logger.debug(f"{len(new_df.index)} unique graph nodes with {len(final_edges)} corresponding edges were written.")  # {len(node_list)} graph node running total.
 
     @staticmethod
     def write_edge_data(out_edge_f, node_list):
@@ -453,7 +457,7 @@ class UniRefSimLoader:
         :return: nothing
         """
 
-        # self.print_debug_msg(f'Creating edges for {len(node_list)} nodes.')
+        # logger.debug(f'Creating edges for {len(node_list)} nodes.')
 
         # init group detection
         cur_group_name: str = ''
@@ -465,7 +469,7 @@ class UniRefSimLoader:
 
         # iterate through node groups and create the edge records.
         while node_idx < node_count:
-            # self.print_debug_msg(f'Working index: {node_idx}')
+            # logger.debug(f'Working index: {node_idx}')
 
             # if its the first time in prime the pump
             if first:
@@ -550,15 +554,7 @@ class UniRefSimLoader:
             # save the new group name
             cur_group_name = node_list[node_idx]['grp']
 
-        # self.print_debug_msg(f'   {node_idx} Entry member edges created.')
-
-    @staticmethod
-    def print_debug_msg(msg: str):
-        # something that adds a timestamp to a print message
-        now: dt = dt.now()
-
-        # output the message
-        print(f'{now.strftime("%Y/%m/%d %T")} - {msg}')
+        # logger.debug(f'   {node_idx} Entry member edges created.')
 
     @staticmethod
     def get_virus_taxon_id_set(taxon_data_dir, infile_name, organism_type: str) -> set:
@@ -608,17 +604,17 @@ if __name__ == '__main__':
     # get a reference to the processor
     vp = UniRefSimLoader()
 
-    vp.print_debug_msg('Getting taxa list.')
+    logger.info('Getting taxa list.')
 
     # get the list of target taxon ids from the node list
     taxon_set: set = vp.get_virus_taxon_id_set(data_dir, 'nodes.dmp', vp.TYPE_VIRUS)
 
-    vp.print_debug_msg(f'{len(taxon_set)} virus taxa identified.')
+    logger.info(f'{len(taxon_set)} virus taxa identified.')
 
     for f in file_list:
-        vp.print_debug_msg(f'Parsing file ({f}) with write data threshold of {10000} graph nodes collected.')
+        logger.info(f'Parsing file ({f}) with write data threshold of {10000} graph nodes collected.')
 
         # load the data files and create KGX output
         vp.load(data_dir, f, 'taxon_file_indexes.txt', taxon_set, block_size=10000, debug_files=False)
 
-    vp.print_debug_msg(f'UniRef data parsing and KGX file creation complete.\n')
+    logger.info(f'UniRef data parsing and KGX file creation complete.\n')
