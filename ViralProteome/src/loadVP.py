@@ -6,7 +6,11 @@ import pandas as pd
 import enum
 import requests
 from csv import reader
-from datetime import datetime
+from Common.utils import LoggingUtil
+import logging
+
+# create a logger
+logger = LoggingUtil.init_logging("Data_services.ViralProteome.loadVP", logging.INFO, format='medium', logFilePath=os.path.join(os.path.dirname (__file__), 'logs'))
 
 
 # the data header columns are:
@@ -39,13 +43,6 @@ class DATACOLS(enum.IntEnum):
 ##############
 class VPLoader:
 
-    @staticmethod
-    def print_debug_msg(msg: str):
-        # something that adds a timestamp to a print message
-        now: datetime = datetime.now()
-
-        print(f'{now.strftime("%Y/%m/%d %H:%M:%S")} - {msg}')
-
     def load(self, data_path: str, data_dir: str, files: list, out_name: str) -> bool:
         """
         loads goa and gaf associated data gathered from ftp://ftp.ebi.ac.uk/pub/databases/GO/goa/proteomes/
@@ -70,7 +67,7 @@ class VPLoader:
             # init the total set of nodes
             total_nodes: list = []
 
-            self.print_debug_msg(f'Start of file parsing.')
+            print_debug_msg(f'Start of file parsing.')
 
             # process each file
             for f in files:
@@ -79,7 +76,7 @@ class VPLoader:
                     # increment the file counter
                     file_counter += 1
 
-                    # self.print_debug_msg(f'Parsing file number {file_counter}, {f[:-1]}.')
+                    # print_debug_msg(f'Parsing file number {file_counter}, {f[:-1]}.')
 
                     # read the file and make the list
                     node_list: list = self.get_node_list(fp)
@@ -87,7 +84,7 @@ class VPLoader:
                     # save this list of nodes to the running collection
                     total_nodes.extend(node_list)
 
-            self.print_debug_msg(f'Node list loaded with {len(total_nodes)} entries. Converting to data frame.')
+            print_debug_msg(f'Node list loaded with {len(total_nodes)} entries. Converting to data frame.')
 
             # create a data frame with the node list
             df: pd.DataFrame = pd.DataFrame(total_nodes, columns=['grp', 'node_num', 'id', 'name', 'category', 'equivalent_identifiers'])
@@ -95,35 +92,35 @@ class VPLoader:
             # remove all duplicates
             df = df.drop_duplicates(keep='first')
 
-            self.print_debug_msg(f'Node list made unique, now loaded with {len(df)} entries, normalizing nodes.')
+            print_debug_msg(f'Node list made unique, now loaded with {len(df)} entries, normalizing nodes.')
 
             # normalize the group of entries on the data frame.
             df = self.normalize_node_data(df)
 
-            self.print_debug_msg('Nodes normalized, creating edge data.')
+            print_debug_msg('Nodes normalized, creating edge data.')
 
             # get the list of unique edges
             final_edges: set = self.get_edge_set(df)
 
-            self.print_debug_msg(f'{len(final_edges)} unique edges found, creating KGX edge file.')
+            print_debug_msg(f'{len(final_edges)} unique edges found, creating KGX edge file.')
 
             # write out the unique edges
             for item in final_edges:
                 out_edge_f.write(hashlib.md5(item.encode('utf-8')).hexdigest() + item)
 
-            self.print_debug_msg(f'{len(df)} nodes found, de-duping.')
+            print_debug_msg(f'{len(df)} nodes found, de-duping.')
 
             # reshape the data frame and remove all node duplicates
             new_df: pd.DataFrame = df.drop(['grp', 'node_num'], axis=1)
             new_df = new_df.drop_duplicates(keep='first')
 
-            self.print_debug_msg(f'{len(new_df.index)} unique nodes found, creating KGX node file.')
+            print_debug_msg(f'{len(new_df.index)} unique nodes found, creating KGX node file.')
 
             # write out the unique nodes
             for row in new_df.iterrows():
                 out_node_f.write(f"{row[1]['id']},\"{row[1]['name']}\",{row[1]['category']},{row[1]['equivalent_identifiers']}\n")
 
-            self.print_debug_msg(f'GOA data parsing and KGX file creation complete.\n')
+            print_debug_msg(f'GOA data parsing and KGX file creation complete.\n')
         return True
 
     def get_edge_set(self, df: pd.DataFrame) -> set:
@@ -191,7 +188,7 @@ class VPLoader:
             # create the KGX edge data for nodes 1 and 3
             edge_set.add(f',{src_node_id},{relation_label},{relation_label},{obj_node_id}\n')
 
-        self.print_debug_msg(f'{len(edge_set)} edges identified, removing duplicates.')
+        logger.print_debug_msg(f'{len(edge_set)} edges identified, removing duplicates.')
 
         # return the list to the caller
         return edge_set
@@ -247,7 +244,7 @@ class VPLoader:
                 """ A node for the GO term GO:0004518. It should normalize, telling us the type / name. """
                 node_list.append({'grp': grp, 'node_num': 3, 'id': f'{line[DATACOLS.GO_ID.value]}', 'name': '', 'category': '', 'equivalent_identifiers': ''})
             except Exception as e:
-                self.print_debug_msg(f'Exception: {e}')
+                logger.print_debug_msg(f'Exception: {e}')
 
         # return the list to the caller
         return node_list
@@ -275,7 +272,7 @@ class VPLoader:
         # get the last index of the list
         last_index: int = len(new_df)
 
-        self.print_debug_msg(f'{last_index} unique nodes will be normalized.')
+        logger.print_debug_msg(f'{last_index} unique nodes will be normalized.')
 
         # grab chunks of the data frame
         while True:
@@ -283,7 +280,7 @@ class VPLoader:
                 # define the end index of the slice
                 end_index: int = start_index + chunk_size
 
-                self.print_debug_msg(f'Working block {start_index} to {end_index}.')
+                logger.print_debug_msg(f'Working block {start_index} to {end_index}.')
 
                 # collect a slice of records from the data frame
                 data_chunk: pd.DataFrame = new_df[start_index: end_index]
@@ -320,9 +317,9 @@ class VPLoader:
                             # drop the row
                             df.drop(index)
 
-                            self.print_debug_msg(f'{rv} has no normalized value')
+                            logger.print_debug_msg(f'{rv} has no normalized value')
                 else:
-                    self.print_debug_msg(f'Block {start_index} to {end_index} failed normalization.')
+                    logger.print_debug_msg(f'Block {start_index} to {end_index} failed normalization.')
 
                 # move on down the list
                 start_index += chunk_size
