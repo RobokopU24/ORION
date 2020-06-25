@@ -1,0 +1,184 @@
+IntAct parse/load into a neo4j graph
+	Web site -> https://www.ebi.ac.uk/intact/
+
+----------------
+Chris' problem definition:
+
+	There is a dataset from embl-ebi called IntAct that contains interactions between proteins.
+It can be subset into various groups.
+
+	There are two in particular, one is a virus dataset, and the other a coronoavirus dataset.
+It's possible that the latter is a subset of the former, but I'm not sure.
+	https://www.ebi.ac.uk/intact/query/annot:%22dataset:virus%22?conversationContext=4
+	https://www.ebi.ac.uk/intact/query/annot:%22dataset:coronavirus%22
+
+	I want a gene-gene graph from these sets. For some of the edges, there will be multiple rows representing different
+experiments showing the edge
+
+	Please combine into one row. But each row also has a link to an interaction that has one or more pubmeds in it.
+I'd like to put those pubmed ids into an array on the edge in the same way that we do for other data sources.  Not sure
+if those pmids can be part of the initial data pull or not.
+
+----------------
+Corona virus data file review
+	Data file location -> ftp://ftp.ebi.ac.uk/pub/databases/intact/current/psi25/datasets/Coronavirus.zip
+
+	This data file is in XML format.
+
+Uses "MI" curies extensivly. MI == "molecular interation"
+	MI ontology found at: https://www.ebi.ac.uk/ols/ontologies/mi/download
+
+The data is laid out in the following XML format:
+	http://psidev.info/mif
+	ftp://ftp.ebi.ac.uk/pub/databases/intact/current/psi25/MIF25.xsd
+
+	Entryset (1 per file)
+		Entry
+			source
+			experimentList
+			interactorList
+			interactionList
+
+Each IntAct entry contains a experiment description that has an associated pubmed id. Sometimes an entry has 1 or more
+source pubmed references and/or cross references. Somtimes the UniPortKB IDs are found in the uniref/uniprotkb virus data.
+
+----------------
+The data for each coronavirus entry xml node is laid out as follows:
+
+The source XML node:
+ - name
+ - label
+ - xrefs
+ - attributes
+
+The experiment xml node:
+ - name
+ - bibref (numerous pubmeds)
+ - host organisms (numerous NCBI taxa)
+ - attributes
+
+The Interactors/Interactor Node:
+	Interactor XML node:
+	 - names (gene name, short name, full name, aliases)
+	 - primary xref (primary ref is uniprotkb id)
+	 - secondary xrefs (GO, ensembl, uniprotkb, etc.)
+	 - type (name, primary and secondary xrefs, etc.)
+	 - organism (name, alias, etc.)
+
+Interactions/Interaction relate interactors and also have a number of attributes:
+Interaction XML node:
+ - name
+ - participants (list of interactors in the interaction)
+ 	- name
+ 	- interactor reference
+ 	- biological role
+ 	- more pubmeds (on biological roles)
+ 	- host organism (NCBI Taxon)
+ - interaction type
+ 	- name
+	- primary and secondary xrefs (curies?)
+	- host organism (NCBI taxon)
+
+
+----------------
+Virus data file review
+	data file location -> ftp://ftp.ebi.ac.uk/pub/databases/intact/current/psi25/datasets/Virus.zip
+
+	This data file is in tab-delimited format
+	columns:
+		1.) ID(s) interactor A
+		2.) ID(s) interactor B
+		3.) Alt. ID(s) interactor A
+		4.) Alt. ID(s) interactor B
+		5.) Alias(es) interactor A
+		6.) Alias(es) interactor B
+		7.) Interaction detection method(s)
+		8.) Publication 1st author(s)
+		9.) Publication Identifier(s)
+		10.) Taxid interactor A
+		11.) Taxid interactor B
+		12.) Interaction type(s)
+		13.) Source database(s)
+		14.) Interaction identifier(s)
+		15.) Confidence value(s)
+		16.) Expansion method(s)
+		17.) Biological role(s) interactor A
+		18.) Biological role(s) interactor B
+		19.) Experimental role(s) interactor A
+		20.) Experimental role(s) interactor B
+		21.) Type(s) interactor A
+		22.) Type(s) interactor B
+		23.) Xref(s) interactor A
+		24.) Xref(s) interactor B
+		25.) Interaction Xref(s)
+		26.) Annotation(s) interactor A
+		27.) Annotation(s) interactor B
+		28.) Interaction annotation(s)
+		29.) Host organism(s)
+		30.) Interaction parameter(s)
+		31.) Creation date
+		32.) Update date
+		33.) Checksum(s) interactor A
+		34.) Checksum(s) interactor B
+		35.) Interaction Checksum(s)
+		36.) Negative
+		37.) Feature(s) interactor A
+		38.) Feature(s) interactor B
+		39.) Stoichiometry(s) interactor A
+		40.) Stoichiometry(s) interactor B
+		41.) Identification method participant A
+		42.) Identification method participant B
+
+
+----------------
+Parsing the IntAct virus data
+
+Note: The IntAct virus data record will be discarded in the event that both interactors are not UniProtKb IDs
+
+TODO: Intact virus graph node data
+TODO: Intact virus graph edge data
+
+
+----------------
+Parsing the cornovirus data (currently not supported)
+
+First parse the interacatorlist xml node to collect all interactors (graph nodes), then parse the interationslist to collect the
+relationships (graph edges).
+
+Coronavirus Interactors graph node data
+
+A: Interactor nodes (a pair in each interaction, UniProtKB):
+	- id: UniProtKB ID
+	- name: UniProtKB ID (no node norm)
+	- category: may not node normable, gene|gene_or_gene_product|macromolecular_machine|genomic_entity|molecular_entity|biological_entity|named_thing
+	- equivalent identifiers: UniProtKB ID
+
+Other potential nodes
+B: Interactor NCBI taxon node (this may not be found in every time):
+	- id: NCBI taxon
+	- name: NCBI taxon
+	- category: node normable, organism_taxon|named_thing|ontology_class
+	- equivalent identifiers: node normable, NCBI taxon
+
+C: Interactor gene node:
+	- id: gene name
+	- name: node normable, gene name synonym
+	- category: node normable, gene
+	- equivalent identifiers: node normable
+
+
+Coronavirus Interactions graph edge data
+Note: all edge ids are MD5 hash
+
+A - A (gene to gene interaction)
+	- relation label: interaction.short_label
+	- subject: interactor 1
+	- object: interactor 2
+	- additonal edge info
+		- pubmed reference: bibref.pubmed.id (also the file name)
+		- EBI experiment id: experiment.xref.primaryref
+
+other potential edges
+A IN B (UniProtKB in taxon)
+C in B (gene in taxon
+A in C (uniprot in gene)

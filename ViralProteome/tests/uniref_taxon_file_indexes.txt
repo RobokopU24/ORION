@@ -1,0 +1,1 @@
+513:<property type="common taxon ID" value="10493"/>

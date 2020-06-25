@@ -1,0 +1,200 @@
+!gaf-version: 2.1
+!GO-version: http://purl.obolibrary.org/obo/go/releases/2020-04-18/extensions/go-plus.owl
+UniProtKB	P0C6U7	1a		GO:0001172	GO_REF:0000108	IEA	GO:0003968	P	Replicase polyprotein 1a	1a	protein	31631	20200419	GOC		
+UniProtKB	P0C6U7	1a		GO:0003676	GO_REF:0000002	IEA	InterPro:IPR032592	F	Replicase polyprotein 1a	1a	protein	31631	20200418	InterPro		
+UniProtKB	P0C6U7	1a		GO:0003723	GO_REF:0000002	IEA	InterPro:IPR014822|InterPro:IPR018995|InterPro:IPR036333	F	Replicase polyprotein 1a	1a	protein	31631	20200418	InterPro		
+UniProtKB	P0C6U7	1a		GO:0003723	GO_REF:0000043	IEA	UniProtKB-KW:KW-0694	F	Replicase polyprotein 1a	1a	protein	31631	20200418	UniProt		
+UniProtKB	P0C6U7	1a		GO:0003968	GO_REF:0000002	IEA	InterPro:IPR002705|InterPro:IPR013016	F	Replicase polyprotein 1a	1a	protein	31631	20200418	InterPro		
+UniProtKB	P0C6U7	1a		GO:0004197	GO_REF:0000002	IEA	InterPro:IPR014827|InterPro:IPR014828|InterPro:IPR014829|InterPro:IPR037204|InterPro:IPR037230	F	Replicase polyprotein 1a	1a	protein	31631	20200418	InterPro		
+UniProtKB	P0C6U7	1a		GO:0006508	GO_REF:0000002	IEA	InterPro:IPR002705|InterPro:IPR013016	P	Replicase polyprotein 1a	1a	protein	31631	20200418	InterPro		
+UniProtKB	P0C6U7	1a		GO:0006508	GO_REF:0000043	IEA	UniProtKB-KW:KW-0645	P	Replicase polyprotein 1a	1a	protein	31631	20200418	UniProt		
+UniProtKB	P0C6U7	1a		GO:0008233	GO_REF:0000043	IEA	UniProtKB-KW:KW-0645	F	Replicase polyprotein 1a	1a	protein	31631	20200418	UniProt		
+UniProtKB	P0C6U7	1a		GO:0008234	GO_REF:0000002	IEA	InterPro:IPR002705|InterPro:IPR013016	F	Replicase polyprotein 1a	1a	protein	31631	20200418	InterPro		
+UniProtKB	P0C6U7	1a		GO:0008234	GO_REF:0000043	IEA	UniProtKB-KW:KW-0788	F	Replicase polyprotein 1a	1a	protein	31631	20200418	UniProt		
+UniProtKB	P0C6U7	1a		GO:0008242	GO_REF:0000002	IEA	InterPro:IPR014827|InterPro:IPR014828|InterPro:IPR014829|InterPro:IPR037204|InterPro:IPR037230	F	Replicase polyprotein 1a	1a	protein	31631	20200418	InterPro		
+UniProtKB	P0C6U7	1a		GO:0008270	GO_REF:0000002	IEA	InterPro:IPR018995|InterPro:IPR036333	F	Replicase polyprotein 1a	1a	protein	31631	20200418	InterPro		
+UniProtKB	P0C6U7	1a		GO:0016020	GO_REF:0000043	IEA	UniProtKB-KW:KW-0472	C	Replicase polyprotein 1a	1a	protein	31631	20200418	UniProt		
+UniProtKB	P0C6U7	1a		GO:0016021	GO_REF:0000043	IEA	UniProtKB-KW:KW-0812	C	Replicase polyprotein 1a	1a	protein	31631	20200418	UniProt		
+UniProtKB	P0C6U7	1a		GO:0016032	GO_REF:0000043	IEA	UniProtKB-KW:KW-0945	P	Replicase polyprotein 1a	1a	protein	31631	20200418	UniProt		
+UniProtKB	P0C6U7	1a		GO:0016740	GO_REF:0000002	IEA	InterPro:IPR014827|InterPro:IPR014828|InterPro:IPR014829|InterPro:IPR037204|InterPro:IPR037230	F	Replicase polyprotein 1a	1a	protein	31631	20200418	InterPro		
+UniProtKB	P0C6U7	1a		GO:0016787	GO_REF:0000043	IEA	UniProtKB-KW:KW-0378	F	Replicase polyprotein 1a	1a	protein	31631	20200418	UniProt		
+UniProtKB	P0C6U7	1a		GO:0019079	GO_REF:0000002	IEA	InterPro:IPR014822|InterPro:IPR018995|InterPro:IPR036333	P	Replicase polyprotein 1a	1a	protein	31631	20200418	InterPro		
+UniProtKB	P0C6U7	1a		GO:0019082	GO_REF:0000002	IEA	InterPro:IPR008740	P	Replicase polyprotein 1a	1a	protein	31631	20200418	InterPro		
+UniProtKB	P0C6U7	1a		GO:0030430	GO_REF:0000043	IEA	UniProtKB-KW:KW-1035	C	Replicase polyprotein 1a	1a	protein	31631	20200418	UniProt		
+UniProtKB	P0C6U7	1a		GO:0030683	GO_REF:0000043	IEA	UniProtKB-KW:KW-0899	P	Replicase polyprotein 1a	1a	protein	31631	20200418	UniProt		
+UniProtKB	P0C6U7	1a		GO:0033644	GO_REF:0000043	IEA	UniProtKB-KW:KW-1043	C	Replicase polyprotein 1a	1a	protein	31631	20200418	UniProt		
+UniProtKB	P0C6U7	1a		GO:0033644	GO_REF:0000044	IEA	UniProtKB-SubCell:SL-0380	C	Replicase polyprotein 1a	1a	protein	31631	20200418	UniProt		
+UniProtKB	P0C6U7	1a		GO:0036459	GO_REF:0000003	IEA	EC:3.4.19.12	F	Replicase polyprotein 1a	1a	protein	31631	20200418	UniProt		
+UniProtKB	P0C6U7	1a		GO:0039502	GO_REF:0000043	IEA	UniProtKB-KW:KW-1114	P	Replicase polyprotein 1a	1a	protein	31631	20200418	UniProt		
+UniProtKB	P0C6U7	1a		GO:0039503	GO_REF:0000043	IEA	UniProtKB-KW:KW-1090	P	Replicase polyprotein 1a	1a	protein	31631	20200418	UniProt		
+UniProtKB	P0C6U7	1a		GO:0039520	GO_REF:0000043	IEA	UniProtKB-KW:KW-1072	P	Replicase polyprotein 1a	1a	protein	31631	20200418	UniProt		
+UniProtKB	P0C6U7	1a		GO:0039548	GO_REF:0000043	IEA	UniProtKB-KW:KW-1092	P	Replicase polyprotein 1a	1a	protein	31631	20200418	UniProt		
+UniProtKB	P0C6U7	1a		GO:0039579	GO_REF:0000043	IEA	UniProtKB-KW:KW-1095	P	Replicase polyprotein 1a	1a	protein	31631	20200418	UniProt		
+UniProtKB	P0C6U7	1a		GO:0039595	GO_REF:0000043	IEA	UniProtKB-KW:KW-1132	P	Replicase polyprotein 1a	1a	protein	31631	20200418	UniProt		
+UniProtKB	P0C6U7	1a		GO:0039648	GO_REF:0000043	IEA	UniProtKB-KW:KW-1127	P	Replicase polyprotein 1a	1a	protein	31631	20200418	UniProt		
+UniProtKB	P0C6U7	1a		GO:0039648	GO_REF:0000043	IEA	UniProtKB-KW:KW-1130	P	Replicase polyprotein 1a	1a	protein	31631	20200418	UniProt		
+UniProtKB	P0C6U7	1a		GO:0039657	GO_REF:0000043	IEA	UniProtKB-KW:KW-1190	P	Replicase polyprotein 1a	1a	protein	31631	20200418	UniProt		
+UniProtKB	P0C6U7	1a		GO:0044220	GO_REF:0000044	IEA	UniProtKB-SubCell:SL-0382	C	Replicase polyprotein 1a	1a	protein	31631	20200418	UniProt		
+UniProtKB	P0C6U7	1a		GO:0046872	GO_REF:0000043	IEA	UniProtKB-KW:KW-0479	F	Replicase polyprotein 1a	1a	protein	31631	20200418	UniProt		
+UniProtKB	P0C6X6	rep		GO:0000166	GO_REF:0000043	IEA	UniProtKB-KW:KW-0547	F	Replicase polyprotein 1ab	rep|1a-1b	protein	31631	20200418	UniProt		
+UniProtKB	P0C6X6	rep		GO:0001172	GO_REF:0000108	IEA	GO:0003968	P	Replicase polyprotein 1ab	rep|1a-1b	protein	31631	20200419	GOC		
+UniProtKB	P0C6X6	rep		GO:0003676	GO_REF:0000002	IEA	InterPro:IPR032592	F	Replicase polyprotein 1ab	rep|1a-1b	protein	31631	20200418	InterPro		
+UniProtKB	P0C6X6	rep		GO:0003678	GO_REF:0000003	IEA	EC:3.6.4.12	F	Replicase polyprotein 1ab	rep|1a-1b	protein	31631	20200418	UniProt		
+UniProtKB	P0C6X6	rep		GO:0003723	GO_REF:0000002	IEA	InterPro:IPR001205|InterPro:IPR009469|InterPro:IPR014822|InterPro:IPR018995|InterPro:IPR036333	F	Replicase polyprotein 1ab	rep|1a-1b	protein	31631	20200418	InterPro		
+UniProtKB	P0C6X6	rep		GO:0003723	GO_REF:0000043	IEA	UniProtKB-KW:KW-0694	F	Replicase polyprotein 1ab	rep|1a-1b	protein	31631	20200418	UniProt		
+UniProtKB	P0C6X6	rep		GO:0003724	GO_REF:0000003	IEA	EC:3.6.4.13	F	Replicase polyprotein 1ab	rep|1a-1b	protein	31631	20200418	UniProt		
+UniProtKB	P0C6X6	rep		GO:0003968	GO_REF:0000002	IEA	InterPro:IPR001205|InterPro:IPR002705|InterPro:IPR007094|InterPro:IPR009466|InterPro:IPR009469|InterPro:IPR013016	F	Replicase polyprotein 1ab	rep|1a-1b	protein	31631	20200418	InterPro		
+UniProtKB	P0C6X6	rep		GO:0003968	GO_REF:0000003	IEA	EC:2.7.7.48	F	Replicase polyprotein 1ab	rep|1a-1b	protein	31631	20200418	UniProt		
+UniProtKB	P0C6X6	rep		GO:0003968	GO_REF:0000043	IEA	UniProtKB-KW:KW-0696	F	Replicase polyprotein 1ab	rep|1a-1b	protein	31631	20200418	UniProt		
+UniProtKB	P0C6X6	rep		GO:0004197	GO_REF:0000002	IEA	InterPro:IPR009466|InterPro:IPR014827|InterPro:IPR014828|InterPro:IPR014829|InterPro:IPR037204|InterPro:IPR037230	F	Replicase polyprotein 1ab	rep|1a-1b	protein	31631	20200418	InterPro		
+UniProtKB	P0C6X6	rep		GO:0004386	GO_REF:0000043	IEA	UniProtKB-KW:KW-0347	F	Replicase polyprotein 1ab	rep|1a-1b	protein	31631	20200418	UniProt		
+UniProtKB	P0C6X6	rep		GO:0004518	GO_REF:0000043	IEA	UniProtKB-KW:KW-0540	F	Replicase polyprotein 1ab	rep|1a-1b	protein	31631	20200418	UniProt		
+UniProtKB	P0C6X6	rep		GO:0004519	GO_REF:0000043	IEA	UniProtKB-KW:KW-0255	F	Replicase polyprotein 1ab	rep|1a-1b	protein	31631	20200418	UniProt		
+UniProtKB	P0C6X6	rep		GO:0004527	GO_REF:0000043	IEA	UniProtKB-KW:KW-0269	F	Replicase polyprotein 1ab	rep|1a-1b	protein	31631	20200418	UniProt		
+UniProtKB	P0C6X6	rep		GO:0005524	GO_REF:0000002	IEA	InterPro:IPR009469|InterPro:IPR027351	F	Replicase polyprotein 1ab	rep|1a-1b	protein	31631	20200418	InterPro		
+UniProtKB	P0C6X6	rep		GO:0005524	GO_REF:0000043	IEA	UniProtKB-KW:KW-0067	F	Replicase polyprotein 1ab	rep|1a-1b	protein	31631	20200418	UniProt		
+UniProtKB	P0C6X6	rep		GO:0006351	GO_REF:0000002	IEA	InterPro:IPR001205|InterPro:IPR009469	P	Replicase polyprotein 1ab	rep|1a-1b	protein	31631	20200418	InterPro		
+UniProtKB	P0C6X6	rep		GO:0006508	GO_REF:0000002	IEA	InterPro:IPR002705|InterPro:IPR013016	P	Replicase polyprotein 1ab	rep|1a-1b	protein	31631	20200418	InterPro		
+UniProtKB	P0C6X6	rep		GO:0006508	GO_REF:0000043	IEA	UniProtKB-KW:KW-0645	P	Replicase polyprotein 1ab	rep|1a-1b	protein	31631	20200418	UniProt		
+UniProtKB	P0C6X6	rep		GO:0008168	GO_REF:0000002	IEA	InterPro:IPR009466	F	Replicase polyprotein 1ab	rep|1a-1b	protein	31631	20200418	InterPro		
+UniProtKB	P0C6X6	rep		GO:0008168	GO_REF:0000043	IEA	UniProtKB-KW:KW-0489	F	Replicase polyprotein 1ab	rep|1a-1b	protein	31631	20200418	UniProt		
+UniProtKB	P0C6X6	rep		GO:0008233	GO_REF:0000043	IEA	UniProtKB-KW:KW-0645	F	Replicase polyprotein 1ab	rep|1a-1b	protein	31631	20200418	UniProt		
+UniProtKB	P0C6X6	rep		GO:0008234	GO_REF:0000002	IEA	InterPro:IPR002705|InterPro:IPR013016	F	Replicase polyprotein 1ab	rep|1a-1b	protein	31631	20200418	InterPro		
+UniProtKB	P0C6X6	rep		GO:0008234	GO_REF:0000043	IEA	UniProtKB-KW:KW-0788	F	Replicase polyprotein 1ab	rep|1a-1b	protein	31631	20200418	UniProt		
+UniProtKB	P0C6X6	rep		GO:0008242	GO_REF:0000002	IEA	InterPro:IPR014827|InterPro:IPR014828|InterPro:IPR014829|InterPro:IPR037204|InterPro:IPR037230	F	Replicase polyprotein 1ab	rep|1a-1b	protein	31631	20200418	InterPro		
+UniProtKB	P0C6X6	rep		GO:0008270	GO_REF:0000002	IEA	InterPro:IPR018995|InterPro:IPR027352|InterPro:IPR036333	F	Replicase polyprotein 1ab	rep|1a-1b	protein	31631	20200418	InterPro		
+UniProtKB	P0C6X6	rep		GO:0016020	GO_REF:0000043	IEA	UniProtKB-KW:KW-0472	C	Replicase polyprotein 1ab	rep|1a-1b	protein	31631	20200418	UniProt		
+UniProtKB	P0C6X6	rep		GO:0016021	GO_REF:0000043	IEA	UniProtKB-KW:KW-0812	C	Replicase polyprotein 1ab	rep|1a-1b	protein	31631	20200418	UniProt		
+UniProtKB	P0C6X6	rep		GO:0016032	GO_REF:0000043	IEA	UniProtKB-KW:KW-0945	P	Replicase polyprotein 1ab	rep|1a-1b	protein	31631	20200418	UniProt		
+UniProtKB	P0C6X6	rep		GO:0016740	GO_REF:0000002	IEA	InterPro:IPR014827|InterPro:IPR014828|InterPro:IPR014829|InterPro:IPR037204|InterPro:IPR037230	F	Replicase polyprotein 1ab	rep|1a-1b	protein	31631	20200418	InterPro		
+UniProtKB	P0C6X6	rep		GO:0016740	GO_REF:0000043	IEA	UniProtKB-KW:KW-0808	F	Replicase polyprotein 1ab	rep|1a-1b	protein	31631	20200418	UniProt		
+UniProtKB	P0C6X6	rep		GO:0016779	GO_REF:0000043	IEA	UniProtKB-KW:KW-0548	F	Replicase polyprotein 1ab	rep|1a-1b	protein	31631	20200418	UniProt		
+UniProtKB	P0C6X6	rep		GO:0016787	GO_REF:0000043	IEA	UniProtKB-KW:KW-0378	F	Replicase polyprotein 1ab	rep|1a-1b	protein	31631	20200418	UniProt		
+UniProtKB	P0C6X6	rep		GO:0016896	GO_REF:0000002	IEA	InterPro:IPR009466	F	Replicase polyprotein 1ab	rep|1a-1b	protein	31631	20200418	InterPro		
+UniProtKB	P0C6X6	rep		GO:0019079	GO_REF:0000002	IEA	InterPro:IPR014822|InterPro:IPR018995|InterPro:IPR036333	P	Replicase polyprotein 1ab	rep|1a-1b	protein	31631	20200418	InterPro		
+UniProtKB	P0C6X6	rep		GO:0019082	GO_REF:0000002	IEA	InterPro:IPR008740	P	Replicase polyprotein 1ab	rep|1a-1b	protein	31631	20200418	InterPro		
+UniProtKB	P0C6X6	rep		GO:0030430	GO_REF:0000043	IEA	UniProtKB-KW:KW-1035	C	Replicase polyprotein 1ab	rep|1a-1b	protein	31631	20200418	UniProt		
+UniProtKB	P0C6X6	rep		GO:0030683	GO_REF:0000043	IEA	UniProtKB-KW:KW-0899	P	Replicase polyprotein 1ab	rep|1a-1b	protein	31631	20200418	UniProt		
+UniProtKB	P0C6X6	rep		GO:0032259	GO_REF:0000043	IEA	UniProtKB-KW:KW-0489	P	Replicase polyprotein 1ab	rep|1a-1b	protein	31631	20200418	UniProt		
+UniProtKB	P0C6X6	rep		GO:0032508	GO_REF:0000108	IEA	GO:0003678	P	Replicase polyprotein 1ab	rep|1a-1b	protein	31631	20200419	GOC		
+UniProtKB	P0C6X6	rep		GO:0033644	GO_REF:0000043	IEA	UniProtKB-KW:KW-1043	C	Replicase polyprotein 1ab	rep|1a-1b	protein	31631	20200418	UniProt		
+UniProtKB	P0C6X6	rep		GO:0033644	GO_REF:0000044	IEA	UniProtKB-SubCell:SL-0380	C	Replicase polyprotein 1ab	rep|1a-1b	protein	31631	20200418	UniProt		
+UniProtKB	P0C6X6	rep		GO:0036459	GO_REF:0000003	IEA	EC:3.4.19.12	F	Replicase polyprotein 1ab	rep|1a-1b	protein	31631	20200418	UniProt		
+UniProtKB	P0C6X6	rep		GO:0039502	GO_REF:0000043	IEA	UniProtKB-KW:KW-1114	P	Replicase polyprotein 1ab	rep|1a-1b	protein	31631	20200418	UniProt		
+UniProtKB	P0C6X6	rep		GO:0039503	GO_REF:0000043	IEA	UniProtKB-KW:KW-1090	P	Replicase polyprotein 1ab	rep|1a-1b	protein	31631	20200418	UniProt		
+UniProtKB	P0C6X6	rep		GO:0039520	GO_REF:0000043	IEA	UniProtKB-KW:KW-1072	P	Replicase polyprotein 1ab	rep|1a-1b	protein	31631	20200418	UniProt		
+UniProtKB	P0C6X6	rep		GO:0039579	GO_REF:0000043	IEA	UniProtKB-KW:KW-1095	P	Replicase polyprotein 1ab	rep|1a-1b	protein	31631	20200418	UniProt		
+UniProtKB	P0C6X6	rep		GO:0039595	GO_REF:0000043	IEA	UniProtKB-KW:KW-1132	P	Replicase polyprotein 1ab	rep|1a-1b	protein	31631	20200418	UniProt		
+UniProtKB	P0C6X6	rep		GO:0039644	GO_REF:0000043	IEA	UniProtKB-KW:KW-1100	P	Replicase polyprotein 1ab	rep|1a-1b	protein	31631	20200418	UniProt		
+UniProtKB	P0C6X6	rep		GO:0039648	GO_REF:0000043	IEA	UniProtKB-KW:KW-1127	P	Replicase polyprotein 1ab	rep|1a-1b	protein	31631	20200418	UniProt		
+UniProtKB	P0C6X6	rep		GO:0039648	GO_REF:0000043	IEA	UniProtKB-KW:KW-1130	P	Replicase polyprotein 1ab	rep|1a-1b	protein	31631	20200418	UniProt		
+UniProtKB	P0C6X6	rep		GO:0039657	GO_REF:0000043	IEA	UniProtKB-KW:KW-1190	P	Replicase polyprotein 1ab	rep|1a-1b	protein	31631	20200418	UniProt		
+UniProtKB	P0C6X6	rep		GO:0039694	GO_REF:0000002	IEA	InterPro:IPR007094	P	Replicase polyprotein 1ab	rep|1a-1b	protein	31631	20200418	InterPro		
+UniProtKB	P0C6X6	rep		GO:0044172	GO_REF:0000044	IEA	UniProtKB-SubCell:SL-0391	C	Replicase polyprotein 1ab	rep|1a-1b	protein	31631	20200418	UniProt		
+UniProtKB	P0C6X6	rep		GO:0044220	GO_REF:0000044	IEA	UniProtKB-SubCell:SL-0382	C	Replicase polyprotein 1ab	rep|1a-1b	protein	31631	20200418	UniProt		
+UniProtKB	P0C6X6	rep		GO:0046872	GO_REF:0000043	IEA	UniProtKB-KW:KW-0479	F	Replicase polyprotein 1ab	rep|1a-1b	protein	31631	20200418	UniProt		
+UniProtKB	P0C6X6	rep		GO:0090305	GO_REF:0000108	IEA	GO:0004518	P	Replicase polyprotein 1ab	rep|1a-1b	protein	31631	20200419	GOC		
+UniProtKB	P0C6X6	rep		GO:0090305	GO_REF:0000108	IEA	GO:0004519	P	Replicase polyprotein 1ab	rep|1a-1b	protein	31631	20200419	GOC		
+UniProtKB	P0C6X6	rep		GO:0090305	GO_REF:0000108	IEA	GO:0004527	P	Replicase polyprotein 1ab	rep|1a-1b	protein	31631	20200419	GOC		
+UniProtKB	P0C6X6	rep		GO:0090503	GO_REF:0000108	IEA	GO:0016896	P	Replicase polyprotein 1ab	rep|1a-1b	protein	31631	20200419	GOC		
+UniProtKB	P30215	HE		GO:0001681	GO_REF:0000002	IEA	InterPro:IPR042545	F	Hemagglutinin-esterase	HE|2b	protein	31631	20200418	InterPro		
+UniProtKB	P30215	HE		GO:0001681	GO_REF:0000003	IEA	EC:3.1.1.53	F	Hemagglutinin-esterase	HE|2b	protein	31631	20200418	UniProt		
+UniProtKB	P30215	HE		GO:0001681	GO_REF:0000024	ISS	UniProtKB:P15776	F	Hemagglutinin-esterase	HE|2b	protein	31631	20150710	UniProt		
+UniProtKB	P30215	HE		GO:0001681	GO_REF:0000104	IEA	UniRule:UR000865649	F	Hemagglutinin-esterase	HE|2b	protein	31631	20200418	UniProt		
+UniProtKB	P30215	HE		GO:0016020	GO_REF:0000043	IEA	UniProtKB-KW:KW-0472	C	Hemagglutinin-esterase	HE|2b	protein	31631	20200418	UniProt		
+UniProtKB	P30215	HE		GO:0016021	GO_REF:0000043	IEA	UniProtKB-KW:KW-0812	C	Hemagglutinin-esterase	HE|2b	protein	31631	20200418	UniProt		
+UniProtKB	P30215	HE		GO:0016021	GO_REF:0000104	IEA	UniRule:UR000865649	C	Hemagglutinin-esterase	HE|2b	protein	31631	20200418	UniProt		
+UniProtKB	P30215	HE		GO:0016787	GO_REF:0000043	IEA	UniProtKB-KW:KW-0378	F	Hemagglutinin-esterase	HE|2b	protein	31631	20200418	UniProt		
+UniProtKB	P30215	HE		GO:0016788	GO_REF:0000002	IEA	InterPro:IPR003860|InterPro:IPR007142	F	Hemagglutinin-esterase	HE|2b	protein	31631	20200418	InterPro		
+UniProtKB	P30215	HE		GO:0019012	GO_REF:0000043	IEA	UniProtKB-KW:KW-0946	C	Hemagglutinin-esterase	HE|2b	protein	31631	20200418	UniProt		
+UniProtKB	P30215	HE		GO:0019031	GO_REF:0000002	IEA	InterPro:IPR003860|InterPro:IPR007142|InterPro:IPR008980|InterPro:IPR042545	C	Hemagglutinin-esterase	HE|2b	protein	31631	20200418	InterPro		
+UniProtKB	P30215	HE		GO:0019031	GO_REF:0000043	IEA	UniProtKB-KW:KW-0261	C	Hemagglutinin-esterase	HE|2b	protein	31631	20200418	UniProt		
+UniProtKB	P30215	HE		GO:0019031	GO_REF:0000104	IEA	UniRule:UR000865649	C	Hemagglutinin-esterase	HE|2b	protein	31631	20200418	UniProt		
+UniProtKB	P30215	HE		GO:0019058	PMID:23283955	IMP		P	Hemagglutinin-esterase	HE|2b	protein	31631	20130414	CACAO		
+UniProtKB	P30215	HE		GO:0019064	GO_REF:0000002	IEA	InterPro:IPR003860|InterPro:IPR007142|InterPro:IPR008980|InterPro:IPR042545	P	Hemagglutinin-esterase	HE|2b	protein	31631	20200418	InterPro		
+UniProtKB	P30215	HE		GO:0019064	GO_REF:0000104	IEA	UniRule:UR000865649	P	Hemagglutinin-esterase	HE|2b	protein	31631	20200418	UniProt		
+UniProtKB	P30215	HE		GO:0020002	GO_REF:0000043	IEA	UniProtKB-KW:KW-1032	C	Hemagglutinin-esterase	HE|2b	protein	31631	20200418	UniProt		
+UniProtKB	P30215	HE		GO:0020002	GO_REF:0000044	IEA	UniProtKB-SubCell:SL-0375	C	Hemagglutinin-esterase	HE|2b	protein	31631	20200418	UniProt		
+UniProtKB	P30215	HE		GO:0020002	GO_REF:0000104	IEA	UniRule:UR000865649	C	Hemagglutinin-esterase	HE|2b	protein	31631	20200418	UniProt		
+UniProtKB	P30215	HE		GO:0033644	GO_REF:0000043	IEA	UniProtKB-KW:KW-1043	C	Hemagglutinin-esterase	HE|2b	protein	31631	20200418	UniProt		
+UniProtKB	P30215	HE		GO:0044650	GO_REF:0000108	IEA	GO:0046789	P	Hemagglutinin-esterase	HE|2b	protein	31631	20200419	GOC		
+UniProtKB	P30215	HE		GO:0046789	GO_REF:0000002	IEA	InterPro:IPR003860|InterPro:IPR007142|InterPro:IPR008980	F	Hemagglutinin-esterase	HE|2b	protein	31631	20200418	InterPro		
+UniProtKB	P30215	HE		GO:0046789	GO_REF:0000104	IEA	UniRule:UR000865649	F	Hemagglutinin-esterase	HE|2b	protein	31631	20200418	UniProt		
+UniProtKB	P30215	HE		GO:0055036	GO_REF:0000044	IEA	UniProtKB-SubCell:SL-0275	C	Hemagglutinin-esterase	HE|2b	protein	31631	20200418	UniProt		
+UniProtKB	P30215	HE		GO:0055036	GO_REF:0000104	IEA	UniRule:UR000865649	C	Hemagglutinin-esterase	HE|2b	protein	31631	20200418	UniProt		
+UniProtKB	P33469	N		GO:0003723	GO_REF:0000043	IEA	UniProtKB-KW:KW-0694	F	Nucleoprotein	N|7a	protein	31631	20200418	UniProt		
+UniProtKB	P33469	N		GO:0003723	GO_REF:0000104	IEA	UniRule:UR000876100	F	Nucleoprotein	N|7a	protein	31631	20200418	UniProt		
+UniProtKB	P33469	N		GO:0019012	GO_REF:0000043	IEA	UniProtKB-KW:KW-0946	C	Nucleoprotein	N|7a	protein	31631	20200418	UniProt		
+UniProtKB	P33469	N		GO:0019012	GO_REF:0000044	IEA	UniProtKB-SubCell:SL-0274	C	Nucleoprotein	N|7a	protein	31631	20200418	UniProt		
+UniProtKB	P33469	N		GO:0019013	GO_REF:0000002	IEA	InterPro:IPR001218	C	Nucleoprotein	N|7a	protein	31631	20200418	InterPro		
+UniProtKB	P33469	N		GO:0019013	GO_REF:0000043	IEA	UniProtKB-KW:KW-0543	C	Nucleoprotein	N|7a	protein	31631	20200418	UniProt		
+UniProtKB	P33469	N		GO:0019013	GO_REF:0000104	IEA	UniRule:UR000876100	C	Nucleoprotein	N|7a	protein	31631	20200418	UniProt		
+UniProtKB	P33469	N		GO:0044172	GO_REF:0000044	IEA	UniProtKB-SubCell:SL-0391	C	Nucleoprotein	N|7a	protein	31631	20200418	UniProt		
+UniProtKB	P33469	N		GO:0044172	GO_REF:0000104	IEA	UniRule:UR000876100	C	Nucleoprotein	N|7a	protein	31631	20200418	UniProt		
+UniProtKB	P33469	N		GO:0044177	GO_REF:0000043	IEA	UniProtKB-KW:KW-1040	C	Nucleoprotein	N|7a	protein	31631	20200418	UniProt		
+UniProtKB	P33469	N		GO:0044177	GO_REF:0000044	IEA	UniProtKB-SubCell:SL-0395	C	Nucleoprotein	N|7a	protein	31631	20200418	UniProt		
+UniProtKB	P33469	N		GO:0044177	GO_REF:0000104	IEA	UniRule:UR000876100	C	Nucleoprotein	N|7a	protein	31631	20200418	UniProt		
+UniProtKB	P36334	S		GO:0009405	GO_REF:0000043	IEA	UniProtKB-KW:KW-0843	P	Spike glycoprotein	S|3	protein	31631	20200418	UniProt		
+UniProtKB	P36334	S		GO:0009405	PMID:11162792	TAS		P	Spike glycoprotein	S|3	protein	31631	20030508	UniProt		
+UniProtKB	P36334	S		GO:0016020	GO_REF:0000043	IEA	UniProtKB-KW:KW-0472	C	Spike glycoprotein	S|3	protein	31631	20200418	UniProt		
+UniProtKB	P36334	S		GO:0016021	GO_REF:0000002	IEA	InterPro:IPR002552	C	Spike glycoprotein	S|3	protein	31631	20200418	InterPro		
+UniProtKB	P36334	S		GO:0016021	GO_REF:0000043	IEA	UniProtKB-KW:KW-0812	C	Spike glycoprotein	S|3	protein	31631	20200418	UniProt		
+UniProtKB	P36334	S		GO:0016021	GO_REF:0000104	IEA	UniRule:UR000875864	C	Spike glycoprotein	S|3	protein	31631	20200418	UniProt		
+UniProtKB	P36334	S		GO:0016021	PMID:8317096	NAS		C	Spike glycoprotein	S|3	protein	31631	20030508	UniProt		
+UniProtKB	P36334	S		GO:0016032	GO_REF:0000043	IEA	UniProtKB-KW:KW-0945	P	Spike glycoprotein	S|3	protein	31631	20200418	UniProt		
+UniProtKB	P36334	S		GO:0019012	GO_REF:0000043	IEA	UniProtKB-KW:KW-0946	C	Spike glycoprotein	S|3	protein	31631	20200418	UniProt		
+UniProtKB	P36334	S		GO:0019031	GO_REF:0000002	IEA	InterPro:IPR002552	C	Spike glycoprotein	S|3	protein	31631	20200418	InterPro		
+UniProtKB	P36334	S		GO:0019031	GO_REF:0000043	IEA	UniProtKB-KW:KW-0261	C	Spike glycoprotein	S|3	protein	31631	20200418	UniProt		
+UniProtKB	P36334	S		GO:0019031	GO_REF:0000104	IEA	UniRule:UR000875864	C	Spike glycoprotein	S|3	protein	31631	20200418	UniProt		
+UniProtKB	P36334	S		GO:0019031	PMID:8317096	NAS		C	Spike glycoprotein	S|3	protein	31631	20030508	UniProt		
+UniProtKB	P36334	S		GO:0019062	GO_REF:0000043	IEA	UniProtKB-KW:KW-1161	P	Spike glycoprotein	S|3	protein	31631	20200418	UniProt		
+UniProtKB	P36334	S		GO:0019064	GO_REF:0000104	IEA	UniRule:UR000875864	P	Spike glycoprotein	S|3	protein	31631	20200418	UniProt		
+UniProtKB	P36334	S		GO:0019064	PMID:11162792	TAS		P	Spike glycoprotein	S|3	protein	31631	20030508	UniProt		
+UniProtKB	P36334	S		GO:0020002	GO_REF:0000043	IEA	UniProtKB-KW:KW-1032	C	Spike glycoprotein	S|3	protein	31631	20200418	UniProt		
+UniProtKB	P36334	S		GO:0020002	GO_REF:0000044	IEA	UniProtKB-SubCell:SL-0375	C	Spike glycoprotein	S|3	protein	31631	20200418	UniProt		
+UniProtKB	P36334	S		GO:0030246	PMID:8317096	NAS		F	Spike glycoprotein	S|3	protein	31631	20030508	UniProt		
+UniProtKB	P36334	S		GO:0033644	GO_REF:0000043	IEA	UniProtKB-KW:KW-1043	C	Spike glycoprotein	S|3	protein	31631	20200418	UniProt		
+UniProtKB	P36334	S		GO:0039654	GO_REF:0000043	IEA	UniProtKB-KW:KW-1170	P	Spike glycoprotein	S|3	protein	31631	20200418	UniProt		
+UniProtKB	P36334	S		GO:0039654	GO_REF:0000104	IEA	UniRule:UR000875864	P	Spike glycoprotein	S|3	protein	31631	20200418	UniProt		
+UniProtKB	P36334	S		GO:0039663	GO_REF:0000043	IEA	UniProtKB-KW:KW-1168	P	Spike glycoprotein	S|3	protein	31631	20200418	UniProt		
+UniProtKB	P36334	S		GO:0044173	GO_REF:0000044	IEA	UniProtKB-SubCell:SL-0392	C	Spike glycoprotein	S|3	protein	31631	20200418	UniProt		
+UniProtKB	P36334	S		GO:0044173	GO_REF:0000104	IEA	UniRule:UR000875864	C	Spike glycoprotein	S|3	protein	31631	20200418	UniProt		
+UniProtKB	P36334	S		GO:0046718	GO_REF:0000043	IEA	UniProtKB-KW:KW-1160	P	Spike glycoprotein	S|3	protein	31631	20200418	UniProt		
+UniProtKB	P36334	S		GO:0046718	GO_REF:0000043	IEA	UniProtKB-KW:KW-1162	P	Spike glycoprotein	S|3	protein	31631	20200418	UniProt		
+UniProtKB	P36334	S		GO:0046789	PMID:11162792	TAS		F	Spike glycoprotein	S|3	protein	31631	20030508	UniProt		
+UniProtKB	P36334	S		GO:0046813	GO_REF:0000002	IEA	InterPro:IPR002552	P	Spike glycoprotein	S|3	protein	31631	20200418	InterPro		
+UniProtKB	P36334	S		GO:0046813	GO_REF:0000104	IEA	UniRule:UR000875864	P	Spike glycoprotein	S|3	protein	31631	20200418	UniProt		
+UniProtKB	P36334	S		GO:0055036	GO_REF:0000044	IEA	UniProtKB-SubCell:SL-0275	C	Spike glycoprotein	S|3	protein	31631	20200418	UniProt		
+UniProtKB	P36334	S		GO:0055036	GO_REF:0000104	IEA	UniRule:UR000875864	C	Spike glycoprotein	S|3	protein	31631	20200418	UniProt		
+UniProtKB	P36334	S		GO:0061025	GO_REF:0000002	IEA	InterPro:IPR002552	P	Spike glycoprotein	S|3	protein	31631	20200418	InterPro		
+UniProtKB	P36334	S		GO:0075509	GO_REF:0000104	IEA	UniRule:UR000875864	P	Spike glycoprotein	S|3	protein	31631	20200418	UniProt		
+UniProtKB	Q01455	M		GO:0016020	GO_REF:0000043	IEA	UniProtKB-KW:KW-0472	C	Membrane protein	M|6	protein	31631	20200418	UniProt		
+UniProtKB	Q01455	M		GO:0016021	GO_REF:0000043	IEA	UniProtKB-KW:KW-0812	C	Membrane protein	M|6	protein	31631	20200418	UniProt		
+UniProtKB	Q01455	M		GO:0016021	GO_REF:0000104	IEA	UniRule:UR000865641	C	Membrane protein	M|6	protein	31631	20200418	UniProt		
+UniProtKB	Q01455	M		GO:0016032	GO_REF:0000043	IEA	UniProtKB-KW:KW-0945	P	Membrane protein	M|6	protein	31631	20200418	UniProt		
+UniProtKB	Q01455	M		GO:0019012	GO_REF:0000043	IEA	UniProtKB-KW:KW-0946	C	Membrane protein	M|6	protein	31631	20200418	UniProt		
+UniProtKB	Q01455	M		GO:0019031	GO_REF:0000043	IEA	UniProtKB-KW:KW-0261	C	Membrane protein	M|6	protein	31631	20200418	UniProt		
+UniProtKB	Q01455	M		GO:0019031	GO_REF:0000104	IEA	UniRule:UR000865641	C	Membrane protein	M|6	protein	31631	20200418	UniProt		
+UniProtKB	Q01455	M		GO:0019058	GO_REF:0000002	IEA	InterPro:IPR002574	P	Membrane protein	M|6	protein	31631	20200418	InterPro		
+UniProtKB	Q01455	M		GO:0030430	GO_REF:0000104	IEA	UniRule:UR000865641	C	Membrane protein	M|6	protein	31631	20200418	UniProt		
+UniProtKB	Q01455	M		GO:0030683	GO_REF:0000043	IEA	UniProtKB-KW:KW-0899	P	Membrane protein	M|6	protein	31631	20200418	UniProt		
+UniProtKB	Q01455	M		GO:0033644	GO_REF:0000043	IEA	UniProtKB-KW:KW-1043	C	Membrane protein	M|6	protein	31631	20200418	UniProt		
+UniProtKB	Q01455	M		GO:0039660	GO_REF:0000043	IEA	UniProtKB-KW:KW-0468	F	Membrane protein	M|6	protein	31631	20200418	UniProt		
+UniProtKB	Q01455	M		GO:0039660	GO_REF:0000104	IEA	UniRule:UR000865641	F	Membrane protein	M|6	protein	31631	20200418	UniProt		
+UniProtKB	Q01455	M		GO:0044177	GO_REF:0000043	IEA	UniProtKB-KW:KW-1040	C	Membrane protein	M|6	protein	31631	20200418	UniProt		
+UniProtKB	Q01455	M		GO:0044178	GO_REF:0000044	IEA	UniProtKB-SubCell:SL-0426	C	Membrane protein	M|6	protein	31631	20200418	UniProt		
+UniProtKB	Q01455	M		GO:0044178	GO_REF:0000104	IEA	UniRule:UR000865641	C	Membrane protein	M|6	protein	31631	20200418	UniProt		
+UniProtKB	Q01455	M		GO:0055036	GO_REF:0000044	IEA	UniProtKB-SubCell:SL-0275	C	Membrane protein	M|6	protein	31631	20200418	UniProt		
+UniProtKB	Q01455	M		GO:0055036	GO_REF:0000104	IEA	UniRule:UR000865641	C	Membrane protein	M|6	protein	31631	20200418	UniProt		
+UniProtKB	Q04854	E		GO:0016020	GO_REF:0000043	IEA	UniProtKB-KW:KW-0472	C	Envelope small membrane protein	E|sM|5b	protein	31631	20200418	UniProt		
+UniProtKB	Q04854	E		GO:0016021	GO_REF:0000043	IEA	UniProtKB-KW:KW-0812	C	Envelope small membrane protein	E|sM|5b	protein	31631	20200418	UniProt		
+UniProtKB	Q04854	E		GO:0016021	GO_REF:0000104	IEA	UniRule:UR000865651	C	Envelope small membrane protein	E|sM|5b	protein	31631	20200418	UniProt		
+UniProtKB	Q04854	E		GO:0033644	GO_REF:0000043	IEA	UniProtKB-KW:KW-1043	C	Envelope small membrane protein	E|sM|5b	protein	31631	20200418	UniProt		
+UniProtKB	Q04854	E		GO:0044177	GO_REF:0000043	IEA	UniProtKB-KW:KW-1040	C	Envelope small membrane protein	E|sM|5b	protein	31631	20200418	UniProt		
+UniProtKB	Q04854	E		GO:0044177	GO_REF:0000104	IEA	UniRule:UR000865651	C	Envelope small membrane protein	E|sM|5b	protein	31631	20200418	UniProt		
+UniProtKB	Q04854	E		GO:0044178	GO_REF:0000044	IEA	UniProtKB-SubCell:SL-0426	C	Envelope small membrane protein	E|sM|5b	protein	31631	20200418	UniProt		
+UniProtKB	Q04854	E		GO:0044178	GO_REF:0000104	IEA	UniRule:UR000865651	C	Envelope small membrane protein	E|sM|5b	protein	31631	20200418	UniProt		
+UniProtKB	Q04854	E		GO:0044662	GO_REF:0000104	IEA	UniRule:UR000865651	P	Envelope small membrane protein	E|sM|5b	protein	31631	20200418	UniProt		
+UniProtKB	Q04854	E		GO:0046760	GO_REF:0000104	IEA	UniRule:UR000865651	P	Envelope small membrane protein	E|sM|5b	protein	31631	20200418	UniProt		
+UniProtKB	Q80872	2a		GO:0030430	GO_REF:0000043	IEA	UniProtKB-KW:KW-1035	C	Non-structural protein 2a	2a	protein	31631	20200418	UniProt		
+UniProtKB	Q80872	2a		GO:0030430	GO_REF:0000044	IEA	UniProtKB-SubCell:SL-0381	C	Non-structural protein 2a	2a	protein	31631	20200418	UniProt		
