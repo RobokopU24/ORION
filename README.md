@@ -3,7 +3,7 @@ Parses datasets from various sources and converts them into a format that can be
 
 ### The data pipeline:
 
-    Retrieval -> Parse -> Normalization -> Relationships -> Standardization -> Graph import.
+    Retrieval -> Parse -> Normalization -> Relationships -> Standardization -> Graph import -> Transfer
 
 Where:
 
