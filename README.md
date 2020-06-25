@@ -12,4 +12,4 @@ Where:
  * Normalization - Normalize the data to capture equivalent identifiers in curie format.
  * Relationships - Define the relationships between normalized data elements.
  * Standardization - Transform the data into the standardized KGX node/edge import format. 
- * Graph import - Create a Neo4J instance and load it using KGK.
+ * Graph import - Create a Neo4J instance and load it using KGX.
