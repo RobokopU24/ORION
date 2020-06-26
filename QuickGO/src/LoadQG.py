@@ -7,8 +7,12 @@ import pandas as pd
 from io import TextIOBase, TextIOWrapper
 from csv import reader
 from zipfile import ZipFile
-from ftplib import FTP
+from Common.utils import LoggingUtil, GetData
 
+from pathlib import Path
+
+# create a logger
+logger = LoggingUtil.init_logging("Data_services.QucikGO.QGLoader", line_format='medium', log_file_path=os.path.join(Path(__file__).parents[2], 'logs'))
 
 # data column enumerators
 class DataCols(enum.IntEnum):
@@ -35,13 +39,14 @@ class QGLoader:
 
         :param data_path: the directory that contains the data file
         :param out_name: The output file name prefix
+        :param data_file_name: The name of the data file
         :return: None
         """
-        self.print_debug_msg(f'Start of QuickGO data processing. Getting data archive.')
+        logger.debug(f'Start of QuickGO data processing. Getting data archive.')
 
         # get the Intact zip file
-        if self.pull_via_ftp('ftp.ebi.ac.uk', '/pub/contrib/goa/QuickGO/full/', data_path, data_file_name):
-            self.print_debug_msg(f'{data_file_name} archive retrieved. Parsing QuickGO data.')
+        if GetData.pull_via_ftp('ftp.ebi.ac.uk', '/pub/contrib/goa/QuickGO/full/', data_path, data_file_name):
+            logger.debug(f'{data_file_name} archive retrieved. Parsing QuickGO data.')
 
             with open(os.path.join(data_path, f'{out_name}_node_file.csv'), 'w', encoding="utf-8") as out_node_f, open(os.path.join(data_path, f'{out_name}_edge_file.csv'), 'w', encoding="utf-8") as out_edge_f:
                 # write out the node and edge data headers
@@ -50,9 +55,9 @@ class QGLoader:
 
                 # parse the data
                 self.parse_data_file(os.path.join(data_path, data_file_name), out_node_f, out_edge_f)
-            self.print_debug_msg(f'File parsing complete.')
+            logger.debug(f'File parsing complete.')
         else:
-            self.print_debug_msg(f'Error getting the IntAct archive. Exiting.')
+            logger.debug(f'Error getting the IntAct archive. Exiting.')
 
     def parse_data_file(self, infile_path: str, infile_name: str, out_node_f: TextIOBase, out_edge_f: TextIOBase):
         """
@@ -132,7 +137,7 @@ class QGLoader:
                 if end_index >= last_index:
                     end_index = last_index
 
-                # self.print_debug_msg(f'Working block indexes {start_index} to {end_index} of {last_index}.')
+                # logger.debug(f'Working block indexes {start_index} to {end_index} of {last_index}.')
 
                 # collect a slice of records from the data frame
                 data_chunk: list = to_normalize[start_index: end_index]
@@ -152,7 +157,7 @@ class QGLoader:
                     self.cached_node_norms = merged
                 else:
                     # the 404 error that is trapped here means that the entire list of nodes didnt get normalized.
-                    # self.print_debug_msg(f'response code: {resp.status_code}')
+                    # logger.debug(f'response code: {resp.status_code}')
 
                     # since they all failed to normalize add to the list so we dont try them again
                     for item in data_chunk:
@@ -212,7 +217,7 @@ class QGLoader:
 
                         node_list[node_idx][prefix + 'category_' + suffix] = 'gene|gene_or_gene_product|macromolecular_machine|genomic_entity|molecular_entity|biological_entity|named_thing'
                         node_list[node_idx][prefix + 'equivalent_identifiers_' + suffix] = node_list[node_idx][prefix + suffix]
-                        self.print_debug_msg(f"Error finding node normalization {node_list[node_idx][prefix + suffix]}")
+                        logger.debug(f"Error finding node normalization {node_list[node_idx][prefix + suffix]}")
 
             # go to the next index
             node_idx += 1
@@ -230,55 +235,9 @@ class QGLoader:
         :return: nothing
         """
 
-        # self.print_debug_msg(f'Creating edges for {len(node_list)} nodes.')
+        # logger.debug(f'Creating edges for {len(node_list)} nodes.')
 
-        # self.print_debug_msg(f'   {node_idx} Entry member edges created.')
-
-    def pull_via_ftp(self, ftp_site: str, ftp_dir: str, file_data_path: str, file: str) -> bool:
-        """
-        gets the requested files from UniProtKB ftp directory
-
-        :param ftp_site: url of the ftp site
-        :param ftp_dir: the directory in the site
-        :param file: the name of the file to capture
-        :param file_data_path: the destination of the captured file
-        :return: None
-        """
-
-        # init the return value
-        ret_val: bool = False
-
-        try:
-            # open the FTP connection and go to the directory
-            ftp: FTP = FTP(ftp_site)
-            ftp.login()
-            ftp.cwd(ftp_dir)
-
-            # does the file exist and has data in it
-            try:
-                size: int = os.path.getsize(os.path.join(file_data_path, file))
-            except FileNotFoundError:
-                size: int = 0
-
-            # if we have a size we done need to get the file
-            if size == 0:
-                # open the file
-                with open(os.path.join(file_data_path, file), 'wb') as fp:
-                    # get the file data into a file
-                    ftp.retrbinary(f'RETR {file}', fp.write)
-            else:
-                self.print_debug_msg(f'Archive retrieval complete.')
-
-            # close the ftp object
-            ftp.quit()
-
-            # set the return value
-            ret_val = True
-        except Exception as e:
-            print(f'Pull_via_ftp() failed. Exception: {e}')
-
-        # retuen pass/fail to the caller
-        return ret_val
+        # logger.debug(f'{node_idx} Entry member edges created.')
 
 
 if __name__ == '__main__':
