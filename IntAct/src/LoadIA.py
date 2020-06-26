@@ -8,7 +8,7 @@ from io import TextIOBase, TextIOWrapper
 from csv import reader
 from operator import itemgetter
 from zipfile import ZipFile
-from Common.utils import LoggingUtil
+from Common.utils import LoggingUtil, GetData
 from pathlib import Path
 
 # create a logger
@@ -88,13 +88,13 @@ class IALoader:
         logger.info(f'Start of IntAct data processing. Getting data archive.')
 
         # get the Intact zip file
-        if self.pull_via_ftp('ftp.ebi.ac.uk', '/pub/databases/IntAct/current/psimitab/', data_path, data_file_name):
+        if GetData.pull_via_ftp('ftp.ebi.ac.uk', '/pub/databases/IntAct/current/psimitab/', data_path, data_file_name):
             logger.info(f'{data_file_name} archive retrieved. Parsing IntAct data.')
 
-            with open(os.path.join(data_path, f'{out_name}_node_file.csv'), 'w', encoding="utf-8") as out_node_f, open(os.path.join(data_path, f'{out_name}_edge_file.csv'), 'w', encoding="utf-8") as out_edge_f:
+            with open(os.path.join(data_path, f'{out_name}_node_file.tsv'), 'w', encoding="utf-8") as out_node_f, open(os.path.join(data_path, f'{out_name}_edge_file.tsv'), 'w', encoding="utf-8") as out_edge_f:
                 # write out the node and edge data headers
-                out_node_f.write(f'id,name,category,equivalent_identifiers,taxon\n')
-                out_edge_f.write(f'id,subject,relation_label,edge_label,publications,detection_method,object\n')
+                out_node_f.write(f'id\tname\tcategory\tequivalent_identifiers\ttaxon\n')
+                out_edge_f.write(f'id\tsubject\trelation_label\tedge_label\tpublications\tdetection_method\tobject\n')
 
                 # parse the data
                 self.parse_data_file(os.path.join(data_path, data_file_name), out_node_f, out_edge_f)
@@ -104,7 +104,7 @@ class IALoader:
 
     def parse_data_file(self, infile_path: str, out_node_f, out_edge_f):
         """
-        Parses the data file for graph nodes/edges and writes them out the KGX csv files.
+        Parses the data file for graph nodes/edges and writes them out the KGX tsv files.
 
         :param infile_path: the name of the intact file to process
         :param out_edge_f: the edge file pointer
@@ -250,7 +250,7 @@ class IALoader:
         # write out each unique node
         for item in df.iterrows():
             # write out the node pair
-            out_node_f.write(f"{item[1]['id']},\"{item[1]['name']}\",{item[1]['category']},{item[1]['equivalent_identifiers']},{item[1]['taxon']}\n")
+            out_node_f.write(f"{item[1]['id']}\t{item[1]['name']}\t{item[1]['category']}\t{item[1]['equivalent_identifiers']}\t{item[1]['taxon']}\n")
 
         # write out the file buffer
         out_node_f.flush()
@@ -405,7 +405,7 @@ class IALoader:
         :return: nothing
         """
 
-        logger.debug(f'Creating edges for {len(node_list)} nodes.')
+        logger.debug(f'Creating edges for {len(experiment_grp)} nodes.')
 
         # init interaction group detection
         cur_interaction_name: str = ''
@@ -464,12 +464,12 @@ class IALoader:
             # a gene to gene pair that has a "directly interacts with" relationship
             while grp_idx < len(grp_list):
                 # write out the uniprot A to uniprot B edge
-                edge = f',{grp_list[grp_idx]["u_a"]},directly_interacts_with,directly_interacts_with,PMID:{grp_list[grp_idx]["pmid"]},{"|".join(detection_method_set)},{grp_list[grp_idx]["u_b"]}\n'
+                edge = f'\t{grp_list[grp_idx]["u_a"]}\tdirectly_interacts_with\tdirectly_interacts_with\tPMID:{grp_list[grp_idx]["pmid"]}\t{"|".join(detection_method_set)}\t{grp_list[grp_idx]["u_b"]}\n'
                 out_edge_f.write(hashlib.md5(edge.encode('utf-8')).hexdigest() + edge)
 
                 # write out the uniprot to NCBI taxon edge
                 for suffix in ['a', 'b']:
-                    edge = f',{grp_list[grp_idx]["u_" + suffix]},in_taxon,in_taxon,,,{grp_list[grp_idx]["t_" + suffix]}\n'
+                    edge = f'\t{grp_list[grp_idx]["u_" + suffix]}\tin_taxon\tin_taxon\t\t\t{grp_list[grp_idx]["t_" + suffix]}\n'
                     out_edge_f.write(hashlib.md5(edge.encode('utf-8')).hexdigest() + edge)
 
                 # goto the next pair
