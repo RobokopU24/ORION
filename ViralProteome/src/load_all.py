@@ -26,8 +26,6 @@ if __name__ == '__main__':
     # get a reference to the processor
     vp = VPLoader()
 
-    logger.info(f'Starting UniProtKB viral proteome data processing.\n')
-
     # assign the uniprot directory
     UniProtKB_data_dir = args['uniprot_dir']
 
@@ -52,17 +50,7 @@ if __name__ == '__main__':
     # get a reference to the processor
     vp = UniRefSimLoader()
 
-    logger.info('Getting UniProtKB taxa list.')
-
-    # get the list of target taxon ids from the node list
-    taxon_set: set = vp.get_virus_taxon_id_set(UniProtKB_data_dir, 'nodes.dmp', vp.TYPE_VIRUS)
-
-    logger.info(f'{len(taxon_set)} UniProtKB virus taxa identified.')
-
-    for f in file_list:
-        logger.debug(f'Parsing UniRef file ({f}) with write data threshold of {5000} graph nodes collected.')
-
-        # load the data files and create KGX output
-        vp.load(UniProtKB_data_dir, f, 'taxon_file_indexes.txt', taxon_set, block_size=5000, debug_files=False)
+    # load the data files and create KGX output
+    vp.load(UniProtKB_data_dir, file_list, 'taxon_file_indexes.txt', block_size=10000, debug_files=False)
 
     logger.info(f'UniRef data parsing and KGX file creation complete.\n')
