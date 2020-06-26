@@ -25,9 +25,9 @@ class LoggingUtil(object):
 
         # define the various output formats
         format_type = {
-            "short": '%(funcName)s: %(message)s',
-            "medium": '%(funcName)s: %(asctime)-15s %(message)s',
-            "long": '%(asctime)-15s %(filename)s %(funcName)s %(levelname)s: %(message)s'
+            "short": '%(funcName)s(): %(message)s',
+            "medium": '%(asctime)-15s - %(funcName)s(): %(message)s',
+            "long": '%(asctime)-15s  - %(filename)s %(funcName)s() %(levelname)s: %(message)s'
         }[line_format]
 
         # create a stream handler (default to console)
@@ -86,9 +86,7 @@ class LoggingUtil(object):
 
 
 class NodeNormUtils:
-    # create a logger
-    logger = LoggingUtil.init_logging("Data_services.Common.NodeNormUtils", line_format='medium', log_file_path=os.path.join(Path(__file__).parents[1], 'logs'))
-
+    @staticmethod
     def normalize_node_data(self, cached_node_norms, node_list: list) -> list:
         """
         This method calls the NodeNormalization web service to get the normalized identifier and name of the taxon node.
@@ -98,6 +96,9 @@ class NodeNormUtils:
         :param node_list: A list with items to normalize
         :return:
         """
+
+        # create a logger
+        logger = LoggingUtil.init_logging("Data_services.Common.NodeNormUtils", line_format='medium', log_file_path=os.path.join(Path(__file__).parents[1], 'logs'))
 
         # loop through the list and only save the NCBI taxa nodes
         node_idx: int = 0
@@ -115,8 +116,8 @@ class NodeNormUtils:
                 # check to see if this one needs normalization data from the website
                 if not node_list[node_idx]['id'] in cached_node_norms:
                     tmp_normalize.add(node_list[node_idx]['id'])
-                # else:
-                #     self.print_debug_msg(f"Cache hit: {node_list[node_idx]['id']}")
+                else:
+                    logger.debug(f"Cache hit: {node_list[node_idx]['id']}")
 
             node_idx += 1
 
@@ -132,7 +133,7 @@ class NodeNormUtils:
         # get the last index of the list
         last_index: int = len(to_normalize)
 
-        # self.print_debug_msg(f'{last_index} unique nodes will be normalized.')
+        logger.info(f'{last_index} unique nodes will be normalized.')
 
         # grab chunks of the data frame
         while True:
@@ -144,7 +145,7 @@ class NodeNormUtils:
                 if end_index >= last_index:
                     end_index = last_index
 
-                # self.print_debug_msg(f'Working block {start_index} to {end_index}.')
+                self.print_debug_msg(f'Working block {start_index} to {end_index}.')
 
                 # collect a slice of records from the data frame
                 data_chunk: list = to_normalize[start_index: end_index]
@@ -164,7 +165,7 @@ class NodeNormUtils:
                     cached_node_norms = merged
                 else:
                     # the 404 error that is trapped here means that the entire list of nodes didnt get normalized.
-                    # self.print_debug_msg(f'response code: {resp.status_code}')
+                    logger.debug(f'Response code: {resp.status_code}')
 
                     # since they all failed to normalize add to the list so we dont try them again
                     for item in data_chunk:
@@ -202,7 +203,7 @@ class NodeNormUtils:
                     # find the id and replace it with the normalized value
                     node_list[node_idx]['id'] = cached_node_norms[rv['id']]['id']['identifier']
                 else:
-                    self.logger.error(f"{rv['id']} has no normalized value")
+                    logger.error(f"{rv['id']} has no normalized value")
 
             # go to the next index
             node_idx += 1
@@ -212,19 +213,22 @@ class NodeNormUtils:
 
 
 class GetData:
-    # create a logger
-    logger = LoggingUtil.init_logging("Data_services.Common.GetData", line_format='medium', log_file_path=os.path.join(Path(__file__).parents[1], 'logs'))
-
-    def pull_via_ftp(self, ftp_site: str, ftp_dir: str, file_data_path: str, file: str) -> bool:
+    @staticmethod
+    def pull_via_ftp(ftp_site: str, ftp_dir: str, data_file_path: str, ftp_data_file: str) -> bool:
         """
         gets the requested files from UniProtKB ftp directory
 
         :param ftp_site: url of the ftp site
         :param ftp_dir: the directory in the site
-        :param file_data_path: the destination of the captured file
-        :param file: the name of the file to capture
-        :return: None
+        :param data_file_path: the destination of the captured file
+        :param ftp_data_file: the name of the file to capture
+        :return: boolean pass/fail
         """
+
+        # create a logger
+        logger = LoggingUtil.init_logging("Data_services.Common.GetData", line_format='medium', log_file_path=os.path.join(Path(__file__).parents[1], 'logs'))
+
+        logger.info(f'Retrieving {ftp_data_file} from {ftp_site}{ftp_dir} and placing it in {data_file_path}')
 
         # init the return value
         ret_val: bool = False
@@ -237,26 +241,26 @@ class GetData:
 
             # does the file exist and has data in it
             try:
-                size: int = os.path.getsize(os.path.join(file_data_path, file))
+                size: int = os.path.getsize(os.path.join(data_file_path, ftp_data_file))
             except FileNotFoundError:
                 size: int = 0
 
             # if we have a size we done need to get the file
             if size == 0:
                 # open the file
-                with open(os.path.join(file_data_path, file), 'wb') as fp:
+                with open(os.path.join(data_file_path, ftp_data_file), 'wb') as fp:
                     # get the file data into a file
-                    ftp.retrbinary(f'RETR {file}', fp.write)
-            else:
-                self.logger.info(f'Archive retrieval complete.')
+                    ftp.retrbinary(f'RETR {ftp_data_file}', fp.write)
 
             # close the ftp object
             ftp.quit()
 
             # set the return value
             ret_val = True
+
+            logger.info(f'Retrieval of {ftp_data_file} complete.')
         except Exception as e:
-            self.logger.error(f'Pull_via_ftp() failed. Exception: {e}')
+            logger.error(f'Pull_via_ftp() failed. Exception: {e}')
 
         # return pass/fail to the caller
         return ret_val
