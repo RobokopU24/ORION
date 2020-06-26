@@ -54,10 +54,10 @@ class VPLoader:
         :return: True
         """
 
-        with open(os.path.join(data_path, f'{out_name}_node_file.csv'), 'w', encoding="utf-8") as out_node_f, open(os.path.join(data_path, f'{out_name}_edge_file.csv'), 'w', encoding="utf-8") as out_edge_f:
+        with open(os.path.join(data_path, f'{out_name}_node_file.tsv'), 'w', encoding="utf-8") as out_node_f, open(os.path.join(data_path, f'{out_name}_edge_file.tsv'), 'w', encoding="utf-8") as out_edge_f:
             # write out the node and edge data headers
-            out_node_f.write(f'id,name,category,equivalent_identifiers\n')
-            out_edge_f.write(f'id,subject,relation_label,edge_label,object\n')
+            out_node_f.write(f'id\tname\tcategory\tequivalent_identifiers\n')
+            out_edge_f.write(f'id\tsubject\trelation_label\tedge_label\tobject\n')
 
             # debug only -> files = files[3981:3982]
 
@@ -84,20 +84,20 @@ class VPLoader:
                     # save this list of nodes to the running collection
                     total_nodes.extend(node_list)
 
-            logger.info(f'Node list loaded with {len(total_nodes)} entries. Converting to data frame.')
+            logger.info(f'Node list loaded with {len(total_nodes)} entries.')
+
+            # de-dupe the list
+            total_nodes = [dict(t) for t in {tuple(d.items()) for d in total_nodes}]
+
+            logger.info(f'Node list duplicates removed, now loaded with {len(total_nodes)} entries.')
+
+            # normalize the group of entries on the data frame.
+            total_nodes = self.normalize_node_data(total_nodes)
+
+            logger.info('Creating edges.')
 
             # create a data frame with the node list
             df: pd.DataFrame = pd.DataFrame(total_nodes, columns=['grp', 'node_num', 'id', 'name', 'category', 'equivalent_identifiers'])
-
-            # remove all duplicates
-            df = df.drop_duplicates(keep='first')
-
-            logger.info(f'Node list made unique, now loaded with {len(df)} entries, normalizing nodes.')
-
-            # normalize the group of entries on the data frame.
-            df = self.normalize_node_data(df)
-
-            logger.info('Nodes normalized, creating edge data.')
 
             # get the list of unique edges
             final_edges: set = self.get_edge_set(df)
@@ -108,17 +108,11 @@ class VPLoader:
             for item in final_edges:
                 out_edge_f.write(hashlib.md5(item.encode('utf-8')).hexdigest() + item)
 
-            logger.info(f'{len(df)} nodes found, de-duping.')
-
-            # reshape the data frame and remove all node duplicates
-            new_df: pd.DataFrame = df.drop(['grp', 'node_num'], axis=1)
-            new_df = new_df.drop_duplicates(keep='first')
-
-            logger.info(f'{len(new_df.index)} unique nodes found, creating KGX node file.')
+            logger.info('Creating KGX node file.')
 
             # write out the unique nodes
-            for row in new_df.iterrows():
-                out_node_f.write(f"{row[1]['id']},\"{row[1]['name']}\",{row[1]['category']},{row[1]['equivalent_identifiers']}\n")
+            for row in total_nodes:
+                out_node_f.write(f"{row['id']}\t{row['name']}\t{row['category']}\t{row['equivalent_identifiers']}\n")
 
             logger.info(f'GOA data parsing and KGX file creation complete.\n')
         return True
@@ -159,7 +153,7 @@ class VPLoader:
 
             # create the KGX edge data for nodes 1 and 2
             """ An edge from the gene to the organism_taxon with relation "in_taxon" """
-            edge_set.add(f',{node_1_id},in_taxon,in_taxon,{node_2_id}\n')
+            edge_set.add(f'\t{node_1_id}\tin_taxon\tin_taxon\t{node_2_id}\n')
 
             # write out an edge that connects nodes 1 and 3
             """ An edge between the gene and the go term. If the go term is a molecular_activity, 
@@ -187,9 +181,9 @@ class VPLoader:
                 obj_node_id = node_1_id
 
             # create the KGX edge data for nodes 1 and 3
-            edge_set.add(f',{src_node_id},{relation_label},{relation_label},{obj_node_id}\n')
+            edge_set.add(f'\t{src_node_id}\t{relation_label}\t{relation_label}\t{obj_node_id}\n')
 
-        logger.debug(f'{len(edge_set)} edges identified, removing duplicates.')
+        logger.info(f'{len(edge_set)} unique edges identified.')
 
         # return the list to the caller
         return edge_set
@@ -252,30 +246,49 @@ class VPLoader:
         return node_list
 
     @staticmethod
-    def normalize_node_data(df: pd.DataFrame) -> pd.DataFrame:
+    def normalize_node_data(node_list: list) -> list:
         """
         This method calls the NodeNormalization web service to get the normalized identifier and name of the chemical substance node.
         the data comes in as a grouped data frame and we will normalize the node_2 and node_3 groups.
         
-        :param df: data frame with items to normalize
+        :param node_list: data frame with items to normalize
         :return: the data frame passed in with updated node data
         """
 
-        # reshape the input and remove duplicates
-        new_df: pd.DataFrame = df[df.node_num.isin([2, 3])]
-        new_df = new_df.drop(['grp'], axis=1)
-        new_df = new_df.drop_duplicates(keep='first')
+        # storage for cached node normalizations
+        cached_node_norms: dict = {}
+
+        # loop through the list and only save the NCBI taxa nodes
+        node_idx: int = 0
+
+        # save the node list count to avoid grabbing it over and over
+        node_count: int = len(node_list)
+
+        # init a list to identify taxa that has not been node normed
+        tmp_normalize: set = set()
+
+        # iterate through the data and get the keys to normalize
+        while node_idx < node_count:
+            # check to see if this one needs normalization data from the website
+            if node_list[node_idx]['node_num'] in [2, 3]:
+                if not node_list[node_idx]['id'] in cached_node_norms:
+                    tmp_normalize.add(node_list[node_idx]['id'])
+
+            node_idx += 1
+
+        # convert the set to a list so we can iterate through it
+        to_normalize: list = list(tmp_normalize)
 
         # define the chuck size
-        chunk_size: int = 500
+        chunk_size: int = 10
 
         # init the indexes
         start_index: int = 0
 
         # get the last index of the list
-        last_index: int = len(new_df)
+        last_index: int = len(to_normalize)
 
-        logger.debug(f'{last_index} unique nodes will be normalized.')
+        logger.info(f'{last_index} unique nodes will be normalized.')
 
         # grab chunks of the data frame
         while True:
@@ -283,54 +296,75 @@ class VPLoader:
                 # define the end index of the slice
                 end_index: int = start_index + chunk_size
 
-                logger.debug(f'Working block {start_index} to {end_index}.')
+                # force the end index to be the last index to insure no overflow
+                if end_index >= last_index:
+                    end_index = last_index
+
+                logger.debug(f'Working block indexes {start_index} to {end_index} of {last_index}.')
 
                 # collect a slice of records from the data frame
-                data_chunk: pd.DataFrame = new_df[start_index: end_index]
+                data_chunk: list = to_normalize[start_index: end_index]
 
                 # get the data
-                resp: requests.models.Response = requests.get('https://nodenormalization-sri.renci.org/get_normalized_nodes?curie=' + '&curie='.join(data_chunk['id'].tolist()))
+                resp: requests.models.Response = requests.get('https://nodenormalization-sri.renci.org/get_normalized_nodes?curie=' + '&curie='.join(data_chunk))
 
                 # did we get a good status code
                 if resp.status_code == 200:
                     # convert to json
                     rvs: dict = resp.json()
 
-                    # for each row in the slice add the new id and name
-                    for rv in rvs:
-                        # did we find a normalized value
-                        if rvs[rv] is not None:
-                            # find the name and replace it with label
-                            if 'label' in rvs[rv]['id']:
-                                df.loc[df['id'] == rv, 'name'] = rvs[rv]['id']['label']
+                    # merge this list with what we have gotten so far
+                    merged = {**cached_node_norms, **rvs}
 
-                            if 'type' in rvs[rv]:
-                                df.loc[df['id'] == rv, 'category'] = '|'.join(rvs[rv]['type'])
-
-                            # find the id and replace it with the normalized value
-                            df.loc[df['id'] == rv, 'id'] = rvs[rv]['id']['identifier']
-
-                            # get the equivalent identifiers
-                            if 'equivalent_identifiers' in rvs[rv] and len(rvs[rv]['equivalent_identifiers']) > 0:
-                                df.loc[df['id'] == rv, 'equivalent_identifiers'] = '|'.join(list((item['identifier']) for item in rvs[rv]['equivalent_identifiers']))
-                        else:
-                            # get the index
-                            index: int = df.loc[df['id'] == rv].index
-
-                            # drop the row
-                            df.drop(index)
-
-                            logger.error(f'{rv} has no normalized value')
+                    # save the merged list
+                    cached_node_norms = merged
                 else:
-                    logger.error(f'Block {start_index} to {end_index} failed normalization.')
+                    # the 404 error that is trapped here means that the entire list of nodes didnt get normalized.
+                    logger.debug(f'response code: {resp.status_code}')
+
+                    # since they all failed to normalize add to the list so we dont try them again
+                    for item in data_chunk:
+                        cached_node_norms.update({item: None})
 
                 # move on down the list
                 start_index += chunk_size
             else:
                 break
 
-        # return to the caller
-        return df
+        # reset the node index
+        node_idx = 0
+
+        # for each row in the slice add the new id and name
+        # iterate through node groups and get only the taxa records.
+        while node_idx < node_count:
+            # is this something that has been normalized
+            if node_list[node_idx]['node_num'] in [2, 3]:
+                # save the target data element
+                rv = node_list[node_idx]
+
+                # did we find a normalized value
+                if cached_node_norms[rv['id']] is not None:
+                    # find the name and replace it with label
+                    if 'label' in cached_node_norms[rv['id']]['id']:
+                        node_list[node_idx]['name'] = cached_node_norms[rv['id']]['id']['label']
+
+                    if 'type' in cached_node_norms[rv['id']]:
+                        node_list[node_idx]['category'] = '|'.join(cached_node_norms[rv['id']]['type'])
+
+                    # get the equivalent identifiers
+                    if 'equivalent_identifiers' in cached_node_norms[rv['id']] and len(cached_node_norms[rv['id']]['equivalent_identifiers']) > 0:
+                        node_list[node_idx]['equivalent_identifiers'] = '|'.join(list((item['identifier']) for item in cached_node_norms[rv['id']]['equivalent_identifiers']))
+
+                    # find the id and replace it with the normalized value
+                    node_list[node_idx]['id'] = cached_node_norms[rv['id']]['id']['identifier']
+                else:
+                    logger.debug(f"{rv['id']} has no normalized value")
+
+            # go to the next index
+            node_idx += 1
+
+        # return the updated list to the caller
+        return node_list
 
 
 if __name__ == '__main__':
