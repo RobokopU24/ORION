@@ -28,39 +28,45 @@ class UniRefSimLoader:
     # storage for cached node normalizations
     cached_node_norms: dict = {}
 
-    def load(self, data_path: str, in_file_name: str, taxon_index_file: str, target_taxon_set: set, block_size: int = 1000, debug_files: bool = False) -> bool:
+    def load(self, data_path: str, in_file_names: list, taxon_index_file: str, block_size: int = 1000, debug_files: bool = False):
         """
         parses the UniRef data files gathered from ftp://ftp.uniprot.org/pub/databases/uniprot/uniref/ to
         create standard KGX files to import thr data into a graph database
 
         :param data_path: root directory of the input data files
-        :param in_file_name: the UniRef file to work
+        :param in_file_names: the UniRef file to work
         :param taxon_index_file: the list of UniRef virus file indexes
-        :param target_taxon_set: the set of virus taxon ids to target
         :param block_size: the number of nodes collected to trigger writing KGX data to file
         :param debug_files: debug mode flag to indicate use of smaller input files
-        :return: True
+        :return
         """
+        # get the list of target taxon ids from the node list
+        target_taxon_set: set = vp.get_virus_taxon_id_set(data_dir, 'nodes.dmp', vp.TYPE_VIRUS)
 
-        # process the file
-        with open(os.path.join(data_path, f'{in_file_name}_Virus_node_file.csv'), 'w', encoding="utf-8") as out_node_f, open(os.path.join(data_path, f'{in_file_name}_Virus_edge_file.csv'), 'w', encoding="utf-8") as out_edge_f:
-            # write out the node and edge data headers
-            out_node_f.write(f'id,name,category,equivalent_identifiers\n')
-            out_edge_f.write(f'id,subject,relation_label,edge_label,object\n')
+        # for each UniRef file to process
+        for f in in_file_names:
+            logger.info(f'Start of processing {f}')
 
-            # add the file extension
-            if debug_files:
-                full_file = in_file_name + '.test.xml'
-            else:
-                full_file = in_file_name + '.xml'
+            # process the file
+            with open(os.path.join(data_path, f'{f}_Virus_node_file.tsv'), 'w', encoding="utf-8") as out_node_f, open(os.path.join(data_path, f'{f}_Virus_edge_file.tsv'), 'w', encoding="utf-8") as out_edge_f:
+                # write out the node and edge data headers
+                out_node_f.write(f'id\tname\tcategory\tequivalent_identifiers\n')
+                out_edge_f.write(f'id\tsubject\trelation_label\tedge_label\tobject\n')
 
-            # read the file and make the list
-            self.parse_data_file(os.path.join(data_path, full_file), os.path.join(data_path, f'{in_file_name}_{taxon_index_file}'), target_taxon_set, out_edge_f, out_node_f, block_size)
-        return True
+                # add the file extension
+                if debug_files:
+                    full_file = f + '.test.xml'
+                else:
+                    full_file = f + '.xml'
+
+                # read the file and make the list
+                self.parse_data_file(os.path.join(data_path, full_file), os.path.join(data_path, f'{f}_{taxon_index_file}'), target_taxon_set, out_edge_f, out_node_f, block_size)
+
+                logger.info(f'{f} processing complete.')
 
     def parse_data_file(self, uniref_infile_path: str, index_file_path: str, target_taxa: set, out_edge_f, out_node_f, block_size: int):
         """
-        Parses the data file for graph nodes/edges and writes them out the KGX csv files.
+        Parses the data file for graph nodes/edges and writes them to the KGX csv files.
 
         The parsing uses and entry index file to read the uniref entry data elements on the fly rather.
 
@@ -78,6 +84,8 @@ class UniRefSimLoader:
         # uniref entry index counter
         index_counter: int = 0
 
+        logger.info(f'Parsing XML data file start.')
+
         # open the taxon file indexes and the uniref data file
         with open(index_file_path, 'r') as index_fp, open(uniref_infile_path, 'rb+') as uniref_fp:
             # for each taxon index
@@ -86,32 +94,24 @@ class UniRefSimLoader:
                 index_counter += 1
 
                 # output a status indicator
-                if index_counter % 10000 == 0:
-                    logger.debug(f'Completed {index_counter} taxa.')
+                if index_counter % 50000 == 0:
+                    logger.info(f'Completed {index_counter} taxa.')
 
                 # start looking a bit before the location grep found
                 taxon_index = int(line.split(':')[0]) - 150
-
-                # logger.debug(f'Gather XML "entry" element string at index {taxon_index}.')
 
                 # get the next entry element
                 entry_element: str = self.get_entry_element(taxon_index, uniref_fp)
 
                 # did we get something back
                 if entry_element != '':
-                    # logger.debug('XML "entry" element string collected, Capturing data.')
-
                     # call to get an entry and enter it into the node list
                     self.capture_entry_data(entry_element, node_list, target_taxa)
-
-                    # logger.debug('XML "entry" element capture complete.')
                 else:
                     logger.error(f'Error producing an entry node for {line} at line number {index_counter}.')
 
                 # is it time to write out the data we have collected so far
                 if len(node_list) > block_size:
-                    # logger.debug('Writing out data.')
-
                     # normalize the group of entries on the data frame.
                     # commented out for now as node norm os not returning anything that i dont already have for these nodes
                     node_list = self.normalize_node_data(node_list)
@@ -119,15 +119,14 @@ class UniRefSimLoader:
                     # write out what we have so far
                     self.write_out_data(node_list, out_edge_f, out_node_f)
 
-                    # logger.debug('Data write complete.')
-
                     # clear out the node list for the next batch
                     node_list.clear()
 
         # save any remainders
         if len(node_list) > 0:
             self.write_out_data(node_list, out_edge_f, out_node_f)
-            logger.info(f'Processing completed {index_counter} taxa processed.')
+
+        logger.info(f'Parsing XML data file complete. {index_counter} taxa processed.')
 
     def normalize_node_data(self, node_list: list) -> list:
         """
@@ -362,7 +361,7 @@ class UniRefSimLoader:
                 for member in iter(entry_child):
                     # look for the DB reference node.
                     if member.tag == 'dbReference':
-                        # logger.debug(f"\t\tCluster \"dbReference\" element member: \"{member.attrib['type']}\" is {member.attrib['id']}.")
+                        # logger.debug(f"\t\tCluster dbReference\" element member: \"{member.attrib['type']}\" is {member.attrib['id']}.")
                         member_uniprotkb_id: str = member.attrib['id']
 
                         # init node data with the node grouping mechanism
@@ -443,7 +442,7 @@ class UniRefSimLoader:
 
         # write out the unique nodes
         for row in new_df.iterrows():
-            out_node_f.write(f"{row[1]['id']},\"{row[1]['name']}\",{row[1]['category']},{row[1]['equivalent_identifiers']}\n")
+            out_node_f.write(f"{row[1]['id']}\t{row[1]['name']}\t{row[1]['category']}\t{row[1]['equivalent_identifiers']}\n")
 
         # logger.debug(f"{len(new_df.index)} unique graph nodes with {len(final_edges)} corresponding edges were written.")  # {len(node_list)} graph node running total.
 
@@ -504,7 +503,7 @@ class UniRefSimLoader:
                     similarity_bin = node_list[node_idx]['similarity_bin']
                 # get the UniRef entry common taxon ID and create the UniRef ID to taxon edge
                 elif node_list[node_idx]['node_num'] == 1:
-                    edge = f',{gene_family_node_id},in_taxon,in_taxon,{node_list[node_idx]["id"]}\n'
+                    edge = f'\t{gene_family_node_id}\tin_taxon\tin_taxon\t{node_list[node_idx]["id"]}\n'
                     out_edge_f.write(hashlib.md5(edge.encode('utf-8')).hexdigest() + edge)
                 # get the member node edges
                 else:
@@ -513,16 +512,16 @@ class UniRefSimLoader:
                         rep_member_node_id = node_list[node_idx]['id']
 
                     # create an edge between the uniprot and the gene family nodes
-                    edge = f',{node_list[node_idx]["id"]},part_of,part_of,{gene_family_node_id}\n'
+                    edge = f'\t{node_list[node_idx]["id"]}\tpart_of\tpart_of\t{gene_family_node_id}\n'
                     out_edge_f.write(hashlib.md5(edge.encode('utf-8')).hexdigest() + edge)
 
                     # create an edge between the gene product and its paring taxon
-                    edge = f',{node_list[node_idx]["id"]},in_taxon,in_taxon,{node_list[node_idx + 1]["id"]}\n'
+                    edge = f'\t{node_list[node_idx]["id"]}\tin_taxon\tin_taxon\t{node_list[node_idx + 1]["id"]}\n'
                     out_edge_f.write(hashlib.md5(edge.encode('utf-8')).hexdigest() + edge)
 
                     # add the spoke edge if it isn't a reflection of itself
                     if rep_member_node_id != node_list[node_idx]['id']:
-                        edge = f',{rep_member_node_id},{similarity_bin},similar_to,{node_list[node_idx]["id"]}\n'
+                        edge = f'\t{rep_member_node_id}\t{similarity_bin}\tsimilar_to\t{node_list[node_idx]["id"]}\n'
                         out_edge_f.write(hashlib.md5(edge.encode('utf-8')).hexdigest() + edge)
 
                     # save for similar node to node edge combination creation
@@ -604,17 +603,5 @@ if __name__ == '__main__':
     # get a reference to the processor
     vp = UniRefSimLoader()
 
-    logger.info('Getting taxa list.')
-
-    # get the list of target taxon ids from the node list
-    taxon_set: set = vp.get_virus_taxon_id_set(data_dir, 'nodes.dmp', vp.TYPE_VIRUS)
-
-    logger.info(f'{len(taxon_set)} virus taxa identified.')
-
-    for f in file_list:
-        logger.info(f'Parsing file ({f}) with write data threshold of {10000} graph nodes collected.')
-
-        # load the data files and create KGX output
-        vp.load(data_dir, f, 'taxon_file_indexes.txt', taxon_set, block_size=10000, debug_files=False)
-
-    logger.info(f'UniRef data parsing and KGX file creation complete.\n')
+    # load the data files and create KGX output
+    vp.load(data_dir, file_list, 'taxon_file_indexes.txt', block_size=10000, debug_files=False)
