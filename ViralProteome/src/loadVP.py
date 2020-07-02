@@ -6,7 +6,7 @@ import pandas as pd
 import enum
 import requests
 from csv import reader
-from Common.utils import LoggingUtil
+from Common.utils import LoggingUtil, GetData
 from pathlib import Path
 
 # create a logger
@@ -42,6 +42,9 @@ class DATACOLS(enum.IntEnum):
 # Desc: Class that loads the Virus Proteome data and creates KGX files for importing into a Neo4j graph.
 ##############
 class VPLoader:
+    # organism types
+    TYPE_BACTERIA: str = '0'
+    TYPE_VIRUS: str = '9'
 
     def load(self, data_path: str, data_dir: str, files: list, out_name: str) -> bool:
         """
@@ -108,11 +111,19 @@ class VPLoader:
             for item in final_edges:
                 out_edge_f.write(hashlib.md5(item.encode('utf-8')).hexdigest() + item)
 
-            logger.info('Creating KGX node file.')
+            logger.info(f'De-duplicating {len(total_nodes)} nodes')
+
+            # init a set for the node de-duplication
+            final_node_set: set = set()
 
             # write out the unique nodes
             for row in total_nodes:
-                out_node_f.write(f"{row['id']}\t{row['name']}\t{row['category']}\t{row['equivalent_identifiers']}\n")
+                final_node_set.add(f"{row['id']}\t{row['name']}\t{row['category']}\t{row['equivalent_identifiers']}\n")
+
+            logger.info(f'Creating KGX node file with {len(final_node_set)} nodes.')
+
+            for row in final_node_set:
+                out_node_f.write(row)
 
             logger.info(f'GOA data parsing and KGX file creation complete.\n')
         return True
@@ -183,7 +194,7 @@ class VPLoader:
             # create the KGX edge data for nodes 1 and 3
             edge_set.add(f'\t{src_node_id}\t{relation_label}\t{relation_label}\t{obj_node_id}\n')
 
-        logger.info(f'{len(edge_set)} unique edges identified.')
+        logger.debug(f'{len(edge_set)} unique edges identified.')
 
         # return the list to the caller
         return edge_set
@@ -382,15 +393,27 @@ if __name__ == '__main__':
     # UniProtKB_data_dir = 'D:/Work/Robokop/VP_data/UniProtKB_data'
     UniProtKB_data_dir = args['data_dir']
 
-    # open the file list and turn it into a list array
-    with open(UniProtKB_data_dir + '/GOA_virus_file_list.txt', 'r') as fl:
-        file_list: list = fl.readlines()
-
-    # strip off the trailing '\n'
-    file_list = [line[:-1] for line in file_list]
-
     # get a reference to the processor
     vp = VPLoader()
 
-    # load the data files and create KGX output
-    vp.load(UniProtKB_data_dir, 'Virus_GOA_files/', file_list, 'VP_Virus')
+    # and get a reference to the data gatherer
+    gd = GetData()
+
+    # get the list of target taxa
+    target_taxa_set: set = gd.get_ncbi_taxon_id_set(UniProtKB_data_dir, vp.TYPE_VIRUS)
+
+    # get the list of files that contain those taxa
+    file_list: list = gd.get_uniprot_virus_file_list(UniProtKB_data_dir, vp.TYPE_VIRUS, target_taxa_set)
+
+    # assign the data directory
+    goa_data_dir = UniProtKB_data_dir + '/Virus_GOA_files/'
+
+    # get the data files
+    actual_count: int = gd.get_goa_virus_files(goa_data_dir, file_list)
+
+    # did we get all the files
+    if len(file_list) == actual_count:
+        # load the data files and create KGX output
+        vp.load(UniProtKB_data_dir, 'Virus_GOA_files/', file_list, 'VP_Virus')
+    else:
+        logger.error('Did not receive all the UniProtKB GOA files.')
