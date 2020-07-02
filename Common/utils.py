@@ -102,13 +102,13 @@ class NodeNormUtils:
         :return:
         """
 
-        # loop through the list and only save the NCBI taxa nodes
+        # init the node index counter
         node_idx: int = 0
 
         # save the node list count to avoid grabbing it over and over
         node_count: int = len(node_list)
 
-        # init a list to identify taxa that has not been node normed
+        # init a list to identify taxa that has not yet been node normed
         tmp_normalize: set = set()
 
         # iterate through node groups and get only the taxa records.
@@ -121,15 +121,16 @@ class NodeNormUtils:
                 else:
                     self.logger.debug(f"Cache hit: {node_list[node_idx]['id']}")
 
+            # increment to the next node array element
             node_idx += 1
 
         # convert the set to a list so we can iterate through it
         to_normalize: list = list(tmp_normalize)
 
-        # define the chuck size
+        # define the chuck size for normalization batches
         chunk_size: int = 1000
 
-        # init the indexes
+        # init the array index lower boundary
         start_index: int = 0
 
         # get the last index of the list
@@ -207,7 +208,7 @@ class NodeNormUtils:
                 else:
                     self.logger.error(f"{rv['id']} has no normalized value")
 
-            # go to the next index
+            # go to the next node index
             node_idx += 1
 
         # return the updated list to the caller
