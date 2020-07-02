@@ -7,7 +7,7 @@ import requests
 from io import TextIOBase
 from csv import reader
 from xml.etree import ElementTree as ETree
-from Common.utils import LoggingUtil
+from Common.utils import LoggingUtil, GetData
 from pathlib import Path
 
 # create a logger
@@ -40,8 +40,12 @@ class UniRefSimLoader:
         :param debug_files: debug mode flag to indicate use of smaller input files
         :return
         """
-        # get the list of target taxon ids from the node list
-        target_taxon_set: set = vp.get_virus_taxon_id_set(data_dir, 'nodes.dmp', vp.TYPE_VIRUS)
+
+        # get a reference to the get data util class
+        gd = GetData()
+
+        # get the list of taxa
+        target_taxon_set: set = gd.get_ncbi_taxon_id_set(data_dir, self.TYPE_VIRUS)
 
         # for each UniRef file to process
         for f in in_file_names:
@@ -84,7 +88,7 @@ class UniRefSimLoader:
         # uniref entry index counter
         index_counter: int = 0
 
-        logger.info(f'Parsing XML data file start.')
+        logger.debug(f'Parsing XML data file start.')
 
         # open the taxon file indexes and the uniref data file
         with open(index_file_path, 'r') as index_fp, open(uniref_infile_path, 'rb+') as uniref_fp:
@@ -94,7 +98,7 @@ class UniRefSimLoader:
                 index_counter += 1
 
                 # output a status indicator
-                if index_counter % 50000 == 0:
+                if index_counter % 500000 == 0:
                     logger.info(f'Completed {index_counter} taxa.')
 
                 # start looking a bit before the location grep found
@@ -126,7 +130,7 @@ class UniRefSimLoader:
         if len(node_list) > 0:
             self.write_out_data(node_list, out_edge_f, out_node_f)
 
-        logger.info(f'Parsing XML data file complete. {index_counter} taxa processed.')
+        logger.debug(f'Parsing XML data file complete. {index_counter} taxa processed.')
 
     def normalize_node_data(self, node_list: list) -> list:
         """
@@ -153,9 +157,8 @@ class UniRefSimLoader:
                 # check to see if this one needs normalization data from the website
                 if not node_list[node_idx]['id'] in self.cached_node_norms:
                     tmp_normalize.add(node_list[node_idx]['id'])
-                # else:
-                #     logger.debug(f"Cache hit: {node_list[node_idx]['id']}")
 
+            # go to the next element
             node_idx += 1
 
         # convert the set to a list so we can iterate through it
@@ -170,7 +173,7 @@ class UniRefSimLoader:
         # get the last index of the list
         last_index: int = len(to_normalize)
 
-        # logger.debug(f'{last_index} unique nodes will be normalized.')
+        logger.debug(f'{last_index} unique nodes will be normalized.')
 
         # grab chunks of the data frame
         while True:
@@ -182,7 +185,7 @@ class UniRefSimLoader:
                 if end_index >= last_index:
                     end_index = last_index
 
-                # logger.debug(f'Working block {start_index} to {end_index}.')
+                logger.debug(f'Working block {start_index} to {end_index}.')
 
                 # collect a slice of records from the data frame
                 data_chunk: list = to_normalize[start_index: end_index]
@@ -202,7 +205,7 @@ class UniRefSimLoader:
                     self.cached_node_norms = merged
                 else:
                     # the 404 error that is trapped here means that the entire list of nodes didnt get normalized.
-                    # logger.debug(f'response code: {resp.status_code}')
+                    logger.error(f'Response code: {resp.status_code} block {start_index} to {end_index}')
 
                     # since they all failed to normalize add to the list so we dont try them again
                     for item in data_chunk:
@@ -267,7 +270,6 @@ class UniRefSimLoader:
 
             # read 6 characters to see if it is the start of the entry
             uniref_line = uniref_fp.read(6)
-            # logger.debug(f'{uniref_fp.tell()}: {uniref_line1}')
 
             # did we find the entry start
             if uniref_line.decode("utf-8") == "<entry":
@@ -313,8 +315,8 @@ class UniRefSimLoader:
 
         # set the entry name, group id and similarity bin name
         entry_name = root.attrib['id'].replace('_', ':')
-        similarity_bin: str = entry_name.split(':')[0]
         grp: str = entry_name.split(':')[1]
+        similarity_bin: str = entry_name.split(':')[0]
 
         # create local storage for the nodes will conditionally add to main node list later
         tmp_node_list: list = []
@@ -426,7 +428,7 @@ class UniRefSimLoader:
         :return:
         """
 
-        # logger.debug(f'Loading data frame with {len(node_list)} nodes.')
+        logger.debug(f'Loading data frame with {len(node_list)} nodes.')
 
         # create a data frame with the node list
         df: pd.DataFrame = pd.DataFrame(node_list, columns=['grp', 'node_num', 'id', 'name', 'category', 'equivalent_identifiers', 'similarity_bin'])
@@ -438,13 +440,13 @@ class UniRefSimLoader:
         new_df = df.drop(['grp', 'node_num'], axis=1)
         new_df = new_df.drop_duplicates(keep='first')
 
-        # logger.debug(f'{len(new_df.index)} nodes found, writing to KGX node file.')
+        logger.debug(f'{len(new_df.index)} nodes found.')
 
         # write out the unique nodes
         for row in new_df.iterrows():
             out_node_f.write(f"{row[1]['id']}\t{row[1]['name']}\t{row[1]['category']}\t{row[1]['equivalent_identifiers']}\n")
 
-        # logger.debug(f"{len(new_df.index)} unique graph nodes with {len(final_edges)} corresponding edges were written.")  # {len(node_list)} graph node running total.
+        logger.debug('Writing out to data file complete.')
 
     @staticmethod
     def write_edge_data(out_edge_f, node_list):
@@ -456,7 +458,7 @@ class UniRefSimLoader:
         :return: nothing
         """
 
-        # logger.debug(f'Creating edges for {len(node_list)} nodes.')
+        logger.debug(f'Creating edges for {len(node_list)} nodes.')
 
         # init group detection
         cur_group_name: str = ''
@@ -553,7 +555,7 @@ class UniRefSimLoader:
             # save the new group name
             cur_group_name = node_list[node_idx]['grp']
 
-        # logger.debug(f'   {node_idx} Entry member edges created.')
+        logger.debug(f'{node_idx} Entry member edges created.')
 
     @staticmethod
     def get_virus_taxon_id_set(taxon_data_dir, infile_name, organism_type: str) -> set:
@@ -564,6 +566,8 @@ class UniRefSimLoader:
         :param: the organism type
         :return: a list of file indexes
         """
+
+        # init the return value
         ret_val: set = set()
 
         with open(os.path.join(taxon_data_dir, infile_name), 'r') as fp:
@@ -572,7 +576,7 @@ class UniRefSimLoader:
 
             # for the rest of the lines in the file. type 0 = TYPE_BACTERIA, type 9 = TYPE_VIRUS
             for line in csv_reader:
-                if line[8] == organism_type:  # in [TYPE_BACTERIA, TYPE_VIRUS]
+                if line[8] == organism_type:
                     ret_val.add(line[0])
 
         # return the list
