@@ -49,7 +49,7 @@ class UniRefSimLoader:
 
         # for each UniRef file to process
         for f in in_file_names:
-            logger.info(f'Start of processing {f}')
+            logger.info(f'Start of processing {f}.')
 
             # process the file
             with open(os.path.join(data_path, f'{f}_Virus_node_file.tsv'), 'w', encoding="utf-8") as out_node_f, open(os.path.join(data_path, f'{f}_Virus_edge_file.tsv'), 'w', encoding="utf-8") as out_edge_f:
