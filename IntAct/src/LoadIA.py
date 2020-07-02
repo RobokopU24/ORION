@@ -577,7 +577,6 @@ if __name__ == '__main__':
     args = vars(ap.parse_args())
 
     # IntAct_data_dir = ''
-    # IntAct_data_dir = ''
     # IntAct_data_dir = 'D:/Work/Robokop/IntAct/Virus'
     IntAct_data_dir = args['data_dir']
 
