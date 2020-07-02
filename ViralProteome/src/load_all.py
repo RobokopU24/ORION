@@ -2,8 +2,7 @@ import os
 import argparse
 from src.loadVP import VPLoader
 from src.loadUniRef2 import UniRefSimLoader
-
-from Common.utils import LoggingUtil
+from Common.utils import LoggingUtil, GetData
 from pathlib import Path
 
 # create a logger
@@ -23,29 +22,40 @@ if __name__ == '__main__':
     # parse the arguments
     args = vars(ap.parse_args())
 
-    # get a reference to the processor
-    vp = VPLoader()
-
     # assign the uniprot directory
     UniProtKB_data_dir = args['uniprot_dir']
 
-    # open the file list and turn it into a list array
-    with open(UniProtKB_data_dir + '/GOA_virus_file_list.txt', 'r') as fl:
-        file_list: list = fl.readlines()
+    # assign the uniref directory
+    uniref_data_dir = args['uniref_dir']
 
-    # strip off the trailing '\n'
-    file_list = [line[:-1] for line in file_list]
-
-    # load the data files and create KGX output
-    vp.load(UniProtKB_data_dir, 'Virus_GOA_files/', file_list, 'VP_Virus')
-
-    logger.info(f'UniProtKB viral proteome processing complete. Starting UniRef processing.\n')
-
-    # assign the file list
+    # assign the uniref50/90/100 pct file list
     file_list: list = args['uniref_files'].split(',')
 
-    # assign the uniref directory
-    UniProtKB_data_dir = args['uniref_dir']
+    # get a reference to the processor
+    vp = VPLoader()
+
+    # and get a reference to the data gatherer
+    gd = GetData()
+    # get the list of target taxa
+    target_taxa_set: set = gd.get_ncbi_taxon_id_set(UniProtKB_data_dir, vp.TYPE_VIRUS)
+
+    # get the list of files that contain those taxa
+    file_list: list = gd.get_uniprot_virus_file_list(UniProtKB_data_dir, vp.TYPE_VIRUS, target_taxa_set)
+
+    # assign the data directory
+    goa_data_dir = UniProtKB_data_dir + '/Virus_GOA_files/'
+
+    # get the data files
+    actual_count: int = gd.get_goa_virus_files(goa_data_dir, file_list)
+
+    # did we get all the files
+    if len(file_list) == actual_count:
+        # load the data files and create KGX output
+        vp.load(UniProtKB_data_dir, 'Virus_GOA_files/', file_list, 'VP_Virus')
+    else:
+        logger.error('Did not receive all the UniProtKB GOA files.')
+
+    logger.info(f'UniProtKB viral proteome processing complete. Starting UniRef processing.\n')
 
     # get a reference to the processor
     vp = UniRefSimLoader()
