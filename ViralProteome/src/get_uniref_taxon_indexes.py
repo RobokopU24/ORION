@@ -2,6 +2,10 @@ import os
 import argparse
 from ViralProteome.src.loadUniRef2 import UniRefSimLoader
 from Common.utils import LoggingUtil, GetData
+from pathlib import Path
+
+# create a logger
+logger = LoggingUtil.init_logging("Data_services.ViralProteome.get_uniref_taxon_indexes", line_format='medium', log_file_path=os.path.join(Path(__file__).parents[2], 'logs'))
 
 
 if __name__ == '__main__':
@@ -27,12 +31,12 @@ if __name__ == '__main__':
     # in_file_list: list = ['UniRef50']  # , 'UniRef100' UniRef90 UniRef50
     in_file_list: list = args['UniRef_files'].split(',')
 
-    LoggingUtil().print_debug_msg('Getting taxon id list')
+    logger.info('Getting taxon id list.')
 
     # get the list of target taxa
     target_taxa_set: set = gd.get_ncbi_taxon_id_set(uniref_data_dir, UniRefSimLoader().TYPE_VIRUS)
 
-    LoggingUtil().print_debug_msg('Creating taxon search file')
+    logger.info('Creating taxon search file.')
 
     # the path to the file that contains the list of taxa to search for
     search_file_path = os.path.join(uniref_data_dir, 'taxon_list.txt')
@@ -42,14 +46,14 @@ if __name__ == '__main__':
         for item in target_taxa_set:
             wfp.write(f'<property type="common taxon ID" value="{item}"\n')
 
-    LoggingUtil().print_debug_msg('Executing dos2unix command')
+    logger.info('Executing dos2unix command.')
 
     # optional: execute the dos2unix command on the target taxon file to get the line endings correct
-    os.system(f'dos2unix "{search_file_path}"')
+    os.system(f'dos2unix "{search_file_path}."')
 
     # for each uniref file type
     for file in in_file_list:
-        LoggingUtil().print_debug_msg(f'Working input file: {file}')
+        logger.info(f'Working input file: {file}.')
 
         # get the path to the file with taxon indexes
         index_file_path = os.path.join(uniref_data_dir, f'{file.lower()}_taxon_file_indexes.txt')
@@ -57,7 +61,7 @@ if __name__ == '__main__':
         # get the in and out file paths
         uniref_infile_path: str = os.path.join(uniref_data_dir, f'{file.lower()}.xml')
 
-        LoggingUtil().print_debug_msg(f'Executing grep command: grep -F -b -f "{search_file_path}" "{uniref_infile_path}" >> "{index_file_path}"')
+        logger.info(f'Executing grep command: grep -F -b -f "{search_file_path}" "{uniref_infile_path}" >> "{index_file_path}"')
 
         # execute the grep command using the target taxon list
         # Note: you must use the latest version of grep for this to work
