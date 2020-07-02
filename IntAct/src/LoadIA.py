@@ -76,29 +76,36 @@ class IALoader:
     # storage for experiment groups to write to file.
     experiment_grp_list: list = []
 
-    def load(self, data_path: str, out_name: str, data_file_name: str):
+    def load(self, data_file_path: str, data_file_name: str, out_name: str):
         """
         Loads/parsers the IntAct data file to produce node/edge KGX files for importation into a graph database.
 
-        :param data_path: the directory that contains the data file
+        :param data_file_path: the directory that will contain the intact data file
+        :param data_file_name: The name of the intact data archive file
         :param out_name: The output file name prefix
-        :param data_file_name: The name of the data archive file
         :return: None
         """
-        logger.info(f'Start of IntAct data processing. Getting data archive.')
+        logger.info(f'Start of IntAct data processing.')
 
-        # get the Intact zip file
-        if GetData.pull_via_ftp('ftp.ebi.ac.uk', '/pub/databases/IntAct/current/psimitab/', data_path, data_file_name):
-            logger.info(f'{data_file_name} archive retrieved. Parsing IntAct data.')
+        # get a reference to the dat gathering class
+        gd = GetData()
 
-            with open(os.path.join(data_path, f'{out_name}_node_file.tsv'), 'w', encoding="utf-8") as out_node_f, open(os.path.join(data_path, f'{out_name}_edge_file.tsv'), 'w', encoding="utf-8") as out_edge_f:
+        # get the intact archive
+        if gd.pull_via_ftp('ftp.ebi.ac.uk', '/pub/databases/IntAct/current/psimitab/', [data_file_name], data_file_path) == 1:
+            logger.debug(f'{data_file_name} archive retrieved. Parsing IntAct data.')
+
+            with open(os.path.join(data_file_path, f'{out_name}_node_file.tsv'), 'w', encoding="utf-8") as out_node_f, open(os.path.join(data_file_path, f'{out_name}_edge_file.tsv'), 'w', encoding="utf-8") as out_edge_f:
                 # write out the node and edge data headers
                 out_node_f.write(f'id\tname\tcategory\tequivalent_identifiers\ttaxon\n')
                 out_edge_f.write(f'id\tsubject\trelation_label\tedge_label\tpublications\tdetection_method\tobject\n')
 
                 # parse the data
-                self.parse_data_file(os.path.join(data_path, data_file_name), out_node_f, out_edge_f)
-            logger.info(f'File parsing complete.')
+                self.parse_data_file(os.path.join(data_file_path, data_file_name), out_node_f, out_edge_f)
+
+            # remove the data file
+            os.remove(os.path.join(data_file_path, data_file_name))
+
+            logger.debug(f'File parsing complete.')
         else:
             logger.error(f'Error getting the IntAct archive. Exiting.')
 
@@ -193,10 +200,9 @@ class IALoader:
                         # save the data to a list for batch processing
                         experiment_grp.append(interaction_line)
 
-                        # logger.debug(f'Keeping: {self.find_target_val(line[DATACOLS.Publication_Identifier.value], "pubmed", True)}, {line[0]}, {line[1]}')
                         # output a status indicator
-                        if interaction_counter % 10000 == 0:
-                            logger.debug(f'Completed {interaction_counter} interactions.')
+                        if interaction_counter % 250000 == 0:
+                            logger.info(f'Completed {interaction_counter} interactions.')
 
                 # save any remainders
                 if len(experiment_grp) > 0:
@@ -251,9 +257,6 @@ class IALoader:
         for item in df.iterrows():
             # write out the node pair
             out_node_f.write(f"{item[1]['id']}\t{item[1]['name']}\t{item[1]['category']}\t{item[1]['equivalent_identifiers']}\t{item[1]['taxon']}\n")
-
-        # write out the file buffer
-        out_node_f.flush()
 
     def normalize_node_data(self, node_list: list) -> list:
         """
@@ -420,7 +423,7 @@ class IALoader:
 
         # iterate through node groups and create the edge records.
         while node_idx < node_count:
-            logger.debug(f'Working index: {node_idx}')
+            logger.debug(f'Working index: {node_idx}.')
 
             # if its the first time in prime the pump
             if first:
@@ -584,4 +587,4 @@ if __name__ == '__main__':
     ia = IALoader()
 
     # load the data files and create KGX output files
-    ia.load(IntAct_data_dir, 'intact', 'intact.zip')
+    ia.load(IntAct_data_dir, 'intact.zip', 'intact')
