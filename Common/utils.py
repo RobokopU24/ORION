@@ -51,7 +51,7 @@ class LoggingUtil(object):
         # if there was a file path passed in use it
         if log_file_path is not None:
             # create a rotating file handler, 100mb max per file with a max number of 10 files
-            file_handler = RotatingFileHandler(filename=os.path.join(log_file_path, name + '.log'), maxBytes=1000000, backupCount=10)
+            file_handler = RotatingFileHandler(filename=os.path.join(log_file_path, name + '.log'), maxBytes=100000000, backupCount=10)
 
             # set the formatter
             file_handler.setFormatter(formatter)
@@ -92,13 +92,13 @@ class NodeNormUtils:
     # create a logger
     logger = LoggingUtil.init_logging("Data_services.Common.NodeNormUtils", line_format='medium', log_file_path=os.path.join(Path(__file__).parents[1], 'logs'))
 
-    def normalize_node_data(self, cached_node_norms, node_list: list) -> list:
+    def normalize_node_data(self, node_list: list, cached_node_norms: dict = {}) -> list:
         """
         This method calls the NodeNormalization web service to get the normalized identifier and name of the taxon node.
         the data comes in as a node list and we will normalize the only the taxon nodes.
 
-        :param cached_node_norms: list of previously captured normalizations
         :param node_list: A list with items to normalize
+        :param cached_node_norms: list of previously captured normalizations
         :return:
         """
 
@@ -113,13 +113,11 @@ class NodeNormUtils:
 
         # iterate through node groups and get only the taxa records.
         while node_idx < node_count:
-            # is this a NCBI taxon
-            if node_list[node_idx]['id'].startswith('N'):
-                # check to see if this one needs normalization data from the website
-                if not node_list[node_idx]['id'] in cached_node_norms:
-                    tmp_normalize.add(node_list[node_idx]['id'])
-                else:
-                    self.logger.debug(f"Cache hit: {node_list[node_idx]['id']}")
+            # check to see if this one needs normalization data from the website
+            if not node_list[node_idx]['id'] in cached_node_norms:
+                tmp_normalize.add(node_list[node_idx]['id'])
+            else:
+                self.logger.debug(f"Cache hit: {node_list[node_idx]['id']}")
 
             # increment to the next node array element
             node_idx += 1
@@ -185,28 +183,26 @@ class NodeNormUtils:
         # for each row in the slice add the new id and name
         # iterate through node groups and get only the taxa records.
         while node_idx < node_count:
-            # is this a NCBI taxon
-            if node_list[node_idx]['id'].startswith('N'):
-                # get a reference to the node list
-                rv = node_list[node_idx]
+            # get a reference to the node list
+            rv = node_list[node_idx]
 
-                # did we find a normalized value
-                if cached_node_norms[rv['id']] is not None:
-                    # find the name and replace it with label
-                    if 'label' in cached_node_norms[rv['id']]['id']:
-                        node_list[node_idx]['name'] = cached_node_norms[rv['id']]['id']['label']
+            # did we find a normalized value
+            if cached_node_norms[rv['id']] is not None:
+                # find the name and replace it with label
+                if 'label' in cached_node_norms[rv['id']]['id']:
+                    node_list[node_idx]['name'] = cached_node_norms[rv['id']]['id']['label']
 
-                    if 'type' in cached_node_norms[rv['id']]:
-                        node_list[node_idx]['category'] = '|'.join(cached_node_norms[rv['id']]['type'])
+                if 'type' in cached_node_norms[rv['id']]:
+                    node_list[node_idx]['category'] = '|'.join(cached_node_norms[rv['id']]['type'])
 
-                    # get the equivalent identifiers
-                    if 'equivalent_identifiers' in cached_node_norms[rv['id']] and len(cached_node_norms[rv['id']]['equivalent_identifiers']) > 0:
-                        node_list[node_idx]['equivalent_identifiers'] = '|'.join(list((item['identifier']) for item in cached_node_norms[rv['id']]['equivalent_identifiers']))
+                # get the equivalent identifiers
+                if 'equivalent_identifiers' in cached_node_norms[rv['id']] and len(cached_node_norms[rv['id']]['equivalent_identifiers']) > 0:
+                    node_list[node_idx]['equivalent_identifiers'] = '|'.join(list((item['identifier']) for item in cached_node_norms[rv['id']]['equivalent_identifiers']))
 
-                    # find the id and replace it with the normalized value
-                    node_list[node_idx]['id'] = cached_node_norms[rv['id']]['id']['identifier']
-                else:
-                    self.logger.error(f"{rv['id']} has no normalized value")
+                # find the id and replace it with the normalized value
+                node_list[node_idx]['id'] = cached_node_norms[rv['id']]['id']['identifier']
+            else:
+                self.logger.debug(f"{rv['id']} has no normalized value")
 
             # go to the next node index
             node_idx += 1
@@ -375,12 +371,14 @@ class GetData:
         # return the list to the caller
         return ret_val
 
-    def get_goa_virus_files(self, data_dir: str, file_list: list) -> int:
+    def get_goa_files(self, data_dir: str, file_list: list, ftp_parent_dir: str, ftp_sub_dir: str) -> int:
         """
-        gets all the uniprot GOA files.
+        gets the uniprot GOA data file(s).
 
         :param data_dir: the data file(s) destination
         :param file_list: the list of files
+        :param ftp_parent_dir: the ftp data parent directory
+        :param ftp_sub_dir: the ftp data sub directory
         :return: the retrieved file count
         """
 
@@ -392,11 +390,8 @@ class GetData:
         # a connection to this FTP site is not reliable
         while attempts < 25:
             try:
-                # get the 1 sars-cov-2 file
-                self.pull_via_ftp('ftp.ebi.ac.uk', '/pub/contrib/goa/', ['uniprot_sars-cov-2.gaf'], data_dir)
-
                 # get the rest of the files
-                actual_count = self.pull_via_ftp('ftp.ebi.ac.uk', '/pub/databases/GO/goa/proteomes/', file_list, data_dir)
+                actual_count = self.pull_via_ftp('ftp.ebi.ac.uk', ftp_parent_dir + ftp_sub_dir, file_list, data_dir)
 
                 # if we got all the files
                 if target_count != 0 and (target_count == actual_count):
