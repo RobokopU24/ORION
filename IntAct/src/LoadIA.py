@@ -69,7 +69,6 @@ class DataCols(enum.IntEnum):
 # Desc: Class that loads the Intact Virus interaction data and creates KGX files for importing into a Neo4j graph.
 ##############
 class IALoader:
-
     # storage for cached node normalizations
     cached_node_norms: dict = {}
 
