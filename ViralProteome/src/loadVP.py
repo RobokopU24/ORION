@@ -79,7 +79,7 @@ class VPLoader:
                     # increment the file counter
                     file_counter += 1
 
-                    # logger.debug(f'Parsing file number {file_counter}, {f[:-1]}.')
+                    logger.debug(f'Parsing file number {file_counter}, {f[:-1]}.')
 
                     # read the file and make the list
                     node_list: list = self.get_node_list(fp)
@@ -150,6 +150,10 @@ class VPLoader:
             node_2_id: str = ''
             node_3_id: str = ''
             node_3_type: str = ''
+
+            # if we dont get a set of 3 something is odd (but not necessarily bad)
+            if len(rows) != 3:
+                logger.error(f'Mis-matched node grouping. {rows}')
 
             # for each row in the triplet
             for row in rows.iterrows():
@@ -388,9 +392,9 @@ if __name__ == '__main__':
     # parse the arguments
     args = vars(ap.parse_args())
 
-    # UniProtKB_data_dir = '\\\\nuc2\\renci\\Work\\Robokop\\VP_data\\UniProtKB_data'
-    # UniProtKB_data_dir = '/projects/stars/VP_data/UniProtKB_data'
-    # UniProtKB_data_dir = 'D:/Work/Robokop/VP_data/UniProtKB_data'
+    # UniProtKB_data_dir = '\\\\nuc2\\renci\\Work\\Robokop\\Data_services\\UniProtKB_data'
+    # UniProtKB_data_dir = '/projects/stars/Data_services/UniProtKB_data'
+    # UniProtKB_data_dir = 'D:/Work/Robokop/Data_services/UniProtKB_data'
     UniProtKB_data_dir = args['data_dir']
 
     # get a reference to the processor
@@ -408,8 +412,11 @@ if __name__ == '__main__':
     # assign the data directory
     goa_data_dir = UniProtKB_data_dir + '/Virus_GOA_files/'
 
+    # get the 1 sars-cov-2 file. this is in a different location than the rest
+    gd.pull_via_ftp('ftp.ebi.ac.uk', '/pub/databases/GO/goa/proteomes/', ['uniprot_sars-cov-2.gaf'], goa_data_dir)
+
     # get the data files
-    actual_count: int = gd.get_goa_virus_files(goa_data_dir, file_list)
+    actual_count: int = gd.get_goa_files(goa_data_dir, file_list, '/pub/databases/GO/goa', '/proteomes/')
 
     # did we get all the files
     if len(file_list) == actual_count:
