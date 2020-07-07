@@ -3,6 +3,7 @@ import requests
 import logging
 import tarfile
 import csv
+import gzip
 from csv import reader
 from ftplib import FTP
 from datetime import datetime
@@ -89,18 +90,33 @@ class LoggingUtil(object):
 
 
 class NodeNormUtils:
+    """
+    Class that contains methods relating to node normalization of KGX data.
+
+    the input node list should be KGX compliant and have the following columns that may be
+    changed during the normalization:
+
+        id: the id value to be normalized upon
+        name: the name of the node
+        category: the semantic type(s)
+        equivalent_identifiers: the list of synonymous ids
+    """
     # create a logger
     logger = LoggingUtil.init_logging("Data_services.Common.NodeNormUtils", line_format='medium', log_file_path=os.path.join(Path(__file__).parents[1], 'logs'))
 
-    def normalize_node_data(self, node_list: list, cached_node_norms: dict = {}) -> list:
+    def normalize_node_data(self, node_list: list, cached_node_norms: dict = None) -> list:
         """
         This method calls the NodeNormalization web service to get the normalized identifier and name of the taxon node.
         the data comes in as a node list and we will normalize the only the taxon nodes.
 
         :param node_list: A list with items to normalize
-        :param cached_node_norms: list of previously captured normalizations
+        :param cached_node_norms: dict of previously captured normalizations
         :return:
         """
+
+        # init the cache list if it wasnt passed in
+        if cached_node_norms is None:
+            cached_node_norms: dict = {}
 
         # init the node index counter
         node_idx: int = 0
@@ -212,6 +228,9 @@ class NodeNormUtils:
 
 
 class GetData:
+    """
+    Class that contains methods that can be used to get various data sets.
+    """
     # create a logger
     logger = LoggingUtil.init_logging("Data_services.Common.GetData", line_format='medium', log_file_path=os.path.join(Path(__file__).parents[1], 'logs'))
 
@@ -241,7 +260,7 @@ class GetData:
 
             # for each file requested
             for f in ftp_files:
-                self.logger.debug(f'Retrieving {f} from {ftp_site}{ftp_dir} and placing it in {data_file_path}')
+                self.logger.debug(f'Retrieving {ftp_site}{ftp_dir}{f} -> {data_file_path}')
 
                 # does the file exist and has data in it
                 try:
@@ -262,15 +281,62 @@ class GetData:
                 if file_counter % 50 == 0:
                     self.logger.debug(f'{file_counter} files retrieved, {len(ftp_files) - file_counter} to go.')
 
-            self.logger.debug(f'{file_counter} files retrieved of {len(ftp_files)} requested.')
+            self.logger.debug(f'{file_counter} file(s) retrieved of {len(ftp_files)} requested.')
 
             # close the ftp object
             ftp.quit()
         except Exception as e:
-            self.logger.error(f'pull_via_ftp() failed. Exception: {e}')
+            self.logger.error(f'Error: pull_via_ftp() failed. Exception: {e}')
 
         # return pass/fail to the caller
         return file_counter
+
+    def get_swiss_prot_id_set(self, data_dir: str) -> set:
+        """
+        gets/parses the swiss-prot listing file and returns a set of uniprot kb ids from
+        ftp://ftp.uniprot.org/pub/databases/uniprot/current_release/knowledgebase/complete/uniprot_sprot.dat.gz.
+
+        :param data_dir: the directory to place the file temporarily
+        :return: a set of uniprot kb ids
+        """
+
+        self.logger.debug('Start of swiss-prot curated uniprot id retrieval')
+
+        # init the return value
+        ret_val: set = set()
+
+        # the name of the tar file that has the target data file
+        data_file_name = 'uniprot_sprot.dat.gz'
+
+        # get the tar file that has the taxon id data
+        self.pull_via_ftp('ftp.uniprot.org', '/pub/databases/uniprot/current_release/knowledgebase/complete/', [data_file_name], data_dir)
+
+        # open the tar file
+        with gzip.open(os.path.join(data_dir, data_file_name), 'r') as zf:
+            # for each line in the file
+            for line in zf:
+                # turn the read value into a string
+                line = line.decode("utf-8")
+
+                # is this one we are looking for
+                if line.startswith('AC'):
+                    # split the line to separate out the uniprot ids
+                    ids = line.split('   ')[1].split('; ')
+
+                    # save each item listed
+                    for item in ids:
+                        # save it
+                        ret_val.add(item.strip(';\n'))
+
+        # do not remove the file if in debug mode
+        if self.logger.level != logging.DEBUG:
+            # remove the target file
+            os.remove(os.path.join(data_dir, data_file_name))
+
+        self.logger.debug(f'End of swiss-prot uniprot id retrieval. {len(ret_val)} retrieved.')
+
+        # return the list
+        return ret_val
 
     def get_ncbi_taxon_id_set(self, taxon_data_dir, organism_type: str) -> set:
         """
@@ -280,6 +346,9 @@ class GetData:
         :param: the organism type
         :return: a list of file indexes
         """
+
+        self.logger.debug(f'Start of NCBI taxon retrieval.')
+
         # init the return value
         ret_val: set = set()
 
@@ -315,8 +384,12 @@ class GetData:
         fp.close()
         tar_file.close()
 
-        # remove the target file
-        os.remove(os.path.join(taxon_data_dir, data_file_name))
+        # do not remove the file if in debug mode
+        if self.logger.level != logging.DEBUG:
+            # remove the target file
+            os.remove(os.path.join(taxon_data_dir, data_file_name))
+
+        self.logger.debug(f'Start of NCBI taxon retrieval. {len(ret_val)} retrieved.')
 
         # return the list
         return ret_val
@@ -331,6 +404,8 @@ class GetData:
         :param taxa_id_set: the set of taxa ids
         :return: the set of file names to get
         """
+        self.logger.debug(f'Start of uniprot file list retrieval.')
+
         # storage for the final file list
         files: list = []
 
@@ -360,13 +435,15 @@ class GetData:
             # add the sars cov-2 file manually
             ret_val.append('uniprot_sars-cov-2.gaf')
 
-        self.logger.debug(f'{len(ret_val)} total files found.')
-
         # close the file
         fp.close()
 
-        # remove the data file
-        os.remove(os.path.join(proteome_data_dir, data_file_name))
+        # do not remove the file if in debug mode
+        if self.logger.level != logging.DEBUG:
+            # remove the data file
+            os.remove(os.path.join(proteome_data_dir, data_file_name))
+
+        self.logger.debug(f'End of uniprot file list retrieval. {len(ret_val)} retrieved.')
 
         # return the list to the caller
         return ret_val
@@ -381,6 +458,7 @@ class GetData:
         :param ftp_sub_dir: the ftp data sub directory
         :return: the retrieved file count
         """
+        self.logger.debug(f'Start of GOA file retrieval.')
 
         # init some counters
         attempts: int = 0
@@ -398,8 +476,10 @@ class GetData:
                     break
             # handle issues in file retrieval
             except Exception as e:
-                self.logger.error(f'target: {target_count}, actual: {actual_count}, attempts: {attempts}, {e}')
+                self.logger.error(f'Error: target: {target_count}, actual: {actual_count}, attempts: {attempts}, {e}')
                 attempts += 1
+
+        self.logger.debug(f'End of GOA file retrieval. {actual_count} retrieved.')
 
         # return the number of files captured
         return actual_count
