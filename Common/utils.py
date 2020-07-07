@@ -463,23 +463,23 @@ class GetData:
         # init some counters
         attempts: int = 0
         target_count: int = len(file_list)
-        actual_count: int = 0
+        file_count: int = 0
 
         # a connection to this FTP site is not reliable
         while attempts < 25:
             try:
                 # get the rest of the files
-                actual_count = self.pull_via_ftp('ftp.ebi.ac.uk', ftp_parent_dir + ftp_sub_dir, file_list, data_dir)
+                file_count = self.pull_via_ftp('ftp.ebi.ac.uk', ftp_parent_dir + ftp_sub_dir, file_list, data_dir)
 
                 # if we got all the files
-                if target_count != 0 and (target_count == actual_count):
+                if target_count != 0 and (target_count == file_count):
                     break
             # handle issues in file retrieval
             except Exception as e:
-                self.logger.error(f'Error: target: {target_count}, actual: {actual_count}, attempts: {attempts}, {e}')
+                self.logger.error(f'Error: target: {target_count}, actual: {file_count}, attempts: {attempts}, {e}')
                 attempts += 1
 
-        self.logger.debug(f'End of GOA file retrieval. {actual_count} retrieved.')
+        self.logger.debug(f'End of GOA file retrieval. {file_count} retrieved.')
 
         # return the number of files captured
-        return actual_count
+        return file_count
