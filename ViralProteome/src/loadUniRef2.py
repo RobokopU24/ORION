@@ -28,12 +28,12 @@ class UniRefSimLoader:
     # storage for cached node normalizations
     cached_node_norms: dict = {}
 
-    def load(self, data_path: str, in_file_names: list, taxon_index_file: str, block_size: int = 1000, debug_files: bool = False):
+    def load(self, data_dir: str, in_file_names: list, taxon_index_file: str, block_size: int = 1000, debug_files: bool = False):
         """
         parses the UniRef data files gathered from ftp://ftp.uniprot.org/pub/databases/uniprot/uniref/ to
         create standard KGX files to import thr data into a graph database
 
-        :param data_path: root directory of the input data files
+        :param data_dir: the directory of the input data files
         :param in_file_names: the UniRef file to work
         :param taxon_index_file: the list of UniRef virus file indexes
         :param block_size: the number of nodes collected to trigger writing KGX data to file
@@ -49,10 +49,10 @@ class UniRefSimLoader:
 
         # for each UniRef file to process
         for f in in_file_names:
-            logger.info(f'Start of processing {f}.')
+            logger.info(f'UniRefSimLoader - Start of processing {f}.')
 
             # process the file
-            with open(os.path.join(data_path, f'{f}_Virus_node_file.tsv'), 'w', encoding="utf-8") as out_node_f, open(os.path.join(data_path, f'{f}_Virus_edge_file.tsv'), 'w', encoding="utf-8") as out_edge_f:
+            with open(os.path.join(data_dir, f'{f}_Virus_node_file.tsv'), 'w', encoding="utf-8") as out_node_f, open(os.path.join(data_dir, f'{f}_Virus_edge_file.tsv'), 'w', encoding="utf-8") as out_edge_f:
                 # write out the node and edge data headers
                 out_node_f.write(f'id\tname\tcategory\tequivalent_identifiers\n')
                 out_edge_f.write(f'id\tsubject\trelation_label\tedge_label\tobject\n')
@@ -64,9 +64,9 @@ class UniRefSimLoader:
                     full_file = f + '.xml'
 
                 # read the file and make the list
-                self.parse_data_file(os.path.join(data_path, full_file), os.path.join(data_path, f'{f}_{taxon_index_file}'), target_taxon_set, out_edge_f, out_node_f, block_size)
+                self.parse_data_file(os.path.join(data_dir, full_file), os.path.join(data_dir, f'{f}_{taxon_index_file}'), target_taxon_set, out_edge_f, out_node_f, block_size)
 
-                logger.info(f'{f} processing complete.')
+                logger.info(f'UniRefSimLoader - {f} Processing complete.')
 
     def parse_data_file(self, uniref_infile_path: str, index_file_path: str, target_taxa: set, out_edge_f, out_node_f, block_size: int):
         """
@@ -99,7 +99,7 @@ class UniRefSimLoader:
 
                 # output a status indicator
                 if index_counter % 500000 == 0:
-                    logger.info(f'Completed {index_counter} taxa.')
+                    logger.debug(f'Completed {index_counter} taxa.')
 
                 # start looking a bit before the location grep found
                 taxon_index = int(line.split(':')[0]) - 150
@@ -112,7 +112,7 @@ class UniRefSimLoader:
                     # call to get an entry and enter it into the node list
                     self.capture_entry_data(entry_element, node_list, target_taxa)
                 else:
-                    logger.error(f'Error producing an entry node for {line} at line number {index_counter}.')
+                    logger.error(f'Error: Entry node for {line} at line number {index_counter} invalid.')
 
                 # is it time to write out the data we have collected so far
                 if len(node_list) > block_size:
@@ -205,7 +205,7 @@ class UniRefSimLoader:
                     self.cached_node_norms = merged
                 else:
                     # the 404 error that is trapped here means that the entire list of nodes didnt get normalized.
-                    logger.error(f'Response code: {resp.status_code} block {start_index} to {end_index}')
+                    logger.error(f'Error: Response code: {resp.status_code} block {start_index} to {end_index}')
 
                     # since they all failed to normalize add to the list so we dont try them again
                     for item in data_chunk:
@@ -587,7 +587,7 @@ if __name__ == '__main__':
     # create a command line parser
     ap = argparse.ArgumentParser(description='Load UniRef data files and create KGX import files.')
 
-    # command line should be like: python loadUniRef2.py -d /projects/stars/VP_data/UniRef_data -f uniref50,uniref90,uniref100
+    # command line should be like: python loadUniRef2.py -d /projects/stars/Data_services/UniRef_data -f uniref50,uniref90,uniref100
     ap.add_argument('-d', '--data_dir', required=True, help='The location of the UniRef data files')
     ap.add_argument('-f', '--UniRef_files', required=True, help='Name(s) of input UniRef files (comma delimited)')
 
@@ -595,10 +595,9 @@ if __name__ == '__main__':
     args = vars(ap.parse_args())
 
     # this is the base directory for data files and the resultant KGX files.
-    # data_dir = '\\\\nuc2\\renci\\Work\\Robokop\\VP_data\\UniRef_data'
-    # data_dir = '/projects/stars/VP_data/UniRef_data'
-    # data_dir = 'D:/Work/Robokop/VP_data/UniRef_data'
-    data_dir = args['data_dir']
+    # data_dir = '/projects/stars/Data_services/UniRef_data'
+    # data_dir = 'D:/Work/Robokop/Data_services/UniRef_data'
+    UniRef_data_dir: str = args['data_dir']
 
     # create the file list
     # file_list: list = ['uniref50']  # 'uniref100', 'uniref90', 'uniref50'
@@ -608,4 +607,4 @@ if __name__ == '__main__':
     vp = UniRefSimLoader()
 
     # load the data files and create KGX output
-    vp.load(data_dir, file_list, 'taxon_file_indexes.txt', block_size=10000, debug_files=False)
+    vp.load(UniRef_data_dir, file_list, 'taxon_file_indexes.txt', block_size=10000, debug_files=False)
