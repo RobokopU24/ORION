@@ -57,6 +57,8 @@ class VPLoader:
         :return: True
         """
 
+        logger.info(f'VPLoader - Start of processing.')
+
         with open(os.path.join(data_path, f'{out_name}_node_file.tsv'), 'w', encoding="utf-8") as out_node_f, open(os.path.join(data_path, f'{out_name}_edge_file.tsv'), 'w', encoding="utf-8") as out_edge_f:
             # write out the node and edge data headers
             out_node_f.write(f'id\tname\tcategory\tequivalent_identifiers\n')
@@ -69,8 +71,6 @@ class VPLoader:
 
             # init the total set of nodes
             total_nodes: list = []
-
-            logger.info(f'Start of file parsing.')
 
             # process each file
             for f in files:
@@ -87,17 +87,15 @@ class VPLoader:
                     # save this list of nodes to the running collection
                     total_nodes.extend(node_list)
 
-            logger.info(f'Node list loaded with {len(total_nodes)} entries.')
-
             # de-dupe the list
             total_nodes = [dict(t) for t in {tuple(d.items()) for d in total_nodes}]
 
-            logger.info(f'Node list duplicates removed, now loaded with {len(total_nodes)} entries.')
+            logger.debug(f'Node list loaded with {len(total_nodes)} entries.')
 
             # normalize the group of entries on the data frame.
             total_nodes = self.normalize_node_data(total_nodes)
 
-            logger.info('Creating edges.')
+            logger.debug('Creating edges.')
 
             # create a data frame with the node list
             df: pd.DataFrame = pd.DataFrame(total_nodes, columns=['grp', 'node_num', 'id', 'name', 'category', 'equivalent_identifiers'])
@@ -105,13 +103,13 @@ class VPLoader:
             # get the list of unique edges
             final_edges: set = self.get_edge_set(df)
 
-            logger.info(f'{len(final_edges)} unique edges found, creating KGX edge file.')
+            logger.debug(f'{len(final_edges)} unique edges found, creating KGX edge file.')
 
             # write out the unique edges
             for item in final_edges:
                 out_edge_f.write(hashlib.md5(item.encode('utf-8')).hexdigest() + item)
 
-            logger.info(f'De-duplicating {len(total_nodes)} nodes')
+            logger.debug(f'De-duplicating {len(total_nodes)} nodes')
 
             # init a set for the node de-duplication
             final_node_set: set = set()
@@ -120,12 +118,12 @@ class VPLoader:
             for row in total_nodes:
                 final_node_set.add(f"{row['id']}\t{row['name']}\t{row['category']}\t{row['equivalent_identifiers']}\n")
 
-            logger.info(f'Creating KGX node file with {len(final_node_set)} nodes.')
+            logger.debug(f'Creating KGX node file with {len(final_node_set)} nodes.')
 
             for row in final_node_set:
                 out_node_f.write(row)
 
-            logger.info(f'GOA data parsing and KGX file creation complete.\n')
+            logger.info(f'VPLoader - Processing complete.')
         return True
 
     @staticmethod
@@ -153,7 +151,7 @@ class VPLoader:
 
             # if we dont get a set of 3 something is odd (but not necessarily bad)
             if len(rows) != 3:
-                logger.error(f'Mis-matched node grouping. {rows}')
+                logger.warning(f'Warning: Mis-matched node grouping. {rows}')
 
             # for each row in the triplet
             for row in rows.iterrows():
@@ -180,6 +178,7 @@ class VPLoader:
             relation_label: str = ''
             src_node_id: str = ''
             obj_node_id: str = ''
+            valid_type = True
 
             # find the predicate and edge relationships
             if node_3_type.find('molecular_activity') > -1:
@@ -194,9 +193,14 @@ class VPLoader:
                 relation_label = 'has_part'
                 src_node_id = node_3_id
                 obj_node_id = node_1_id
+            else:
+                valid_type = False
+                logger.error(f'Error: Unrecognized node 3 type {node_3_type} for {node_3_id}')
 
-            # create the KGX edge data for nodes 1 and 3
-            edge_set.add(f'\t{src_node_id}\t{relation_label}\t{relation_label}\t{obj_node_id}\n')
+            # was this a good value
+            if valid_type:
+                # create the KGX edge data for nodes 1 and 3
+                edge_set.add(f'\t{src_node_id}\t{relation_label}\t{relation_label}\t{obj_node_id}\n')
 
         logger.debug(f'{len(edge_set)} unique edges identified.')
 
@@ -255,7 +259,7 @@ class VPLoader:
                 """ A node for the GO term GO:0004518. It should normalize, telling us the type / name. """
                 node_list.append({'grp': grp, 'node_num': 3, 'id': f'{line[DATACOLS.GO_ID.value]}', 'name': '', 'category': '', 'equivalent_identifiers': ''})
             except Exception as e:
-                logger.error(f'Exception: {e}')
+                logger.error(f'Error: Exception: {e}')
 
         # return the list to the caller
         return node_list
@@ -386,7 +390,7 @@ if __name__ == '__main__':
     # create a command line parser
     ap = argparse.ArgumentParser(description='Load UniProtKB viral proteome data files and create KGX import files.')
 
-    # command line should be like: python loadVP.py -d /projects/stars/VP_data/UniProtKB_data
+    # command line should be like: python loadVP.py -d /projects/stars/Data_services/UniProtKB_data
     ap.add_argument('-d', '--data_dir', required=True, help='The location of the UniProtKB data files')
 
     # parse the arguments
@@ -409,11 +413,11 @@ if __name__ == '__main__':
     # get the list of files that contain those taxa
     file_list: list = gd.get_uniprot_virus_file_list(UniProtKB_data_dir, vp.TYPE_VIRUS, target_taxa_set)
 
+    # manually add in the sars cov2 data file
+    file_list.append('uniprot_sars-cov-2.gaf')
+
     # assign the data directory
     goa_data_dir = UniProtKB_data_dir + '/Virus_GOA_files/'
-
-    # get the 1 sars-cov-2 file. this is in a different location than the rest
-    gd.pull_via_ftp('ftp.ebi.ac.uk', '/pub/databases/GO/goa/proteomes/', ['uniprot_sars-cov-2.gaf'], goa_data_dir)
 
     # get the data files
     actual_count: int = gd.get_goa_files(goa_data_dir, file_list, '/pub/databases/GO/goa', '/proteomes/')
@@ -421,6 +425,6 @@ if __name__ == '__main__':
     # did we get all the files
     if len(file_list) == actual_count:
         # load the data files and create KGX output
-        vp.load(UniProtKB_data_dir, 'Virus_GOA_files/', file_list, 'VP_Virus')
+        vp.load(UniProtKB_data_dir, 'Virus_GOA_files/', file_list, 'Viral_proteome_GOA')
     else:
-        logger.error('Did not receive all the UniProtKB GOA files.')
+        logger.error(f'Error: Did not receive all the UniProtKB GOA files.')
