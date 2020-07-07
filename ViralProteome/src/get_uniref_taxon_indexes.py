@@ -1,5 +1,6 @@
 import os
 import argparse
+import logging
 from ViralProteome.src.loadUniRef2 import UniRefSimLoader
 from Common.utils import LoggingUtil, GetData
 from pathlib import Path
@@ -12,7 +13,7 @@ if __name__ == '__main__':
     # create a command line parser
     ap = argparse.ArgumentParser(description='Index UniRef data files for faster parsing.')
 
-    # command line should be like: python get_uniref_taxon_targets.py -d /projects/stars/VP_data/UniRef_data -f uniref50,uniref90,uniref100
+    # command line should be like: python get_uniref_taxon_targets.py -d /projects/stars/Data_services/UniRef_data -f uniref50,uniref90,uniref100
     ap.add_argument('-d', '--data_dir', required=True, help='The location of the UniRef data files')
     ap.add_argument('-f', '--UniRef_files', required=True, help='Name(s) of input UniRef files (comma delimited)')
 
@@ -22,9 +23,9 @@ if __name__ == '__main__':
     # load the utility class to get the virus taxa id list
     gd = GetData()
 
-    # uniref_data_dir: str = 'D:/Work/Robokop/VP_data/UniRef_data'
-    # uniref_data_dir = '/projects/stars/VP_data/UniRef_data'
-    # uniref_data_dir = '/d/Work/Robokop/VP_data/UniRef_data'
+    # uniref_data_dir: str = 'D:/Work/Robokop/Data_services/UniRef_data'
+    # uniref_data_dir = '/projects/stars/Data_services/UniRef_data'
+    # uniref_data_dir = '/d/Work/Robokop/Data_services/UniRef_data'
     uniref_data_dir = args['data_dir']
 
     # the files to process
@@ -66,3 +67,8 @@ if __name__ == '__main__':
         # execute the grep command using the target taxon list
         # Note: you must use the latest version of grep for this to work
         os.system(f'grep -F -b -f "{search_file_path}" "{uniref_infile_path}" >> "{index_file_path}"')
+
+    # do not remove the file if in debug mode
+    if logger.level != logging.DEBUG:
+        # remove the original list of taxon ids
+        os.remove(search_file_path)
