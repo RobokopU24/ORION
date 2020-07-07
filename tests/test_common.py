@@ -21,9 +21,9 @@ def test_get_taxon_id_list():
 
     data_file_path += '/Virus_GOA_files/'
 
-    file_subset: list = file_list  # [:2]
+    file_subset: list = file_list[:2]
 
-    actual_count: int = gd.get_goa_virus_files(data_file_path, file_subset)
+    actual_count: int = gd.get_goa_files(data_file_path, file_subset, '/pub/databases/GO/goa', '/proteomes/')
 
     assert(actual_count == len(file_subset))
 
