@@ -76,22 +76,29 @@ class IALoader:
     # storage for experiment groups to write to file.
     experiment_grp_list: list = []
 
-    def load(self, data_file_path: str, data_file_name: str, out_name: str):
+    def load(self, data_file_path: str, data_file_name: str, out_name: str, test_mode: bool = False):
         """
         Loads/parsers the IntAct data file to produce node/edge KGX files for importation into a graph database.
 
         :param data_file_path: the directory that will contain the intact data file
         :param data_file_name: The name of the intact data archive file
         :param out_name: The output file name prefix
+        :param test_mode: sets the usage of using a test data files
         :return: None
         """
         logger.info(f'Start of IntAct data processing.')
 
-        # get a reference to the dat gathering class
+        # get a reference to the data gathering class
         gd = GetData()
 
+        # do the real thing if we arent in debug mode
+        if not test_mode:
+            file_count: int = gd.pull_via_ftp('ftp.ebi.ac.uk', '/pub/databases/IntAct/current/psimitab/', [data_file_name], data_file_path)
+        else:
+            file_count: int = 1
+
         # get the intact archive
-        if gd.pull_via_ftp('ftp.ebi.ac.uk', '/pub/databases/IntAct/current/psimitab/', [data_file_name], data_file_path) == 1:
+        if file_count == 1:
             logger.debug(f'{data_file_name} archive retrieved. Parsing IntAct data.')
 
             with open(os.path.join(data_file_path, f'{out_name}_node_file.tsv'), 'w', encoding="utf-8") as out_node_f, open(os.path.join(data_file_path, f'{out_name}_edge_file.tsv'), 'w', encoding="utf-8") as out_edge_f:
@@ -100,10 +107,10 @@ class IALoader:
                 out_edge_f.write(f'id\tsubject\trelation_label\tedge_label\tpublications\tdetection_method\tobject\n')
 
                 # parse the data
-                self.parse_data_file(os.path.join(data_file_path, data_file_name), out_node_f, out_edge_f)
+                self.parse_data_file(os.path.join(data_file_path, data_file_name), out_node_f, out_edge_f, test_mode)
 
             # do not remove the file if in debug mode
-            if self.logger.level != logging.DEBUG:
+            if logger.level != logging.DEBUG and not test_mode:
                 # remove the data file
                 os.remove(os.path.join(data_file_path, data_file_name))
 
@@ -111,15 +118,22 @@ class IALoader:
         else:
             logger.error(f'Error: Retrieving IntAct archive failed.')
 
-    def parse_data_file(self, infile_path: str, out_node_f, out_edge_f):
+    def parse_data_file(self, infile_path: str, out_node_f, out_edge_f, test_mode: bool = False):
         """
         Parses the data file for graph nodes/edges and writes them out the KGX tsv files.
 
         :param infile_path: the name of the intact file to process
         :param out_edge_f: the edge file pointer
         :param out_node_f: the node file pointer
+        :param test_mode: indicates we are in debug mode
         :return:
         """
+        # adjust the write threshold if in debug mode
+        if not test_mode:
+            threshold: int = 1000
+        else:
+            threshold: int = 1
+
         with ZipFile(infile_path) as zf:
             # open the taxon file indexes and the uniref data file
             with zf.open('intact.txt', 'r') as fp:
@@ -155,9 +169,9 @@ class IALoader:
                             self.experiment_grp_list.extend(experiment_grp)
 
                             # did we reach the write threshold
-                            if len(self.experiment_grp_list) > 1000:
+                            if len(self.experiment_grp_list) >= threshold:
                                 # write out what we have so far
-                                self.write_out_data(out_edge_f, out_node_f)
+                                self.write_out_data(out_edge_f, out_node_f, test_mode)
 
                                 # empty the list for the next batch
                                 self.experiment_grp_list.clear()
@@ -208,10 +222,10 @@ class IALoader:
 
                 # save any remainders
                 if len(experiment_grp) > 0:
-                    self.write_out_data(out_edge_f, out_node_f)
+                    self.write_out_data(out_edge_f, out_node_f, test_mode)
                     logger.info(f'Processing completed. {interaction_counter} interactions processed.')
 
-    def write_out_data(self, out_edge_f: TextIOBase, out_node_f: TextIOBase):
+    def write_out_data(self, out_edge_f: TextIOBase, out_node_f: TextIOBase, test_mode: bool = False):
         """
         writes out the data collected from the IntAct file to KGX node and edge files
 
@@ -221,7 +235,8 @@ class IALoader:
         """
 
         # node normalize the data
-        self.experiment_grp_list = self.normalize_node_data(self.experiment_grp_list)
+        if not test_mode:
+            self.experiment_grp_list = self.normalize_node_data(self.experiment_grp_list)
 
         # write out the edges
         self.write_edge_data(out_edge_f, self.experiment_grp_list)

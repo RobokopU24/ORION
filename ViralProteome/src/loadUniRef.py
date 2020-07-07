@@ -205,7 +205,7 @@ class UniRefSimLoader:
                     self.cached_node_norms = merged
                 else:
                     # the 404 error that is trapped here means that the entire list of nodes didnt get normalized.
-                    logger.error(f'Error: Response code: {resp.status_code} block {start_index} to {end_index}')
+                    logger.warning(f'Warning: Response code: {resp.status_code} block {start_index} to {end_index}')
 
                     # since they all failed to normalize add to the list so we dont try them again
                     for item in data_chunk:
@@ -406,7 +406,6 @@ class UniRefSimLoader:
                                 node_counter += 1
 
                         except KeyError:
-                            # logger.debug(f"\t\t\t{e} cluster member element missing for {element.attrib['id']}. Continuing...")
                             pass
 
         # did we get at least 3 node pairs (entry node pair, rep member node pair, at least 1 cluster member pair)

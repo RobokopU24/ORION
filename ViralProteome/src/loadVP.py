@@ -195,7 +195,7 @@ class VPLoader:
                 obj_node_id = node_1_id
             else:
                 valid_type = False
-                logger.error(f'Error: Unrecognized node 3 type {node_3_type} for {node_3_id}')
+                logger.warning(f'Warning: Unrecognized node 3 type {node_3_type} for {node_3_id}')
 
             # was this a good value
             if valid_type:

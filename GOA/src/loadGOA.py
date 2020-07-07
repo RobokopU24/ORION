@@ -43,7 +43,7 @@ class DATACOLS(enum.IntEnum):
 # Desc: Class that loads the UniProtKB GOA data and creates KGX files for importing into a Neo4j graph.
 ##############
 class GOALoader:
-    def load(self, data_file_path, ftp_dir_path: str, data_file_name: str, out_name: str) -> bool:
+    def load(self, data_file_path, ftp_dir_path: str, data_file_name: str, out_name: str, test_mode: bool = False) -> bool:
         """
         loads/parses goa data file from ftp://ftp.ebi.ac.uk/pub/databases/GO/goa/<ftp_dir_path>
 
@@ -51,6 +51,7 @@ class GOALoader:
         :param ftp_dir_path: the path in the ftp file sub directory
         :param data_file_name: the name of the goa input data file
         :param out_name: the output name prefix of the KGX files
+        :param test_mode: flag to indicate test mode
         :return: True
         """
         logger.info(f'GOALoader - Start of file processing.')
@@ -61,24 +62,29 @@ class GOALoader:
         # and get a reference to the data gatherer
         gd = GetData()
 
-        # get the uniprot kb ids that were curated by swiss-prot
-        swiss_prots: set = gd.get_swiss_prot_id_set(data_file_path)
+        # do the real thing if we arent in debug mode
+        if not test_mode:
+            # get the uniprot kb ids that were curated by swiss-prot
+            swiss_prots: set = gd.get_swiss_prot_id_set(data_file_path)
 
-        # get the data file
-        actual_count: int = gd.get_goa_files(data_file_path, [data_file_name], '/pub/databases/GO/goa', ftp_dir_path)
+            # get the data file
+            file_count: int = gd.get_goa_files(data_file_path, [data_file_name], '/pub/databases/GO/goa', ftp_dir_path)
+        else:
+            swiss_prots: set = {'A0A024RBG1'}
+            file_count: int = 1
 
         # did we get all the files
-        if actual_count == 1:
+        if file_count == 1:
             with open(os.path.join(data_file_path, f'{out_name}_node_file.tsv'), 'w', encoding="utf-8") as out_node_f, open(os.path.join(data_file_path, f'{out_name}_edge_file.tsv'), 'w', encoding="utf-8") as out_edge_f:
                 # write out the node and edge data headers
                 out_node_f.write(f'id\tname\tcategory\tequivalent_identifiers\n')
                 out_edge_f.write(f'id\tsubject\trelation_label\tedge_label\tobject\n')
 
                 # parse the data
-                self.parse_data_file(os.path.join(data_file_path, data_file_name), out_node_f, out_edge_f, swiss_prots)
+                self.parse_data_file(os.path.join(data_file_path, data_file_name), out_node_f, out_edge_f, swiss_prots, test_mode)
 
                 # do not remove the file if in debug mode
-                if logger.level != logging.DEBUG:
+                if logger.level != logging.DEBUG and not test_mode:
                     # remove the data file
                     os.remove(os.path.join(data_file_path, data_file_name))
 
@@ -94,7 +100,7 @@ class GOALoader:
         # return the pass/fail flag to the caller
         return ret_val
 
-    def parse_data_file(self, infile_path: str, out_node_f, out_edge_f, swiss_prots: set):
+    def parse_data_file(self, infile_path: str, out_node_f, out_edge_f, swiss_prots: set, test_mode: bool = False):
         """
         Parses the data file for graph nodes/edges and writes them out the KGX tsv files.
 
@@ -102,6 +108,7 @@ class GOALoader:
         :param out_edge_f: the edge file pointer
         :param out_node_f: the node file pointer
         :param swiss_prots: the list of uniprot ids that have been swiss curated
+        :param test_mode: flag to indicate we are in debug mode
         :return:
         """
 
@@ -119,8 +126,9 @@ class GOALoader:
             # normalize the group of entries on the data frame.
             nnu = NodeNormUtils()
 
-            # normalize the node data
-            total_nodes = nnu.normalize_node_data(total_nodes)
+            # normalize the node data if not in debug mode
+            if not test_mode:
+                total_nodes = nnu.normalize_node_data(total_nodes)
 
             logger.debug('Creating edges.')
 
@@ -179,7 +187,7 @@ class GOALoader:
 
             # if we dont get a set of 3 something is odd (but not necessarily bad)
             if len(rows) != 3:
-                logger.error(f'Error: Mis-matched node grouping. {rows}')
+                logger.warning(f'Warning: Mis-matched node grouping. {rows}')
 
             # for each row in the triplet
             for row in rows.iterrows():
@@ -223,7 +231,7 @@ class GOALoader:
                 obj_node_id = node_1_id
             else:
                 valid_type = False
-                logger.error(f'Error: Unrecognized node 3 type <{node_3_type}> for {node_3_id}')
+                logger.warning(f'Warning: Unrecognized node 3 type <{node_3_type}> for {node_3_id}')
 
             # was this a good value
             if valid_type:
