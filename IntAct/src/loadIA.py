@@ -4,6 +4,7 @@ import argparse
 import requests
 import enum
 import pandas as pd
+import logging
 from io import TextIOBase, TextIOWrapper
 from csv import reader
 from operator import itemgetter
@@ -101,12 +102,14 @@ class IALoader:
                 # parse the data
                 self.parse_data_file(os.path.join(data_file_path, data_file_name), out_node_f, out_edge_f)
 
-            # remove the data file
-            os.remove(os.path.join(data_file_path, data_file_name))
+            # do not remove the file if in debug mode
+            if self.logger.level != logging.DEBUG:
+                # remove the data file
+                os.remove(os.path.join(data_file_path, data_file_name))
 
             logger.debug(f'File parsing complete.')
         else:
-            logger.error(f'Error getting the IntAct archive. Exiting.')
+            logger.error(f'Error: Retrieving IntAct archive failed.')
 
     def parse_data_file(self, infile_path: str, out_node_f, out_edge_f):
         """
@@ -389,7 +392,7 @@ class IALoader:
 
                         node_list[node_idx][prefix + 'category_' + suffix] = 'gene|gene_or_gene_product|macromolecular_machine|genomic_entity|molecular_entity|biological_entity|named_thing'
                         node_list[node_idx][prefix + 'equivalent_identifiers_' + suffix] = node_list[node_idx][prefix + suffix]
-                        logger.error(f"Error finding node normalization {node_list[node_idx][prefix + suffix]}")
+                        logger.error(f'Error: Finding node normalization for {node_list[node_idx][prefix + suffix]} failed.')
 
             # go to the next index
             node_idx += 1
@@ -572,14 +575,14 @@ if __name__ == '__main__':
     # create a command line parser
     ap = argparse.ArgumentParser(description='Load IntAct virus interaction data file and create KGX import files.')
 
-    # command line should be like: python loadIA.py -d /projects/stars/IntAct/virus
+    # command line should be like: python loadIA.py -d D:/Work/Robokop/Data_services/IntAct
     ap.add_argument('-d', '--data_dir', required=True, help='The IntAct data file directory')
 
     # parse the arguments
     args = vars(ap.parse_args())
 
     # IntAct_data_dir = ''
-    # IntAct_data_dir = 'D:/Work/Robokop/IntAct/Virus'
+    # IntAct_data_dir = 'D:/Work/Robokop/Data_services/IntAct'
     IntAct_data_dir = args['data_dir']
 
     # get a reference to the processor
