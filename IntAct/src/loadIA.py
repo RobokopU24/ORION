@@ -76,17 +76,19 @@ class IALoader:
     # storage for experiment groups to write to file.
     experiment_grp_list: list = []
 
-    def load(self, data_file_path: str, data_file_name: str, out_name: str, test_mode: bool = False):
+    def load(self, data_file_path: str, out_name: str, test_mode: bool = False):
         """
         Loads/parsers the IntAct data file to produce node/edge KGX files for importation into a graph database.
 
         :param data_file_path: the directory that will contain the intact data file
-        :param data_file_name: The name of the intact data archive file
         :param out_name: The output file name prefix
         :param test_mode: sets the usage of using a test data files
         :return: None
         """
         logger.info(f'IALoader - Start of IntAct data processing.')
+
+        # assign the data file name
+        data_file_name: str = 'intact.zip'
 
         # get a reference to the data gathering class
         gd = GetData()
@@ -233,10 +235,11 @@ class IALoader:
 
         :param out_edge_f: the edge file
         :param out_node_f: the node file
+        :param test_mode: flag to indicate we are going into test mode
         :return:
         """
 
-        # node normalize the data
+        # node normalize the data if we are not in test mode
         if not test_mode:
             self.experiment_grp_list = self.normalize_node_data(self.experiment_grp_list)
 
@@ -606,4 +609,4 @@ if __name__ == '__main__':
     ia = IALoader()
 
     # load the data files and create KGX output files
-    ia.load(IntAct_data_dir, 'intact.zip', 'intact')
+    ia.load(IntAct_data_dir, 'intact')
