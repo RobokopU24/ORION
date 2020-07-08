@@ -28,7 +28,7 @@ class UniRefSimLoader:
     # storage for cached node normalizations
     cached_node_norms: dict = {}
 
-    def load(self, data_dir: str, in_file_names: list, taxon_index_file: str, block_size: int = 1000, test_mode: bool = False):
+    def load(self, data_dir: str, in_file_names: list, taxon_index_file: str, block_size: int = 10000, test_mode: bool = False):
         """
         parses the UniRef data files gathered from ftp://ftp.uniprot.org/pub/databases/uniprot/uniref/ to
         create standard KGX files to import thr data into a graph database
@@ -41,6 +41,8 @@ class UniRefSimLoader:
         :return
         """
 
+        logger.info(f'UniRefSimLoader - Start of UniRef data processing.')
+
         # get a reference to the get data util class
         gd = GetData()
 
@@ -49,12 +51,12 @@ class UniRefSimLoader:
             # get the list of taxa
             target_taxon_set: set = gd.get_ncbi_taxon_id_set(data_dir, self.TYPE_VIRUS)
         else:
-            # create a test mode set of target taxa
+            # create a test set of target taxa
             target_taxon_set = {'654924', '2219562', '10493', '160691', '2219561', ''}
 
         # for each UniRef file to process
         for f in in_file_names:
-            logger.info(f'UniRefSimLoader - Start of {f} data processing.')
+            logger.debug(f'Processing {f}.')
 
             # process the file
             with open(os.path.join(data_dir, f'{f}_Virus_node_file.tsv'), 'w', encoding="utf-8") as out_node_f, open(os.path.join(data_dir, f'{f}_Virus_edge_file.tsv'), 'w', encoding="utf-8") as out_edge_f:
@@ -611,4 +613,4 @@ if __name__ == '__main__':
     vp = UniRefSimLoader()
 
     # load the data files and create KGX output
-    vp.load(UniRef_data_dir, file_list, 'taxon_file_indexes.txt', block_size=10000)
+    vp.load(UniRef_data_dir, file_list, 'taxon_file_indexes.txt')
