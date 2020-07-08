@@ -1,4 +1,0 @@
-pandas
-requests
-pytest==5.3.5
-pytest-cov==2.8.1
