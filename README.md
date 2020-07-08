@@ -19,6 +19,7 @@ Where:
  * Transfer - Pass the graph database to the AUTOMAT service for public access.
  
 ### Data processing projects in this repo
+ * Common - various classes/functions to perform operations common to more than 1 project.
  * GOA - Processes a UniProtKB GOA GAF file.
  * IntAct - Processes the IntAct data file.
  * Viral Proteome - Processes the UniRef and UniProtKB viral proteome data files. 
