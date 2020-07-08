@@ -28,7 +28,7 @@ class UniRefSimLoader:
     # storage for cached node normalizations
     cached_node_norms: dict = {}
 
-    def load(self, data_dir: str, in_file_names: list, taxon_index_file: str, block_size: int = 1000, debug_files: bool = False):
+    def load(self, data_dir: str, in_file_names: list, taxon_index_file: str, block_size: int = 1000, test_mode: bool = False):
         """
         parses the UniRef data files gathered from ftp://ftp.uniprot.org/pub/databases/uniprot/uniref/ to
         create standard KGX files to import thr data into a graph database
@@ -37,15 +37,20 @@ class UniRefSimLoader:
         :param in_file_names: the UniRef file to work
         :param taxon_index_file: the list of UniRef virus file indexes
         :param block_size: the number of nodes collected to trigger writing KGX data to file
-        :param debug_files: debug mode flag to indicate use of smaller input files
+        :param test_mode: debug mode flag to indicate use of smaller input files
         :return
         """
 
         # get a reference to the get data util class
         gd = GetData()
 
-        # get the list of taxa
-        target_taxon_set: set = gd.get_ncbi_taxon_id_set(data_dir, self.TYPE_VIRUS)
+        # are we in test mode
+        if not test_mode:
+            # get the list of taxa
+            target_taxon_set: set = gd.get_ncbi_taxon_id_set(data_dir, self.TYPE_VIRUS)
+        else:
+            # create a test mode set of target taxa
+            target_taxon_set = {'654924', '2219562', '10493', '160691', '2219561', ''}
 
         # for each UniRef file to process
         for f in in_file_names:
@@ -58,7 +63,7 @@ class UniRefSimLoader:
                 out_edge_f.write(f'id\tsubject\trelation_label\tedge_label\tobject\n')
 
                 # add the file extension
-                if debug_files:
+                if test_mode:
                     full_file = f + '.test.xml'
                 else:
                     full_file = f + '.xml'
