@@ -12,16 +12,26 @@ logger = LoggingUtil.init_logging("Data_services.ViralProteome.load_all", line_f
 
 
 if __name__ == '__main__':
-    """ Parses both the UniProtKB viral proteome and UniRef data and creates KGX import files for each. """
+    """ 
+    Parses both the UniProtKB viral proteome and UniRef data and creates KGX import files for each. 
+
+    Example command lines:    
+    -p D:/Work/Robokop/Data_services/UniProtKB_data 
+    -r D:/Work/Robokop/Data_services/UniRef_data
+    -f uniref100,uniref90,uniref50
+    -i D:/Work/Robokop/Data_services/IntAct_data
+    -g D:/Work/Robokop/Data_services/UniProtKB_data
+    
+    """
     # create a command line parser
     ap = argparse.ArgumentParser(description='Load UniProtKB viral proteome and UniRef data files and create KGX import files.')
 
     # command line should be like: python load_all.py -p /projects/stars/Data_services/UniProtKB_data -u /projects/stars/Data_services/UniRef_data -r uniref50,uniref90,uniref100
     ap.add_argument('-p', '--uniprot_dir', required=False, help='The directory of the UniProtKB data files.')
     ap.add_argument('-r', '--uniref_dir', required=False, help='The directory of the UniRef data files.')
+    ap.add_argument('-f', '--uniref_files', required=False, help='Comma separated UniRef data file(s) to parse.')
     ap.add_argument('-i', '--intact_dir', required=False, help='The directory of the IntAct data files.')
     ap.add_argument('-g', '--goa_dir', required=False, help='The directory of the GOA data files.')
-    ap.add_argument('-f', '--uniref_files', required=False, help='Comma separated UniRef data file(s) to parse.')
 
     # parse the arguments
     args = vars(ap.parse_args())
