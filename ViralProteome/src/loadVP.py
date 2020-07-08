@@ -52,6 +52,7 @@ class VPLoader:
 
         :param data_path: root directory of output data files
         :param out_name: the output name prefix of the KGX files
+        :param test_mode: flag to signify test mode
         :return: True
         """
         logger.info(f'VPLoader - Start of viral proteome data processing.')
@@ -67,9 +68,6 @@ class VPLoader:
             # get the list of files that contain those taxa
             file_list: list = gd.get_uniprot_virus_file_list(data_path, self.TYPE_VIRUS, target_taxa_set)
 
-            # manually add in the sars cov2 data file
-            file_list.append('uniprot_sars-cov-2.gaf')
-
             # assign the data directory
             goa_data_dir = data_path + '/Virus_GOA_files/'
 
@@ -77,7 +75,7 @@ class VPLoader:
             file_count: int = gd.get_goa_files(goa_data_dir, file_list, '/pub/databases/GO/goa', '/proteomes/')
         else:
             # setup for the test
-            file_count:int = 1
+            file_count: int = 1
             file_list: list = ['uniprot.goa']
             goa_data_dir = data_path
 
