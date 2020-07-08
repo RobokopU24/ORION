@@ -73,8 +73,8 @@ class GOALoader:
             swiss_prots: set = {'A0A024RBG1'}
             file_count: int = 1
 
-        # did we get all the files
-        if file_count == 1:
+        # did we get all the files and swiss prots
+        if file_count == 1 and len(swiss_prots) > 0:
             with open(os.path.join(data_file_path, f'{out_name}_node_file.tsv'), 'w', encoding="utf-8") as out_node_f, open(os.path.join(data_file_path, f'{out_name}_edge_file.tsv'), 'w', encoding="utf-8") as out_edge_f:
                 # write out the node and edge data headers
                 out_node_f.write(f'id\tname\tcategory\tequivalent_identifiers\n')
@@ -317,7 +317,7 @@ if __name__ == '__main__':
     data_file = args['data_file']  # goa_human.gaf
 
     # get a reference to the processor
-    vp = GOALoader()
+    goa = GOALoader()
 
     # load the data files and create KGX output
-    vp.load(data_dir, '/HUMAN/', 'goa_human.gaf.gz', 'Human_GOA')
+    goa.load(data_dir, '/HUMAN/', 'goa_human.gaf.gz', 'Human_GOA')
