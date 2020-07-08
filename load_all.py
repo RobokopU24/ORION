@@ -1,12 +1,12 @@
 import os
 import argparse
-from src.loadVP import VPLoader
-from src.loadUniRef2 import UniRefSimLoader
+from ViralProteome.src.loadVP import VPLoader
+from ViralProteome.src.loadUniRef import UniRefSimLoader
 from Common.utils import LoggingUtil, GetData
 from pathlib import Path
 
 # create a logger
-logger = LoggingUtil.init_logging("Data_services.ViralProteome.load_all", line_format='medium', log_file_path=os.path.join(Path(__file__).parents[2], 'logs'))
+logger = LoggingUtil.init_logging("Data_services.ViralProteome.load_all", line_format='medium', log_file_path=os.path.join(Path(__file__).parents[0], 'logs'))
 
 
 if __name__ == '__main__':
