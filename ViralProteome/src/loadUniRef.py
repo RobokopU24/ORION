@@ -49,7 +49,7 @@ class UniRefSimLoader:
 
         # for each UniRef file to process
         for f in in_file_names:
-            logger.info(f'UniRefSimLoader - Start of processing {f}.')
+            logger.info(f'UniRefSimLoader - Start of {f} data processing.')
 
             # process the file
             with open(os.path.join(data_dir, f'{f}_Virus_node_file.tsv'), 'w', encoding="utf-8") as out_node_f, open(os.path.join(data_dir, f'{f}_Virus_edge_file.tsv'), 'w', encoding="utf-8") as out_edge_f:
@@ -606,4 +606,4 @@ if __name__ == '__main__':
     vp = UniRefSimLoader()
 
     # load the data files and create KGX output
-    vp.load(UniRef_data_dir, file_list, 'taxon_file_indexes.txt', block_size=10000, debug_files=False)
+    vp.load(UniRef_data_dir, file_list, 'taxon_file_indexes.txt', block_size=10000)

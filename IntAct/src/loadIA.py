@@ -86,7 +86,7 @@ class IALoader:
         :param test_mode: sets the usage of using a test data files
         :return: None
         """
-        logger.info(f'Start of IntAct data processing.')
+        logger.info(f'IALoader - Start of IntAct data processing.')
 
         # get a reference to the data gathering class
         gd = GetData()
@@ -117,6 +117,8 @@ class IALoader:
             logger.debug(f'File parsing complete.')
         else:
             logger.error(f'Error: Retrieving IntAct archive failed.')
+
+        logger.info(f'IALoader - Processing complete.')
 
     def parse_data_file(self, infile_path: str, out_node_f, out_edge_f, test_mode: bool = False):
         """
@@ -218,12 +220,12 @@ class IALoader:
 
                         # output a status indicator
                         if interaction_counter % 250000 == 0:
-                            logger.info(f'Completed {interaction_counter} interactions.')
+                            logger.debug(f'Completed {interaction_counter} interactions.')
 
                 # save any remainders
                 if len(experiment_grp) > 0:
                     self.write_out_data(out_edge_f, out_node_f, test_mode)
-                    logger.info(f'Processing completed. {interaction_counter} interactions processed.')
+                    logger.debug(f'Processing completed. {interaction_counter} interactions processed.')
 
     def write_out_data(self, out_edge_f: TextIOBase, out_node_f: TextIOBase, test_mode: bool = False):
         """

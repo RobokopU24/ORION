@@ -57,7 +57,7 @@ class VPLoader:
         :return: True
         """
 
-        logger.info(f'VPLoader - Start of processing.')
+        logger.info(f'VPLoader - Start of viral proteome data processing.')
 
         with open(os.path.join(data_path, f'{out_name}_node_file.tsv'), 'w', encoding="utf-8") as out_node_f, open(os.path.join(data_path, f'{out_name}_edge_file.tsv'), 'w', encoding="utf-8") as out_edge_f:
             # write out the node and edge data headers
@@ -195,7 +195,7 @@ class VPLoader:
                 obj_node_id = node_1_id
             else:
                 valid_type = False
-                logger.warning(f'Warning: Unrecognized node 3 type {node_3_type} for {node_3_id}')
+                logger.warning(f'Warning: Unrecognized node 3 type for {node_3_id}')
 
             # was this a good value
             if valid_type:
@@ -307,7 +307,7 @@ class VPLoader:
         # get the last index of the list
         last_index: int = len(to_normalize)
 
-        logger.info(f'{last_index} unique nodes will be normalized.')
+        logger.debug(f'{last_index} unique nodes will be normalized.')
 
         # grab chunks of the data frame
         while True:

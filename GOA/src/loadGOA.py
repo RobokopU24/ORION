@@ -54,7 +54,7 @@ class GOALoader:
         :param test_mode: flag to indicate test mode
         :return: True
         """
-        logger.info(f'GOALoader - Start of file processing.')
+        logger.info(f'GOALoader - Start of GOA data processing.')
 
         # init the return flag
         ret_val: bool = False
@@ -231,7 +231,7 @@ class GOALoader:
                 obj_node_id = node_1_id
             else:
                 valid_type = False
-                logger.warning(f'Warning: Unrecognized node 3 type <{node_3_type}> for {node_3_id}')
+                logger.warning(f'Warning: Unrecognized node 3 type for {node_3_id}')
 
             # was this a good value
             if valid_type:
