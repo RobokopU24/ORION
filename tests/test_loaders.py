@@ -52,7 +52,7 @@ def test_vp_load():
 
 def test_uniref_load():
     # get a reference to the uniref similarity data processor
-    vp = UniRefSimLoader()
+    uni = UniRefSimLoader()
 
     # set the test directory
     test_dir = os.path.dirname(os.path.abspath(__file__))
@@ -61,7 +61,7 @@ def test_uniref_load():
     test_file = 'resources/uniref'
 
     # load the data files and create KGX output
-    vp.load(test_dir, [test_file], 'taxon_file_indexes.txt', debug_files=True)
+    uni.load(test_dir, [test_file], 'taxon_file_indexes.txt', test_mode=True)
 
     # check the results
     assert(os.path.isfile(os.path.join(test_dir, 'resources/uniref_Virus_edge_file.tsv')))
