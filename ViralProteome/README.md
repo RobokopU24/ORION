@@ -59,7 +59,7 @@ files contain UniRef entries that lays out clusters of similar proteins.
 The UniRef data files contain more than just virus taxa. Because our focus is on viruses some pre-processing to identify 
 those virus clusters is done to avoid needlessly processing unwanted data.
 
-The UniRef data files are also quite large (uniref100 is 330GB, uniref90 is 208GB, uniref50 is 150GB). To efficiently 
+The UniRef data files are also quite large (uniref100 is 330GB, uniref90 is 208GB, uniref50 is GB). To efficiently 
 parse each file an indexing step is done to avoid linear processing of the data file. The indexing process targets virus 
 taxa identified (once again as above) using the "nodes.dmp" file and place in a file that will then be used used when 
 processing each UniRef XML file and its' records.
