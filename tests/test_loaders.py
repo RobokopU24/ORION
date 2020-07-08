@@ -10,23 +10,10 @@ def test_vp_load():
     vp = VPLoader()
 
     # set the test directory
-    test_dir = os.path.dirname(os.path.abspath(__file__))
-
-    # open the file list and turn it into a list array
-    with open(os.path.join(test_dir, 'resources/file_list.txt'), 'r') as fl:
-        file_list: list = fl.readlines()
-
-    # check the file list
-    assert(file_list[0] == 'uniprot.goa')
-
-    # prepend the data path to the resource dir
-    file_list[0] = 'resources/' + file_list[0]
-
-    # check for the actual file
-    assert(os.path.isfile(os.path.join(test_dir, file_list[0])))
+    test_dir = os.path.dirname(os.path.abspath(__file__)) + '/resources'
 
     # load the data file and create KGX output
-    vp.load(test_dir, '', file_list, 'VPLoadTest')
+    vp.load(test_dir, 'VPLoadTest', test_mode=True)
 
     # check the results
     assert(os.path.isfile(os.path.join(test_dir, 'VPLoadTest_edge_file.tsv')) and os.path.isfile(os.path.join(test_dir, 'VPLoadTest_node_file.tsv')))
@@ -55,35 +42,32 @@ def test_uniref_load():
     uni = UniRefSimLoader()
 
     # set the test directory
-    test_dir = os.path.dirname(os.path.abspath(__file__))
+    test_dir = os.path.dirname(os.path.abspath(__file__)) + '/resources'
 
-    # create the file list
-    test_file = 'resources/uniref'
-
-    # load the data files and create KGX output
-    uni.load(test_dir, [test_file], 'taxon_file_indexes.txt', test_mode=True)
+    # load the data file and create KGX output
+    uni.load(test_dir, ['uniref'], 'taxon_file_indexes.txt', test_mode=True)
 
     # check the results
-    assert(os.path.isfile(os.path.join(test_dir, 'resources/uniref_Virus_edge_file.tsv')))
-    assert(os.path.isfile(os.path.join(test_dir, 'resources/uniref_Virus_node_file.tsv')))
+    assert(os.path.isfile(os.path.join(test_dir, 'uniref_Virus_edge_file.tsv')))
+    assert(os.path.isfile(os.path.join(test_dir, 'uniref_Virus_node_file.tsv')))
 
     # open the edge file list and get the lines
-    with open(os.path.join(test_dir, 'resources/uniref_Virus_edge_file.tsv'), 'r') as fl:
+    with open(os.path.join(test_dir, 'uniref_Virus_edge_file.tsv'), 'r') as fl:
         file_lines: list = fl.readlines()
 
     # check the line count
     assert(len(file_lines) == 7)
 
     # open the node file list and get the lines
-    with open(os.path.join(test_dir, 'resources/uniref_Virus_node_file.tsv'), 'r') as fl:
+    with open(os.path.join(test_dir, 'uniref_Virus_node_file.tsv'), 'r') as fl:
         file_lines: list = fl.readlines()
 
     # check the line count
     assert(len(file_lines) == 7)
 
     # remove the data files
-    os.remove(os.path.join(test_dir, 'resources/uniref_Virus_node_file.tsv'))
-    os.remove(os.path.join(test_dir, 'resources/uniref_Virus_edge_file.tsv'))
+    os.remove(os.path.join(test_dir, 'uniref_Virus_node_file.tsv'))
+    os.remove(os.path.join(test_dir, 'uniref_Virus_edge_file.tsv'))
 
 
 def test_intact_load():
@@ -91,10 +75,10 @@ def test_intact_load():
     ia = IALoader()
 
     # set the test directory
-    test_dir = os.path.dirname(os.path.abspath(__file__))
+    test_dir = os.path.dirname(os.path.abspath(__file__)) + '/resources'
 
     # load the data files and create KGX output files
-    ia.load(test_dir, 'resources/intact.zip', 'intact', True)
+    ia.load(test_dir, 'intact', test_mode=True)
 
     # check the results
     assert(os.path.isfile(os.path.join(test_dir, 'intact_edge_file.tsv')) and os.path.isfile(os.path.join(test_dir, 'intact_node_file.tsv')))
@@ -118,15 +102,15 @@ def test_intact_load():
     os.remove(os.path.join(test_dir, 'intact_edge_file.tsv'))
 
 
-def test_GOA_load():
+def test_goa_load():
     # get a reference to the GOA data processor
     goa = GOALoader()
 
     # set the test directory
     test_dir = os.path.dirname(os.path.abspath(__file__)) + '/resources'
 
-    # load the data files and create KGX output
-    goa.load(test_dir, '/HUMAN/', 'goa_human.gaf.gz', 'Human_GOA', True)
+    # load the data file and create KGX output
+    goa.load(test_dir, '/HUMAN/', 'goa_human.gaf.gz', 'Human_GOA', test_mode=True)
 
     # check the results
     assert(os.path.isfile(os.path.join(test_dir, 'Human_GOA_edge_file.tsv')) and os.path.isfile(os.path.join(test_dir, 'Human_GOA_node_file.tsv')))
