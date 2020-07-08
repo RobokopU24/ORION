@@ -46,84 +46,110 @@ class VPLoader:
     TYPE_BACTERIA: str = '0'
     TYPE_VIRUS: str = '9'
 
-    def load(self, data_path: str, data_dir: str, files: list, out_name: str) -> bool:
+    def load(self, data_path: str, out_name: str, test_mode: bool = False) -> bool:
         """
         loads goa and gaf associated data gathered from ftp://ftp.ebi.ac.uk/pub/databases/GO/goa/proteomes/
 
         :param data_path: root directory of output data files
-        :param data_dir: the sub directory of the goa input data files
-        :param files: the list of UniProt files to work
         :param out_name: the output name prefix of the KGX files
         :return: True
         """
-
         logger.info(f'VPLoader - Start of viral proteome data processing.')
 
-        with open(os.path.join(data_path, f'{out_name}_node_file.tsv'), 'w', encoding="utf-8") as out_node_f, open(os.path.join(data_path, f'{out_name}_edge_file.tsv'), 'w', encoding="utf-8") as out_edge_f:
-            # write out the node and edge data headers
-            out_node_f.write(f'id\tname\tcategory\tequivalent_identifiers\n')
-            out_edge_f.write(f'id\tsubject\trelation_label\tedge_label\tobject\n')
+        # are we in test mode
+        if not test_mode:
+            # and get a reference to the data gatherer
+            gd = GetData()
 
-            # debug only -> files = files[3981:3982]
+            # get the list of target taxa
+            target_taxa_set: set = gd.get_ncbi_taxon_id_set(data_path, self.TYPE_VIRUS)
 
-            # init a file counter
-            file_counter: int = 0
+            # get the list of files that contain those taxa
+            file_list: list = gd.get_uniprot_virus_file_list(data_path, self.TYPE_VIRUS, target_taxa_set)
 
-            # init the total set of nodes
-            total_nodes: list = []
+            # manually add in the sars cov2 data file
+            file_list.append('uniprot_sars-cov-2.gaf')
 
-            # process each file
-            for f in files:
-                # open up the file
-                with open(os.path.join(data_path, data_dir + f), 'r') as fp:
-                    # increment the file counter
-                    file_counter += 1
+            # assign the data directory
+            goa_data_dir = data_path + '/Virus_GOA_files/'
 
-                    logger.debug(f'Parsing file number {file_counter}, {f[:-1]}.')
+            # get the data files
+            file_count: int = gd.get_goa_files(goa_data_dir, file_list, '/pub/databases/GO/goa', '/proteomes/')
+        else:
+            # setup for the test
+            file_count:int = 1
+            file_list: list = ['uniprot.goa']
+            goa_data_dir = data_path
 
-                    # read the file and make the list
-                    node_list: list = self.get_node_list(fp)
+        # did we get everything
+        if len(file_list) == file_count:
+            # open the output files and start processing
+            with open(os.path.join(data_path, f'{out_name}_node_file.tsv'), 'w', encoding="utf-8") as out_node_f, open(os.path.join(data_path, f'{out_name}_edge_file.tsv'), 'w', encoding="utf-8") as out_edge_f:
+                # write out the node and edge data headers
+                out_node_f.write(f'id\tname\tcategory\tequivalent_identifiers\n')
+                out_edge_f.write(f'id\tsubject\trelation_label\tedge_label\tobject\n')
 
-                    # save this list of nodes to the running collection
-                    total_nodes.extend(node_list)
+                # init a file counter
+                file_counter: int = 0
 
-            # de-dupe the list
-            total_nodes = [dict(t) for t in {tuple(d.items()) for d in total_nodes}]
+                # init the total set of nodes
+                total_nodes: list = []
 
-            logger.debug(f'Node list loaded with {len(total_nodes)} entries.')
+                # process each file
+                for f in file_list:
+                    # open up the file
+                    with open(os.path.join(goa_data_dir, f), 'r') as fp:
+                        # increment the file counter
+                        file_counter += 1
 
-            # normalize the group of entries on the data frame.
-            total_nodes = self.normalize_node_data(total_nodes)
+                        logger.debug(f'Parsing file number {file_counter}, {f[:-1]}.')
 
-            logger.debug('Creating edges.')
+                        # read the file and make the list
+                        node_list: list = self.get_node_list(fp)
 
-            # create a data frame with the node list
-            df: pd.DataFrame = pd.DataFrame(total_nodes, columns=['grp', 'node_num', 'id', 'name', 'category', 'equivalent_identifiers'])
+                        # save this list of nodes to the running collection
+                        total_nodes.extend(node_list)
 
-            # get the list of unique edges
-            final_edges: set = self.get_edge_set(df)
+                # de-dupe the list
+                total_nodes = [dict(t) for t in {tuple(d.items()) for d in total_nodes}]
 
-            logger.debug(f'{len(final_edges)} unique edges found, creating KGX edge file.')
+                logger.debug(f'Node list loaded with {len(total_nodes)} entries.')
 
-            # write out the unique edges
-            for item in final_edges:
-                out_edge_f.write(hashlib.md5(item.encode('utf-8')).hexdigest() + item)
+                # normalize the group of entries on the data frame.
+                total_nodes = self.normalize_node_data(total_nodes)
 
-            logger.debug(f'De-duplicating {len(total_nodes)} nodes')
+                logger.debug('Creating edges.')
 
-            # init a set for the node de-duplication
-            final_node_set: set = set()
+                # create a data frame with the node list
+                df: pd.DataFrame = pd.DataFrame(total_nodes, columns=['grp', 'node_num', 'id', 'name', 'category', 'equivalent_identifiers'])
 
-            # write out the unique nodes
-            for row in total_nodes:
-                final_node_set.add(f"{row['id']}\t{row['name']}\t{row['category']}\t{row['equivalent_identifiers']}\n")
+                # get the list of unique edges
+                final_edges: set = self.get_edge_set(df)
 
-            logger.debug(f'Creating KGX node file with {len(final_node_set)} nodes.')
+                logger.debug(f'{len(final_edges)} unique edges found, creating KGX edge file.')
 
-            for row in final_node_set:
-                out_node_f.write(row)
+                # write out the unique edges
+                for item in final_edges:
+                    out_edge_f.write(hashlib.md5(item.encode('utf-8')).hexdigest() + item)
 
-            logger.info(f'VPLoader - Processing complete.')
+                logger.debug(f'De-duplicating {len(total_nodes)} nodes')
+
+                # init a set for the node de-duplication
+                final_node_set: set = set()
+
+                # write out the unique nodes
+                for row in total_nodes:
+                    final_node_set.add(f"{row['id']}\t{row['name']}\t{row['category']}\t{row['equivalent_identifiers']}\n")
+
+                logger.debug(f'Creating KGX node file with {len(final_node_set)} nodes.')
+
+                for row in final_node_set:
+                    out_node_f.write(row)
+
+                logger.info(f'VPLoader - Processing complete.')
+        else:
+            logger.error('Error: Did not receive all the UniProtKB GOA files.')
+
         return True
 
     @staticmethod
@@ -404,27 +430,5 @@ if __name__ == '__main__':
     # get a reference to the processor
     vp = VPLoader()
 
-    # and get a reference to the data gatherer
-    gd = GetData()
-
-    # get the list of target taxa
-    target_taxa_set: set = gd.get_ncbi_taxon_id_set(UniProtKB_data_dir, vp.TYPE_VIRUS)
-
-    # get the list of files that contain those taxa
-    file_list: list = gd.get_uniprot_virus_file_list(UniProtKB_data_dir, vp.TYPE_VIRUS, target_taxa_set)
-
-    # manually add in the sars cov2 data file
-    file_list.append('uniprot_sars-cov-2.gaf')
-
-    # assign the data directory
-    goa_data_dir = UniProtKB_data_dir + '/Virus_GOA_files/'
-
-    # get the data files
-    actual_count: int = gd.get_goa_files(goa_data_dir, file_list, '/pub/databases/GO/goa', '/proteomes/')
-
-    # did we get all the files
-    if len(file_list) == actual_count:
-        # load the data files and create KGX output
-        vp.load(UniProtKB_data_dir, 'Virus_GOA_files/', file_list, 'Viral_proteome_GOA')
-    else:
-        logger.error(f'Error: Did not receive all the UniProtKB GOA files.')
+    # load the data files and create KGX output
+    vp.load(UniProtKB_data_dir, 'Viral_proteome_GOA')
