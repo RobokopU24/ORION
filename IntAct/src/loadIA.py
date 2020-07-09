@@ -595,14 +595,13 @@ if __name__ == '__main__':
     # create a command line parser
     ap = argparse.ArgumentParser(description='Load IntAct virus interaction data file and create KGX import files.')
 
-    # command line should be like: python loadIA.py -d D:/Work/Robokop/Data_services/IntAct
+    # command line should be like: python loadIA.py -d E:/Data_services/IntAct_data
     ap.add_argument('-d', '--data_dir', required=True, help='The IntAct data file directory')
 
     # parse the arguments
     args = vars(ap.parse_args())
 
-    # IntAct_data_dir = ''
-    # IntAct_data_dir = 'D:/Work/Robokop/Data_services/IntAct'
+    # IntAct_data_dir = 'E:/Data_services/IntAct'
     IntAct_data_dir = args['data_dir']
 
     # get a reference to the processor

@@ -16,17 +16,17 @@ if __name__ == '__main__':
     Parses both the UniProtKB viral proteome and UniRef data and creates KGX import files for each. 
 
     Example command lines:    
-    -p D:/Work/Robokop/Data_services/UniProtKB_data 
-    -r D:/Work/Robokop/Data_services/UniRef_data
+    -p E:/Data_services/UniProtKB_data 
+    -r E:/Data_services/UniRef_data
     -f uniref100,uniref90,uniref50
-    -i D:/Work/Robokop/Data_services/IntAct_data
-    -g D:/Work/Robokop/Data_services/UniProtKB_data
+    -i E:/Data_services/IntAct_data
+    -g E:/Data_services/UniProtKB_data
     
     """
     # create a command line parser
     ap = argparse.ArgumentParser(description='Load UniProtKB viral proteome and UniRef data files and create KGX import files.')
 
-    # command line should be like: python load_all.py -p /projects/stars/Data_services/UniProtKB_data -u /projects/stars/Data_services/UniRef_data -r uniref50,uniref90,uniref100
+    # declare command line arguments
     ap.add_argument('-p', '--uniprot_dir', required=False, help='The directory of the UniProtKB data files.')
     ap.add_argument('-r', '--uniref_dir', required=False, help='The directory of the UniRef data files.')
     ap.add_argument('-f', '--uniref_files', required=False, help='Comma separated UniRef data file(s) to parse.')

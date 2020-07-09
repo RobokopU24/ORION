@@ -310,9 +310,8 @@ if __name__ == '__main__':
     # parse the arguments
     args = vars(ap.parse_args())
 
-    # UniProtKB_data_dir = '\\\\nuc2\\renci\\Work\\Robokop\\Data_services\\UniProtKB_data'
     # UniProtKB_data_dir = '/projects/stars/Data_services/UniProtKB_data'
-    # UniProtKB_data_dir = 'D:/Work/Robokop/Data_services/UniProtKB_data'
+    # UniProtKB_data_dir = 'E:/Data_services/UniProtKB_data'
     data_dir = args['data_dir']
     data_file = args['data_file']  # goa_human.gaf
 

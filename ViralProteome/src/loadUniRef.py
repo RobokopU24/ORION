@@ -601,8 +601,7 @@ if __name__ == '__main__':
     args = vars(ap.parse_args())
 
     # this is the base directory for data files and the resultant KGX files.
-    # data_dir = '/projects/stars/Data_services/UniRef_data'
-    # data_dir = 'D:/Work/Robokop/Data_services/UniRef_data'
+     # data_dir = 'E:/Data_services/UniRef_data'
     UniRef_data_dir: str = args['data_dir']
 
     # create the file list
