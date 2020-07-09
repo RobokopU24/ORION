@@ -394,13 +394,12 @@ class GetData:
         # return the list
         return ret_val
 
-    def get_uniprot_virus_file_list(self, proteome_data_dir: str, organism_type: str, taxa_id_set: set) -> list:
+    def get_uniprot_virus_file_list(self, proteome_data_dir: str, taxa_id_set: set) -> list:
         """
         gets the list of virus proteome file names that will be downloaded
         the proteome2taxid file can be found in the ftp directory at: ftp://ftp.ebi.ac.uk/pub/databases/GO/goa/proteomes/
 
         :param proteome_data_dir: the location of the proteome to taxon id conversion file
-        :param organism_type: one of two types supported
         :param taxa_id_set: the set of taxa ids
         :return: the set of file names to get
         """
@@ -427,13 +426,11 @@ class GetData:
                     # save the file in the list
                     files.append(line[2])
 
+        # add the sars cov-2 file manually
+        files.append('uniprot_sars-cov-2.gaf')
+
         # sort the file list
         ret_val: list = sorted(files)
-
-        # get the file name based on organism type
-        if organism_type == organism_type:
-            # add the sars cov-2 file manually
-            ret_val.append('uniprot_sars-cov-2.gaf')
 
         # close the file
         fp.close()
@@ -483,3 +480,40 @@ class GetData:
 
         # return the number of files captured
         return file_count
+
+
+class DatasetDescription:
+    @staticmethod
+    def create_description(self, data_path: str, prov_data: dict, out_name: str):
+        """
+        creates a graph node that contains detailed information on a parsed/loaded dataset
+
+        Biolink model specs:
+            https://biolink.github.io/biolinkml/
+
+            https://biolink.github.io/biolink-model/docs/DataSet.html
+            https://biolink.github.io/biolink-model/docs/DataSetVersion.html
+            https://biolink.github.io/biolink-model/docs/DataSetSummary.html
+            https://biolink.github.io/biolink-model/docs/DistributionLevel.html
+
+            https://biolink.github.io/biolink-model/docs/DataFile.html
+            https://biolink.github.io/biolink-model/docs/SourceFile.html
+
+        Expected parameters/values passed in are:
+            data_set_name
+            data_set_title
+            data_set_web_site
+            data_set_download_url
+            data_set_version
+            data_set_retrieved_on
+
+        :return:
+        """
+        # open the output node files
+        with open(os.path.join(data_path, f'{out_name}_prov_node_file.tsv'), 'w', encoding="utf-8") as out_node_f, open(os.path.join(data_path, f'{out_name}_edge_file.tsv'), 'w', encoding="utf-8") as out_edge_f:
+            # write out the node and edge data headers
+            out_node_f.write(f'id\tname\tcategory\ttitle\tsource_web_page\tdownloadURL\tsource_version\tretrievedOn\n')
+
+            # write out the node data
+            out_node_f.write(f'{prov_data["data_set_name"]}\t{prov_data["data_set_name"]}\tdataset|named_thing\t{prov_data["data_set_title"]}\t{prov_data["data_set_web_site"]}\t{prov_data["data_set_download_url"]}\t{prov_data["data_set_version"]}\t{prov_data["data_set_retrieved_on"]}\n')
+
