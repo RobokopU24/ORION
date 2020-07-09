@@ -9,13 +9,17 @@ def test_get_taxon_id_list():
 
     data_file_path = os.path.dirname(os.path.abspath(__file__))
 
+    date_stamp: str = gd.get_uniprot_virus_date_stamp(data_file_path)
+
+    assert (date_stamp)
+
     type_virus: str = '9'
 
     taxonid_set: set = gd.get_ncbi_taxon_id_set(data_file_path, type_virus)
 
     assert(len(taxonid_set))
 
-    file_list: list = gd.get_uniprot_virus_file_list(data_file_path, type_virus, taxonid_set)
+    file_list: list = gd.get_uniprot_virus_file_list(data_file_path, taxonid_set)
 
     assert(len(file_list))
 
