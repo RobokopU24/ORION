@@ -5,8 +5,9 @@ import hashlib
 import pandas as pd
 import enum
 import requests
+import datetime
 from csv import reader
-from Common.utils import LoggingUtil, GetData
+from Common.utils import LoggingUtil, GetData, DatasetDescription
 from pathlib import Path
 
 # create a logger
@@ -66,7 +67,7 @@ class VPLoader:
             target_taxa_set: set = gd.get_ncbi_taxon_id_set(data_path, self.TYPE_VIRUS)
 
             # get the list of files that contain those taxa
-            file_list: list = gd.get_uniprot_virus_file_list(data_path, self.TYPE_VIRUS, target_taxa_set)
+            file_list: list = gd.get_uniprot_virus_file_list(data_path, target_taxa_set)
 
             # assign the data directory
             goa_data_dir = data_path + '/Virus_GOA_files/'
@@ -148,6 +149,22 @@ class VPLoader:
         else:
             logger.error('Error: Did not receive all the UniProtKB GOA files.')
 
+        # get the current time
+        # now = datetime.now()
+        #
+        # # create the dataset descriptor
+        # ds: dict = {
+        #     'data_set_name': 'ViralProteome',
+        #     'data_set_title': 'Viral Proteome',
+        #     'data_set_web_site': 'https://www.uniprot.org/proteomes/',
+        #     'data_set_download_url': 'ftp://ftp.ebi.ac.uk/pub/databases/GO/goa/proteomes/',
+        #     'data_set_version': '',
+        #     'data_set_retrieved_on': now.strftime("%Y/%m/%d %H:%M:%S")}
+        #
+        # # create the data description KGX file
+        # DatasetDescription.create_description(ds)
+
+        # return to the caller
         return True
 
     @staticmethod
