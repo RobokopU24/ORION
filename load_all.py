@@ -16,11 +16,10 @@ if __name__ == '__main__':
     Parses both the UniProtKB viral proteome and UniRef data and creates KGX import files for each. 
 
     Example command lines:    
-    -p E:/Data_services/UniProtKB_data 
-    -r E:/Data_services/UniRef_data
-    -f uniref100,uniref90,uniref50
-    -i E:/Data_services/IntAct_data
-    -g E:/Data_services/UniProtKB_data
+    python load_all.py -p E:/Data_services/UniProtKB_data 
+    python load_all.py -r E:/Data_services/UniRef_data -f uniref100,uniref90,uniref50
+    python load_all.py -i E:/Data_services/IntAct_data
+    python load_all.py -g E:/Data_services/UniProtKB_data
     
     """
     # create a command line parser
