@@ -1,7 +1,6 @@
 import os
 import argparse
-import logging
-from ViralProteome.src.loadUniRef2 import UniRefSimLoader
+from ViralProteome.src.loadUniRef import UniRefSimLoader
 from Common.utils import LoggingUtil, GetData
 from pathlib import Path
 
@@ -23,9 +22,9 @@ if __name__ == '__main__':
     # load the utility class to get the virus taxa id list
     gd = GetData()
 
-    # uniref_data_dir: str = 'D:/Work/Robokop/Data_services/UniRef_data'
+    # uniref_data_dir: str = 'E:/Data_services/UniRef_data'
     # uniref_data_dir = '/projects/stars/Data_services/UniRef_data'
-    # uniref_data_dir = '/d/Work/Robokop/Data_services/UniRef_data'
+    # uniref_data_dir = '/e/Data_services/UniRef_data'
     uniref_data_dir = args['data_dir']
 
     # the files to process
@@ -66,9 +65,12 @@ if __name__ == '__main__':
 
         # execute the grep command using the target taxon list
         # Note: you must use the latest version of grep for this to work
+        # grep -F -b -f "/e/Data_services/UniRef_data/taxon_list.txt" "/e/Data_services/UniRef_data/uniref100.xml" >> "/e/Data_services/UniRef_data/uniref100_taxon_file_indexes.txt"
+        # grep -F -b -f "/e/Data_services/UniRef_data/taxon_list.txt" "/e/Data_services/UniRef_data/uniref90.xml" >> "/e/Data_services/UniRef_data/uniref90_taxon_file_indexes.txt"
+        # grep -F -b -f "/e/Data_services/UniRef_data/taxon_list.txt" "/e/Data_services/UniRef_data/uniref50.xml" >> "/e/Data_services/UniRef_data/uniref50_taxon_file_indexes.txt"
         os.system(f'grep -F -b -f "{search_file_path}" "{uniref_infile_path}" >> "{index_file_path}"')
 
     # do not remove the file if in debug mode
-    if logger.level != logging.DEBUG:
-        # remove the original list of taxon ids
-        os.remove(search_file_path)
+    # if logger.level != logging.DEBUG:
+    #     # remove the original list of taxon ids
+    #     os.remove(search_file_path)
