@@ -394,6 +394,26 @@ class GetData:
         # return the list
         return ret_val
 
+    def get_uniprot_virus_date_stamp(self, data_dir):
+        """
+        retrieves and reads the only line in the uniprokb file "datestamp" that indicates the date
+        the data in the directory was created.
+
+        :return: the date stamp string
+        """
+        # get the date stamp file
+        self.pull_via_ftp('ftp.ebi.ac.uk', '/pub/databases/GO/goa/proteomes', ['datestamp'], data_dir)
+
+        # open the file and read the first line
+        with open(os.path.join(data_dir, 'datestamp'), 'r') as fp:
+            # get the line of text that is the date stamp
+            ret_val: str = fp.readline().strip('\n')
+
+        os.remove(os.path.join(data_dir, 'datestamp'))
+
+        # return to the caller
+        return ret_val
+
     def get_uniprot_virus_file_list(self, proteome_data_dir: str, taxa_id_set: set) -> list:
         """
         gets the list of virus proteome file names that will be downloaded
@@ -518,4 +538,4 @@ class DatasetDescription:
             out_node_f.write(f'id\tname\tcategory\ttitle\tsource_web_page\tdownloadURL\tsource_version\tretrievedOn\n')
 
             # write out the node data
-            out_node_f.write(f'{prov_data["data_set_name"]}\t{prov_data["data_set_name"]}\tdataset|named_thing\t{prov_data["data_set_title"]}\t{prov_data["data_set_web_site"]}\t{prov_data["data_set_download_url"]}\t{prov_data["data_set_version"]}\t{prov_data["data_set_retrieved_on"]}\n')
+            out_node_f.write(f'{prov_data["data_set_version"]}_{prov_data["data_set_name"]}\t{prov_data["data_set_name"]}\tdataset|named_thing\t{prov_data["data_set_title"]}\t{prov_data["data_set_web_site"]}\t{prov_data["data_set_download_url"]}\t{prov_data["data_set_version"]}\t{prov_data["data_set_retrieved_on"]}\n')
