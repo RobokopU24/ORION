@@ -403,7 +403,7 @@ class GetData:
         :param taxa_id_set: the set of taxa ids
         :return: the set of file names to get
         """
-        self.logger.debug(f'Start of uniprot file list retrieval.')
+        self.logger.debug(f'Start of uniprot virus file list retrieval.')
 
         # storage for the final file list
         files: list = []
@@ -426,9 +426,6 @@ class GetData:
                     # save the file in the list
                     files.append(line[2])
 
-        # get the uniprot_sars-cov-2.gaf file because it is in a different place than the others
-        self.pull_via_ftp('ftp.ebi.ac.uk', '/pub/contrib/goa/', ['uniprot_sars-cov-2.gaf'], proteome_data_dir)
-
         # add the sars cov-2 file manually
         files.append('uniprot_sars-cov-2.gaf')
 
@@ -443,7 +440,7 @@ class GetData:
             # remove the data file
             os.remove(os.path.join(proteome_data_dir, data_file_name))
 
-        self.logger.debug(f'End of uniprot file list retrieval. {len(ret_val)} retrieved.')
+        self.logger.debug(f'End of uniprot virus file list retrieval. {len(ret_val)} retrieved.')
 
         # return the list to the caller
         return ret_val
@@ -468,6 +465,9 @@ class GetData:
         # a connection to this FTP site is not reliable
         while attempts < 25:
             try:
+                # get the 1 sars-cov-2 file
+                self.pull_via_ftp('ftp.ebi.ac.uk', '/pub/contrib/goa/', ['uniprot_sars-cov-2.gaf'], data_dir)
+
                 # get the rest of the files
                 file_count = self.pull_via_ftp('ftp.ebi.ac.uk', ftp_parent_dir + ftp_sub_dir, file_list, data_dir)
 
