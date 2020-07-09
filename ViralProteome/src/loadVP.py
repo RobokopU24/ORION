@@ -5,7 +5,7 @@ import hashlib
 import pandas as pd
 import enum
 import requests
-import datetime
+from datetime import datetime
 from csv import reader
 from Common.utils import LoggingUtil, GetData, DatasetDescription
 from pathlib import Path
@@ -62,6 +62,9 @@ class VPLoader:
         if not test_mode:
             # and get a reference to the data gatherer
             gd = GetData()
+
+            # get the dataset provenance information
+            self.get_dataset_provenance(gd, data_path)
 
             # get the list of target taxa
             target_taxa_set: set = gd.get_ncbi_taxon_id_set(data_path, self.TYPE_VIRUS)
@@ -149,23 +152,25 @@ class VPLoader:
         else:
             logger.error('Error: Did not receive all the UniProtKB GOA files.')
 
-        # get the current time
-        # now = datetime.now()
-        #
-        # # create the dataset descriptor
-        # ds: dict = {
-        #     'data_set_name': 'ViralProteome',
-        #     'data_set_title': 'Viral Proteome',
-        #     'data_set_web_site': 'https://www.uniprot.org/proteomes/',
-        #     'data_set_download_url': 'ftp://ftp.ebi.ac.uk/pub/databases/GO/goa/proteomes/',
-        #     'data_set_version': '',
-        #     'data_set_retrieved_on': now.strftime("%Y/%m/%d %H:%M:%S")}
-        #
-        # # create the data description KGX file
-        # DatasetDescription.create_description(ds)
-
         # return to the caller
         return True
+
+    @staticmethod
+    def get_dataset_provenance(gd: GetData, data_path: str):
+        # get the current time
+        now: datetime = datetime.now()
+
+        # create the dataset descriptor
+        ds: dict = {
+            'data_set_name': 'ViralProteome',
+            'data_set_title': 'Viral Proteome',
+            'data_set_web_site': 'https://www.uniprot.org/proteomes/',
+            'data_set_download_url': 'ftp://ftp.ebi.ac.uk/pub/databases/GO/goa/proteomes/',
+            'data_set_version': gd.get_uniprot_virus_date_stamp(data_path),
+            'data_set_retrieved_on': now.strftime("%Y/%m/%d %H:%M:%S")}
+
+        # create the data description KGX file
+        DatasetDescription.create_description(data_path, ds, 'ViralProteome')
 
     @staticmethod
     def get_edge_set(df: pd.DataFrame) -> set:
