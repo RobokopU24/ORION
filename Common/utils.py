@@ -426,6 +426,9 @@ class GetData:
                     # save the file in the list
                     files.append(line[2])
 
+        # get the uniprot_sars-cov-2.gaf file because it is in a different place than the others
+        self.pull_via_ftp('ftp.ebi.ac.uk', '/pub/contrib/goa/', ['uniprot_sars-cov-2.gaf'], proteome_data_dir)
+
         # add the sars cov-2 file manually
         files.append('uniprot_sars-cov-2.gaf')
 
@@ -484,7 +487,7 @@ class GetData:
 
 class DatasetDescription:
     @staticmethod
-    def create_description(self, data_path: str, prov_data: dict, out_name: str):
+    def create_description(data_path: str, prov_data: dict, out_name: str):
         """
         creates a graph node that contains detailed information on a parsed/loaded dataset
 
@@ -510,10 +513,9 @@ class DatasetDescription:
         :return:
         """
         # open the output node files
-        with open(os.path.join(data_path, f'{out_name}_prov_node_file.tsv'), 'w', encoding="utf-8") as out_node_f, open(os.path.join(data_path, f'{out_name}_edge_file.tsv'), 'w', encoding="utf-8") as out_edge_f:
+        with open(os.path.join(data_path, f'{out_name}_prov_node_file.tsv'), 'w', encoding="utf-8") as out_node_f:
             # write out the node and edge data headers
             out_node_f.write(f'id\tname\tcategory\ttitle\tsource_web_page\tdownloadURL\tsource_version\tretrievedOn\n')
 
             # write out the node data
             out_node_f.write(f'{prov_data["data_set_name"]}\t{prov_data["data_set_name"]}\tdataset|named_thing\t{prov_data["data_set_title"]}\t{prov_data["data_set_web_site"]}\t{prov_data["data_set_download_url"]}\t{prov_data["data_set_version"]}\t{prov_data["data_set_retrieved_on"]}\n')
-
