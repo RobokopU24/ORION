@@ -11,7 +11,7 @@ def test_get_taxon_id_list():
 
     date_stamp: str = gd.get_uniprot_virus_date_stamp(data_file_path)
 
-    assert (date_stamp)
+    assert date_stamp
 
     type_virus: str = '9'
 
