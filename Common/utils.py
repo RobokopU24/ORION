@@ -124,7 +124,7 @@ class NodeNormUtils:
         # save the node list count to avoid grabbing it over and over
         node_count: int = len(node_list)
 
-        # init a list to identify taxa that has not yet been node normed
+        # init a set to hold taxa that have not yet been node normed
         tmp_normalize: set = set()
 
         # iterate through node groups and get only the taxa records.
@@ -425,6 +425,9 @@ class GetData:
         """
         self.logger.debug(f'Start of uniprot virus file list retrieval.')
 
+        # init the return value
+        ret_val: list = []
+
         # storage for the final file list
         files: list = []
 
@@ -432,35 +435,39 @@ class GetData:
         data_file_name = 'proteome2taxid'
 
         # get the proteome to taxon id file
-        self.pull_via_ftp('ftp.ebi.ac.uk', '/pub/databases/GO/goa/proteomes', [data_file_name], proteome_data_dir)
+        file_count: int = self.pull_via_ftp('ftp.ebi.ac.uk', '/pub/databases/GO/goa/proteomes', [data_file_name], proteome_data_dir)
 
-        # open the file
-        with open(os.path.join(proteome_data_dir, data_file_name), 'r') as fp:
-            # create a csv reader for it
-            csv_reader: reader = csv.reader(fp, delimiter='\t')
+        # did we get the file
+        if file_count == 1:
+            # open the file
+            with open(os.path.join(proteome_data_dir, data_file_name), 'r') as fp:
+                # create a csv reader for it
+                csv_reader: reader = csv.reader(fp, delimiter='\t')
 
-            # spin through the list and get the file name
-            for line in csv_reader:
-                # is this file in the list of target taxa
-                if line[1] in taxa_id_set:
-                    # save the file in the list
-                    files.append(line[2])
+                # spin through the list and get the file name
+                for line in csv_reader:
+                    # is this file in the list of target taxa
+                    if line[1] in taxa_id_set:
+                        # save the file in the list
+                        files.append(line[2])
 
-        # add the sars cov-2 file manually
-        files.append('uniprot_sars-cov-2.gaf')
+            # add the sars cov-2 file manually
+            files.append('uniprot_sars-cov-2.gaf')
 
-        # sort the file list
-        ret_val: list = sorted(files)
+            # sort the file list
+            ret_val = sorted(files)
 
-        # close the file
-        fp.close()
+            # close the file
+            fp.close()
 
-        # do not remove the file if in debug mode
-        if self.logger.level != logging.DEBUG:
-            # remove the data file
-            os.remove(os.path.join(proteome_data_dir, data_file_name))
+            # do not remove the file if in debug mode
+            if self.logger.level != logging.DEBUG:
+                # remove the data file
+                os.remove(os.path.join(proteome_data_dir, data_file_name))
 
-        self.logger.debug(f'End of uniprot virus file list retrieval. {len(ret_val)} retrieved.')
+            self.logger.debug(f'End of uniprot virus file list retrieval. {len(ret_val)} retrieved.')
+        else:
+            self.logger.error(f'Error: {data_file_name} as not retrieved.')
 
         # return the list to the caller
         return ret_val
@@ -485,9 +492,6 @@ class GetData:
         # a connection to this FTP site is not reliable
         while attempts < 25:
             try:
-                # get the 1 sars-cov-2 file
-                self.pull_via_ftp('ftp.ebi.ac.uk', '/pub/contrib/goa/', ['uniprot_sars-cov-2.gaf'], data_dir)
-
                 # get the rest of the files
                 file_count = self.pull_via_ftp('ftp.ebi.ac.uk', ftp_parent_dir + ftp_sub_dir, file_list, data_dir)
 
