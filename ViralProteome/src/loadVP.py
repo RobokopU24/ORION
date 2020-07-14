@@ -63,9 +63,6 @@ class VPLoader:
             # and get a reference to the data gatherer
             gd = GetData()
 
-            # get the dataset provenance information
-            self.get_dataset_provenance(gd, data_path)
-
             # get the list of target taxa
             target_taxa_set: set = gd.get_ncbi_taxon_id_set(data_path, self.TYPE_VIRUS)
 
@@ -74,6 +71,9 @@ class VPLoader:
 
             # assign the data directory
             goa_data_dir = data_path + '/Virus_GOA_files/'
+
+            # get the 1 sars-cov-2 file manually
+            gd.pull_via_ftp('ftp.ebi.ac.uk', '/pub/contrib/goa/', ['uniprot_sars-cov-2.gaf'], goa_data_dir)
 
             # get the data files
             file_count: int = gd.get_goa_files(goa_data_dir, file_list, '/pub/databases/GO/goa', '/proteomes/')
@@ -89,7 +89,7 @@ class VPLoader:
             with open(os.path.join(data_path, f'{out_name}_node_file.tsv'), 'w', encoding="utf-8") as out_node_f, open(os.path.join(data_path, f'{out_name}_edge_file.tsv'), 'w', encoding="utf-8") as out_edge_f:
                 # write out the node and edge data headers
                 out_node_f.write(f'id\tname\tcategory\tequivalent_identifiers\n')
-                out_edge_f.write(f'id\tsubject\trelation_label\tedge_label\tobject\n')
+                out_edge_f.write(f'id\tsubject\trelation_label\tedge_label\tobject\tsource_database\n')
 
                 # init a file counter
                 file_counter: int = 0
@@ -152,20 +152,26 @@ class VPLoader:
         else:
             logger.error('Error: Did not receive all the UniProtKB GOA files.')
 
+        # get/KGX save the dataset provenance information node
+        self.get_dataset_provenance(data_path)
+
         # return to the caller
         return True
 
     @staticmethod
-    def get_dataset_provenance(gd: GetData, data_path: str):
+    def get_dataset_provenance(data_path: str):
+        # get the util object for getting data
+        gd: GetData = GetData()
+
         # get the current time
         now: datetime = datetime.now()
 
         # create the dataset descriptor
         ds: dict = {
             'data_set_name': 'ViralProteome',
-            'data_set_title': 'Viral Proteome',
+            'data_set_title': 'UnitProtKB GOA Viral Proteomes',
             'data_set_web_site': 'https://www.uniprot.org/proteomes/',
-            'data_set_download_url': 'ftp://ftp.ebi.ac.uk/pub/databases/GO/goa/proteomes/',
+            'data_set_download_url': 'ftp://ftp.ebi.ac.uk/pub/databases/GO/goa/proteomes/<viral proteomes>.goa',
             'data_set_version': gd.get_uniprot_virus_date_stamp(data_path),
             'data_set_retrieved_on': now.strftime("%Y/%m/%d %H:%M:%S")}
 
@@ -212,7 +218,7 @@ class VPLoader:
 
             # create the KGX edge data for nodes 1 and 2
             """ An edge from the gene to the organism_taxon with relation "in_taxon" """
-            edge_set.add(f'\t{node_1_id}\tin_taxon\tin_taxon\t{node_2_id}\n')
+            edge_set.add(f'\t{node_1_id}\tin_taxon\tin_taxon\t{node_2_id}\tUniProtKB GOA Viral proteomes\n')
 
             # write out an edge that connects nodes 1 and 3
             """ An edge between the gene and the go term. If the go term is a molecular_activity, 
@@ -246,7 +252,7 @@ class VPLoader:
             # was this a good value
             if valid_type:
                 # create the KGX edge data for nodes 1 and 3
-                edge_set.add(f'\t{src_node_id}\t{relation_label}\t{relation_label}\t{obj_node_id}\n')
+                edge_set.add(f'\t{src_node_id}\t{relation_label}\t{relation_label}\t{obj_node_id}\tUniProtKB GOA Viral proteomes\n')
 
         logger.debug(f'{len(edge_set)} unique edges identified.')
 

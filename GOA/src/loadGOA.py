@@ -78,7 +78,7 @@ class GOALoader:
             with open(os.path.join(data_file_path, f'{out_name}_node_file.tsv'), 'w', encoding="utf-8") as out_node_f, open(os.path.join(data_file_path, f'{out_name}_edge_file.tsv'), 'w', encoding="utf-8") as out_edge_f:
                 # write out the node and edge data headers
                 out_node_f.write(f'id\tname\tcategory\tequivalent_identifiers\n')
-                out_edge_f.write(f'id\tsubject\trelation_label\tedge_label\tobject\n')
+                out_edge_f.write(f'id\tsubject\trelation_label\tedge_label\tobject\tsource_database\n')
 
                 # parse the data
                 self.parse_data_file(os.path.join(data_file_path, data_file_name), out_node_f, out_edge_f, swiss_prots, test_mode)
@@ -202,7 +202,7 @@ class GOALoader:
 
             # create the KGX edge data for nodes 1 and 2
             """ An edge from the gene to the organism_taxon with relation "in_taxon" """
-            edge_set.add(f'\t{node_1_id}\tin_taxon\tin_taxon\t{node_2_id}\n')
+            edge_set.add(f'\t{node_1_id}\tin_taxon\tin_taxon\t{node_2_id}\tUniProtKB GOA Human viruses\n')
 
             # write out an edge that connects nodes 1 and 3
             """ An edge between the gene and the go term. If the go term is a molecular_activity, 
@@ -236,7 +236,7 @@ class GOALoader:
             # was this a good value
             if valid_type:
                 # create the KGX edge data for nodes 1 and 3
-                edge_set.add(f'\t{src_node_id}\t{relation_label}\t{relation_label}\t{obj_node_id}\n')
+                edge_set.add(f'\t{src_node_id}\t{relation_label}\t{relation_label}\t{obj_node_id}\tUniProtKB GOA Human viruses\n')
 
         logger.debug(f'{len(edge_set)} unique edges identified.')
 

@@ -5,11 +5,12 @@ import requests
 import enum
 import pandas as pd
 import logging
+from datetime import datetime
 from io import TextIOBase, TextIOWrapper
 from csv import reader
 from operator import itemgetter
 from zipfile import ZipFile
-from Common.utils import LoggingUtil, GetData
+from Common.utils import LoggingUtil, GetData, DatasetDescription
 from pathlib import Path
 
 # create a logger
@@ -106,10 +107,10 @@ class IALoader:
             with open(os.path.join(data_file_path, f'{out_name}_node_file.tsv'), 'w', encoding="utf-8") as out_node_f, open(os.path.join(data_file_path, f'{out_name}_edge_file.tsv'), 'w', encoding="utf-8") as out_edge_f:
                 # write out the node and edge data headers
                 out_node_f.write(f'id\tname\tcategory\tequivalent_identifiers\ttaxon\n')
-                out_edge_f.write(f'id\tsubject\trelation_label\tedge_label\tpublications\tdetection_method\tobject\n')
+                out_edge_f.write(f'id\tsubject\trelation_label\tedge_label\tpublications\tdetection_method\tobject\tsource_database\n')
 
                 # parse the data
-                self.parse_data_file(os.path.join(data_file_path, data_file_name), out_node_f, out_edge_f, test_mode)
+                self.parse_data_file(data_file_path, data_file_name, out_node_f, out_edge_f, test_mode)
 
             # do not remove the file if in debug mode
             if logger.level != logging.DEBUG and not test_mode:
@@ -122,11 +123,12 @@ class IALoader:
 
         logger.info(f'IALoader - Processing complete.')
 
-    def parse_data_file(self, infile_path: str, out_node_f, out_edge_f, test_mode: bool = False):
+    def parse_data_file(self, data_file_path: str, data_file_name: str, out_node_f, out_edge_f, test_mode: bool = False):
         """
         Parses the data file for graph nodes/edges and writes them out the KGX tsv files.
 
-        :param infile_path: the name of the intact file to process
+        :param data_file_path: the path to the IntAct zip file
+        :param data_file_name: the name of the intact zip file
         :param out_edge_f: the edge file pointer
         :param out_node_f: the node file pointer
         :param test_mode: indicates we are in debug mode
@@ -137,6 +139,9 @@ class IALoader:
             threshold: int = 1000
         else:
             threshold: int = 1
+
+        # get the path to the zip file
+        infile_path: str = os.path.join(data_file_path, data_file_name)
 
         with ZipFile(infile_path) as zf:
             # open the taxon file indexes and the uniref data file
@@ -224,10 +229,16 @@ class IALoader:
                         if interaction_counter % 250000 == 0:
                             logger.debug(f'Completed {interaction_counter} interactions.')
 
-                # save any remainders
-                if len(experiment_grp) > 0:
-                    self.write_out_data(out_edge_f, out_node_f, test_mode)
-                    logger.debug(f'Processing completed. {interaction_counter} interactions processed.')
+            # save any remainders
+            if len(experiment_grp) > 0:
+                self.write_out_data(out_edge_f, out_node_f, test_mode)
+                logger.debug(f'Processing completed. {interaction_counter} interactions processed.')
+
+            # get the zip archive information
+            data_prov: list = zf.infolist()
+
+            # create the dataset KGX node data
+            self.get_dataset_provenance(data_file_path, data_prov, 'intact.txt')
 
     def write_out_data(self, out_edge_f: TextIOBase, out_node_f: TextIOBase, test_mode: bool = False):
         """
@@ -489,12 +500,12 @@ class IALoader:
             # a gene to gene pair that has a "directly interacts with" relationship
             while grp_idx < len(grp_list):
                 # write out the uniprot A to uniprot B edge
-                edge = f'\t{grp_list[grp_idx]["u_a"]}\tdirectly_interacts_with\tdirectly_interacts_with\tPMID:{grp_list[grp_idx]["pmid"]}\t{"|".join(detection_method_set)}\t{grp_list[grp_idx]["u_b"]}\n'
+                edge = f'\t{grp_list[grp_idx]["u_a"]}\tdirectly_interacts_with\tdirectly_interacts_with\tPMID:{grp_list[grp_idx]["pmid"]}\t{"|".join(detection_method_set)}\t{grp_list[grp_idx]["u_b"]}\tIntAct\n'
                 out_edge_f.write(hashlib.md5(edge.encode('utf-8')).hexdigest() + edge)
 
                 # write out the uniprot to NCBI taxon edge
                 for suffix in ['a', 'b']:
-                    edge = f'\t{grp_list[grp_idx]["u_" + suffix]}\tin_taxon\tin_taxon\t\t\t{grp_list[grp_idx]["t_" + suffix]}\n'
+                    edge = f'\t{grp_list[grp_idx]["u_" + suffix]}\tin_taxon\tin_taxon\t\t\t{grp_list[grp_idx]["t_" + suffix]}\tIntAct\n'
                     out_edge_f.write(hashlib.md5(edge.encode('utf-8')).hexdigest() + edge)
 
                 # goto the next pair
@@ -589,6 +600,36 @@ class IALoader:
 
         # return the value to the caller
         return ret_val
+
+    @staticmethod
+    def get_dataset_provenance(data_path: str, data_prov: list, file_name: str):
+        # get the current time
+        now: datetime = datetime.now()
+
+        # init the data version
+        data_version: datetime = datetime(1980, 1, 1)
+
+        # loop through the data provenance info
+        for item in data_prov:
+            # did we find the file name we are using
+            if item.filename == file_name:
+                # convert the version to a date object
+                data_version = datetime(*item.date_time[0:6])
+
+                # no need to continue
+                break
+
+        # create the dataset descriptor
+        ds: dict = {
+            'data_set_name': 'IntAct',
+            'data_set_title': 'IntAct',
+            'data_set_web_site': 'https://www.ebi.ac.uk/intact/',
+            'data_set_download_url': 'ftp.ebi.ac.uk/pub/databases/IntAct/current/psimitab/intact.zip',
+            'data_set_version': data_version.strftime("%Y%m%d"),
+            'data_set_retrieved_on': now.strftime("%Y/%m/%d %H:%M:%S")}
+
+        # create the data description KGX file
+        DatasetDescription.create_description(data_path, ds, 'intact')
 
 
 if __name__ == '__main__':

@@ -62,7 +62,7 @@ class UniRefSimLoader:
             with open(os.path.join(data_dir, f'{f}_Virus_node_file.tsv'), 'w', encoding="utf-8") as out_node_f, open(os.path.join(data_dir, f'{f}_Virus_edge_file.tsv'), 'w', encoding="utf-8") as out_edge_f:
                 # write out the node and edge data headers
                 out_node_f.write(f'id\tname\tcategory\tequivalent_identifiers\n')
-                out_edge_f.write(f'id\tsubject\trelation_label\tedge_label\tobject\n')
+                out_edge_f.write(f'id\tsubject\trelation_label\tedge_label\tobject\source_database\n')
 
                 # add the file extension
                 if test_mode:
@@ -511,7 +511,7 @@ class UniRefSimLoader:
                     similarity_bin = node_list[node_idx]['similarity_bin']
                 # get the UniRef entry common taxon ID and create the UniRef ID to taxon edge
                 elif node_list[node_idx]['node_num'] == 1:
-                    edge = f'\t{gene_family_node_id}\tin_taxon\tin_taxon\t{node_list[node_idx]["id"]}\n'
+                    edge = f'\t{gene_family_node_id}\tin_taxon\tin_taxon\t{node_list[node_idx]["id"]}\t{gene_family_node_id.split(":")[0]}\n'
                     out_edge_f.write(hashlib.md5(edge.encode('utf-8')).hexdigest() + edge)
                 # get the member node edges
                 else:
@@ -520,16 +520,16 @@ class UniRefSimLoader:
                         rep_member_node_id = node_list[node_idx]['id']
 
                     # create an edge between the uniprot and the gene family nodes
-                    edge = f'\t{node_list[node_idx]["id"]}\tpart_of\tpart_of\t{gene_family_node_id}\n'
+                    edge = f'\t{node_list[node_idx]["id"]}\tpart_of\tpart_of\t{gene_family_node_id}\t{node_list[node_idx]["id"].split(":")[0]}\n'
                     out_edge_f.write(hashlib.md5(edge.encode('utf-8')).hexdigest() + edge)
 
                     # create an edge between the gene product and its paring taxon
-                    edge = f'\t{node_list[node_idx]["id"]}\tin_taxon\tin_taxon\t{node_list[node_idx + 1]["id"]}\n'
+                    edge = f'\t{node_list[node_idx]["id"]}\tin_taxon\tin_taxon\t{node_list[node_idx + 1]["id"]}\t{node_list[node_idx]["id"].split(":")[0]}\n'
                     out_edge_f.write(hashlib.md5(edge.encode('utf-8')).hexdigest() + edge)
 
                     # add the spoke edge if it isn't a reflection of itself
                     if rep_member_node_id != node_list[node_idx]['id']:
-                        edge = f'\t{rep_member_node_id}\t{similarity_bin}\tsimilar_to\t{node_list[node_idx]["id"]}\n'
+                        edge = f'\t{rep_member_node_id}\t{similarity_bin}\tsimilar_to\t{node_list[node_idx]["id"]}\t{rep_member_node_id.split(":")[0]}\n'
                         out_edge_f.write(hashlib.md5(edge.encode('utf-8')).hexdigest() + edge)
 
                     # save for similar node to node edge combination creation
@@ -601,7 +601,7 @@ if __name__ == '__main__':
     args = vars(ap.parse_args())
 
     # this is the base directory for data files and the resultant KGX files.
-     # data_dir = 'E:/Data_services/UniRef_data'
+    # data_dir = 'E:/Data_services/UniRef_data'
     UniRef_data_dir: str = args['data_dir']
 
     # create the file list
