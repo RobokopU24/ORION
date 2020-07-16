@@ -291,7 +291,7 @@ class GetData:
         # return pass/fail to the caller
         return file_counter
 
-    def get_swiss_prot_id_set(self, data_dir: str) -> set:
+    def get_swiss_prot_id_set(self, data_dir: str, debug_mode = False) -> set:
         """
         gets/parses the swiss-prot listing file and returns a set of uniprot kb ids from
         ftp://ftp.uniprot.org/pub/databases/uniprot/current_release/knowledgebase/complete/uniprot_sprot.dat.gz.
@@ -329,7 +329,7 @@ class GetData:
                         ret_val.add(item.strip(';\n'))
 
         # do not remove the file if in debug mode
-        if self.logger.level != logging.DEBUG:
+        if self.logger.level != logging.DEBUG and not debug_mode:
             # remove the target file
             os.remove(os.path.join(data_dir, data_file_name))
 
@@ -401,6 +401,7 @@ class GetData:
 
         :return: the date stamp string
         """
+
         # get the date stamp file
         self.pull_via_ftp('ftp.ebi.ac.uk', '/pub/databases/GO/goa/proteomes', ['datestamp'], data_dir)
 
