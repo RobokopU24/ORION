@@ -168,7 +168,7 @@ class VPLoader:
 
         # create the dataset descriptor
         ds: dict = {
-            'data_set_name': 'ViralProteome',
+            'data_set_name': 'Viral Proteome',
             'data_set_title': 'UnitProtKB GOA Viral Proteomes',
             'data_set_web_site': 'https://www.uniprot.org/proteomes/',
             'data_set_download_url': 'ftp://ftp.ebi.ac.uk/pub/databases/GO/goa/proteomes/<viral proteomes>.goa',
@@ -176,7 +176,7 @@ class VPLoader:
             'data_set_retrieved_on': now.strftime("%Y/%m/%d %H:%M:%S")}
 
         # create the data description KGX file
-        DatasetDescription.create_description(data_path, ds, 'ViralProteome')
+        DatasetDescription.create_description(data_path, ds, 'Viral_Proteome')
 
     @staticmethod
     def get_edge_set(df: pd.DataFrame) -> set:
