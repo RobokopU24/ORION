@@ -176,7 +176,7 @@ class VPLoader:
             'data_set_retrieved_on': now.strftime("%Y/%m/%d %H:%M:%S")}
 
         # create the data description KGX file
-        DatasetDescription.create_description(data_path, ds, 'Viral_Proteome')
+        DatasetDescription.create_description(data_path, ds, 'Viral_proteome')
 
     @staticmethod
     def get_edge_set(df: pd.DataFrame) -> set:
