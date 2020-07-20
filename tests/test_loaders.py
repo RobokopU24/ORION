@@ -1,7 +1,6 @@
 import os.path
 import pytest
 
-from neo4j import GraphDatabase
 from ViralProteome.src.loadUniRef import UniRefSimLoader
 from ViralProteome.src.loadVP import VPLoader
 from IntAct.src.loadIA import IALoader
@@ -154,8 +153,10 @@ def test_goa_load():
     os.remove(os.path.join(test_dir, 'Human_GOA_edge_file.tsv'))
 
 
-@pytest.mark.skip(reason="Internal test only. This test requires 2 graph DBs to compare results")
+@pytest.mark.skip(reason="Internal test only. This test requires a graph DB for result verification")
 def test_swiss_prot_against_quickgo():
+    from neo4j import GraphDatabase
+
     # get a reference to the Data_services util
     gd = GetData()
 
@@ -197,7 +198,9 @@ def test_swiss_prot_against_quickgo():
 
 
 @pytest.mark.skip(reason="Internal test only. This test requires 2 graph DBs to compare results")
-def test_compare_edge_subsets():
+def test_compare_edge_subsets_by_uni():
+    from neo4j import GraphDatabase
+
     # get a reference to the Data_services util
     gd: GetData = GetData()
 
@@ -207,15 +210,18 @@ def test_compare_edge_subsets():
     # create a connection to the QuickGO graph
     driver_qg = GraphDatabase.driver('bolt://robokopdev.renci.org:7688', auth=('neo4j', 'demo'))
 
-    # prep for getting edges between uniprotkb and GO terms
-    param1: str = 'UniProt.*'
-    param2: str = 'GO.*'
-    # node_id1: str = 'n1.id'
-    node_id2: str = 'n2.id'
+    # prep for getting edges between terms
+    uni_search: str = 'UniProt.*'
     output_val: str = 'uniprot_id'
 
-    # creat the cypher command
-    cypher: str = f'MATCH (n1)--(n2) WHERE not n1:Concept and n2.id =~ "{param2}" and any (x in n1.equivalent_identifiers where x =~ "{param1}") RETURN distinct n1.id, n2.id, [x in n1.equivalent_identifiers where x =~ "{param1}" | x][0] as {output_val}'
+    ncbi_search: str = 'NCBI:'
+    node_id1: str = 'n1.id'
+
+    go_search: str = 'GO.*'
+    node_id2: str = 'n2.id'
+
+    # create the cypher command
+    cypher: str = f'MATCH (n1)--(n2) WHERE not n1:Concept and {node_id2} =~ "{go_search}" and any (x in n1.equivalent_identifiers where x =~ "{uni_search}") RETURN distinct {node_id1}, {node_id2}, [x in n1.equivalent_identifiers where x =~ "{uni_search}" | x][0] as {output_val}'
 
     # get the data
     result = driver_qg.session().run(cypher)
@@ -225,14 +231,20 @@ def test_compare_edge_subsets():
 
     # for each uniprotkb id
     for record in result:
-        # is the uniprotkb id in the swiss prot curation list
-        if record[output_val].split(':')[1] in swiss_prots:
-            # save the data. uniprot id,Go id
-            qg_ret_val.append(record[output_val] + ',' + record[node_id2])
+        tmp_val = record[node_id1].split(':')
 
-            # check to see if there are uniprot ids in the QG data
-            # if record['n1.id'] == record[output_val]:
-            #     print(f'n1.id: {record["n1.id"]}, out_val:{record[output_val]}')
+        # check for an invalid ID
+        if len(tmp_val) > 2:
+            print(f'{node_id1} ID error: {record[node_id1]}')
+        else:
+            # is the uniprotkb id in the swiss prot curation list
+            if tmp_val.split(':')[1] in swiss_prots:
+                # save the data. uniprot id,Go id
+                qg_ret_val.append(record[output_val] + ',' + record[node_id2])
+
+                # check to see if there are uniprot ids in the QG data
+                # if record['n1.id'] == record[output_val]:
+                #     print(f'n1.id: {record["n1.id"]}, out_val:{record[output_val]}')
 
     # should have gotten something
     assert qg_ret_val
@@ -246,9 +258,98 @@ def test_compare_edge_subsets():
     # init the data return
     hg_ret_val: list = []
 
-    # save the data. uniprot id,Go id
+    # save the data. node id, GO id
     for record in result:
         hg_ret_val.append(record[output_val] + "," + record[node_id2])
+
+    # we should have got something
+    assert hg_ret_val
+
+    # init the data bins
+    are_in_hg: list = []
+    not_in_hg: list = []
+
+    # for each quick go edge
+    for qg_item in qg_ret_val:
+        # is the edge also in the human goa data
+        if qg_item in hg_ret_val:
+            are_in_hg.append(qg_item)
+        # else it isn't
+        else:
+            not_in_hg.append(qg_item)
+
+    print(f'There are {len(qg_ret_val)} UniProt to GO edges in QuickGO')
+    print(f'There are {len(hg_ret_val)} UniProt to GO edges in Human GOA')
+
+    print(f'There are {len(are_in_hg)} QuickGO UniProt/GO edges in Human GOA')
+    print(f'There are {len(not_in_hg)} QuickGO UniProt/term edges not in Human GOA')
+
+    # dont need these anymore
+    driver_qg.close()
+    driver_hg.close()
+
+    assert are_in_hg
+
+
+@pytest.mark.skip(reason="Internal test only. This test requires 2 graph DBs to compare results")
+def test_compare_edge_subsets_by_gene():
+    from neo4j import GraphDatabase
+
+    # get a reference to the Data_services util
+    gd: GetData = GetData()
+
+    # get the uniprot kb ids that were curated by swiss-prot
+    swiss_prots: set = gd.get_swiss_prot_id_set(os.path.dirname(os.path.abspath(__file__)))
+
+    # create a connection to the QuickGO graph
+    driver_qg = GraphDatabase.driver('bolt://robokopdev.renci.org:7688', auth=('neo4j', 'demo'))
+
+    # prep for getting edges between terms
+    ncbi_search: str = 'NCBI:'
+    node_id1: str = 'n1.id'
+
+    go_search: str = 'GO.*'
+    node_id2: str = 'n2.id'
+
+    # create the cypher command
+    cypher: str = f'MATCH (n1)--(n2) WHERE not n1:Concept and {node_id1} =~ "{ncbi_search}" and {node_id2} =~ "{go_search}" RETURN distinct {node_id1}, {node_id2}'
+
+    # get the data
+    result = driver_qg.session().run(cypher)
+
+    # init the data return
+    qg_ret_val: list = []
+
+    # for each uniprotkb id
+    for record in result:
+        tmp_val = record[node_id1].split(':')
+        if len(tmp_val) > 2:
+            print(f'{node_id1} ID error: {record[node_id1]}')
+        else:
+            # is the uniprotkb id in the swiss prot curation list
+            if tmp_val.split(':')[1] in swiss_prots:
+                # save the data. uniprot id,Go id
+                qg_ret_val.append(record[node_id1] + ',' + record[node_id2])
+
+                # check to see if there are uniprot ids in the QG data
+                # if record['n1.id'] == record[output_val]:
+                #     print(f'n1.id: {record["n1.id"]}, out_val:{record[output_val]}')
+
+    # should have gotten something
+    assert qg_ret_val
+
+    # create a connection to the Human GOA graph
+    driver_hg = GraphDatabase.driver('bolt://localhost:7687', auth=('neo4j', 'demo'))
+
+    # get the data
+    result = driver_hg.session().run(cypher)
+
+    # init the data return
+    hg_ret_val: list = []
+
+    # save the data. node id, GO id
+    for record in result:
+        hg_ret_val.append(record[node_id1] + "," + record[node_id2])
 
     # we should have got something
     assert hg_ret_val
@@ -262,15 +363,15 @@ def test_compare_edge_subsets():
         # is the edge also in the human goa data
         if qg_item in hg_ret_val:
             are_in_hg.append(qg_item)
-        # else it isnt
+        # else it isn't
         else:
             not_in_hg.append(qg_item)
 
-    print(f'There are {len(qg_ret_val)} UniProt to GO edges in QuickGO')
-    print(f'There are {len(hg_ret_val)} UniProt to GO edges in Human GOA')
+    print(f'There are {len(qg_ret_val)} NCBI to GO edges in QuickGO')
+    print(f'There are {len(hg_ret_val)} NCBI to GO edges in Human GOA')
 
-    print(f'There are {len(are_in_hg)} QuickGO UniProt/GO edges in Human GOA')
-    print(f'There are {len(not_in_hg)} QuickGO UniProt/term edges not in Human GOA')
+    print(f'There are {len(are_in_hg)} QuickGO NCBI/GO edges in Human GOA')
+    print(f'There are {len(not_in_hg)} QuickGO NCBI/term edges not in Human GOA')
 
     # dont need these anymore
     driver_qg.close()
