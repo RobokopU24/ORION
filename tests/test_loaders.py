@@ -17,28 +17,36 @@ def test_vp_load():
     test_dir = os.path.dirname(os.path.abspath(__file__)) + '/resources'
 
     # load the data file and create KGX output
-    vp.load(test_dir, 'VPLoadTest', test_mode=True)
+    vp.load(test_dir, 'Viral_proteome_loadtest', test_mode=True)
 
     # check the results
-    assert(os.path.isfile(os.path.join(test_dir, 'VPLoadTest_edge_file.tsv')) and os.path.isfile(os.path.join(test_dir, 'VPLoadTest_node_file.tsv')))
+    assert(os.path.isfile(os.path.join(test_dir, 'Viral_proteome_loadtest_edge_file.tsv')) and os.path.isfile(os.path.join(test_dir, 'Viral_proteome_loadtest_node_file.tsv')))
 
     # open the edge file list and get the lines
-    with open(os.path.join(test_dir, 'VPLoadTest_edge_file.tsv'), 'r') as fl:
+    with open(os.path.join(test_dir, 'Viral_proteome_loadtest_edge_file.tsv'), 'r') as fl:
         file_lines: list = fl.readlines()
 
     # check the line count
     assert(len(file_lines) == 149)
 
     # open the node file list and get the lines
-    with open(os.path.join(test_dir, 'VPLoadTest_node_file.tsv'), 'r') as fl:
+    with open(os.path.join(test_dir, 'Viral_proteome_loadtest_node_file.tsv'), 'r') as fl:
         file_lines: list = fl.readlines()
 
     # check the line count
     assert(len(file_lines) == 86)
 
+    # open the provenance node file and get the lines
+    with open(os.path.join(test_dir, 'Viral_proteome_prov_node_file.tsv'), 'r') as fl:
+        file_lines: list = fl.readlines()
+
+    # check the line count
+    assert (len(file_lines) == 2)
+
     # remove the data files
-    os.remove(os.path.join(test_dir, 'VPLoadTest_edge_file.tsv'))
-    os.remove(os.path.join(test_dir, 'VPLoadTest_node_file.tsv'))
+    os.remove(os.path.join(test_dir, 'Viral_proteome_loadtest_edge_file.tsv'))
+    os.remove(os.path.join(test_dir, 'Viral_proteome_loadtest_node_file.tsv'))
+    os.remove(os.path.join(test_dir, 'Viral_proteome_prov_node_file.tsv'))
 
 
 def test_uniref_load():
@@ -101,9 +109,17 @@ def test_intact_load():
     # check the line count
     assert(len(file_lines) == 11)
 
+    # open the provenance node file and get the lines
+    with open(os.path.join(test_dir, 'intact_prov_node_file.tsv'), 'r') as fl:
+        file_lines: list = fl.readlines()
+
+    # check the line count
+    assert(len(file_lines) == 2)
+
     # remove the data files
     os.remove(os.path.join(test_dir, 'intact_node_file.tsv'))
     os.remove(os.path.join(test_dir, 'intact_edge_file.tsv'))
+    os.remove(os.path.join(test_dir, 'intact_prov_node_file.tsv'))
 
 
 def test_goa_load():
@@ -138,7 +154,7 @@ def test_goa_load():
     os.remove(os.path.join(test_dir, 'Human_GOA_edge_file.tsv'))
 
 
-@pytest.mark.skip(reason="This test requires 2 graph DBs to compare results")
+@pytest.mark.skip(reason="Internal test only. This test requires 2 graph DBs to compare results")
 def test_swiss_prot_against_quickgo():
     # get a reference to the Data_services util
     gd = GetData()
@@ -147,7 +163,7 @@ def test_swiss_prot_against_quickgo():
     swiss_prots: set = gd.get_swiss_prot_id_set(os.path.dirname(os.path.abspath(__file__)))
 
     # create a connection
-    driver_qg = GraphDatabase.driver('bolt://robokopdev.renci.org:7688', auth=('neo4j', 'ncatsgamma'))
+    driver_qg = GraphDatabase.driver('bolt://robokopdev.renci.org:7688', auth=('neo4j', 'demo'))
 
     # prep for getting all unique uniprotkb ids
     param: str = 'UniProt.*'
@@ -180,7 +196,7 @@ def test_swiss_prot_against_quickgo():
     assert are_swiss_prots
 
 
-@pytest.mark.skip(reason="This test requires 2 graph DBs to compare results")
+@pytest.mark.skip(reason="Internal test only. This test requires 2 graph DBs to compare results")
 def test_compare_edge_subsets():
     # get a reference to the Data_services util
     gd: GetData = GetData()
@@ -189,7 +205,7 @@ def test_compare_edge_subsets():
     swiss_prots: set = gd.get_swiss_prot_id_set(os.path.dirname(os.path.abspath(__file__)))
 
     # create a connection to the QuickGO graph
-    driver_qg = GraphDatabase.driver('bolt://robokopdev.renci.org:7688', auth=('neo4j', 'ncatsgamma'))
+    driver_qg = GraphDatabase.driver('bolt://robokopdev.renci.org:7688', auth=('neo4j', 'demo'))
 
     # prep for getting edges between uniprotkb and GO terms
     param1: str = 'UniProt.*'
@@ -222,7 +238,7 @@ def test_compare_edge_subsets():
     assert qg_ret_val
 
     # create a connection to the Human GOA graph
-    driver_hg = GraphDatabase.driver('bolt://localhost:7687', auth=('neo4j', 'neo4jkp'))
+    driver_hg = GraphDatabase.driver('bolt://localhost:7687', auth=('neo4j', 'demo'))
 
     # get the data
     result = driver_hg.session().run(cypher)
