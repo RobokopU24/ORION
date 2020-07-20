@@ -594,7 +594,7 @@ if __name__ == '__main__':
     ap = argparse.ArgumentParser(description='Load UniRef data files and create KGX import files.')
 
     # command line should be like: python loadUniRef2.py -d /projects/stars/Data_services/UniRef_data -f uniref50,uniref90,uniref100
-    ap.add_argument('-d', '--data_dir', required=True, help='The location of the UniRef data files')
+    ap.add_argument('-r', '--data_dir', required=True, help='The location of the UniRef data files')
     ap.add_argument('-f', '--UniRef_files', required=True, help='Name(s) of input UniRef files (comma delimited)')
 
     # parse the arguments

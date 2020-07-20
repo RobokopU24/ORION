@@ -637,7 +637,7 @@ if __name__ == '__main__':
     ap = argparse.ArgumentParser(description='Load IntAct virus interaction data file and create KGX import files.')
 
     # command line should be like: python loadIA.py -d E:/Data_services/IntAct_data
-    ap.add_argument('-d', '--data_dir', required=True, help='The IntAct data file directory')
+    ap.add_argument('-i', '--data_dir', required=True, help='The IntAct data file directory')
 
     # parse the arguments
     args = vars(ap.parse_args())

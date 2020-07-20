@@ -19,18 +19,18 @@ if __name__ == '__main__':
     python load_all.py -p E:/Data_services/UniProtKB_data 
     python load_all.py -r E:/Data_services/UniRef_data -f uniref100,uniref90,uniref50
     python load_all.py -i E:/Data_services/IntAct_data
-    python load_all.py -g E:/Data_services/UniProtKB_data
+    python load_all.py -p E:/Data_services/UniProtKB_data -g goa_human.gaf.gz
     
     """
     # create a command line parser
     ap = argparse.ArgumentParser(description='Load UniProtKB viral proteome and UniRef data files and create KGX import files.')
 
     # declare command line arguments
-    ap.add_argument('-p', '--uniprot_dir', required=False, help='The directory of the UniProtKB data files.')
-    ap.add_argument('-r', '--uniref_dir', required=False, help='The directory of the UniRef data files.')
+    ap.add_argument('-p', '--uniprot_dir', required=False, help='The data directory for the UniProtKB GOA and KGX files (VP or Human).')
+    ap.add_argument('-r', '--uniref_dir', required=False, help='The data directory for the 3 UniRef files and the KGX files.')
     ap.add_argument('-f', '--uniref_files', required=False, help='Comma separated UniRef data file(s) to parse.')
-    ap.add_argument('-i', '--intact_dir', required=False, help='The directory of the IntAct data files.')
-    ap.add_argument('-g', '--goa_dir', required=False, help='The directory of the GOA data files.')
+    ap.add_argument('-i', '--intact_dir', required=False, help='The data directory for the IntAct data and KGX files.')
+    ap.add_argument('-g', '--goa_data_file', required=False, help='The name of the target GOA data file.')
 
     # parse the arguments
     args = vars(ap.parse_args())
@@ -66,12 +66,12 @@ if __name__ == '__main__':
         # load the data files and create KGX output files
         ia.load(IntAct_data_dir, 'intact')
 
-    # assign the uniref directory
-    GOA_data_dir = args['goa_dir']
+    # assign the target GOA data file
+    GOA_data_file = args['goa_data_file']
 
-    if GOA_data_dir is not None:
+    if UniProtKB_data_dir is not None:
         # get a reference to the processor
         goa = GOALoader()
 
         # load the data files and create KGX output files
-        goa.load(GOA_data_dir, '/HUMAN/', 'goa_human.gaf.gz', 'Human_GOA')
+        goa.load(UniProtKB_data_dir, GOA_data_file, 'Human_GOA')

@@ -43,12 +43,11 @@ class DATACOLS(enum.IntEnum):
 # Desc: Class that loads the UniProtKB GOA data and creates KGX files for importing into a Neo4j graph.
 ##############
 class GOALoader:
-    def load(self, data_file_path, ftp_dir_path: str, data_file_name: str, out_name: str, test_mode: bool = False) -> bool:
+    def load(self, data_file_path, data_file_name: str, out_name: str, test_mode: bool = False) -> bool:
         """
         loads/parses goa data file from ftp://ftp.ebi.ac.uk/pub/databases/GO/goa/<ftp_dir_path>
 
         :param data_file_path: root directory of output data files
-        :param ftp_dir_path: the path in the ftp file sub directory
         :param data_file_name: the name of the goa input data file
         :param out_name: the output name prefix of the KGX files
         :param test_mode: flag to indicate test mode
@@ -67,14 +66,14 @@ class GOALoader:
             # get the uniprot kb ids that were curated by swiss-prot
             swiss_prots: set = gd.get_swiss_prot_id_set(data_file_path)
 
-            # get the data file
-            file_count: int = gd.get_goa_files(data_file_path, [data_file_name], '/pub/databases/GO/goa', ftp_dir_path)
+            # get the GOA data file
+            byte_count: int = gd.get_goa_http_file(data_file_path, data_file_name)
         else:
             swiss_prots: set = {'A0A024RBG1'}
-            file_count: int = 1
+            byte_count: int = 1
 
         # did we get all the files and swiss prots
-        if file_count == 1 and len(swiss_prots) > 0:
+        if byte_count > 0 and len(swiss_prots) > 0:
             with open(os.path.join(data_file_path, f'{out_name}_node_file.tsv'), 'w', encoding="utf-8") as out_node_f, open(os.path.join(data_file_path, f'{out_name}_edge_file.tsv'), 'w', encoding="utf-8") as out_edge_f:
                 # write out the node and edge data headers
                 out_node_f.write(f'id\tname\tcategory\tequivalent_identifiers\n')
@@ -305,8 +304,8 @@ if __name__ == '__main__':
     ap = argparse.ArgumentParser(description='Load UniProtKB human data files and create KGX import files.')
 
     # command line should be like: python loadGOA.py -d /projects/stars/Data_services/UniProtKB_data
-    ap.add_argument('-d', '--data_dir', required=True, help='The location of the UniProtKB data files')
-    ap.add_argument('-f', '--data_file', required=True, help='The name of the GOA data file')
+    ap.add_argument('-p', '--data_dir', required=True, help='The location of the UniProtKB data files')
+    ap.add_argument('-g', '--data_file', required=True, help='The name of the GOA data file')
 
     # parse the arguments
     args = vars(ap.parse_args())
@@ -314,10 +313,10 @@ if __name__ == '__main__':
     # UniProtKB_data_dir = '/projects/stars/Data_services/UniProtKB_data'
     # UniProtKB_data_dir = 'E:/Data_services/UniProtKB_data'
     data_dir = args['data_dir']
-    data_file = args['data_file']  # goa_human.gaf
+    data_file = args['data_file']  # goa_human.gaf.gz
 
     # get a reference to the processor
     goa = GOALoader()
 
     # load the data files and create KGX output
-    goa.load(data_dir, '/HUMAN/', data_file, 'Human_GOA')
+    goa.load(data_dir, data_file, 'Human_GOA')

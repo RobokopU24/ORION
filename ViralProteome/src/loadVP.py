@@ -442,8 +442,8 @@ if __name__ == '__main__':
     # create a command line parser
     ap = argparse.ArgumentParser(description='Load UniProtKB viral proteome data files and create KGX import files.')
 
-    # command line should be like: python loadVP.py -d /projects/stars/Data_services/UniProtKB_data
-    ap.add_argument('-d', '--data_dir', required=True, help='The location of the UniProtKB data files')
+    # command line should be like: python loadVP.py -p /projects/stars/Data_services/UniProtKB_data
+    ap.add_argument('-p', '--data_dir', required=True, help='The location of the UniProtKB data files')
 
     # parse the arguments
     args = vars(ap.parse_args())
