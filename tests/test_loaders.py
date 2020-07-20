@@ -198,7 +198,7 @@ def test_swiss_prot_against_quickgo():
 
 
 @pytest.mark.skip(reason="Internal test only. This test requires 2 graph DBs to compare results")
-def test_compare_edge_subsets_by_uni():
+def test_compare_edge_subsets_by_uniprot():
     from neo4j import GraphDatabase
 
     # get a reference to the Data_services util
@@ -214,7 +214,6 @@ def test_compare_edge_subsets_by_uni():
     uni_search: str = 'UniProt.*'
     output_val: str = 'uniprot_id'
 
-    ncbi_search: str = 'NCBI:'
     node_id1: str = 'n1.id'
 
     go_search: str = 'GO.*'
@@ -231,6 +230,7 @@ def test_compare_edge_subsets_by_uni():
 
     # for each uniprotkb id
     for record in result:
+        # split the id into parts
         tmp_val = record[node_id1].split(':')
 
         # check for an invalid ID
@@ -238,7 +238,7 @@ def test_compare_edge_subsets_by_uni():
             print(f'{node_id1} ID error: {record[node_id1]}')
         else:
             # is the uniprotkb id in the swiss prot curation list
-            if tmp_val.split(':')[1] in swiss_prots:
+            if tmp_val[1] in swiss_prots:
                 # save the data. uniprot id,Go id
                 qg_ret_val.append(record[output_val] + ',' + record[node_id2])
 
@@ -295,17 +295,11 @@ def test_compare_edge_subsets_by_uni():
 def test_compare_edge_subsets_by_gene():
     from neo4j import GraphDatabase
 
-    # get a reference to the Data_services util
-    gd: GetData = GetData()
-
-    # get the uniprot kb ids that were curated by swiss-prot
-    swiss_prots: set = gd.get_swiss_prot_id_set(os.path.dirname(os.path.abspath(__file__)))
-
     # create a connection to the QuickGO graph
     driver_qg = GraphDatabase.driver('bolt://robokopdev.renci.org:7688', auth=('neo4j', 'demo'))
 
     # prep for getting edges between terms
-    ncbi_search: str = 'NCBI:'
+    ncbi_search: str = 'NCBI.*'
     node_id1: str = 'n1.id'
 
     go_search: str = 'GO.*'
@@ -322,18 +316,19 @@ def test_compare_edge_subsets_by_gene():
 
     # for each uniprotkb id
     for record in result:
+        # split the id into parts
         tmp_val = record[node_id1].split(':')
+
+        # check for an invalid ID
         if len(tmp_val) > 2:
             print(f'{node_id1} ID error: {record[node_id1]}')
         else:
-            # is the uniprotkb id in the swiss prot curation list
-            if tmp_val.split(':')[1] in swiss_prots:
-                # save the data. uniprot id,Go id
-                qg_ret_val.append(record[node_id1] + ',' + record[node_id2])
+            # save the data. ncbi id, go id
+            qg_ret_val.append(record[node_id1] + ',' + record[node_id2])
 
-                # check to see if there are uniprot ids in the QG data
-                # if record['n1.id'] == record[output_val]:
-                #     print(f'n1.id: {record["n1.id"]}, out_val:{record[output_val]}')
+            # check to see if there are uniprot ids in the QG data
+            # if record['n1.id'] == record[output_val]:
+            #     print(f'n1.id: {record["n1.id"]}, out_val:{record[output_val]}')
 
     # should have gotten something
     assert qg_ret_val
@@ -365,6 +360,7 @@ def test_compare_edge_subsets_by_gene():
             are_in_hg.append(qg_item)
         # else it isn't
         else:
+            print(f'quickgo {qg_item} not found in human GOA')
             not_in_hg.append(qg_item)
 
     print(f'There are {len(qg_ret_val)} NCBI to GO edges in QuickGO')
