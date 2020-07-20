@@ -297,6 +297,7 @@ class GetData:
         ftp://ftp.uniprot.org/pub/databases/uniprot/current_release/knowledgebase/complete/uniprot_sprot.dat.gz.
 
         :param data_dir: the directory to place the file temporarily
+        :param debug_mode: flag it indicate debug mode
         :return: a set of uniprot kb ids
         """
 
