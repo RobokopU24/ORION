@@ -4,6 +4,7 @@ import logging
 import tarfile
 import csv
 import gzip
+from urllib.request import urlopen
 from csv import reader
 from ftplib import FTP
 from datetime import datetime
@@ -291,6 +292,51 @@ class GetData:
         # return pass/fail to the caller
         return file_counter
 
+    def pull_via_http(self, url: str, data_dir: str) -> int:
+        """
+        gets the file from an http stream.
+
+        :param url:
+        :param data_dir:
+        :return: the number of bytes read
+        """
+
+        # get the filename
+        data_file: str = url.split('/')[-1]
+
+        # get the file if its not there
+        if not os.path.exists(os.path.join(data_dir, data_file)):
+            # get the file
+            file_data = urlopen(url)
+
+            # init the byte counter
+            byte_counter: int = 0
+
+            # open a file for the data
+            with open(os.path.join(data_dir, data_file), 'wb') as fp:
+                # init the retrieve bytes by block size
+                block = 8192
+
+                # until all bytes read
+                while True:
+                    # get some bytes
+                    buffer = file_data.read(block)
+
+                    # did we run out of data
+                    if not buffer:
+                        break
+
+                    # keep track of the number of bytes transferred
+                    byte_counter += len(buffer)
+
+                    # output the data to the file
+                    fp.write(buffer)
+        else:
+            byte_counter = 1
+
+        # return the number of bytes read
+        return byte_counter
+
     def get_swiss_prot_id_set(self, data_dir: str, debug_mode = False) -> set:
         """
         gets/parses the swiss-prot listing file and returns a set of uniprot kb ids from
@@ -474,7 +520,25 @@ class GetData:
         # return the list to the caller
         return ret_val
 
-    def get_goa_files(self, data_dir: str, file_list: list, ftp_parent_dir: str, ftp_sub_dir: str) -> int:
+    def get_goa_http_file(self, data_dir: str, data_file: str):
+        """
+        gets the GOA file via HTTP.
+
+        :param data_dir: the location where the data should be saved
+        :return int: the number of bytes read
+        """
+        self.logger.debug(f'Start of GOA file retrieval.')
+
+        # init the return value
+        byte_count: int = -1
+
+        # get the rest of the files
+        byte_count = self.pull_via_http(f'http://current.geneontology.org/annotations/{data_file}', data_dir)
+
+        # return to the caller
+        return byte_count
+
+    def get_goa_ftp_files(self, data_dir: str, file_list: list, ftp_parent_dir: str, ftp_sub_dir: str) -> int:
         """
         gets the uniprot GOA data file(s).
 
