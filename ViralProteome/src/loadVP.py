@@ -76,7 +76,7 @@ class VPLoader:
             gd.pull_via_ftp('ftp.ebi.ac.uk', '/pub/contrib/goa/', ['uniprot_sars-cov-2.gaf'], goa_data_dir)
 
             # get the data files
-            file_count: int = gd.get_goa_files(goa_data_dir, file_list, '/pub/databases/GO/goa', '/proteomes/')
+            file_count: int = gd.get_goa_ftp_files(goa_data_dir, file_list, '/pub/databases/GO/goa', '/proteomes/')
         else:
             # setup for the test
             file_count: int = 1
