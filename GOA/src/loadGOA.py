@@ -80,7 +80,7 @@ class GOALoader:
                 out_edge_f.write(f'id\tsubject\trelation_label\tedge_label\tobject\tsource_database\n')
 
                 # parse the data
-                self.parse_data_file(os.path.join(data_file_path, data_file_name), out_node_f, out_edge_f, swiss_prots, test_mode)
+                self.parse_data_file(os.path.join(data_file_path, data_file_name), out_node_f, out_edge_f, swiss_prots)
 
                 # do not remove the file if in debug mode
                 if logger.level != logging.DEBUG and not test_mode:
