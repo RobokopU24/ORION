@@ -125,8 +125,7 @@ class GOALoader:
             # normalize the group of entries on the data frame.
             nnu = NodeNormUtils()
 
-            # normalize the node data if not in debug mode
-            #if not test_mode:
+            # normalize the node data
             total_nodes = nnu.normalize_node_data(total_nodes)
 
             logger.debug('Creating edges.')

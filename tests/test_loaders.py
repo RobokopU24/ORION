@@ -139,7 +139,7 @@ def test_goa_load():
         file_lines: list = fl.readlines()
 
     # check the line count
-    assert(len(file_lines) == 1)
+    assert(len(file_lines) == 7)
 
     # open the node file list and get the lines
     with open(os.path.join(test_dir, 'Human_GOA_node_file.tsv'), 'r') as fl:
