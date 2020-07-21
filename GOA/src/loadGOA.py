@@ -99,7 +99,7 @@ class GOALoader:
         # return the pass/fail flag to the caller
         return ret_val
 
-    def parse_data_file(self, infile_path: str, out_node_f, out_edge_f, swiss_prots: set, test_mode: bool = False):
+    def parse_data_file(self, infile_path: str, out_node_f, out_edge_f, swiss_prots: set):
         """
         Parses the data file for graph nodes/edges and writes them out the KGX tsv files.
 
@@ -107,7 +107,6 @@ class GOALoader:
         :param out_edge_f: the edge file pointer
         :param out_node_f: the node file pointer
         :param swiss_prots: the list of uniprot ids that have been swiss curated
-        :param test_mode: flag to indicate we are in debug mode
         :return:
         """
 
