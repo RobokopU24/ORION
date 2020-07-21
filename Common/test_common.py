@@ -1,10 +1,9 @@
 import os
 import shutil
+from Common.utils import GetData
 
 
-def test_get_taxon_id_list():
-    from Common.utils import GetData
-
+def test_get_uniprot_virus_date_stamp():
     gd = GetData()
 
     data_file_path: str = os.path.dirname(os.path.abspath(__file__))
@@ -13,15 +12,49 @@ def test_get_taxon_id_list():
 
     assert date_stamp
 
+
+def test_get_taxon_id_list():
+    gd = GetData()
+
+    data_file_path: str = os.path.dirname(os.path.abspath(__file__))
+
     type_virus: str = '9'
 
     taxonid_set: set = gd.get_ncbi_taxon_id_set(data_file_path, type_virus)
 
-    assert(len(taxonid_set))
+    assert(len(taxonid_set) == 188973)
+
+
+def test_get_virus_files():
+    gd = GetData()
+
+    data_file_path: str = os.path.dirname(os.path.abspath(__file__))
+
+    type_virus: str = '9'
+
+    taxonid_set: set = gd.get_ncbi_taxon_id_set(data_file_path, type_virus)
+
+    assert(len(taxonid_set) == 188973)
 
     file_list: list = gd.get_uniprot_virus_file_list(data_file_path, taxonid_set)
 
-    assert(len(file_list))
+    assert(len(file_list) == 3999)
+
+
+def test_get_goa_files_chain():
+    gd = GetData()
+
+    data_file_path: str = os.path.dirname(os.path.abspath(__file__))
+
+    type_virus: str = '9'
+
+    taxonid_set: set = gd.get_ncbi_taxon_id_set(data_file_path, type_virus)
+
+    assert(len(taxonid_set) == 188973)
+
+    file_list: list = gd.get_uniprot_virus_file_list(data_file_path, taxonid_set)
+
+    assert(len(file_list) == 3999)
 
     data_file_path += '/Virus_GOA_files/'
 
@@ -33,6 +66,7 @@ def test_get_taxon_id_list():
 
     # remove the test data
     shutil.rmtree(data_file_path)
+
 
 def test_pull_via_http():
     from Common.utils import GetData

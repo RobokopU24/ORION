@@ -129,7 +129,7 @@ def test_goa_load():
     test_dir = os.path.dirname(os.path.abspath(__file__)) + '/resources'
 
     # load the data file and create KGX output
-    goa.load(test_dir, 'goa_human.gaf.gz', 'Human_GOA')
+    goa.load(test_dir, 'goa_human.gaf.gz', 'Human_GOA', test_mode=True)
 
     # check the results
     assert(os.path.isfile(os.path.join(test_dir, 'Human_GOA_edge_file.tsv')) and os.path.isfile(os.path.join(test_dir, 'Human_GOA_node_file.tsv')))
@@ -146,7 +146,7 @@ def test_goa_load():
         file_lines: list = fl.readlines()
 
     # check the line count
-    assert(len(file_lines) == 12)
+    assert(len(file_lines) == 8)
 
     # remove the data files
     os.remove(os.path.join(test_dir, 'Human_GOA_node_file.tsv'))
