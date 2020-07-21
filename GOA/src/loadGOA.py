@@ -126,8 +126,8 @@ class GOALoader:
             nnu = NodeNormUtils()
 
             # normalize the node data if not in debug mode
-            if not test_mode:
-                total_nodes = nnu.normalize_node_data(total_nodes)
+            #if not test_mode:
+            total_nodes = nnu.normalize_node_data(total_nodes)
 
             logger.debug('Creating edges.')
 
@@ -180,11 +180,10 @@ class GOALoader:
         for row_index, rows in df_grp:
             # init variables for each group
             node_1_id: str = ''
-            # node_2_id: str = ''
             node_3_id: str = ''
             node_3_type: str = ''
 
-            # if we dont get a set of 3 something is odd (but not necessarily bad)
+            # if we dont get a pair something is odd (but not necessarily bad)
             if len(rows) != 2:
                 logger.warning(f'Warning: Mis-matched node grouping. {rows}')
 
@@ -193,15 +192,9 @@ class GOALoader:
                 # save the node ids for the edges
                 if row[1].node_num == 1:
                     node_1_id = row[1]['id']
-                # elif row[1].node_num == 2:
-                #     node_2_id = row[1]['id']
                 elif row[1].node_num == 3:
                     node_3_id = row[1]['id']
                     node_3_type = row[1]['category']
-
-            # create the KGX edge data for nodes 1 and 2
-            """ An edge from the gene to the organism_taxon with relation "in_taxon" """
-            # edge_set.add(f'\t{node_1_id}\tin_taxon\tin_taxon\t{node_2_id}\tUniProtKB GOA Human viruses\n')
 
             # write out an edge that connects nodes 1 and 3
             """ An edge between the gene and the go term. If the go term is a molecular_activity, 
@@ -276,18 +269,6 @@ class GOALoader:
                     # create node type 1
                     """ A gene with identifier UniProtKB:O73942, and name "apeI", and description "Homing endonuclease I-ApeI". """
                     node_list.append({'grp': grp, 'node_num': 1, 'id': f'{line[DATACOLS.DB.value]}:{line[DATACOLS.DB_Object_ID.value]}', 'name': f'{line[DATACOLS.DB_Object_Symbol.value]}', 'category': '', 'equivalent_identifiers': f'{line[DATACOLS.DB.value]}:{line[DATACOLS.DB_Object_ID.value]}'})
-
-                    # create node type 2
-                    # removed for this data as they are all of human taxa
-                    """ An organism_taxon with identifier NCBITaxon:272557. This one should node normalize fine, returning the correct names. """
-                    # get the taxon id
-                    # taxon_id: str = line[DATACOLS.Taxon_Interacting_taxon.value]
-
-                    # always take the first one in a list, if the taxon if starts with taxon remove it.
-                    # taxon_id = taxon_id.split('|')[0].replace('taxon:', '')
-
-                    # create the node
-                    # node_list.append({'grp': grp, 'node_num': 2, 'id': f'NCBITaxon:{taxon_id}', 'name': '', 'category': '', 'equivalent_identifiers': ''})
 
                     # create node type 3
                     """ A node for the GO term GO:0004518. It should normalize, telling us the type/name. """
