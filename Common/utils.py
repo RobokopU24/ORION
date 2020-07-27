@@ -105,7 +105,7 @@ class NodeNormUtils:
     # create a logger
     logger = LoggingUtil.init_logging("Data_services.Common.NodeNormUtils", line_format='medium', log_file_path=os.path.join(Path(__file__).parents[1], 'logs'))
 
-    def normalize_node_data(self, node_list: list, cached_node_norms: dict = None) -> list:
+    def normalize_node_data(self, node_list: list, cached_node_norms: dict = None, for_json: bool = False) -> list:
         """
         This method calls the NodeNormalization web service to get the normalized identifier and name of the taxon node.
         the data comes in as a node list and we will normalize the only the taxon nodes.
@@ -197,6 +197,7 @@ class NodeNormUtils:
         # reset the node index
         node_idx = 0
 
+        failed_to_normalize = []
         # for each row in the slice add the new id and name
         # iterate through node groups and get only the taxa records.
         while node_idx < node_count:
@@ -210,19 +211,28 @@ class NodeNormUtils:
                     node_list[node_idx]['name'] = cached_node_norms[rv['id']]['id']['label']
 
                 if 'type' in cached_node_norms[rv['id']]:
-                    node_list[node_idx]['category'] = '|'.join(cached_node_norms[rv['id']]['type'])
+                    if for_json:
+                        node_list[node_idx]['category'] = cached_node_norms[rv['id']]['type']
+                    else:
+                        node_list[node_idx]['category'] = '|'.join(cached_node_norms[rv['id']]['type'])
 
                 # get the equivalent identifiers
                 if 'equivalent_identifiers' in cached_node_norms[rv['id']] and len(cached_node_norms[rv['id']]['equivalent_identifiers']) > 0:
-                    node_list[node_idx]['equivalent_identifiers'] = '|'.join(list((item['identifier']) for item in cached_node_norms[rv['id']]['equivalent_identifiers']))
+                    if for_json:
+                        node_list[node_idx]['equivalent_identifiers'] = list(item['identifier'] for item in cached_node_norms[rv['id']]['equivalent_identifiers'])
+                    else:
+                        node_list[node_idx]['equivalent_identifiers'] = '|'.join(list(
+                            (item['identifier']) for item in cached_node_norms[rv['id']]['equivalent_identifiers']))
 
                 # find the id and replace it with the normalized value
                 node_list[node_idx]['id'] = cached_node_norms[rv['id']]['id']['identifier']
             else:
-                self.logger.debug(f"{rv['id']} has no normalized value")
+                failed_to_normalize.append(rv['id'])
 
             # go to the next node index
             node_idx += 1
+
+        self.logger.info(f'Failed to normalize: {", ".join(failed_to_normalize)}')
 
         # return the updated list to the caller
         return node_list
