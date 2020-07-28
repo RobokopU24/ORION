@@ -82,3 +82,25 @@ def test_pull_via_http():
     assert(os.path.exists('mission-and-vision'))
 
     os.remove('mission-and-vision')
+
+def test_edge_norm():
+    from Common.utils import EdgeNormUtils
+
+    # get the edgenorm object
+    en = EdgeNormUtils()
+
+    # create an edge list
+    edge_list: list = [{'predicate': 'SEMMEDDB:CAUSES', 'relation_label': '', 'edge_label': ''}, {'predicate': 'RO:0000052', 'relation_label': '', 'edge_label': ''}]
+
+    # normalize the data
+    ret_val = en.normalize_edge_data(edge_list)
+
+    # check the return
+    assert(ret_val[0]['predicate'] == 'SEMMEDDB:CAUSES')
+    assert(ret_val[0]['relation_label'] == 'biolink:causes')
+    assert(ret_val[0]['edge_label'] == 'causes')
+
+    assert(ret_val[1]['predicate'] == 'RO:0000052')
+    assert(ret_val[1]['relation_label'] == 'biolink:affects')
+    assert(ret_val[1]['edge_label'] == 'affects')
+

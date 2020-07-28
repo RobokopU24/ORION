@@ -108,10 +108,11 @@ class NodeNormUtils:
     def normalize_node_data(self, node_list: list, cached_node_norms: dict = None, for_json: bool = False) -> list:
         """
         This method calls the NodeNormalization web service to get the normalized identifier and name of the taxon node.
-        the data comes in as a node list and we will normalize the only the taxon nodes.
+        the data comes in as a node list.
 
         :param node_list: A list with items to normalize
         :param cached_node_norms: dict of previously captured normalizations
+        :param for_json: flag to indicate json output
         :return:
         """
 
@@ -238,6 +239,141 @@ class NodeNormUtils:
         return node_list
 
 
+class EdgeNormUtils:
+    """
+    Class that contains methods relating to edge normalization of KGX data.
+
+    the input predicate list should be KGX compliant and have the following columns that may be
+    changed during the normalization:
+
+        predicate: the name of the predicate
+        relation_label: the biolink label curie
+        edge_label: label of the predicate
+
+    """
+    # create a logger
+    logger = LoggingUtil.init_logging("Data_services.Common.EdgeNormUtils", line_format='medium', log_file_path=os.path.join(Path(__file__).parents[1], 'logs'))
+
+    def normalize_edge_data(self, edge_list: list, cached_edge_norms: dict = None) -> list:
+        """
+        This method calls the EdgeNormalization web service to get the normalized identifier and labels.
+        the data comes in as a edge list.
+
+        :param edge_list: A list with items to normalize
+        :param cached_edge_norms: dict of previously captured normalizations
+        :return:
+        """
+
+        # init the cache list if it wasnt passed in
+        if cached_edge_norms is None:
+            cached_edge_norms: dict = {}
+
+        # init the node index counter
+        edge_idx: int = 0
+
+        # save the node list count to avoid grabbing it over and over
+        edge_count: int = len(edge_list)
+
+        # init a set to hold taxa that have not yet been node normed
+        tmp_normalize: set = set()
+
+        # iterate through node groups and get only the taxa records.
+        while edge_idx < edge_count:
+            # check to see if this one needs normalization data from the website
+            if not edge_list[edge_idx]['predicate'] in cached_edge_norms:
+                tmp_normalize.add(edge_list[edge_idx]['predicate'])
+            else:
+                self.logger.debug(f"Cache hit: {edge_list[edge_idx]['predicate']}")
+
+            # increment to the next node array element
+            edge_idx += 1
+
+        # convert the set to a list so we can iterate through it
+        to_normalize: list = list(tmp_normalize)
+
+        # define the chuck size for normalization batches
+        chunk_size: int = 1000
+
+        # init the array index lower boundary
+        start_index: int = 0
+
+        # get the last index of the list
+        last_index: int = len(to_normalize)
+
+        self.logger.debug(f'{last_index} unique edges will be normalized.')
+
+        # grab chunks of the data frame
+        while True:
+            if start_index < last_index:
+                # define the end index of the slice
+                end_index: int = start_index + chunk_size
+
+                # force the end index to be the last index to insure no overflow
+                if end_index >= last_index:
+                    end_index = last_index
+
+                self.logger.debug(f'Working block {start_index} to {end_index}.')
+
+                # collect a slice of records from the data frame
+                data_chunk: list = to_normalize[start_index: end_index]
+
+                # get the data
+                resp: requests.models.Response = requests.get('https://edgenormalization-sri.renci.org/resolve_predicate?version=latest&predicate=' + '&predicate='.join(data_chunk))
+
+                # did we get a good status code
+                if resp.status_code == 200:
+                    # convert to json
+                    rvs: dict = resp.json()
+
+                    # merge this list with what we have gotten so far
+                    merged = {**cached_edge_norms, **rvs}
+
+                    # save the merged list
+                    cached_edge_norms = merged
+                else:
+                    # the 404 error that is trapped here means that the entire list of nodes didnt get normalized.
+                    self.logger.debug(f'Response code: {resp.status_code}')
+
+                    # since they all failed to normalize add to the list so we dont try them again
+                    for item in data_chunk:
+                        cached_edge_norms.update({item: None})
+
+                # move on down the list
+                start_index += chunk_size
+            else:
+                break
+
+        # reset the node index
+        edge_idx = 0
+
+        failed_to_normalize = []
+
+        # for each row in the slice add the new id and name
+        while edge_idx < edge_count:
+            # get a reference to the edge list
+            rv = edge_list[edge_idx]
+
+            # did we find a normalized value
+            if cached_edge_norms[rv['predicate']] is not None:
+                # find the identifier and make it the relation label
+                if 'identifier' in cached_edge_norms[rv['predicate']]:
+                    edge_list[edge_idx]['relation_label'] = cached_edge_norms[rv['predicate']]['identifier']
+
+                # get the equivalent identifiers
+                if 'label' in cached_edge_norms[rv['predicate']]:
+                    edge_list[edge_idx]['edge_label'] = cached_edge_norms[rv['predicate']]['label']
+            else:
+                failed_to_normalize.append(rv['predicate'])
+
+            # go to the next node index
+            edge_idx += 1
+
+        self.logger.info(f'Failed to normalize: {", ".join(failed_to_normalize)}')
+
+        # return the updated list to the caller
+        return edge_list
+
+
 class GetData:
     """
     Class that contains methods that can be used to get various data sets.
@@ -349,7 +485,7 @@ class GetData:
         # return the number of bytes read
         return byte_counter
 
-    def get_swiss_prot_id_set(self, data_dir: str, debug_mode = False) -> set:
+    def get_swiss_prot_id_set(self, data_dir: str, debug_mode=False) -> set:
         """
         gets/parses the swiss-prot listing file and returns a set of uniprot kb ids from
         ftp://ftp.uniprot.org/pub/databases/uniprot/current_release/knowledgebase/complete/uniprot_sprot.dat.gz.
