@@ -5,6 +5,7 @@ import hashlib
 import pandas as pd
 import enum
 import requests
+import shutil
 from datetime import datetime
 from csv import reader
 from Common.utils import LoggingUtil, GetData, DatasetDescription
@@ -145,8 +146,13 @@ class VPLoader:
 
                 logger.debug(f'Creating KGX node file with {len(final_node_set)} nodes.')
 
+                # write out the unique nodes
                 for row in final_node_set:
                     out_node_f.write(row)
+
+                # remove the VP data files if not in test mode
+                if not test_mode:
+                    shutil.rmtree(goa_data_dir)
 
                 logger.info(f'VPLoader - Processing complete.')
         else:
