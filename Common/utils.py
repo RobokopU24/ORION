@@ -304,13 +304,15 @@ class GetData:
         # get the filename
         data_file: str = url.split('/')[-1]
 
+        # init the byte counter
+        byte_counter: int = 0
+
         # get the file if its not there
         if not os.path.exists(os.path.join(data_dir, data_file)):
+            self.logger.debug(f'Retrieving {url} -> {data_dir}')
+
             # get the file
             file_data = urlopen(url)
-
-            # init the byte counter
-            byte_counter: int = 0
 
             # open a file for the data
             with open(os.path.join(data_dir, data_file), 'wb') as fp:
@@ -525,15 +527,13 @@ class GetData:
         gets the GOA file via HTTP.
 
         :param data_dir: the location where the data should be saved
+        :param data_file: the name of the file to get
         :return int: the number of bytes read
         """
         self.logger.debug(f'Start of GOA file retrieval.')
 
-        # init the return value
-        byte_count: int = -1
-
         # get the rest of the files
-        byte_count = self.pull_via_http(f'http://current.geneontology.org/annotations/{data_file}', data_dir)
+        byte_count: int = self.pull_via_http(f'http://current.geneontology.org/annotations/{data_file}', data_dir)
 
         # return to the caller
         return byte_count
