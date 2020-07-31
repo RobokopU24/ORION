@@ -77,7 +77,7 @@ class GOALoader:
             with open(os.path.join(data_file_path, f'{out_name}_node_file.tsv'), 'w', encoding="utf-8") as out_node_f, open(os.path.join(data_file_path, f'{out_name}_edge_file.tsv'), 'w', encoding="utf-8") as out_edge_f:
                 # write out the node and edge data headers
                 out_node_f.write(f'id\tname\tcategory\tequivalent_identifiers\n')
-                out_edge_f.write(f'id\tsubject\trelation_label\tedge_label\tobject\tsource_database\n')
+                out_edge_f.write(f'id\tsubject\trelation\tedge_label\tobject\tsource_database\n')
 
                 # parse the data
                 self.parse_data_file(os.path.join(data_file_path, data_file_name), out_node_f, out_edge_f, swiss_prots)
@@ -180,6 +180,7 @@ class GOALoader:
             node_1_id: str = ''
             node_3_id: str = ''
             node_3_type: str = ''
+            grp: str = ''
 
             # if we dont get a pair something is odd (but not necessarily bad)
             if len(rows) != 2:
@@ -189,6 +190,7 @@ class GOALoader:
             for row in rows.iterrows():
                 # save the node ids for the edges
                 if row[1].node_num == 1:
+                    grp = row[0]
                     node_1_id = row[1]['id']
                 elif row[1].node_num == 3:
                     node_3_id = row[1]['id']
@@ -201,32 +203,32 @@ class GOALoader:
             component then it should be (go term)-[has_part]->(gene) """
 
             # init node 1 to node 3 edge details
-            relation_label: str = ''
+            relation: str = ''
             src_node_id: str = ''
             obj_node_id: str = ''
             valid_type = True
 
             # find the predicate and edge relationships
             if node_3_type.find('molecular_activity') > -1:
-                relation_label = 'enabled_by'
+                relation = 'enabled_by'
                 src_node_id = node_3_id
                 obj_node_id = node_1_id
             elif node_3_type.find('biological_process') > -1:
-                relation_label = 'actively_involved_in'
+                relation = 'actively_involved_in'
                 src_node_id = node_1_id
                 obj_node_id = node_3_id
             elif node_3_type.find('cellular_component') > -1:
-                relation_label = 'has_part'
+                relation = 'has_part'
                 src_node_id = node_3_id
                 obj_node_id = node_1_id
             else:
                 valid_type = False
-                logger.warning(f'Warning: Unrecognized node 3 type for {node_3_id}')
+                logger.warning(f'Warning: Unrecognized node 3 type for {grp}')
 
             # was this a good value
             if valid_type:
                 # create the KGX edge data for nodes 1 and 3
-                edge_set.add(f'\t{src_node_id}\t{relation_label}\t{relation_label}\t{obj_node_id}\tGOA_EBI-Human\n')
+                edge_set.add(f'\t{src_node_id}\t{relation}\t{relation}\t{obj_node_id}\tGOA_EBI-Human\n')
 
         logger.debug(f'{len(edge_set)} unique edges identified.')
 
@@ -266,7 +268,7 @@ class GOALoader:
 
                     # create node type 1
                     """ A gene with identifier UniProtKB:O73942, and name "apeI", and description "Homing endonuclease I-ApeI". """
-                    node_list.append({'grp': grp, 'node_num': 1, 'id': f'{line[DATACOLS.DB.value]}:{line[DATACOLS.DB_Object_ID.value]}', 'name': f'{line[DATACOLS.DB_Object_Symbol.value]}', 'category': '', 'equivalent_identifiers': f'{line[DATACOLS.DB.value]}:{line[DATACOLS.DB_Object_ID.value]}'})
+                    node_list.append({'grp': grp, 'node_num': 1, 'id': f'{line[DATACOLS.DB.value]}:{line[DATACOLS.DB_Object_ID.value]}', 'name': f'{line[DATACOLS.DB_Object_Symbol.value]}', 'category': 'gene|gene_or_gene_product|macromolecular_machine|genomic_entity|molecular_entity|biological_entity|named_thing', 'equivalent_identifiers': f'{line[DATACOLS.DB.value]}:{line[DATACOLS.DB_Object_ID.value]}'})
 
                     # create node type 3
                     """ A node for the GO term GO:0004518. It should normalize, telling us the type/name. """
