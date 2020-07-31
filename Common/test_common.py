@@ -1,7 +1,6 @@
 import os
 import shutil
 from Common.utils import GetData
-import time
 
 
 def test_get_uniprot_virus_date_stamp():
@@ -11,14 +10,11 @@ def test_get_uniprot_virus_date_stamp():
 
     date_stamp: str = gd.get_uniprot_virus_date_stamp(data_file_path)
 
-    time.sleep(5)
-
     assert(date_stamp == '20200617')
 
 
 def test_pull_via_http():
     from Common.utils import GetData
-    import time
 
     gd = GetData()
 
