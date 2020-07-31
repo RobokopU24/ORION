@@ -10,7 +10,26 @@ def test_get_uniprot_virus_date_stamp():
 
     date_stamp: str = gd.get_uniprot_virus_date_stamp(data_file_path)
 
-    assert date_stamp
+    assert(date_stamp == '20200617')
+
+
+def test_pull_via_http():
+    from Common.utils import GetData
+    import time
+
+    gd = GetData()
+
+    data_file_path: str = os.path.dirname(os.path.abspath(__file__))
+
+    byte_count: int = gd.pull_via_http('https://renci.org/mission-and-vision', data_file_path)
+
+    assert byte_count
+
+    time.sleep(3)
+
+    assert(os.path.exists('mission-and-vision'))
+
+    os.remove('mission-and-vision')
 
 
 def test_get_taxon_id_list():
@@ -68,39 +87,23 @@ def test_get_goa_files_chain():
     shutil.rmtree(data_file_path)
 
 
-def test_pull_via_http():
-    from Common.utils import GetData
-
-    gd = GetData()
-
-    data_file_path: str = os.path.dirname(os.path.abspath(__file__))
-
-    byte_count: int = gd.pull_via_http('https://renci.org/mission-and-vision', data_file_path)
-
-    assert byte_count
-
-    assert(os.path.exists('mission-and-vision'))
-
-    os.remove('mission-and-vision')
-
 def test_edge_norm():
     from Common.utils import EdgeNormUtils
 
-    # get the edgenorm object
+    # get the edge norm object
     en = EdgeNormUtils()
 
     # create an edge list
-    edge_list: list = [{'predicate': 'SEMMEDDB:CAUSES', 'relation_label': '', 'edge_label': ''}, {'predicate': 'RO:0000052', 'relation_label': '', 'edge_label': ''}]
+    edge_list: list = [{'predicate': 'SEMMEDDB:CAUSES', 'relation': '', 'edge_label': ''}, {'predicate': 'RO:0000052', 'relation': '', 'edge_label': ''}]
 
     # normalize the data
     ret_val = en.normalize_edge_data(edge_list)
 
     # check the return
     assert(ret_val[0]['predicate'] == 'SEMMEDDB:CAUSES')
-    assert(ret_val[0]['relation_label'] == 'biolink:causes')
+    assert(ret_val[0]['relation'] == 'biolink:causes')
     assert(ret_val[0]['edge_label'] == 'causes')
 
     assert(ret_val[1]['predicate'] == 'RO:0000052')
-    assert(ret_val[1]['relation_label'] == 'biolink:affects')
+    assert(ret_val[1]['relation'] == 'biolink:affects')
     assert(ret_val[1]['edge_label'] == 'affects')
-
