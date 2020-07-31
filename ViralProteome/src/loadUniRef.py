@@ -62,7 +62,7 @@ class UniRefSimLoader:
             with open(os.path.join(data_dir, f'{f}_Virus_node_file.tsv'), 'w', encoding="utf-8") as out_node_f, open(os.path.join(data_dir, f'{f}_Virus_edge_file.tsv'), 'w', encoding="utf-8") as out_edge_f:
                 # write out the node and edge data headers
                 out_node_f.write(f'id\tname\tcategory\tequivalent_identifiers\n')
-                out_edge_f.write(f'id\tsubject\trelation_label\tedge_label\tobject\tsource_database\n')
+                out_edge_f.write(f'id\tsubject\trelation\tedge_label\tobject\tsource_database\n')
 
                 # add the file extension
                 if test_mode:
