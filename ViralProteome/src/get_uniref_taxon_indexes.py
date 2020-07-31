@@ -68,7 +68,7 @@ if __name__ == '__main__':
         # grep -F -b -f "/e/Data_services/UniRef_data/taxon_list.txt" "/e/Data_services/UniRef_data/uniref100.xml" >> "/e/Data_services/UniRef_data/uniref100_taxon_file_indexes.txt"
         # grep -F -b -f "/e/Data_services/UniRef_data/taxon_list.txt" "/e/Data_services/UniRef_data/uniref90.xml" >> "/e/Data_services/UniRef_data/uniref90_taxon_file_indexes.txt"
         # grep -F -b -f "/e/Data_services/UniRef_data/taxon_list.txt" "/e/Data_services/UniRef_data/uniref50.xml" >> "/e/Data_services/UniRef_data/uniref50_taxon_file_indexes.txt"
-        os.system(f'grep -F -b -f "{search_file_path}" "{uniref_infile_path}" >> "{index_file_path}"')
+        # os.system(f'grep -F -b -f "{search_file_path}" "{uniref_infile_path}" >> "{index_file_path}"')
 
     # do not remove the file if in debug mode
     # if logger.level != logging.DEBUG:
