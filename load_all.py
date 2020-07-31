@@ -23,7 +23,7 @@ if __name__ == '__main__':
     
     """
     # create a command line parser
-    ap = argparse.ArgumentParser(description='Load UniProtKB viral proteome and UniRef data files and create KGX import files.')
+    ap = argparse.ArgumentParser(description='Load UniProtKB viral proteome, UniRef, Human GOA and IntAct data files and create KGX import files.')
 
     # declare command line arguments
     ap.add_argument('-p', '--uniprot_dir', required=False, help='The data directory for the UniProtKB GOA and KGX files (VP or Human).')
