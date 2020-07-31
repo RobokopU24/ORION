@@ -198,7 +198,9 @@ class NodeNormUtils:
         # reset the node index
         node_idx = 0
 
-        failed_to_normalize = []
+        # storage for items that failed to normalize
+        failed_to_normalize: list = []
+
         # for each row in the slice add the new id and name
         # iterate through node groups and get only the taxa records.
         while node_idx < node_count:
@@ -215,25 +217,37 @@ class NodeNormUtils:
                     if for_json:
                         node_list[node_idx]['category'] = cached_node_norms[rv['id']]['type']
                     else:
-                        node_list[node_idx]['category'] = '|'.join(cached_node_norms[rv['id']]['type'])
+                        node_list[node_idx]['category'] = '^'.join(cached_node_norms[rv['id']]['type'])
 
                 # get the equivalent identifiers
                 if 'equivalent_identifiers' in cached_node_norms[rv['id']] and len(cached_node_norms[rv['id']]['equivalent_identifiers']) > 0:
                     if for_json:
                         node_list[node_idx]['equivalent_identifiers'] = list(item['identifier'] for item in cached_node_norms[rv['id']]['equivalent_identifiers'])
                     else:
-                        node_list[node_idx]['equivalent_identifiers'] = '|'.join(list(
+                        node_list[node_idx]['equivalent_identifiers'] = '^'.join(list(
                             (item['identifier']) for item in cached_node_norms[rv['id']]['equivalent_identifiers']))
 
                 # find the id and replace it with the normalized value
                 node_list[node_idx]['id'] = cached_node_norms[rv['id']]['id']['identifier']
             else:
+                # add for display purposes
                 failed_to_normalize.append(rv['id'])
 
             # go to the next node index
             node_idx += 1
 
-        self.logger.info(f'Failed to normalize: {", ".join(failed_to_normalize)}')
+        # if something failed to normalize output it
+        if len(failed_to_normalize) > 0:
+            #print([d['id'] for d in node_list if d['id'] in failed_to_normalize])
+
+            # save the removed values for the logging
+            deleted_entries: list = [d['id'] for d in node_list if d['category'] == '']
+
+            # remove all nodes that dont have a category as they cant have an edge if they dont
+            node_list[:] = [d for d in node_list if d['category'] != '']
+
+            self.logger.info(f'Nodes that failed to normalize: {", ".join(failed_to_normalize)}')
+            self.logger.info(f'Nodes that were removed: {", ".join(deleted_entries)}')
 
         # return the updated list to the caller
         return node_list
@@ -247,7 +261,7 @@ class EdgeNormUtils:
     changed during the normalization:
 
         predicate: the name of the predicate
-        relation_label: the biolink label curie
+        relation: the biolink label curie
         edge_label: label of the predicate
 
     """
@@ -346,6 +360,7 @@ class EdgeNormUtils:
         # reset the node index
         edge_idx = 0
 
+        # storage for items that failed to normalize
         failed_to_normalize = []
 
         # for each row in the slice add the new id and name
@@ -357,7 +372,7 @@ class EdgeNormUtils:
             if cached_edge_norms[rv['predicate']] is not None:
                 # find the identifier and make it the relation label
                 if 'identifier' in cached_edge_norms[rv['predicate']]:
-                    edge_list[edge_idx]['relation_label'] = cached_edge_norms[rv['predicate']]['identifier']
+                    edge_list[edge_idx]['relation'] = cached_edge_norms[rv['predicate']]['identifier']
 
                 # get the equivalent identifiers
                 if 'label' in cached_edge_norms[rv['predicate']]:
@@ -368,7 +383,9 @@ class EdgeNormUtils:
             # go to the next node index
             edge_idx += 1
 
-        self.logger.info(f'Failed to normalize: {", ".join(failed_to_normalize)}')
+        # if something failed to normalize output it
+        if len(failed_to_normalize) > 0:
+            self.logger.info(f'Failed to normalize: {", ".join(failed_to_normalize)}')
 
         # return the updated list to the caller
         return edge_list
