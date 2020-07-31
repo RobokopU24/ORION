@@ -107,7 +107,7 @@ class IALoader:
             with open(os.path.join(data_file_path, f'{out_name}_node_file.tsv'), 'w', encoding="utf-8") as out_node_f, open(os.path.join(data_file_path, f'{out_name}_edge_file.tsv'), 'w', encoding="utf-8") as out_edge_f:
                 # write out the node and edge data headers
                 out_node_f.write(f'id\tname\tcategory\tequivalent_identifiers\ttaxon\n')
-                out_edge_f.write(f'id\tsubject\trelation_label\tedge_label\tpublications\tdetection_method\tobject\tsource_database\n')
+                out_edge_f.write(f'id\tsubject\trelation\tedge_label\tpublications\tdetection_method\tobject\tsource_database\n')
 
                 # parse the data
                 self.parse_data_file(data_file_path, data_file_name, out_node_f, out_edge_f, test_mode)
