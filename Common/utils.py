@@ -282,13 +282,13 @@ class EdgeNormUtils:
         if cached_edge_norms is None:
             cached_edge_norms: dict = {}
 
-        # init the node index counter
+        # init the edge index counter
         edge_idx: int = 0
 
-        # save the node list count to avoid grabbing it over and over
+        # save the edge list count to avoid grabbing it over and over
         edge_count: int = len(edge_list)
 
-        # init a set to hold taxa that have not yet been node normed
+        # init a set to hold edge relations that have not yet been normed
         tmp_normalize: set = set()
 
         # iterate through node groups and get only the taxa records.
@@ -369,18 +369,18 @@ class EdgeNormUtils:
             rv = edge_list[edge_idx]
 
             # did we find a normalized value
-            if cached_edge_norms[rv['predicate']] is not None:
+            if rv['predicate'] in cached_edge_norms:
                 # find the identifier and make it the relation label
                 if 'identifier' in cached_edge_norms[rv['predicate']]:
                     edge_list[edge_idx]['relation'] = cached_edge_norms[rv['predicate']]['identifier']
 
-                # get the equivalent identifiers
+                # get the label and turn it into a curie
                 if 'label' in cached_edge_norms[rv['predicate']]:
-                    edge_list[edge_idx]['edge_label'] = cached_edge_norms[rv['predicate']]['label']
+                    edge_list[edge_idx]['edge_label'] = f'biolink:{cached_edge_norms[rv["predicate"]]["label"]}'
             else:
                 failed_to_normalize.append(rv['predicate'])
 
-            # go to the next node index
+            # go to the next edge index
             edge_idx += 1
 
         # if something failed to normalize output it
