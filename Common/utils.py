@@ -217,7 +217,7 @@ class NodeNormUtils:
                     if for_json:
                         node_list[node_idx]['category'] = cached_node_norms[rv['id']]['type']
                     else:
-                        node_list[node_idx]['category'] = '^'.join(cached_node_norms[rv['id']]['type'])
+                        node_list[node_idx]['category'] = '|'.join(cached_node_norms[rv['id']]['type'])
 
                 # get the equivalent identifiers
                 if 'equivalent_identifiers' in cached_node_norms[rv['id']] and len(cached_node_norms[rv['id']]['equivalent_identifiers']) > 0:
@@ -238,7 +238,7 @@ class NodeNormUtils:
 
         # if something failed to normalize output it
         if len(failed_to_normalize) > 0:
-            #print([d['id'] for d in node_list if d['id'] in failed_to_normalize])
+            # print([d['id'] for d in node_list if d['id'] in failed_to_normalize])
 
             # save the removed values for the logging
             deleted_entries: list = [d['id'] for d in node_list if d['category'] == '']
