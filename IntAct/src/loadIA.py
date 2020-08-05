@@ -500,12 +500,12 @@ class IALoader:
             # a gene to gene pair that has a "directly interacts with" relationship
             while grp_idx < len(grp_list):
                 # write out the uniprot A to uniprot B edge
-                edge = f'\t{grp_list[grp_idx]["u_a"]}\tdirectly_interacts_with\tdirectly_interacts_with\tPMID:{grp_list[grp_idx]["pmid"]}\t{"|".join(detection_method_set)}\t{grp_list[grp_idx]["u_b"]}\tIntAct\n'
+                edge = f'\t{grp_list[grp_idx]["u_a"]}\tbiolink:directly_interacts_with\tbiolink:directly_interacts_with\tPMID:{grp_list[grp_idx]["pmid"]}\t{"|".join(detection_method_set)}\t{grp_list[grp_idx]["u_b"]}\tIntAct\n'
                 out_edge_f.write(hashlib.md5(edge.encode('utf-8')).hexdigest() + edge)
 
                 # write out the uniprot to NCBI taxon edge
                 for suffix in ['a', 'b']:
-                    edge = f'\t{grp_list[grp_idx]["u_" + suffix]}\tin_taxon\tin_taxon\t\t\t{grp_list[grp_idx]["t_" + suffix]}\tIntAct\n'
+                    edge = f'\t{grp_list[grp_idx]["u_" + suffix]}\tbiolink:in_taxon\tbiolink:in_taxon\t\t\t{grp_list[grp_idx]["t_" + suffix]}\tIntAct\n'
                     out_edge_f.write(hashlib.md5(edge.encode('utf-8')).hexdigest() + edge)
 
                 # goto the next pair
