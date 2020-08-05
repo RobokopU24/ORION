@@ -5,6 +5,7 @@ from ViralProteome.src.loadUniRef import UniRefSimLoader
 from ViralProteome.src.loadVP import VPLoader
 from IntAct.src.loadIA import IALoader
 from GOA.src.loadGOA import GOALoader
+from UberGraph.src.loadUG import UGLoader
 from Common.utils import GetData
 
 
@@ -151,6 +152,46 @@ def test_goa_load():
     # remove the data files
     os.remove(os.path.join(test_dir, 'Human_GOA_node_file.tsv'))
     os.remove(os.path.join(test_dir, 'Human_GOA_edge_file.tsv'))
+
+
+def test_ubergraph_load():
+    # get a reference to the intact data processor
+    ug = UGLoader()
+
+    # set the test directory
+    test_dir = os.path.dirname(os.path.abspath(__file__)) + '/resources'
+
+    # load the data files and create KGX output files
+    ug.load(test_dir, 'ubergraph_test.ttl', test_mode=True)
+
+    # check the results
+    assert(os.path.isfile(os.path.join(test_dir, 'ubergraph_test_edge_file.tsv')) and os.path.isfile(os.path.join(test_dir, 'ubergraph_test_node_file.tsv')))
+
+    # open the edge file list and get the lines
+    with open(os.path.join(test_dir, 'ubergraph_test_edge_file.tsv'), 'r') as fl:
+        file_lines: list = fl.readlines()
+
+    # check the line count
+    assert(len(file_lines) == 77)
+
+    # open the node file list and get the lines
+    with open(os.path.join(test_dir, 'ubergraph_test_node_file.tsv'), 'r') as fl:
+        file_lines: list = fl.readlines()
+
+    # check the line count
+    assert(len(file_lines) == 90)
+
+    # open the provenance node file and get the lines
+    # with open(os.path.join(test_dir, 'ubergraph_prov_node_file.tsv'), 'r') as fl:
+    #     file_lines: list = fl.readlines()
+
+    # check the line count
+    # assert(len(file_lines) == 2)
+
+    # remove the data files
+    os.remove(os.path.join(test_dir, 'ubergraph_test_edge_file.tsv'))
+    os.remove(os.path.join(test_dir, 'ubergraph_test_node_file.tsv'))
+    # os.remove(os.path.join(test_dir, 'ubergraph_prov_node_file.tsv'))
 
 
 @pytest.mark.skip(reason="Internal test only. This test requires a graph DB for result verification")
