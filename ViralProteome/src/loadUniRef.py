@@ -28,7 +28,7 @@ class UniRefSimLoader:
     # storage for cached node normalizations
     cached_node_norms: dict = {}
 
-    def load(self, data_dir: str, in_file_names: list, taxon_index_file: str, block_size: int = 10000, test_mode: bool = False):
+    def load(self, data_dir: str, in_file_names: list, taxon_index_file: str, block_size: int = 5000, test_mode: bool = False):
         """
         parses the UniRef data files gathered from ftp://ftp.uniprot.org/pub/databases/uniprot/uniref/ to
         create standard KGX files to import thr data into a graph database
@@ -511,7 +511,7 @@ class UniRefSimLoader:
                     similarity_bin = node_list[node_idx]['similarity_bin']
                 # get the UniRef entry common taxon ID and create the UniRef ID to taxon edge
                 elif node_list[node_idx]['node_num'] == 1:
-                    edge = f'\t{gene_family_node_id}\tin_taxon\tin_taxon\t{node_list[node_idx]["id"]}\t{gene_family_node_id.split(":")[0]}\n'
+                    edge = f'\t{gene_family_node_id}\tbiolink:in_taxon\tbiolink:in_taxon\t{node_list[node_idx]["id"]}\t{gene_family_node_id.split(":")[0]}\n'
                     out_edge_f.write(hashlib.md5(edge.encode('utf-8')).hexdigest() + edge)
                 # get the member node edges
                 else:
@@ -520,16 +520,16 @@ class UniRefSimLoader:
                         rep_member_node_id = node_list[node_idx]['id']
 
                     # create an edge between the uniprot and the gene family nodes
-                    edge = f'\t{node_list[node_idx]["id"]}\tpart_of\tpart_of\t{gene_family_node_id}\t{node_list[node_idx]["id"].split(":")[0]}\n'
+                    edge = f'\t{node_list[node_idx]["id"]}\tbiolink:part_of\tbiolink:part_of\t{gene_family_node_id}\t{node_list[node_idx]["id"].split(":")[0]}\n'
                     out_edge_f.write(hashlib.md5(edge.encode('utf-8')).hexdigest() + edge)
 
                     # create an edge between the gene product and its paring taxon
-                    edge = f'\t{node_list[node_idx]["id"]}\tin_taxon\tin_taxon\t{node_list[node_idx + 1]["id"]}\t{node_list[node_idx]["id"].split(":")[0]}\n'
+                    edge = f'\t{node_list[node_idx]["id"]}\tbiolink:in_taxon\tbiolink:in_taxon\t{node_list[node_idx + 1]["id"]}\t{node_list[node_idx]["id"].split(":")[0]}\n'
                     out_edge_f.write(hashlib.md5(edge.encode('utf-8')).hexdigest() + edge)
 
                     # add the spoke edge if it isn't a reflection of itself
                     if rep_member_node_id != node_list[node_idx]['id']:
-                        edge = f'\t{rep_member_node_id}\t{similarity_bin}\tsimilar_to\t{node_list[node_idx]["id"]}\t{rep_member_node_id.split(":")[0]}\n'
+                        edge = f'\t{rep_member_node_id}\t{similarity_bin}\tbiolink:similar_to\t{node_list[node_idx]["id"]}\t{rep_member_node_id.split(":")[0]}\n'
                         out_edge_f.write(hashlib.md5(edge.encode('utf-8')).hexdigest() + edge)
 
                     # save for similar node to node edge combination creation
