@@ -210,15 +210,15 @@ class GOALoader:
 
             # find the predicate and edge relationships
             if node_3_type.find('molecular_activity') > -1:
-                relation = 'enabled_by'
+                relation = 'biolink:enabled_by'
                 src_node_id = node_3_id
                 obj_node_id = node_1_id
             elif node_3_type.find('biological_process') > -1:
-                relation = 'actively_involved_in'
+                relation = 'biolink:actively_involved_in'
                 src_node_id = node_1_id
                 obj_node_id = node_3_id
             elif node_3_type.find('cellular_component') > -1:
-                relation = 'has_part'
+                relation = 'biolink:has_part'
                 src_node_id = node_3_id
                 obj_node_id = node_1_id
             else:
