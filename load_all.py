@@ -4,6 +4,7 @@ from ViralProteome.src.loadVP import VPLoader
 from ViralProteome.src.loadUniRef import UniRefSimLoader
 from IntAct.src.loadIA import IALoader
 from GOA.src.loadGOA import GOALoader
+from UberGraph.src.loadUG import UGLoader
 from Common.utils import LoggingUtil
 from pathlib import Path
 
@@ -20,10 +21,11 @@ if __name__ == '__main__':
     python load_all.py -r E:/Data_services/UniRef_data -f uniref100,uniref90,uniref50
     python load_all.py -i E:/Data_services/IntAct_data
     python load_all.py -p E:/Data_services/UniProtKB_data -g goa_human.gaf.gz
+    python load_all.py -u E:/Data_services/UberGrpah -s properties-nonredundant.ttl,properties-redundant.ttl
     
     """
     # create a command line parser
-    ap = argparse.ArgumentParser(description='Load UniProtKB viral proteome, UniRef, Human GOA and IntAct data files and create KGX import files.')
+    ap = argparse.ArgumentParser(description='Load UniProtKB viral proteome, UniRef, Human GOA, UberGraph and IntAct data files and create KGX import files.')
 
     # declare command line arguments
     ap.add_argument('-p', '--uniprot_dir', required=False, help='The data directory for the UniProtKB GOA and KGX files (VP or Human).')
@@ -31,6 +33,8 @@ if __name__ == '__main__':
     ap.add_argument('-f', '--uniref_files', required=False, help='Comma separated UniRef data file(s) to parse.')
     ap.add_argument('-i', '--intact_dir', required=False, help='The data directory for the IntAct data and KGX files.')
     ap.add_argument('-g', '--goa_data_file', required=False, help='The name of the target GOA data file.')
+    ap.add_argument('-u', '--ug_data_dir', required=True, help='The UberGraph data file directory.')
+    ap.add_argument('-s', '--ug_data_files', required=True, help='Comma separated UberGraph data file(s) to parse.')
 
     # parse the arguments
     args = vars(ap.parse_args())
@@ -75,3 +79,13 @@ if __name__ == '__main__':
 
         # load the data files and create KGX output files
         goa.load(UniProtKB_data_dir, GOA_data_file, 'Human_GOA')
+
+    # UG_data_dir = 'E:/Data_services/UberGraph'
+    UG_data_dir = args['ug_data_dir']
+    UG_data_file = args['ug_data_files']
+
+    # get a reference to the processor
+    ug = UGLoader()
+
+    # load the data files and create KGX output files
+    ug.load(UG_data_dir, UG_data_file)
