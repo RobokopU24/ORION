@@ -252,7 +252,7 @@ class IALoader:
 
         # node normalize the data if we are not in test mode
         if not test_mode:
-            self.experiment_grp_list = self.normalize_node_data(self.experiment_grp_list)
+            self.normalize_node_data(self.experiment_grp_list)
 
         # write out the edges
         self.write_edge_data(out_edge_f, self.experiment_grp_list)

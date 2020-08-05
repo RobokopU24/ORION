@@ -125,7 +125,7 @@ class GOALoader:
             nnu = NodeNormUtils()
 
             # normalize the node data
-            total_nodes = nnu.normalize_node_data(total_nodes)
+            nnu.normalize_node_data(total_nodes)
 
             logger.debug('Creating edges.')
 

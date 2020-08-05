@@ -125,7 +125,7 @@ class UniRefSimLoader:
                 if len(node_list) > block_size:
                     # normalize the group of entries on the data frame.
                     # commented out for now as node norm os not returning anything that i dont already have for these nodes
-                    node_list = self.normalize_node_data(node_list)
+                    self.normalize_node_data(node_list)
 
                     # write out what we have so far
                     self.write_out_data(node_list, out_edge_f, out_node_f)

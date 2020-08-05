@@ -119,7 +119,7 @@ class VPLoader:
                 logger.debug(f'Node list loaded with {len(total_nodes)} entries.')
 
                 # normalize the group of entries on the data frame.
-                total_nodes = self.normalize_node_data(total_nodes)
+                self.normalize_node_data(total_nodes)
 
                 logger.debug('Creating edges.')
 
