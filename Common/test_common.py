@@ -38,7 +38,7 @@ def test_get_taxon_id_list():
 
     taxonid_set: set = gd.get_ncbi_taxon_id_set(data_file_path, type_virus)
 
-    assert(len(taxonid_set) == 189002)
+    assert(len(taxonid_set) == 189018)
 
 
 def test_get_virus_files():
@@ -50,7 +50,7 @@ def test_get_virus_files():
 
     taxonid_set: set = gd.get_ncbi_taxon_id_set(data_file_path, type_virus)
 
-    assert(len(taxonid_set) == 189002)
+    assert(len(taxonid_set) == 189018)
 
     file_list: list = gd.get_uniprot_virus_file_list(data_file_path, taxonid_set)
 
@@ -66,7 +66,7 @@ def test_get_goa_files_chain():
 
     taxonid_set: set = gd.get_ncbi_taxon_id_set(data_file_path, type_virus)
 
-    assert(len(taxonid_set) == 189002)
+    assert(len(taxonid_set) == 189018)
 
     file_list: list = gd.get_uniprot_virus_file_list(data_file_path, taxonid_set)
 
