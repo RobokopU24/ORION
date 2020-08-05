@@ -94,13 +94,13 @@ def test_edge_norm():
     edge_list: list = [{'predicate': 'SEMMEDDB:CAUSES', 'relation': '', 'edge_label': ''}, {'predicate': 'RO:0000052', 'relation': '', 'edge_label': ''}]
 
     # normalize the data
-    ret_val = en.normalize_edge_data(edge_list)
+    en.normalize_edge_data(edge_list)
 
     # check the return
-    assert(ret_val[0]['predicate'] == 'SEMMEDDB:CAUSES')
-    assert(ret_val[0]['relation'] == 'biolink:causes')
-    assert(ret_val[0]['edge_label'] == 'causes')
+    assert(edge_list[0]['predicate'] == 'SEMMEDDB:CAUSES')
+    assert(edge_list[0]['relation'] == 'biolink:causes')
+    assert(edge_list[0]['edge_label'] == 'biolink:causes')
 
-    assert(ret_val[1]['predicate'] == 'RO:0000052')
-    assert(ret_val[1]['relation'] == 'biolink:affects')
-    assert(ret_val[1]['edge_label'] == 'affects')
+    assert(edge_list[1]['predicate'] == 'RO:0000052')
+    assert(edge_list[1]['relation'] == 'biolink:affects')
+    assert(edge_list[1]['edge_label'] == 'biolink:affects')
