@@ -4,6 +4,8 @@ import logging
 import tarfile
 import csv
 import gzip
+
+from collections import defaultdict
 from urllib.request import urlopen
 from csv import reader
 from ftplib import FTP
@@ -105,7 +107,7 @@ class NodeNormUtils:
     # create a logger
     logger = LoggingUtil.init_logging("Data_services.Common.NodeNormUtils", line_format='medium', log_file_path=os.path.join(Path(__file__).parents[1], 'logs'))
 
-    def normalize_node_data(self, node_list: list, cached_node_norms: dict = None, for_json: bool = False) -> list:
+    def normalize_node_data(self, node_list: list, cached_node_norms: dict = None, for_json: bool = False) -> set:
         """
         This method calls the NodeNormalization web service to get the normalized identifier and name of the taxon node.
         the data comes in as a node list.
@@ -199,7 +201,7 @@ class NodeNormUtils:
         node_idx = 0
 
         # storage for items that failed to normalize
-        failed_to_normalize: list = []
+        failed_to_normalize: set = set()
 
         # for each row in the slice add the new id and name
         # iterate through node groups and get only the taxa records.
@@ -224,14 +226,14 @@ class NodeNormUtils:
                     if for_json:
                         node_list[node_idx]['equivalent_identifiers'] = list(item['identifier'] for item in cached_node_norms[rv['id']]['equivalent_identifiers'])
                     else:
-                        node_list[node_idx]['equivalent_identifiers'] = '^'.join(list(
+                        node_list[node_idx]['equivalent_identifiers'] = '|'.join(list(
                             (item['identifier']) for item in cached_node_norms[rv['id']]['equivalent_identifiers']))
 
                 # find the id and replace it with the normalized value
                 node_list[node_idx]['id'] = cached_node_norms[rv['id']]['id']['identifier']
             else:
                 # add for display purposes
-                failed_to_normalize.append(rv['id'])
+                failed_to_normalize.add(rv['id'])
 
             # go to the next node index
             node_idx += 1
@@ -240,17 +242,13 @@ class NodeNormUtils:
         if len(failed_to_normalize) > 0:
             # print([d['id'] for d in node_list if d['id'] in failed_to_normalize])
 
-            # save the removed values for the logging
-            deleted_entries: list = [d['id'] for d in node_list if d['category'] == '']
-
             # remove all nodes that dont have a category as they cant have an edge if they dont
             node_list[:] = [d for d in node_list if d['category'] != '']
 
-            self.logger.info(f'Nodes that failed to normalize: {", ".join(failed_to_normalize)}')
-            self.logger.info(f'Nodes that were removed: {", ".join(deleted_entries)}')
+            self.logger.debug(f'Nodes that failed to normalize and were removed: {", ".join(failed_to_normalize)}')
 
-        # return the updated list to the caller
-        return node_list
+        # return the failed list to the caller
+        return failed_to_normalize
 
 
 class EdgeNormUtils:
@@ -268,7 +266,7 @@ class EdgeNormUtils:
     # create a logger
     logger = LoggingUtil.init_logging("Data_services.Common.EdgeNormUtils", line_format='medium', log_file_path=os.path.join(Path(__file__).parents[1], 'logs'))
 
-    def normalize_edge_data(self, edge_list: list, cached_edge_norms: dict = None) -> list:
+    def normalize_edge_data(self, edge_list: list, cached_edge_norms: dict = None) -> set:
         """
         This method calls the EdgeNormalization web service to get the normalized identifier and labels.
         the data comes in as a edge list.
@@ -361,7 +359,7 @@ class EdgeNormUtils:
         edge_idx = 0
 
         # storage for items that failed to normalize
-        failed_to_normalize = []
+        failed_to_normalize: set = set()
 
         # for each row in the slice add the new id and name
         while edge_idx < edge_count:
@@ -369,7 +367,7 @@ class EdgeNormUtils:
             rv = edge_list[edge_idx]
 
             # did we find a normalized value
-            if rv['predicate'] in cached_edge_norms:
+            if rv['predicate'] in cached_edge_norms and rv['predicate'] != '':
                 # find the identifier and make it the relation label
                 if 'identifier' in cached_edge_norms[rv['predicate']]:
                     edge_list[edge_idx]['relation'] = cached_edge_norms[rv['predicate']]['identifier']
@@ -378,17 +376,17 @@ class EdgeNormUtils:
                 if 'label' in cached_edge_norms[rv['predicate']]:
                     edge_list[edge_idx]['edge_label'] = f'biolink:{cached_edge_norms[rv["predicate"]]["label"]}'
             else:
-                failed_to_normalize.append(rv['predicate'])
+                failed_to_normalize.add(rv['predicate'])
 
             # go to the next edge index
             edge_idx += 1
 
         # if something failed to normalize output it
         if len(failed_to_normalize) > 0:
-            self.logger.info(f'Failed to normalize: {", ".join(failed_to_normalize)}')
+            self.logger.debug(f'Failed to normalize: {", ".join(failed_to_normalize)}')
 
-        # return the updated list to the caller
-        return edge_list
+        # return the failed list to the caller
+        return failed_to_normalize
 
 
 class GetData:
@@ -737,6 +735,45 @@ class GetData:
         # return the number of files captured
         return file_count
 
+    def format_failures(self, node_norm_failures: set, edge_norm_failures: set):
+        """
+        outputs the nodes/edges that failed normalization
+
+        :param node_norm_failures: set of node curies
+        :param edge_norm_failures: set of edge predicates
+        :return:
+        """
+        # init a dict for the node failures
+        node_prefixes = defaultdict(set)
+
+        # for each failure
+        for failure in node_norm_failures:
+            # split the curie
+            items = failure.split(':')
+
+            # if it was a curie that was split add it as a key/value pair
+            if len(items) > 1:
+                node_prefixes[items[0]].add(items[1])
+
+        # output the results
+        for key in node_prefixes:
+            self.logger.info(f'{len(node_prefixes[key])} node normalization failures: {key}: {",".join(node_prefixes[key])}')
+
+        # init a dict for the edge failures
+        edge_prefixes = defaultdict(set)
+
+        # for each failure
+        for failure in edge_norm_failures:
+            # split the curie
+            items = failure.split(':')
+
+            # if it was a curie that was split add it as a key/value pair
+            if len(items) > 1:
+                edge_prefixes[items[0]].add(items[1])
+
+        # output the results
+        for key in edge_prefixes:
+            self.logger.info(f'{len(edge_prefixes[key])} edge normalization failures: {key}: {",".join(edge_prefixes[key])}')
 
 class DatasetDescription:
     @staticmethod
