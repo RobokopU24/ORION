@@ -1,9 +1,10 @@
 import os
-import requests
 import logging
 import tarfile
 import csv
 import gzip
+import requests
+import json
 
 from collections import defaultdict
 from urllib.request import urlopen
@@ -118,7 +119,7 @@ class NodeNormUtils:
         :return:
         """
 
-        # init the cache list if it wasnt passed in
+        # init the cache list if it wasn't passed in
         if cached_node_norms is None:
             cached_node_norms: dict = {}
 
@@ -276,7 +277,7 @@ class EdgeNormUtils:
         :return:
         """
 
-        # init the cache list if it wasnt passed in
+        # init the cache list if it wasn't passed in
         if cached_edge_norms is None:
             cached_edge_norms: dict = {}
 
@@ -774,6 +775,27 @@ class GetData:
         # output the results
         for key in edge_prefixes:
             self.logger.info(f'{len(edge_prefixes[key])} edge normalization failures: {key}: {",".join(edge_prefixes[key])}')
+
+    @staticmethod
+    def get_biolink_ld_json() -> dict:
+        """
+        Gets the biolink json-ld specification
+
+        :return: A dict of the json-ld
+        """
+
+        # set the location of the biolink json ld data
+        url: str = 'https://raw.githubusercontent.com/biolink/biolink-model/master/context.jsonld'
+
+        # make the request
+        req = requests.get(url)
+
+        # convert the data into a dict
+        ret_val = json.loads(req.text)
+
+        # return the data to the caller
+        return ret_val
+
 
 class DatasetDescription:
     @staticmethod
