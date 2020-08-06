@@ -1,6 +1,6 @@
 import os
 import shutil
-from Common.utils import GetData
+from Common.utils import GetData, EdgeNormUtils
 
 
 def test_get_uniprot_virus_date_stamp():
@@ -38,7 +38,7 @@ def test_get_taxon_id_list():
 
     taxonid_set: set = gd.get_ncbi_taxon_id_set(data_file_path, type_virus)
 
-    assert(len(taxonid_set) == 189018)
+    assert(len(taxonid_set) == 189019)
 
 
 def test_get_virus_files():
@@ -50,7 +50,7 @@ def test_get_virus_files():
 
     taxonid_set: set = gd.get_ncbi_taxon_id_set(data_file_path, type_virus)
 
-    assert(len(taxonid_set) == 189018)
+    assert(len(taxonid_set) == 189019)
 
     file_list: list = gd.get_uniprot_virus_file_list(data_file_path, taxonid_set)
 
@@ -66,7 +66,7 @@ def test_get_goa_files_chain():
 
     taxonid_set: set = gd.get_ncbi_taxon_id_set(data_file_path, type_virus)
 
-    assert(len(taxonid_set) == 189018)
+    assert(len(taxonid_set) == 189019)
 
     file_list: list = gd.get_uniprot_virus_file_list(data_file_path, taxonid_set)
 
@@ -85,8 +85,6 @@ def test_get_goa_files_chain():
 
 
 def test_edge_norm():
-    from Common.utils import EdgeNormUtils
-
     # get the edge norm object
     en = EdgeNormUtils()
 
@@ -104,3 +102,14 @@ def test_edge_norm():
     assert(edge_list[1]['predicate'] == 'RO:0000052')
     assert(edge_list[1]['relation'] == 'biolink:affects')
     assert(edge_list[1]['edge_label'] == 'biolink:affects')
+
+
+def test_get_biolink_ld_json():
+    # instantiate the object that has the method to do this
+    gd = GetData()
+
+    # get the biolink json-ld data
+    biolink_ld = gd.get_biolink_ld_json()
+
+    # assert that we got it. more detailed interrogation to follow
+    assert biolink_ld
