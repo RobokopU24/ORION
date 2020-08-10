@@ -17,7 +17,7 @@ def test_vp_load():
     test_dir = os.path.dirname(os.path.abspath(__file__)) + '/resources'
 
     # load the data file and create KGX output
-    vp.load(test_dir, 'Viral_proteome_loadtest', test_mode=True)
+    vp.load(test_dir, 'Viral_proteome_loadtest', output_mode='tsv', test_mode=True)
 
     # check the results
     assert(os.path.isfile(os.path.join(test_dir, 'Viral_proteome_loadtest_edge_file.tsv')) and os.path.isfile(os.path.join(test_dir, 'Viral_proteome_loadtest_node_file.tsv')))
@@ -57,7 +57,7 @@ def test_uniref_load():
     test_dir = os.path.dirname(os.path.abspath(__file__)) + '/resources'
 
     # load the data file and create KGX output
-    uni.load(test_dir, ['uniref'], 'taxon_file_indexes.txt', test_mode=True)
+    uni.load(test_dir, ['uniref'], 'taxon_file_indexes.txt', output_mode='tsv', test_mode=True)
 
     # check the results
     assert(os.path.isfile(os.path.join(test_dir, 'uniref_Virus_edge_file.tsv')))
@@ -90,7 +90,7 @@ def test_intact_load():
     test_dir = os.path.dirname(os.path.abspath(__file__)) + '/resources'
 
     # load the data files and create KGX output files
-    ia.load(test_dir, 'intact', test_mode=True)
+    ia.load(test_dir, 'intact', output_mode='tsv', test_mode=True)
 
     # check the results
     assert(os.path.isfile(os.path.join(test_dir, 'intact_edge_file.tsv')) and os.path.isfile(os.path.join(test_dir, 'intact_node_file.tsv')))
@@ -130,7 +130,7 @@ def test_goa_load():
     test_dir = os.path.dirname(os.path.abspath(__file__)) + '/resources'
 
     # load the data file and create KGX output
-    goa.load(test_dir, 'goa_human.gaf.gz', 'Human_GOA', test_mode=True)
+    goa.load(test_dir, 'goa_human.gaf.gz', 'Human_GOA', output_mode='tsv', test_mode=True)
 
     # check the results
     assert(os.path.isfile(os.path.join(test_dir, 'Human_GOA_edge_file.tsv')) and os.path.isfile(os.path.join(test_dir, 'Human_GOA_node_file.tsv')))
@@ -162,7 +162,7 @@ def test_ubergraph_load():
     test_dir = os.path.dirname(os.path.abspath(__file__)) + '/resources'
 
     # load the data files and create KGX output files
-    ug.load(test_dir, 'ubergraph_test.ttl', test_mode=True)
+    ug.load(test_dir, 'ubergraph_test.ttl', output_mode='tsv', test_mode=True)
 
     # check the results
     assert(os.path.isfile(os.path.join(test_dir, 'ubergraph_test_edge_file.tsv')) and os.path.isfile(os.path.join(test_dir, 'ubergraph_test_node_file.tsv')))
