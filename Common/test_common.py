@@ -1,5 +1,9 @@
 import os
 import shutil
+import json
+
+from rdflib import *
+# from rdflib.namespace import RDF
 from Common.utils import GetData, EdgeNormUtils
 
 
@@ -109,7 +113,12 @@ def test_get_biolink_ld_json():
     gd = GetData()
 
     # get the biolink json-ld data
-    biolink_ld = gd.get_biolink_ld_json()
+    g: Graph = gd.get_biolink_json_ld_graph()
 
     # assert that we got it. more detailed interrogation to follow
-    assert biolink_ld
+    assert(isinstance(g, Graph))
+
+    ref = URIRef('http://identifiers.org/chembl.compound/')
+
+    # print out the entire Graph in the RDF Turtle format
+    print('\n' + g.serialize(format="turtle").decode("utf-8"))

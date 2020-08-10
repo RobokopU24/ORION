@@ -4,8 +4,8 @@ import tarfile
 import csv
 import gzip
 import requests
-import json
 
+from rdflib import Graph
 from collections import defaultdict
 from urllib.request import urlopen
 from csv import reader
@@ -216,6 +216,7 @@ class NodeNormUtils:
                 if 'label' in cached_node_norms[rv['id']]['id']:
                     node_list[node_idx]['name'] = cached_node_norms[rv['id']]['id']['label']
 
+                # find the type and use it as a category
                 if 'type' in cached_node_norms[rv['id']]:
                     if for_json:
                         node_list[node_idx]['category'] = cached_node_norms[rv['id']]['type']
@@ -227,8 +228,7 @@ class NodeNormUtils:
                     if for_json:
                         node_list[node_idx]['equivalent_identifiers'] = list(item['identifier'] for item in cached_node_norms[rv['id']]['equivalent_identifiers'])
                     else:
-                        node_list[node_idx]['equivalent_identifiers'] = '|'.join(list(
-                            (item['identifier']) for item in cached_node_norms[rv['id']]['equivalent_identifiers']))
+                        node_list[node_idx]['equivalent_identifiers'] = '|'.join(list((item['identifier']) for item in cached_node_norms[rv['id']]['equivalent_identifiers']))
 
                 # find the id and replace it with the normalized value
                 node_list[node_idx]['id'] = cached_node_norms[rv['id']]['id']['identifier']
@@ -777,21 +777,19 @@ class GetData:
             self.logger.info(f'{len(edge_prefixes[key])} edge normalization failures: {key}: {",".join(edge_prefixes[key])}')
 
     @staticmethod
-    def get_biolink_ld_json() -> dict:
+    def get_biolink_json_ld_graph() -> Graph:
         """
-        Gets the biolink json-ld specification
+        Gets the biolink json-ld specification in a RDF graph format
 
-        :return: A dict of the json-ld
+        :return: A RDF Graph of the json-ld
         """
 
         # set the location of the biolink json ld data
-        url: str = 'https://raw.githubusercontent.com/biolink/biolink-model/master/context.jsonld'
+        # url: str = 'https://raw.githubusercontent.com/biolink/biolink-model/master/contextn.jsonld'
+        url: str = 'context.jsonld'
 
-        # make the request
-        req = requests.get(url)
-
-        # convert the data into a dict
-        ret_val = json.loads(req.text)
+        # create a RDF graph of the json-ld
+        ret_val = Graph().parse(url, format='json-ld')
 
         # return the data to the caller
         return ret_val
