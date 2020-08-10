@@ -6,6 +6,7 @@ import pandas as pd
 import enum
 import requests
 import shutil
+import json
 from datetime import datetime
 from csv import reader
 from Common.utils import LoggingUtil, GetData, DatasetDescription
@@ -48,12 +49,13 @@ class VPLoader:
     TYPE_BACTERIA: str = '0'
     TYPE_VIRUS: str = '9'
 
-    def load(self, data_path: str, out_name: str, test_mode: bool = False) -> bool:
+    def load(self, data_path: str, out_name: str, output_mode: str = 'json', test_mode: bool = False):
         """
         loads goa and gaf associated data gathered from ftp://ftp.ebi.ac.uk/pub/databases/GO/goa/proteomes/
 
         :param data_path: root directory of output data files
         :param out_name: the output name prefix of the KGX files
+        :param output_mode: the output mode (tsv or json)
         :param test_mode: flag to signify test mode
         :return: True
         """
@@ -87,10 +89,14 @@ class VPLoader:
         # did we get everything
         if len(file_list) == file_count:
             # open the output files and start processing
-            with open(os.path.join(data_path, f'{out_name}_node_file.tsv'), 'w', encoding="utf-8") as out_node_f, open(os.path.join(data_path, f'{out_name}_edge_file.tsv'), 'w', encoding="utf-8") as out_edge_f:
-                # write out the node and edge data headers
-                out_node_f.write(f'id\tname\tcategory\tequivalent_identifiers\n')
-                out_edge_f.write(f'id\tsubject\trelation\tedge_label\tobject\tsource_database\n')
+            with open(os.path.join(data_path, f'{out_name}_node_file.{output_mode}'), 'w', encoding="utf-8") as out_node_f, open(os.path.join(data_path, f'{out_name}_edge_file.{output_mode}'), 'w', encoding="utf-8") as out_edge_f:
+                # depending on the output mode, write out the node and edge data headers
+                if output_mode == 'json':
+                    out_node_f.write('{"nodes":[\n')
+                    out_edge_f.write('{"edges":[\n')
+                else:
+                    out_node_f.write(f'id\tname\tcategory\tequivalent_identifiers\n')
+                    out_edge_f.write(f'id\tsubject\trelation\tedge_label\tobject\tsource_database\n')
 
                 # init a file counter
                 file_counter: int = 0
@@ -127,13 +133,17 @@ class VPLoader:
                 df: pd.DataFrame = pd.DataFrame(total_nodes, columns=['grp', 'node_num', 'id', 'name', 'category', 'equivalent_identifiers'])
 
                 # get the list of unique edges
-                final_edges: set = self.get_edge_set(df)
+                final_edges: set = self.get_edge_set(df, output_mode)
 
                 logger.debug(f'{len(final_edges)} unique edges found, creating KGX edge file.')
 
                 # write out the unique edges
                 for item in final_edges:
-                    out_edge_f.write(hashlib.md5(item.encode('utf-8')).hexdigest() + item)
+                    # depending on the output mode, write out the edge
+                    if output_mode == 'json':
+                        out_edge_f.write(f'{{"id":"{hashlib.md5(item.encode("utf-8")).hexdigest()}"' + item)
+                    else:
+                        out_edge_f.write(hashlib.md5(item.encode('utf-8')).hexdigest() + item)
 
                 logger.debug(f'De-duplicating {len(total_nodes)} nodes')
 
@@ -142,13 +152,26 @@ class VPLoader:
 
                 # write out the unique nodes
                 for row in total_nodes:
-                    final_node_set.add(f"{row['id']}\t{row['name']}\t{row['category']}\t{row['equivalent_identifiers']}\n")
+                    if output_mode == 'json':
+                        # turn these into json
+                        category = json.dumps(row["category"].split('|'))
+                        identifiers = json.dumps(row["equivalent_identifiers"].split('|'))
+
+                        # save the node
+                        final_node_set.add(f'{{"id":"{row["id"]}", "name":"{row["name"]}", "category":{category}, "equivalent_identifiers":{identifiers}}},\n')
+                    else:
+                        final_node_set.add(f"{row['id']}\t{row['name']}\t{row['category']}\t{row['equivalent_identifiers']}\n")
 
                 logger.debug(f'Creating KGX node file with {len(final_node_set)} nodes.')
 
                 # write out the unique nodes
                 for row in final_node_set:
                     out_node_f.write(row)
+
+                # finish off the json if we have to
+                if output_mode == 'json':
+                    out_node_f.write('\n]}')
+                    out_edge_f.write('\n]}')
 
                 # remove the VP data files if not in test mode
                 if not test_mode:
@@ -160,9 +183,6 @@ class VPLoader:
 
         # get/KGX save the dataset provenance information node
         self.get_dataset_provenance(data_path)
-
-        # return to the caller
-        return True
 
     @staticmethod
     def get_dataset_provenance(data_path: str):
@@ -185,11 +205,12 @@ class VPLoader:
         DatasetDescription.create_description(data_path, ds, 'Viral_proteome')
 
     @staticmethod
-    def get_edge_set(df: pd.DataFrame) -> set:
+    def get_edge_set(df: pd.DataFrame, output_mode: str) -> set:
         """
         gets a list of edges for the data frame passed
 
         :param df: node storage data frame
+        :param output_mode: the output mode (tsv or json)
         :return: list of KGX ready edges
         """
 
@@ -224,7 +245,10 @@ class VPLoader:
 
             # create the KGX edge data for nodes 1 and 2
             """ An edge from the gene to the organism_taxon with relation "in_taxon" """
-            edge_set.add(f'\t{node_1_id}\tbiolink:in_taxon\tbiolink:in_taxon\t{node_2_id}\tUniProtKB GOA Viral proteomes\n')
+            if output_mode == 'json':
+                edge_set.add(f', "subject":"{node_1_id}", "relation":"biolink:in_taxon", "object":"{node_2_id}", "edge_label":"biolink:in_taxon", "source_database":"UniProtKB GOA Viral proteomes"}},\n')
+            else:
+                edge_set.add(f'\t{node_1_id}\tbiolink:in_taxon\tbiolink:in_taxon\t{node_2_id}\tUniProtKB GOA Viral proteomes\n')
 
             # write out an edge that connects nodes 1 and 3
             """ An edge between the gene and the go term. If the go term is a molecular_activity, 
@@ -234,6 +258,7 @@ class VPLoader:
 
             # init node 1 to node 3 edge details
             relation: str = ''
+            label: str = ''
             src_node_id: str = ''
             obj_node_id: str = ''
             valid_type = True
@@ -241,14 +266,17 @@ class VPLoader:
             # find the predicate and edge relationships
             if node_3_type.find('molecular_activity') > -1:
                 relation = 'biolink:enabled_by'
+                label = 'enabled_by'
                 src_node_id = node_3_id
                 obj_node_id = node_1_id
             elif node_3_type.find('biological_process') > -1:
                 relation = 'biolink:actively_involved_in'
+                label = 'actively_involved_in'
                 src_node_id = node_1_id
                 obj_node_id = node_3_id
             elif node_3_type.find('cellular_component') > -1:
                 relation = 'biolink:has_part'
+                label = 'has_part'
                 src_node_id = node_3_id
                 obj_node_id = node_1_id
             else:
@@ -258,7 +286,10 @@ class VPLoader:
             # was this a good value
             if valid_type:
                 # create the KGX edge data for nodes 1 and 3
-                edge_set.add(f'\t{src_node_id}\t{relation}\t{relation}\t{obj_node_id}\tUniProtKB GOA Viral proteomes\n')
+                if output_mode == 'json':
+                    edge_set.add(f', "subject":"{src_node_id}", "relation":"{relation}", "object":"{obj_node_id}", "edge_label":"{label}", "source_database":"UniProtKB GOA Viral proteomes"}},\n')
+                else:
+                    edge_set.add(f'\t{src_node_id}\t{relation}\t{label}\t{obj_node_id}\tUniProtKB GOA Viral proteomes\n')
 
         logger.debug(f'{len(edge_set)} unique edges identified.')
 
@@ -450,6 +481,7 @@ if __name__ == '__main__':
 
     # command line should be like: python loadVP.py -p /projects/stars/Data_services/UniProtKB_data
     ap.add_argument('-p', '--data_dir', required=True, help='The location of the UniProtKB data files')
+    ap.add_argument('-m', '--out_mode', required=True, help='The output file mode (tsv or json')
 
     # parse the arguments
     args = vars(ap.parse_args())
@@ -457,9 +489,10 @@ if __name__ == '__main__':
     # UniProtKB_data_dir = '/projects/stars/Data_services/UniProtKB_data'
     # UniProtKB_data_dir = 'E:/Data_services/UniProtKB_data'
     UniProtKB_data_dir = args['data_dir']
+    out_mode = args['out_mode']
 
     # get a reference to the processor
     vp = VPLoader()
 
     # load the data files and create KGX output
-    vp.load(UniProtKB_data_dir, 'Viral_proteome_GOA')
+    vp.load(UniProtKB_data_dir, 'Viral_proteome_GOA', output_mode=out_mode)

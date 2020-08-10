@@ -5,6 +5,7 @@ import requests
 import enum
 import pandas as pd
 import logging
+import json
 from datetime import datetime
 from io import TextIOBase, TextIOWrapper
 from csv import reader
@@ -77,12 +78,13 @@ class IALoader:
     # storage for experiment groups to write to file.
     experiment_grp_list: list = []
 
-    def load(self, data_file_path: str, out_name: str, test_mode: bool = False):
+    def load(self, data_file_path: str, out_name: str, output_mode: str = 'json', test_mode: bool = False):
         """
         Loads/parsers the IntAct data file to produce node/edge KGX files for importation into a graph database.
 
         :param data_file_path: the directory that will contain the intact data file
         :param out_name: The output file name prefix
+        :param output_mode: the output mode (tsv or json)
         :param test_mode: sets the usage of using a test data files
         :return: None
         """
@@ -104,13 +106,17 @@ class IALoader:
         if file_count == 1:
             logger.debug(f'{data_file_name} archive retrieved. Parsing IntAct data.')
 
-            with open(os.path.join(data_file_path, f'{out_name}_node_file.tsv'), 'w', encoding="utf-8") as out_node_f, open(os.path.join(data_file_path, f'{out_name}_edge_file.tsv'), 'w', encoding="utf-8") as out_edge_f:
-                # write out the node and edge data headers
-                out_node_f.write(f'id\tname\tcategory\tequivalent_identifiers\ttaxon\n')
-                out_edge_f.write(f'id\tsubject\trelation\tedge_label\tpublications\tdetection_method\tobject\tsource_database\n')
+            with open(os.path.join(data_file_path, f'{out_name}_node_file.{output_mode}'), 'w', encoding="utf-8") as out_node_f, open(os.path.join(data_file_path, f'{out_name}_edge_file.{output_mode}'), 'w', encoding="utf-8") as out_edge_f:
+                # write out the node and edge data headers based on the output mode
+                if output_mode == 'json':
+                    out_node_f.write('{"nodes":[\n')
+                    out_edge_f.write('{"edges":[\n')
+                else:
+                    out_node_f.write(f'id\tname\tcategory\tequivalent_identifiers\ttaxon\n')
+                    out_edge_f.write(f'id\tsubject\trelation\tedge_label\tpublications\tdetection_method\tobject\tsource_database\n')
 
                 # parse the data
-                self.parse_data_file(data_file_path, data_file_name, out_node_f, out_edge_f, test_mode)
+                self.parse_data_file(data_file_path, data_file_name, out_node_f, out_edge_f, output_mode, test_mode)
 
             # do not remove the file if in debug mode
             if logger.level != logging.DEBUG and not test_mode:
@@ -123,7 +129,7 @@ class IALoader:
 
         logger.info(f'IALoader - Processing complete.')
 
-    def parse_data_file(self, data_file_path: str, data_file_name: str, out_node_f, out_edge_f, test_mode: bool = False):
+    def parse_data_file(self, data_file_path: str, data_file_name: str, out_node_f, out_edge_f, output_mode, test_mode: bool = False):
         """
         Parses the data file for graph nodes/edges and writes them out the KGX tsv files.
 
@@ -131,6 +137,7 @@ class IALoader:
         :param data_file_name: the name of the intact zip file
         :param out_edge_f: the edge file pointer
         :param out_node_f: the node file pointer
+        :param output_mode: the output mode (tsv or json)
         :param test_mode: indicates we are in debug mode
         :return:
         """
@@ -180,12 +187,12 @@ class IALoader:
                             # did we reach the write threshold
                             if len(self.experiment_grp_list) >= threshold:
                                 # write out what we have so far
-                                self.write_out_data(out_edge_f, out_node_f, test_mode)
+                                self.write_out_data(out_node_f, out_edge_f, output_mode, test_mode)
 
                                 # empty the list for the next batch
                                 self.experiment_grp_list.clear()
 
-                            # clear out the experiment group list for the next batch
+                            # clear out the experiment group list for the next one
                             experiment_grp.clear()
 
                             # save the new experiment group name
@@ -231,8 +238,13 @@ class IALoader:
 
             # save any remainders
             if len(experiment_grp) > 0:
-                self.write_out_data(out_edge_f, out_node_f, test_mode)
+                self.write_out_data(out_edge_f, out_node_f, output_mode, test_mode)
                 logger.debug(f'Processing completed. {interaction_counter} interactions processed.')
+
+            # if we are in json output mode finish off the file
+            if output_mode == 'json':
+                out_node_f.write('\n]}')
+                out_edge_f.write('\n]}')
 
             # get the zip archive information
             data_prov: list = zf.infolist()
@@ -240,12 +252,13 @@ class IALoader:
             # create the dataset KGX node data
             self.get_dataset_provenance(data_file_path, data_prov, 'intact.txt')
 
-    def write_out_data(self, out_edge_f: TextIOBase, out_node_f: TextIOBase, test_mode: bool = False):
+    def write_out_data(self, out_node_f: TextIOBase, out_edge_f: TextIOBase, output_mode: str, test_mode: bool = False):
         """
         writes out the data collected from the IntAct file to KGX node and edge files
 
-        :param out_edge_f: the edge file
         :param out_node_f: the node file
+        :param out_edge_f: the edge file
+        :param output_mode: the output mode (tsv or json)
         :param test_mode: flag to indicate we are going into test mode
         :return:
         """
@@ -255,7 +268,7 @@ class IALoader:
             self.normalize_node_data(self.experiment_grp_list)
 
         # write out the edges
-        self.write_edge_data(out_edge_f, self.experiment_grp_list)
+        self.write_edge_data(out_edge_f, self.experiment_grp_list, output_mode)
 
         # init storage for the nodes
         node_list: list = []
@@ -288,8 +301,18 @@ class IALoader:
 
         # write out each unique node
         for item in df.iterrows():
-            # write out the node pair
-            out_node_f.write(f"{item[1]['id']}\t{item[1]['name']}\t{item[1]['category']}\t{item[1]['equivalent_identifiers']}\t{item[1]['taxon']}\n")
+            # id, name, category, equivalent_identifiers, taxon
+
+            # depending on the output mode write out the nodes
+            if output_mode == 'json':
+                # turn these into json
+                category = json.dumps(item[1]['category'].split('|'))
+                identifiers = json.dumps(item[1]['equivalent_identifiers'].split('|'))
+
+                # output the node
+                out_node_f.write(f'{{"id":"{item[1]["id"]}", "name":"{item[1]["name"]}", "category":{category}, "equivalent_identifiers":{identifiers}, "taxon":"{item[1]["taxon"]}"}},\n')
+            else:
+                out_node_f.write(f"{item[1]['id']}\t{item[1]['name']}\t{item[1]['category']}\t{item[1]['equivalent_identifiers']}\t{item[1]['taxon']}\n")
 
     def normalize_node_data(self, node_list: list) -> list:
         """
@@ -383,7 +406,7 @@ class IALoader:
             # get the node list item
             rv = node_list[node_idx]
 
-            # loop through the A/B interactors and taxons in the interaction
+            # loop through the A/B interactors and taxa in the interaction
             for prefix in ['u_', 't_']:
                 for suffix in ['a', 'b']:
                     try:
@@ -432,12 +455,13 @@ class IALoader:
         return node_list
 
     @staticmethod
-    def write_edge_data(out_edge_f, experiment_grp):
+    def write_edge_data(out_edge_f: TextIOBase, experiment_grp: list, output_mode: str):
         """
         writes edges for the experiment group list passed
 
         :param out_edge_f: the edge file
         :param experiment_grp: single experiment data
+        :param output_mode: the output mode (tsv or json)
         :return: nothing
         """
 
@@ -499,14 +523,23 @@ class IALoader:
             # now that we have a group create the edges
             # a gene to gene pair that has a "directly interacts with" relationship
             while grp_idx < len(grp_list):
-                # write out the uniprot A to uniprot B edge
-                edge = f'\t{grp_list[grp_idx]["u_a"]}\tbiolink:directly_interacts_with\tbiolink:directly_interacts_with\tPMID:{grp_list[grp_idx]["pmid"]}\t{"|".join(detection_method_set)}\t{grp_list[grp_idx]["u_b"]}\tIntAct\n'
-                out_edge_f.write(hashlib.md5(edge.encode('utf-8')).hexdigest() + edge)
-
-                # write out the uniprot to NCBI taxon edge
-                for suffix in ['a', 'b']:
-                    edge = f'\t{grp_list[grp_idx]["u_" + suffix]}\tbiolink:in_taxon\tbiolink:in_taxon\t\t\t{grp_list[grp_idx]["t_" + suffix]}\tIntAct\n'
+                # depending on the mode write out the uniprot A to uniprot B edge
+                if output_mode == 'json':
+                    edge = f', "subject":"{grp_list[grp_idx]["u_a"]}", "relation":"biolink:directly_interacts_with", "object":"{grp_list[grp_idx]["u_b"]}", "edge_label":"directly_interacts_with", "publications":"PMID:{grp_list[grp_idx]["pmid"]}", "detection_method":{json.dumps(list(detection_method_set))}, "source_database":"IntAct"}},\n'
+                    out_edge_f.write(f'{{"id":"{hashlib.md5(edge.encode("utf-8")).hexdigest()}"' + edge)
+                else:
+                    edge = f'\t{grp_list[grp_idx]["u_a"]}\tbiolink:directly_interacts_with\tdirectly_interacts_with\tPMID:{grp_list[grp_idx]["pmid"]}\t{"|".join(detection_method_set)}\t{grp_list[grp_idx]["u_b"]}\tIntAct\n'
                     out_edge_f.write(hashlib.md5(edge.encode('utf-8')).hexdigest() + edge)
+
+                # for each type
+                for suffix in ['a', 'b']:
+                    # depending on the output mode write out the uniprot to NCBI taxon edge
+                    if output_mode == 'json':
+                        edge = f', "subject":"{grp_list[grp_idx]["u_" + suffix]}", "relation":"biolink:in_taxon", "object":"{grp_list[grp_idx]["t_" + suffix]}", "edge_label":"in_taxon", "source_database":"IntAct"}},\n'
+                        out_edge_f.write(f'{{"id":"{hashlib.md5(edge.encode("utf-8")).hexdigest()}"' + edge)
+                    else:
+                        edge = f'\t{grp_list[grp_idx]["u_" + suffix]}\tbiolink:in_taxon\tin_taxon\t\t\t{grp_list[grp_idx]["t_" + suffix]}\tIntAct\n'
+                        out_edge_f.write(hashlib.md5(edge.encode('utf-8')).hexdigest() + edge)
 
                 # goto the next pair
                 grp_idx += 1
@@ -638,15 +671,17 @@ if __name__ == '__main__':
 
     # command line should be like: python loadIA.py -d E:/Data_services/IntAct_data
     ap.add_argument('-i', '--data_dir', required=True, help='The IntAct data file directory')
+    ap.add_argument('-m', '--out_mode', required=True, help='The output file mode (tsv or json')
 
     # parse the arguments
     args = vars(ap.parse_args())
 
     # IntAct_data_dir = 'E:/Data_services/IntAct'
     IntAct_data_dir = args['data_dir']
+    out_mode = args['out_mode']
 
     # get a reference to the processor
     ia = IALoader()
 
     # load the data files and create KGX output files
-    ia.load(IntAct_data_dir, 'intact')
+    ia.load(IntAct_data_dir, 'intact', out_mode)

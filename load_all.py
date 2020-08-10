@@ -17,11 +17,11 @@ if __name__ == '__main__':
     Parses both the UniProtKB viral proteome and UniRef data and creates KGX import files for each. 
 
     Example command lines:    
-    python load_all.py -p E:/Data_services/UniProtKB_data 
-    python load_all.py -r E:/Data_services/UniRef_data -f uniref100,uniref90,uniref50
-    python load_all.py -i E:/Data_services/IntAct_data
-    python load_all.py -p E:/Data_services/UniProtKB_data -g goa_human.gaf.gz
-    python load_all.py -u E:/Data_services/UberGrpah -s properties-nonredundant.ttl,properties-redundant.ttl
+    python load_all.py -p E:/Data_services/UniProtKB_data -m json
+    python load_all.py -r E:/Data_services/UniRef_data -f uniref100,uniref90,uniref50 -m json
+    python load_all.py -i E:/Data_services/IntAct_data -m json
+    python load_all.py -p E:/Data_services/UniProtKB_data -g goa_human.gaf.gz -m json
+    python load_all.py -u E:/Data_services/UberGraph -s properties-nonredundant.ttl,properties-redundant.ttl -m json
     
     """
     # create a command line parser
@@ -33,21 +33,23 @@ if __name__ == '__main__':
     ap.add_argument('-f', '--uniref_files', required=False, help='Comma separated UniRef data file(s) to parse.')
     ap.add_argument('-i', '--intact_dir', required=False, help='The data directory for the IntAct data and KGX files.')
     ap.add_argument('-g', '--goa_data_file', required=False, help='The name of the target GOA data file.')
-    ap.add_argument('-u', '--ug_data_dir', required=True, help='The UberGraph data file directory.')
-    ap.add_argument('-s', '--ug_data_files', required=True, help='Comma separated UberGraph data file(s) to parse.')
+    ap.add_argument('-u', '--ug_data_dir', required=False, help='The UberGraph data file directory.')
+    ap.add_argument('-s', '--ug_data_files', required=False, help='Comma separated UberGraph data file(s) to parse.')
+    ap.add_argument('-m', '--out_mode', required=True, help='The output file mode (tsv or json')
 
     # parse the arguments
     args = vars(ap.parse_args())
 
     # assign the uniprot dir
     UniProtKB_data_dir = args['uniprot_dir']
+    out_mode = args['out_mode']
 
     if UniProtKB_data_dir is not None:
         # get a reference to the processor
         vp = VPLoader()
 
         # load the data files and create KGX output
-        vp.load(UniProtKB_data_dir, 'Viral_proteome_GOA')
+        vp.load(UniProtKB_data_dir, 'Viral_proteome_GOA', out_mode)
 
     # assign the uniref directory and target files
     UniRef_data_dir = args['uniref_dir']
@@ -58,7 +60,7 @@ if __name__ == '__main__':
         uni = UniRefSimLoader()
 
         # load the data files and create KGX output
-        uni.load(UniRef_data_dir, UniRef_files.split(','), 'taxon_file_indexes.txt')
+        uni.load(UniRef_data_dir, UniRef_files.split(','), 'taxon_file_indexes.txt', out_mode)
 
     # assign the uniref directory
     IntAct_data_dir = args['intact_dir']
@@ -68,7 +70,7 @@ if __name__ == '__main__':
         ia = IALoader()
 
         # load the data files and create KGX output files
-        ia.load(IntAct_data_dir, 'intact')
+        ia.load(IntAct_data_dir, 'intact', out_mode)
 
     # assign the target GOA data file
     GOA_data_file = args['goa_data_file']
@@ -78,14 +80,15 @@ if __name__ == '__main__':
         goa = GOALoader()
 
         # load the data files and create KGX output files
-        goa.load(UniProtKB_data_dir, GOA_data_file, 'Human_GOA')
+        goa.load(UniProtKB_data_dir, GOA_data_file, 'Human_GOA', out_mode)
 
     # UG_data_dir = 'E:/Data_services/UberGraph'
     UG_data_dir = args['ug_data_dir']
     UG_data_file = args['ug_data_files']
 
-    # get a reference to the processor
-    ug = UGLoader()
+    if UG_data_dir is not None:
+        # get a reference to the processor
+        ug = UGLoader()
 
-    # load the data files and create KGX output files
-    ug.load(UG_data_dir, UG_data_file)
+        # load the data files and create KGX output files
+        ug.load(UG_data_dir, UG_data_file, out_mode)

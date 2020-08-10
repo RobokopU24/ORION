@@ -3,6 +3,7 @@ import hashlib
 import argparse
 import pandas as pd
 import logging
+import json
 from datetime import datetime
 from io import TextIOBase
 from csv import reader
@@ -31,12 +32,13 @@ class UGLoader:
     total_edges: int = 0
 
     # init the node and edge data arrays
-    def load(self, data_file_path: str, data_file_names: str, block_size: int = 5000, test_mode: bool = False):
+    def load(self, data_file_path: str, data_file_names: str, output_mode: str = 'json', block_size: int = 5000, test_mode: bool = False):
         """
         Loads/parsers the UberGraph data file to produce node/edge KGX files for importation into a graph database.
 
         :param data_file_path: the directory that will contain the UberGraph data file
         :param data_file_names: The input file name.
+        :param output_mode: the output mode (tsv or json)
         :param block_size: the count threshold to write out the data
         :param test_mode: sets the usage of using a test data file
         :return: None
@@ -57,13 +59,17 @@ class UGLoader:
 
             logger.info(f'Parsing UberGraph data file: {file_name}.')
 
-            with open(os.path.join(data_file_path, f'{out_name}_node_file.tsv'), 'w', encoding="utf-8") as out_node_f, open(os.path.join(data_file_path, f'{out_name}_edge_file.tsv'), 'w', encoding="utf-8") as out_edge_f:
-                # write out the node and edge data headers
-                out_node_f.write(f'id\tname\tcategory\tequivalent_identifiers\n')
-                out_edge_f.write(f'id\tsubject\trelation\tedge_label\tobject\tsource_database\n')
+            with open(os.path.join(data_file_path, f'{out_name}_node_file.{output_mode}'), 'w', encoding="utf-8") as out_node_f, open(os.path.join(data_file_path, f'{out_name}_edge_file.{output_mode}'), 'w', encoding="utf-8") as out_edge_f:
+                # depending on the output mode, write out the node and edge data headers
+                if output_mode == 'json':
+                    out_node_f.write('{"nodes":[\n')
+                    out_edge_f.write('{"edges":[\n')
+                else:
+                    out_node_f.write(f'id\tname\tcategory\tequivalent_identifiers\n')
+                    out_edge_f.write(f'id\tsubject\trelation\tedge_label\tobject\tsource_database\n')
 
                 # parse the data
-                self.parse_data_file(data_file_path, file_name, out_node_f, out_edge_f, block_size)
+                self.parse_data_file(data_file_path, file_name, out_node_f, out_edge_f, output_mode, block_size)
 
             # do not remove the file if in debug mode
             if logger.level != logging.DEBUG and not test_mode:
@@ -72,7 +78,7 @@ class UGLoader:
 
         logger.info(f'UGLoader - Processing complete.')
 
-    def parse_data_file(self, data_file_path: str, data_file_name: str, out_node_f, out_edge_f, block_size: int):
+    def parse_data_file(self, data_file_path: str, data_file_name: str, out_node_f, out_edge_f, output_mode: str, block_size: int):
         """
         Parses the data file for graph nodes/edges and writes them out the KGX tsv files.
 
@@ -80,6 +86,7 @@ class UGLoader:
         :param data_file_name: the name of the UberGraph file
         :param out_edge_f: the edge file pointer
         :param out_node_f: the node file pointer
+        :param output_mode: the output mode (tsv or json)
         :param block_size: write out data threshold
         :return:
         """
@@ -169,7 +176,7 @@ class UGLoader:
                         node_norm_failures.update(failures)
 
                         # write out the data
-                        self.write_out_data(node_list, edge_list, out_node_f, out_edge_f, 'UberGraph ' + data_file_name.split('.')[0])
+                        self.write_out_data(node_list, edge_list, out_node_f, out_edge_f, output_mode, 'UberGraph ' + data_file_name.split('.')[0])
 
                         # clear out the node_list
                         node_list.clear()
@@ -196,8 +203,13 @@ class UGLoader:
                 node_norm_failures.update(failures)
 
                 # write out the data
-                self.write_out_data(node_list, edge_list, out_edge_f, out_node_f, 'UberGraph_' + data_file_name)
+                self.write_out_data(node_list, edge_list, out_edge_f, out_node_f, output_mode, 'UberGraph_' + data_file_name)
                 logger.info(f'{line_counter} relationships processed creating {self.total_nodes} nodes and {self.total_edges} edges.')
+
+        # finish off the json if we have to
+        if output_mode == 'json':
+            out_node_f.write('\n]}')
+            out_edge_f.write('\n]}')
 
         # output the failures
         gd.format_failures(node_norm_failures, edge_norm_failures)
@@ -205,7 +217,7 @@ class UGLoader:
         # create the dataset KGX node data
         # self.get_dataset_provenance(data_file_path, data_prov)
 
-    def write_out_data(self, node_list: list, edge_list: list, out_node_f: TextIOBase, out_edge_f: TextIOBase, data_source_name: str):
+    def write_out_data(self, node_list: list, edge_list: list, out_node_f: TextIOBase, out_edge_f: TextIOBase, output_mode: str, data_source_name: str):
         """
         writes out the data collected from the UberGraph file node list to KGX node and edge files
 
@@ -213,6 +225,7 @@ class UGLoader:
         :param edge_list: the list of edge relations by group name
         :param out_node_f: the node file
         :param out_edge_f: the edge file
+        :param output_mode: the output mode (tsv or json)
         :param data_source_name: the name of the source file
         :return: Nothing
         """
@@ -220,7 +233,7 @@ class UGLoader:
         logger.debug(f'Loading data frame with {len(node_list)} nodes.')
 
         # write out the edges
-        self.write_edge_data(out_edge_f, node_list, edge_list, data_source_name)
+        self.write_edge_data(out_edge_f, node_list, edge_list, output_mode, data_source_name)
 
         # create a data frame with the node list
         df: pd.DataFrame = pd.DataFrame(node_list, columns=['grp', 'node_num', 'id', 'name', 'category', 'equivalent_identifiers'])
@@ -232,21 +245,30 @@ class UGLoader:
         logger.debug(f'{len(new_df.index)} nodes found.')
 
         # write out the unique nodes
-        for row in new_df.iterrows():
-            out_node_f.write(f"{row[1]['id']}\t{row[1]['name']}\t{row[1]['category']}\t{row[1]['equivalent_identifiers']}\n")
+        for item in new_df.iterrows():
+            if output_mode == 'json':
+                # turn these into json
+                category = json.dumps(item[1]['category'].split('|'))
+                identifiers = json.dumps(item[1]['equivalent_identifiers'].split('|'))
+
+                # output the node
+                out_node_f.write(f'{{"id":"{item[1]["id"]}", "name":"{item[1]["name"]}", "category":{category}, "equivalent_identifiers":{identifiers}}},\n')
+            else:
+                out_node_f.write(f"{item[1]['id']}\t{item[1]['name']}\t{item[1]['category']}\t{item[1]['equivalent_identifiers']}\n")
 
             # increment the total node counter
             self.total_nodes += 1
 
         logger.debug('Writing out to data file complete.')
 
-    def write_edge_data(self, out_edge_f, node_list: list, edge_list: list, data_source_name: str):
+    def write_edge_data(self, out_edge_f, node_list: list, edge_list: list, output_mode: str, data_source_name: str):
         """
         writes edges for the node list passed
 
         :param out_edge_f: the edge file
         :param node_list: list of node groups
         :param edge_list: list of edge relations by group
+        :param output_mode: the output mode (tsv or json)
         :param data_source_name: the name of the source file
         :return: Nothing
         """
@@ -337,8 +359,12 @@ class UGLoader:
 
             # did we get everything
             if len(source_node_id) and len(object_node_id) and len(edge_relation):
+                if output_mode == 'json':
+                    edge = f', "subject":"{source_node_id}", "relation":"{edge_relation}", "object":"{object_node_id}", "edge_label":"{edge_relation}", "source_database":"{data_source_name}"}},\n'
+                else:
+                    edge: str = f'\t{source_node_id}\t{edge_relation}\t{edge_relation}\t{object_node_id}\t{data_source_name}\n'
+
                 # write out the edge
-                edge: str = f'\t{source_node_id}\t{edge_relation}\t{edge_relation}\t{object_node_id}\t{data_source_name}\n'
                 out_edge_f.write(hashlib.md5(edge.encode('utf-8')).hexdigest() + edge)
 
                 # increment the edge count
@@ -375,15 +401,15 @@ class UGLoader:
 
         # create the dataset descriptor
         ds: dict = {
-            'data_set_name': 'IntAct',
-            'data_set_title': 'IntAct',
-            'data_set_web_site': 'https://www.ebi.ac.uk/intact/',
-            'data_set_download_url': 'ftp.ebi.ac.uk/pub/databases/IntAct/current/psimitab/intact.zip',
+            'data_set_name': 'UberGraph',
+            'data_set_title': 'UberGraph',
+            'data_set_web_site': '',
+            'data_set_download_url': '',
             'data_set_version': data_version.strftime("%Y%m%d"),
             'data_set_retrieved_on': now.strftime("%Y/%m/%d %H:%M:%S")}
 
         # create the data description KGX file
-        DatasetDescription.create_description(data_path, ds, 'intact')
+        DatasetDescription.create_description(data_path, ds, 'ubergraph')
 
 
 if __name__ == '__main__':

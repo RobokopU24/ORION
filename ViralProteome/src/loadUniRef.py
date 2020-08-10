@@ -1,11 +1,11 @@
 import os
 import argparse
-import csv
 import hashlib
 import pandas as pd
 import requests
+import json
+
 from io import TextIOBase
-from csv import reader
 from xml.etree import ElementTree as ETree
 from Common.utils import LoggingUtil, GetData
 from pathlib import Path
@@ -28,7 +28,7 @@ class UniRefSimLoader:
     # storage for cached node normalizations
     cached_node_norms: dict = {}
 
-    def load(self, data_dir: str, in_file_names: list, taxon_index_file: str, block_size: int = 5000, test_mode: bool = False):
+    def load(self, data_dir: str, in_file_names: list, taxon_index_file: str, output_mode: str = 'json', block_size: int = 5000, test_mode: bool = False):
         """
         parses the UniRef data files gathered from ftp://ftp.uniprot.org/pub/databases/uniprot/uniref/ to
         create standard KGX files to import thr data into a graph database
@@ -36,6 +36,7 @@ class UniRefSimLoader:
         :param data_dir: the directory of the input data files
         :param in_file_names: the UniRef file to work
         :param taxon_index_file: the list of UniRef virus file indexes
+        :param output_mode: the output mode (tsv or json)
         :param block_size: the number of nodes collected to trigger writing KGX data to file
         :param test_mode: debug mode flag to indicate use of smaller input files
         :return
@@ -59,10 +60,14 @@ class UniRefSimLoader:
             logger.debug(f'Processing {f}.')
 
             # process the file
-            with open(os.path.join(data_dir, f'{f}_Virus_node_file.tsv'), 'w', encoding="utf-8") as out_node_f, open(os.path.join(data_dir, f'{f}_Virus_edge_file.tsv'), 'w', encoding="utf-8") as out_edge_f:
-                # write out the node and edge data headers
-                out_node_f.write(f'id\tname\tcategory\tequivalent_identifiers\n')
-                out_edge_f.write(f'id\tsubject\trelation\tedge_label\tobject\tsource_database\n')
+            with open(os.path.join(data_dir, f'{f}_Virus_node_file.{output_mode}'), 'w', encoding="utf-8") as out_node_f, open(os.path.join(data_dir, f'{f}_Virus_edge_file.{output_mode}'), 'w', encoding="utf-8") as out_edge_f:
+                # depending on the output mode, write out the node and edge data headers
+                if output_mode == 'json':
+                    out_node_f.write('{"nodes":[\n')
+                    out_edge_f.write('{"edges":[\n')
+                else:
+                    out_node_f.write(f'id\tname\tcategory\tequivalent_identifiers\n')
+                    out_edge_f.write(f'id\tsubject\trelation\tedge_label\tobject\tsource_database\n')
 
                 # add the file extension
                 if test_mode:
@@ -71,11 +76,11 @@ class UniRefSimLoader:
                     full_file = f + '.xml'
 
                 # read the file and make the list
-                self.parse_data_file(os.path.join(data_dir, full_file), os.path.join(data_dir, f'{f}_{taxon_index_file}'), target_taxon_set, out_edge_f, out_node_f, block_size)
+                self.parse_data_file(os.path.join(data_dir, full_file), os.path.join(data_dir, f'{f}_{taxon_index_file}'), target_taxon_set, out_node_f, out_edge_f, output_mode, block_size)
 
                 logger.info(f'UniRefSimLoader - {f} Processing complete.')
 
-    def parse_data_file(self, uniref_infile_path: str, index_file_path: str, target_taxa: set, out_edge_f, out_node_f, block_size: int):
+    def parse_data_file(self, uniref_infile_path: str, index_file_path: str, target_taxa: set, out_node_f, out_edge_f, output_mode, block_size: int):
         """
         Parses the data file for graph nodes/edges and writes them to the KGX csv files.
 
@@ -84,8 +89,9 @@ class UniRefSimLoader:
         :param uniref_infile_path: the name of the uniref file to process
         :param index_file_path: the name of the uniref entry index file
         :param target_taxa: the set of target virus taxon ids
-        :param out_edge_f: the edge file pointer
         :param out_node_f: the node file pointer
+        :param out_edge_f: the edge file pointer
+        :param output_mode: the output mode (tsv or json)
         :param block_size: the number of graph nodes created that triggers writing them to KGX the data files
         :return: ret_val: the node list
         """
@@ -128,14 +134,19 @@ class UniRefSimLoader:
                     self.normalize_node_data(node_list)
 
                     # write out what we have so far
-                    self.write_out_data(node_list, out_edge_f, out_node_f)
+                    self.write_out_data(node_list, out_node_f, out_edge_f, output_mode)
 
                     # clear out the node list for the next batch
                     node_list.clear()
 
         # save any remainders
         if len(node_list) > 0:
-            self.write_out_data(node_list, out_edge_f, out_node_f)
+            self.write_out_data(node_list, out_node_f, out_edge_f, output_mode)
+
+        # finish off the json if we have to
+        if output_mode == 'json':
+            out_node_f.write('\n]}')
+            out_edge_f.write('\n]}')
 
         logger.debug(f'Parsing XML data file complete. {index_counter} taxa processed.')
 
@@ -424,13 +435,14 @@ class UniRefSimLoader:
         # if not virus_capture:
         #     logger.debug(f'{grp} not captured.')
 
-    def write_out_data(self, node_list, out_edge_f: TextIOBase, out_node_f: TextIOBase):
+    def write_out_data(self, node_list, out_node_f: TextIOBase, out_edge_f: TextIOBase, output_mode: str):
         """
         writes out the data collected from the UniRef file node list to KGX node and edge files
 
         :param node_list: the list of nodes create edges and to write out to file
-        :param out_edge_f: the edge file
         :param out_node_f: the node file
+        :param out_edge_f: the edge file
+        :param output_mode: the output mode (tsv or json)
         :return:
         """
 
@@ -440,7 +452,7 @@ class UniRefSimLoader:
         df: pd.DataFrame = pd.DataFrame(node_list, columns=['grp', 'node_num', 'id', 'name', 'category', 'equivalent_identifiers', 'similarity_bin'])
 
         # write out the edges
-        self.write_edge_data(out_edge_f, node_list)
+        self.write_edge_data(out_edge_f, node_list, output_mode)
 
         # reshape the data frame and remove all node duplicates.
         new_df = df.drop(['grp', 'node_num'], axis=1)
@@ -449,18 +461,27 @@ class UniRefSimLoader:
         logger.debug(f'{len(new_df.index)} nodes found.')
 
         # write out the unique nodes
-        for row in new_df.iterrows():
-            out_node_f.write(f"{row[1]['id']}\t{row[1]['name']}\t{row[1]['category']}\t{row[1]['equivalent_identifiers']}\n")
+        for item in new_df.iterrows():
+            if output_mode == 'json':
+                # turn these into json
+                category = json.dumps(item[1]['category'].split('|'))
+                identifiers = json.dumps(item[1]['equivalent_identifiers'].split('|'))
+
+                # output the node
+                out_node_f.write(f'{{"id":"{item[1]["id"]}", "name":"{item[1]["name"]}", "category":{category}, "equivalent_identifiers":{identifiers}}},\n')
+            else:
+                out_node_f.write(f"{item[1]['id']}\t{item[1]['name']}\t{item[1]['category']}\t{item[1]['equivalent_identifiers']}\n")
 
         logger.debug('Writing out to data file complete.')
 
     @staticmethod
-    def write_edge_data(out_edge_f, node_list):
+    def write_edge_data(out_edge_f: TextIOBase, node_list: list, output_mode: str):
         """
         writes edges for the node list passed
 
         :param out_edge_f: the edge file
         :param node_list: node storage data frame
+        :param output_mode: the output mode (tsv or json)
         :return: nothing
         """
 
@@ -484,9 +505,10 @@ class UniRefSimLoader:
                 first = False
 
             # init variables for each group
-            rep_member_node_id: str = ''
             similarity_bin: str = ''
             gene_family_node_id: str = ''
+            rep_member_node_id: str = ''
+
             # sim_node_set: set = set()
 
             # for each entry member in the group
@@ -502,7 +524,7 @@ class UniRefSimLoader:
                     Ex. (node number N+1 and 1): (gene UniProt:A0A0F6NZX8)-[in_taxon]-(NCBITaxon:10493)
 
                 (Optional) Combination Member ID (UniProtKB accession) to Member ID (UniProtKB accession)
-                Ex. (node number X and Y): (gene UniProt:Q6GZX4)-[similar_to]-(gene UniProt:A0A0F6NZX8)            
+                Ex. (node number X and Y): (gene UniProt:Q6GZX4)-[SO:similar_to]-(gene UniProt:A0A0F6NZX8)            
                 """
 
                 # get the UniRef entry ID and similarity bin
@@ -510,33 +532,51 @@ class UniRefSimLoader:
                     gene_family_node_id = node_list[node_idx]['id']
                     similarity_bin = node_list[node_idx]['similarity_bin']
                 # get the UniRef entry common taxon ID and create the UniRef ID to taxon edge
-                elif node_list[node_idx]['node_num'] == 1:
-                    edge = f'\t{gene_family_node_id}\tbiolink:in_taxon\tbiolink:in_taxon\t{node_list[node_idx]["id"]}\t{gene_family_node_id.split(":")[0]}\n'
-                    out_edge_f.write(hashlib.md5(edge.encode('utf-8')).hexdigest() + edge)
+                elif node_list[node_idx]['node_num'] == 1 and gene_family_node_id != '':
+                    if output_mode == 'json':
+                        edge = f', "subject":"{gene_family_node_id}", "relation":"biolink:in_taxon", "object":"{node_list[node_idx]["id"]}", "edge_label":"in_taxon", "source_database":"{gene_family_node_id.split(":")[0]}"}},\n'
+                        out_edge_f.write(f'{{"id":"{hashlib.md5(edge.encode("utf-8")).hexdigest()}"' + edge)
+                    else:
+                        edge = f'\t{gene_family_node_id}\tbiolink:in_taxon\tin_taxon\t{node_list[node_idx]["id"]}\t{gene_family_node_id.split(":")[0]}\n'
+                        out_edge_f.write(hashlib.md5(edge.encode('utf-8')).hexdigest() + edge)
                 # get the member node edges
-                else:
+                elif similarity_bin != '' and gene_family_node_id != '':
                     # this node is the representative UniProtKB ID node
                     if node_list[node_idx]['node_num'] == 2:
-                        rep_member_node_id = node_list[node_idx]['id']
+                        rep_member_node_id: str = node_list[node_idx]['id']
 
                     # create an edge between the uniprot and the gene family nodes
-                    edge = f'\t{node_list[node_idx]["id"]}\tbiolink:part_of\tbiolink:part_of\t{gene_family_node_id}\t{node_list[node_idx]["id"].split(":")[0]}\n'
-                    out_edge_f.write(hashlib.md5(edge.encode('utf-8')).hexdigest() + edge)
+                    if output_mode == 'json':
+                        edge = f', "subject":"{node_list[node_idx]["id"]}", "relation":"biolink:part_of", "object":"{gene_family_node_id}", "edge_label":"part_of", "source_database":"{node_list[node_idx]["id"].split(":")[0]}"}},\n'
+                        out_edge_f.write(f'{{"id":"{hashlib.md5(edge.encode("utf-8")).hexdigest()}"' + edge)
+                    else:
+                        edge = f'\t{node_list[node_idx]["id"]}\tbiolink:part_of\tpart_of\t{gene_family_node_id}\t{node_list[node_idx]["id"].split(":")[0]}\n'
+                        out_edge_f.write(hashlib.md5(edge.encode('utf-8')).hexdigest() + edge)
 
                     # create an edge between the gene product and its paring taxon
-                    edge = f'\t{node_list[node_idx]["id"]}\tbiolink:in_taxon\tbiolink:in_taxon\t{node_list[node_idx + 1]["id"]}\t{node_list[node_idx]["id"].split(":")[0]}\n'
-                    out_edge_f.write(hashlib.md5(edge.encode('utf-8')).hexdigest() + edge)
+                    if output_mode == 'json':
+                        edge = f', "subject":"{node_list[node_idx]["id"]}", "relation":"biolink:in_taxon", "object":"{node_list[node_idx + 1]["id"]}", "edge_label":"in_taxon", "source_database":"{node_list[node_idx]["id"].split(":")[0]}"}},\n'
+                        out_edge_f.write(f'{{"id":"{hashlib.md5(edge.encode("utf-8")).hexdigest()}"' + edge)
+                    else:
+                        edge = f'\t{node_list[node_idx]["id"]}\tbiolink:in_taxon\tin_taxon\t{node_list[node_idx + 1]["id"]}\t{node_list[node_idx]["id"].split(":")[0]}\n'
+                        out_edge_f.write(hashlib.md5(edge.encode('utf-8')).hexdigest() + edge)
 
                     # add the spoke edge if it isn't a reflection of itself
                     if rep_member_node_id != node_list[node_idx]['id']:
-                        edge = f'\t{rep_member_node_id}\t{similarity_bin}\tbiolink:similar_to\t{node_list[node_idx]["id"]}\t{rep_member_node_id.split(":")[0]}\n'
-                        out_edge_f.write(hashlib.md5(edge.encode('utf-8')).hexdigest() + edge)
+                        if output_mode == 'json':
+                            edge = f', "subject":"{rep_member_node_id}", "relation":"{similarity_bin}", "object":"{node_list[node_idx]["id"]}", "edge_label":"SO:similar_to", "source_database":"{rep_member_node_id.split(":")[0]}"}},\n'
+                            out_edge_f.write(f'{{"id":"{hashlib.md5(edge.encode("utf-8")).hexdigest()}"' + edge)
+                        else:
+                            edge = f'\t{rep_member_node_id}\t{similarity_bin}\tSO:similar_to\t{node_list[node_idx]["id"]}\t{rep_member_node_id.split(":")[0]}\n'
+                            out_edge_f.write(hashlib.md5(edge.encode('utf-8')).hexdigest() + edge)
 
                     # save for similar node to node edge combination creation
                     # sim_node_set.add(node_list[node_idx]['id'])
 
                     # increment the node counter pairing
                     node_idx += 1
+                else:
+                    logger.error('Missing data elements similarity_bin or gene_family_node_id')
 
                 # increment the node counter
                 node_idx += 1
@@ -550,7 +590,7 @@ class UniRefSimLoader:
             # combos: iter = combinations(sim_node_set, 2)
             #
             # for item in combos:
-            #     edge = f',{item[0]},{similarity_bin},similar_to,{item[1]}\n'
+            #     edge = f',{item[0]},{similarity_bin},SO:similar_to,{item[1]}\n'
             #     out_edge_f.write(hashlib.md5(edge.encode('utf-8')).hexdigest() + edge)
             #
 
@@ -563,31 +603,6 @@ class UniRefSimLoader:
 
         logger.debug(f'{node_idx} Entry member edges created.')
 
-    @staticmethod
-    def get_virus_taxon_id_set(taxon_data_dir, infile_name, organism_type: str) -> set:
-        """
-        gets the files associated with viruses (and/or maybe bacteria)
-        the nodes.dmp file can be found in the archive: ftp://ftp.ncbi.nih.gov/pub/taxonomy/taxdump.tar.gz
-
-        :param: the organism type
-        :return: a list of file indexes
-        """
-
-        # init the return value
-        ret_val: set = set()
-
-        with open(os.path.join(taxon_data_dir, infile_name), 'r') as fp:
-            # create a csv reader for it
-            csv_reader: reader = csv.reader(fp, delimiter='\t')
-
-            # for the rest of the lines in the file. type 0 = TYPE_BACTERIA, type 9 = TYPE_VIRUS
-            for line in csv_reader:
-                if line[8] == organism_type:
-                    ret_val.add(line[0])
-
-        # return the list
-        return ret_val
-
 
 if __name__ == '__main__':
     # create a command line parser
@@ -596,6 +611,7 @@ if __name__ == '__main__':
     # command line should be like: python loadUniRef2.py -d /projects/stars/Data_services/UniRef_data -f uniref50,uniref90,uniref100
     ap.add_argument('-r', '--data_dir', required=True, help='The location of the UniRef data files')
     ap.add_argument('-f', '--UniRef_files', required=True, help='Name(s) of input UniRef files (comma delimited)')
+    ap.add_argument('-m', '--out_mode', required=True, help='The output file mode (tsv or json')
 
     # parse the arguments
     args = vars(ap.parse_args())
@@ -603,6 +619,7 @@ if __name__ == '__main__':
     # this is the base directory for data files and the resultant KGX files.
     # data_dir = 'E:/Data_services/UniRef_data'
     UniRef_data_dir: str = args['data_dir']
+    out_mode = args['out_mode']
 
     # create the file list
     # file_list: list = ['uniref50']  # 'uniref100', 'uniref90', 'uniref50'
@@ -612,4 +629,4 @@ if __name__ == '__main__':
     vp = UniRefSimLoader()
 
     # load the data files and create KGX output
-    vp.load(UniRef_data_dir, file_list, 'taxon_file_indexes.txt')
+    vp.load(UniRef_data_dir, file_list, 'taxon_file_indexes.txt', out_mode)
