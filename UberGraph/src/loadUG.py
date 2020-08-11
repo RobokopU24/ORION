@@ -31,6 +31,15 @@ class UGLoader:
     total_nodes: int = 0
     total_edges: int = 0
 
+    def __init__(self, log_file_level=logging.INFO):
+        """
+        constructor
+        :param log_file_level - overrides default log level
+        """
+        # was a new level specified
+        if log_file_level != logging.INFO:
+            logger.setLevel(log_file_level)
+
     # init the node and edge data arrays
     def load(self, data_file_path: str, data_file_names: str, output_mode: str = 'json', block_size: int = 5000, test_mode: bool = False):
         """
@@ -92,11 +101,11 @@ class UGLoader:
         """
 
         # get a reference to the node and edge normalization classes
-        en = EdgeNormUtils()
-        nn = NodeNormUtils()
+        en = EdgeNormUtils(logger.level)
+        nn = NodeNormUtils(logger.level)
 
         # get a reference to the data handler object
-        gd = GetData()
+        gd = GetData(logger.level)
 
         # init a line counter
         line_counter: int = 0
