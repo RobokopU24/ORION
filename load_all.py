@@ -17,11 +17,11 @@ if __name__ == '__main__':
     Parses both the UniProtKB viral proteome and UniRef data and creates KGX import files for each. 
 
     Example command lines:    
-    python load_all.py -p E:/Data_services/UniProtKB_data -m json
-    python load_all.py -r E:/Data_services/UniRef_data -f uniref100,uniref90,uniref50 -m json
-    python load_all.py -i E:/Data_services/IntAct_data -m json
-    python load_all.py -p E:/Data_services/UniProtKB_data -g goa_human.gaf.gz -m json
-    python load_all.py -u E:/Data_services/UberGraph -s properties-nonredundant.ttl,properties-redundant.ttl -m json
+    python load_all.py -p E:/Data_services/UniProtKB_data -m tsv
+    python load_all.py -r E:/Data_services/UniRef_data -f uniref100,uniref90,uniref50 -m tsv
+    python load_all.py -i E:/Data_services/IntAct_data -m tsv
+    python load_all.py -p E:/Data_services/UniProtKB_data -g goa_human.gaf.gz -m tsv
+    python load_all.py -u E:/Data_services/UberGraph -s properties-nonredundant.ttl,properties-redundant.ttl -m tsv
     
     """
     # create a command line parser
@@ -40,9 +40,11 @@ if __name__ == '__main__':
     # parse the arguments
     args = vars(ap.parse_args())
 
+    # get the output mode
+    out_mode = args['out_mode']
+
     # assign the uniprot dir
     UniProtKB_data_dir = args['uniprot_dir']
-    out_mode = args['out_mode']
 
     if UniProtKB_data_dir is not None:
         # get a reference to the processor
@@ -91,4 +93,4 @@ if __name__ == '__main__':
         ug = UGLoader()
 
         # load the data files and create KGX output files
-        ug.load(UG_data_dir, UG_data_file, out_mode)
+#        ug.load(UG_data_dir, UG_data_file, out_mode)
