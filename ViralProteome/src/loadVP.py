@@ -7,9 +7,11 @@ import enum
 import requests
 import shutil
 import json
+import logging
+
 from datetime import datetime
 from csv import reader
-from Common.utils import LoggingUtil, GetData, DatasetDescription
+from Common.utils import LoggingUtil, GetData, DatasetDescription, EdgeNormUtils
 from pathlib import Path
 
 # create a logger
@@ -49,6 +51,15 @@ class VPLoader:
     TYPE_BACTERIA: str = '0'
     TYPE_VIRUS: str = '9'
 
+    def __init__(self, log_file_level=logging.INFO):
+        """
+        constructor
+        :param log_file_level - overrides default log level
+        """
+        # was a new level specified
+        if log_file_level != logging.INFO:
+            logger.setLevel(log_file_level)
+
     def load(self, data_path: str, out_name: str, output_mode: str = 'json', test_mode: bool = False):
         """
         loads goa and gaf associated data gathered from ftp://ftp.ebi.ac.uk/pub/databases/GO/goa/proteomes/
@@ -64,7 +75,7 @@ class VPLoader:
         # are we in test mode
         if not test_mode:
             # and get a reference to the data gatherer
-            gd = GetData()
+            gd = GetData(logger.level)
 
             # get the list of target taxa
             target_taxa_set: set = gd.get_ncbi_taxon_id_set(data_path, self.TYPE_VIRUS)
@@ -104,10 +115,13 @@ class VPLoader:
                 # init the total set of nodes
                 total_nodes: list = []
 
+                # get the edge normalization object
+                en = EdgeNormUtils(logger.level)
+
                 # process each file
                 for f in file_list:
                     # open up the file
-                    with open(os.path.join(goa_data_dir, f), 'r') as fp:
+                    with open(os.path.join(goa_data_dir, f), 'r', encoding="utf-8") as fp:
                         # increment the file counter
                         file_counter += 1
 
@@ -133,19 +147,15 @@ class VPLoader:
                 df: pd.DataFrame = pd.DataFrame(total_nodes, columns=['grp', 'node_num', 'id', 'name', 'category', 'equivalent_identifiers'])
 
                 # get the list of unique edges
-                final_edges: set = self.get_edge_set(df, output_mode)
+                edge_list: list = self.get_edge_list(df)
 
-                logger.debug(f'{len(final_edges)} unique edges found, creating KGX edge file.')
+                # normalize the edge list
+                en.normalize_edge_data(edge_list)
 
-                # write out the unique edges
-                for item in final_edges:
-                    # depending on the output mode, write out the edge
-                    if output_mode == 'json':
-                        out_edge_f.write(f'{{"id":"{hashlib.md5(item.encode("utf-8")).hexdigest()}"' + item)
-                    else:
-                        out_edge_f.write(hashlib.md5(item.encode('utf-8')).hexdigest() + item)
+                # get the unique edge data to write to the file
+                final_edge_set: set = self.get_edge_set(edge_list, output_mode)
 
-                logger.debug(f'De-duplicating {len(total_nodes)} nodes')
+                logger.debug(f'{len(edge_list)} edges found. De-duplicating {len(total_nodes)} nodes.')
 
                 # init a set for the node de-duplication
                 final_node_set: set = set()
@@ -168,14 +178,22 @@ class VPLoader:
                 for row in final_node_set:
                     out_node_f.write(row)
 
+                # write out the unique edges
+                for item in final_edge_set:
+                    # depending on the output mode, write out the edge
+                    if output_mode == 'json':
+                        out_edge_f.write(f'{{"id":"{hashlib.md5(item.encode("utf-8")).hexdigest()}"' + item)
+                    else:
+                        out_edge_f.write(hashlib.md5(item.encode('utf-8')).hexdigest() + item)
+
                 # finish off the json if we have to
                 if output_mode == 'json':
                     out_node_f.write('\n]}')
                     out_edge_f.write('\n]}')
 
                 # remove the VP data files if not in test mode
-                if not test_mode:
-                    shutil.rmtree(goa_data_dir)
+                # if not test_mode:
+                #     shutil.rmtree(goa_data_dir)
 
                 logger.info(f'VPLoader - Processing complete.')
         else:
@@ -185,9 +203,25 @@ class VPLoader:
         self.get_dataset_provenance(data_path)
 
     @staticmethod
+    def get_edge_set(edge_list: list, output_mode: str) -> set:
+        # init a new set
+        edge_set: set = set()
+
+        # for each edge in the list
+        for item in edge_list:
+            # depending on the output mode save edge contents
+            if output_mode == 'json':
+                edge_set.add(f', "subject":"{item["subject"]}", "relation":"RO:0002162", "object":"{item["object"]}", "edge_label":"{item["edge_label"]}", "source_database":"UniProtKB GOA Viral proteomes"}},\n')
+            else:
+                edge_set.add(f'\t{item["subject"]}\t{item["relation"]}\t{item["edge_label"]}\t{item["object"]}\tUniProtKB GOA Viral proteomes\n')
+
+        # return the edge set to the caller
+        return edge_set
+
+    @staticmethod
     def get_dataset_provenance(data_path: str):
         # get the util object for getting data
-        gd: GetData = GetData()
+        gd: GetData = GetData(logger.level)
 
         # get the current time
         now: datetime = datetime.now()
@@ -205,20 +239,19 @@ class VPLoader:
         DatasetDescription.create_description(data_path, ds, 'Viral_proteome')
 
     @staticmethod
-    def get_edge_set(df: pd.DataFrame, output_mode: str) -> set:
+    def get_edge_list(df) -> list:
         """
         gets a list of edges for the data frame passed
 
         :param df: node storage data frame
-        :param output_mode: the output mode (tsv or json)
         :return: list of KGX ready edges
         """
 
+        # init the list of edges
+        edge_list: list = []
+
         # separate the data into triplet groups
         df_grp: pd.groupby_generic.DataFrameGroupBy = df.set_index('grp').groupby('grp')
-
-        # init a set for the edges
-        edge_set: set = set()
 
         # iterate through the groups and create the edge records.
         for row_index, rows in df_grp:
@@ -245,10 +278,7 @@ class VPLoader:
 
             # create the KGX edge data for nodes 1 and 2
             """ An edge from the gene to the organism_taxon with relation "in_taxon" """
-            if output_mode == 'json':
-                edge_set.add(f', "subject":"{node_1_id}", "relation":"biolink:in_taxon", "object":"{node_2_id}", "edge_label":"biolink:in_taxon", "source_database":"UniProtKB GOA Viral proteomes"}},\n')
-            else:
-                edge_set.add(f'\t{node_1_id}\tbiolink:in_taxon\tbiolink:in_taxon\t{node_2_id}\tUniProtKB GOA Viral proteomes\n')
+            edge_list.append({"predicate": "RO:0002162", "subject": f"{node_1_id}", "relation": "biolink:in_taxon", "object": f"{node_2_id}", "edge_label": "in_taxon"})
 
             # write out an edge that connects nodes 1 and 3
             """ An edge between the gene and the go term. If the go term is a molecular_activity, 
@@ -257,6 +287,7 @@ class VPLoader:
             component then it should be (go term)-[has_part]->(gene) """
 
             # init node 1 to node 3 edge details
+            predicate: str = ''
             relation: str = ''
             label: str = ''
             src_node_id: str = ''
@@ -265,16 +296,19 @@ class VPLoader:
 
             # find the predicate and edge relationships
             if node_3_type.find('molecular_activity') > -1:
+                predicate = 'RO:0002333'
                 relation = 'biolink:enabled_by'
                 label = 'enabled_by'
                 src_node_id = node_3_id
                 obj_node_id = node_1_id
             elif node_3_type.find('biological_process') > -1:
-                relation = 'biolink:actively_involved_in'
+                predicate = 'RO:0002331'
+                relation = 'actively_involved_in'
                 label = 'actively_involved_in'
                 src_node_id = node_1_id
                 obj_node_id = node_3_id
             elif node_3_type.find('cellular_component') > -1:
+                predicate = 'RO:0000051'
                 relation = 'biolink:has_part'
                 label = 'has_part'
                 src_node_id = node_3_id
@@ -286,15 +320,12 @@ class VPLoader:
             # was this a good value
             if valid_type:
                 # create the KGX edge data for nodes 1 and 3
-                if output_mode == 'json':
-                    edge_set.add(f', "subject":"{src_node_id}", "relation":"{relation}", "object":"{obj_node_id}", "edge_label":"{label}", "source_database":"UniProtKB GOA Viral proteomes"}},\n')
-                else:
-                    edge_set.add(f'\t{src_node_id}\t{relation}\t{label}\t{obj_node_id}\tUniProtKB GOA Viral proteomes\n')
+                edge_list.append({"predicate": predicate, "subject": src_node_id, "relation": relation, "object": obj_node_id, "edge_label": label})
 
-        logger.debug(f'{len(edge_set)} unique edges identified.')
+        logger.debug(f'{len(edge_list)} edges identified.')
 
         # return the list to the caller
-        return edge_set
+        return edge_list
 
     @staticmethod
     def get_node_list(fp) -> list:
