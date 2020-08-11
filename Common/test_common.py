@@ -108,7 +108,7 @@ def test_edge_norm():
     assert(edge_list[1]['edge_label'] == 'biolink:affects')
 
 
-@pytest.mark.skip(reason="INot quite ready yet")
+#@pytest.mark.skip(reason="Not quite ready yet")
 def test_get_biolink_ld_json():
     # instantiate the object that has the method to do this
     gd = GetData()
@@ -119,7 +119,7 @@ def test_get_biolink_ld_json():
 
     # input_data = 'https://raw.githubusercontent.com/NCATS-Tangerine/kgx/master/tests/resources/rdf/test1.nt'
 
-    input_data = 'D:/Work/Robokop/Data_services/Ubergraph_data/properties-nonredundant.ttl'
+    input_data = 'test.ttl'
 
     # get the biolink json-ld data
     g: Graph = gd.get_biolink_graph(input_data)
