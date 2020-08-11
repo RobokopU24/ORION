@@ -6,9 +6,10 @@ import pandas as pd
 import gzip
 import logging
 import json
+
 from io import TextIOWrapper
 from csv import reader
-from Common.utils import LoggingUtil, GetData, NodeNormUtils
+from Common.utils import LoggingUtil, GetData, NodeNormUtils, EdgeNormUtils
 from pathlib import Path
 
 # create a logger
@@ -44,6 +45,15 @@ class DATACOLS(enum.IntEnum):
 # Desc: Class that loads the UniProtKB GOA data and creates KGX files for importing into a Neo4j graph.
 ##############
 class GOALoader:
+    def __init__(self, log_file_level=logging.INFO):
+        """
+        constructor
+        :param log_file_level - overrides default log level
+        """
+        # was a new level specified
+        if log_file_level != logging.INFO:
+            logger.setLevel(log_file_level)
+
     def load(self, data_file_path, data_file_name: str, out_name: str, output_mode: str = 'json', test_mode: bool = False) -> bool:
         """
         loads/parses goa data file from ftp://ftp.ebi.ac.uk/pub/databases/GO/goa/<ftp_dir_path>
@@ -61,7 +71,7 @@ class GOALoader:
         ret_val: bool = False
 
         # and get a reference to the data gatherer
-        gd = GetData()
+        gd = GetData(logger.level)
 
         # do the real thing if we arent in debug mode
         if not test_mode:
@@ -129,7 +139,7 @@ class GOALoader:
             logger.debug(f'Node list duplicates removed, now loaded with {len(total_nodes)} entries.')
 
             # normalize the group of entries on the data frame.
-            nnu = NodeNormUtils()
+            nnu = NodeNormUtils(logger.level)
 
             # normalize the node data
             nnu.normalize_node_data(total_nodes)
@@ -197,6 +207,9 @@ class GOALoader:
         # separate the data into triplet groups
         df_grp: pd.groupby_generic.DataFrameGroupBy = df.set_index('grp').groupby('grp')
 
+        # init a list for edge normalizations
+        edge_list: list = []
+
         # init a set for the edges
         edge_set: set = set()
 
@@ -229,6 +242,7 @@ class GOALoader:
             component then it should be (go term)-[has_part]->(gene) """
 
             # init node 1 to node 3 edge details
+            predicate: str = ''
             relation: str = ''
             src_node_id: str = ''
             obj_node_id: str = ''
@@ -236,14 +250,17 @@ class GOALoader:
 
             # find the predicate and edge relationships
             if node_3_type.find('molecular_activity') > -1:
+                predicate = 'RO:0002333'
                 relation = 'biolink:enabled_by'
                 src_node_id = node_3_id
                 obj_node_id = node_1_id
             elif node_3_type.find('biological_process') > -1:
+                predicate = 'RO:0002331'
                 relation = 'biolink:actively_involved_in'
                 src_node_id = node_1_id
                 obj_node_id = node_3_id
             elif node_3_type.find('cellular_component') > -1:
+                predicate = 'RO:0000051'
                 relation = 'biolink:has_part'
                 src_node_id = node_3_id
                 obj_node_id = node_1_id
@@ -253,13 +270,22 @@ class GOALoader:
 
             # was this a good value
             if valid_type:
-                # depending on the output mode, create the KGX edge data for nodes 1 and 3
-                if output_mode == 'json':
-                    edge_set.add(f', "subject":"{src_node_id}", "relation":"{relation}", "object":"{obj_node_id}", "edge_label":"{relation}", "source_database":"GOA_EBI-Human"}},\n')
-                else:
-                    edge_set.add(f'\t{src_node_id}\t{relation}\t{relation}\t{obj_node_id}\tGOA_EBI-Human\n')
+                edge_list.append({"predicate": f"{predicate}", "subject": f"{src_node_id}", "relation": f"{relation}", "object": f"{obj_node_id}", "edge_label": f"{relation}"})
 
-        logger.debug(f'{len(edge_set)} unique edges identified.')
+        # get a reference to the ege normalizer
+        en = EdgeNormUtils(logger.level)
+
+        # normalize the edges
+        en.normalize_edge_data(edge_list)
+
+        for item in edge_list:
+            # depending on the output mode, create the KGX edge data for nodes 1 and 3
+            if output_mode == 'json':
+                edge_set.add(f', "subject":"{item["subject"]}", "relation":"{item["relation"]}", "object":"{item["object"]}", "edge_label":"{item["edge_label"]}", "source_database":"GOA_EBI-Human"}},\n')
+            else:
+                edge_set.add(f'\t{item["subject"]}\t{item["relation"]}\t{item["edge_label"]}\t{item["object"]}\tGOA_EBI-Human\n')
+
+            logger.debug(f'{len(edge_set)} unique edges identified.')
 
         # return the list to the caller
         return edge_set
