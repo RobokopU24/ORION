@@ -1,9 +1,9 @@
 import os
 import shutil
 import json
+import pytest
 
-from rdflib import *
-# from rdflib.namespace import RDF
+from rdflib import Graph
 from Common.utils import GetData, EdgeNormUtils
 
 
@@ -108,17 +108,26 @@ def test_edge_norm():
     assert(edge_list[1]['edge_label'] == 'biolink:affects')
 
 
+@pytest.mark.skip(reason="INot quite ready yet")
 def test_get_biolink_ld_json():
     # instantiate the object that has the method to do this
     gd = GetData()
 
+    context_json = json.load(open('context.jsonld'))
+
+    context = context_json['@context']
+
+    # input_data = 'https://raw.githubusercontent.com/NCATS-Tangerine/kgx/master/tests/resources/rdf/test1.nt'
+
+    input_data = 'D:/Work/Robokop/Data_services/Ubergraph_data/properties-nonredundant.ttl'
+
     # get the biolink json-ld data
-    g: Graph = gd.get_biolink_json_ld_graph()
+    g: Graph = gd.get_biolink_graph(input_data)
 
     # assert that we got it. more detailed interrogation to follow
     assert(isinstance(g, Graph))
 
-    ref = URIRef('http://identifiers.org/chembl.compound/')
+    # ref = URIRef('http://identifiers.org/chembl.compound/')
 
     # print out the entire Graph in the RDF Turtle format
-    print('\n' + g.serialize(format="turtle").decode("utf-8"))
+    print('\n' + g.serialize(format="turtle", context=context).decode("utf-8"))
