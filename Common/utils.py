@@ -108,6 +108,15 @@ class NodeNormUtils:
     # create a logger
     logger = LoggingUtil.init_logging("Data_services.Common.NodeNormUtils", line_format='medium', log_file_path=os.path.join(Path(__file__).parents[1], 'logs'))
 
+    def __init__(self, log_file_level=logging.INFO):
+        """
+        constructor
+        :param log_file_level - overrides default log level
+        """
+        # was a new level specified
+        if log_file_level != logging.INFO:
+            self.logger.setLevel(log_file_level)
+
     def normalize_node_data(self, node_list: list, cached_node_norms: dict = None, for_json: bool = False) -> set:
         """
         This method calls the NodeNormalization web service to get the normalized identifier and name of the taxon node.
@@ -118,6 +127,8 @@ class NodeNormUtils:
         :param for_json: flag to indicate json output
         :return:
         """
+
+        self.logger.debug(f'Start of normalize_node_data. items: {len(node_list)}')
 
         # init the cache list if it wasn't passed in
         if cached_node_norms is None:
@@ -248,6 +259,8 @@ class NodeNormUtils:
 
             self.logger.debug(f'Nodes that failed to normalize and were removed: {", ".join(failed_to_normalize)}')
 
+        self.logger.debug(f'End of normalize_node_data.')
+
         # return the failed list to the caller
         return failed_to_normalize
 
@@ -267,6 +280,15 @@ class EdgeNormUtils:
     # create a logger
     logger = LoggingUtil.init_logging("Data_services.Common.EdgeNormUtils", line_format='medium', log_file_path=os.path.join(Path(__file__).parents[1], 'logs'))
 
+    def __init__(self, log_file_level=logging.INFO):
+        """
+        constructor
+        :param log_file_level - overrides default log level
+        """
+        # was a new level specified
+        if log_file_level != logging.INFO:
+            self.logger.setLevel(log_file_level)
+
     def normalize_edge_data(self, edge_list: list, cached_edge_norms: dict = None) -> set:
         """
         This method calls the EdgeNormalization web service to get the normalized identifier and labels.
@@ -276,6 +298,8 @@ class EdgeNormUtils:
         :param cached_edge_norms: dict of previously captured normalizations
         :return:
         """
+
+        self.logger.debug(f'Start of normalize_edge_data. items: {len(edge_list)}')
 
         # init the cache list if it wasn't passed in
         if cached_edge_norms is None:
@@ -330,8 +354,12 @@ class EdgeNormUtils:
                 # collect a slice of records from the data frame
                 data_chunk: list = to_normalize[start_index: end_index]
 
+                self.logger.debug(f'Calling edge norm service.')
+
                 # get the data
                 resp: requests.models.Response = requests.get('https://edgenormalization-sri.renci.org/resolve_predicate?version=latest&predicate=' + '&predicate='.join(data_chunk))
+
+                self.logger.debug(f'End calling edge norm service.')
 
                 # did we get a good status code
                 if resp.status_code == 200:
@@ -386,6 +414,8 @@ class EdgeNormUtils:
         if len(failed_to_normalize) > 0:
             self.logger.debug(f'Failed to normalize: {", ".join(failed_to_normalize)}')
 
+        self.logger.debug(f'End of normalize_edge_data.')
+
         # return the failed list to the caller
         return failed_to_normalize
 
@@ -396,6 +426,15 @@ class GetData:
     """
     # create a logger
     logger = LoggingUtil.init_logging("Data_services.Common.GetData", line_format='medium', log_file_path=os.path.join(Path(__file__).parents[1], 'logs'))
+
+    def __init__(self, log_file_level=logging.INFO):
+        """
+        constructor
+        :param log_file_level - overrides default log level
+        """
+        # was a new level specified
+        if log_file_level != logging.INFO:
+            self.logger.setLevel(log_file_level)
 
     def pull_via_ftp(self, ftp_site: str, ftp_dir: str, ftp_files: list, data_file_path: str) -> int:
         """
@@ -777,19 +816,15 @@ class GetData:
             self.logger.info(f'{len(edge_prefixes[key])} edge normalization failures: {key}: {",".join(edge_prefixes[key])}')
 
     @staticmethod
-    def get_biolink_json_ld_graph() -> Graph:
+    def get_biolink_graph(data_uri: str) -> Graph:
         """
-        Gets the biolink json-ld specification in a RDF graph format
+        Gets the passed URI into a
 
-        :return: A RDF Graph of the json-ld
+        :return: A RDF Graph of the ttl data file passed in
         """
-
-        # set the location of the biolink json ld data
-        # url: str = 'https://raw.githubusercontent.com/biolink/biolink-model/master/contextn.jsonld'
-        url: str = 'context.jsonld'
 
         # create a RDF graph of the json-ld
-        ret_val = Graph().parse(url, format='json-ld')
+        ret_val = Graph().parse(data_uri, format='turtle')
 
         # return the data to the caller
         return ret_val
