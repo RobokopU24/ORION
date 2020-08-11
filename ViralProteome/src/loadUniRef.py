@@ -4,10 +4,11 @@ import hashlib
 import pandas as pd
 import requests
 import json
+import logging
 
 from io import TextIOBase
 from xml.etree import ElementTree as ETree
-from Common.utils import LoggingUtil, GetData
+from Common.utils import LoggingUtil, GetData, EdgeNormUtils
 from pathlib import Path
 
 # create a logger
@@ -25,8 +26,18 @@ class UniRefSimLoader:
     # UniProtKB viral organism column type for nodes.dmp
     TYPE_VIRUS: str = '9'
 
-    # storage for cached node normalizations
+    # storage for cached node and edge normalizations
     cached_node_norms: dict = {}
+    cached_edge_norms: dict = {}
+
+    def __init__(self, log_file_level=logging.INFO):
+        """
+        constructor
+        :param log_file_level - overrides default log level
+        """
+        # was a new level specified
+        if log_file_level != logging.INFO:
+            logger.setLevel(log_file_level)
 
     def load(self, data_dir: str, in_file_names: list, taxon_index_file: str, output_mode: str = 'json', block_size: int = 5000, test_mode: bool = False):
         """
@@ -45,7 +56,7 @@ class UniRefSimLoader:
         logger.info(f'UniRefSimLoader - Start of UniRef data processing.')
 
         # get a reference to the get data util class
-        gd = GetData()
+        gd = GetData(logger.level)
 
         # are we in test mode
         if not test_mode:
@@ -474,8 +485,7 @@ class UniRefSimLoader:
 
         logger.debug('Writing out to data file complete.')
 
-    @staticmethod
-    def write_edge_data(out_edge_f: TextIOBase, node_list: list, output_mode: str):
+    def write_edge_data(self, out_edge_f: TextIOBase, node_list: list, output_mode: str):
         """
         writes edges for the node list passed
 
@@ -495,6 +505,12 @@ class UniRefSimLoader:
         # save the node list count to avoid grabbing it over and over
         node_count: int = len(node_list)
 
+        # init a list for edges to normalize
+        edge_list: list = []
+
+        # get the edge normalizer
+        en = EdgeNormUtils(logger.level)
+
         # iterate through node groups and create the edge records.
         while node_idx < node_count:
             # logger.debug(f'Working index: {node_idx}')
@@ -508,8 +524,6 @@ class UniRefSimLoader:
             similarity_bin: str = ''
             gene_family_node_id: str = ''
             rep_member_node_id: str = ''
-
-            # sim_node_set: set = set()
 
             # for each entry member in the group
             while node_list[node_idx]['grp'] == cur_group_name:
@@ -533,45 +547,19 @@ class UniRefSimLoader:
                     similarity_bin = node_list[node_idx]['similarity_bin']
                 # get the UniRef entry common taxon ID and create the UniRef ID to taxon edge
                 elif node_list[node_idx]['node_num'] == 1 and gene_family_node_id != '':
-                    if output_mode == 'json':
-                        edge = f', "subject":"{gene_family_node_id}", "relation":"biolink:in_taxon", "object":"{node_list[node_idx]["id"]}", "edge_label":"in_taxon", "source_database":"{gene_family_node_id.split(":")[0]}"}},\n'
-                        out_edge_f.write(f'{{"id":"{hashlib.md5(edge.encode("utf-8")).hexdigest()}"' + edge)
-                    else:
-                        edge = f'\t{gene_family_node_id}\tbiolink:in_taxon\tin_taxon\t{node_list[node_idx]["id"]}\t{gene_family_node_id.split(":")[0]}\n'
-                        out_edge_f.write(hashlib.md5(edge.encode('utf-8')).hexdigest() + edge)
+                    edge_list.append({"predicate": "RO:0002162", "subject": f"{gene_family_node_id}", "relation": "biolink:in_taxon", "object": f"{node_list[node_idx]['id']}", "edge_label": "", "source_database": f"{gene_family_node_id.split(':')[0]}"})
                 # get the member node edges
                 elif similarity_bin != '' and gene_family_node_id != '':
+                    edge_list.append({"predicate": "BFO:0000050", "subject": f"{node_list[node_idx]['id']}", "relation": "biolink:part_of", "object": f"{gene_family_node_id}", "edge_label": "part_of", "source_database": f"{node_list[node_idx]['id'].split(':')[0]}"})
+                    edge_list.append({"predicate": "RO:0002162", "subject": f"{node_list[node_idx]['id']}", "relation": "biolink:in_taxon", "object": f"{node_list[node_idx + 1]['id']}", "edge_label": "in_taxon", "source_database": f"{node_list[node_idx]['id'].split(':')[0]}"})
+
                     # this node is the representative UniProtKB ID node
                     if node_list[node_idx]['node_num'] == 2:
                         rep_member_node_id: str = node_list[node_idx]['id']
 
-                    # create an edge between the uniprot and the gene family nodes
-                    if output_mode == 'json':
-                        edge = f', "subject":"{node_list[node_idx]["id"]}", "relation":"biolink:part_of", "object":"{gene_family_node_id}", "edge_label":"part_of", "source_database":"{node_list[node_idx]["id"].split(":")[0]}"}},\n'
-                        out_edge_f.write(f'{{"id":"{hashlib.md5(edge.encode("utf-8")).hexdigest()}"' + edge)
-                    else:
-                        edge = f'\t{node_list[node_idx]["id"]}\tbiolink:part_of\tpart_of\t{gene_family_node_id}\t{node_list[node_idx]["id"].split(":")[0]}\n'
-                        out_edge_f.write(hashlib.md5(edge.encode('utf-8')).hexdigest() + edge)
-
-                    # create an edge between the gene product and its paring taxon
-                    if output_mode == 'json':
-                        edge = f', "subject":"{node_list[node_idx]["id"]}", "relation":"biolink:in_taxon", "object":"{node_list[node_idx + 1]["id"]}", "edge_label":"in_taxon", "source_database":"{node_list[node_idx]["id"].split(":")[0]}"}},\n'
-                        out_edge_f.write(f'{{"id":"{hashlib.md5(edge.encode("utf-8")).hexdigest()}"' + edge)
-                    else:
-                        edge = f'\t{node_list[node_idx]["id"]}\tbiolink:in_taxon\tin_taxon\t{node_list[node_idx + 1]["id"]}\t{node_list[node_idx]["id"].split(":")[0]}\n'
-                        out_edge_f.write(hashlib.md5(edge.encode('utf-8')).hexdigest() + edge)
-
                     # add the spoke edge if it isn't a reflection of itself
                     if rep_member_node_id != node_list[node_idx]['id']:
-                        if output_mode == 'json':
-                            edge = f', "subject":"{rep_member_node_id}", "relation":"{similarity_bin}", "object":"{node_list[node_idx]["id"]}", "edge_label":"SO:similar_to", "source_database":"{rep_member_node_id.split(":")[0]}"}},\n'
-                            out_edge_f.write(f'{{"id":"{hashlib.md5(edge.encode("utf-8")).hexdigest()}"' + edge)
-                        else:
-                            edge = f'\t{rep_member_node_id}\t{similarity_bin}\tSO:similar_to\t{node_list[node_idx]["id"]}\t{rep_member_node_id.split(":")[0]}\n'
-                            out_edge_f.write(hashlib.md5(edge.encode('utf-8')).hexdigest() + edge)
-
-                    # save for similar node to node edge combination creation
-                    # sim_node_set.add(node_list[node_idx]['id'])
+                        edge_list.append({"predicate": f"{similarity_bin}", "subject": f"{rep_member_node_id}", "relation": f"{similarity_bin}", "object": f"{node_list[node_idx]['id']}", "edge_label": "SO:similar_to", "source_database": f"{rep_member_node_id.split(':')[0]}"})
 
                     # increment the node counter pairing
                     node_idx += 1
@@ -585,21 +573,38 @@ class UniRefSimLoader:
                 if node_idx >= node_count:
                     break
 
-            # create edges connecting similar member nodes
-            # from itertools import combinations
-            # combos: iter = combinations(sim_node_set, 2)
-            #
-            # for item in combos:
-            #     edge = f',{item[0]},{similarity_bin},SO:similar_to,{item[1]}\n'
-            #     out_edge_f.write(hashlib.md5(edge.encode('utf-8')).hexdigest() + edge)
-            #
-
             # insure we dont overrun the list
             if node_idx >= node_count:
                 break
 
             # save the new group name
             cur_group_name = node_list[node_idx]['grp']
+
+        # normalize the edges
+        en.normalize_edge_data(edge_list, self.cached_edge_norms)
+
+        # create an edge set to remove duplicates
+        edge_set: set = set()
+
+        # write out all the edges
+        for item in edge_list:
+            # depending on the output mode save the edge data
+            if output_mode == 'json':
+                edge_set.add(f', "subject":"{item["subject"]}", "relation":"{item["relation"]}", "object":"{item["object"]}", "edge_label":"{item["edge_label"]}", "source_database":"{item["source_database"]}"}},\n')
+            else:
+                edge_set.add(f'\t{item["subject"]}\t{item["relation"]}\t{item["edge_label"]}\t{item["object"]}\t{item["source_database"]}\n')
+
+        # write out the de-duplicated edge list
+        for item in edge_set:
+            # depending on the output mode save the edge data
+            if output_mode == 'json':
+                out_edge_f.write(f'{{"id":"{hashlib.md5(item.encode("utf-8")).hexdigest()}"' + item)
+            else:
+                out_edge_f.write(hashlib.md5(item.encode('utf-8')).hexdigest() + item)
+
+        # empty out the edge list and set
+        edge_list.clear()
+        edge_set.clear()
 
         logger.debug(f'{node_idx} Entry member edges created.')
 
@@ -629,4 +634,4 @@ if __name__ == '__main__':
     vp = UniRefSimLoader()
 
     # load the data files and create KGX output
-    vp.load(UniRef_data_dir, file_list, 'taxon_file_indexes.txt', out_mode)
+    vp.load(UniRef_data_dir, file_list, 'taxon_file_indexes.txt', output_mode=out_mode)
