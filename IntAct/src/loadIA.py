@@ -11,7 +11,7 @@ from io import TextIOBase, TextIOWrapper
 from csv import reader
 from operator import itemgetter
 from zipfile import ZipFile
-from Common.utils import LoggingUtil, GetData, DatasetDescription
+from Common.utils import LoggingUtil, GetData, DatasetDescription, EdgeNormUtils
 from pathlib import Path
 
 # create a logger
@@ -72,11 +72,21 @@ class DataCols(enum.IntEnum):
 # Desc: Class that loads the Intact Virus interaction data and creates KGX files for importing into a Neo4j graph.
 ##############
 class IALoader:
-    # storage for cached node normalizations
+    # storage for cached node nad edge normalizations
     cached_node_norms: dict = {}
+    cached_edge_norms: dict = {}
 
     # storage for experiment groups to write to file.
     experiment_grp_list: list = []
+
+    def __init__(self, log_file_level=logging.INFO):
+        """
+        constructor
+        :param log_file_level - overrides default log level
+        """
+        # was a new level specified
+        if log_file_level != logging.INFO:
+            logger.setLevel(log_file_level)
 
     def load(self, data_file_path: str, out_name: str, output_mode: str = 'json', test_mode: bool = False):
         """
@@ -94,7 +104,7 @@ class IALoader:
         data_file_name: str = 'intact.zip'
 
         # get a reference to the data gathering class
-        gd = GetData()
+        gd = GetData(logger.level)
 
         # do the real thing if we arent in debug mode
         if not test_mode:
@@ -119,9 +129,9 @@ class IALoader:
                 self.parse_data_file(data_file_path, data_file_name, out_node_f, out_edge_f, output_mode, test_mode)
 
             # do not remove the file if in debug mode
-            if logger.level != logging.DEBUG and not test_mode:
-                # remove the data file
-                os.remove(os.path.join(data_file_path, data_file_name))
+            # if logger.level != logging.DEBUG and not test_mode:
+            #     # remove the data file
+            #     os.remove(os.path.join(data_file_path, data_file_name))
 
             logger.debug(f'File parsing complete.')
         else:
@@ -238,7 +248,7 @@ class IALoader:
 
             # save any remainders
             if len(experiment_grp) > 0:
-                self.write_out_data(out_edge_f, out_node_f, output_mode, test_mode)
+                self.write_out_data(out_node_f, out_edge_f, output_mode, test_mode)
                 logger.debug(f'Processing completed. {interaction_counter} interactions processed.')
 
             # if we are in json output mode finish off the file
@@ -263,6 +273,8 @@ class IALoader:
         :return:
         """
 
+        logger.debug('write_out_data() start.')
+
         # node normalize the data if we are not in test mode
         if not test_mode:
             self.normalize_node_data(self.experiment_grp_list)
@@ -281,7 +293,7 @@ class IALoader:
                 for suffix in ['a', 'b']:
                     # if this is a uniprot gene get the taxon number node property
                     if prefix == 'u_':
-                        taxon = item['t_' + suffix].split(':')[1]
+                        taxon = 'NCBITaxon:' + item['t_' + suffix].split(':')[1]
                     # else a taxon doesnt get a taxon property
                     else:
                         taxon = ''
@@ -313,6 +325,8 @@ class IALoader:
                 out_node_f.write(f'{{"id":"{item[1]["id"]}", "name":"{item[1]["name"]}", "category":{category}, "equivalent_identifiers":{identifiers}, "taxon":"{item[1]["taxon"]}"}},\n')
             else:
                 out_node_f.write(f"{item[1]['id']}\t{item[1]['name']}\t{item[1]['category']}\t{item[1]['equivalent_identifiers']}\t{item[1]['taxon']}\n")
+
+        logger.debug("write_out_data() end.")
 
     def normalize_node_data(self, node_list: list) -> list:
         """
@@ -371,8 +385,12 @@ class IALoader:
                 # collect a slice of records from the data frame
                 data_chunk: list = to_normalize[start_index: end_index]
 
+                logger.debug(f'Calling node norm service.')
+
                 # get the data
                 resp: requests.models.Response = requests.get('https://nodenormalization-sri.renci.org/get_normalized_nodes?curie=' + '&curie='.join(data_chunk))
+
+                logger.debug(f'End calling node norm service.')
 
                 # did we get a good status code
                 if resp.status_code == 200:
@@ -446,6 +464,7 @@ class IALoader:
 
                         node_list[node_idx][prefix + 'category_' + suffix] = 'gene|gene_or_gene_product|macromolecular_machine|genomic_entity|molecular_entity|biological_entity|named_thing'
                         node_list[node_idx][prefix + 'equivalent_identifiers_' + suffix] = node_list[node_idx][prefix + suffix]
+
                         logger.error(f'Error: Finding node normalization for {node_list[node_idx][prefix + suffix]} failed.')
 
             # go to the next index
@@ -454,8 +473,7 @@ class IALoader:
         # return the updated list to the caller
         return node_list
 
-    @staticmethod
-    def write_edge_data(out_edge_f: TextIOBase, experiment_grp: list, output_mode: str):
+    def write_edge_data(self, out_edge_f: TextIOBase, experiment_grp: list, output_mode: str):
         """
         writes edges for the experiment group list passed
 
@@ -465,7 +483,7 @@ class IALoader:
         :return: nothing
         """
 
-        logger.debug(f'Creating edges for {len(experiment_grp)} nodes.')
+        logger.debug(f'Creating edges for {len(experiment_grp)} experiment groups.')
 
         # init interaction group detection
         cur_interaction_name: str = ''
@@ -478,9 +496,15 @@ class IALoader:
         # get the number of records in this sorted experiment group
         node_count = len(sorted_interactions)
 
+        # get a reference to the edge normalizer
+        en = EdgeNormUtils(logger.level)
+
+        # init a edge list
+        edge_list: list = []
+
         # iterate through node groups and create the edge records.
         while node_idx < node_count:
-            logger.debug(f'Working index: {node_idx}.')
+            # logger.debug(f'Working index: {node_idx}.')
 
             # if its the first time in prime the pump
             if first:
@@ -523,23 +547,15 @@ class IALoader:
             # now that we have a group create the edges
             # a gene to gene pair that has a "directly interacts with" relationship
             while grp_idx < len(grp_list):
-                # depending on the mode write out the uniprot A to uniprot B edge
-                if output_mode == 'json':
-                    edge = f', "subject":"{grp_list[grp_idx]["u_a"]}", "relation":"biolink:directly_interacts_with", "object":"{grp_list[grp_idx]["u_b"]}", "edge_label":"directly_interacts_with", "publications":"PMID:{grp_list[grp_idx]["pmid"]}", "detection_method":{json.dumps(list(detection_method_set))}, "source_database":"IntAct"}},\n'
-                    out_edge_f.write(f'{{"id":"{hashlib.md5(edge.encode("utf-8")).hexdigest()}"' + edge)
-                else:
-                    edge = f'\t{grp_list[grp_idx]["u_a"]}\tbiolink:directly_interacts_with\tdirectly_interacts_with\tPMID:{grp_list[grp_idx]["pmid"]}\t{"|".join(detection_method_set)}\t{grp_list[grp_idx]["u_b"]}\tIntAct\n'
-                    out_edge_f.write(hashlib.md5(edge.encode('utf-8')).hexdigest() + edge)
+                detection_method: str = "|".join(detection_method_set)
+
+                # add the interacting node edges
+                edge_list.append({"predicate": "RO:0002436", "subject": f"{grp_list[grp_idx]['u_a']}", "relation": "biolink:directly_interacts_with", "object": f"{grp_list[grp_idx]['u_b']}", "edge_label": "directly_interacts_with", "publications": f"PMID:{grp_list[grp_idx]['pmid']}", "detection_method": detection_method})
 
                 # for each type
                 for suffix in ['a', 'b']:
-                    # depending on the output mode write out the uniprot to NCBI taxon edge
-                    if output_mode == 'json':
-                        edge = f', "subject":"{grp_list[grp_idx]["u_" + suffix]}", "relation":"biolink:in_taxon", "object":"{grp_list[grp_idx]["t_" + suffix]}", "edge_label":"in_taxon", "source_database":"IntAct"}},\n'
-                        out_edge_f.write(f'{{"id":"{hashlib.md5(edge.encode("utf-8")).hexdigest()}"' + edge)
-                    else:
-                        edge = f'\t{grp_list[grp_idx]["u_" + suffix]}\tbiolink:in_taxon\tin_taxon\t\t\t{grp_list[grp_idx]["t_" + suffix]}\tIntAct\n'
-                        out_edge_f.write(hashlib.md5(edge.encode('utf-8')).hexdigest() + edge)
+                    # add the taxa edges
+                    edge_list.append({"predicate": "RO:0002162", "subject": f"{grp_list[grp_idx]['u_' + suffix]}", "relation": "biolink:in_taxon", "object": f"{grp_list[grp_idx]['t_' + suffix]}", "edge_label": "in_taxon"})
 
                 # goto the next pair
                 grp_idx += 1
@@ -551,7 +567,43 @@ class IALoader:
             # save the next interaction name
             cur_interaction_name = sorted_interactions[node_idx]['grp']
 
-        logger.debug(f'{node_idx} Entry member edges created.')
+        # normalize the edges
+        en.normalize_edge_data(edge_list, self.cached_edge_norms)
+
+        # init a set for making the edges unique
+        edge_set: set = set()
+
+        # loop through the list and create a set of the edge data
+        for item in edge_list:
+            # if this is for the "directly interacts with" relationship
+            if item["predicate"] == 'RO:0002436':
+                # depending on the mode write out the uniprot A to uniprot B edge
+                if output_mode == 'json':
+                    # get the detection methods into a list
+                    detection_method: list = item['detection_method'].split('|')
+
+                    edge_set.add(f', "subject":"{item["subject"]}", "relation":"{item["relation"]}", "object":"{item["object"]}", "edge_label":"{item["edge_label"]}", "publications":"{item["publications"]}", "detection_method":{json.dumps(list(detection_method))}, "source_database":"IntAct"}},\n')
+                else:
+                    edge_set.add(f'\t{item["subject"]}\t{item["relation"]}\t{item["edge_label"]}\t{item["publications"]}\t{item["detection_method"]}\t{item["object"]}\tIntAct\n')
+            else:
+                # depending on the output mode write out the uniprot to NCBI taxon edge
+                if output_mode == 'json':
+                    edge_set.add(f', "subject":"{item["subject"]}", "relation":"{item["relation"]}", "object":"{item["object"]}", "edge_label":"{item["edge_label"]}", "source_database":"IntAct"}},\n')
+                else:
+                    edge_set.add(f'\t{item["subject"]}\t{item["relation"]}\t{item["edge_label"]}\t\t\t{item["object"]}\tIntAct\n')
+
+        # loop through the edge set and write out the unique edges
+        for item in edge_set:
+            if output_mode == 'json':
+                out_edge_f.write(f'{{"id":"{hashlib.md5(item.encode("utf-8")).hexdigest()}"' + item)
+            else:
+                out_edge_f.write(hashlib.md5(item.encode('utf-8')).hexdigest() + item)
+
+        # clear out the used buffers
+        edge_list.clear()
+        edge_set.clear()
+
+        logger.debug(f'Entry member edges created for {node_idx} node(s).')
 
     @staticmethod
     def find_detection_method(element: str, until: str = '"') -> str:
@@ -681,6 +733,7 @@ if __name__ == '__main__':
     out_mode = args['out_mode']
 
     # get a reference to the processor
+    # logging.DEBUG
     ia = IALoader()
 
     # load the data files and create KGX output files
