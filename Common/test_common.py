@@ -122,12 +122,6 @@ def test_get_biolink_ld_json():
     # instantiate the object that has the method to do this
     gd = GetData()
 
-    # load the biolink json-ld context
-    context_json = json.load(open('context_corrected.jsonld'))
-
-    # grab a reference to the context section
-    context = context_json['@context']
-
     # input_data = 'https://raw.githubusercontent.com/NCATS-Tangerine/kgx/master/tests/resources/rdf/test1.nt'
     # input_data = 'test.ttl'
     # input_data = 'test_sm.ttl'
