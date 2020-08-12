@@ -107,27 +107,76 @@ def test_edge_norm():
     assert(edge_list[1]['relation'] == 'biolink:affects')
     assert(edge_list[1]['edge_label'] == 'biolink:affects')
 
+def test2():
+    BIOLINK_CONTEXT = 'context.jsonld'
+    TEST_DATA = 'test_sm.ttl'
+    context_json = json.load(open(BIOLINK_CONTEXT))
+    context = context_json['@context']
+    g = Graph().parse(TEST_DATA, format='nt')
+
+    # print out the entire Graph in the RDF Turtle format
+    print('\n' + g.serialize(format="turtle", context=context).decode("utf-8"))
 
 #@pytest.mark.skip(reason="Not quite ready yet")
 def test_get_biolink_ld_json():
     # instantiate the object that has the method to do this
     gd = GetData()
 
-    context_json = json.load(open('context.jsonld'))
+    # load the biolink json-ld context
+    context_json = json.load(open('context_corrected.jsonld'))
 
+    # grab a reference to the context section
     context = context_json['@context']
 
     # input_data = 'https://raw.githubusercontent.com/NCATS-Tangerine/kgx/master/tests/resources/rdf/test1.nt'
+    # input_data = 'test.ttl'
+    # input_data = 'test_sm.ttl'
+    # input_data = 'D:/Work/Robokop/Data_services/Ubergraph_data/properties-nonredundant.ttl'
 
-    input_data = 'test.ttl'
+    filenames = os.listdir('D:/Work/Robokop/Data_services/Ubergraph_data/temp')
 
-    # get the biolink json-ld data
-    g: Graph = gd.get_biolink_graph(input_data)
+    # filenames = [input_data]
 
-    # assert that we got it. more detailed interrogation to follow
-    assert(isinstance(g, Graph))
+    # init a file counter
+    file_counter: int = 0
 
-    # ref = URIRef('http://identifiers.org/chembl.compound/')
+    print(f'{len(filenames)} files found.')
 
-    # print out the entire Graph in the RDF Turtle format
-    print('\n' + g.serialize(format="turtle", context=context).decode("utf-8"))
+    # open the output file
+    with open('parsed.txt', 'w', encoding="utf-8") as fp:
+        for filename in filenames:
+            # increment the counter
+            # file_counter += 1
+
+            # print(f'Working file: {file_counter}.')
+
+            # get the biolink json-ld data
+            g: Graph = gd.get_biolink_graph(os.path.join('D:/Work/Robokop/Data_services/Ubergraph_data/temp', filename))
+
+            # assert that we got it. more detailed interrogation to follow
+            assert(isinstance(g, Graph))
+
+            # init a list for the output data
+            triples: set = set()
+            triple: list = []
+
+            # for every triple in the input data
+            for s,p,o in g.triples((None, None, None)):
+                # clear before use
+                triple.clear()
+
+                # get the curie for each element in the triple
+                for i, n in enumerate(t):
+                    try:
+                        # replace the underscores to create a curie
+                        val = g.compute_qname(n)[2].replace('_', ':')
+                    except e:
+                        print('Exception parsing rdf qname')
+                        val = n
+
+                    # add it to the group
+                    triple.append(val)
+
+                # add this the unique set
+                triples.add(','.join(triple) + '\n')
+
