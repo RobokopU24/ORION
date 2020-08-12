@@ -100,7 +100,7 @@ def test_intact_load():
         file_lines: list = fl.readlines()
 
     # check the line count
-    assert(len(file_lines) == 34)
+    assert(len(file_lines) == 20)
 
     # open the node file list and get the lines
     with open(os.path.join(test_dir, 'intact_node_file.tsv'), 'r') as fl:
