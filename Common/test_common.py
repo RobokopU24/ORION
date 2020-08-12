@@ -155,7 +155,7 @@ def test_get_biolink_ld_json():
             triple: list = []
 
             # for every triple in the input data
-            for s,p,o in g.triples((None, None, None)):
+            for t in g.triples((None, None, None)):
                 # clear before use
                 triple.clear()
 
