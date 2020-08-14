@@ -194,7 +194,7 @@ class UniRefSimLoader:
         to_normalize: list = list(tmp_normalize)
 
         # define the chuck size
-        chunk_size: int = 1000
+        chunk_size: int = 2900
 
         # init the indexes
         start_index: int = 0
@@ -459,11 +459,11 @@ class UniRefSimLoader:
 
         logger.debug(f'Loading data frame with {len(node_list)} nodes.')
 
+         # write out the edges
+        self.write_edge_data(out_edge_f, node_list, output_mode)
+
         # create a data frame with the node list
         df: pd.DataFrame = pd.DataFrame(node_list, columns=['grp', 'node_num', 'id', 'name', 'category', 'equivalent_identifiers', 'similarity_bin'])
-
-        # write out the edges
-        self.write_edge_data(out_edge_f, node_list, output_mode)
 
         # reshape the data frame and remove all node duplicates.
         new_df = df.drop(['grp', 'node_num'], axis=1)
