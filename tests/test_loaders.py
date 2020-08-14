@@ -172,26 +172,19 @@ def test_ubergraph_load():
         file_lines: list = fl.readlines()
 
     # check the line count
-    assert(len(file_lines) == 77)
+    assert(len(file_lines) == 3)
 
     # open the node file list and get the lines
     with open(os.path.join(test_dir, 'ubergraph_test_node_file.tsv'), 'r') as fl:
         file_lines: list = fl.readlines()
 
     # check the line count
-    assert(len(file_lines) == 90)
-
-    # open the provenance node file and get the lines
-    # with open(os.path.join(test_dir, 'ubergraph_prov_node_file.tsv'), 'r') as fl:
-    #     file_lines: list = fl.readlines()
-
-    # check the line count
-    # assert(len(file_lines) == 2)
+    assert(len(file_lines) == 7)
 
     # remove the data files
     os.remove(os.path.join(test_dir, 'ubergraph_test_edge_file.tsv'))
     os.remove(os.path.join(test_dir, 'ubergraph_test_node_file.tsv'))
-    # os.remove(os.path.join(test_dir, 'ubergraph_prov_node_file.tsv'))
+    os.remove(os.path.join(test_dir, 'ubergraph_test.ttl.1'))
 
 
 @pytest.mark.skip(reason="Internal test only. This test requires a graph DB for result verification")
