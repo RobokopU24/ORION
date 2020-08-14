@@ -194,7 +194,7 @@ class UniRefSimLoader:
         to_normalize: list = list(tmp_normalize)
 
         # define the chuck size
-        chunk_size: int = 2900
+        chunk_size: int = 2500
 
         # init the indexes
         start_index: int = 0
