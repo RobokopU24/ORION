@@ -117,7 +117,7 @@ class NodeNormUtils:
         if log_file_level != logging.INFO:
             self.logger.setLevel(log_file_level)
 
-    def normalize_node_data(self, node_list: list, cached_node_norms: dict = None, for_json: bool = False) -> set:
+    def normalize_node_data(self, node_list: list, cached_node_norms: dict = None, for_json: bool = False, block_size: int = 2900) -> set:
         """
         This method calls the NodeNormalization web service to get the normalized identifier and name of the taxon node.
         the data comes in as a node list.
@@ -125,6 +125,7 @@ class NodeNormUtils:
         :param node_list: A list with items to normalize
         :param cached_node_norms: dict of previously captured normalizations
         :param for_json: flag to indicate json output
+        :param block_size: the number of curies in the request
         :return:
         """
 
@@ -157,22 +158,19 @@ class NodeNormUtils:
         # convert the set to a list so we can iterate through it
         to_normalize: list = list(tmp_normalize)
 
-        # define the chuck size for normalization batches
-        chunk_size: int = 1000
-
         # init the array index lower boundary
         start_index: int = 0
 
         # get the last index of the list
         last_index: int = len(to_normalize)
 
-        self.logger.debug(f'{last_index} unique nodes will be normalized.')
+        self.logger.debug(f'{last_index} unique nodes found in this group.')
 
         # grab chunks of the data frame
         while True:
             if start_index < last_index:
                 # define the end index of the slice
-                end_index: int = start_index + chunk_size
+                end_index: int = start_index + block_size
 
                 # force the end index to be the last index to insure no overflow
                 if end_index >= last_index:
@@ -182,6 +180,8 @@ class NodeNormUtils:
 
                 # collect a slice of records from the data frame
                 data_chunk: list = to_normalize[start_index: end_index]
+
+                # self.logger.info(f'Calling node norm service. request size is {len("&curie=".join(data_chunk))} bytes')
 
                 # get the data
                 resp: requests.models.Response = requests.get('https://nodenormalization-sri.renci.org/get_normalized_nodes?curie=' + '&curie='.join(data_chunk))
@@ -197,15 +197,15 @@ class NodeNormUtils:
                     # save the merged list
                     cached_node_norms = merged
                 else:
-                    # the 404 error that is trapped here means that the entire list of nodes didnt get normalized.
-                    self.logger.debug(f'Response code: {resp.status_code}')
+                    # the error that is trapped here means that the entire list of nodes didnt get normalized.
+                    self.logger.error(f'Node norm response code: {resp.status_code}')
 
                     # since they all failed to normalize add to the list so we dont try them again
                     for item in data_chunk:
                         cached_node_norms.update({item: None})
 
                 # move on down the list
-                start_index += chunk_size
+                start_index += block_size
             else:
                 break
 
@@ -289,13 +289,14 @@ class EdgeNormUtils:
         if log_file_level != logging.INFO:
             self.logger.setLevel(log_file_level)
 
-    def normalize_edge_data(self, edge_list: list, cached_edge_norms: dict = None) -> set:
+    def normalize_edge_data(self, edge_list: list, cached_edge_norms: dict = None, block_size: int = 2900) -> set:
         """
         This method calls the EdgeNormalization web service to get the normalized identifier and labels.
         the data comes in as a edge list.
 
         :param edge_list: A list with items to normalize
         :param cached_edge_norms: dict of previously captured normalizations
+        :param block_size: the number of curies to process in a single call
         :return:
         """
 
@@ -328,9 +329,6 @@ class EdgeNormUtils:
         # convert the set to a list so we can iterate through it
         to_normalize: list = list(tmp_normalize)
 
-        # define the chuck size for normalization batches
-        chunk_size: int = 1000
-
         # init the array index lower boundary
         start_index: int = 0
 
@@ -343,7 +341,7 @@ class EdgeNormUtils:
         while True:
             if start_index < last_index:
                 # define the end index of the slice
-                end_index: int = start_index + chunk_size
+                end_index: int = start_index + block_size
 
                 # force the end index to be the last index to insure no overflow
                 if end_index >= last_index:
@@ -354,7 +352,7 @@ class EdgeNormUtils:
                 # collect a slice of records from the data frame
                 data_chunk: list = to_normalize[start_index: end_index]
 
-                self.logger.debug(f'Calling edge norm service.')
+                self.logger.debug(f'Calling edge norm service. request size is {len("&predicate=".join(data_chunk))} bytes')
 
                 # get the data
                 resp: requests.models.Response = requests.get('https://edgenormalization-sri.renci.org/resolve_predicate?version=latest&predicate=' + '&predicate='.join(data_chunk))
@@ -372,15 +370,15 @@ class EdgeNormUtils:
                     # save the merged list
                     cached_edge_norms = merged
                 else:
-                    # the 404 error that is trapped here means that the entire list of nodes didnt get normalized.
-                    self.logger.debug(f'Response code: {resp.status_code}')
+                    # the error that is trapped here means that the entire list of nodes didnt get normalized.
+                    self.logger.debug(f'Edge norm response code: {resp.status_code}')
 
                     # since they all failed to normalize add to the list so we dont try them again
                     for item in data_chunk:
                         cached_edge_norms.update({item: None})
 
                 # move on down the list
-                start_index += chunk_size
+                start_index += block_size
             else:
                 break
 
@@ -797,7 +795,7 @@ class GetData:
 
         # output the results
         for key in node_prefixes:
-            self.logger.info(f'{len(node_prefixes[key])} node normalization failures: {key}: {",".join(node_prefixes[key])}')
+            self.logger.info(f'{len(node_prefixes[key])} node normalization failures for {key}: {",".join(node_prefixes[key])}')
 
         # init a dict for the edge failures
         edge_prefixes = defaultdict(set)
@@ -813,7 +811,7 @@ class GetData:
 
         # output the results
         for key in edge_prefixes:
-            self.logger.info(f'{len(edge_prefixes[key])} edge normalization failures: {key}: {",".join(edge_prefixes[key])}')
+            self.logger.info(f'{len(edge_prefixes[key])} edge normalization failures for {key}: {",".join(edge_prefixes[key])}')
 
     @staticmethod
     def get_biolink_graph(data_uri: str) -> Graph:
@@ -827,6 +825,81 @@ class GetData:
         ret_val = Graph().parse(data_uri, format='turtle')
 
         # return the data to the caller
+        return ret_val
+
+    @staticmethod
+    def split_file(data_file_path: str, data_file_name: str, lines_per_file: int = 150000) -> list:
+        """
+        splits a file into numerous smaller files.
+
+        :param data_file_path: the path to where the input file is and where the split files go
+        :param data_file_name: the name of the input data file
+        :param lines_per_file: the number of lines for each split file
+        :return: a list of file names that were created
+        """
+
+        # init the return
+        ret_val: list = []
+
+        # declare file name prefix
+        file_prefix: str = data_file_name + '.'
+
+        # init a file and line counter
+        file_counter: int = 1
+        line_counter: int = 0
+
+        # init storage for a group of lines
+        lines: list = []
+
+        # get all the data lines
+        with open(os.path.join(data_file_path, data_file_name), 'r') as fp:
+            while True:
+                # read the line
+                line = fp.readline()
+
+                # save the line if there is one
+                if line:
+                    lines.append(line)
+                    line_counter += 1
+                else:
+                    break
+
+                # did we hit the write threshold
+                if line_counter >= lines_per_file:
+                    # loop through the lines
+                    # create the output file
+                    file_name = os.path.join(data_file_path, file_prefix + str(file_counter))
+
+                    # add the file name to the output list
+                    ret_val.append(file_name)
+
+                    # open the file
+                    with open(file_name, 'w') as of:
+                        # write the lines
+                        of.write(''.join(lines))
+
+                    # increment the file counter
+                    file_counter += 1
+
+                    # reset the line counter
+                    line_counter = 0
+
+                    # clear out for the next cycle
+                    lines.clear()
+
+        # output any not yet written
+        # create the output file
+        file_name = os.path.join(data_file_path, file_prefix + str(file_counter))
+
+        # add the file name to the output list
+        ret_val.append(file_name)
+
+        # open the file
+        with open(file_name, 'w') as of:
+            # write the lines
+            of.write('\n'.join(lines))
+
+        # return the file name list
         return ret_val
 
 
