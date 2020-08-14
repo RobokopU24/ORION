@@ -117,7 +117,7 @@ class NodeNormUtils:
         if log_file_level != logging.INFO:
             self.logger.setLevel(log_file_level)
 
-    def normalize_node_data(self, node_list: list, cached_node_norms: dict = None, for_json: bool = False, block_size: int = 2900) -> set:
+    def normalize_node_data(self, node_list: list, cached_node_norms: dict = None, for_json: bool = False, block_size: int = 2500) -> set:
         """
         This method calls the NodeNormalization web service to get the normalized identifier and name of the taxon node.
         the data comes in as a node list.
@@ -289,7 +289,7 @@ class EdgeNormUtils:
         if log_file_level != logging.INFO:
             self.logger.setLevel(log_file_level)
 
-    def normalize_edge_data(self, edge_list: list, cached_edge_norms: dict = None, block_size: int = 2900) -> set:
+    def normalize_edge_data(self, edge_list: list, cached_edge_norms: dict = None, block_size: int = 2500) -> set:
         """
         This method calls the EdgeNormalization web service to get the normalized identifier and labels.
         the data comes in as a edge list.
