@@ -4,9 +4,10 @@ import argparse
 import pandas as pd
 import logging
 import json
+import time
+
 from datetime import datetime
-from io import TextIOBase
-from csv import reader
+from rdflib import Graph
 from operator import itemgetter
 from Common.utils import LoggingUtil, NodeNormUtils, DatasetDescription, EdgeNormUtils, GetData
 from pathlib import Path
@@ -27,9 +28,17 @@ class UGLoader:
     cached_node_norms: dict = {}
     cached_edge_norms: dict = {}
 
+    # storage for nodes and edges that failed normalization
+    node_norm_failures: set = set()
+    edge_norm_failures: set = set()
+
     # for tracking counts
     total_nodes: int = 0
     total_edges: int = 0
+
+    # lists for the output data
+    final_node_set: set = set()
+    final_edge_set: set = set()
 
     def __init__(self, log_file_level=logging.INFO):
         """
@@ -41,14 +50,14 @@ class UGLoader:
             logger.setLevel(log_file_level)
 
     # init the node and edge data arrays
-    def load(self, data_file_path: str, data_file_names: str, output_mode: str = 'json', block_size: int = 5000, test_mode: bool = False):
+    def load(self, data_file_path: str, data_file_names: str, output_mode: str = 'json', file_size: int = 150000, test_mode: bool = False):
         """
         Loads/parsers the UberGraph data file to produce node/edge KGX files for importation into a graph database.
 
         :param data_file_path: the directory that will contain the UberGraph data file
         :param data_file_names: The input file name.
         :param output_mode: the output mode (tsv or json)
-        :param block_size: the count threshold to write out the data
+        :param file_size: the threshold data count to initiate writing data out
         :param test_mode: sets the usage of using a test data file
         :return: None
         """
@@ -66,8 +75,7 @@ class UGLoader:
             # get the output file name
             out_name = file_name.split('.')[0]
 
-            logger.info(f'Parsing UberGraph data file: {file_name}.')
-
+            # open the output files
             with open(os.path.join(data_file_path, f'{out_name}_node_file.{output_mode}'), 'w', encoding="utf-8") as out_node_f, open(os.path.join(data_file_path, f'{out_name}_edge_file.{output_mode}'), 'w', encoding="utf-8") as out_edge_f:
                 # depending on the output mode, write out the node and edge data headers
                 if output_mode == 'json':
@@ -77,17 +85,23 @@ class UGLoader:
                     out_node_f.write(f'id\tname\tcategory\tequivalent_identifiers\n')
                     out_edge_f.write(f'id\tsubject\trelation\tedge_label\tobject\tsource_database\n')
 
+                logger.info(f'Splitting UberGraph data file: {file_name}. {file_size} records per file + remainder')
+
                 # parse the data
-                self.parse_data_file(data_file_path, file_name, out_node_f, out_edge_f, output_mode, block_size)
+                split_files = self.parse_data_file(data_file_path, file_name, out_node_f, out_edge_f, output_mode, file_size)
 
             # do not remove the file if in debug mode
             if logger.level != logging.DEBUG and not test_mode:
                 # remove the data file
                 os.remove(os.path.join(data_file_path, file_name))
 
+                # remove all the intermediate files
+                for file in split_files:
+                    os.remove(file)
+
         logger.info(f'UGLoader - Processing complete.')
 
-    def parse_data_file(self, data_file_path: str, data_file_name: str, out_node_f, out_edge_f, output_mode: str, block_size: int):
+    def parse_data_file(self, data_file_path: str, data_file_name: str, out_node_f, out_edge_f, output_mode: str, block_size: int) -> list:
         """
         Parses the data file for graph nodes/edges and writes them out the KGX tsv files.
 
@@ -96,124 +110,77 @@ class UGLoader:
         :param out_edge_f: the edge file pointer
         :param out_node_f: the node file pointer
         :param output_mode: the output mode (tsv or json)
-        :param block_size: write out data threshold
-        :return:
+        :param block_size: the threshold data count to initiate writing data out
+        :return: split_files: the temporary files created of the input file
         """
-
-        # get a reference to the node and edge normalization classes
-        en = EdgeNormUtils(logger.level)
-        nn = NodeNormUtils(logger.level)
 
         # get a reference to the data handler object
         gd = GetData(logger.level)
-
-        # init a line counter
-        line_counter: int = 0
 
         # storage for the nodes and edges
         node_list: list = []
         edge_list: list = []
 
-        # storage for nodes and edges that failed normalization
-        node_norm_failures: set = set()
-        edge_norm_failures: set = set()
+        # init a list for the output data
+        triple: list = []
 
-        # get the path to the zip file
-        infile_path: str = os.path.join(data_file_path, data_file_name)
+        # split the file into pieces
+        split_files: list = gd.split_file(data_file_path, data_file_name, block_size)
 
-        with open(infile_path, 'r') as fp:
-            # create a csv reader for it
-            csv_reader: reader = reader(fp, delimiter=' ')
+        # parse each file
+        for file in split_files:
+            # get a time stamp
+            tm_start = time.time()
 
-            # spin through the list and get the records
-            for line in csv_reader:
-                # increment the line counter
-                line_counter += 1
+            # get the biolink json-ld data
+            g: Graph = gd.get_biolink_graph(file)
 
-                # insure we get node-edge-node per line
-                # for some reason the data has " ." at the end of each line
-                if len(line) == 4:
-                    # strip off the url info and formatting characters from the node
-                    n1: str = line[0].split('/')[-1].replace('_', ':')[:-1]
+            # get the triples
+            g_t = g.triples((None, None, None))
 
-                    # column 2 nodes could be of two different types
-                    # the first type is in the form http://identifiers.org/????/####
-                    # where ????/#### is actually a curie
-                    if 'identifiers' in line[2]:
-                        tmp: list = line[2].split('/')
-                        n2: str = tmp[-2].upper() + ':' + tmp[-1][:-1]
-                    # the second type is the same as column 0
-                    else:
-                        n2: str = line[2].split('/')[-1].replace('_', ':')[:-1]
+            # for every triple in the input data
+            for t in g_t:
+                # clear before use
+                triple.clear()
 
-                    # get the relation (predicate) value
-                    relation: str = line[1].split('/')[-1][:-1]
+                # get the curie for each element in the triple
+                for n in t:
+                    try:
+                        # get the value
+                        val: str = g.compute_qname(n)[2]
 
-                    # sometimes it has some unnecessary prefixes
-                    rel_arr = relation.split('#')
+                        # if string is all lower it is not a curie
+                        if not val.islower():
+                            # replace the underscores to create a curie
+                            val = g.compute_qname(n)[2].replace('_', ':')
+                    except Exception as e:
+                        # save it anyway
+                        val = n
+                        logger.warning(f'Exception parsing RDF qname {val}. {e}')
 
-                    # if we found the unnecessary data take the second part
-                    if len(rel_arr) > 1:
-                        relation = rel_arr[1]
-                    # else it is a predicate curie
-                    else:
-                        relation = relation.replace('_', ':')
+                    # add it to the group
+                    triple.append(val)
 
-                    # did we get something usable back
-                    if len(n1) and len(relation) and len(n2):
-                        # create the grouping
-                        grp: str = f'{n1}/{relation}/{n2}'
+                # create the grouping
+                grp: str = '/'.join(triple)
 
-                        # create the nodes
-                        node_list.append({'grp': f'{grp}', 'node_num': 1, 'id': f'{n1}', 'name': f'{n1}', 'category': '', 'equivalent_identifiers': ''})
-                        node_list.append({'grp': f'{grp}', 'node_num': 2, 'id': f'{n2}', 'name': f'{n2}', 'category': '', 'equivalent_identifiers': ''})
-                        edge_list.append({'grp': f'{grp}', 'predicate': f'{relation}', 'relation': f'{relation}', 'edge_label': f'{relation}'})
-                    else:
-                        logger.warning(f'Input file record invalid at line: {line_counter}')
+                # create the nodes
+                node_list.append({'grp': f'{grp}', 'node_num': 1, 'id': f'{triple[0]}', 'name': f'{triple[0]}', 'category': '', 'equivalent_identifiers': ''})
+                edge_list.append({'grp': f'{grp}', 'predicate': f'{triple[1]}', 'relation': f'{triple[1]}', 'edge_label': f'{triple[1]}'})
+                node_list.append({'grp': f'{grp}', 'node_num': 2, 'id': f'{triple[2]}', 'name': f'{triple[2]}', 'category': '', 'equivalent_identifiers': ''})
 
-                    if len(edge_list) >= block_size:
-                        # normalize the edges
-                        failures: set = en.normalize_edge_data(edge_list, self.cached_edge_norms)
+            # write out any remaining data
+            self.write_out_data(node_list, edge_list, output_mode, 'UberGraph ' + data_file_name.split('.')[0])
 
-                        # save the edge failures
-                        edge_norm_failures.update(failures)
+            logger.info(f'Loading complete for file {file.split(".")[2]} of {len(split_files)} in {round(time.time() - tm_start, 0)} seconds.')
 
-                        # normalize the nodes
-                        failures: set = nn.normalize_node_data(node_list, self.cached_node_norms)
+        # output each node record to the file
+        for item in self.final_node_set:
+            out_node_f.write(item)
 
-                        # save the node failures
-                        node_norm_failures.update(failures)
-
-                        # write out the data
-                        self.write_out_data(node_list, edge_list, out_node_f, out_edge_f, output_mode, 'UberGraph ' + data_file_name.split('.')[0])
-
-                        # clear out the node_list
-                        node_list.clear()
-                        edge_list.clear()
-                else:
-                    logger.error(f'Invalid input line at {line_counter}')
-
-                # output for the user
-                if line_counter % 500000 == 0:
-                    logger.info(f'{line_counter} relationships processed.')
-
-            # save any remainders
-            if len(node_list) > 0:
-                # normalize the edges
-                failures: set = en.normalize_edge_data(edge_list, self.cached_edge_norms)
-
-                # save the edge failures
-                edge_norm_failures.update(failures)
-
-                # normalize the nodes
-                failures: set = nn.normalize_node_data(node_list, self.cached_node_norms)
-
-                # save the node failures
-                node_norm_failures.update(failures)
-
-                # write out the data
-                self.write_out_data(node_list, edge_list, out_edge_f, out_node_f, output_mode, 'UberGraph_' + data_file_name)
-                logger.info(f'{line_counter} relationships processed creating {self.total_nodes} nodes and {self.total_edges} edges.')
+        # output each edge record to the file
+        for item in self.final_edge_set:
+            out_edge_f.write(item)
 
         # finish off the json if we have to
         if output_mode == 'json':
@@ -221,28 +188,47 @@ class UGLoader:
             out_edge_f.write('\n]}')
 
         # output the failures
-        gd.format_failures(node_norm_failures, edge_norm_failures)
+        gd.format_failures(self.node_norm_failures, self.edge_norm_failures)
 
         # create the dataset KGX node data
         # self.get_dataset_provenance(data_file_path, data_prov)
 
-    def write_out_data(self, node_list: list, edge_list: list, out_node_f: TextIOBase, out_edge_f: TextIOBase, output_mode: str, data_source_name: str):
+        # return the split file names so they can be removed if desired
+        return split_files
+
+    def write_out_data(self, node_list: list, edge_list: list, output_mode: str, data_source_name: str):
         """
         writes out the data collected from the UberGraph file node list to KGX node and edge files
 
         :param node_list: the list of nodes create edges and to write out to file
         :param edge_list: the list of edge relations by group name
-        :param out_node_f: the node file
-        :param out_edge_f: the edge file
         :param output_mode: the output mode (tsv or json)
         :param data_source_name: the name of the source file
         :return: Nothing
         """
 
-        logger.debug(f'Loading data frame with {len(node_list)} nodes.')
+        # get a reference to the node and edge normalization classes
+        en = EdgeNormUtils(logger.level)
+        nn = NodeNormUtils(logger.level)
+
+        logger.debug(f'Normalizing data.')
+
+        # normalize the edges
+        failures: set = en.normalize_edge_data(edge_list, self.cached_edge_norms, block_size=1000)
+
+        # save the edge failures
+        self.edge_norm_failures.update(failures)
+
+        # normalize the nodes
+        failures: set = nn.normalize_node_data(node_list, self.cached_node_norms, block_size=2900)
+
+        # save the node failures
+        self.node_norm_failures.update(failures)
+
+        logger.debug('Writing out data...')
 
         # write out the edges
-        self.write_edge_data(out_edge_f, node_list, edge_list, output_mode, data_source_name)
+        self.write_edge_data(node_list, edge_list, output_mode, data_source_name)
 
         # create a data frame with the node list
         df: pd.DataFrame = pd.DataFrame(node_list, columns=['grp', 'node_num', 'id', 'name', 'category', 'equivalent_identifiers'])
@@ -261,20 +247,26 @@ class UGLoader:
                 identifiers = json.dumps(item[1]['equivalent_identifiers'].split('|'))
 
                 # output the node
-                out_node_f.write(f'{{"id":"{item[1]["id"]}", "name":"{item[1]["name"]}", "category":{category}, "equivalent_identifiers":{identifiers}}},\n')
+                node: str = f'{{"id":"{item[1]["id"]}", "name":"{item[1]["name"]}", "category":{category}, "equivalent_identifiers":{identifiers}}},\n'
             else:
-                out_node_f.write(f"{item[1]['id']}\t{item[1]['name']}\t{item[1]['category']}\t{item[1]['equivalent_identifiers']}\n")
+                node: str = f"{item[1]['id']}\t{item[1]['name']}\t{item[1]['category']}\t{item[1]['equivalent_identifiers']}\n"
+
+            # save the node text
+            self.final_node_set.add(node)
 
             # increment the total node counter
             self.total_nodes += 1
 
+        # clear out for the next load
+        node_list.clear()
+        edge_list.clear()
+
         logger.debug('Writing out to data file complete.')
 
-    def write_edge_data(self, out_edge_f, node_list: list, edge_list: list, output_mode: str, data_source_name: str):
+    def write_edge_data(self, node_list: list, edge_list: list, output_mode: str, data_source_name: str):
         """
         writes edges for the node list passed
 
-        :param out_edge_f: the edge file
         :param node_list: list of node groups
         :param edge_list: list of edge relations by group
         :param output_mode: the output mode (tsv or json)
@@ -289,6 +281,10 @@ class UGLoader:
         first: bool = True
         node_idx: int = 0
 
+        # convert the edge list into a dataframe for faster searching
+        df = pd.DataFrame(edge_list, columns=['grp', 'predicate', 'relation', 'edge_label'])
+        df.set_index(keys=['grp'], inplace=True)
+
         # sort the list of interactions in the experiment group
         sorted_nodes = sorted(node_list, key=itemgetter('grp'))
 
@@ -297,8 +293,6 @@ class UGLoader:
 
         # iterate through node groups and create the edge records.
         while node_idx < node_count:
-            logger.debug(f'Working index: {node_idx}.')
-
             # if its the first time in prime the pump
             if first:
                 # save the interaction name
@@ -322,8 +316,17 @@ class UGLoader:
                 if node_idx >= node_count:
                     break
 
-            # de-duplicate the list of dicts
-            grp_list = [dict(dict_tuple) for dict_tuple in {tuple(dict_in_list.items()) for dict_in_list in grp_list}]
+            # if we didnt get a pair then we cant create an edge
+            if len(grp_list) > 2:
+                logger.info(f'Nodes in group > 2 {cur_grp_name}')
+            elif len(grp_list) < 2:
+                # insure we dont overrun the list
+                if node_idx >= node_count:
+                    break
+
+                # save the next interaction name
+                cur_grp_name = sorted_nodes[node_idx]['grp']
+                continue
 
             # init the group index counter
             grp_idx: int = 0
@@ -331,35 +334,19 @@ class UGLoader:
             # init the source and object ids
             source_node_id: str = ''
             object_node_id: str = ''
-            edge_relation: str = ''
             grp: str = ''
+
+            # get the edge relation using the group name
+            edge_relation = df.loc[cur_grp_name].relation
 
             # now that we have a group create the edges
             while grp_idx < len(grp_list):
                 if grp_list[grp_idx]['node_num'] == 1:
                     # get the source node id
                     source_node_id = grp_list[grp_idx]['id']
-
-                    # get the group id if we haven't already
-                    if grp == '':
-                        grp = grp_list[grp_idx]['grp']
-
-                    # did we find the group id yet
-                    if edge_relation == '':
-                        # get the edge relation using the group name
-                        edge_relation = [d['relation'] for d in edge_list if d['grp'] == grp_list[grp_idx]["grp"]][0]
                 elif grp_list[grp_idx]['node_num'] == 2:
                     # get the object node id
                     object_node_id = grp_list[grp_idx]['id']
-
-                    # get the group id if we haven't already
-                    if grp == '':
-                        grp = grp_list[grp_idx]['grp']
-
-                    # did we find the group id yet
-                    if edge_relation == '':
-                        # get the edge relation using the group name
-                        edge_relation = [d['relation'] for d in edge_list if d['grp'] == grp_list[grp_idx]["grp"]][0]
                 else:
                     logger.error(f'Unknown node number: {grp_list[grp_idx]["node_num"]}')
 
@@ -367,14 +354,14 @@ class UGLoader:
                 grp_idx += 1
 
             # did we get everything
-            if len(source_node_id) and len(object_node_id) and len(edge_relation):
+            if source_node_id != '' and object_node_id != '' and edge_relation != '':
                 if output_mode == 'json':
                     edge = f', "subject":"{source_node_id}", "relation":"{edge_relation}", "object":"{object_node_id}", "edge_label":"{edge_relation}", "source_database":"{data_source_name}"}},\n'
                 else:
                     edge: str = f'\t{source_node_id}\t{edge_relation}\t{edge_relation}\t{object_node_id}\t{data_source_name}\n'
 
                 # write out the edge
-                out_edge_f.write(hashlib.md5(edge.encode('utf-8')).hexdigest() + edge)
+                self.final_edge_set.add(hashlib.md5(edge.encode('utf-8')).hexdigest() + edge)
 
                 # increment the edge count
                 self.total_edges += 1
@@ -428,6 +415,7 @@ if __name__ == '__main__':
     # command line should be like: python loadIA.py -d E:/Data_services/IntAct_data
     ap.add_argument('-u', '--data_dir', required=True, help='The UberGraph data file directory.')
     ap.add_argument('-s', '--data_file', required=True, help='Comma separated UberGraph data file(s) to parse.')
+    ap.add_argument('-m', '--out_mode', required=True, help='The output file mode (tsv or json)')
 
     # parse the arguments
     args = vars(ap.parse_args())
@@ -436,8 +424,11 @@ if __name__ == '__main__':
     UG_data_dir = args['data_dir']
     UG_data_file = args['data_file']
 
-    # get a reference to the processor
+    # get the output mode
+    out_mode = args['out_mode']
+
+    # get a reference to the processor logging.DEBUG
     ug = UGLoader()
 
     # load the data files and create KGX output files
-    ug.load(UG_data_dir, UG_data_file, test_mode=True)
+    ug.load(UG_data_dir, UG_data_file, out_mode, file_size=200000)
