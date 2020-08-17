@@ -93,4 +93,4 @@ if __name__ == '__main__':
         ug = UGLoader()
 
         # load the data files and create KGX output files
-        ug.load(UG_data_dir, UG_data_file, out_mode)
+        ug.load(UG_data_dir, UG_data_file, out_mode, file_size=200000)
