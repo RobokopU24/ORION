@@ -29,8 +29,8 @@ class UGLoader:
     cached_edge_norms: dict = {}
 
     # storage for nodes and edges that failed normalization
-    node_norm_failures: set = set()
-    edge_norm_failures: set = set()
+    node_norm_failures: list = []
+    edge_norm_failures: list = []
 
     # for tracking counts
     total_nodes: int = 0
@@ -214,16 +214,16 @@ class UGLoader:
         logger.debug(f'Normalizing data.')
 
         # normalize the edges
-        failures: set = en.normalize_edge_data(edge_list, self.cached_edge_norms, block_size=1000)
+        failures: list = en.normalize_edge_data(edge_list, self.cached_edge_norms, block_size=1000)
 
         # save the edge failures
-        self.edge_norm_failures.update(failures)
+        self.edge_norm_failures.extend(failures)
 
         # normalize the nodes
-        failures: set = nn.normalize_node_data(node_list, self.cached_node_norms, block_size=2900)
+        failures: list = nn.normalize_node_data(node_list, self.cached_node_norms, block_size=2900)
 
         # save the node failures
-        self.node_norm_failures.update(failures)
+        self.node_norm_failures.extend(failures)
 
         logger.debug('Writing out data...')
 

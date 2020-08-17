@@ -4,6 +4,7 @@ import tarfile
 import csv
 import gzip
 import requests
+import pandas as pd
 
 from rdflib import Graph
 from collections import defaultdict
@@ -13,6 +14,7 @@ from ftplib import FTP
 from datetime import datetime
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
+
 
 
 class LoggingUtil(object):
@@ -117,7 +119,7 @@ class NodeNormUtils:
         if log_file_level != logging.INFO:
             self.logger.setLevel(log_file_level)
 
-    def normalize_node_data(self, node_list: list, cached_node_norms: dict = None, for_json: bool = False, block_size: int = 2500) -> set:
+    def normalize_node_data(self, node_list: list, cached_node_norms: dict = None, for_json: bool = False, block_size: int = 2500) -> list:
         """
         This method calls the NodeNormalization web service to get the normalized identifier and name of the taxon node.
         the data comes in as a node list.
@@ -213,7 +215,7 @@ class NodeNormUtils:
         node_idx = 0
 
         # storage for items that failed to normalize
-        failed_to_normalize: set = set()
+        failed_to_normalize: list = []
 
         # for each row in the slice add the new id and name
         # iterate through node groups and get only the taxa records.
@@ -245,7 +247,7 @@ class NodeNormUtils:
                 node_list[node_idx]['id'] = cached_node_norms[rv['id']]['id']['identifier']
             else:
                 # add for display purposes
-                failed_to_normalize.add(rv['id'])
+                failed_to_normalize.append(rv['id'])
 
             # go to the next node index
             node_idx += 1
@@ -289,7 +291,7 @@ class EdgeNormUtils:
         if log_file_level != logging.INFO:
             self.logger.setLevel(log_file_level)
 
-    def normalize_edge_data(self, edge_list: list, cached_edge_norms: dict = None, block_size: int = 2500) -> set:
+    def normalize_edge_data(self, edge_list: list, cached_edge_norms: dict = None, block_size: int = 2500) -> list:
         """
         This method calls the EdgeNormalization web service to get the normalized identifier and labels.
         the data comes in as a edge list.
@@ -386,7 +388,7 @@ class EdgeNormUtils:
         edge_idx = 0
 
         # storage for items that failed to normalize
-        failed_to_normalize: set = set()
+        failed_to_normalize: list = list()
 
         # for each row in the slice add the new id and name
         while edge_idx < edge_count:
@@ -403,7 +405,7 @@ class EdgeNormUtils:
                 if 'label' in cached_edge_norms[rv['predicate']]:
                     edge_list[edge_idx]['edge_label'] = f'biolink:{cached_edge_norms[rv["predicate"]]["label"]}'
             else:
-                failed_to_normalize.add(rv['predicate'])
+                failed_to_normalize.append(rv['predicate'])
 
             # go to the next edge index
             edge_idx += 1
@@ -773,7 +775,7 @@ class GetData:
         # return the number of files captured
         return file_count
 
-    def format_failures(self, node_norm_failures: set, edge_norm_failures: set):
+    def format_failures(self, node_norm_failures: list, edge_norm_failures: list):
         """
         outputs the nodes/edges that failed normalization
 
@@ -781,37 +783,26 @@ class GetData:
         :param edge_norm_failures: set of edge predicates
         :return:
         """
-        # init a dict for the node failures
-        node_prefixes = defaultdict(set)
 
-        # for each failure
-        for failure in node_norm_failures:
-            # split the curie
-            items = failure.split(':')
+        # get the list into a dataframe group
+        df = pd.DataFrame(node_norm_failures, columns=['curie'])
+        df_grp = df.groupby('curie').size() \
+            .reset_index(name='count') \
+            .sort_values('count', ascending=False)
 
-            # if it was a curie that was split add it as a key/value pair
-            if len(items) > 1:
-                node_prefixes[items[0]].add(items[1])
+        # iterate through the groups and create the edge records.
+        for row_index, row in df_grp.iterrows():
+            self.logger.info(f'Failed node CURIE: {row["curie"]}, count: {row["count"]}')
 
-        # output the results
-        for key in node_prefixes:
-            self.logger.info(f'{len(node_prefixes[key])} node normalization failures for {key}: {",".join(node_prefixes[key])}')
+            # get the list into a dataframe group
+        df = pd.DataFrame(edge_norm_failures, columns=['curie'])
+        df_grp = df.groupby('curie').size() \
+            .reset_index(name='count') \
+            .sort_values('count', ascending=False)
 
-        # init a dict for the edge failures
-        edge_prefixes = defaultdict(set)
-
-        # for each failure
-        for failure in edge_norm_failures:
-            # split the curie
-            items = failure.split(':')
-
-            # if it was a curie that was split add it as a key/value pair
-            if len(items) > 1:
-                edge_prefixes[items[0]].add(items[1])
-
-        # output the results
-        for key in edge_prefixes:
-            self.logger.info(f'{len(edge_prefixes[key])} edge normalization failures for {key}: {",".join(edge_prefixes[key])}')
+        # iterate through the groups and create the edge records.
+        for row_index, row in df_grp.iterrows():
+            self.logger.info(f'Failed edge predicate: {row["curie"]}, count: {row["count"]}')
 
     @staticmethod
     def get_biolink_graph(data_uri: str) -> Graph:
