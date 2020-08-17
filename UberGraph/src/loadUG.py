@@ -172,7 +172,7 @@ class UGLoader:
             # write out any remaining data
             self.write_out_data(node_list, edge_list, output_mode, 'UberGraph ' + data_file_name.split('.')[0])
 
-            logger.info(f'Loading complete for file {file.split(".")[2]} of {len(split_files)} in {round(time.time() - tm_start, 0)} seconds.')
+            logger.debug(f'Loading complete for file {file.split(".")[2]} of {len(split_files)} in {round(time.time() - tm_start, 0)} seconds.')
 
         # output each node record to the file
         for item in self.final_node_set:
