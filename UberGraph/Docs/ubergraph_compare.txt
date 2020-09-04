@@ -9,7 +9,7 @@ Obvious differences:
     AMDB has a total of 208725 nodes, 9259815 edges
     PNR has a total of 110927 nodes, 2539226 edges (see below for normalization failure details)
         Note: Nodes that do not normalize are not included in the final KGX node file.
-              If those nodes were included in the PNR dataset there would have been 19302 total nodes parsed.
+              If those nodes were included in the PNR dataset there would have been 19302 total nodes in the output.
 
 	the AMDB data does not appear to have had any edge or node normalizations.
 	
@@ -9971,7 +9971,7 @@ Node normalization failure report for the new data parsing (8375 distinct nodes,
 2020-09-04 08:26:23,080 - format_normalization_failures(): Failed node CURIE: Orphanet:905, count: 1
 2020-09-04 08:26:23,080 - format_normalization_failures(): Failed node CURIE: EFO:0009189, count: 1
 
-Edge normalization failure report for the new data parsing (90 dictinct edge predicates, 1036178 normalization attempts).
+Edge normalization failure report for the new data parsing (90 distinct edge predicates, 1036178 normalization attempts).
 
 2020-09-04 08:26:23,236 - format_normalization_failures(): Failed edge predicate: has_functional_parent, count: 332965
 2020-09-04 08:26:23,236 - format_normalization_failures(): Failed edge predicate: part_of, count: 223043
