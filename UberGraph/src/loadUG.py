@@ -188,7 +188,7 @@ class UGLoader:
             out_edge_f.write('\n]}')
 
         # output the failures
-        gd.format_failures(self.node_norm_failures, self.edge_norm_failures)
+        gd.format_normalization_failures(self.node_norm_failures, self.edge_norm_failures)
 
         # create the dataset KGX node data
         # self.get_dataset_provenance(data_file_path, data_prov)
