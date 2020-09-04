@@ -775,7 +775,7 @@ class GetData:
         # return the number of files captured
         return file_count
 
-    def format_failures(self, node_norm_failures: list, edge_norm_failures: list):
+    def format_normalization_failures(self, node_norm_failures: list, edge_norm_failures: list):
         """
         outputs the nodes/edges that failed normalization
 
