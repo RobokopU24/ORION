@@ -7,14 +7,12 @@ import requests
 import pandas as pd
 
 from rdflib import Graph
-from collections import defaultdict
 from urllib.request import urlopen
-from csv import reader
+from csv import reader, DictReader
 from ftplib import FTP
 from datetime import datetime
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
-
 
 
 class LoggingUtil(object):
@@ -254,12 +252,10 @@ class NodeNormUtils:
 
         # if something failed to normalize output it
         if len(failed_to_normalize) > 0:
-            # print([d['id'] for d in node_list if d['id'] in failed_to_normalize])
-
             # remove all nodes that dont have a category as they cant have an edge if they dont
             node_list[:] = [d for d in node_list if d['category'] != '']
 
-            self.logger.debug(f'Nodes that failed to normalize and were removed: {", ".join(failed_to_normalize)}')
+            self.logger.debug(f'Of {len(node_list)} nodes, {len(failed_to_normalize)} failed to normalize and were removed: {", ".join(failed_to_normalize)}')
 
         self.logger.debug(f'End of normalize_node_data.')
 
@@ -807,7 +803,7 @@ class GetData:
     @staticmethod
     def get_biolink_graph(data_uri: str) -> Graph:
         """
-        Gets the passed URI into a
+        Gets the passed URI into turtle format
 
         :return: A RDF Graph of the ttl data file passed in
         """
@@ -891,6 +887,30 @@ class GetData:
             of.write('\n'.join(lines))
 
         # return the file name list
+        return ret_val
+
+    @staticmethod
+    def get_list_from_csv(in_file: str, sort_by: str) -> list:
+        """
+        Opens the CSV file passed and turns it into a sorted list of dicts
+
+        :param in_file: the path to the file to be parsed
+        :return: a list of sorted dicts
+        """
+        # init the return
+        ret_val: list = []
+
+        # open the input file
+        with open(in_file, 'r', encoding='latin-1') as data:
+            # chunk through the line in the file
+            for item in DictReader(data):
+                # save the item
+                ret_val.append(item)
+
+        # sort the list
+        ret_val = sorted(ret_val, key=lambda i: (i[sort_by]))
+
+        # return to the caller
         return ret_val
 
 
