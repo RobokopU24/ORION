@@ -52,7 +52,7 @@ class FDBLoader:
         logger.info(f'FooDBLoader - Start of FooDB data processing.')
 
         # open the output files and start parsing
-        with open(os.path.join(data_file_path, f'{out_name}_node_file.{output_mode}'), 'w', encoding="utf-8") as out_node_f, open(os.path.join(data_file_path, f'{out_name}_edge_file.{output_mode}'), 'w', encoding="utf-8") as out_edge_f:
+        with open(os.path.join(data_file_path, f'{out_name}_nodes.{output_mode}'), 'w', encoding="utf-8") as out_node_f, open(os.path.join(data_file_path, f'{out_name}_edges.{output_mode}'), 'w', encoding="utf-8") as out_edge_f:
             # depending on the output mode, write out the node and edge data headers
             if output_mode == 'json':
                 out_node_f.write('{"nodes":[\n')
@@ -101,7 +101,7 @@ class FDBLoader:
         compounds_list: list = gd.get_list_from_csv(os.path.join(data_file_path, 'compounds.csv'), 'id')
         nutrients_list: list = gd.get_list_from_csv(os.path.join(data_file_path, 'nutrients.csv'), 'id')
 
-        foods_list = foods_list[:2]
+        #foods_list = foods_list[:2]
 
         # global storage for the food being parsed
         food_id: str = ''
@@ -119,7 +119,7 @@ class FDBLoader:
             contents: list = self.get_list_records_by_id(contents_list, 'food_id', food_id)
 
             # add the food node
-            node_list.append({'grp': f'{food_id}', 'node_num': 1, 'id': f'NCBITaxon:{food_dict["ncbi_taxonomy_id"]}', 'name': f'{food_name}', 'category': '', 'equivalent_identifiers': '', 'foodb_id': f'{food_id}', 'content_type': 'food', 'nutrient': 'false'})
+            compound_node_list.append({'grp': f'{food_id}', 'node_num': 1, 'id': f'NCBITaxon:{food_dict["ncbi_taxonomy_id"]}', 'name': f'{food_name}', 'category': '', 'equivalent_identifiers': '', 'foodb_id': f'{food_id}', 'content_type': 'food', 'nutrient': 'false'})
 
             # go through each content record
             for item in contents:
@@ -183,13 +183,11 @@ class FDBLoader:
 
             logger.debug(f'{len(edge_set)} unique edges found, creating KGX edge file.')
 
-            # write out the unique edges
-            for item in edge_set:
-                # format the output depending on the mode and write it out
-                if output_mode == 'json':
-                    out_edge_f.write(f'{{"id":"{hashlib.md5(item.encode("utf-8")).hexdigest()}"' + item)
-                else:
-                    out_edge_f.write(hashlib.md5(item.encode('utf-8')).hexdigest() + item)
+            # write out the edge data
+            if output_mode == 'json':
+                out_edge_f.write(',\n'.join(edge_set))
+            else:
+                out_edge_f.write('\n'.join(edge_set))
 
             # init a set for the node de-duplication
             final_node_set: set = set()
@@ -199,20 +197,23 @@ class FDBLoader:
                 # format the output depending on the mode
                 if output_mode == 'json':
                     # turn these into json
-                    category = json.dumps(row["category"].split('|'))
-                    identifiers = json.dumps(row["equivalent_identifiers"].split('|'))
+                    category: str = json.dumps(row["category"].split('|'))
+                    identifiers: str = json.dumps(row["equivalent_identifiers"].split('|'))
+                    name: str = row["name"].replace('"', '')
 
                     # save the node
-                    final_node_set.add(f'{{"id":"{row["id"]}", "name":"{row["name"]}", "category":{category}, "equivalent_identifiers":{identifiers}, "foodb_id":{row["foodb_id"]}, "content_type":"{row["content_type"]}", "nutrient":"{row["nutrient"]}"}},\n')
+                    final_node_set.add(f'{{"id":"{row["id"]}", "name":"{name}", "category":{category}, "equivalent_identifiers":{identifiers}, "foodb_id":{row["foodb_id"]}, "content_type":"{row["content_type"]}", "nutrient":"{row["nutrient"]}"}}')
                 else:
                     # save the node
-                    final_node_set.add(f"{row['id']}\t{row['name']}\t{row['category']}\t{row['equivalent_identifiers']}\t{row['foodb_id']}\t{row['content_type']}\t{row['nutrient']}\n")
+                    final_node_set.add(f"{row['id']}\t{row['name']}\t{row['category']}\t{row['equivalent_identifiers']}\t{row['foodb_id']}\t{row['content_type']}\t{row['nutrient']}")
 
             logger.debug(f'Creating KGX node file with {len(final_node_set)} nodes.')
 
-            # write out the data
-            for row in final_node_set:
-                out_node_f.write(row)
+            # write out the node data
+            if output_mode == 'json':
+                out_node_f.write(',\n'.join(final_node_set))
+            else:
+                out_node_f.write('\n'.join(final_node_set))
         else:
             logger.warning(f'No records found for food {food_id}, name: {food_name}')
 
@@ -347,11 +348,14 @@ class FDBLoader:
         self.edge_norm_failures = en.normalize_edge_data(edge_list)
 
         for item in edge_list:
+            # create the record ID
+            record_id: str = item["subject"] + item["relation"] + item["edge_label"] + item["object"]
+
             # depending on the output mode, create the KGX edge data for nodes 1 and 3
             if output_mode == 'json':
-                edge_set.add(f', "subject":"{item["subject"]}", "relation":"{item["relation"]}", "object":"{item["object"]}", "edge_label":"{item["edge_label"]}", "unit":"{item["unit"]}", "amount":"{item["amount"]}", "source_database":"FooDB"}},\n')
+                edge_set.add(f'{{"id":"{hashlib.md5(record_id.encode("utf-8")).hexdigest()}", "subject":"{item["subject"]}", "relation":"{item["relation"]}", "object":"{item["object"]}", "edge_label":"{item["edge_label"]}", "unit":"{item["unit"]}", "amount":"{item["amount"]}", "source_database":"FooDB"}}')
             else:
-                edge_set.add(f'\t{item["subject"]}\t{item["relation"]}\t{item["edge_label"]}\t{item["object"]}\t{item["unit"]}\t{item["amount"]}\tFooDB\n')
+                edge_set.add(f'{hashlib.md5(record_id.encode("utf-8")).hexdigest()}\t{item["subject"]}\t{item["relation"]}\t{item["edge_label"]}\t{item["object"]}\t{item["unit"]}\t{item["amount"]}\tFooDB')
 
         logger.debug(f'{len(edge_set)} unique edges identified.')
 
