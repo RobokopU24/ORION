@@ -11,6 +11,7 @@ from robokop_genetics.genetics_normalization import GeneticsNormalizer
 from robokop_genetics.genetics_services import GeneticsServices, ALL_VARIANT_TO_GENE_SERVICES
 from robokop_genetics.simple_graph_components import SimpleNode, SimpleEdge
 from robokop_genetics.node_types import SEQUENCE_VARIANT
+import hashlib
 
 # create a logger
 log_directory = os.path.join(Path(__file__).parents[2], 'logs')
@@ -70,6 +71,25 @@ class GTExLoader:
             "Uterus": "0000995",
             "Vagina": "0000996",
             "Whole_Blood": "0000178"}
+
+    TISSUES1 = {
+        "Muscle_Skeletal": "0001134",
+        "Colon_Transverse": "0001157"
+        # ,
+        # "Nerve_Tibial": "0001323",
+        # "Brain_Cortex": "0001851",
+        # "Adipose_Subcutaneous": "0002190",
+        # "Adipose_Visceral_Omentum": "0003688",
+        # "Artery_Aorta": "0004178",
+        # "Skin_Sun_Exposed_Lower_leg": "0004264",
+        # "Brain_Anterior_cingulate_cortex_BA24": "0006101",
+        # "Cells_Cultured_fibroblasts": "0015764",
+        # "Adrenal_Gland": "0018303",
+        # "Skin_Not_Sun_Exposed_Suprapubic": "0036149"
+    }
+
+    # storage for all the edges discovered
+    edge_list: list = []
 
     def __init__(self, test_mode: bool=False):
 
@@ -160,7 +180,7 @@ class GTExLoader:
             all_regular_nodes = [*all_gene_nodes, *anatomy_nodes]
             logger.info(f'Normalizing the gene and anatomy nodes.. ({len(all_regular_nodes)} nodes)')
             nnu = NodeNormUtils()
-            nnu.normalize_node_data(all_regular_nodes, for_json=True)
+            nnu.normalize_node_data(all_regular_nodes, for_json=True, block_size=1000)
             # store these look up dicts so that the edges can point to the right node ids later
             normalized_node_id_lookup = {}
             for n in all_regular_nodes:
@@ -221,9 +241,13 @@ class GTExLoader:
                                                                                         is_sqtl=False), start=1):
                     normalized_anatomy_id, normalized_gene_id, normalized_sv_id, p_value, slope = gtex_edge_info
                     if float(slope) > 0:
-                        edges_output_file.write(f'{{"subject":"{normalized_sv_id}","edge_label":"biolink:increases_expression_of","object":"{normalized_gene_id}","relation":"CTD:increases_expression_of","expressed_in":"{normalized_anatomy_id}","p_value":{p_value},"slope":{slope}}},\n')
+                        #edge_id: str = f'{normalized_sv_id}{normalized_gene_id}{normalized_anatomy_id}'
+                        #edges_output_file.write(f'{{"id":"{hashlib.md5(edge_id.encode("utf-8")).hexdigest()}","subject":"{normalized_sv_id}","edge_label":"biolink:increases_expression_of","object":"{normalized_gene_id}","relation":"CTD:increases_expression_of","expressed_in":"{normalized_anatomy_id}","p_value":{p_value},"slope":{slope}}},\n')
+                        self.edge_list.append({"subject": normalized_sv_id, "edge_label": "biolink:increases_expression_of", "object": normalized_gene_id, "relation": "CTD:increases_expression_of", "expressed_in": normalized_anatomy_id, "p_value": p_value, "slope": slope})
                     else:
-                        edges_output_file.write(f'{{"subject":"{normalized_sv_id}","edge_label":"biolink:decreases_expression_of","object":"{normalized_gene_id}","relation":"CTD:decreases_expression_of","expressed_in":"{normalized_anatomy_id}","p_value":{p_value},"slope":{slope}}},\n')
+                        #edge_id: str = f'{normalized_sv_id}{normalized_gene_id}{normalized_anatomy_id}'
+                        #edges_output_file.write(f'{{"id":"{hashlib.md5(edge_id.encode("utf-8")).hexdigest()}","subject":"{normalized_sv_id}","edge_label":"biolink:decreases_expression_of","object":"{normalized_gene_id}","relation":"CTD:decreases_expression_of","expressed_in":"{normalized_anatomy_id}","p_value":{p_value},"slope":{slope}}},\n')
+                        self.edge_list.append({"subject":normalized_sv_id, "edge_label":"biolink:decreases_expression_of","object":normalized_gene_id, "relation":"CTD:decreases_expression_of","expressed_in":normalized_anatomy_id ,"p_value": p_value, "slope": slope})
 
                 logger.info('Writing eqtl edges complete. Starting sqtl edges...')
                 sqtl_edges = []
@@ -232,26 +256,112 @@ class GTExLoader:
                                                                                         normalized_variant_id_lookup,
                                                                                         is_sqtl=True), start=1):
                     normalized_anatomy_id, normalized_gene_id, normalized_sv_id, p_value, slope = gtex_edge_info
-                    sqtl_edges.append(f'{{"subject":"{normalized_sv_id}","edge_label":"biolink:affects_splicing_of","object":"{normalized_gene_id}","relation":"CTD:affects_splicing_of","expressed_in":"{normalized_anatomy_id}","p_value":{p_value},"slope":{slope}}}')
-                    if i % 1000:
-                        edges_output_file.write(",\n".join(sqtl_edges))
-                        sqtl_edges = [""]
-                if len(sqtl_edges) > 1:
-                    edges_output_file.write(",\n".join(sqtl_edges))
+                    #edge_id: str = f'{normalized_sv_id}{normalized_gene_id}{normalized_anatomy_id}'
+                    #sqtl_edges.append(f'{{"id":"{hashlib.md5(edge_id.encode("utf-8")).hexdigest()}","subject":"{normalized_sv_id}","edge_label":"biolink:affects_splicing_of","object":"{normalized_gene_id}","relation":"CTD:affects_splicing_of","expressed_in":"{normalized_anatomy_id}","p_value":{p_value},"slope":{slope}}}')
+                    self.edge_list.append({"subject":normalized_sv_id, "edge_label":"biolink:affects_splicing_of","object":normalized_gene_id, "relation":"CTD:affects_splicing_of","expressed_in":normalized_anatomy_id ,"p_value": p_value, "slope": slope})
+                #     if i % 1000:
+                #         edges_output_file.write(",\n".join(sqtl_edges))
+                #         sqtl_edges = [""]
+                # if len(sqtl_edges) > 1:
+                #     edges_output_file.write(",\n".join(sqtl_edges))
+
+                # coalesce the uberon, p-value and slopes into arrays grouping by subject/relation/object and write them out
+                self.coalesce_and_write_edges(edges_output_file)
+
                 edges_output_file.write('\n]}')
                 logger.info(f'GTEx parsing and KGX file creation complete.')
+
 
         except Exception as e:
             logger.error(f'Exception caught. Exception: {e}')
             ret_val = e
-        finally:
-            # remove all the intermediate (tar) files
-            if os.path.isfile(eqtl_tar_download_path):
-                os.remove(eqtl_tar_download_path)
-            if os.path.isfile(sqtl_tar_download_path):
-                os.remove(sqtl_tar_download_path)
+        # finally:
+        #     # remove all the intermediate (tar) files
+        #     if os.path.isfile(eqtl_tar_download_path):
+        #         os.remove(eqtl_tar_download_path)
+        #     if os.path.isfile(sqtl_tar_download_path):
+        #         os.remove(sqtl_tar_download_path)
 
         return ret_val
+
+    def coalesce_and_write_edges(self, edge_file):
+        """
+            Coalesces edge data so that expressed_in, p_value, slope are arrays on a single edge
+
+        :param edge_file: The target edge file
+        :return: Noting
+        """
+        # sort the list of dicts
+        self.edge_list = sorted(self.edge_list, key=lambda i: (i['subject'], i['object'], i['edge_label']))
+
+        # create a list for the uberons, p-values and slope
+        uberons: list = []
+        p_values: list = []
+        slopes: list = []
+
+        # prime the boundary keys
+        item: dict = self.edge_list[0]
+
+        # create boundary group keys. the key will be the subject - edge label - object
+        start_group_key: str = item["subject"] + item["edge_label"] + item["object"]
+
+        # prime the loop with the first record
+        cur_record: dict = item
+
+        # loop through the edge data
+        for item in self.edge_list:
+            # get the current group key
+            cur_group_key: str = item["subject"] + item["edge_label"] + item["object"]
+
+            # did we encounter a new grouping
+            if cur_group_key != start_group_key:
+                # update the record with the arrays
+                cur_record["expressed_in"] = '["' + '","'.join(uberons) + '"]'
+                cur_record["p_value"] = '["' + '","'.join(p_values) + '"]'
+                cur_record["slope"] = '["' + '","'.join(slopes) + '"]'
+
+                # write out the coalesced record
+                edge_file.write(
+                    f'{{"id":"{hashlib.md5(start_group_key.encode("utf-8")).hexdigest()}"' \
+                    f',"subject":"{cur_record["subject"]}"' \
+                    f',"edge_label":"{cur_record["edge_label"]}"' \
+                    f',"object":"{cur_record["object"]}"' \
+                    f',"relation":"{cur_record["relation"]}"' \
+                    f',"expressed_in":{cur_record["expressed_in"]}' \
+                    f',"p_value":{cur_record["p_value"]}' \
+                    f',"slope":{cur_record["slope"]}}},\n')
+
+                # reset the record storage and intermediate items for the next group
+                cur_record = item
+                uberons = []
+                p_values = []
+                slopes = []
+
+                # save the new group key
+                start_group_key = cur_group_key
+
+            # save the uberon in the list
+            uberons.append(item["expressed_in"])
+            p_values.append(item["p_value"])
+            slopes.append(item["slope"])
+
+        # save anything that is left
+        if len(uberons) > 0:
+            # update the record with the arrays
+            cur_record["expressed_in"] = '["' + '","'.join(uberons) + '"]'
+            cur_record["p_value"] = '["' + '","'.join(p_values) + '"]'
+            cur_record["slope"] = '["' + '","'.join(slopes) + '"]'
+
+            # write out the coalesced record
+            edge_file.write(
+                f'{{"id":"{hashlib.md5(start_group_key.encode("utf-8")).hexdigest()}"' \
+                f',"subject":"{cur_record["subject"]}"' \
+                f',"edge_label":"{cur_record["edge_label"]}"' \
+                f',"object":"{cur_record["object"]}"' \
+                f',"relation":"{cur_record["relation"]}"' \
+                f',"expressed_in":{cur_record["expressed_in"]}' \
+                f',"p_value":{cur_record["p_value"]}' \
+                f',"slope":{cur_record["slope"]}}}\n')
 
     # This will parse all of the files in the specified tar and return all of the nodes not already found.
     # Due to having different normalizers, sequence variants are SimpleNode objects and gene nodes are dicts.
@@ -428,7 +538,7 @@ class GTExLoader:
                          for results_list in variant_to_gene_results.values() if results_list
                          for (edge, node) in results_list]
 
-            nnu.normalize_node_data(new_genes, cached_node_norms, for_json=True)
+            nnu.normalize_node_data(new_genes, cached_node_norms, for_json=True, block_size=1000)
 
             logger.info(f'Gene relationships from genetics_services found.. Normalizing edges...')
 
@@ -444,6 +554,10 @@ class GTExLoader:
                 normalized_gene_id = gene["id"]
                 g_to_v_edge = variant_to_gene_edges[j]
                 g_to_v_edge["object"] = normalized_gene_id
+
+                edge_id: str = f'{g_to_v_edge["subject"]}{g_to_v_edge["edge_label"]}{g_to_v_edge["object"]}'
+                g_to_v_edge.update({"id":f'{hashlib.md5(edge_id.encode("utf-8")).hexdigest()}'})
+
                 edges_output_file.write(orjson.dumps(g_to_v_edge).decode() + ",\n")
                 if normalized_gene_id not in all_gene_ids:
                     all_gene_nodes.append(gene)
