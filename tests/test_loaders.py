@@ -237,6 +237,8 @@ def test_gtex_load():
     with open(os.path.join(test_dir, 'gtex_test_edges.json'), 'r') as fl:
         data = json.load(fl)
 
+    print('\n')
+
     for item in data["edges"]:
         print(item)
 
@@ -247,15 +249,17 @@ def test_gtex_load():
     with open(os.path.join(test_dir, 'gtex_test_nodes.json'), 'r') as fl:
         data = json.load(fl)
 
-    for item in data["edges"]:
+    print('\n')
+
+    for item in data["nodes"]:
         print(item)
 
     # check the line count
     assert(len(data["nodes"]) == 47)
 
     # remove the data files
-    #os.remove(os.path.join(test_dir, 'gtex_test_edges.json'))
-    #os.remove(os.path.join(test_dir, 'gtex_test_nodes.json'))
+    os.remove(os.path.join(test_dir, 'gtex_test_edges.json'))
+    os.remove(os.path.join(test_dir, 'gtex_test_nodes.json'))
 
 
 @pytest.mark.skip(reason="Internal test only. This test requires a graph DB for result verification")

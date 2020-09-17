@@ -28,7 +28,6 @@ script:
   - echo $PYTHONPATH
   - echo $ROBOKOP_HOME
   - pytest -p no:warnings tests
-  - cat gtex_kgx_edges.json
 
 after_success:
   - coveralls
