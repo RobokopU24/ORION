@@ -116,7 +116,7 @@ class IALoader:
         if file_count == 1:
             logger.debug(f'{data_file_name} archive retrieved. Parsing IntAct data.')
 
-            with open(os.path.join(data_file_path, f'{out_name}_node_file.{output_mode}'), 'w', encoding="utf-8") as out_node_f, open(os.path.join(data_file_path, f'{out_name}_edge_file.{output_mode}'), 'w', encoding="utf-8") as out_edge_f:
+            with open(os.path.join(data_file_path, f'{out_name}_nodes.{output_mode}'), 'w', encoding="utf-8") as out_node_f, open(os.path.join(data_file_path, f'{out_name}_edges.{output_mode}'), 'w', encoding="utf-8") as out_edge_f:
                 # write out the node and edge data headers based on the output mode
                 if output_mode == 'json':
                     out_node_f.write('{"nodes":[\n')
@@ -151,13 +151,7 @@ class IALoader:
         :param test_mode: indicates we are in debug mode
         :return:
         """
-        # adjust the write threshold if in debug mode
-        if not test_mode:
-            threshold: int = 1000
-        else:
-            threshold: int = 1
 
-        # get the path to the zip file
         infile_path: str = os.path.join(data_file_path, data_file_name)
 
         with ZipFile(infile_path) as zf:
@@ -193,14 +187,6 @@ class IALoader:
                         if cur_experiment_name != pub_id:
                             # add the experiment to the running list
                             self.experiment_grp_list.extend(experiment_grp)
-
-                            # did we reach the write threshold
-                            if len(self.experiment_grp_list) >= threshold:
-                                # write out what we have so far
-                                self.write_out_data(out_node_f, out_edge_f, output_mode, test_mode)
-
-                                # empty the list for the next batch
-                                self.experiment_grp_list.clear()
 
                             # clear out the experiment group list for the next one
                             experiment_grp.clear()
@@ -305,6 +291,9 @@ class IALoader:
                                       'taxon': taxon}
                                      )
 
+        # create a set for the nodes
+        final_node_set: set = set()
+
         # create a data frame with the node list
         df: pd.DataFrame = pd.DataFrame(node_list, columns=['id', 'name', 'category', 'equivalent_identifiers', 'taxon'])
 
@@ -313,7 +302,8 @@ class IALoader:
 
         # write out each unique node
         for item in df.iterrows():
-            # id, name, category, equivalent_identifiers, taxon
+            # save the name, same for both kinds of output
+            name = item[1]["name"].replace('\\', '')
 
             # depending on the output mode write out the nodes
             if output_mode == 'json':
@@ -322,9 +312,15 @@ class IALoader:
                 identifiers = json.dumps(item[1]['equivalent_identifiers'].split('|'))
 
                 # output the node
-                out_node_f.write(f'{{"id":"{item[1]["id"]}", "name":"{item[1]["name"]}", "category":{category}, "equivalent_identifiers":{identifiers}, "taxon":"{item[1]["taxon"]}"}},\n')
+                final_node_set.add(f'{{"id":"{item[1]["id"]}", "name":"{name}", "category":{category}, "equivalent_identifiers":{identifiers}, "taxon":"{item[1]["taxon"]}"}}')
             else:
-                out_node_f.write(f"{item[1]['id']}\t{item[1]['name']}\t{item[1]['category']}\t{item[1]['equivalent_identifiers']}\t{item[1]['taxon']}\n")
+                final_node_set.add(f"{item[1]['id']}\t{name}\t{item[1]['category']}\t{item[1]['equivalent_identifiers']}\t{item[1]['taxon']}")
+
+        # write out the node data
+        if output_mode == 'json':
+            out_node_f.write(',\n'.join(final_node_set))
+        else:
+            out_node_f.write('\n'.join(final_node_set))
 
         logger.debug("write_out_data() end.")
 
@@ -575,6 +571,9 @@ class IALoader:
 
         # loop through the list and create a set of the edge data
         for item in edge_list:
+            # create the record ID
+            record_id: str = item["subject"] + item["relation"] + item["edge_label"] + item["object"]
+
             # if this is for the "directly interacts with" relationship
             if item["predicate"] == 'RO:0002436':
                 # depending on the mode write out the uniprot A to uniprot B edge
@@ -582,22 +581,21 @@ class IALoader:
                     # get the detection methods into a list
                     detection_method: list = item['detection_method'].split('|')
 
-                    edge_set.add(f', "subject":"{item["subject"]}", "relation":"{item["relation"]}", "object":"{item["object"]}", "edge_label":"{item["edge_label"]}", "publications":"{item["publications"]}", "detection_method":{json.dumps(list(detection_method))}, "source_database":"IntAct"}},\n')
+                    edge_set.add(f'{{"id":"{hashlib.md5(record_id.encode("utf-8")).hexdigest()}", "subject":"{item["subject"]}", "relation":"{item["relation"]}", "object":"{item["object"]}", "edge_label":"{item["edge_label"]}", "publications":"{item["publications"]}", "detection_method":{json.dumps(list(detection_method))}, "source_database":"IntAct"}}')
                 else:
-                    edge_set.add(f'\t{item["subject"]}\t{item["relation"]}\t{item["edge_label"]}\t{item["publications"]}\t{item["detection_method"]}\t{item["object"]}\tIntAct\n')
+                    edge_set.add(f'{hashlib.md5(record_id.encode("utf-8")).hexdigest()}\t{item["subject"]}\t{item["relation"]}\t{item["edge_label"]}\t{item["publications"]}\t{item["detection_method"]}\t{item["object"]}\tIntAct')
             else:
                 # depending on the output mode write out the uniprot to NCBI taxon edge
                 if output_mode == 'json':
-                    edge_set.add(f', "subject":"{item["subject"]}", "relation":"{item["relation"]}", "object":"{item["object"]}", "edge_label":"{item["edge_label"]}", "source_database":"IntAct"}},\n')
+                    edge_set.add(f'{{"id":"{hashlib.md5(record_id.encode("utf-8")).hexdigest()}", "subject":"{item["subject"]}", "relation":"{item["relation"]}", "object":"{item["object"]}", "edge_label":"{item["edge_label"]}", "source_database":"IntAct"}}')
                 else:
-                    edge_set.add(f'\t{item["subject"]}\t{item["relation"]}\t{item["edge_label"]}\t\t\t{item["object"]}\tIntAct\n')
+                    edge_set.add(f'{hashlib.md5(record_id.encode("utf-8")).hexdigest()}\t{item["subject"]}\t{item["relation"]}\t{item["edge_label"]}\t\t\t{item["object"]}\tIntAct')
 
-        # loop through the edge set and write out the unique edges
-        for item in edge_set:
-            if output_mode == 'json':
-                out_edge_f.write(f'{{"id":"{hashlib.md5(item.encode("utf-8")).hexdigest()}"' + item)
-            else:
-                out_edge_f.write(hashlib.md5(item.encode('utf-8')).hexdigest() + item)
+        # write out the edge data
+        if output_mode == 'json':
+            out_edge_f.write(',\n'.join(edge_set))
+        else:
+            out_edge_f.write('\n'.join(edge_set))
 
         # clear out the used buffers
         edge_list.clear()

@@ -76,7 +76,7 @@ class UGLoader:
             out_name = file_name.split('.')[0]
 
             # open the output files
-            with open(os.path.join(data_file_path, f'{out_name}_node_file.{output_mode}'), 'w', encoding="utf-8") as out_node_f, open(os.path.join(data_file_path, f'{out_name}_edge_file.{output_mode}'), 'w', encoding="utf-8") as out_edge_f:
+            with open(os.path.join(data_file_path, f'{out_name}_nodes.{output_mode}'), 'w', encoding="utf-8") as out_node_f, open(os.path.join(data_file_path, f'{out_name}_edges.{output_mode}'), 'w', encoding="utf-8") as out_edge_f:
                 # depending on the output mode, write out the node and edge data headers
                 if output_mode == 'json':
                     out_node_f.write('{"nodes":[\n')
@@ -174,13 +174,17 @@ class UGLoader:
 
             logger.debug(f'Loading complete for file {file.split(".")[2]} of {len(split_files)} in {round(time.time() - tm_start, 0)} seconds.')
 
-        # output each node record to the file
-        for item in self.final_node_set:
-            out_node_f.write(item)
+        # write out the node data
+        if output_mode == 'json':
+            out_node_f.write(',\n'.join(self.final_node_set))
+        else:
+            out_node_f.write('\n'.join(self.final_node_set))
 
-        # output each edge record to the file
-        for item in self.final_edge_set:
-            out_edge_f.write(item)
+        # write out the edge data
+        if output_mode == 'json':
+            out_edge_f.write(',\n'.join(self.final_edge_set))
+        else:
+            out_edge_f.write('\n'.join(self.final_edge_set))
 
         # finish off the json if we have to
         if output_mode == 'json':
@@ -247,9 +251,9 @@ class UGLoader:
                 identifiers = json.dumps(item[1]['equivalent_identifiers'].split('|'))
 
                 # output the node
-                node: str = f'{{"id":"{item[1]["id"]}", "name":"{item[1]["name"]}", "category":{category}, "equivalent_identifiers":{identifiers}}},\n'
+                node: str = f'{{"id":"{item[1]["id"]}", "name":"{item[1]["name"]}", "category":{category}, "equivalent_identifiers":{identifiers}}}'
             else:
-                node: str = f"{item[1]['id']}\t{item[1]['name']}\t{item[1]['category']}\t{item[1]['equivalent_identifiers']}\n"
+                node: str = f"{item[1]['id']}\t{item[1]['name']}\t{item[1]['category']}\t{item[1]['equivalent_identifiers']}"
 
             # save the node text
             self.final_node_set.add(node)
@@ -356,9 +360,9 @@ class UGLoader:
             # did we get everything
             if source_node_id != '' and object_node_id != '' and edge_relation != '':
                 if output_mode == 'json':
-                    edge = f', "subject":"{source_node_id}", "relation":"{edge_relation}", "object":"{object_node_id}", "edge_label":"{edge_relation}", "source_database":"{data_source_name}"}},\n'
+                    edge = f', "subject":"{source_node_id}", "relation":"{edge_relation}", "object":"{object_node_id}", "edge_label":"{edge_relation}", "source_database":"{data_source_name}"}}'
                 else:
-                    edge: str = f'\t{source_node_id}\t{edge_relation}\t{edge_relation}\t{object_node_id}\t{data_source_name}\n'
+                    edge: str = f'\t{source_node_id}\t{edge_relation}\t{edge_relation}\t{object_node_id}\t{data_source_name}'
 
                 # write out the edge
                 self.final_edge_set.add(hashlib.md5(edge.encode('utf-8')).hexdigest() + edge)

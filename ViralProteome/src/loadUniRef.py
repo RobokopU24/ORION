@@ -71,7 +71,7 @@ class UniRefSimLoader:
             logger.debug(f'Processing {f}.')
 
             # process the file
-            with open(os.path.join(data_dir, f'{f}_Virus_node_file.{output_mode}'), 'w', encoding="utf-8") as out_node_f, open(os.path.join(data_dir, f'{f}_Virus_edge_file.{output_mode}'), 'w', encoding="utf-8") as out_edge_f:
+            with open(os.path.join(data_dir, f'{f}_Virus_nodes.{output_mode}'), 'w', encoding="utf-8") as out_node_f, open(os.path.join(data_dir, f'{f}_Virus_edges.{output_mode}'), 'w', encoding="utf-8") as out_edge_f:
                 # depending on the output mode, write out the node and edge data headers
                 if output_mode == 'json':
                     out_node_f.write('{"nodes":[\n')
@@ -459,7 +459,7 @@ class UniRefSimLoader:
 
         logger.debug(f'Loading data frame with {len(node_list)} nodes.')
 
-         # write out the edges
+        # write out the edges
         self.write_edge_data(out_edge_f, node_list, output_mode)
 
         # create a data frame with the node list
@@ -471,6 +471,9 @@ class UniRefSimLoader:
 
         logger.debug(f'{len(new_df.index)} nodes found.')
 
+        # init a set for the node de-duplication
+        final_node_set: set = set()
+
         # write out the unique nodes
         for item in new_df.iterrows():
             if output_mode == 'json':
@@ -478,10 +481,16 @@ class UniRefSimLoader:
                 category = json.dumps(item[1]['category'].split('|'))
                 identifiers = json.dumps(item[1]['equivalent_identifiers'].split('|'))
 
-                # output the node
-                out_node_f.write(f'{{"id":"{item[1]["id"]}", "name":"{item[1]["name"]}", "category":{category}, "equivalent_identifiers":{identifiers}}},\n')
+                # save the node
+                final_node_set.add(f'{{"id":"{item[1]["id"]}", "name":"{item[1]["name"]}", "category":{category}, "equivalent_identifiers":{identifiers}}}')
             else:
-                out_node_f.write(f"{item[1]['id']}\t{item[1]['name']}\t{item[1]['category']}\t{item[1]['equivalent_identifiers']}\n")
+                final_node_set.add(f"{item[1]['id']}\t{item[1]['name']}\t{item[1]['category']}\t{item[1]['equivalent_identifiers']}")
+
+        # write out the node data
+        if output_mode == 'json':
+            out_node_f.write(',\n'.join(final_node_set))
+        else:
+            out_node_f.write('\n'.join(final_node_set))
 
         logger.debug('Writing out to data file complete.')
 
@@ -588,19 +597,20 @@ class UniRefSimLoader:
 
         # write out all the edges
         for item in edge_list:
-            # depending on the output mode save the edge data
-            if output_mode == 'json':
-                edge_set.add(f', "subject":"{item["subject"]}", "relation":"{item["relation"]}", "object":"{item["object"]}", "edge_label":"{item["edge_label"]}", "source_database":"{item["source_database"]}"}},\n')
-            else:
-                edge_set.add(f'\t{item["subject"]}\t{item["relation"]}\t{item["edge_label"]}\t{item["object"]}\t{item["source_database"]}\n')
+            # create the record ID
+            record_id: str = item["subject"] + item["relation"] + item["edge_label"] + item["object"]
 
-        # write out the de-duplicated edge list
-        for item in edge_set:
             # depending on the output mode save the edge data
             if output_mode == 'json':
-                out_edge_f.write(f'{{"id":"{hashlib.md5(item.encode("utf-8")).hexdigest()}"' + item)
+                edge_set.add(f'{{"id":"{hashlib.md5(record_id.encode("utf-8")).hexdigest()}", "subject":"{item["subject"]}", "relation":"{item["relation"]}", "object":"{item["object"]}", "edge_label":"{item["edge_label"]}", "source_database":"{item["source_database"]}"}}')
             else:
-                out_edge_f.write(hashlib.md5(item.encode('utf-8')).hexdigest() + item)
+                edge_set.add(f'{hashlib.md5(record_id.encode("utf-8")).hexdigest()}\t{item["subject"]}\t{item["relation"]}\t{item["edge_label"]}\t{item["object"]}\t{item["source_database"]}')
+
+        # write out the edge data
+        if output_mode == 'json':
+            out_edge_f.write(',\n'.join(edge_set))
+        else:
+            out_edge_f.write('\n'.join(edge_set))
 
         # empty out the edge list and set
         edge_list.clear()

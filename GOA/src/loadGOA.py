@@ -86,7 +86,7 @@ class GOALoader:
 
         # did we get all the files and swiss prots
         if byte_count > 0 and len(swiss_prots) > 0:
-            with open(os.path.join(data_file_path, f'{out_name}_node_file.{output_mode}'), 'w', encoding="utf-8") as out_node_f, open(os.path.join(data_file_path, f'{out_name}_edge_file.{output_mode}'), 'w', encoding="utf-8") as out_edge_f:
+            with open(os.path.join(data_file_path, f'{out_name}_nodes.{output_mode}'), 'w', encoding="utf-8") as out_node_f, open(os.path.join(data_file_path, f'{out_name}_edges.{output_mode}'), 'w', encoding="utf-8") as out_edge_f:
                 # depending on the output mode, write out the node and edge data headers
                 if output_mode == 'json':
                     out_node_f.write('{"nodes":[\n')
@@ -154,13 +154,11 @@ class GOALoader:
 
             logger.debug(f'{len(final_edges)} unique edges found, creating KGX edge file.')
 
-            # write out the unique edges
-            for item in final_edges:
-                # format the output depending on the mode and write it out
-                if output_mode == 'json':
-                    out_edge_f.write(f'{{"id":"{hashlib.md5(item.encode("utf-8")).hexdigest()}"' + item)
-                else:
-                    out_edge_f.write(hashlib.md5(item.encode('utf-8')).hexdigest() + item)
+            # write out the edge data
+            if output_mode == 'json':
+                out_edge_f.write(',\n'.join(final_edges))
+            else:
+                out_edge_f.write('\n'.join(final_edges))
 
             logger.debug(f'De-duplicating {len(total_nodes)} nodes')
 
@@ -176,16 +174,18 @@ class GOALoader:
                     identifiers = json.dumps(row["equivalent_identifiers"].split('|'))
 
                     # save the node
-                    final_node_set.add(f'{{"id":"{row["id"]}", "name":"{row["name"]}", "category":{category}, "equivalent_identifiers":{identifiers}}},\n')
+                    final_node_set.add(f'{{"id":"{row["id"]}", "name":"{row["name"]}", "category":{category}, "equivalent_identifiers":{identifiers}}}')
                 else:
                     # save the node
-                    final_node_set.add(f"{row['id']}\t{row['name']}\t{row['category']}\t{row['equivalent_identifiers']}\n")
+                    final_node_set.add(f"{row['id']}\t{row['name']}\t{row['category']}\t{row['equivalent_identifiers']}")
 
             logger.debug(f'Creating KGX node file with {len(final_node_set)} nodes.')
 
-            # write out the data
-            for row in final_node_set:
-                out_node_f.write(row)
+            # write out the node data
+            if output_mode == 'json':
+                out_node_f.write(',\n'.join(final_node_set))
+            else:
+                out_node_f.write('\n'.join(final_node_set))
 
             # finish off the json if we have to
             if output_mode == 'json':
@@ -279,11 +279,14 @@ class GOALoader:
         en.normalize_edge_data(edge_list)
 
         for item in edge_list:
+            # create the record ID
+            record_id: str = item["subject"] + item["relation"] + item["edge_label"] + item["object"]
+
             # depending on the output mode, create the KGX edge data for nodes 1 and 3
             if output_mode == 'json':
-                edge_set.add(f', "subject":"{item["subject"]}", "relation":"{item["relation"]}", "object":"{item["object"]}", "edge_label":"{item["edge_label"]}", "source_database":"GOA_EBI-Human"}},\n')
+                edge_set.add(f'{{"id":"{hashlib.md5(record_id.encode("utf-8")).hexdigest()}", "subject":"{item["subject"]}", "relation":"{item["relation"]}", "object":"{item["object"]}", "edge_label":"{item["edge_label"]}", "source_database":"GOA_EBI-Human"}}')
             else:
-                edge_set.add(f'\t{item["subject"]}\t{item["relation"]}\t{item["edge_label"]}\t{item["object"]}\tGOA_EBI-Human\n')
+                edge_set.add(f'{hashlib.md5(record_id.encode("utf-8")).hexdigest()}\t{item["subject"]}\t{item["relation"]}\t{item["edge_label"]}\t{item["object"]}\tGOA_EBI-Human')
 
             logger.debug(f'{len(edge_set)} unique edges identified.')
 

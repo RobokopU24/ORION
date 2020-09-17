@@ -5,7 +5,6 @@ import hashlib
 import pandas as pd
 import enum
 import requests
-import shutil
 import json
 import logging
 
@@ -100,7 +99,7 @@ class VPLoader:
         # did we get everything
         if len(file_list) == file_count:
             # open the output files and start processing
-            with open(os.path.join(data_path, f'{out_name}_node_file.{output_mode}'), 'w', encoding="utf-8") as out_node_f, open(os.path.join(data_path, f'{out_name}_edge_file.{output_mode}'), 'w', encoding="utf-8") as out_edge_f:
+            with open(os.path.join(data_path, f'{out_name}_nodes.{output_mode}'), 'w', encoding="utf-8") as out_node_f, open(os.path.join(data_path, f'{out_name}_edges.{output_mode}'), 'w', encoding="utf-8") as out_edge_f:
                 # depending on the output mode, write out the node and edge data headers
                 if output_mode == 'json':
                     out_node_f.write('{"nodes":[\n')
@@ -168,23 +167,23 @@ class VPLoader:
                         identifiers = json.dumps(row["equivalent_identifiers"].split('|'))
 
                         # save the node
-                        final_node_set.add(f'{{"id":"{row["id"]}", "name":"{row["name"]}", "category":{category}, "equivalent_identifiers":{identifiers}}},\n')
+                        final_node_set.add(f'{{"id":"{row["id"]}", "name":"{row["name"]}", "category":{category}, "equivalent_identifiers":{identifiers}}}')
                     else:
-                        final_node_set.add(f"{row['id']}\t{row['name']}\t{row['category']}\t{row['equivalent_identifiers']}\n")
+                        final_node_set.add(f"{row['id']}\t{row['name']}\t{row['category']}\t{row['equivalent_identifiers']}")
 
                 logger.debug(f'Creating KGX node file with {len(final_node_set)} nodes.')
 
-                # write out the unique nodes
-                for row in final_node_set:
-                    out_node_f.write(row)
+                # write out the node data
+                if output_mode == 'json':
+                    out_node_f.write(',\n'.join(final_node_set))
+                else:
+                    out_node_f.write('\n'.join(final_node_set))
 
-                # write out the unique edges
-                for item in final_edge_set:
-                    # depending on the output mode, write out the edge
-                    if output_mode == 'json':
-                        out_edge_f.write(f'{{"id":"{hashlib.md5(item.encode("utf-8")).hexdigest()}"' + item)
-                    else:
-                        out_edge_f.write(hashlib.md5(item.encode('utf-8')).hexdigest() + item)
+                # write out the edge data
+                if output_mode == 'json':
+                    out_edge_f.write(',\n'.join(final_edge_set))
+                else:
+                    out_edge_f.write('\n'.join(final_edge_set))
 
                 # finish off the json if we have to
                 if output_mode == 'json':
@@ -209,11 +208,14 @@ class VPLoader:
 
         # for each edge in the list
         for item in edge_list:
+            # create the record ID
+            record_id: str = item["subject"] + item["relation"] + item["edge_label"] + item["object"]
+
             # depending on the output mode save edge contents
             if output_mode == 'json':
-                edge_set.add(f', "subject":"{item["subject"]}", "relation":"RO:0002162", "object":"{item["object"]}", "edge_label":"{item["edge_label"]}", "source_database":"UniProtKB GOA Viral proteomes"}},\n')
+                edge_set.add(f'{{"id":"{hashlib.md5(record_id.encode("utf-8")).hexdigest()}", "subject":"{item["subject"]}", "relation":"RO:0002162", "object":"{item["object"]}", "edge_label":"{item["edge_label"]}", "source_database":"UniProtKB GOA Viral proteomes"}}')
             else:
-                edge_set.add(f'\t{item["subject"]}\t{item["relation"]}\t{item["edge_label"]}\t{item["object"]}\tUniProtKB GOA Viral proteomes\n')
+                edge_set.add(f'{hashlib.md5(record_id.encode("utf-8")).hexdigest()}\t{item["subject"]}\t{item["relation"]}\t{item["edge_label"]}\t{item["object"]}\tUniProtKB GOA Viral proteomes')
 
         # return the edge set to the caller
         return edge_set
