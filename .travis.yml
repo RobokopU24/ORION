@@ -11,7 +11,6 @@ notifications:
 before_install:
   - git pull
   - git clone https://github.com/ObesityHub/robokop-genetics.git
-  - git clone https://github.com/TranslatorIIPrototypes/robo-commons.git
 
 # command to install dependencies
 install:
@@ -29,6 +28,7 @@ script:
   - echo $PYTHONPATH
   - echo $ROBOKOP_HOME
   - pytest -p no:warnings tests
+  - cat gtex_kgx_edges.json
 
 after_success:
   - coveralls

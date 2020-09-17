@@ -248,8 +248,8 @@ def test_gtex_load():
     assert(len(data["nodes"]) == 47)
 
     # remove the data files
-    os.remove(os.path.join(test_dir, 'gtex_test_edges.json'))
-    os.remove(os.path.join(test_dir, 'gtex_test_nodes.json'))
+    #os.remove(os.path.join(test_dir, 'gtex_test_edges.json'))
+    #os.remove(os.path.join(test_dir, 'gtex_test_nodes.json'))
 
 
 @pytest.mark.skip(reason="Internal test only. This test requires a graph DB for result verification")
