@@ -523,8 +523,8 @@ class GTExLoader:
         enu = EdgeNormUtils()
         cached_edge_norms = {}
 
-        genetics_normalizer = GeneticsNormalizer(log_file_path=log_directory)
-        genetics_services = GeneticsServices(log_file_path=log_directory)
+        genetics_normalizer = GeneticsNormalizer()
+        genetics_services = GeneticsServices()
 
         num_variants = len(all_variant_nodes)
         all_gene_ids = set([gene["id"] for gene in all_gene_nodes])
