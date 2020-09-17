@@ -7,6 +7,7 @@ from IntAct.src.loadIA import IALoader
 from GOA.src.loadGOA import GOALoader
 from UberGraph.src.loadUG import UGLoader
 from FooDB.src.loadFDB import FDBLoader
+from GTEx.src.loadGTEx import GTExLoader
 from Common.utils import GetData
 
 
@@ -217,6 +218,38 @@ def test_foodb_load():
     # remove the data files
     os.remove(os.path.join(test_dir, 'foodb_test_edges.tsv'))
     os.remove(os.path.join(test_dir, 'foodb_test_nodes.tsv'))
+
+
+def test_gtex_load():
+    # get a reference to the intact data processor
+    gt = GTExLoader(test_data=True)
+
+    # set the test directory
+    test_dir = os.path.dirname(os.path.abspath(__file__)) + '/resources'
+
+    gt.load(test_dir, 'gtex_test')
+
+    # check the results
+    assert(os.path.isfile(os.path.join(test_dir, 'gtex_test_edges.json')) and os.path.isfile(os.path.join(test_dir, 'gtex_test_nodes.json')))
+
+    # open the edge file list and get the lines
+    with open(os.path.join(test_dir, 'gtex_test_edges.json'), 'r') as fl:
+        file_lines: list = fl.readlines()
+
+    # check the line count
+    assert(len(file_lines) == 54)
+
+    # open the node file list and get the lines
+    with open(os.path.join(test_dir, 'gtex_test_nodes.json'), 'r') as fl:
+        file_lines: list = fl.readlines()
+
+    # check the line count
+    assert(len(file_lines) == 49)
+
+    # remove the data files
+    os.remove(os.path.join(test_dir, 'gtex_test_edges.json'))
+    os.remove(os.path.join(test_dir, 'gtex_test_nodes.json'))
+
 
 @pytest.mark.skip(reason="Internal test only. This test requires a graph DB for result verification")
 def test_swiss_prot_against_quickgo():
