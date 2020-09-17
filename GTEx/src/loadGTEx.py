@@ -74,24 +74,26 @@ class GTExLoader:
 
     TISSUES1 = {
         "Muscle_Skeletal": "0001134",
-        "Colon_Transverse": "0001157"
-        # ,
-        # "Nerve_Tibial": "0001323",
-        # "Brain_Cortex": "0001851",
-        # "Adipose_Subcutaneous": "0002190",
-        # "Adipose_Visceral_Omentum": "0003688",
-        # "Artery_Aorta": "0004178",
-        # "Skin_Sun_Exposed_Lower_leg": "0004264",
-        # "Brain_Anterior_cingulate_cortex_BA24": "0006101",
-        # "Cells_Cultured_fibroblasts": "0015764",
-        # "Adrenal_Gland": "0018303",
-        # "Skin_Not_Sun_Exposed_Suprapubic": "0036149"
+        "Colon_Transverse": "0001157",
+        "Nerve_Tibial": "0001323",
+        "Brain_Cortex": "0001851",
+        "Adipose_Subcutaneous": "0002190",
+        "Adipose_Visceral_Omentum": "0003688",
+        "Artery_Aorta": "0004178",
+        "Skin_Sun_Exposed_Lower_leg": "0004264",
+        "Brain_Anterior_cingulate_cortex_BA24": "0006101",
+        "Cells_Cultured_fibroblasts": "0015764",
+        "Adrenal_Gland": "0018303",
+        "Skin_Not_Sun_Exposed_Suprapubic": "0036149"
     }
 
     # storage for all the edges discovered
     edge_list: list = []
 
-    def __init__(self, test_mode: bool=False):
+    def __init__(self, test_mode: bool=False, test_data: bool=False):
+
+        if test_data:
+            GTExLoader.TISSUES = GTExLoader.TISSUES1
 
         # maps the HG version to the chromosome versions
         self.reference_chrom_labels: dict = {
@@ -131,6 +133,7 @@ class GTExLoader:
                       'named_thing']
 
         self.test_mode = test_mode
+        self.test_data = test_data
 
     # the main function to call to retrieve the GTEx data and convert it to a KGX json file
     def load(self, output_directory: str, out_file_name: str, gtex_version: int = 8):
@@ -167,9 +170,14 @@ class GTExLoader:
 
         try:
             logger.info(f'Downloading raw GTEx data files from {eqtl_url}.')
-            self.fetch_and_save_tar(eqtl_url, eqtl_tar_download_path)
+
+            if not self.test_data:
+                self.fetch_and_save_tar(eqtl_url, eqtl_tar_download_path)
+
             logger.info(f'Downloading raw GTEx data files from {sqtl_url}.')
-            self.fetch_and_save_tar(sqtl_url, sqtl_tar_download_path)
+
+            if not self.test_data:
+               self.fetch_and_save_tar(sqtl_url, sqtl_tar_download_path)
 
             all_gene_nodes, all_variant_nodes = self.parse_eqtl_and_sqtl_for_nodes(eqtl_tar_download_path,
                                                                                    sqtl_tar_download_path)
@@ -804,8 +812,10 @@ if __name__ == '__main__':
 
     parser = argparse.ArgumentParser(description="Retrieve, parse, and convert GTEx data to KGX files.")
     parser.add_argument('--test_mode', action='store_true')
+    parser.add_argument('--test_data', action='store_true')
+    parser.add_argument('--data_dir', default='.')
     args = parser.parse_args()
 
-    loader = GTExLoader(test_mode=args.test_mode)
-    loader.load('.', 'gtex_kgx')
+    loader = GTExLoader(test_mode=args.test_mode, test_data=args.test_data)
+    loader.load(args.data_dir, 'gtex_kgx')
 
