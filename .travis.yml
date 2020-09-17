@@ -23,6 +23,7 @@ env:
 
 # command to run tests
 script:
+  - ls -al
   - mkdir logs
   - pytest -p no:warnings tests
 
