@@ -10,6 +10,8 @@ notifications:
 
 before_install:
   - git pull
+  - git clone https://github.com/ObesityHub/robokop-genetics.git
+  - git clone https://github.com/TranslatorIIPrototypes/robo-commons.git
 
 # command to install dependencies
 install:
