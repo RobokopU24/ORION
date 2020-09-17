@@ -237,22 +237,12 @@ def test_gtex_load():
     with open(os.path.join(test_dir, 'gtex_test_edges.json'), 'r') as fl:
         data = json.load(fl)
 
-    print('\n')
-
-    for item in data["edges"]:
-        print(item)
-
     # check the line count
     assert(len(data["edges"]) == 51)
 
     # open the node file list and get the lines
     with open(os.path.join(test_dir, 'gtex_test_nodes.json'), 'r') as fl:
         data = json.load(fl)
-
-    print('\n')
-
-    for item in data["nodes"]:
-        print(item)
 
     # check the line count
     assert(len(data["nodes"]) == 47)
