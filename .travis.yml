@@ -18,15 +18,15 @@ install:
 
 env:
   global:
-    - PYTHONPATH=$PWD:$PWD/robokop-genetics:$PWD/robo-commons
+    - PYTHONPATH=$PWD:$PWD/robokop-genetics
     - ROBOKOP_HOME=$PWD
 
 # command to run tests
 script:
   - mkdir logs
-  - ls -al
-  - echo $PYTHONPATH
-  - echo $ROBOKOP_HOME
+#  - ls -al
+#  - echo $PYTHONPATH
+#  - echo $ROBOKOP_HOME
   - pytest -p no:warnings tests
 
 after_success:
