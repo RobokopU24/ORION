@@ -257,13 +257,13 @@ class GTExLoader:
                                                                                         is_sqtl=False), start=1):
                     normalized_anatomy_id, normalized_gene_id, normalized_sv_id, p_value, slope = gtex_edge_info
                     if float(slope) > 0:
-                        #edge_id: str = f'{normalized_sv_id}{normalized_gene_id}{normalized_anatomy_id}'
+                        edge_id: str = f'{normalized_sv_id}"CTD:increases_expression_of"{normalized_gene_id}'
                         #edges_output_file.write(f'{{"id":"{hashlib.md5(edge_id.encode("utf-8")).hexdigest()}","subject":"{normalized_sv_id}","edge_label":"biolink:increases_expression_of","object":"{normalized_gene_id}","relation":"CTD:increases_expression_of","expressed_in":"{normalized_anatomy_id}","p_value":{p_value},"slope":{slope}}},\n')
-                        self.edge_list.append({"subject": normalized_sv_id, "edge_label": "biolink:increases_expression_of", "object": normalized_gene_id, "relation": "CTD:increases_expression_of", "expressed_in": normalized_anatomy_id, "p_value": p_value, "slope": slope})
+                        self.edge_list.append({"id": f'{hashlib.md5(edge_id.encode("utf-8")).hexdigest()}', "subject": normalized_sv_id, "edge_label": "biolink:increases_expression_of", "object": normalized_gene_id, "relation": "CTD:increases_expression_of", "expressed_in": normalized_anatomy_id, "p_value": p_value, "slope": slope})
                     else:
-                        #edge_id: str = f'{normalized_sv_id}{normalized_gene_id}{normalized_anatomy_id}'
+                        edge_id: str = f'{normalized_sv_id}"CTD:decreases_expression_of"{normalized_gene_id}'
                         #edges_output_file.write(f'{{"id":"{hashlib.md5(edge_id.encode("utf-8")).hexdigest()}","subject":"{normalized_sv_id}","edge_label":"biolink:decreases_expression_of","object":"{normalized_gene_id}","relation":"CTD:decreases_expression_of","expressed_in":"{normalized_anatomy_id}","p_value":{p_value},"slope":{slope}}},\n')
-                        self.edge_list.append({"subject":normalized_sv_id, "edge_label":"biolink:decreases_expression_of","object":normalized_gene_id, "relation":"CTD:decreases_expression_of","expressed_in":normalized_anatomy_id ,"p_value": p_value, "slope": slope})
+                        self.edge_list.append({"id": f'{hashlib.md5(edge_id.encode("utf-8")).hexdigest()}', "subject":normalized_sv_id, "edge_label":"biolink:decreases_expression_of","object":normalized_gene_id, "relation":"CTD:decreases_expression_of","expressed_in":normalized_anatomy_id ,"p_value": p_value, "slope": slope})
 
                 logger.info('Writing eqtl edges complete. Starting sqtl edges...')
                 sqtl_edges = []
@@ -272,9 +272,9 @@ class GTExLoader:
                                                                                         normalized_variant_id_lookup,
                                                                                         is_sqtl=True), start=1):
                     normalized_anatomy_id, normalized_gene_id, normalized_sv_id, p_value, slope = gtex_edge_info
-                    #edge_id: str = f'{normalized_sv_id}{normalized_gene_id}{normalized_anatomy_id}'
+                    edge_id: str = f'{normalized_sv_id}"CTD:affects_splicing_of"{normalized_gene_id}'
                     #sqtl_edges.append(f'{{"id":"{hashlib.md5(edge_id.encode("utf-8")).hexdigest()}","subject":"{normalized_sv_id}","edge_label":"biolink:affects_splicing_of","object":"{normalized_gene_id}","relation":"CTD:affects_splicing_of","expressed_in":"{normalized_anatomy_id}","p_value":{p_value},"slope":{slope}}}')
-                    self.edge_list.append({"subject":normalized_sv_id, "edge_label":"biolink:affects_splicing_of","object":normalized_gene_id, "relation":"CTD:affects_splicing_of","expressed_in":normalized_anatomy_id ,"p_value": p_value, "slope": slope})
+                    self.edge_list.append({"id": f'{hashlib.md5(edge_id.encode("utf-8")).hexdigest()}', "subject":normalized_sv_id, "edge_label":"biolink:affects_splicing_of","object":normalized_gene_id, "relation":"CTD:affects_splicing_of","expressed_in":normalized_anatomy_id ,"p_value": p_value, "slope": slope})
                 #     if i % 1000:
                 #         edges_output_file.write(",\n".join(sqtl_edges))
                 #         sqtl_edges = [""]
