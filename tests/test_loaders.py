@@ -6,6 +6,7 @@ from ViralProteome.src.loadVP import VPLoader
 from IntAct.src.loadIA import IALoader
 from GOA.src.loadGOA import GOALoader
 from UberGraph.src.loadUG import UGLoader
+from FooDB.src.loadFDB import FDBLoader
 from Common.utils import GetData
 
 
@@ -20,17 +21,17 @@ def test_vp_load():
     vp.load(test_dir, 'Viral_proteome_loadtest', output_mode='tsv', test_mode=True)
 
     # check the results
-    assert(os.path.isfile(os.path.join(test_dir, 'Viral_proteome_loadtest_edge_file.tsv')) and os.path.isfile(os.path.join(test_dir, 'Viral_proteome_loadtest_node_file.tsv')))
+    assert(os.path.isfile(os.path.join(test_dir, 'Viral_proteome_loadtest_edges.tsv')) and os.path.isfile(os.path.join(test_dir, 'Viral_proteome_loadtest_nodes.tsv')))
 
     # open the edge file list and get the lines
-    with open(os.path.join(test_dir, 'Viral_proteome_loadtest_edge_file.tsv'), 'r') as fl:
+    with open(os.path.join(test_dir, 'Viral_proteome_loadtest_edges.tsv'), 'r') as fl:
         file_lines: list = fl.readlines()
 
     # check the line count
     assert(len(file_lines) == 149)
 
     # open the node file list and get the lines
-    with open(os.path.join(test_dir, 'Viral_proteome_loadtest_node_file.tsv'), 'r') as fl:
+    with open(os.path.join(test_dir, 'Viral_proteome_loadtest_nodes.tsv'), 'r') as fl:
         file_lines: list = fl.readlines()
 
     # check the line count
@@ -44,8 +45,8 @@ def test_vp_load():
     assert (len(file_lines) == 2)
 
     # remove the data files
-    os.remove(os.path.join(test_dir, 'Viral_proteome_loadtest_edge_file.tsv'))
-    os.remove(os.path.join(test_dir, 'Viral_proteome_loadtest_node_file.tsv'))
+    os.remove(os.path.join(test_dir, 'Viral_proteome_loadtest_edges.tsv'))
+    os.remove(os.path.join(test_dir, 'Viral_proteome_loadtest_nodes.tsv'))
     os.remove(os.path.join(test_dir, 'Viral_proteome_prov_node_file.tsv'))
 
 
@@ -60,26 +61,26 @@ def test_uniref_load():
     uni.load(test_dir, ['uniref'], 'taxon_file_indexes.txt', output_mode='tsv', test_mode=True)
 
     # check the results
-    assert(os.path.isfile(os.path.join(test_dir, 'uniref_Virus_edge_file.tsv')))
-    assert(os.path.isfile(os.path.join(test_dir, 'uniref_Virus_node_file.tsv')))
+    assert(os.path.isfile(os.path.join(test_dir, 'uniref_Virus_edges.tsv')))
+    assert(os.path.isfile(os.path.join(test_dir, 'uniref_Virus_nodes.tsv')))
 
     # open the edge file list and get the lines
-    with open(os.path.join(test_dir, 'uniref_Virus_edge_file.tsv'), 'r') as fl:
+    with open(os.path.join(test_dir, 'uniref_Virus_edges.tsv'), 'r') as fl:
         file_lines: list = fl.readlines()
 
     # check the line count
     assert(len(file_lines) == 7)
 
     # open the node file list and get the lines
-    with open(os.path.join(test_dir, 'uniref_Virus_node_file.tsv'), 'r') as fl:
+    with open(os.path.join(test_dir, 'uniref_Virus_nodes.tsv'), 'r') as fl:
         file_lines: list = fl.readlines()
 
     # check the line count
     assert(len(file_lines) == 7)
 
     # remove the data files
-    os.remove(os.path.join(test_dir, 'uniref_Virus_node_file.tsv'))
-    os.remove(os.path.join(test_dir, 'uniref_Virus_edge_file.tsv'))
+    os.remove(os.path.join(test_dir, 'uniref_Virus_nodes.tsv'))
+    os.remove(os.path.join(test_dir, 'uniref_Virus_edges.tsv'))
 
 
 def test_intact_load():
@@ -93,17 +94,17 @@ def test_intact_load():
     ia.load(test_dir, 'intact', output_mode='tsv', test_mode=True)
 
     # check the results
-    assert(os.path.isfile(os.path.join(test_dir, 'intact_edge_file.tsv')) and os.path.isfile(os.path.join(test_dir, 'intact_node_file.tsv')))
+    assert(os.path.isfile(os.path.join(test_dir, 'intact_edges.tsv')) and os.path.isfile(os.path.join(test_dir, 'intact_nodes.tsv')))
 
     # open the edge file list and get the lines
-    with open(os.path.join(test_dir, 'intact_edge_file.tsv'), 'r') as fl:
+    with open(os.path.join(test_dir, 'intact_edges.tsv'), 'r') as fl:
         file_lines: list = fl.readlines()
 
     # check the line count
     assert(len(file_lines) == 20)
 
     # open the node file list and get the lines
-    with open(os.path.join(test_dir, 'intact_node_file.tsv'), 'r') as fl:
+    with open(os.path.join(test_dir, 'intact_nodes.tsv'), 'r') as fl:
         file_lines: list = fl.readlines()
 
     # check the line count
@@ -117,8 +118,8 @@ def test_intact_load():
     assert(len(file_lines) == 2)
 
     # remove the data files
-    os.remove(os.path.join(test_dir, 'intact_node_file.tsv'))
-    os.remove(os.path.join(test_dir, 'intact_edge_file.tsv'))
+    os.remove(os.path.join(test_dir, 'intact_nodes.tsv'))
+    os.remove(os.path.join(test_dir, 'intact_edges.tsv'))
     os.remove(os.path.join(test_dir, 'intact_prov_node_file.tsv'))
 
 
@@ -133,25 +134,25 @@ def test_goa_load():
     goa.load(test_dir, 'goa_human.gaf.gz', 'Human_GOA', output_mode='tsv', test_mode=True)
 
     # check the results
-    assert(os.path.isfile(os.path.join(test_dir, 'Human_GOA_edge_file.tsv')) and os.path.isfile(os.path.join(test_dir, 'Human_GOA_node_file.tsv')))
+    assert(os.path.isfile(os.path.join(test_dir, 'Human_GOA_edges.tsv')) and os.path.isfile(os.path.join(test_dir, 'Human_GOA_nodes.tsv')))
 
     # open the edge file list and get the lines
-    with open(os.path.join(test_dir, 'Human_GOA_edge_file.tsv'), 'r') as fl:
+    with open(os.path.join(test_dir, 'Human_GOA_edges.tsv'), 'r') as fl:
         file_lines: list = fl.readlines()
 
     # check the line count
     assert(len(file_lines) == 7)
 
     # open the node file list and get the lines
-    with open(os.path.join(test_dir, 'Human_GOA_node_file.tsv'), 'r') as fl:
+    with open(os.path.join(test_dir, 'Human_GOA_nodes.tsv'), 'r') as fl:
         file_lines: list = fl.readlines()
 
     # check the line count
     assert(len(file_lines) == 8)
 
     # remove the data files
-    os.remove(os.path.join(test_dir, 'Human_GOA_node_file.tsv'))
-    os.remove(os.path.join(test_dir, 'Human_GOA_edge_file.tsv'))
+    os.remove(os.path.join(test_dir, 'Human_GOA_nodes.tsv'))
+    os.remove(os.path.join(test_dir, 'Human_GOA_edges.tsv'))
 
 
 def test_ubergraph_load():
@@ -165,27 +166,57 @@ def test_ubergraph_load():
     ug.load(test_dir, 'ubergraph_test.ttl', output_mode='tsv', test_mode=True)
 
     # check the results
-    assert(os.path.isfile(os.path.join(test_dir, 'ubergraph_test_edge_file.tsv')) and os.path.isfile(os.path.join(test_dir, 'ubergraph_test_node_file.tsv')))
+    assert(os.path.isfile(os.path.join(test_dir, 'ubergraph_test_edges.tsv')) and os.path.isfile(os.path.join(test_dir, 'ubergraph_test_nodes.tsv')))
 
     # open the edge file list and get the lines
-    with open(os.path.join(test_dir, 'ubergraph_test_edge_file.tsv'), 'r') as fl:
+    with open(os.path.join(test_dir, 'ubergraph_test_edges.tsv'), 'r') as fl:
         file_lines: list = fl.readlines()
 
     # check the line count
     assert(len(file_lines) == 3)
 
     # open the node file list and get the lines
-    with open(os.path.join(test_dir, 'ubergraph_test_node_file.tsv'), 'r') as fl:
+    with open(os.path.join(test_dir, 'ubergraph_test_nodes.tsv'), 'r') as fl:
         file_lines: list = fl.readlines()
 
     # check the line count
     assert(len(file_lines) == 7)
 
     # remove the data files
-    os.remove(os.path.join(test_dir, 'ubergraph_test_edge_file.tsv'))
-    os.remove(os.path.join(test_dir, 'ubergraph_test_node_file.tsv'))
+    os.remove(os.path.join(test_dir, 'ubergraph_test_edges.tsv'))
+    os.remove(os.path.join(test_dir, 'ubergraph_test_nodes.tsv'))
     os.remove(os.path.join(test_dir, 'ubergraph_test.ttl.1'))
 
+
+def test_foodb_load():
+    # get a reference to the intact data processor
+    fdb = FDBLoader()
+
+    # set the test directory
+    test_dir = os.path.dirname(os.path.abspath(__file__)) + '/resources'
+
+    fdb.load(test_dir, 'foodb_test', output_mode='tsv')
+
+    # check the results
+    assert(os.path.isfile(os.path.join(test_dir, 'ubergraph_test_edge_file.tsv')) and os.path.isfile(os.path.join(test_dir, 'ubergraph_test_node_file.tsv')))
+
+    # open the edge file list and get the lines
+    with open(os.path.join(test_dir, 'foodb_test_edges.tsv'), 'r') as fl:
+        file_lines: list = fl.readlines()
+
+    # check the line count
+    assert(len(file_lines) == 5)
+
+    # open the node file list and get the lines
+    with open(os.path.join(test_dir, 'foodb_test_nodes.tsv'), 'r') as fl:
+        file_lines: list = fl.readlines()
+
+    # check the line count
+    assert(len(file_lines) == 6)
+
+    # remove the data files
+    os.remove(os.path.join(test_dir, 'foodb_test_edges.tsv'))
+    os.remove(os.path.join(test_dir, 'foodb_test_nodes.tsv'))
 
 @pytest.mark.skip(reason="Internal test only. This test requires a graph DB for result verification")
 def test_swiss_prot_against_quickgo():
