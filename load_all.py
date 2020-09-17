@@ -5,6 +5,8 @@ from ViralProteome.src.loadUniRef import UniRefSimLoader
 from IntAct.src.loadIA import IALoader
 from GOA.src.loadGOA import GOALoader
 from UberGraph.src.loadUG import UGLoader
+from FooDB.src.loadFDB import FDBLoader
+from GTEx.src.loadGTEx import GTExLoader
 from Common.utils import LoggingUtil
 from pathlib import Path
 
@@ -35,7 +37,9 @@ if __name__ == '__main__':
     ap.add_argument('-g', '--goa_data_file', required=False, help='The name of the target GOA data file.')
     ap.add_argument('-u', '--ug_data_dir', required=False, help='The UberGraph data file directory.')
     ap.add_argument('-s', '--ug_data_files', required=False, help='Comma separated UberGraph data file(s) to parse.')
-    ap.add_argument('-m', '--out_mode', required=True, help='The output file mode (tsv or json')
+    ap.add_argument('-o', '--foodb_dir', required=False, help='The data directory for FooDB')
+    ap.add_argument('-x', '--gtex_dir', required=False, help='The data directory for GTEx')
+    ap.add_argument('-m', '--out_mode', required=True, help='The output file mode (tsv or json)')
 
     # parse the arguments
     args = vars(ap.parse_args())
@@ -94,3 +98,23 @@ if __name__ == '__main__':
 
         # load the data files and create KGX output files
         ug.load(UG_data_dir, UG_data_file, out_mode, file_size=200000)
+
+    # FooDB_data_dir
+    FDB_data_dir = args['foodb_dir']
+
+    if FDB_data_dir is not None:
+        # get a reference to the processor
+        fdb = FDBLoader()
+
+        # load the data files and create KGX output files
+        fdb.load(FDB_data_dir, 'FooDB', out_mode)
+
+
+    # FooDB_data_dir
+    GTEx_data_dir = args['gtex_dir']
+
+    if GTEx_data_dir is not None:
+        # get a reference to the processor
+        gtl = GTExLoader()
+
+        gtl.load(GTEx_data_dir, 'gtex_kgx')
