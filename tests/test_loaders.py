@@ -1,5 +1,6 @@
 import os.path
 import pytest
+import json
 
 from ViralProteome.src.loadUniRef import UniRefSimLoader
 from ViralProteome.src.loadVP import VPLoader
@@ -234,17 +235,17 @@ def test_gtex_load():
 
     # open the edge file list and get the lines
     with open(os.path.join(test_dir, 'gtex_test_edges.json'), 'r') as fl:
-        file_lines: list = fl.readlines()
+        data = json.load(fl)
 
     # check the line count
-    assert(len(file_lines) == 54)
+    assert(len(data["edges"]) == 51)
 
     # open the node file list and get the lines
     with open(os.path.join(test_dir, 'gtex_test_nodes.json'), 'r') as fl:
-        file_lines: list = fl.readlines()
+        data = json.load(fl)
 
     # check the line count
-    assert(len(file_lines) == 49)
+    assert(len(data["nodes"]) == 47)
 
     # remove the data files
     os.remove(os.path.join(test_dir, 'gtex_test_edges.json'))
