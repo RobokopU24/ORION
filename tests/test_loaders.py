@@ -222,7 +222,7 @@ def test_foodb_load():
 
 def test_gtex_load():
     # get a reference to the intact data processor
-    gt = GTExLoader(test_data=True)
+    gt = GTExLoader(test_data=True, use_cache=False)
 
     # set the test directory
     test_dir = os.path.dirname(os.path.abspath(__file__)) + '/resources'
