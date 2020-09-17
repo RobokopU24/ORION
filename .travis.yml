@@ -27,6 +27,7 @@ script:
   - mkdir logs
   - ls -al
   - echo $PYTHONPATH
+  - echo $ROBOKOP_HOME
   - pytest -p no:warnings tests
 
 after_success:

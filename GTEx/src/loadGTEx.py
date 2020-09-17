@@ -94,6 +94,9 @@ class GTExLoader:
 
         if test_data:
             GTExLoader.TISSUES = GTExLoader.TISSUES1
+            self.use_cache = False
+        else:
+            self.use_cache = True
 
         # maps the HG version to the chromosome versions
         self.reference_chrom_labels: dict = {
@@ -523,8 +526,8 @@ class GTExLoader:
         enu = EdgeNormUtils()
         cached_edge_norms = {}
 
-        genetics_normalizer = GeneticsNormalizer()
-        genetics_services = GeneticsServices()
+        genetics_normalizer = GeneticsNormalizer(use_cache=self.use_cache)
+        genetics_services = GeneticsServices(use_cache=self.use_cache)
 
         num_variants = len(all_variant_nodes)
         all_gene_ids = set([gene["id"] for gene in all_gene_nodes])
