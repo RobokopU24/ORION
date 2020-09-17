@@ -24,6 +24,7 @@ env:
 # command to run tests
 script:
   - ls -al
+  - echo $PYTHONPATH
   - mkdir logs
   - pytest -p no:warnings tests
 
