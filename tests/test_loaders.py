@@ -198,7 +198,7 @@ def test_foodb_load():
     fdb.load(test_dir, 'foodb_test', output_mode='tsv')
 
     # check the results
-    assert(os.path.isfile(os.path.join(test_dir, 'ubergraph_test_edge_file.tsv')) and os.path.isfile(os.path.join(test_dir, 'ubergraph_test_node_file.tsv')))
+    assert(os.path.isfile(os.path.join(test_dir, 'foodb_test_edges.tsv')) and os.path.isfile(os.path.join(test_dir, 'foodb_test_nodes.tsv')))
 
     # open the edge file list and get the lines
     with open(os.path.join(test_dir, 'foodb_test_edges.tsv'), 'r') as fl:
