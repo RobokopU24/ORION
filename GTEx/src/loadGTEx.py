@@ -90,13 +90,12 @@ class GTExLoader:
     # storage for all the edges discovered
     edge_list: list = []
 
-    def __init__(self, test_mode: bool=False, test_data: bool=False):
+    def __init__(self, test_mode: bool=False, test_data: bool=False, use_cache: bool=True):
 
         if test_data:
             GTExLoader.TISSUES = GTExLoader.TISSUES1
-            self.use_cache = False
-        else:
-            self.use_cache = True
+
+        self.use_cache = use_cache
 
         # maps the HG version to the chromosome versions
         self.reference_chrom_labels: dict = {
@@ -140,6 +139,9 @@ class GTExLoader:
 
         if self.test_data:
             logger.info("Using test data for this run.")
+
+        if not self.use_cache:
+            logger.info("Not caching for this run.")
 
     # the main function to call to retrieve the GTEx data and convert it to a KGX json file
     def load(self, output_directory: str, out_file_name: str, gtex_version: int = 8):
@@ -820,9 +822,10 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="Retrieve, parse, and convert GTEx data to KGX files.")
     parser.add_argument('--test_mode', action='store_true')
     parser.add_argument('--test_data', action='store_true')
+    parser.add_argument('--no_cache', action='store_true')
     parser.add_argument('--data_dir', default='.')
     args = parser.parse_args()
 
-    loader = GTExLoader(test_mode=args.test_mode, test_data=args.test_data)
+    loader = GTExLoader(test_mode=args.test_mode, test_data=args.test_data, use_cache=not args.no_cache)
     loader.load(args.data_dir, 'gtex_kgx')
 
