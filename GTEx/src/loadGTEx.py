@@ -283,6 +283,7 @@ class GTExLoader:
         except Exception as e:
             logger.error(f'Exception caught. Exception: {e}')
             ret_val = e
+
         # finally:
         #     # remove all the intermediate (tar) files
         #     if os.path.isfile(eqtl_tar_download_path):
