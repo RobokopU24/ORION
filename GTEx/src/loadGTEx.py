@@ -135,6 +135,9 @@ class GTExLoader:
         self.test_mode = test_mode
         self.test_data = test_data
 
+        if self.test_data:
+            logger.info("Using test data for this run.")
+
     # the main function to call to retrieve the GTEx data and convert it to a KGX json file
     def load(self, output_directory: str, out_file_name: str, gtex_version: int = 8):
 
