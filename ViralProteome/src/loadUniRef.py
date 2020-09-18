@@ -139,19 +139,22 @@ class UniRefSimLoader:
                     logger.error(f'Error: Entry node for {line} at line number {index_counter} invalid.')
 
                 # is it time to write out the data we have collected so far
-                if len(node_list) > block_size:
-                    # normalize the group of entries on the data frame.
-                    # commented out for now as node norm os not returning anything that i dont already have for these nodes
-                    self.normalize_node_data(node_list)
-
-                    # write out what we have so far
-                    self.write_out_data(node_list, out_node_f, out_edge_f, output_mode)
-
-                    # clear out the node list for the next batch
-                    node_list.clear()
+                # if len(node_list) > block_size:
+                #     # normalize the group of entries on the data frame.
+                #     self.normalize_node_data(node_list)
+                #
+                #     # write out what we have so far
+                #     self.write_out_data(node_list, out_node_f, out_edge_f, output_mode)
+                #
+                #     # clear out the node list for the next batch
+                #     node_list.clear()
 
         # save any remainders
         if len(node_list) > 0:
+            # normalize the group of entries on the data frame.
+            self.normalize_node_data(node_list)
+
+            # write out what we have
             self.write_out_data(node_list, out_node_f, out_edge_f, output_mode)
 
         # finish off the json if we have to
