@@ -249,9 +249,10 @@ class UGLoader:
                 # turn these into json
                 category = json.dumps(item[1]['category'].split('|'))
                 identifiers = json.dumps(item[1]['equivalent_identifiers'].split('|'))
+                name: str = item[1]["name"].replace('"', '\\"')
 
                 # output the node
-                node: str = f'{{"id":"{item[1]["id"]}", "name":"{item[1]["name"]}", "category":{category}, "equivalent_identifiers":{identifiers}}}'
+                node: str = f'{{"id":"{item[1]["id"]}","name":"{name}","category":{category},"equivalent_identifiers":{identifiers}}}'
             else:
                 node: str = f"{item[1]['id']}\t{item[1]['name']}\t{item[1]['category']}\t{item[1]['equivalent_identifiers']}"
 
@@ -359,13 +360,14 @@ class UGLoader:
 
             # did we get everything
             if source_node_id != '' and object_node_id != '' and edge_relation != '':
-                if output_mode == 'json':
-                    edge = f', "subject":"{source_node_id}", "relation":"{edge_relation}", "object":"{object_node_id}", "edge_label":"{edge_relation}", "source_database":"{data_source_name}"}}'
-                else:
-                    edge: str = f'\t{source_node_id}\t{edge_relation}\t{edge_relation}\t{object_node_id}\t{data_source_name}'
+                # create the record ID
+                record_id: str = source_node_id + edge_relation + object_node_id
 
                 # write out the edge
-                self.final_edge_set.add(hashlib.md5(edge.encode('utf-8')).hexdigest() + edge)
+                if output_mode == 'json':
+                    self.final_edge_set.add(f'{{"id":"{hashlib.md5(record_id.encode("utf-8")).hexdigest()}","subject":"{source_node_id}","relation":"{edge_relation}","object":"{object_node_id}","edge_label":"{edge_relation}","source_database":"{data_source_name}"}}')
+                else:
+                    self.final_edge_set.add(f'{hashlib.md5(record_id.encode("utf-8")).hexdigest()}\t{source_node_id}\t{edge_relation}\t{edge_relation}\t{object_node_id}\t{data_source_name}')
 
                 # increment the edge count
                 self.total_edges += 1
