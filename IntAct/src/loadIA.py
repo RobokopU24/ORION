@@ -285,7 +285,7 @@ class IALoader:
                         taxon = ''
 
                     node_list.append({'id': item[prefix + suffix],
-                                      'name': item[prefix + 'alias_' + suffix].replace('"', ''),
+                                      'name': item[prefix + 'alias_' + suffix],
                                       'category': item[prefix + 'category_' + suffix],
                                       'equivalent_identifiers': item[prefix + 'equivalent_identifiers_' + suffix],
                                       'taxon': taxon}
@@ -310,6 +310,7 @@ class IALoader:
                 # turn these into json
                 category = json.dumps(item[1]['category'].split('|'))
                 identifiers = json.dumps(item[1]['equivalent_identifiers'].split('|'))
+                name = name.replace('"', '\\"')
 
                 # output the node
                 final_node_set.add(f'{{"id":"{item[1]["id"]}", "name":"{name}", "category":{category}, "equivalent_identifiers":{identifiers}, "taxon":"{item[1]["taxon"]}"}}')
