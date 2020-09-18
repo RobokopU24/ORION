@@ -212,7 +212,7 @@ class FDBLoader:
                     # turn these into json
                     category: str = json.dumps(row["category"].split('|'))
                     identifiers: str = json.dumps(row["equivalent_identifiers"].split('|'))
-                    name: str = row["name"].replace('"', '')
+                    name: str = row["name"].replace('"', '\\"')
 
                     # save the node
                     final_node_set.add(f'{{"id":"{row["id"]}", "name":"{name}", "category":{category}, "equivalent_identifiers":{identifiers}, "foodb_id":{row["foodb_id"]}, "content_type":"{row["content_type"]}", "nutrient":"{row["nutrient"]}"}}')
