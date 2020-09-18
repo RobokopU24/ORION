@@ -74,18 +74,17 @@ class GTExLoader:
 
     TISSUES1 = {
         "Muscle_Skeletal": "0001134",
-        "Colon_Transverse": "0001157"
-        # ,
-        # "Nerve_Tibial": "0001323",
-        # "Brain_Cortex": "0001851",
-        # "Adipose_Subcutaneous": "0002190",
-        # "Adipose_Visceral_Omentum": "0003688",
-        # "Artery_Aorta": "0004178",
-        # "Skin_Sun_Exposed_Lower_leg": "0004264",
-        # "Brain_Anterior_cingulate_cortex_BA24": "0006101",
-        # "Cells_Cultured_fibroblasts": "0015764",
-        # "Adrenal_Gland": "0018303",
-        # "Skin_Not_Sun_Exposed_Suprapubic": "0036149"
+        "Colon_Transverse": "0001157",
+        "Nerve_Tibial": "0001323",
+        "Brain_Cortex": "0001851",
+        "Adipose_Subcutaneous": "0002190",
+        "Adipose_Visceral_Omentum": "0003688",
+        "Artery_Aorta": "0004178",
+        "Skin_Sun_Exposed_Lower_leg": "0004264",
+        "Brain_Anterior_cingulate_cortex_BA24": "0006101",
+        "Cells_Cultured_fibroblasts": "0015764",
+        "Adrenal_Gland": "0018303",
+        "Skin_Not_Sun_Exposed_Suprapubic": "0036149"
     }
 
     # storage for all the edges discovered
@@ -334,8 +333,8 @@ class GTExLoader:
             if cur_group_key != start_group_key:
                 # update the record with the arrays
                 cur_record["expressed_in"] = '["' + '","'.join(uberons) + '"]'
-                cur_record["p_value"] = '["' + '","'.join(p_values) + '"]'
-                cur_record["slope"] = '["' + '","'.join(slopes) + '"]'
+                cur_record["p_value"] = '[' + ','.join(p_values) + ']'
+                cur_record["slope"] = '[' + ','.join(slopes) + ']'
 
                 # write out the coalesced record
                 edge_file.write(
@@ -366,8 +365,8 @@ class GTExLoader:
         if len(uberons) > 0:
             # update the record with the arrays
             cur_record["expressed_in"] = '["' + '","'.join(uberons) + '"]'
-            cur_record["p_value"] = '["' + '","'.join(p_values) + '"]'
-            cur_record["slope"] = '["' + '","'.join(slopes) + '"]'
+            cur_record["p_value"] = '[' + ','.join(p_values) + ']'
+            cur_record["slope"] = '[' + ','.join(slopes) + ']'
 
             # write out the coalesced record
             edge_file.write(

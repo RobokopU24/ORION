@@ -71,7 +71,7 @@ def test_uniref_load():
         file_lines: list = fl.readlines()
 
     # check the line count
-    assert(len(file_lines) == 7)
+    assert(len(file_lines) == 6)
 
     # open the node file list and get the lines
     with open(os.path.join(test_dir, 'uniref_Virus_nodes.tsv'), 'r') as fl:
