@@ -74,23 +74,24 @@ class GTExLoader:
 
     TISSUES1 = {
         "Muscle_Skeletal": "0001134",
-        "Colon_Transverse": "0001157",
-        "Nerve_Tibial": "0001323",
-        "Brain_Cortex": "0001851",
-        "Adipose_Subcutaneous": "0002190",
-        "Adipose_Visceral_Omentum": "0003688",
-        "Artery_Aorta": "0004178",
-        "Skin_Sun_Exposed_Lower_leg": "0004264",
-        "Brain_Anterior_cingulate_cortex_BA24": "0006101",
-        "Cells_Cultured_fibroblasts": "0015764",
-        "Adrenal_Gland": "0018303",
-        "Skin_Not_Sun_Exposed_Suprapubic": "0036149"
+        "Colon_Transverse": "0001157"
+        # ,
+        # "Nerve_Tibial": "0001323",
+        # "Brain_Cortex": "0001851",
+        # "Adipose_Subcutaneous": "0002190",
+        # "Adipose_Visceral_Omentum": "0003688",
+        # "Artery_Aorta": "0004178",
+        # "Skin_Sun_Exposed_Lower_leg": "0004264",
+        # "Brain_Anterior_cingulate_cortex_BA24": "0006101",
+        # "Cells_Cultured_fibroblasts": "0015764",
+        # "Adrenal_Gland": "0018303",
+        # "Skin_Not_Sun_Exposed_Suprapubic": "0036149"
     }
 
     # storage for all the edges discovered
     edge_list: list = []
 
-    def __init__(self, test_mode: bool=False, test_data: bool=False, use_cache: bool=True):
+    def __init__(self, test_mode: bool = False, test_data: bool = False, use_cache: bool = True):
 
         if test_data:
             GTExLoader.TISSUES = GTExLoader.TISSUES1
@@ -122,17 +123,17 @@ class GTExLoader:
         # default types, they only matter when a normalization is not found
         # TODO we could grab these from the node normalization service
         self.sequence_variant_types = ['sequence_variant',
-                                  'genomic_entity',
-                                  'molecular_entity',
-                                  'biological_entity',
-                                  'named_thing']
+                                      'genomic_entity',
+                                      'molecular_entity',
+                                      'biological_entity',
+                                      'named_thing']
         self.gene_types = ['gene',
-                      'gene_or_gene_product',
-                      'macromolecular_machine',
-                      'genomic_entity',
-                      'molecular_entity',
-                      'biological_entity',
-                      'named_thing']
+                          'gene_or_gene_product',
+                          'macromolecular_machine',
+                          'genomic_entity',
+                          'molecular_entity',
+                          'biological_entity',
+                          'named_thing']
 
         self.test_mode = test_mode
         self.test_data = test_data
@@ -159,11 +160,11 @@ class GTExLoader:
 
         # if the output file(s) already exists back out
         nodes_output_file_path = f'{output_directory}{out_file_name}_nodes.json'
-        if os.path.isfile(nodes_output_file_path):
+        if os.path.isfile(nodes_output_file_path) and not self.test_data:
             logger.error(f'GTEx KGX file already created ({nodes_output_file_path}). Aborting.')
             return ret_val
         edges_output_file_path = f'{output_directory}{out_file_name}_edges.json'
-        if os.path.isfile(edges_output_file_path):
+        if os.path.isfile(edges_output_file_path and not self.test_data):
             logger.error(f'GTEx KGX file already created ({edges_output_file_path}). Aborting.')
             return ret_val
 
@@ -230,7 +231,6 @@ class GTExLoader:
                         nodes_output_file.write(orjson.dumps(g).decode() + '\n]}')
                 logger.info('All of the variant and gene nodes are written now.')
 
-
             # TODO these predicates should be normalized, since they are not they might as well be hardcoded
             # increases_expression_relation = 'CTD:increases_expression_of'
             # increases_expression_edge_label = 'biolink:increases_expression_of'
@@ -258,22 +258,22 @@ class GTExLoader:
                     normalized_anatomy_id, normalized_gene_id, normalized_sv_id, p_value, slope = gtex_edge_info
                     if float(slope) > 0:
                         edge_id: str = f'{normalized_sv_id}"CTD:increases_expression_of"{normalized_gene_id}'
-                        #edges_output_file.write(f'{{"id":"{hashlib.md5(edge_id.encode("utf-8")).hexdigest()}","subject":"{normalized_sv_id}","edge_label":"biolink:increases_expression_of","object":"{normalized_gene_id}","relation":"CTD:increases_expression_of","expressed_in":"{normalized_anatomy_id}","p_value":{p_value},"slope":{slope}}},\n')
+                        # edges_output_file.write(f'{{"id":"{hashlib.md5(edge_id.encode("utf-8")).hexdigest()}","subject":"{normalized_sv_id}","edge_label":"biolink:increases_expression_of","object":"{normalized_gene_id}","relation":"CTD:increases_expression_of","expressed_in":"{normalized_anatomy_id}","p_value":{p_value},"slope":{slope}}},\n')
                         self.edge_list.append({"id": f'{hashlib.md5(edge_id.encode("utf-8")).hexdigest()}', "subject": normalized_sv_id, "edge_label": "biolink:increases_expression_of", "object": normalized_gene_id, "relation": "CTD:increases_expression_of", "expressed_in": normalized_anatomy_id, "p_value": p_value, "slope": slope})
                     else:
                         edge_id: str = f'{normalized_sv_id}"CTD:decreases_expression_of"{normalized_gene_id}'
-                        #edges_output_file.write(f'{{"id":"{hashlib.md5(edge_id.encode("utf-8")).hexdigest()}","subject":"{normalized_sv_id}","edge_label":"biolink:decreases_expression_of","object":"{normalized_gene_id}","relation":"CTD:decreases_expression_of","expressed_in":"{normalized_anatomy_id}","p_value":{p_value},"slope":{slope}}},\n')
+                        # edges_output_file.write(f'{{"id":"{hashlib.md5(edge_id.encode("utf-8")).hexdigest()}","subject":"{normalized_sv_id}","edge_label":"biolink:decreases_expression_of","object":"{normalized_gene_id}","relation":"CTD:decreases_expression_of","expressed_in":"{normalized_anatomy_id}","p_value":{p_value},"slope":{slope}}},\n')
                         self.edge_list.append({"id": f'{hashlib.md5(edge_id.encode("utf-8")).hexdigest()}', "subject":normalized_sv_id, "edge_label":"biolink:decreases_expression_of","object":normalized_gene_id, "relation":"CTD:decreases_expression_of","expressed_in":normalized_anatomy_id ,"p_value": p_value, "slope": slope})
 
                 logger.info('Writing eqtl edges complete. Starting sqtl edges...')
-                sqtl_edges = []
+                # sqtl_edges = []
                 for i, gtex_edge_info in enumerate(self.parse_files_and_yield_edge_info(sqtl_tar_download_path,
                                                                                         normalized_node_id_lookup,
                                                                                         normalized_variant_id_lookup,
                                                                                         is_sqtl=True), start=1):
                     normalized_anatomy_id, normalized_gene_id, normalized_sv_id, p_value, slope = gtex_edge_info
                     edge_id: str = f'{normalized_sv_id}"CTD:affects_splicing_of"{normalized_gene_id}'
-                    #sqtl_edges.append(f'{{"id":"{hashlib.md5(edge_id.encode("utf-8")).hexdigest()}","subject":"{normalized_sv_id}","edge_label":"biolink:affects_splicing_of","object":"{normalized_gene_id}","relation":"CTD:affects_splicing_of","expressed_in":"{normalized_anatomy_id}","p_value":{p_value},"slope":{slope}}}')
+                    # sqtl_edges.append(f'{{"id":"{hashlib.md5(edge_id.encode("utf-8")).hexdigest()}","subject":"{normalized_sv_id}","edge_label":"biolink:affects_splicing_of","object":"{normalized_gene_id}","relation":"CTD:affects_splicing_of","expressed_in":"{normalized_anatomy_id}","p_value":{p_value},"slope":{slope}}}')
                     self.edge_list.append({"id": f'{hashlib.md5(edge_id.encode("utf-8")).hexdigest()}', "subject":normalized_sv_id, "edge_label":"biolink:affects_splicing_of","object":normalized_gene_id, "relation":"CTD:affects_splicing_of","expressed_in":normalized_anatomy_id ,"p_value": p_value, "slope": slope})
                 #     if i % 1000:
                 #         edges_output_file.write(",\n".join(sqtl_edges))
@@ -339,13 +339,13 @@ class GTExLoader:
 
                 # write out the coalesced record
                 edge_file.write(
-                    f'{{"id":"{hashlib.md5(start_group_key.encode("utf-8")).hexdigest()}"' \
-                    f',"subject":"{cur_record["subject"]}"' \
-                    f',"edge_label":"{cur_record["edge_label"]}"' \
-                    f',"object":"{cur_record["object"]}"' \
-                    f',"relation":"{cur_record["relation"]}"' \
-                    f',"expressed_in":{cur_record["expressed_in"]}' \
-                    f',"p_value":{cur_record["p_value"]}' \
+                    f'{{"id":"{hashlib.md5(start_group_key.encode("utf-8")).hexdigest()}"'
+                    f',"subject":"{cur_record["subject"]}"'
+                    f',"edge_label":"{cur_record["edge_label"]}"'
+                    f',"object":"{cur_record["object"]}"'
+                    f',"relation":"{cur_record["relation"]}"'
+                    f',"expressed_in":{cur_record["expressed_in"]}'
+                    f',"p_value":{cur_record["p_value"]}'
                     f',"slope":{cur_record["slope"]}}},\n')
 
                 # reset the record storage and intermediate items for the next group
@@ -371,13 +371,13 @@ class GTExLoader:
 
             # write out the coalesced record
             edge_file.write(
-                f'{{"id":"{hashlib.md5(start_group_key.encode("utf-8")).hexdigest()}"' \
-                f',"subject":"{cur_record["subject"]}"' \
-                f',"edge_label":"{cur_record["edge_label"]}"' \
-                f',"object":"{cur_record["object"]}"' \
-                f',"relation":"{cur_record["relation"]}"' \
-                f',"expressed_in":{cur_record["expressed_in"]}' \
-                f',"p_value":{cur_record["p_value"]}' \
+                f'{{"id":"{hashlib.md5(start_group_key.encode("utf-8")).hexdigest()}"'
+                f',"subject":"{cur_record["subject"]}"'
+                f',"edge_label":"{cur_record["edge_label"]}"'
+                f',"object":"{cur_record["object"]}"'
+                f',"relation":"{cur_record["relation"]}"'
+                f',"expressed_in":{cur_record["expressed_in"]}'
+                f',"p_value":{cur_record["p_value"]}'
                 f',"slope":{cur_record["slope"]}}}\n')
 
     # This will parse all of the files in the specified tar and return all of the nodes not already found.
@@ -512,8 +512,8 @@ class GTExLoader:
     def process_sequence_variants(self,
                                   all_variant_nodes: list,
                                   all_gene_nodes: list,
-                                  nodes_output_file: object,
-                                  edges_output_file: object):
+                                  nodes_output_file,
+                                  edges_output_file):
 
         # grab local references to these for efficiency
         sequence_variant_category = json.dumps(self.sequence_variant_types)
@@ -572,8 +572,8 @@ class GTExLoader:
                 g_to_v_edge = variant_to_gene_edges[j]
                 g_to_v_edge["object"] = normalized_gene_id
 
-                edge_id: str = f'{g_to_v_edge["subject"]}{g_to_v_edge["edge_label"]}{g_to_v_edge["object"]}'
-                g_to_v_edge.update({"id":f'{hashlib.md5(edge_id.encode("utf-8")).hexdigest()}'})
+                # edge_id: str = f'{g_to_v_edge["subject"]}{g_to_v_edge["edge_label"]}{g_to_v_edge["object"]}'
+                # g_to_v_edge.update({"id":f'{hashlib.md5(edge_id.encode("utf-8")).hexdigest()}'})
 
                 edges_output_file.write(orjson.dumps(g_to_v_edge).decode() + ",\n")
                 if normalized_gene_id not in all_gene_ids:
@@ -586,7 +586,6 @@ class GTExLoader:
             normalized_variant_lookup[v.original_id] = v.id
             all_variant_nodes[i] = None
         return normalized_variant_lookup
-
 
     def parse_files_and_yield_edge_info(self,
                                         full_tar_path: str,
@@ -828,4 +827,3 @@ if __name__ == '__main__':
 
     loader = GTExLoader(test_mode=args.test_mode, test_data=args.test_data, use_cache=not args.no_cache)
     loader.load(args.data_dir, 'gtex_kgx')
-
