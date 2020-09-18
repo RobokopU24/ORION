@@ -19,12 +19,35 @@ if __name__ == '__main__':
     Parses both the UniProtKB viral proteome and UniRef data and creates KGX import files for each. 
 
     Example command lines:    
-    python load_all.py -p E:/Data_services/UniProtKB_data -m tsv
-    python load_all.py -r E:/Data_services/UniRef_data -f uniref100,uniref90,uniref50 -m tsv
-    python load_all.py -i E:/Data_services/IntAct_data -m tsv
-    python load_all.py -p E:/Data_services/UniProtKB_data -g goa_human.gaf.gz -m tsv
-    python load_all.py -u E:/Data_services/UberGraph -s properties-nonredundant.ttl,properties-redundant.ttl -m tsv
+    python load_all.py -p D:\Work\Robokop\Data_services\UniProtKB_data -m tsv
+    python load_all.py -r E:\Data_services\UniRef_data -f uniref100,uniref90,uniref50 -m tsv
+    python load_all.py -i D:\Work\Robokop\Data_services\IntAct_data -m tsv
+    python load_all.py -p D:\Work\Robokop\Data_services\UniProtKB_data -g goa_human.gaf.gz -m tsv
+    python load_all.py -u D:\Work\Robokop\Data_services\UberGraph -s properties-nonredundant.ttl,properties-redundant.ttl -m tsv
+    python load_all.py -o D:\Work\Robokop\Data_services\FooDB_data -m tsv
+    python load_all.py -x D:\Work\Robokop\Data_services\GTEx_data -m tsv
     
+    The full set of command line switches
+        -p
+        D:\Work\Robokop\Data_services\UniProtKB_data
+        -i
+        D:\Work\Robokop\Data_services\IntAct_data
+        -r
+        E:/Data_services/UniRef_data
+        -f
+        uniref100,uniref90,uniref50
+        -g
+        goa_human.gaf.gz
+        -u
+        D:\Work\Robokop\Data_services\Ubergraph_data
+        -s
+        properties-nonredundant.ttl
+        -o
+        D:\Work\Robokop\Data_services\FooDB_data
+        -x
+        D:\Work\Robokop\Data_services\GTEx_data
+        -m
+        json
     """
     # create a command line parser
     ap = argparse.ArgumentParser(description='Load UniProtKB viral proteome, UniRef, Human GOA, UberGraph and IntAct data files and create KGX import files.')
@@ -109,12 +132,11 @@ if __name__ == '__main__':
         # load the data files and create KGX output files
         fdb.load(FDB_data_dir, 'FooDB', out_mode)
 
-
     # FooDB_data_dir
     GTEx_data_dir = args['gtex_dir']
 
     if GTEx_data_dir is not None:
         # get a reference to the processor
-        gtl = GTExLoader()
+        gtl = GTExLoader(test_data=True, use_cache=False)
 
         gtl.load(GTEx_data_dir, 'gtex_kgx')
