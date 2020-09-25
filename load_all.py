@@ -7,6 +7,7 @@ from GOA.src.loadGOA import GOALoader
 from UberGraph.src.loadUG import UGLoader
 from FooDB.src.loadFDB import FDBLoader
 from GTEx.src.loadGTEx import GTExLoader
+from PHAROS.src.loadPHAROS import PHAROSLoader
 from Common.utils import LoggingUtil
 from pathlib import Path
 
@@ -26,6 +27,7 @@ if __name__ == '__main__':
     python load_all.py -u D:/Work/Robokop/Data_services/UberGraph -s properties-nonredundant.ttl,properties-redundant.ttl -m tsv
     python load_all.py -o D:/Work/Robokop/Data_services/FooDB_data -m tsv
     python load_all.py -x D:/Work/Robokop/Data_services/GTEx_data -m tsv
+    python load_all.py -a D:/Work/Robokop/Data_services/PHAROS_data -m tsv
 
     The full set of command line switches
         -p
@@ -62,6 +64,7 @@ if __name__ == '__main__':
     ap.add_argument('-s', '--ug_data_files', required=False, help='Comma separated UberGraph data file(s) to parse.')
     ap.add_argument('-o', '--foodb_dir', required=False, help='The data directory for FooDB')
     ap.add_argument('-x', '--gtex_dir', required=False, help='The data directory for GTEx')
+    ap.add_argument('-a', '--pharos_dir', required=False, help='The data directory for PHAROS')
     ap.add_argument('-m', '--out_mode', required=True, help='The output file mode (tsv or json)')
 
     # parse the arguments
@@ -91,7 +94,7 @@ if __name__ == '__main__':
         # load the data files and create KGX output
         uni.load(UniRef_data_dir, UniRef_files.split(','), 'taxon_file_indexes.txt', out_mode)
 
-    # assign the uniref directory
+    # assign the intact directory
     IntAct_data_dir = args['intact_dir']
 
     if IntAct_data_dir is not None:
@@ -111,7 +114,7 @@ if __name__ == '__main__':
         # load the data files and create KGX output files
         goa.load(UniProtKB_data_dir, GOA_data_file, 'Human_GOA', out_mode)
 
-    # UG_data_dir = 'E:/Data_services/UberGraph'
+    # assign the ubergraph directory and target files
     UG_data_dir = args['ug_data_dir']
     UG_data_file = args['ug_data_files']
 
@@ -122,7 +125,7 @@ if __name__ == '__main__':
         # load the data files and create KGX output files
         ug.load(UG_data_dir, UG_data_file, out_mode, file_size=200000)
 
-    # FooDB_data_dir
+    # assign the foodb directory
     FDB_data_dir = args['foodb_dir']
 
     if FDB_data_dir is not None:
@@ -132,7 +135,7 @@ if __name__ == '__main__':
         # load the data files and create KGX output files
         fdb.load(FDB_data_dir, 'FooDB', out_mode)
 
-    # FooDB_data_dir
+    # assign the GTEx directory
     GTEx_data_dir = args['gtex_dir']
 
     if GTEx_data_dir is not None:
@@ -140,3 +143,12 @@ if __name__ == '__main__':
         gtl = GTExLoader(test_data=True, use_cache=False)
 
         gtl.load(GTEx_data_dir, 'gtex_kgx')
+
+    # assign the PHAROS directory
+    PHAROS_data_dir = args['pharos_dir']
+
+    if PHAROS_data_dir is not None:
+        # get a reference to the processor
+        pdb = PHAROSLoader()
+
+        pdb.load(PHAROS_data_dir, 'pharos_kgx')
