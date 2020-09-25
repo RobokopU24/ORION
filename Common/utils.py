@@ -188,7 +188,7 @@ class NodeNormUtils:
 
                 # did we get a good status code
                 if resp.status_code == 200:
-                    # convert to json
+                    # convert json to dict
                     rvs: dict = resp.json()
 
                     # merge this list with what we have gotten so far
@@ -261,6 +261,36 @@ class NodeNormUtils:
 
         # return the failed list to the caller
         return failed_to_normalize
+
+    def synomymize_node_data(self, node_list: list) -> list:
+        # init the return value
+        synonyms: list = []
+
+        # for each node list item
+        for idx, item in enumerate(node_list):
+            # generate the request url
+            url: str = f"https://onto.renci.org/synonyms/{item['id']}"
+
+            # make the call to the synonymiser
+            resp: requests.models.Response = requests.get(url)
+
+            # did we get a good status code
+            if resp.status_code == 200:
+                # convert json to dict
+                rvs: dict = resp.json()
+
+                # get the synonyms into a list
+                synonyms = [x['desc'] for x in rvs]
+
+                # did we get anything
+                if len(synonyms) > 0:
+                    # save the values to the list
+                    node_list[idx]['synonyms'] = synonyms
+            else:
+                self.logger.debug(f'Could not find synonym of r: {item["id"]}')
+
+        # return the list to the caller
+        return node_list
 
 
 class EdgeNormUtils:
@@ -359,7 +389,7 @@ class EdgeNormUtils:
 
                 # did we get a good status code
                 if resp.status_code == 200:
-                    # convert to json
+                    # convert json to dict
                     rvs: dict = resp.json()
 
                     # merge this list with what we have gotten so far
@@ -895,6 +925,7 @@ class GetData:
         Opens the CSV file passed and turns it into a sorted list of dicts
 
         :param in_file: the path to the file to be parsed
+        :param sort_by: the sort by column name
         :return: a list of sorted dicts
         """
         # init the return
