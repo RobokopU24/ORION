@@ -1,0 +1,66 @@
+
+general queries
+    select * from disease limit 10
+    select * from xref limit 10
+    select * from drug_activity limit 10
+    select * from cmpd_activity limit 10
+    select * from protein limit 10
+    select * from  limit 10
+
+gene_get_disease()
+example HGNC value: HGNC:15845
+            select distinct d.did,d.name
+            from disease d
+            join xref x on x.protein_id = d.target_id
+            where x.xtype = 'HGNC' and d.dtype <> 'Expression Atlas' and x.value = 'HGNC:15845';
+
+
+gene_get_drug()
+example HGNC value: HGNC:7794
+example chembl id: CHEMBL.COMPOUND:CHEMBL449782
+            SELECT DISTINCT da.drug, da.cmpd_chemblid AS cid, 'ChEMBL' AS id_src,
+            da.act_value AS affinity, da.act_type AS affinity_parameter, da.action_type AS pred
+            FROM xref x, drug_activity da
+            WHERE x.protein_id = da.target_id
+            AND da.cmpd_chemblid IS NOT NULL
+            AND x.xtype='HGNC'
+            AND x.value = 'HGNC:7794';
+
+            SELECT DISTINCT da.cmpd_name_in_src as drug, da.cmpd_id_in_src as cid, catype AS id_src,
+            da.act_value AS affinity, da.act_type as affinity_parameter, da.act_type AS pred,
+            da.pubmed_ids AS pubmed_ids
+            FROM xref x, cmpd_activity da
+            WHERE x.protein_id = da.target_id
+            AND x.xtype='HGNC'
+            AND x.value = 'HGNC:7794';
+
+
+drug_get_gene()
+example HGNC value: HGNC:7794
+example chembl id: CHEMBL449782
+            SELECT DISTINCT x.value, p.sym, da.act_value AS affinity,
+            da.act_type AS affinity_parameter, da.action_type AS pred
+            FROM xref x, drug_activity da, protein p
+            WHERE da.target_id = x.protein_id
+            AND x.xtype='HGNC'
+            AND da.target_id = p.id
+            AND da.cmpd_chemblid='CHEMBL449782';
+
+            SELECT DISTINCT x.value, p.sym, da.act_value AS affinity, da.act_type as affinity_parameter,
+            da.act_type AS pred, da.pubmed_ids AS pubmed_ids
+            FROM xref x, cmpd_activity da, protein p
+            WHERE da.target_id = x.protein_id
+            AND x.xtype='HGNC'
+            AND da.target_id = p.id;
+            AND da.cmpd_id_in_src='CHEMBL449782'
+
+
+disease_get_gene()
+example pharos id: DOID:2843
+            select distinct x.value, p.sym
+            from disease d
+            join xref x on x.protein_id = d.target_id
+            join protein p on d.target_id = p.id
+            where x.xtype = 'HGNC'
+            and d.dtype <> 'Expression Atlas'
+            and d.did='DOID:2843';
