@@ -1,0 +1,558 @@
+import os
+import hashlib
+import argparse
+import pandas as pd
+import logging
+import json
+import mysql.connector
+import re
+
+from Common.utils import LoggingUtil, GetData, NodeNormUtils, EdgeNormUtils
+from pathlib import Path
+
+# create a logger
+logger = LoggingUtil.init_logging("Data_services.FooDB.PHAROSLoader", line_format='medium', log_file_path=os.path.join(Path(__file__).parents[2], 'logs'))
+
+
+##############
+# Class: FooDB loader
+#
+# By: Phil Owen
+# Date: 8/11/2020
+# Desc: Class that loads the PHAROS data and creates KGX files for importing into a Neo4j graph.
+##############
+class PHAROSLoader:
+    # GENE_LIST_SQL: str = "select distinct value from xref where xtype='hgnc' order by 1"
+    # DISEASE_LIST_SQL: str = """select distinct d.did
+    #                         from disease d
+    #                         join xref x on x.protein_id = d.protein_id
+    #                         where
+    #                         x.xtype='hgnc'
+    #                         and d.dtype <> 'Expression Atlas'
+    #                         and (substring(d.did, 1, 4) ='DOID' or substring(d.did, 1, 4) ='MESH') order by 1"""
+    #
+    # DRUG_LIST_SQL: str = """select distinct cmpd_chemblid from drug_activity where SUBSTRING(cmpd_chemblid, 1, 6) = 'CHEMBL'
+    #                         union
+    #                         select distinct cmpd_id_in_src from cmpd_activity where SUBSTRING(cmpd_id_in_src, 1, 6) = 'CHEMBL'
+    #                         order by 1"""
+
+    GENE_TO_DISEASE: str = """select distinct x.value, d.did, d.name, p.sym
+                                from disease d 
+                                join xref x on x.protein_id = d.protein_id 
+                                join protein p on p.id=x.protein_id
+                                where x.xtype = 'HGNC' 
+                                and d.dtype <> 'Expression Atlas'"""
+
+    GENE_TO_DRUG_ACTIVITY: str = """SELECT DISTINCT x.value, da.drug, da.cmpd_chemblid AS cid, 'ChEMBL' AS id_src, p.sym,
+                                da.act_value AS affinity, da.act_type AS affinity_parameter, da.action_type AS pred
+                                FROM xref x
+                                JOIN drug_activity da on x.protein_id = da.target_id
+                                JOIN protein p on p.id=x.protein_id
+                                WHERE da.cmpd_chemblid IS NOT NULL
+                                AND x.xtype='HGNC'"""
+
+    GENE_TO_CMPD_ACTIVITY: str = """SELECT DISTINCT x.value, ca.cmpd_name_in_src as drug, ca.cmpd_id_in_src as cid, catype AS id_src,
+                                ca.act_value AS affinity, ca.act_type as affinity_parameter, ca.act_type AS pred, p.sym,
+                                ca.pubmed_ids AS pubmed_ids
+                                FROM xref x
+                                JOIN cmpd_activity ca on x.protein_id = ca.target_id
+                                JOIN protein p on p.id=x.protein_id
+                                WHERE x.xtype='HGNC'"""
+
+    DRUG_ACTIVITY_TO_GENE: str = """SELECT DISTINCT da.cmpd_chemblid, da.drug as drug, x.value, p.sym, da.act_value AS affinity,
+                                    da.act_type AS affinity_parameter, da.action_type AS pred
+                                    FROM xref x
+                                    JOIN drug_activity da on da.target_id = x.protein_id
+                                    join protein p on da.target_id = p.id
+                                    WHERE x.xtype='HGNC'"""
+
+    CMPD_ACTIVITY_TO_GENE: str = """SELECT DISTINCT ca.cmpd_id_in_src as drug, x.value, p.sym, ca.act_value AS affinity, ca.act_type as affinity_parameter,
+                                    ca.act_type AS pred, ca.pubmed_ids AS pubmed_ids
+                                    FROM xref x
+                                    JOIN cmpd_activity ca on ca.target_id = x.protein_id
+                                    JOIN protein p on ca.target_id = p.id
+                                    WHERE x.xtype='HGNC'"""
+
+    DISEASE_TO_GENE: str = """select distinct x.value, d.did, d.name, p.sym
+                                from disease d 
+                                join xref x on x.protein_id = d.protein_id 
+                                join protein p on d.protein_id = p.id 
+                                where x.xtype = 'HGNC' 
+                                and d.dtype <> 'Expression Atlas'"""
+
+    # storage for cached node and edge normalizations
+    cached_node_norms: dict = {}
+    cached_edge_norms: dict = {}
+
+    # storage for nodes and edges that failed normalization
+    node_norm_failures: list = []
+    edge_norm_failures: list = []
+
+    # for tracking counts
+    total_nodes: int = 0
+    total_edges: int = 0
+
+    def __init__(self, log_file_level=logging.INFO):
+        """
+        constructor
+
+        :param log_file_level - overrides default log level
+        """
+        # was a new level specified
+        if log_file_level != logging.INFO:
+            logger.setLevel(log_file_level)
+
+        # get a connection to the PHAROS MySQL DB
+        self.db = mysql.connector.connect(host="localhost", user="root", password='TSZTVhsjmoAi9MH1n1jo', database="pharos67")
+
+    def load(self, data_file_path, out_name: str, output_mode: str = 'json') -> bool:
+        """
+        loads/parses PHAROS db data
+
+        :param data_file_path: root directory of output data files
+        :param out_name: the output name prefix of the KGX files
+        :param output_mode: the output mode (tsv or json)
+        :return: True
+        """
+        logger.info(f'PHAROSLoader - Start of PHAROS data processing.')
+
+        # open the output files and start parsing
+        with open(os.path.join(data_file_path, f'{out_name}_nodes.{output_mode}'), 'w', encoding="utf-8") as out_node_f, open(os.path.join(data_file_path, f'{out_name}_edges.{output_mode}'), 'w', encoding="utf-8") as out_edge_f:
+            # depending on the output mode, write out the node and edge data headers
+            if output_mode == 'json':
+                out_node_f.write('{"nodes":[\n')
+                out_edge_f.write('{"edges":[\n')
+            else:
+                out_node_f.write(f'id\tname\tcategory\tequivalent_identifiers\tsynonyms\n')
+                out_edge_f.write(f'id\tsubject\trelation\tedge_label\tobject\tpublications\taffinity\taffinity_parameter\tsource_database\n')
+           # parse the data
+            self.parse_data_db(out_node_f, out_edge_f, output_mode)
+
+            logger.debug(f'DB data parsing complete.')
+
+            # set the return flag
+            ret_val = True
+
+        logger.info(f'PHAROSLoader - Processing complete.')
+
+        # return the pass/fail flag to the caller
+        return ret_val
+
+    def parse_data_db(self, out_node_f, out_edge_f, output_mode: str):
+        """
+        Parses the PHAROS data to create KGX files.
+
+        :param out_edge_f: the edge file pointer
+        :param out_node_f: the node file pointer
+        :param output_mode: the output mode (tsv or json)
+        :return:
+        """
+
+        # and get a reference to the data gatherer
+        gd = GetData(logger.level)
+
+        # storage for the node and edge lists
+        node_list: list = []
+        edge_list: list = []
+
+        # get the nodes and edges for each dataset
+        #node_list = self.parse_gene_to_disease(node_list)
+        #node_list = self.parse_gene_to_drug_activity(node_list)
+        node_list = self.parse_gene_to_cmpd_activity(node_list)
+        #node_list = self.parse_drug_activity_to_gene(node_list)
+        #node_list = self.parse_cmpd_activity_to_gene(node_list)
+        #node_list = self.parse_disease_to_gene(node_list)
+
+        # normalize the group of entries on the data frame.
+        nnu = NodeNormUtils(logger.level)
+
+        # normalize the node data
+        self.node_norm_failures = nnu.normalize_node_data(node_list, cached_node_norms=self.cached_node_norms, block_size=1000)
+
+        # is there anything to do
+        if len(node_list) > 0:
+            # synonymize the nodes
+            # nnu.synomymize_node_data(node_list)
+
+            logger.debug('Creating edges.')
+
+            # create a data frame with the node list
+            df: pd.DataFrame = pd.DataFrame(node_list, columns=['grp', 'node_num', 'id', 'name', 'category', 'equivalent_identifiers', 'predicate', 'synonyms', 'relation', 'edge_label', 'pmid', 'affinity', 'affinity_parameter'])
+
+            # get the list of unique edges
+            edge_set: set = self.get_edge_set(df, output_mode)
+
+            logger.debug(f'{len(edge_set)} unique edges found, creating KGX edge file.')
+
+            # write out the edge data
+            if output_mode == 'json':
+                out_edge_f.write(',\n'.join(edge_set))
+            else:
+                out_edge_f.write('\n'.join(edge_set))
+
+            # init a set for the node de-duplication
+            final_node_set: set = set()
+
+            # write out the unique nodes
+            for idx, row in enumerate(node_list):
+                # format the output depending on the mode
+                if output_mode == 'json':
+                    # turn these into json
+                    category: str = json.dumps(row["category"].split('|'))
+                    identifiers: str = json.dumps(row["equivalent_identifiers"].split('|'))
+                    synonyms: str = json.dumps(row["synonyms"])
+
+                    # save the node
+                    final_node_set.add(f'{{"id":"{row["id"]}", "name":"{row["name"]}", "category":{category}, "equivalent_identifiers":{identifiers}, "synonyms":{synonyms}}}')
+                else:
+                    # save the node
+                    final_node_set.add(f"{row['id']}\t{row['name']}\t{row['category']}\t{row['equivalent_identifiers']}\t{row['synonyms']}")
+
+            logger.debug(f'Creating KGX node file with {len(final_node_set)} nodes.')
+
+            # write out the node data
+            if output_mode == 'json':
+                out_node_f.write(',\n'.join(final_node_set))
+            else:
+                out_node_f.write('\n'.join(final_node_set))
+        else:
+            logger.warning(f'No records found for ')
+
+        # finish off the json if we have to
+        if output_mode == 'json':
+            out_node_f.write('\n]}')
+            out_edge_f.write('\n]}')
+
+        # output the failures
+        gd.format_normalization_failures(self.node_norm_failures, self.edge_norm_failures)
+
+        logger.debug(f'PHAROS data parsing and KGX file creation complete.\n')
+
+    def parse_gene_to_disease(self, node_list: list) -> list:
+        # get the data
+        gene_to_disease: dict = self.execute_pharos_sql(self.GENE_TO_DISEASE)
+
+        # create a regex pattern to find UML nodes
+        pattern = re.compile('^C\d+$')  # pattern for umls local id
+
+        # for each item in the list
+        for item in gene_to_disease:
+            # get the pertinent info from the record
+            gene = item['value']
+            did = item['did']
+            name = item['name']
+            gene_sym = item['sym']
+
+            # move along, no disease id
+            if did is None:
+                continue
+            # if this is a UML node, create the curie
+            elif pattern.match(did):
+                did = f"UMLS:{did}"
+            # if this is a orphanet node, create the curie
+            elif did.startswith('Orphanet:'):
+                dparts = did.split(':')
+                did = 'ORPHANET:' + dparts[1]
+
+            # create the group id
+            grp: str = gene + 'WD:P2293' + did
+
+            # create the gene node and add it to the node list
+            node_list.append({'grp': grp, 'node_num': 1, 'id': gene, 'name': gene_sym, 'category': '', 'equivalent_identifiers': '', 'synonyms': []})
+
+            # create the disease node and add it to the list
+            node_list.append({'grp': grp, 'node_num': 2, 'id': did, 'name': name, 'category': '', 'equivalent_identifiers': '', 'synonyms': [], 'predicate': 'WD:P2293', 'relation': 'WD:P2293', 'edge_label': 'gene_involved', 'pmid': [], 'affinity': '', 'affinity_parameter': ''})
+
+        return node_list
+
+    def parse_gene_to_drug_activity(self, node_list: list) -> list:
+        # get the data
+        gene_to_drug_activity: dict = self.execute_pharos_sql(self.GENE_TO_DRUG_ACTIVITY)
+
+        prefixmap = {'ChEMBL': 'CHEMBL.COMPOUND', 'Guide to Pharmacology': 'gtpo'}
+
+        # for each item in the list
+        for item in gene_to_drug_activity:
+            name = item['drug']
+            gene = item['value']
+            gene_sym = item['sym']
+            chembl_id = f"{prefixmap[item['id_src']]}:{item['cid']}"
+            predicate, pmids, props = self.get_edge_props(item)
+
+            # if there were affinity properties use them
+            if len(props) == 2:
+                affinity = props['affinity']
+                affinity_parameter = props['affinity_parameter']
+            else:
+                affinity = 0
+                affinity_parameter = ''
+
+            # create the group id
+            grp: str = gene + predicate + chembl_id
+
+            # create the gene node and add it to the node list
+            node_list.append({'grp': grp, 'node_num': 1, 'id': chembl_id, 'name': name, 'category': '', 'equivalent_identifiers': '', 'synonyms': []})
+
+            # create the disease node and add it to the list
+            node_list.append({'grp': grp, 'node_num': 2, 'id': gene, 'name': gene_sym, 'category': '', 'equivalent_identifiers': '', 'synonyms': [], 'predicate': predicate, 'relation': '', 'edge_label': '', 'pmid': pmids, 'affinity': affinity, 'affinity_parameter': affinity_parameter})
+        return node_list
+
+    def parse_gene_to_cmpd_activity(self, node_list: list) -> list:
+        # get the data
+        gene_to_cmpd_activity: dict = self.execute_pharos_sql(self.GENE_TO_CMPD_ACTIVITY)
+
+        prefixmap = {'ChEMBL': 'CHEMBL.COMPOUND', 'Guide to Pharmacology': 'gtpo'}
+
+        # for each item in the list
+        for item in gene_to_cmpd_activity:
+            name = item['drug']
+            gene = item['value']
+            gene_sym = item['sym']
+            chembl_id = f"{prefixmap[item['id_src']]}:{item['cid']}"
+            predicate, pmids, props = self.get_edge_props(item)
+
+            # if there were affinity properties use them
+            if len(props) == 2:
+                affinity = props['affinity']
+                affinity_parameter = props['affinity_parameter']
+            else:
+                affinity = 0
+                affinity_parameter = ''
+
+            # create the group id
+            grp: str = gene + predicate + chembl_id
+
+            # create the gene node and add it to the node list
+            node_list.append({'grp': grp, 'node_num': 1, 'id': gene, 'name': gene_sym, 'category': '', 'equivalent_identifiers': '', 'synonyms': []})
+
+            # create the disease node and add it to the list
+            node_list.append({'grp': grp, 'node_num': 2, 'id': chembl_id, 'name': {name}, 'category': '', 'equivalent_identifiers': '', 'synonyms': [], 'predicate': predicate, 'relation': '', 'edge_label': '', 'pmid': pmids, 'affinity': affinity, 'affinity_parameter': affinity_parameter})
+
+        return node_list
+
+    def parse_drug_activity_to_gene(self, node_list: list) -> list:
+        # get the data
+        drug_activity_to_gene: dict = self.execute_pharos_sql(self.DRUG_ACTIVITY_TO_GENE)
+
+        # for each item in the list
+        for item in drug_activity_to_gene:
+            if item['cmpd_chemblid'] is None:
+                continue
+
+            name = item['drug']
+            gene = item['value']
+            gene_sym = item['sym']
+            chembl_id = 'CHEMBL.COMPOUND:' + item['cmpd_chemblid']
+            predicate, pmids, props = self.get_edge_props(item)
+
+            # if there were affinity properties use them
+            if len(props) == 2:
+                affinity = props['affinity']
+                affinity_parameter = props['affinity_parameter']
+            else:
+                affinity = 0
+                affinity_parameter = ''
+
+            # create the group id
+            grp: str = chembl_id + predicate + gene
+
+            # create the gene node and add it to the node list
+            node_list.append({'grp': grp, 'node_num': 1, 'id': chembl_id, 'name': name, 'category': '', 'equivalent_identifiers': '', 'synonyms': []})
+
+            # create the disease node and add it to the list
+            node_list.append({'grp': grp, 'node_num': 2, 'id': gene, 'name': gene_sym, 'category': '', 'equivalent_identifiers': '', 'synonyms': [], 'predicate': predicate, 'relation': '', 'edge_label': '', 'pmid': pmids, 'affinity': affinity, 'affinity_parameter': affinity_parameter})
+
+        return node_list
+
+    def parse_cmpd_activity_to_gene(self, node_list: list) -> list:
+        # get the data
+        cmpd_activity_to_gene: dict = self.execute_pharos_sql(self.CMPD_ACTIVITY_TO_GENE)
+
+        # for each item in the list
+        for item in cmpd_activity_to_gene:
+            name = item['drug']
+            gene = item['value']
+            gene_sym = item['sym']
+            chembl_id = 'CHEMBL.COMPOUND:' + item['drug']
+            predicate, pmids, props = self.get_edge_props(item)
+
+            # if there were affinity properties use them
+            if len(props) == 2:
+                affinity = props['affinity']
+                affinity_parameter = props['affinity_parameter']
+            else:
+                affinity = 0
+                affinity_parameter = ''
+
+            # create the group id
+            grp: str = chembl_id + predicate + gene
+
+            # create the gene node and add it to the node list
+            node_list.append({'grp': grp, 'node_num': 1, 'id': chembl_id, 'name': name, 'category': '', 'equivalent_identifiers': '', 'synonyms': []})
+
+            # create the disease node and add it to the list
+            node_list.append({'grp': grp, 'node_num': 2, 'id': gene, 'name': gene_sym, 'category': '', 'equivalent_identifiers': '', 'synonyms': [], 'predicate': predicate, 'relation': '', 'edge_label': '', 'pmid': pmids, 'affinity': affinity, 'affinity_parameter': affinity_parameter})
+
+        return node_list
+
+    def parse_disease_to_gene(self, node_list: list) -> list:
+        # get the data
+        disease_to_gene: dict = self.execute_pharos_sql(self.DISEASE_TO_GENE)
+
+        # create a regex pattern to find UML nodes
+        pattern = re.compile('^C\d+$')  # pattern for umls local id
+
+        # for each item in the list
+        for item in disease_to_gene:
+            # get the pertinent info from the record
+            gene = item['value']
+            did = item['did']
+            name = item['name']
+            gene_sym = item['sym']
+
+            # move along, no disease id
+            if did is None:
+                continue
+            # if this is a UML node, create the curie
+            elif pattern.match(did):
+                did = f"UMLS:{did}"
+            # if this is a orphanet node, create the curie
+            elif did.startswith('Orphanet:'):
+                dparts = did.split(':')
+                did = 'ORPHANET:' + dparts[1]
+
+            # create the group id
+            grp: str = gene + 'WD:P2293' + did
+
+            # create the disease node and add it to the list
+            node_list.append({'grp': grp, 'node_num': 1, 'id': did, 'name': name, 'category': '', 'equivalent_identifiers': '', 'synonyms': []})
+
+            # create the gene node and add it to the node list
+            node_list.append({'grp': grp, 'node_num': 2, 'id': gene, 'name': gene_sym, 'category': '', 'equivalent_identifiers': '', 'synonyms': [], 'predicate': 'WD:P2293', 'relation': 'WD:P2293', 'edge_label': 'gene_involved', 'pmid': [], 'affinity': '', 'affinity_parameter': ''})
+
+        return node_list
+
+    def get_edge_props(self, result):
+        if result['pred'] is not None and len(result['pred']) > 1:
+            rel = self.snakify(result['pred']).lower()
+        else:
+            rel = 'interacts_with'
+
+        predicate = f'GAMMA:{rel}'
+
+        if 'pubmed_ids' in result and result['pubmed_ids'] is not None:
+            pmids = [ f'PMID:{r}' for r in result['pubmed_ids'].split('|')]
+        else:
+            pmids = []
+
+        props = {}
+
+        if result['affinity'] is not None:
+            props['affinity'] = float(result['affinity'])
+            props['affinity_parameter'] = result['affinity_parameter']
+
+        return predicate, pmids, props
+
+    @staticmethod
+    def snakify(text):
+        decomma = '_'.join( text.split(','))
+        dedash = '_'.join( decomma.split('-'))
+        resu =  '_'.join( dedash.split() )
+        return resu
+
+    def execute_pharos_sql(self, sql_query: str) -> dict:
+        # get a cursor to the db
+        cursor = self.db.cursor(dictionary=True, buffered=True)
+
+        # execute the sql
+        cursor.execute(sql_query)
+
+        # get all the records
+        ret_val: dict = cursor.fetchall()
+
+        # return to the caller
+        return ret_val
+
+    def get_edge_set(self, df: pd.DataFrame, output_mode: str) -> set:
+        """
+        gets a list of edges for the data frame passed
+
+        :param df: node storage data frame
+        :param output_mode: the output mode (tsv or json)
+        :return: list of KGX ready edges
+        """
+
+        # separate the data into triplet groups
+        df_grp: pd.groupby_generic.DataFrameGroupBy = df.set_index('grp').groupby('grp')
+
+        # init a list for edge normalizations
+        edge_list: list = []
+
+        # init a set for the edges
+        edge_set: set = set()
+
+        # iterate through the groups and create the edge records.
+        for row_index, rows in df_grp:
+            # init variables for each group
+            node_1_id: str = ''
+
+            # find the node
+            for row in rows.iterrows():
+                # save the node id for the edges
+                if row[1].node_num == 1:
+                    node_1_id = row[1]['id']
+                    break
+
+            # did we find the root node
+            if node_1_id != '':
+                # now for each node
+                for row in rows.iterrows():
+                    # save the node id for the edges
+                    if row[1].node_num != 1:
+                        edge_list.append({"predicate": row[1]['predicate'], "subject": node_1_id, "relation": row[1]['relation'], "object": row[1]['id'], "edge_label": row[1]['edge_label'], "synonyms": row[1]['synonyms'], "pmid": row[1]['pmid'], "affinity":  row[1]['affinity'], "affinity_parameter":  row[1]['affinity_parameter']})
+
+        # get a reference to the edge normalizer
+        en = EdgeNormUtils(logger.level)
+
+        # normalize the edges
+        self.edge_norm_failures = en.normalize_edge_data(edge_list)
+
+        for item in edge_list:
+            # create the record ID
+            record_id: str = item["subject"] + item["relation"] + item["edge_label"] + item["object"]
+
+            # get the pubmed ids into a text csv format
+            pmids = ','.join(item["pmid"])
+
+            # depending on the output mode, create the KGX edge data for nodes 1 and 3
+            if output_mode == 'json':
+                edge_set.add(f'{{"id":"{hashlib.md5(record_id.encode("utf-8")).hexdigest()}", "subject":"{item["subject"]}", "relation":"{item["relation"]}", "object":"{item["object"]}", "edge_label":"{item["edge_label"]}", "pmid": "{pmids}", "affinity": {item["affinity"]}, "affinity_parameter": "{item["affinity_parameter"]}", "source_database":"PHAROS 6.7"}}')
+            else:
+                edge_set.add(f'{hashlib.md5(record_id.encode("utf-8")).hexdigest()}\t{item["subject"]}\t{item["relation"]}\t{item["edge_label"]}\t{item["object"]}\t{pmids}\t{item["affinity"]}\t{item["affinity_parameter"]}\tPHAROS 6.7')
+
+        logger.debug(f'{len(edge_set)} unique edges identified.')
+
+        # return the list to the caller
+        return edge_set
+
+
+if __name__ == '__main__':
+    # create a command line parser
+    ap = argparse.ArgumentParser(description='Load the PHAROS data from a MySQL DB and create KGX import files.')
+
+    # command line should be like: python loadPHAROS.py -p D:\Work\Robokop\Data_services\PHAROS_data -m json
+    ap.add_argument('-s', '--data_dir', required=True, help='The location of the output directory')
+    ap.add_argument('-m', '--out_mode', required=True, help='The output file mode (tsv or json')
+
+    # parse the arguments
+    args = vars(ap.parse_args())
+
+    # get the params
+    data_dir: str = args['data_dir']
+    out_mode: str = args['out_mode']
+
+    # get a reference to the processor
+    pdb = PHAROSLoader()
+
+    # load the data and create KGX output
+    pdb.load(data_dir, 'PHAROS', out_mode)
