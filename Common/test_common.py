@@ -4,7 +4,7 @@ import json
 import pytest
 
 from rdflib import Graph
-from Common.utils import GetData, EdgeNormUtils
+from Common.utils import GetData, EdgeNormUtils, NodeNormUtils
 
 
 def test_get_uniprot_virus_date_stamp():
@@ -107,3 +107,12 @@ def test_edge_norm():
     assert(edge_list[1]['relation'] == 'biolink:affects')
     assert(edge_list[1]['edge_label'] == 'biolink:affects')
 
+def test_get_node_synonym():
+    # get the node norm object
+    nn = NodeNormUtils()
+
+    # call to get the synonyms for this curie
+    ret_val = nn.get_node_synonyms('MONDO:0018800')
+
+    # check the count
+    assert(len(ret_val) == 7)
