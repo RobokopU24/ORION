@@ -12,7 +12,7 @@ from Common.utils import LoggingUtil
 from pathlib import Path
 
 # create a logger
-logger = LoggingUtil.init_logging("Data_services.ViralProteome.load_all", line_format='medium', log_file_path=os.path.join(Path(__file__).parents[0], 'logs'))
+logger = LoggingUtil.init_logging("Data_services.load_all", line_format='medium', log_file_path=os.path.join(Path(__file__).parents[0], 'logs'))
 
 
 if __name__ == '__main__':
@@ -32,12 +32,12 @@ if __name__ == '__main__':
     The full set of command line switches
         -p
         D:/Work/Robokop/Data_services/UniProtKB_data
-        -i
-        D:/Work/Robokop/Data_services/IntAct_data
         -r
         E:/Data_services/UniRef_data
         -f
         uniref100,uniref90,uniref50
+        -i
+        D:/Work/Robokop/Data_services/IntAct_data
         -g
         goa_human.gaf.gz
         -u
@@ -48,6 +48,8 @@ if __name__ == '__main__':
         D:/Work/Robokop/Data_services/FooDB_data
         -x
         D:/Work/Robokop/Data_services/GTEx_data
+        -a
+        D:/Work/Robokop/Data_services/PHAROS_data
         -m
         json
     """

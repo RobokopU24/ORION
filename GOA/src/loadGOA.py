@@ -12,9 +12,6 @@ from csv import reader
 from Common.utils import LoggingUtil, GetData, NodeNormUtils, EdgeNormUtils
 from pathlib import Path
 
-# create a logger
-logger = LoggingUtil.init_logging("Data_services.GOA.GOALoader", line_format='medium', log_file_path=os.path.join(Path(__file__).parents[2], 'logs'))
-
 
 # the data header columns are:
 class DATACOLS(enum.IntEnum):
@@ -45,14 +42,13 @@ class DATACOLS(enum.IntEnum):
 # Desc: Class that loads the UniProtKB GOA data and creates KGX files for importing into a Neo4j graph.
 ##############
 class GOALoader:
-    def __init__(self, log_file_level=logging.INFO):
+    def __init__(self, log_level=logging.INFO):
         """
         constructor
-        :param log_file_level - overrides default log level
+        :param log_level - overrides default log level
         """
-        # was a new level specified
-        if log_file_level != logging.INFO:
-            logger.setLevel(log_file_level)
+        # create a logger
+        self.logger = LoggingUtil.init_logging("Data_services.GOA.GOALoader", level=log_level, line_format='medium', log_file_path=os.path.join(Path(__file__).parents[2], 'logs'))
 
     def load(self, data_file_path, data_file_name: str, out_name: str, output_mode: str = 'json', test_mode: bool = False) -> bool:
         """
@@ -65,13 +61,13 @@ class GOALoader:
         :param test_mode: flag to indicate test mode
         :return: True
         """
-        logger.info(f'GOALoader - Start of GOA data processing.')
+        self.logger.info(f'GOALoader - Start of GOA data processing.')
 
         # init the return flag
         ret_val: bool = False
 
         # and get a reference to the data gatherer
-        gd = GetData(logger.level)
+        gd = GetData(self.logger.level)
 
         # do the real thing if we arent in debug mode
         if not test_mode:
@@ -99,18 +95,18 @@ class GOALoader:
                 self.parse_data_file(os.path.join(data_file_path, data_file_name), out_node_f, out_edge_f, output_mode, swiss_prots)
 
                 # do not remove the file if in debug mode
-                if logger.level != logging.DEBUG and not test_mode:
+                if self.logger.level != logging.DEBUG and not test_mode:
                     # remove the data file
                     os.remove(os.path.join(data_file_path, data_file_name))
 
-                logger.debug(f'File parsing complete.')
+                self.logger.debug(f'File parsing complete.')
 
                 # set the return flag
                 ret_val = True
         else:
-            logger.error(f'Error: Retrieving file {data_file_name} failed.')
+            self.logger.error(f'Error: Retrieving file {data_file_name} failed.')
 
-        logger.info(f'GOALoader - Processing complete.')
+        self.logger.info(f'GOALoader - Processing complete.')
 
         # return the pass/fail flag to the caller
         return ret_val
@@ -131,20 +127,20 @@ class GOALoader:
             # read the file and make the list
             node_list: list = self.get_node_list(zf, swiss_prots)
 
-            logger.debug(f'Node list loaded with {len(node_list)} entries.')
+            self.logger.debug(f'Node list loaded with {len(node_list)} entries.')
 
             # de-dupe the list
             total_nodes = [dict(t) for t in {tuple(d.items()) for d in node_list}]
 
-            logger.debug(f'Node list duplicates removed, now loaded with {len(total_nodes)} entries.')
+            self.logger.debug(f'Node list duplicates removed, now loaded with {len(total_nodes)} entries.')
 
             # normalize the group of entries on the data frame.
-            nnu = NodeNormUtils(logger.level)
+            nnu = NodeNormUtils(self.logger.level)
 
             # normalize the node data
             nnu.normalize_node_data(total_nodes)
 
-            logger.debug('Creating edges.')
+            self.logger.debug('Creating edges.')
 
             # create a data frame with the node list
             df: pd.DataFrame = pd.DataFrame(total_nodes, columns=['grp', 'node_num', 'id', 'name', 'category', 'equivalent_identifiers'])
@@ -152,7 +148,7 @@ class GOALoader:
             # get the list of unique edges
             final_edges: set = self.get_edge_set(df, output_mode)
 
-            logger.debug(f'{len(final_edges)} unique edges found, creating KGX edge file.')
+            self.logger.debug(f'{len(final_edges)} unique edges found, creating KGX edge file.')
 
             # write out the edge data
             if output_mode == 'json':
@@ -160,7 +156,7 @@ class GOALoader:
             else:
                 out_edge_f.write('\n'.join(final_edges))
 
-            logger.debug(f'De-duplicating {len(total_nodes)} nodes')
+            self.logger.debug(f'De-duplicating {len(total_nodes)} nodes')
 
             # init a set for the node de-duplication
             final_node_set: set = set()
@@ -179,7 +175,7 @@ class GOALoader:
                     # save the node
                     final_node_set.add(f"{row['id']}\t{row['name']}\t{row['category']}\t{row['equivalent_identifiers']}")
 
-            logger.debug(f'Creating KGX node file with {len(final_node_set)} nodes.')
+            self.logger.debug(f'Creating KGX node file with {len(final_node_set)} nodes.')
 
             # write out the node data
             if output_mode == 'json':
@@ -192,7 +188,7 @@ class GOALoader:
                 out_node_f.write('\n]}')
                 out_edge_f.write('\n]}')
 
-        logger.debug(f'GOA data parsing and KGX file creation complete.\n')
+        self.logger.debug(f'GOA data parsing and KGX file creation complete.\n')
 
     @staticmethod
     def get_edge_set(df: pd.DataFrame, output_mode: str) -> set:
@@ -223,7 +219,7 @@ class GOALoader:
 
             # if we dont get a pair something is odd (but not necessarily bad)
             if len(rows) != 2:
-                logger.warning(f'Warning: Mis-matched node grouping. {rows}')
+                self.logger.warning(f'Warning: Mis-matched node grouping. {rows}')
 
             # for each row in the triplet
             for row in rows.iterrows():
@@ -266,14 +262,14 @@ class GOALoader:
                 obj_node_id = node_1_id
             else:
                 valid_type = False
-                logger.warning(f'Warning: Unrecognized node 3 type for {grp}')
+                self.logger.warning(f'Warning: Unrecognized node 3 type for {grp}')
 
             # was this a good value
             if valid_type:
                 edge_list.append({"predicate": f"{predicate}", "subject": f"{src_node_id}", "relation": f"{relation}", "object": f"{obj_node_id}", "edge_label": f"{relation}"})
 
         # get a reference to the ege normalizer
-        en = EdgeNormUtils(logger.level)
+        en = EdgeNormUtils(self.logger.level)
 
         # normalize the edges
         en.normalize_edge_data(edge_list)
@@ -288,7 +284,7 @@ class GOALoader:
             else:
                 edge_set.add(f'{hashlib.md5(record_id.encode("utf-8")).hexdigest()}\t{item["subject"]}\t{item["relation"]}\t{item["edge_label"]}\t{item["object"]}\tGOA_EBI-Human')
 
-            logger.debug(f'{len(edge_set)} unique edges identified.')
+            self.logger.debug(f'{len(edge_set)} unique edges identified.')
 
         # return the list to the caller
         return edge_set
@@ -338,7 +334,7 @@ class GOALoader:
                     """ A node for the GO term GO:0004518. It should normalize, telling us the type/name. """
                     node_list.append({'grp': grp, 'node_num': 3, 'id': f'{line[DATACOLS.GO_ID.value]}', 'name': '', 'category': '', 'equivalent_identifiers': ''})
                 except Exception as e:
-                    logger.error(f'Error: Exception: {e}')
+                    self.logger.error(f'Error: Exception: {e}')
 
         # return the list to the caller
         return node_list

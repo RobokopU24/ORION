@@ -7,9 +7,6 @@ import json
 from Common.utils import LoggingUtil, GetData, NodeNormUtils, EdgeNormUtils
 from pathlib import Path
 
-# create a logger
-logger = LoggingUtil.init_logging("Data_services.FooDB.FooDBLoader", line_format='medium', log_file_path=os.path.join(Path(__file__).parents[2], 'logs'))
-
 
 ##############
 # Class: FooDB loader
@@ -31,15 +28,15 @@ class FDBLoader:
     total_nodes: int = 0
     total_edges: int = 0
 
-    def __init__(self, log_file_level=logging.INFO):
+    def __init__(self, log_level=logging.INFO):
         """
         constructor
 
-        :param log_file_level - overrides default log level
+        :param log_level - overrides default log level
         """
-        # was a new level specified
-        if log_file_level != logging.INFO:
-            logger.setLevel(log_file_level)
+
+        # create a logger
+        self.logger = LoggingUtil.init_logging("Data_services.FooDB.FooDBLoader", level=log_level, line_format='medium', log_file_path=os.path.join(Path(__file__).parents[2], 'logs'))
 
     def load(self, data_file_path, out_name: str, output_mode: str = 'json') -> bool:
         """
@@ -50,7 +47,7 @@ class FDBLoader:
         :param output_mode: the output mode (tsv or json)
         :return: True
         """
-        logger.info(f'FooDBLoader - Start of FooDB data processing.')
+        self.logger.info(f'FooDBLoader - Start of FooDB data processing.')
 
         # open the output files and start parsing
         with open(os.path.join(data_file_path, f'{out_name}_nodes.{output_mode}'), 'w', encoding="utf-8") as out_node_f, open(os.path.join(data_file_path, f'{out_name}_edges.{output_mode}'), 'w', encoding="utf-8") as out_edge_f:
@@ -65,12 +62,12 @@ class FDBLoader:
             # parse the data
             self.parse_data_file(data_file_path, out_node_f, out_edge_f, output_mode)
 
-            logger.debug(f'File parsing complete.')
+            self.logger.debug(f'File parsing complete.')
 
             # set the return flag
             ret_val = True
 
-        logger.info(f'FooDBLoader - Processing complete.')
+        self.logger.info(f'FooDBLoader - Processing complete.')
 
         # return the pass/fail flag to the caller
         return ret_val
@@ -87,7 +84,7 @@ class FDBLoader:
         """
 
         # and get a reference to the data gatherer
-        gd = GetData(logger.level)
+        gd = GetData(self.logger.level)
 
         # storage for the nodes
         node_list: list = []
@@ -114,7 +111,7 @@ class FDBLoader:
             food_id = food_dict["id"]
             food_name = food_dict["name_scientific"]
 
-            logger.debug(f'Working food id: {food_id}, name: {food_name}')
+            self.logger.debug(f'Working food id: {food_id}, name: {food_name}')
 
             # add the food node
             compound_node_list.append({'grp': f'{food_id}', 'node_num': 1, 'id': f'NCBITaxon:{food_dict["ncbi_taxonomy_id"]}', 'name': f'{food_name}', 'category': '', 'equivalent_identifiers': '', 'foodb_id': f'{food_id}', 'content_type': 'food', 'nutrient': 'false'})
@@ -162,10 +159,10 @@ class FDBLoader:
 
                 # was the compound found
                 if not found:
-                    logger.error(f"Content {content['source_type']} not found. Food: {food_name}, content id: {content['id']}, content source id: {content['source_id']}")
+                    self.logger.error(f"Content {content['source_type']} not found. Food: {food_name}, content id: {content['id']}, content source id: {content['source_id']}")
 
         # normalize the group of entries on the data frame.
-        nnu = NodeNormUtils(logger.level)
+        nnu = NodeNormUtils(self.logger.level)
 
         # were there any compound records
         if len(compound_node_list) > 0:
@@ -175,18 +172,18 @@ class FDBLoader:
             # save the normalized data
             node_list.extend(compound_node_list)
         else:
-            logger.warning(f'No compound records found for food {food_id}, name: {food_name}')
+            self.logger.warning(f'No compound records found for food {food_id}, name: {food_name}')
 
         # were there nutrient records
         if len(nutrient_node_list) > 0:
             # extend the nutrient data
             node_list.extend(nutrient_node_list)
         else:
-            logger.warning(f'No nutrient records found for food {food_id}, name: {food_name}')
+            self.logger.warning(f'No nutrient records found for food {food_id}, name: {food_name}')
 
         # is there anything to do
         if len(node_list) > 0:
-            logger.debug('Creating edges.')
+            self.logger.debug('Creating edges.')
 
             # create a data frame with the node list
             df: pd.DataFrame = pd.DataFrame(node_list, columns=['grp', 'node_num', 'id', 'name', 'category', 'equivalent_identifiers', 'foodb_id', 'content_type', 'nutrient', 'unit', 'amount'])
@@ -194,7 +191,7 @@ class FDBLoader:
             # get the list of unique edges
             edge_set: set = self.get_edge_set(df, output_mode)
 
-            logger.debug(f'{len(edge_set)} unique edges found, creating KGX edge file.')
+            self.logger.debug(f'{len(edge_set)} unique edges found, creating KGX edge file.')
 
             # write out the edge data
             if output_mode == 'json':
@@ -220,7 +217,7 @@ class FDBLoader:
                     # save the node
                     final_node_set.add(f"{row['id']}\t{row['name']}\t{row['category']}\t{row['equivalent_identifiers']}\t{row['foodb_id']}\t{row['content_type']}\t{row['nutrient']}")
 
-            logger.debug(f'Creating KGX node file with {len(final_node_set)} nodes.')
+            self.logger.debug(f'Creating KGX node file with {len(final_node_set)} nodes.')
 
             # write out the node data
             if output_mode == 'json':
@@ -228,7 +225,7 @@ class FDBLoader:
             else:
                 out_node_f.write('\n'.join(final_node_set))
         else:
-            logger.warning(f'No records found for food {food_id}, name: {food_name}')
+            self.logger.warning(f'No records found for food {food_id}, name: {food_name}')
 
         # finish off the json if we have to
         if output_mode == 'json':
@@ -238,7 +235,7 @@ class FDBLoader:
         # output the failures
         gd.format_normalization_failures(self.node_norm_failures, self.edge_norm_failures)
 
-        logger.debug(f'FooDB data parsing and KGX file creation complete.\n')
+        self.logger.debug(f'FooDB data parsing and KGX file creation complete.\n')
 
     @staticmethod
     def get_list_records_by_id(data_list: list, data_key: str, search_id: str) -> iter:
@@ -355,7 +352,7 @@ class FDBLoader:
                         edge_list.append({"predicate": "RO:0001019", "subject": f"{node_1_id}", "relation": "", "object": f"{row[1]['id']}", "edge_label": "biolink:contains", "unit": f"{row[1]['unit']}", "amount": f"{row[1]['amount']}"})
 
         # get a reference to the edge normalizer
-        en = EdgeNormUtils(logger.level)
+        en = EdgeNormUtils(self.logger.level)
 
         # normalize the edges
         self.edge_norm_failures = en.normalize_edge_data(edge_list)
@@ -370,7 +367,7 @@ class FDBLoader:
             else:
                 edge_set.add(f'{hashlib.md5(record_id.encode("utf-8")).hexdigest()}\t{item["subject"]}\t{item["relation"]}\t{item["edge_label"]}\t{item["object"]}\t{item["unit"]}\t{item["amount"]}\tFooDB')
 
-        logger.debug(f'{len(edge_set)} unique edges identified.')
+        self.logger.debug(f'{len(edge_set)} unique edges identified.')
 
         # return the list to the caller
         return edge_set

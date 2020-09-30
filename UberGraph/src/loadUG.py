@@ -12,9 +12,6 @@ from operator import itemgetter
 from Common.utils import LoggingUtil, NodeNormUtils, DatasetDescription, EdgeNormUtils, GetData
 from pathlib import Path
 
-# create a logger
-logger = LoggingUtil.init_logging("Data_services.UberGraph.UGLoader", line_format='medium', log_file_path=os.path.join(Path(__file__).parents[2], 'logs'))
-
 
 ##############
 # Class: UberGraph data loader
@@ -40,14 +37,13 @@ class UGLoader:
     final_node_set: set = set()
     final_edge_set: set = set()
 
-    def __init__(self, log_file_level=logging.INFO):
+    def __init__(self, log_level=logging.INFO):
         """
         constructor
-        :param log_file_level - overrides default log level
+        :param log_level - overrides default log level
         """
-        # was a new level specified
-        if log_file_level != logging.INFO:
-            logger.setLevel(log_file_level)
+        # create a logger
+        self.logger = LoggingUtil.init_logging("Data_services.UberGraph.UGLoader", level=log_level, line_format='medium', log_file_path=os.path.join(Path(__file__).parents[2], 'logs'))
 
     # init the node and edge data arrays
     def load(self, data_file_path: str, data_file_names: str, output_mode: str = 'json', file_size: int = 150000, test_mode: bool = False):
@@ -61,7 +57,7 @@ class UGLoader:
         :param test_mode: sets the usage of using a test data file
         :return: None
         """
-        logger.info(f'UGLoader - Start of UberGraph data processing.')
+        self.logger.info(f'UGLoader - Start of UberGraph data processing.')
 
         # split the input file names
         file_names = data_file_names.split(',')
@@ -85,13 +81,13 @@ class UGLoader:
                     out_node_f.write(f'id\tname\tcategory\tequivalent_identifiers\n')
                     out_edge_f.write(f'id\tsubject\trelation\tedge_label\tobject\tsource_database\n')
 
-                logger.info(f'Splitting UberGraph data file: {file_name}. {file_size} records per file + remainder')
+                self.logger.info(f'Splitting UberGraph data file: {file_name}. {file_size} records per file + remainder')
 
                 # parse the data
                 split_files = self.parse_data_file(data_file_path, file_name, out_node_f, out_edge_f, output_mode, file_size)
 
             # do not remove the file if in debug mode
-            if logger.level != logging.DEBUG and not test_mode:
+            if self.logger.level != logging.DEBUG and not test_mode:
                 # remove the data file
                 os.remove(os.path.join(data_file_path, file_name))
 
@@ -99,7 +95,7 @@ class UGLoader:
                 for file in split_files:
                     os.remove(file)
 
-        logger.info(f'UGLoader - Processing complete.')
+        self.logger.info(f'UGLoader - Processing complete.')
 
     def parse_data_file(self, data_file_path: str, data_file_name: str, out_node_f, out_edge_f, output_mode: str, block_size: int) -> list:
         """
@@ -115,7 +111,7 @@ class UGLoader:
         """
 
         # get a reference to the data handler object
-        gd = GetData(logger.level)
+        gd = GetData(self.logger.level)
 
         # storage for the nodes and edges
         node_list: list = []
@@ -156,7 +152,7 @@ class UGLoader:
                     except Exception as e:
                         # save it anyway
                         val = n
-                        logger.warning(f'Exception parsing RDF qname {val}. {e}')
+                        self.logger.warning(f'Exception parsing RDF qname {val}. {e}')
 
                     # add it to the group
                     triple.append(val)
@@ -172,7 +168,7 @@ class UGLoader:
             # write out any remaining data
             self.write_out_data(node_list, edge_list, output_mode, 'UberGraph ' + data_file_name.split('.')[0])
 
-            logger.debug(f'Loading complete for file {file.split(".")[2]} of {len(split_files)} in {round(time.time() - tm_start, 0)} seconds.')
+            self.logger.debug(f'Loading complete for file {file.split(".")[2]} of {len(split_files)} in {round(time.time() - tm_start, 0)} seconds.')
 
         # write out the node data
         if output_mode == 'json':
@@ -212,10 +208,10 @@ class UGLoader:
         """
 
         # get a reference to the node and edge normalization classes
-        en = EdgeNormUtils(logger.level)
-        nn = NodeNormUtils(logger.level)
+        en = EdgeNormUtils(self.logger.level)
+        nn = NodeNormUtils(self.logger.level)
 
-        logger.debug(f'Normalizing data.')
+        self.logger.debug(f'Normalizing data.')
 
         # normalize the edges
         failures: list = en.normalize_edge_data(edge_list, self.cached_edge_norms, block_size=1000)
@@ -229,7 +225,7 @@ class UGLoader:
         # save the node failures
         self.node_norm_failures.extend(failures)
 
-        logger.debug('Writing out data...')
+        self.logger.debug('Writing out data...')
 
         # write out the edges
         self.write_edge_data(node_list, edge_list, output_mode, data_source_name)
@@ -241,7 +237,7 @@ class UGLoader:
         new_df = df.drop(['grp', 'node_num'], axis=1)
         new_df = new_df.drop_duplicates(keep='first')
 
-        logger.debug(f'{len(new_df.index)} nodes found.')
+        self.logger.debug(f'{len(new_df.index)} nodes found.')
 
         # write out the unique nodes
         for item in new_df.iterrows():
@@ -266,7 +262,7 @@ class UGLoader:
         node_list.clear()
         edge_list.clear()
 
-        logger.debug('Writing out to data file complete.')
+        self.logger.debug('Writing out to data file complete.')
 
     def write_edge_data(self, node_list: list, edge_list: list, output_mode: str, data_source_name: str):
         """
@@ -279,7 +275,7 @@ class UGLoader:
         :return: Nothing
         """
 
-        logger.debug(f'Creating edges for {len(node_list)} nodes.')
+        self.logger.debug(f'Creating edges for {len(node_list)} nodes.')
 
         # init interaction group detection
         cur_grp_name: str = ''
@@ -323,7 +319,7 @@ class UGLoader:
 
             # if we didnt get a pair then we cant create an edge
             if len(grp_list) > 2:
-                logger.info(f'Nodes in group > 2 {cur_grp_name}')
+                self.logger.info(f'Nodes in group > 2 {cur_grp_name}')
             elif len(grp_list) < 2:
                 # insure we dont overrun the list
                 if node_idx >= node_count:
@@ -353,7 +349,7 @@ class UGLoader:
                     # get the object node id
                     object_node_id = grp_list[grp_idx]['id']
                 else:
-                    logger.error(f'Unknown node number: {grp_list[grp_idx]["node_num"]}')
+                    self.logger.error(f'Unknown node number: {grp_list[grp_idx]["node_num"]}')
 
                 # goto the next node in the group
                 grp_idx += 1
@@ -372,7 +368,7 @@ class UGLoader:
                 # increment the edge count
                 self.total_edges += 1
             else:
-                logger.debug(f'Node or edge relationship missing: {grp}. ({source_node_id})-[{edge_relation}]-({object_node_id})')
+                self.logger.debug(f'Node or edge relationship missing: {grp}. ({source_node_id})-[{edge_relation}]-({object_node_id})')
 
             # insure we dont overrun the list
             if node_idx >= node_count:
@@ -381,7 +377,7 @@ class UGLoader:
             # save the next interaction name
             cur_grp_name = sorted_nodes[node_idx]['grp']
 
-        logger.debug(f'{node_idx} edges created.')
+        self.logger.debug(f'{node_idx} edges created.')
 
     @staticmethod
     def get_dataset_provenance(data_path: str, data_prov: list, file_name: str):

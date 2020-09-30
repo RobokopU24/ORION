@@ -13,9 +13,6 @@ from csv import reader
 from Common.utils import LoggingUtil, GetData, DatasetDescription, EdgeNormUtils
 from pathlib import Path
 
-# create a logger
-logger = LoggingUtil.init_logging("Data_services.ViralProteome.VPLoader", line_format='medium', log_file_path=os.path.join(Path(__file__).parents[2], 'logs'))
-
 
 # the data header columns are:
 class DATACOLS(enum.IntEnum):
@@ -50,14 +47,13 @@ class VPLoader:
     TYPE_BACTERIA: str = '0'
     TYPE_VIRUS: str = '9'
 
-    def __init__(self, log_file_level=logging.INFO):
+    def __init__(self, log_level=logging.INFO):
         """
         constructor
-        :param log_file_level - overrides default log level
+        :param log_level - overrides default log level
         """
-        # was a new level specified
-        if log_file_level != logging.INFO:
-            logger.setLevel(log_file_level)
+        # create a logger
+        self.logger = LoggingUtil.init_logging("Data_services.ViralProteome.VPLoader", level=log_level, line_format='medium', log_file_path=os.path.join(Path(__file__).parents[2], 'logs'))
 
     def load(self, data_path: str, out_name: str, output_mode: str = 'json', test_mode: bool = False):
         """
@@ -69,12 +65,12 @@ class VPLoader:
         :param test_mode: flag to signify test mode
         :return: True
         """
-        logger.info(f'VPLoader - Start of viral proteome data processing.')
+        self.logger.info(f'VPLoader - Start of viral proteome data processing.')
 
         # are we in test mode
         if not test_mode:
             # and get a reference to the data gatherer
-            gd = GetData(logger.level)
+            gd = GetData(self.logger.level)
 
             # get the list of target taxa
             target_taxa_set: set = gd.get_ncbi_taxon_id_set(data_path, self.TYPE_VIRUS)
@@ -115,7 +111,7 @@ class VPLoader:
                 total_nodes: list = []
 
                 # get the edge normalization object
-                en = EdgeNormUtils(logger.level)
+                en = EdgeNormUtils(self.logger.level)
 
                 # process each file
                 for f in file_list:
@@ -124,7 +120,7 @@ class VPLoader:
                         # increment the file counter
                         file_counter += 1
 
-                        logger.debug(f'Parsing file number {file_counter}, {f[:-1]}.')
+                        self.logger.debug(f'Parsing file number {file_counter}, {f[:-1]}.')
 
                         # read the file and make the list
                         node_list: list = self.get_node_list(fp)
@@ -135,12 +131,12 @@ class VPLoader:
                 # de-dupe the list
                 total_nodes = [dict(t) for t in {tuple(d.items()) for d in total_nodes}]
 
-                logger.debug(f'Node list loaded with {len(total_nodes)} entries.')
+                self.logger.debug(f'Node list loaded with {len(total_nodes)} entries.')
 
                 # normalize the group of entries on the data frame.
                 self.normalize_node_data(total_nodes)
 
-                logger.debug('Creating edges.')
+                self.logger.debug('Creating edges.')
 
                 # create a data frame with the node list
                 df: pd.DataFrame = pd.DataFrame(total_nodes, columns=['grp', 'node_num', 'id', 'name', 'category', 'equivalent_identifiers'])
@@ -154,7 +150,7 @@ class VPLoader:
                 # get the unique edge data to write to the file
                 final_edge_set: set = self.get_edge_set(edge_list, output_mode)
 
-                logger.debug(f'{len(edge_list)} edges found. De-duplicating {len(total_nodes)} nodes.')
+                self.logger.debug(f'{len(edge_list)} edges found. De-duplicating {len(total_nodes)} nodes.')
 
                 # init a set for the node de-duplication
                 final_node_set: set = set()
@@ -171,7 +167,7 @@ class VPLoader:
                     else:
                         final_node_set.add(f"{row['id']}\t{row['name']}\t{row['category']}\t{row['equivalent_identifiers']}")
 
-                logger.debug(f'Creating KGX node file with {len(final_node_set)} nodes.')
+                self.logger.debug(f'Creating KGX node file with {len(final_node_set)} nodes.')
 
                 # write out the node data
                 if output_mode == 'json':
@@ -194,9 +190,9 @@ class VPLoader:
                 # if not test_mode:
                 #     shutil.rmtree(goa_data_dir)
 
-                logger.info(f'VPLoader - Processing complete.')
+                self.logger.info(f'VPLoader - Processing complete.')
         else:
-            logger.error('Error: Did not receive all the UniProtKB GOA files.')
+            self.logger.error('Error: Did not receive all the UniProtKB GOA files.')
 
         # get/KGX save the dataset provenance information node
         self.get_dataset_provenance(data_path)
@@ -220,10 +216,9 @@ class VPLoader:
         # return the edge set to the caller
         return edge_set
 
-    @staticmethod
-    def get_dataset_provenance(data_path: str):
+    def get_dataset_provenance(self, data_path: str):
         # get the util object for getting data
-        gd: GetData = GetData(logger.level)
+        gd: GetData = GetData(self.logger.level)
 
         # get the current time
         now: datetime = datetime.now()
@@ -240,8 +235,7 @@ class VPLoader:
         # create the data description KGX file
         DatasetDescription.create_description(data_path, ds, 'Viral_proteome')
 
-    @staticmethod
-    def get_edge_list(df) -> list:
+    def get_edge_list(self, df) -> list:
         """
         gets a list of edges for the data frame passed
 
@@ -265,7 +259,7 @@ class VPLoader:
 
             # if we dont get a set of 3 something is odd (but not necessarily bad)
             if len(rows) != 3:
-                logger.warning(f'Warning: Mis-matched node grouping. {rows}')
+                self.logger.warning(f'Warning: Mis-matched node grouping. {rows}')
 
             # for each row in the triplet
             for row in rows.iterrows():
@@ -317,20 +311,19 @@ class VPLoader:
                 obj_node_id = node_1_id
             else:
                 valid_type = False
-                logger.warning(f'Warning: Unrecognized node 3 type for {node_3_id}')
+                self.logger.warning(f'Warning: Unrecognized node 3 type for {node_3_id}')
 
             # was this a good value
             if valid_type:
                 # create the KGX edge data for nodes 1 and 3
                 edge_list.append({"predicate": predicate, "subject": src_node_id, "relation": relation, "object": obj_node_id, "edge_label": label})
 
-        logger.debug(f'{len(edge_list)} edges identified.')
+        self.logger.debug(f'{len(edge_list)} edges identified.')
 
         # return the list to the caller
         return edge_list
 
-    @staticmethod
-    def get_node_list(fp) -> list:
+    def get_node_list(self, fp) -> list:
         """ loads the nodes from the file handle passed
 
         :param fp: open file pointer
@@ -381,13 +374,12 @@ class VPLoader:
                 """ A node for the GO term GO:0004518. It should normalize, telling us the type / name. """
                 node_list.append({'grp': grp, 'node_num': 3, 'id': f'{line[DATACOLS.GO_ID.value]}', 'name': '', 'category': '', 'equivalent_identifiers': ''})
             except Exception as e:
-                logger.error(f'Error: Exception: {e}')
+                self.logger.error(f'Error: Exception: {e}')
 
         # return the list to the caller
         return node_list
 
-    @staticmethod
-    def normalize_node_data(node_list: list) -> list:
+    def normalize_node_data(self, node_list: list) -> list:
         """
         This method calls the NodeNormalization web service to get the normalized identifier and name of the chemical substance node.
         the data comes in as a grouped data frame and we will normalize the node_2 and node_3 groups.
@@ -429,7 +421,7 @@ class VPLoader:
         # get the last index of the list
         last_index: int = len(to_normalize)
 
-        logger.debug(f'{last_index} unique nodes will be normalized.')
+        self.logger.debug(f'{last_index} unique nodes will be normalized.')
 
         # grab chunks of the data frame
         while True:
@@ -441,7 +433,7 @@ class VPLoader:
                 if end_index >= last_index:
                     end_index = last_index
 
-                logger.debug(f'Working block indexes {start_index} to {end_index} of {last_index}.')
+                self.logger.debug(f'Working block indexes {start_index} to {end_index} of {last_index}.')
 
                 # collect a slice of records from the data frame
                 data_chunk: list = to_normalize[start_index: end_index]
@@ -461,7 +453,7 @@ class VPLoader:
                     cached_node_norms = merged
                 else:
                     # the 404 error that is trapped here means that the entire list of nodes didnt get normalized.
-                    logger.debug(f'response code: {resp.status_code}')
+                    self.logger.debug(f'response code: {resp.status_code}')
 
                     # since they all failed to normalize add to the list so we dont try them again
                     for item in data_chunk:
@@ -499,7 +491,7 @@ class VPLoader:
                     # find the id and replace it with the normalized value
                     node_list[node_idx]['id'] = cached_node_norms[rv['id']]['id']['identifier']
                 else:
-                    logger.debug(f"{rv['id']} has no normalized value")
+                    self.logger.debug(f"{rv['id']} has no normalized value")
 
             # go to the next index
             node_idx += 1

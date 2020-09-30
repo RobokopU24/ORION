@@ -14,9 +14,6 @@ from zipfile import ZipFile
 from Common.utils import LoggingUtil, GetData, DatasetDescription, EdgeNormUtils
 from pathlib import Path
 
-# create a logger
-logger = LoggingUtil.init_logging("Data_services.IntAct.IALoader", line_format='medium', log_file_path=os.path.join(Path(__file__).parents[2], 'logs'))
-
 
 # data column enumerators
 class DataCols(enum.IntEnum):
@@ -79,14 +76,13 @@ class IALoader:
     # storage for experiment groups to write to file.
     experiment_grp_list: list = []
 
-    def __init__(self, log_file_level=logging.INFO):
+    def __init__(self, log_level=logging.INFO):
         """
         constructor
-        :param log_file_level - overrides default log level
+        :param log_level - overrides default log level
         """
-        # was a new level specified
-        if log_file_level != logging.INFO:
-            logger.setLevel(log_file_level)
+        # create a logger
+        self.logger = LoggingUtil.init_logging("Data_services.IntAct.IALoader", level=log_level, line_format='medium', log_file_path=os.path.join(Path(__file__).parents[2], 'logs'))
 
     def load(self, data_file_path: str, out_name: str, output_mode: str = 'json', test_mode: bool = False):
         """
@@ -98,13 +94,13 @@ class IALoader:
         :param test_mode: sets the usage of using a test data files
         :return: None
         """
-        logger.info(f'IALoader - Start of IntAct data processing.')
+        self.logger.info(f'IALoader - Start of IntAct data processing.')
 
         # assign the data file name
         data_file_name: str = 'intact.zip'
 
         # get a reference to the data gathering class
-        gd = GetData(logger.level)
+        gd = GetData(self.logger.level)
 
         # do the real thing if we arent in debug mode
         if not test_mode:
@@ -114,7 +110,7 @@ class IALoader:
 
         # get the intact archive
         if file_count == 1:
-            logger.debug(f'{data_file_name} archive retrieved. Parsing IntAct data.')
+            self. logger.debug(f'{data_file_name} archive retrieved. Parsing IntAct data.')
 
             with open(os.path.join(data_file_path, f'{out_name}_nodes.{output_mode}'), 'w', encoding="utf-8") as out_node_f, open(os.path.join(data_file_path, f'{out_name}_edges.{output_mode}'), 'w', encoding="utf-8") as out_edge_f:
                 # write out the node and edge data headers based on the output mode
@@ -133,11 +129,11 @@ class IALoader:
             #     # remove the data file
             #     os.remove(os.path.join(data_file_path, data_file_name))
 
-            logger.debug(f'File parsing complete.')
+            self.logger.debug(f'File parsing complete.')
         else:
-            logger.error(f'Error: Retrieving IntAct archive failed.')
+            self.logger.error(f'Error: Retrieving IntAct archive failed.')
 
-        logger.info(f'IALoader - Processing complete.')
+        self.logger.info(f'IALoader - Processing complete.')
 
     def parse_data_file(self, data_file_path: str, data_file_name: str, out_node_f, out_edge_f, output_mode, test_mode: bool = False):
         """
@@ -230,12 +226,12 @@ class IALoader:
 
                         # output a status indicator
                         if interaction_counter % 250000 == 0:
-                            logger.debug(f'Completed {interaction_counter} interactions.')
+                            self.logger.debug(f'Completed {interaction_counter} interactions.')
 
             # save any remainders
             if len(experiment_grp) > 0:
                 self.write_out_data(out_node_f, out_edge_f, output_mode, test_mode)
-                logger.debug(f'Processing completed. {interaction_counter} interactions processed.')
+                self.logger.debug(f'Processing completed. {interaction_counter} interactions processed.')
 
             # if we are in json output mode finish off the file
             if output_mode == 'json':
@@ -259,7 +255,7 @@ class IALoader:
         :return:
         """
 
-        logger.debug('write_out_data() start.')
+        self.logger.debug('write_out_data() start.')
 
         # node normalize the data if we are not in test mode
         if not test_mode:
@@ -323,7 +319,7 @@ class IALoader:
         else:
             out_node_f.write('\n'.join(final_node_set))
 
-        logger.debug("write_out_data() end.")
+        self.logger.debug("write_out_data() end.")
 
     def normalize_node_data(self, node_list: list) -> list:
         """
@@ -377,17 +373,17 @@ class IALoader:
                 if end_index >= last_index:
                     end_index = last_index
 
-                logger.debug(f'Working block indexes {start_index} to {end_index} of {last_index}.')
+                self.logger.debug(f'Working block indexes {start_index} to {end_index} of {last_index}.')
 
                 # collect a slice of records from the data frame
                 data_chunk: list = to_normalize[start_index: end_index]
 
-                logger.debug(f'Calling node norm service.')
+                self.logger.debug(f'Calling node norm service.')
 
                 # get the data
                 resp: requests.models.Response = requests.get('https://nodenormalization-sri.renci.org/get_normalized_nodes?curie=' + '&curie='.join(data_chunk))
 
-                logger.debug(f'End calling node norm service.')
+                self.logger.debug(f'End calling node norm service.')
 
                 # did we get a good status code
                 if resp.status_code == 200:
@@ -401,7 +397,7 @@ class IALoader:
                     self.cached_node_norms = merged
                 else:
                     # the 404 error that is trapped here means that the entire list of nodes didnt get normalized.
-                    logger.debug(f'response code: {resp.status_code}')
+                    self.logger.debug(f'response code: {resp.status_code}')
 
                     # since they all failed to normalize add to the list so we dont try them again
                     for item in data_chunk:
@@ -462,7 +458,7 @@ class IALoader:
                         node_list[node_idx][prefix + 'category_' + suffix] = 'gene|gene_or_gene_product|macromolecular_machine|genomic_entity|molecular_entity|biological_entity|named_thing'
                         node_list[node_idx][prefix + 'equivalent_identifiers_' + suffix] = node_list[node_idx][prefix + suffix]
 
-                        logger.error(f'Error: Finding node normalization for {node_list[node_idx][prefix + suffix]} failed.')
+                        self.logger.error(f'Error: Finding node normalization for {node_list[node_idx][prefix + suffix]} failed.')
 
             # go to the next index
             node_idx += 1
@@ -480,7 +476,7 @@ class IALoader:
         :return: nothing
         """
 
-        logger.debug(f'Creating edges for {len(experiment_grp)} experiment groups.')
+        self.logger.debug(f'Creating edges for {len(experiment_grp)} experiment groups.')
 
         # init interaction group detection
         cur_interaction_name: str = ''
@@ -494,7 +490,7 @@ class IALoader:
         node_count = len(sorted_interactions)
 
         # get a reference to the edge normalizer
-        en = EdgeNormUtils(logger.level)
+        en = EdgeNormUtils(self.logger.level)
 
         # init a edge list
         edge_list: list = []
@@ -602,7 +598,7 @@ class IALoader:
         edge_list.clear()
         edge_set.clear()
 
-        logger.debug(f'Entry member edges created for {node_idx} node(s).')
+        self.logger.debug(f'Entry member edges created for {node_idx} node(s).')
 
     @staticmethod
     def find_detection_method(element: str, until: str = '"') -> str:

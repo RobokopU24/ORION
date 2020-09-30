@@ -11,9 +11,6 @@ from xml.etree import ElementTree as ETree
 from Common.utils import LoggingUtil, GetData, EdgeNormUtils
 from pathlib import Path
 
-# create a logger
-logger = LoggingUtil.init_logging("Data_services.ViralProteome.UniRefSimLoader", line_format='medium', log_file_path=os.path.join(Path(__file__).parents[2], 'logs'))
-
 
 ##############
 # Class: UniRef similarities loader
@@ -30,16 +27,15 @@ class UniRefSimLoader:
     cached_node_norms: dict = {}
     cached_edge_norms: dict = {}
 
-    def __init__(self, log_file_level=logging.INFO):
+    def __init__(self, log_level=logging.INFO):
         """
         constructor
-        :param log_file_level - overrides default log level
+        :param log_level - overrides default log level
         """
-        # was a new level specified
-        if log_file_level != logging.INFO:
-            logger.setLevel(log_file_level)
+        # create a logger
+        self.logger = LoggingUtil.init_logging("Data_services.ViralProteome.UniRefSimLoader", level=log_level, line_format='medium', log_file_path=os.path.join(Path(__file__).parents[2], 'logs'))
 
-    def load(self, data_dir: str, in_file_names: list, taxon_index_file: str, output_mode: str = 'json', block_size: int = 5000, test_mode: bool = False):
+    def load(self, data_dir: str, in_file_names: list, taxon_index_file: str, output_mode: str = 'json', test_mode: bool = False):
         """
         parses the UniRef data files gathered from ftp://ftp.uniprot.org/pub/databases/uniprot/uniref/ to
         create standard KGX files to import thr data into a graph database
@@ -48,15 +44,14 @@ class UniRefSimLoader:
         :param in_file_names: the UniRef file to work
         :param taxon_index_file: the list of UniRef virus file indexes
         :param output_mode: the output mode (tsv or json)
-        :param block_size: the number of nodes collected to trigger writing KGX data to file
         :param test_mode: debug mode flag to indicate use of smaller input files
         :return
         """
 
-        logger.info(f'UniRefSimLoader - Start of UniRef data processing.')
+        self.logger.info(f'UniRefSimLoader - Start of UniRef data processing.')
 
         # get a reference to the get data util class
-        gd = GetData(logger.level)
+        gd = GetData(self.logger.level)
 
         # are we in test mode
         if not test_mode:
@@ -68,7 +63,7 @@ class UniRefSimLoader:
 
         # for each UniRef file to process
         for f in in_file_names:
-            logger.debug(f'Processing {f}.')
+            self.logger.debug(f'Processing {f}.')
 
             # process the file
             with open(os.path.join(data_dir, f'{f}_Virus_nodes.{output_mode}'), 'w', encoding="utf-8") as out_node_f, open(os.path.join(data_dir, f'{f}_Virus_edges.{output_mode}'), 'w', encoding="utf-8") as out_edge_f:
@@ -87,11 +82,11 @@ class UniRefSimLoader:
                     full_file = f + '.xml'
 
                 # read the file and make the list
-                self.parse_data_file(os.path.join(data_dir, full_file), os.path.join(data_dir, f'{f}_{taxon_index_file}'), target_taxon_set, out_node_f, out_edge_f, output_mode, block_size)
+                self.parse_data_file(os.path.join(data_dir, full_file), os.path.join(data_dir, f'{f}_{taxon_index_file}'), target_taxon_set, out_node_f, out_edge_f, output_mode)
 
-                logger.info(f'UniRefSimLoader - {f} Processing complete.')
+                self.logger.info(f'UniRefSimLoader - {f} Processing complete.')
 
-    def parse_data_file(self, uniref_infile_path: str, index_file_path: str, target_taxa: set, out_node_f, out_edge_f, output_mode, block_size: int):
+    def parse_data_file(self, uniref_infile_path: str, index_file_path: str, target_taxa: set, out_node_f, out_edge_f, output_mode):
         """
         Parses the data file for graph nodes/edges and writes them to the KGX csv files.
 
@@ -103,7 +98,6 @@ class UniRefSimLoader:
         :param out_node_f: the node file pointer
         :param out_edge_f: the edge file pointer
         :param output_mode: the output mode (tsv or json)
-        :param block_size: the number of graph nodes created that triggers writing them to KGX the data files
         :return: ret_val: the node list
         """
         # init the array that will contain nodes to write to KGX files
@@ -112,7 +106,7 @@ class UniRefSimLoader:
         # uniref entry index counter
         index_counter: int = 0
 
-        logger.debug(f'Parsing XML data file start.')
+        self.logger.debug(f'Parsing XML data file start.')
 
         # open the taxon file indexes and the uniref data file
         with open(index_file_path, 'r') as index_fp, open(uniref_infile_path, 'rb+') as uniref_fp:
@@ -123,7 +117,7 @@ class UniRefSimLoader:
 
                 # output a status indicator
                 if index_counter % 500000 == 0:
-                    logger.debug(f'Completed {index_counter} taxa.')
+                    self.logger.debug(f'Completed {index_counter} taxa.')
 
                 # start looking a bit before the location grep found
                 taxon_index = int(line.split(':')[0]) - 150
@@ -136,18 +130,7 @@ class UniRefSimLoader:
                     # call to get an entry and enter it into the node list
                     self.capture_entry_data(entry_element, node_list, target_taxa)
                 else:
-                    logger.error(f'Error: Entry node for {line} at line number {index_counter} invalid.')
-
-                # is it time to write out the data we have collected so far
-                # if len(node_list) > block_size:
-                #     # normalize the group of entries on the data frame.
-                #     self.normalize_node_data(node_list)
-                #
-                #     # write out what we have so far
-                #     self.write_out_data(node_list, out_node_f, out_edge_f, output_mode)
-                #
-                #     # clear out the node list for the next batch
-                #     node_list.clear()
+                    self.logger.error(f'Error: Entry node for {line} at line number {index_counter} invalid.')
 
         # save any remainders
         if len(node_list) > 0:
@@ -162,7 +145,7 @@ class UniRefSimLoader:
             out_node_f.write('\n]}')
             out_edge_f.write('\n]}')
 
-        logger.debug(f'Parsing XML data file complete. {index_counter} taxa processed.')
+        self.logger.debug(f'Parsing XML data file complete. {index_counter} taxa processed.')
 
     def normalize_node_data(self, node_list: list) -> list:
         """
@@ -205,7 +188,7 @@ class UniRefSimLoader:
         # get the last index of the list
         last_index: int = len(to_normalize)
 
-        logger.debug(f'{last_index} unique nodes will be normalized.')
+        self.logger.debug(f'{last_index} unique nodes will be normalized.')
 
         # grab chunks of the data frame
         while True:
@@ -217,7 +200,7 @@ class UniRefSimLoader:
                 if end_index >= last_index:
                     end_index = last_index
 
-                logger.debug(f'Working block {start_index} to {end_index}.')
+                self.logger.debug(f'Working block {start_index} to {end_index}.')
 
                 # collect a slice of records from the data frame
                 data_chunk: list = to_normalize[start_index: end_index]
@@ -237,7 +220,7 @@ class UniRefSimLoader:
                     self.cached_node_norms = merged
                 else:
                     # the 404 error that is trapped here means that the entire list of nodes didnt get normalized.
-                    logger.warning(f'Warning: Response code: {resp.status_code} block {start_index} to {end_index}')
+                    self.logger.warning(f'Warning: Response code: {resp.status_code} block {start_index} to {end_index}')
 
                     # since they all failed to normalize add to the list so we dont try them again
                     for item in data_chunk:
@@ -274,7 +257,7 @@ class UniRefSimLoader:
                     # find the id and replace it with the normalized value
                     node_list[node_idx]['id'] = self.cached_node_norms[rv['id']]['id']['identifier']
                 else:
-                    logger.debug(f"{rv['id']} has no normalized value")
+                    self.logger.debug(f"{rv['id']} has no normalized value")
 
             # go to the next index
             node_idx += 1
@@ -460,7 +443,7 @@ class UniRefSimLoader:
         :return:
         """
 
-        logger.debug(f'Loading data frame with {len(node_list)} nodes.')
+        self.logger.debug(f'Loading data frame with {len(node_list)} nodes.')
 
         # write out the edges
         self.write_edge_data(out_edge_f, node_list, output_mode)
@@ -472,7 +455,7 @@ class UniRefSimLoader:
         new_df = df.drop(['grp', 'node_num'], axis=1)
         new_df = new_df.drop_duplicates(keep='first')
 
-        logger.debug(f'{len(new_df.index)} nodes found.')
+        self.logger.debug(f'{len(new_df.index)} nodes found.')
 
         # init a set for the node de-duplication
         final_node_set: set = set()
@@ -495,7 +478,7 @@ class UniRefSimLoader:
         else:
             out_node_f.write('\n'.join(final_node_set))
 
-        logger.debug('Writing out to data file complete.')
+        self.logger.debug('Writing out to data file complete.')
 
     def write_edge_data(self, out_edge_f: TextIOBase, node_list: list, output_mode: str):
         """
@@ -507,7 +490,7 @@ class UniRefSimLoader:
         :return: nothing
         """
 
-        logger.debug(f'Creating edges for {len(node_list)} nodes.')
+        self.logger.debug(f'Creating edges for {len(node_list)} nodes.')
 
         # init group detection
         cur_group_name: str = ''
@@ -521,7 +504,7 @@ class UniRefSimLoader:
         edge_list: list = []
 
         # get the edge normalizer
-        en = EdgeNormUtils(logger.level)
+        en = EdgeNormUtils(self.logger.level)
 
         # iterate through node groups and create the edge records.
         while node_idx < node_count:
@@ -576,7 +559,7 @@ class UniRefSimLoader:
                     # increment the node counter pairing
                     node_idx += 1
                 else:
-                    logger.error('Missing data elements similarity_bin or gene_family_node_id')
+                    self.logger.error('Missing data elements similarity_bin or gene_family_node_id')
 
                 # increment the node counter
                 node_idx += 1
@@ -619,7 +602,7 @@ class UniRefSimLoader:
         edge_list.clear()
         edge_set.clear()
 
-        logger.debug(f'{node_idx} Entry member edges created.')
+        self.logger.debug(f'{node_idx} Entry member edges created.')
 
 
 if __name__ == '__main__':
