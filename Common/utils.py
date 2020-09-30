@@ -20,7 +20,7 @@ class LoggingUtil(object):
     creates and configures a logger
     """
     @staticmethod
-    def init_logging(name, level=logging.INFO, line_format='short', log_file_path=None, log_file_level=None):
+    def init_logging(name, level=logging.INFO, line_format='short', log_file_path=None):
         """
             Logging utility controlling format and setting initial logging level
         """
@@ -60,10 +60,6 @@ class LoggingUtil(object):
 
             # set the formatter
             file_handler.setFormatter(formatter)
-
-            # if a log level for the file was passed in use it
-            if log_file_level is not None:
-                level = log_file_level
 
             # set the log level
             file_handler.setLevel(level)
@@ -105,17 +101,14 @@ class NodeNormUtils:
         category: the semantic type(s)
         equivalent_identifiers: the list of synonymous ids
     """
-    # create a logger
-    logger = LoggingUtil.init_logging("Data_services.Common.NodeNormUtils", line_format='medium', log_file_path=os.path.join(Path(__file__).parents[1], 'logs'))
 
-    def __init__(self, log_file_level=logging.INFO):
+    def __init__(self, log_level=logging.INFO):
         """
         constructor
-        :param log_file_level - overrides default log level
+        :param log_level - overrides default log level
         """
-        # was a new level specified
-        if log_file_level != logging.INFO:
-            self.logger.setLevel(log_file_level)
+        # create a logger
+        self.logger = LoggingUtil.init_logging("Data_services.Common.NodeNormUtils", level=log_level, line_format='medium', log_file_path=os.path.join(Path(__file__).parents[1], 'logs'))
 
     def normalize_node_data(self, node_list: list, cached_node_norms: dict = None, for_json: bool = False, block_size: int = 2500) -> list:
         """
@@ -263,31 +256,30 @@ class NodeNormUtils:
         return failed_to_normalize
 
     def synomymize_node_data(self, node_list: list) -> list:
-        # init the return value
-        synonyms: list = []
-
         # for each node list item
         for idx, item in enumerate(node_list):
-            # generate the request url
-            url: str = f"https://onto.renci.org/synonyms/{item['id']}"
+            # these types normally get worked in node normalization
+            if not item['id'].startswith('NCBIGene:') and not item['id'].startswith('MONDO:'):
+                # generate the request url
+                url: str = f"https://onto.renci.org/synonyms/{item['id']}"
 
-            # make the call to the synonymiser
-            resp: requests.models.Response = requests.get(url)
+                # make the call to the synonymizer
+                resp: requests.models.Response = requests.get(url)
 
-            # did we get a good status code
-            if resp.status_code == 200:
-                # convert json to dict
-                rvs: dict = resp.json()
+                # did we get a good status code
+                if resp.status_code == 200:
+                    # convert json to dict
+                    rvs: dict = resp.json()
 
-                # get the synonyms into a list
-                synonyms = [x['desc'] for x in rvs]
+                    # get the synonyms into a list. this data could potentially have double quotes in it
+                    synonyms: list = [x['desc'].replace('"', '\\"') for x in rvs]
 
-                # did we get anything
-                if len(synonyms) > 0:
-                    # save the values to the list
-                    node_list[idx]['synonyms'] = synonyms
-            else:
-                self.logger.debug(f'Could not find synonym of r: {item["id"]}')
+                    # did we get anything
+                    if len(synonyms) > 0:
+                        # save the values to the list
+                        node_list[idx]['synonyms'] = '|'.join(synonyms)
+                else:
+                    self.logger.debug(f'Could not find synonym of r: {item["id"]}')
 
         # return the list to the caller
         return node_list
@@ -305,17 +297,13 @@ class EdgeNormUtils:
         edge_label: label of the predicate
 
     """
-    # create a logger
-    logger = LoggingUtil.init_logging("Data_services.Common.EdgeNormUtils", line_format='medium', log_file_path=os.path.join(Path(__file__).parents[1], 'logs'))
-
-    def __init__(self, log_file_level=logging.INFO):
+    def __init__(self, log_level=logging.INFO):
         """
         constructor
-        :param log_file_level - overrides default log level
+        :param log_level - overrides default log level
         """
-        # was a new level specified
-        if log_file_level != logging.INFO:
-            self.logger.setLevel(log_file_level)
+        # create a logger
+        self.logger = LoggingUtil.init_logging("Data_services.Common.EdgeNormUtils", level=log_level, line_format='medium', log_file_path=os.path.join(Path(__file__).parents[1], 'logs'))
 
     def normalize_edge_data(self, edge_list: list, cached_edge_norms: dict = None, block_size: int = 2500) -> list:
         """
@@ -450,17 +438,14 @@ class GetData:
     """
     Class that contains methods that can be used to get various data sets.
     """
-    # create a logger
-    logger = LoggingUtil.init_logging("Data_services.Common.GetData", line_format='medium', log_file_path=os.path.join(Path(__file__).parents[1], 'logs'))
 
-    def __init__(self, log_file_level=logging.INFO):
+    def __init__(self, log_level=logging.INFO):
         """
         constructor
-        :param log_file_level - overrides default log level
+        :param log_level - overrides default log level
         """
-        # was a new level specified
-        if log_file_level != logging.INFO:
-            self.logger.setLevel(log_file_level)
+        # create a logger
+        self.logger = LoggingUtil.init_logging("Data_services.Common.GetData", level=log_level, line_format='medium', log_file_path=os.path.join(Path(__file__).parents[1], 'logs'))
 
     def pull_via_ftp(self, ftp_site: str, ftp_dir: str, ftp_files: list, data_file_path: str) -> int:
         """
