@@ -578,7 +578,7 @@ if __name__ == '__main__':
     out_mode: str = args['out_mode']
 
     # get a reference to the processor
-    pdb = PHAROSLoader(logging.DEBUG)
+    pdb = PHAROSLoader()
 
     # load the data and create KGX output
     pdb.load(data_dir, 'PHAROS', out_mode)
