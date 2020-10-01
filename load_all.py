@@ -30,44 +30,33 @@ if __name__ == '__main__':
     python load_all.py -a D:/Work/Robokop/Data_services/PHAROS_data -m tsv
 
     The full set of command line switches
-        -p
-        D:/Work/Robokop/Data_services/UniProtKB_data
-        -r
-        E:/Data_services/UniRef_data
-        -f
-        uniref100,uniref90,uniref50
-        -i
-        D:/Work/Robokop/Data_services/IntAct_data
-        -g
-        goa_human.gaf.gz
-        -u
-        D:/Work/Robokop/Data_services/Ubergraph_data
-        -s
-        properties-nonredundant.ttl
-        -o
-        D:/Work/Robokop/Data_services/FooDB_data
-        -x
-        D:/Work/Robokop/Data_services/GTEx_data
-        -a
-        D:/Work/Robokop/Data_services/PHAROS_data
-        -m
-        json
+        -m json
+        -p D:/Work/Robokop/Data_services/UniProtKB_data
+        -g goa_human.gaf.gz
+        -r E:/Data_services/UniRef_data
+        -f uniref100,uniref90,uniref50
+        -i D:/Work/Robokop/Data_services/IntAct_data
+        -u D:/Work/Robokop/Data_services/Ubergraph_data
+        -s properties-nonredundant.ttl
+        -o D:/Work/Robokop/Data_services/FooDB_data
+        -a D:/Work/Robokop/Data_services/PHAROS_data
+        -x D:/Work/Robokop/Data_services/GTEx_data
     """
     # create a command line parser
     ap = argparse.ArgumentParser(description='Load UniProtKB viral proteome, UniRef, Human GOA, UberGraph and IntAct data files and create KGX import files.')
 
     # declare command line arguments
+    ap.add_argument('-m', '--out_mode', required=True, help='The output file mode (tsv or json)')
     ap.add_argument('-p', '--uniprot_dir', required=False, help='The data directory for the UniProtKB GOA and KGX files (VP or Human).')
+    ap.add_argument('-g', '--goa_data_file', required=False, help='The name of the target GOA data file.')
     ap.add_argument('-r', '--uniref_dir', required=False, help='The data directory for the 3 UniRef files and the KGX files.')
     ap.add_argument('-f', '--uniref_files', required=False, help='Comma separated UniRef data file(s) to parse.')
     ap.add_argument('-i', '--intact_dir', required=False, help='The data directory for the IntAct data and KGX files.')
-    ap.add_argument('-g', '--goa_data_file', required=False, help='The name of the target GOA data file.')
     ap.add_argument('-u', '--ug_data_dir', required=False, help='The UberGraph data file directory.')
     ap.add_argument('-s', '--ug_data_files', required=False, help='Comma separated UberGraph data file(s) to parse.')
     ap.add_argument('-o', '--foodb_dir', required=False, help='The data directory for FooDB')
-    ap.add_argument('-x', '--gtex_dir', required=False, help='The data directory for GTEx')
     ap.add_argument('-a', '--pharos_dir', required=False, help='The data directory for PHAROS')
-    ap.add_argument('-m', '--out_mode', required=True, help='The output file mode (tsv or json)')
+    ap.add_argument('-x', '--gtex_dir', required=False, help='The data directory for GTEx')
 
     # parse the arguments
     args = vars(ap.parse_args())
@@ -84,6 +73,16 @@ if __name__ == '__main__':
 
         # load the data files and create KGX output
         vp.load(UniProtKB_data_dir, 'Viral_proteome_GOA', out_mode)
+
+    # assign the target GOA data file
+    GOA_data_file = args['goa_data_file']
+
+    if UniProtKB_data_dir is not None:
+        # get a reference to the processor
+        goa = GOALoader()
+
+        # load the data files and create KGX output files
+        goa.load(UniProtKB_data_dir, GOA_data_file, 'Human_GOA', out_mode)
 
     # assign the uniref directory and target files
     UniRef_data_dir = args['uniref_dir']
@@ -105,16 +104,6 @@ if __name__ == '__main__':
 
         # load the data files and create KGX output files
         ia.load(IntAct_data_dir, 'intact', out_mode)
-
-    # assign the target GOA data file
-    GOA_data_file = args['goa_data_file']
-
-    if UniProtKB_data_dir is not None:
-        # get a reference to the processor
-        goa = GOALoader()
-
-        # load the data files and create KGX output files
-        goa.load(UniProtKB_data_dir, GOA_data_file, 'Human_GOA', out_mode)
 
     # assign the ubergraph directory and target files
     UG_data_dir = args['ug_data_dir']
