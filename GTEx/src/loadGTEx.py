@@ -19,58 +19,57 @@ logger = LoggingUtil.init_logging("Data_services.GTEx.GTExLoader", line_format='
 
 
 class GTExLoader:
-
     # tissue name to uberon curies, the tissue names will match gtex file names
     TISSUES = {
-            "Adipose_Subcutaneous": "0002190",
-            "Adipose_Visceral_Omentum": "0003688",
-            "Adrenal_Gland": "0018303",
-            "Artery_Aorta": "0004178",
-            "Artery_Coronary": "0002111",
-            "Artery_Tibial": "0007610",
-            "Brain_Amygdala": "0001876",
-            "Brain_Anterior_cingulate_cortex_BA24": "0006101",
-            "Brain_Caudate_basal_ganglia": "0002420",
-            "Brain_Cerebellar_Hemisphere": "0002245",
-            "Brain_Cerebellum": "0002037",
-            "Brain_Cortex": "0001851",
-            "Brain_Frontal_Cortex_BA9": "0013540",
-            "Brain_Hippocampus": "0002310",
-            "Brain_Hypothalamus": "0001898",
-            "Brain_Nucleus_accumbens_basal_ganglia": "0001882",
-            "Brain_Putamen_basal_ganglia": "0001874",
-            "Brain_Spinal_cord_cervical_c-1": "0002726",
-            "Brain_Substantia_nigra": "0002038",
-            "Breast_Mammary_Tissue": "0001911",
-            "Cells_Cultured_fibroblasts": "0015764",
-            "Cells_EBV-transformed_lymphocytes": "0001744",
-            "Colon_Sigmoid": "0001159",
-            "Colon_Transverse": "0001157",
-            "Esophagus_Gastroesophageal_Junction": "0007650",
-            "Esophagus_Mucosa": "0002469",
-            "Esophagus_Muscularis": "0004648",
-            "Heart_Atrial_Appendage": "0006618",
-            "Heart_Left_Ventricle": "0002084",
-            "Kidney_Cortex": "0001225",
-            "Liver": "0002107",
-            "Lung": "0002048",
-            "Minor_Salivary_Gland": "0001830",
-            "Muscle_Skeletal": "0001134",
-            "Nerve_Tibial": "0001323",
-            "Ovary": "0000992",
-            "Pancreas": "0001264",
-            "Pituitary": "0000007",
-            "Prostate": "0002367",
-            "Skin_Not_Sun_Exposed_Suprapubic": "0036149",
-            "Skin_Sun_Exposed_Lower_leg": "0004264",
-            "Small_Intestine_Terminal_Ileum": "0002116",
-            "Spleen": "0002106",
-            "Stomach": "0000945",
-            "Testis": "0000473",
-            "Thyroid": "0002046",
-            "Uterus": "0000995",
-            "Vagina": "0000996",
-            "Whole_Blood": "0000178"}
+        "Adipose_Subcutaneous": "0002190",
+        "Adipose_Visceral_Omentum": "0003688",
+        "Adrenal_Gland": "0018303",
+        "Artery_Aorta": "0004178",
+        "Artery_Coronary": "0002111",
+        "Artery_Tibial": "0007610",
+        "Brain_Amygdala": "0001876",
+        "Brain_Anterior_cingulate_cortex_BA24": "0006101",
+        "Brain_Caudate_basal_ganglia": "0002420",
+        "Brain_Cerebellar_Hemisphere": "0002245",
+        "Brain_Cerebellum": "0002037",
+        "Brain_Cortex": "0001851",
+        "Brain_Frontal_Cortex_BA9": "0013540",
+        "Brain_Hippocampus": "0002310",
+        "Brain_Hypothalamus": "0001898",
+        "Brain_Nucleus_accumbens_basal_ganglia": "0001882",
+        "Brain_Putamen_basal_ganglia": "0001874",
+        "Brain_Spinal_cord_cervical_c-1": "0002726",
+        "Brain_Substantia_nigra": "0002038",
+        "Breast_Mammary_Tissue": "0001911",
+        "Cells_Cultured_fibroblasts": "0015764",
+        "Cells_EBV-transformed_lymphocytes": "0001744",
+        "Colon_Sigmoid": "0001159",
+        "Colon_Transverse": "0001157",
+        "Esophagus_Gastroesophageal_Junction": "0007650",
+        "Esophagus_Mucosa": "0002469",
+        "Esophagus_Muscularis": "0004648",
+        "Heart_Atrial_Appendage": "0006618",
+        "Heart_Left_Ventricle": "0002084",
+        "Kidney_Cortex": "0001225",
+        "Liver": "0002107",
+        "Lung": "0002048",
+        "Minor_Salivary_Gland": "0001830",
+        "Muscle_Skeletal": "0001134",
+        "Nerve_Tibial": "0001323",
+        "Ovary": "0000992",
+        "Pancreas": "0001264",
+        "Pituitary": "0000007",
+        "Prostate": "0002367",
+        "Skin_Not_Sun_Exposed_Suprapubic": "0036149",
+        "Skin_Sun_Exposed_Lower_leg": "0004264",
+        "Small_Intestine_Terminal_Ileum": "0002116",
+        "Spleen": "0002106",
+        "Stomach": "0000945",
+        "Testis": "0000473",
+        "Thyroid": "0002046",
+        "Uterus": "0000995",
+        "Vagina": "0000996",
+        "Whole_Blood": "0000178"}
 
     TISSUES1 = {
         "Muscle_Skeletal": "0001134",
@@ -122,17 +121,17 @@ class GTExLoader:
         # default types, they only matter when a normalization is not found
         # TODO we could grab these from the node normalization service
         self.sequence_variant_types = ['sequence_variant',
-                                      'genomic_entity',
-                                      'molecular_entity',
-                                      'biological_entity',
-                                      'named_thing']
+                                       'genomic_entity',
+                                       'molecular_entity',
+                                       'biological_entity',
+                                       'named_thing']
         self.gene_types = ['gene',
-                          'gene_or_gene_product',
-                          'macromolecular_machine',
-                          'genomic_entity',
-                          'molecular_entity',
-                          'biological_entity',
-                          'named_thing']
+                           'gene_or_gene_product',
+                           'macromolecular_machine',
+                           'genomic_entity',
+                           'molecular_entity',
+                           'biological_entity',
+                           'named_thing']
 
         self.test_mode = test_mode
         self.test_data = test_data
@@ -185,7 +184,7 @@ class GTExLoader:
             logger.info(f'Downloading raw GTEx data files from {sqtl_url}.')
 
             if not self.test_data:
-               self.fetch_and_save_tar(sqtl_url, sqtl_tar_download_path)
+                self.fetch_and_save_tar(sqtl_url, sqtl_tar_download_path)
 
             all_gene_nodes, all_variant_nodes = self.parse_eqtl_and_sqtl_for_nodes(eqtl_tar_download_path,
                                                                                    sqtl_tar_download_path)
@@ -201,7 +200,9 @@ class GTExLoader:
             normalized_node_id_lookup = {}
             for n in all_regular_nodes:
                 normalized_node_id_lookup[n['original_id']] = n['id']
-            all_regular_nodes = None
+
+            # all_regular_nodes = None
+
             logger.info(f'Normalizing gene and anatomy nodes complete.')
 
             with open(nodes_output_file_path, 'a') as nodes_output_file, open(edges_output_file_path,
@@ -258,11 +259,15 @@ class GTExLoader:
                     if float(slope) > 0:
                         edge_id: str = f'{normalized_sv_id}"CTD:increases_expression_of"{normalized_gene_id}'
                         # edges_output_file.write(f'{{"id":"{hashlib.md5(edge_id.encode("utf-8")).hexdigest()}","subject":"{normalized_sv_id}","edge_label":"biolink:increases_expression_of","object":"{normalized_gene_id}","relation":"CTD:increases_expression_of","expressed_in":"{normalized_anatomy_id}","p_value":{p_value},"slope":{slope}}},\n')
-                        self.edge_list.append({"id": f'{hashlib.md5(edge_id.encode("utf-8")).hexdigest()}', "subject": normalized_sv_id, "edge_label": "biolink:increases_expression_of", "object": normalized_gene_id, "relation": "CTD:increases_expression_of", "expressed_in": normalized_anatomy_id, "p_value": p_value, "slope": slope})
+                        self.edge_list.append(
+                            {"id": f'{hashlib.md5(edge_id.encode("utf-8")).hexdigest()}', "subject": normalized_sv_id, "edge_label": "biolink:increases_expression_of", "object": normalized_gene_id, "relation": "CTD:increases_expression_of",
+                             "expressed_in": normalized_anatomy_id, "p_value": p_value, "slope": slope})
                     else:
                         edge_id: str = f'{normalized_sv_id}"CTD:decreases_expression_of"{normalized_gene_id}'
                         # edges_output_file.write(f'{{"id":"{hashlib.md5(edge_id.encode("utf-8")).hexdigest()}","subject":"{normalized_sv_id}","edge_label":"biolink:decreases_expression_of","object":"{normalized_gene_id}","relation":"CTD:decreases_expression_of","expressed_in":"{normalized_anatomy_id}","p_value":{p_value},"slope":{slope}}},\n')
-                        self.edge_list.append({"id": f'{hashlib.md5(edge_id.encode("utf-8")).hexdigest()}', "subject":normalized_sv_id, "edge_label":"biolink:decreases_expression_of","object":normalized_gene_id, "relation":"CTD:decreases_expression_of","expressed_in":normalized_anatomy_id ,"p_value": p_value, "slope": slope})
+                        self.edge_list.append(
+                            {"id": f'{hashlib.md5(edge_id.encode("utf-8")).hexdigest()}', "subject": normalized_sv_id, "edge_label": "biolink:decreases_expression_of", "object": normalized_gene_id, "relation": "CTD:decreases_expression_of",
+                             "expressed_in": normalized_anatomy_id, "p_value": p_value, "slope": slope})
 
                 logger.info('Writing eqtl edges complete. Starting sqtl edges...')
                 # sqtl_edges = []
@@ -273,7 +278,9 @@ class GTExLoader:
                     normalized_anatomy_id, normalized_gene_id, normalized_sv_id, p_value, slope = gtex_edge_info
                     edge_id: str = f'{normalized_sv_id}"CTD:affects_splicing_of"{normalized_gene_id}'
                     # sqtl_edges.append(f'{{"id":"{hashlib.md5(edge_id.encode("utf-8")).hexdigest()}","subject":"{normalized_sv_id}","edge_label":"biolink:affects_splicing_of","object":"{normalized_gene_id}","relation":"CTD:affects_splicing_of","expressed_in":"{normalized_anatomy_id}","p_value":{p_value},"slope":{slope}}}')
-                    self.edge_list.append({"id": f'{hashlib.md5(edge_id.encode("utf-8")).hexdigest()}', "subject":normalized_sv_id, "edge_label":"biolink:affects_splicing_of","object":normalized_gene_id, "relation":"CTD:affects_splicing_of","expressed_in":normalized_anatomy_id ,"p_value": p_value, "slope": slope})
+                    self.edge_list.append(
+                        {"id": f'{hashlib.md5(edge_id.encode("utf-8")).hexdigest()}', "subject": normalized_sv_id, "edge_label": "biolink:affects_splicing_of", "object": normalized_gene_id, "relation": "CTD:affects_splicing_of",
+                         "expressed_in": normalized_anatomy_id, "p_value": p_value, "slope": slope})
                 #     if i % 1000:
                 #         edges_output_file.write(",\n".join(sqtl_edges))
                 #         sqtl_edges = [""]
@@ -285,7 +292,6 @@ class GTExLoader:
 
                 edges_output_file.write('\n]}')
                 logger.info(f'GTEx parsing and KGX file creation complete.')
-
 
         except Exception as e:
             logger.error(f'Exception caught. Exception: {e}')
@@ -426,7 +432,7 @@ class GTExLoader:
                         # open up the compressed file
                         with gzip.open(tissue_handle, 'rt') as compressed_file:
                             # skip the headers line of the file
-                            headers = next(compressed_file)
+                            next(compressed_file)
 
                             # for each line in the file
                             for i, line in enumerate(compressed_file, start=1):
@@ -619,63 +625,64 @@ class GTExLoader:
                     # check to make sure we know about this tissue
                     if tissue_name in GTExLoader.TISSUES:
 
-                            # determine normalized anatomy ID
-                            normalized_anatomy_id = normalized_node_lookup[tissue_name]
+                        # determine normalized anatomy ID
+                        normalized_anatomy_id = normalized_node_lookup[tissue_name]
 
-                            # open up the compressed file
-                            with gzip.open(tissue_handle, 'rt') as compressed_file:
-                                # skip the headers line of the file
-                                headers = next(compressed_file).split('\t')
+                        # open up the compressed file
+                        with gzip.open(tissue_handle, 'rt') as compressed_file:
+                            # skip the headers line of the file
+                            next(compressed_file).split('\t')
 
-                                # for each line in the file
-                                for i, line in enumerate(compressed_file, start=1):
+                            # for each line in the file
+                            for i, line in enumerate(compressed_file, start=1):
 
-                                    if self.test_mode and i == 5000:
-                                        return
+                                if self.test_mode and i == 5000:
+                                    return
 
-                                    # split line the into an array
-                                    line_split: list = line.split('\t')
+                                # split line the into an array
+                                line_split: list = line.split('\t')
 
-                                    # check the column count
-                                    if len(line_split) != 12:
-                                        logger.error(f'Error with column count or delimiter in {tissue_file.name}. (line {i}:{line})')
-                                    else:
-                                        try:
-                                            # get the variant ID value - the [3:] removes the first 3 characters (chr)
-                                            gtex_variant_id: str = line_split[variant_file_index]
+                                # check the column count
+                                if len(line_split) != 12:
+                                    logger.error(f'Error with column count or delimiter in {tissue_file.name}. (line {i}:{line})')
+                                else:
+                                    try:
+                                        # get the variant ID value - the [3:] removes the first 3 characters (chr)
+                                        gtex_variant_id: str = line_split[variant_file_index]
 
-                                            normalized_variant_id = normalized_variant_lookup[gtex_variant_id]
+                                        normalized_variant_id = normalized_variant_lookup[gtex_variant_id]
 
-                                            if is_sqtl:
-                                                # for sqtl the phenotype id contains the ensembl id for the gene.
-                                                # it has the format: chr1:497299:498399:clu_51878:ENSG00000237094.11
-                                                phenotype_id: str = line_split[gene_file_index]
-                                                gene: str = phenotype_id.split(':')[4]
-                                                # remove the version number
-                                                gene_id: str = gene.split('.')[0]
-                                            else:
-                                                # for eqtl this should just be the ensembl gene id, remove the version number
-                                                gene_id: str = line_split[gene_file_index].split('.')[0]
+                                        if is_sqtl:
+                                            # for sqtl the phenotype id contains the ensembl id for the gene.
+                                            # it has the format: chr1:497299:498399:clu_51878:ENSG00000237094.11
+                                            phenotype_id: str = line_split[gene_file_index]
+                                            gene: str = phenotype_id.split(':')[4]
+                                            # remove the version number
+                                            gene_id: str = gene.split('.')[0]
+                                        else:
+                                            # for eqtl this should just be the ensembl gene id, remove the version number
+                                            gene_id: str = line_split[gene_file_index].split('.')[0]
 
-                                            normalized_gene_id = normalized_node_lookup[gene_id]
+                                        normalized_gene_id = normalized_node_lookup[gene_id]
 
-                                            p_value = line_split[pval_file_index]
-                                            slope = line_split[slope_file_index]
+                                        p_value = line_split[pval_file_index]
+                                        slope = line_split[slope_file_index]
 
-                                            yield (normalized_anatomy_id,
-                                                   normalized_gene_id,
-                                                   normalized_variant_id,
-                                                   p_value,
-                                                   slope)
-                                        except KeyError as e:
-                                            logger.error(f'KeyError parsing an edge line: {e} ')
-                                            continue
+                                        yield (normalized_anatomy_id,
+                                               normalized_gene_id,
+                                               normalized_variant_id,
+                                               p_value,
+                                               slope)
+                                    except KeyError as e:
+                                        logger.error(f'KeyError parsing an edge line: {e} ')
+                                        continue
 
                     else:
                         logger.debug(f'Skipping unexpected tissue file {tissue_file.name}.')
 
     # download a tar file and write it locally
-    def fetch_and_save_tar(self, url, dl_path):
+    @staticmethod
+    def fetch_and_save_tar(url, dl_path):
         # get a http handle to the file stream
         http_handle = request.urlopen(url)
 
@@ -693,13 +700,15 @@ class GTExLoader:
                 # write out the data to the output file
                 tar_file.write(data)
 
-    def convert_simple_node_to_dict(self, node: SimpleNode):
+    @staticmethod
+    def convert_simple_node_to_dict(node: SimpleNode):
         return {"id": node.id,
                 "name": node.name,
                 "category": ['named_thing', node.type],
                 "equivalent_identifiers": [node.id]}
 
-    def convert_simple_edge_to_dict(self, edge: SimpleEdge):
+    @staticmethod
+    def convert_simple_edge_to_dict(edge: SimpleEdge):
         new_dict = {"subject": edge.source_id,
                     "edge_label": edge.predicate_label,
                     "object": edge.target_id,
@@ -711,7 +720,8 @@ class GTExLoader:
     # get the full list of anatomy/tissues and make dicts for normalization
     # set the label as the original ID so we can look it up by the GTEx file names later
     # note that anatomy nodes are not written to KGX, they are just normalized for IDs for edge targets
-    def get_anatomy_nodes(self):
+    @staticmethod
+    def get_anatomy_nodes():
         anatomy_nodes = []
         for anatomy_label, anatomy_id in GTExLoader.TISSUES.items():
             anatomy_curie = f'UBERON:{anatomy_id}'
@@ -816,7 +826,6 @@ class GTExLoader:
 
 # TODO use argparse to specify output location
 if __name__ == '__main__':
-
     parser = argparse.ArgumentParser(description="Retrieve, parse, and convert GTEx data to KGX files.")
     parser.add_argument('--test_mode', action='store_true')
     parser.add_argument('--test_data', action='store_true')
