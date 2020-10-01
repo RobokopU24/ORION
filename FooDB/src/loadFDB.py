@@ -303,7 +303,7 @@ class FDBLoader:
         elif compound['hmdb_id'] != '':
             equivalent_identifier = f'HMDB:{compound["hmdb_id"]}'
         elif compound['pubchem_compound_id'] != '':
-            equivalent_identifier = f'PUBCHEM:{compound["pubchem_compound_id"]}'
+            equivalent_identifier = f'PUBCHEM.COMPOUND:{compound["pubchem_compound_id"]}'
 
         # if no identifier found the record is no good
         if equivalent_identifier != '':
