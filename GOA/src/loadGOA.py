@@ -190,8 +190,7 @@ class GOALoader:
 
         self.logger.debug(f'GOA data parsing and KGX file creation complete.\n')
 
-    @staticmethod
-    def get_edge_set(df: pd.DataFrame, output_mode: str) -> set:
+    def get_edge_set(self, df: pd.DataFrame, output_mode: str) -> set:
         """
         gets a list of edges for the data frame passed
 
@@ -289,8 +288,7 @@ class GOALoader:
         # return the list to the caller
         return edge_set
 
-    @staticmethod
-    def get_node_list(fp, swiss_prots: set) -> list:
+    def get_node_list(self, fp, swiss_prots: set) -> list:
         """ loads the nodes from the file handle passed
 
         :param fp: open file pointer
