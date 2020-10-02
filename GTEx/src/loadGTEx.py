@@ -13,12 +13,11 @@ from robokop_genetics.simple_graph_components import SimpleNode, SimpleEdge
 from robokop_genetics.node_types import SEQUENCE_VARIANT
 import hashlib
 
-# create a logger
-log_directory = os.path.join(Path(__file__).parents[2], 'logs')
-logger = LoggingUtil.init_logging("Data_services.GTEx.GTExLoader", line_format='medium', log_file_path=log_directory)
-
 
 class GTExLoader:
+    # create a logger
+    logger = LoggingUtil.init_logging("Data_services.GTEx.GTExLoader", line_format='medium', log_file_path=os.path.join(Path(__file__).parents[2], 'logs'))
+
     # tissue name to uberon curies, the tissue names will match gtex file names
     TISSUES = {
         "Adipose_Subcutaneous": "0002190",
@@ -137,10 +136,10 @@ class GTExLoader:
         self.test_data = test_data
 
         if self.test_data:
-            logger.info("Using test data for this run.")
+            self.logger.info("Using test data for this run.")
 
         if not self.use_cache:
-            logger.info("Not caching for this run.")
+            self.logger.info("Not caching for this run.")
 
     # the main function to call to retrieve the GTEx data and convert it to a KGX json file
     def load(self, output_directory: str, out_file_name: str, gtex_version: int = 8):
@@ -150,7 +149,7 @@ class GTExLoader:
 
         # does the output directory exist
         if not os.path.isdir(output_directory):
-            logger.error("Output directory does not exist. Aborting.")
+            self.logger.error("Output directory does not exist. Aborting.")
             return ret_val
 
         # ensure the output directory string ends with a '/'
@@ -159,11 +158,11 @@ class GTExLoader:
         # if the output file(s) already exists back out
         nodes_output_file_path = f'{output_directory}{out_file_name}_nodes.json'
         if os.path.isfile(nodes_output_file_path) and not self.test_data:
-            logger.error(f'GTEx KGX file already created ({nodes_output_file_path}). Aborting.')
+            self.logger.error(f'GTEx KGX file already created ({nodes_output_file_path}). Aborting.')
             return ret_val
         edges_output_file_path = f'{output_directory}{out_file_name}_edges.json'
         if os.path.isfile(edges_output_file_path and not self.test_data):
-            logger.error(f'GTEx KGX file already created ({edges_output_file_path}). Aborting.')
+            self.logger.error(f'GTEx KGX file already created ({edges_output_file_path}). Aborting.')
             return ret_val
 
         # define the urls for the raw data archives and the location to download them to
@@ -176,12 +175,12 @@ class GTExLoader:
         sqtl_tar_download_path = f'{output_directory}{sqtl_tar_file_name}'
 
         try:
-            logger.info(f'Downloading raw GTEx data files from {eqtl_url}.')
+            self.logger.info(f'Downloading raw GTEx data files from {eqtl_url}.')
 
             if not self.test_data:
                 self.fetch_and_save_tar(eqtl_url, eqtl_tar_download_path)
 
-            logger.info(f'Downloading raw GTEx data files from {sqtl_url}.')
+            self.logger.info(f'Downloading raw GTEx data files from {sqtl_url}.')
 
             if not self.test_data:
                 self.fetch_and_save_tar(sqtl_url, sqtl_tar_download_path)
@@ -190,10 +189,10 @@ class GTExLoader:
                                                                                    sqtl_tar_download_path)
 
             anatomy_nodes: list = self.get_anatomy_nodes()
-            logger.info(f'Found {len(anatomy_nodes)} tissues for anatomy nodes.')
+            self.logger.info(f'Found {len(anatomy_nodes)} tissues for anatomy nodes.')
 
             all_regular_nodes = [*all_gene_nodes, *anatomy_nodes]
-            logger.info(f'Normalizing the gene and anatomy nodes.. ({len(all_regular_nodes)} nodes)')
+            self.logger.info(f'Normalizing the gene and anatomy nodes.. ({len(all_regular_nodes)} nodes)')
             nnu = NodeNormUtils()
             nnu.normalize_node_data(all_regular_nodes, for_json=True, block_size=1000)
             # store these look up dicts so that the edges can point to the right node ids later
@@ -203,7 +202,7 @@ class GTExLoader:
 
             # all_regular_nodes = None
 
-            logger.info(f'Normalizing gene and anatomy nodes complete.')
+            self.logger.info(f'Normalizing gene and anatomy nodes complete.')
 
             with open(nodes_output_file_path, 'a') as nodes_output_file, open(edges_output_file_path,
                                                                               'a') as edges_output_file:
@@ -221,7 +220,7 @@ class GTExLoader:
 
                 # Write all of the gene nodes and finish the nodes file
                 # dumping the array but removing the brackets with the [1:-1]
-                logger.info('Writing all of the gene nodes...')
+                self.logger.info('Writing all of the gene nodes...')
                 num_genes = len(all_gene_nodes)
                 for i, g in enumerate(all_gene_nodes, start=1):
                     # write a comma after each gene line until the last one, then close
@@ -229,7 +228,7 @@ class GTExLoader:
                         nodes_output_file.write(orjson.dumps(g).decode() + ',\n')
                     else:
                         nodes_output_file.write(orjson.dumps(g).decode() + '\n]}')
-                logger.info('All of the variant and gene nodes are written now.')
+                self.logger.info('All of the variant and gene nodes are written now.')
 
             # TODO these predicates should be normalized, since they are not they might as well be hardcoded
             # increases_expression_relation = 'CTD:increases_expression_of'
@@ -249,7 +248,7 @@ class GTExLoader:
             #  slope]
             with open(edges_output_file_path, 'a') as edges_output_file:
 
-                logger.info('Parsing and writing eqtl edges...')
+                self.logger.info('Parsing and writing eqtl edges...')
 
                 for i, gtex_edge_info in enumerate(self.parse_files_and_yield_edge_info(eqtl_tar_download_path,
                                                                                         normalized_node_id_lookup,
@@ -269,7 +268,7 @@ class GTExLoader:
                             {"id": f'{hashlib.md5(edge_id.encode("utf-8")).hexdigest()}', "subject": normalized_sv_id, "edge_label": "biolink:decreases_expression_of", "object": normalized_gene_id, "relation": "CTD:decreases_expression_of",
                              "expressed_in": normalized_anatomy_id, "p_value": p_value, "slope": slope})
 
-                logger.info('Writing eqtl edges complete. Starting sqtl edges...')
+                self.logger.info('Writing eqtl edges complete. Starting sqtl edges...')
                 # sqtl_edges = []
                 for i, gtex_edge_info in enumerate(self.parse_files_and_yield_edge_info(sqtl_tar_download_path,
                                                                                         normalized_node_id_lookup,
@@ -291,10 +290,10 @@ class GTExLoader:
                 self.coalesce_and_write_edges(edges_output_file)
 
                 edges_output_file.write('\n]}')
-                logger.info(f'GTEx parsing and KGX file creation complete.')
+                self.logger.info(f'GTEx parsing and KGX file creation complete.')
 
         except Exception as e:
-            logger.error(f'Exception caught. Exception: {e}')
+            self.logger.error(f'Exception caught. Exception: {e}')
             ret_val = e
 
         # finally:
@@ -418,7 +417,7 @@ class GTExLoader:
                     if self.test_mode and tissue_file.name.find('Salivary') == -1:
                         continue
 
-                    logger.info(f'Processing tissue file {tissue_file.name} for nodes.')
+                    self.logger.info(f'Processing tissue file {tissue_file.name} for nodes.')
 
                     # get the tissue name from the name of the file
                     tissue_name: str = tissue_file.name.split('/')[1].split('.')[0]
@@ -445,7 +444,7 @@ class GTExLoader:
 
                                 # check the column count
                                 if len(line_split) != 12:
-                                    logger.error(f'Error with column count or delimiter in {tissue_file.name}. (line {i}:{line})')
+                                    self.logger.error(f'Error with column count or delimiter in {tissue_file.name}. (line {i}:{line})')
                                 else:
                                     # get the variant ID value
                                     gtex_variant_id: str = line_split[variant_file_index]
@@ -455,7 +454,7 @@ class GTExLoader:
                                         # convert it to an HGVS value
                                         hgvs: str = convert_gtex_variant_to_hgvs_ref(gtex_variant_id)
                                         if not hgvs:
-                                            logger.error(f'GTEx had a variant that we could not convert to HGVS: {gtex_variant_id}')
+                                            self.logger.error(f'GTEx had a variant that we could not convert to HGVS: {gtex_variant_id}')
                                             continue
 
                                         hgvs_curie = f'HGVS:{hgvs}'
@@ -483,9 +482,9 @@ class GTExLoader:
                                                            'equivalent_identifiers': [curie]})
                                         already_found_genes.add(gene_id)
                     else:
-                        logger.info(f'Skipping unexpected tissue file {tissue_file.name}.')
+                        self.logger.info(f'Skipping unexpected tissue file {tissue_file.name}.')
                 else:
-                    logger.debug(f'Skipping genes file {tissue_file.name}.')
+                    self.logger.debug(f'Skipping genes file {tissue_file.name}.')
 
         return gene_nodes, sequence_variant_nodes
 
@@ -495,23 +494,23 @@ class GTExLoader:
         # create a common set that will be used for both to avoid duplicates
         already_found_genes = set()
         already_found_variants = set()
-        logger.info(f'Parsing eqtl for nodes.')
+        self.logger.info(f'Parsing eqtl for nodes.')
         eqtl_genes, eqtl_variants = self.parse_files_for_nodes(eqtl_tar_path,
                                                                already_found_genes=already_found_genes,
                                                                already_found_variants=already_found_variants)
-        logger.info(f'EQTL found {len(eqtl_genes)} genes and {len(eqtl_variants)} variants.')
+        self.logger.info(f'EQTL found {len(eqtl_genes)} genes and {len(eqtl_variants)} variants.')
 
-        logger.info(f'Parsing sqtl for nodes.')
+        self.logger.info(f'Parsing sqtl for nodes.')
         sqtl_genes, sqtl_variants = self.parse_files_for_nodes(sqtl_tar_path,
                                                                already_found_genes=already_found_genes,
                                                                already_found_variants=already_found_variants,
                                                                is_sqtl=True)
-        logger.info(f'SQTL found {len(sqtl_genes)} genes and {len(sqtl_variants)} variants that were not in eqtl.')
+        self.logger.info(f'SQTL found {len(sqtl_genes)} genes and {len(sqtl_variants)} variants that were not in eqtl.')
 
         # combine the eqtl and sqtl lists
         all_gene_nodes = [*eqtl_genes, *sqtl_genes]
         all_variant_nodes = [*eqtl_variants, *sqtl_variants]
-        logger.info(f'GTEx found {len(all_gene_nodes)} genes and {len(all_variant_nodes)} variants in total.')
+        self.logger.info(f'GTEx found {len(all_gene_nodes)} genes and {len(all_variant_nodes)} variants in total.')
         return all_gene_nodes, all_variant_nodes
 
     def process_sequence_variants(self,
@@ -525,7 +524,7 @@ class GTExLoader:
         convert_node_to_dict = self.convert_simple_node_to_dict
         convert_edge_to_dict = self.convert_simple_edge_to_dict
 
-        logger.info(f'Processing the sequence variants (normalizing and finding related genes)..')
+        self.logger.info(f'Processing the sequence variants (normalizing and finding related genes)..')
 
         nnu = NodeNormUtils()
         cached_node_norms = {}
@@ -543,18 +542,18 @@ class GTExLoader:
         chunks_of_variants = [all_variant_nodes[i:i + 10_000] for i in range(0, num_variants, 10_000)]
         for i, variant_chunk in enumerate(chunks_of_variants, start=1):
 
-            logger.info(f'Processing variants.. (working on: {i * 10_000}/{num_variants}) normalizing and writing variant nodes...')
+            self.logger.info(f'Processing variants.. (working on: {i * 10_000}/{num_variants}) normalizing and writing variant nodes...')
 
             # normalize the chunk of variants and write them straight to file
             genetics_normalizer.batch_normalize(variant_chunk)
             for v in variant_chunk:
                 nodes_output_file.write(f'{{"id":"{v.id}","name":"{v.name}","category":{sequence_variant_category},"equivalent_identifiers":{orjson.dumps(list(v.synonyms)).decode()}}},\n')
 
-            logger.info(f'Variant nodes written. Finding gene relationships from genetics_services..')
+            self.logger.info(f'Variant nodes written. Finding gene relationships from genetics_services..')
 
             variant_to_gene_results = genetics_services.get_variant_to_gene(ALL_VARIANT_TO_GENE_SERVICES,
                                                                             variant_chunk)
-            logger.info(f'Gene relationships from genetics_services found.. Normalizing gene nodes...')
+            self.logger.info(f'Gene relationships from genetics_services found.. Normalizing gene nodes...')
 
             new_genes = [convert_node_to_dict(node)
                          for results_list in variant_to_gene_results.values() if results_list
@@ -562,7 +561,7 @@ class GTExLoader:
 
             nnu.normalize_node_data(new_genes, cached_node_norms, for_json=True, block_size=1000)
 
-            logger.info(f'Gene relationships from genetics_services found.. Normalizing edges...')
+            self.logger.info(f'Gene relationships from genetics_services found.. Normalizing edges...')
 
             variant_to_gene_edges = [convert_edge_to_dict(edge)
                                      for results_list in variant_to_gene_results.values() if results_list
@@ -570,7 +569,7 @@ class GTExLoader:
 
             enu.normalize_edge_data(variant_to_gene_edges, cached_edge_norms)
 
-            logger.info(f'Writing genetics_services variant to gene edges to file...')
+            self.logger.info(f'Writing genetics_services variant to gene edges to file...')
 
             for j, gene in enumerate(new_genes):
                 normalized_gene_id = gene["id"]
@@ -585,7 +584,7 @@ class GTExLoader:
                     all_gene_nodes.append(gene)
                     all_gene_ids.add(normalized_gene_id)
 
-        logger.info(f'GTEx variant processing complete. Making variant id lookup table..')
+        self.logger.info(f'GTEx variant processing complete. Making variant id lookup table..')
 
         for i, v in enumerate(all_variant_nodes):
             normalized_variant_lookup[v.original_id] = v.id
@@ -618,7 +617,7 @@ class GTExLoader:
                     if self.test_mode and tissue_file.name.find('Salivary') == -1:
                         continue
 
-                    logger.info(f'Processing tissue file {tissue_file.name} for edges.')
+                    self.logger.info(f'Processing tissue file {tissue_file.name} for edges.')
                     # get the tissue name from the name of the file
                     tissue_name = tissue_file.name.split('/')[1].split('.')[0]
 
@@ -644,7 +643,7 @@ class GTExLoader:
 
                                 # check the column count
                                 if len(line_split) != 12:
-                                    logger.error(f'Error with column count or delimiter in {tissue_file.name}. (line {i}:{line})')
+                                    self.logger.error(f'Error with column count or delimiter in {tissue_file.name}. (line {i}:{line})')
                                 else:
                                     try:
                                         # get the variant ID value - the [3:] removes the first 3 characters (chr)
@@ -674,11 +673,11 @@ class GTExLoader:
                                                p_value,
                                                slope)
                                     except KeyError as e:
-                                        logger.error(f'KeyError parsing an edge line: {e} ')
+                                        self.logger.error(f'KeyError parsing an edge line: {e} ')
                                         continue
 
                     else:
-                        logger.debug(f'Skipping unexpected tissue file {tissue_file.name}.')
+                        self.logger.debug(f'Skipping unexpected tissue file {tissue_file.name}.')
 
     # download a tar file and write it locally
     @staticmethod
