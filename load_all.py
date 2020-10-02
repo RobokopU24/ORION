@@ -71,6 +71,8 @@ if __name__ == '__main__':
         # get a reference to the processor
         vp = VPLoader()
 
+        logger.info('Loading VP.')
+
         # load the data files and create KGX output
         vp.load(UniProtKB_data_dir, 'Viral_proteome_GOA', out_mode)
 
@@ -80,6 +82,8 @@ if __name__ == '__main__':
     if UniProtKB_data_dir is not None:
         # get a reference to the processor
         goa = GOALoader()
+
+        logger.info('Loading Human GOA.')
 
         # load the data files and create KGX output files
         goa.load(UniProtKB_data_dir, GOA_data_file, 'Human_GOA', out_mode)
@@ -92,6 +96,8 @@ if __name__ == '__main__':
         # get a reference to the processor
         uni = UniRefSimLoader()
 
+        logger.info('Loading UniRef.')
+
         # load the data files and create KGX output
         uni.load(UniRef_data_dir, UniRef_files.split(','), 'taxon_file_indexes.txt', out_mode)
 
@@ -101,6 +107,8 @@ if __name__ == '__main__':
     if IntAct_data_dir is not None:
         # get a reference to the processor
         ia = IALoader()
+
+        logger.info('Loading IntAct.')
 
         # load the data files and create KGX output files
         ia.load(IntAct_data_dir, 'intact', out_mode)
@@ -113,6 +121,8 @@ if __name__ == '__main__':
         # get a reference to the processor
         ug = UGLoader()
 
+        logger.info('Loading UberonGraph.')
+
         # load the data files and create KGX output files
         ug.load(UG_data_dir, UG_data_file, out_mode, file_size=200000)
 
@@ -122,6 +132,8 @@ if __name__ == '__main__':
     if FDB_data_dir is not None:
         # get a reference to the processor
         fdb = FDBLoader()
+
+        logger.info('Loading FooDB.')
 
         # load the data files and create KGX output files
         fdb.load(FDB_data_dir, 'FooDB', out_mode)
@@ -133,6 +145,8 @@ if __name__ == '__main__':
         # get a reference to the processor
         gtl = GTExLoader(test_data=True, use_cache=False)
 
+        logger.info('Loading GTEx.')
+
         gtl.load(GTEx_data_dir, 'gtex_kgx')
 
     # assign the PHAROS directory
@@ -141,5 +155,7 @@ if __name__ == '__main__':
     if PHAROS_data_dir is not None:
         # get a reference to the processor
         pdb = PHAROSLoader()
+
+        logger.info('Loading PHAROS.')
 
         pdb.load(PHAROS_data_dir, 'pharos_kgx')
