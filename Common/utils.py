@@ -33,6 +33,7 @@ class LoggingUtil(object):
 
         # define the various output formats
         format_type = {
+            "minimum": '%(message)s',
             "short": '%(funcName)s(): %(message)s',
             "medium": '%(asctime)-15s - %(funcName)s(): %(message)s',
             "long": '%(asctime)-15s  - %(filename)s %(funcName)s() %(levelname)s: %(message)s'
@@ -445,7 +446,7 @@ class GetData:
         :param log_level - overrides default log level
         """
         # create a logger
-        self.logger = LoggingUtil.init_logging("Data_services.Common.GetData", level=log_level, line_format='medium', log_file_path=os.path.join(Path(__file__).parents[1], 'logs'))
+        self.logger = LoggingUtil.init_logging("Data_services.Common.GetData", level=log_level, line_format='short', log_file_path=os.path.join(Path(__file__).parents[1], 'logs'))
 
     def pull_via_ftp(self, ftp_site: str, ftp_dir: str, ftp_files: list, data_file_path: str) -> int:
         """
@@ -584,7 +585,7 @@ class GetData:
                     # split the line to separate out the uniprot ids
                     ids = line.split('   ')[1].split('; ')
 
-                    # save each item listed
+                    # save each protein item listed
                     for item in ids:
                         # save it
                         ret_val.add(item.strip(';\n'))
@@ -786,34 +787,39 @@ class GetData:
         # return the number of files captured
         return file_count
 
-    def format_normalization_failures(self, node_norm_failures: list, edge_norm_failures: list):
+    @staticmethod
+    def format_normalization_failures(data_set_name: str, node_norm_failures: list, edge_norm_failures: list):
         """
         outputs the nodes/edges that failed normalization
 
+        :param data_set_name: the name of the data source that produced these results
         :param node_norm_failures: set of node curies
         :param edge_norm_failures: set of edge predicates
         :return:
         """
+        the_logger = LoggingUtil.init_logging(f"Data_services.Common.NormFailures.{data_set_name}", level=logging.INFO, line_format='minimum', log_file_path=os.path.join(Path(__file__).parents[1], 'logs'))
 
         # get the list into a dataframe group
         df = pd.DataFrame(node_norm_failures, columns=['curie'])
-        df_grp = df.groupby('curie').size() \
+        df_node_grp = df.groupby('curie').size() \
             .reset_index(name='count') \
             .sort_values('count', ascending=False)
 
         # iterate through the groups and create the edge records.
-        for row_index, row in df_grp.iterrows():
-            self.logger.info(f'Failed node CURIE: {row["curie"]}, count: {row["count"]}')
+        for row_index, row in df_node_grp.iterrows():
+            the_logger.info(f'{row["curie"]}\t{data_set_name}')
+            # self.logger.info(f'Failed node CURIE: {row["curie"]}, count: {row["count"]}')
 
             # get the list into a dataframe group
         df = pd.DataFrame(edge_norm_failures, columns=['curie'])
-        df_grp = df.groupby('curie').size() \
+        df_edge_grp = df.groupby('curie').size() \
             .reset_index(name='count') \
             .sort_values('count', ascending=False)
 
         # iterate through the groups and create the edge records.
-        for row_index, row in df_grp.iterrows():
-            self.logger.info(f'Failed edge predicate: {row["curie"]}, count: {row["count"]}')
+        for row_index, row in df_edge_grp.iterrows():
+            the_logger.info(f'{row["curie"]}\t{data_set_name}')
+            # self.logger.info(f'Failed edge predicate: {row["curie"]}, count: {row["count"]}')
 
     @staticmethod
     def get_biolink_graph(data_uri: str) -> Graph:
