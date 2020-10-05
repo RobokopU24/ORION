@@ -237,7 +237,8 @@ def test_gtex_load():
     with open(os.path.join(test_dir, 'gtex_test_edges.json'), 'r') as fl:
         data = json.load(fl)
 
-    # check the line count
+    # check the line count. this behaves oddly in travis for some reason. toggles between 51 and 48.
+    # may be a pytest cache issue?
     assert(len(data["edges"]) == 51)
     #assert (len(data["edges"]) == 48)
 
