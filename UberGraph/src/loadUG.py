@@ -37,6 +37,14 @@ class UGLoader:
     final_node_set: set = set()
     final_edge_set: set = set()
 
+    def get_name(self):
+        """
+        returns the name of the class
+
+        :return: str - the name of the class
+        """
+        return self.__class__.__name__
+
     def __init__(self, log_level=logging.INFO):
         """
         constructor
@@ -188,7 +196,7 @@ class UGLoader:
             out_edge_f.write('\n]}')
 
         # output the failures
-        gd.format_normalization_failures(self.node_norm_failures, self.edge_norm_failures)
+        gd.format_normalization_failures(self.get_name(), self.node_norm_failures, self.edge_norm_failures)
 
         # create the dataset KGX node data
         # self.get_dataset_provenance(data_file_path, data_prov)

@@ -92,6 +92,14 @@ class PHAROSLoader:
     total_nodes: int = 0
     total_edges: int = 0
 
+    def get_name(self):
+        """
+        returns the name of the class
+
+        :return: str - the name of the class
+        """
+        return self.__class__.__name__
+
     def __init__(self, log_level=logging.INFO):
         """
         constructor
@@ -221,7 +229,7 @@ class PHAROSLoader:
             out_edge_f.write('\n]}')
 
         # output the failures
-        gd.format_normalization_failures(self.node_norm_failures, self.edge_norm_failures)
+        gd.format_normalization_failures(self.get_name(), self.node_norm_failures, self.edge_norm_failures)
 
         self.logger.debug(f'PHAROS data parsing and KGX file creation complete.\n')
 

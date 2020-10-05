@@ -47,6 +47,18 @@ class VPLoader:
     TYPE_BACTERIA: str = '0'
     TYPE_VIRUS: str = '9'
 
+    # storage for nodes and edges that failed normalization
+    node_norm_failures: list = []
+    edge_norm_failures: list = []
+
+    def get_name(self):
+        """
+        returns the name of the class
+
+        :return: str - the name of the class
+        """
+        return self.__class__.__name__
+
     def __init__(self, log_level=logging.INFO):
         """
         constructor
@@ -67,11 +79,11 @@ class VPLoader:
         """
         self.logger.info(f'VPLoader - Start of viral proteome data processing.')
 
+        # and get a reference to the data gatherer
+        gd = GetData(self.logger.level)
+
         # are we in test mode
         if not test_mode:
-            # and get a reference to the data gatherer
-            gd = GetData(self.logger.level)
-
             # get the list of target taxa
             target_taxa_set: set = gd.get_ncbi_taxon_id_set(data_path, self.TYPE_VIRUS)
 
@@ -145,7 +157,7 @@ class VPLoader:
                 edge_list: list = self.get_edge_list(df)
 
                 # normalize the edge list
-                en.normalize_edge_data(edge_list)
+                self.edge_norm_failures = en.normalize_edge_data(edge_list)
 
                 # get the unique edge data to write to the file
                 final_edge_set: set = self.get_edge_set(edge_list, output_mode)
@@ -193,6 +205,9 @@ class VPLoader:
                 self.logger.info(f'VPLoader - Processing complete.')
         else:
             self.logger.error('Error: Did not receive all the UniProtKB GOA files.')
+
+        # output the normalization failures
+        gd.format_normalization_failures(self.get_name(), self.node_norm_failures, self.edge_norm_failures)
 
         # get/KGX save the dataset provenance information node
         self.get_dataset_provenance(data_path)
@@ -491,7 +506,7 @@ class VPLoader:
                     # find the id and replace it with the normalized value
                     node_list[node_idx]['id'] = cached_node_norms[rv['id']]['id']['identifier']
                 else:
-                    self.logger.debug(f"{rv['id']} has no normalized value")
+                    self.node_norm_failures.append(rv['id'])
 
             # go to the next index
             node_idx += 1

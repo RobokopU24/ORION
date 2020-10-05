@@ -27,6 +27,18 @@ class UniRefSimLoader:
     cached_node_norms: dict = {}
     cached_edge_norms: dict = {}
 
+    # storage for nodes and edges that failed normalization
+    node_norm_failures: list = []
+    edge_norm_failures: list = []
+
+    def get_name(self):
+        """
+        returns the name of the class
+
+        :return: str - the name of the class
+        """
+        return self.__class__.__name__
+
     def __init__(self, log_level=logging.INFO):
         """
         constructor
@@ -85,6 +97,9 @@ class UniRefSimLoader:
                 self.parse_data_file(os.path.join(data_dir, full_file), os.path.join(data_dir, f'{f}_{taxon_index_file}'), target_taxon_set, out_node_f, out_edge_f, output_mode)
 
                 self.logger.info(f'UniRefSimLoader - {f} Processing complete.')
+
+        # output the normalization failures
+        gd.format_normalization_failures(self.get_name(), self.node_norm_failures, self.edge_norm_failures)
 
     def parse_data_file(self, uniref_infile_path: str, index_file_path: str, target_taxa: set, out_node_f, out_edge_f, output_mode):
         """
@@ -257,7 +272,8 @@ class UniRefSimLoader:
                     # find the id and replace it with the normalized value
                     node_list[node_idx]['id'] = self.cached_node_norms[rv['id']]['id']['identifier']
                 else:
-                    self.logger.debug(f"{rv['id']} has no normalized value")
+                    # self.logger.debug(f"{rv['id']} has no normalized value")
+                    self.node_norm_failures.append(rv['id'])
 
             # go to the next index
             node_idx += 1
