@@ -42,6 +42,19 @@ class DATACOLS(enum.IntEnum):
 # Desc: Class that loads the UniProtKB GOA data and creates KGX files for importing into a Neo4j graph.
 ##############
 class GOALoader:
+
+    # storage for nodes and edges that failed normalization
+    node_norm_failures: list = []
+    edge_norm_failures: list = []
+
+    def get_name(self):
+        """
+        returns the name of the class
+
+        :return: str - the name of the class
+        """
+        return self.__class__.__name__
+
     def __init__(self, log_level=logging.INFO):
         """
         constructor
@@ -106,6 +119,9 @@ class GOALoader:
         else:
             self.logger.error(f'Error: Retrieving file {data_file_name} failed.')
 
+        # output any node normalization failures
+        gd.format_normalization_failures(self.get_name(), self.node_norm_failures, self.edge_norm_failures)
+
         self.logger.info(f'GOALoader - Processing complete.')
 
         # return the pass/fail flag to the caller
@@ -138,7 +154,7 @@ class GOALoader:
             nnu = NodeNormUtils(self.logger.level)
 
             # normalize the node data
-            nnu.normalize_node_data(total_nodes)
+            self.node_norm_failures = nnu.normalize_node_data(total_nodes)
 
             self.logger.debug('Creating edges.')
 
@@ -271,7 +287,7 @@ class GOALoader:
         en = EdgeNormUtils(self.logger.level)
 
         # normalize the edges
-        en.normalize_edge_data(edge_list)
+        self.edge_norm_failures = en.normalize_edge_data(edge_list)
 
         for item in edge_list:
             # create the record ID

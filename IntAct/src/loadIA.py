@@ -76,6 +76,18 @@ class IALoader:
     # storage for experiment groups to write to file.
     experiment_grp_list: list = []
 
+    # storage for nodes and edges that failed normalization
+    node_norm_failures: list = []
+    edge_norm_failures: list = []
+
+    def get_name(self):
+        """
+        returns the name of the class
+
+        :return: str - the name of the class
+        """
+        return self.__class__.__name__
+
     def __init__(self, log_level=logging.INFO):
         """
         constructor
@@ -132,6 +144,9 @@ class IALoader:
             self.logger.debug(f'File parsing complete.')
         else:
             self.logger.error(f'Error: Retrieving IntAct archive failed.')
+
+        # output the normalization errors
+        gd.format_normalization_failures(self.get_name(), self.node_norm_failures, self.edge_norm_failures)
 
         self.logger.info(f'IALoader - Processing complete.')
 
@@ -450,6 +465,9 @@ class IALoader:
 
                             node_list[node_idx][prefix + 'category_' + suffix] = 'gene|gene_or_gene_product|macromolecular_machine|genomic_entity|molecular_entity|biological_entity|named_thing'
                             node_list[node_idx][prefix + 'equivalent_identifiers_' + suffix] = node_list[node_idx][prefix + suffix]
+
+                            # self.logger.error(f'Error: Finding node normalization for {node_list[node_idx][prefix + suffix]} failed.')
+                            self.node_norm_failures.append(node_list[node_idx][prefix + suffix])
                     except KeyError:
                         # put in the defaults
                         if node_list[node_idx][prefix + 'alias_' + suffix] == '':
@@ -458,7 +476,8 @@ class IALoader:
                         node_list[node_idx][prefix + 'category_' + suffix] = 'gene|gene_or_gene_product|macromolecular_machine|genomic_entity|molecular_entity|biological_entity|named_thing'
                         node_list[node_idx][prefix + 'equivalent_identifiers_' + suffix] = node_list[node_idx][prefix + suffix]
 
-                        self.logger.error(f'Error: Finding node normalization for {node_list[node_idx][prefix + suffix]} failed.')
+                        # self.logger.error(f'Error: Finding node normalization for {node_list[node_idx][prefix + suffix]} failed.')
+                        self.node_norm_failures.append(node_list[node_idx][prefix + suffix])
 
             # go to the next index
             node_idx += 1
