@@ -448,7 +448,13 @@ class IALoader:
                             if 'type' in cached_val:
                                 node_list[node_idx][prefix + 'category_' + suffix] = '|'.join(cached_val['type'])
                             else:
-                                node_list[node_idx][prefix + 'category_' + suffix] = 'gene|gene_or_gene_product|macromolecular_machine|genomic_entity|molecular_entity|biological_entity|named_thing'
+                                # assign the default category
+                                if node_list[node_idx][prefix + suffix].startswith('NCBITaxon'):
+                                    default_category: str = 'organism_taxon|ontology_class|named_thing'
+                                else:
+                                    default_category: str = 'gene|gene_or_gene_product|macromolecular_machine|genomic_entity|molecular_entity|biological_entity|named_thing'
+
+                                node_list[node_idx][prefix + 'category_' + suffix] = default_category
 
                             # get the equivalent identifiers
                             if 'equivalent_identifiers' in cached_val and len(cached_val['equivalent_identifiers']) > 0:
@@ -463,7 +469,13 @@ class IALoader:
                             if node_list[node_idx][prefix + 'alias_' + suffix] == '':
                                 node_list[node_idx][prefix + 'alias_' + suffix] = node_list[node_idx][prefix + suffix]
 
-                            node_list[node_idx][prefix + 'category_' + suffix] = 'gene|gene_or_gene_product|macromolecular_machine|genomic_entity|molecular_entity|biological_entity|named_thing'
+                            # assign the default category
+                            if node_list[node_idx][prefix + suffix].startswith('NCBITaxon'):
+                                default_category: str = 'organism_taxon|ontology_class|named_thing'
+                            else:
+                                default_category: str = 'gene|gene_or_gene_product|macromolecular_machine|genomic_entity|molecular_entity|biological_entity|named_thing'
+
+                            node_list[node_idx][prefix + 'category_' + suffix] = default_category
                             node_list[node_idx][prefix + 'equivalent_identifiers_' + suffix] = node_list[node_idx][prefix + suffix]
 
                             # self.logger.error(f'Error: Finding node normalization for {node_list[node_idx][prefix + suffix]} failed.')
@@ -473,7 +485,13 @@ class IALoader:
                         if node_list[node_idx][prefix + 'alias_' + suffix] == '':
                             node_list[node_idx][prefix + 'alias_' + suffix] = node_list[node_idx][prefix + suffix]
 
-                        node_list[node_idx][prefix + 'category_' + suffix] = 'gene|gene_or_gene_product|macromolecular_machine|genomic_entity|molecular_entity|biological_entity|named_thing'
+                        # assign the default category
+                        if node_list[node_idx][prefix + suffix].startswith('NCBITaxon'):
+                            default_category: str = 'organism_taxon|ontology_class|named_thing'
+                        else:
+                            default_category: str = 'gene|gene_or_gene_product|macromolecular_machine|genomic_entity|molecular_entity|biological_entity|named_thing'
+
+                        node_list[node_idx][prefix + 'category_' + suffix] = default_category
                         node_list[node_idx][prefix + 'equivalent_identifiers_' + suffix] = node_list[node_idx][prefix + suffix]
 
                         # self.logger.error(f'Error: Finding node normalization for {node_list[node_idx][prefix + suffix]} failed.')
