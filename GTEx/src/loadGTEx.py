@@ -549,8 +549,9 @@ class GTExLoader:
             for v in variant_chunk:
                 nodes_output_file.write(f'{{"id":"{v.id}","name":"{v.name}","category":{sequence_variant_category},"equivalent_identifiers":{orjson.dumps(list(v.synonyms)).decode()}}},\n')
 
-            self.logger.info(f'Variant nodes written. Finding gene relationships from genetics_services..')
-
+            #self.logger.info(f'Variant nodes written. Finding gene relationships from genetics_services..')
+            self.logger.info(f'Variant nodes written.')
+            """
             variant_to_gene_results = genetics_services.get_variant_to_gene(ALL_VARIANT_TO_GENE_SERVICES,
                                                                             variant_chunk)
             self.logger.info(f'Gene relationships from genetics_services found.. Normalizing gene nodes...')
@@ -583,6 +584,7 @@ class GTExLoader:
                 if normalized_gene_id not in all_gene_ids:
                     all_gene_nodes.append(gene)
                     all_gene_ids.add(normalized_gene_id)
+            """
 
         self.logger.info(f'GTEx variant processing complete. Making variant id lookup table..')
 
