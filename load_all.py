@@ -31,13 +31,10 @@ if __name__ == '__main__':
 
     The full set of command line switches
         -m json
-        -p D:/Work/Robokop/Data_services/UniProtKB_data
-        -g goa_human.gaf.gz
-        -r E:/Data_services/UniRef_data
-        -f uniref100,uniref90,uniref50
+        -p D:/Work/Robokop/Data_services/UniProtKB_data -g goa_human.gaf.gz
+        -r E:/Data_services/UniRef_data -f uniref100,uniref90,uniref50
         -i D:/Work/Robokop/Data_services/IntAct_data
-        -u D:/Work/Robokop/Data_services/Ubergraph_data
-        -s properties-nonredundant.ttl
+        -u D:/Work/Robokop/Data_services/Ubergraph_data -s properties-nonredundant.ttl
         -o D:/Work/Robokop/Data_services/FooDB_data
         -a D:/Work/Robokop/Data_services/PHAROS_data
         -x D:/Work/Robokop/Data_services/GTEx_data
@@ -79,7 +76,7 @@ if __name__ == '__main__':
     # assign the target GOA data file
     GOA_data_file = args['goa_data_file']
 
-    if UniProtKB_data_dir is not None:
+    if UniProtKB_data_dir is not None and GOA_data_file is not None:
         # get a reference to the processor
         goa = GOALoader()
 
