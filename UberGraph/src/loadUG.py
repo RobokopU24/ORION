@@ -243,7 +243,8 @@ class UGLoader:
 
         # reshape the data frame and remove all node duplicates.
         new_df = df.drop(['grp', 'node_num'], axis=1)
-        new_df = new_df.drop_duplicates(keep='first')
+        new_df.sort_values("id")
+        new_df.drop_duplicates(keep='first', inplace=True)
 
         self.logger.debug(f'{len(new_df.index)} nodes found.')
 
