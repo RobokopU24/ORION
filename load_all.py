@@ -138,17 +138,6 @@ if __name__ == '__main__':
         # load the data files and create KGX output files
         fdb.load(FDB_data_dir, 'FooDB', out_mode)
 
-    # assign the GTEx directory
-    GTEx_data_dir = args['gtex_dir']
-
-    if GTEx_data_dir is not None:
-        # get a reference to the processor
-        gtl = GTExLoader(test_data=True, use_cache=False)
-
-        logger.info('Loading GTEx.')
-
-        gtl.load(GTEx_data_dir, 'gtex_kgx')
-
     # assign the PHAROS directory
     PHAROS_data_dir = args['pharos_dir']
 
@@ -159,3 +148,14 @@ if __name__ == '__main__':
         logger.info('Loading PHAROS.')
 
         pdb.load(PHAROS_data_dir, 'pharos_kgx')
+
+    # assign the GTEx directory
+    GTEx_data_dir = args['gtex_dir']
+
+    if GTEx_data_dir is not None:
+        # get a reference to the processor
+        gtl = GTExLoader(use_cache=False)
+
+        logger.info('Loading GTEx.')
+
+        gtl.load(GTEx_data_dir, 'gtex_kgx')
