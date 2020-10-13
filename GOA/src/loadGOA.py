@@ -234,7 +234,7 @@ class GOALoader:
 
             # if we dont get a pair something is odd (but not necessarily bad)
             if len(rows) != 2:
-                self.logger.warning(f'Warning: Mis-matched node grouping. {rows}')
+                self.logger.debug(f'Debug: Mis-matched node grouping. {rows}')
 
             # for each row in the triplet
             for row in rows.iterrows():
@@ -277,7 +277,7 @@ class GOALoader:
                 obj_node_id = node_1_id
             else:
                 valid_type = False
-                self.logger.warning(f'Warning: Unrecognized node 3 type for {grp}')
+                self.logger.debug(f'Debug: Unrecognized node 3 type for {grp}')
 
             # was this a good value
             if valid_type:
@@ -338,7 +338,7 @@ class GOALoader:
                         Homing endonuclease I-ApeI      apeI|APE_1929.1 protein 272557  20200229        UniProt """
 
                     # create a unique group identifier
-                    grp: str = f'{line[DATACOLS.DB_Object_ID.value]}{line[DATACOLS.GO_ID.value]}{line[DATACOLS.Taxon_Interacting_taxon.value]}'
+                    grp: str = f'{line[DATACOLS.DB_Object_ID.value]}/{line[DATACOLS.GO_ID.value]}/{line[DATACOLS.Taxon_Interacting_taxon.value]}'
 
                     # create node type 1
                     """ A gene with identifier UniProtKB:O73942, and name "apeI", and description "Homing endonuclease I-ApeI". """
