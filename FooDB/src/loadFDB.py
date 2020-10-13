@@ -391,7 +391,7 @@ if __name__ == '__main__':
     ap = argparse.ArgumentParser(description='Load UniProtKB human data files and create KGX import files.')
 
     # command line should be like: python loadFDB.py  -m json
-    ap.add_argument('-p', '--data_dir', required=True, help='The location of the FooDB data files')
+    ap.add_argument('-o', '--data_dir', required=True, help='The location of the FooDB data files')
     ap.add_argument('-m', '--out_mode', required=True, help='The output file mode (tsv or json')
 
     # parse the arguments
