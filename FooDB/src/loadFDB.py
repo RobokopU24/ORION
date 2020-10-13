@@ -111,7 +111,7 @@ class FDBLoader:
         food_id: str = ''
         food_name: str = ''
 
-        # foods_list = foods_list[:2]
+        # foods_list = foods_list[:5]
 
         # for each food
         for food_dict in foods_list:
@@ -121,76 +121,81 @@ class FDBLoader:
 
             self.logger.debug(f'Working food id: {food_id}, name: {food_name}')
 
-            # add the food node
-            compound_node_list.append({'grp': f'{food_id}', 'node_num': 1, 'id': f'NCBITaxon:{food_dict["ncbi_taxonomy_id"]}', 'name': f'{food_name}', 'category': '', 'equivalent_identifiers': '', 'foodb_id': f'{food_id}', 'content_type': 'food', 'nutrient': 'false'})
+            # if there is no NCBI taxon ID it can't be processed
+            if food_dict["ncbi_taxonomy_id"] != '':
+                # add the food node
+                compound_node_list.append({'grp': f'{food_id}', 'node_num': 1, 'id': f'NCBITaxon:{food_dict["ncbi_taxonomy_id"]}', 'name': f'{food_name}', 'category': '', 'equivalent_identifiers': '', 'foodb_id': f'{food_id}', 'content_type': 'food', 'nutrient': 'false'})
 
-            # get the content rows for the food
-            contents: iter = self.get_list_records_by_id(contents_list, 'food_id', food_id)
+                # get the content rows for the food
+                contents: iter = self.get_list_records_by_id(contents_list, 'food_id', food_id)
 
-            # go through each content record
-            for content in contents:
-                # init a found flag
-                found: bool = False
+                # go through each content record
+                for content in contents:
+                    # init a found flag
+                    found: bool = False
 
-                # is this a compound
-                if content['source_type'] == 'Compound':
-                    # look up the compound data by source id
-                    # compound_records: filter = filter(lambda data_record: data_record['id'] == content['source_id'], compounds_list)
-                    compound_records: iter = self.get_list_records_by_id(compounds_list, 'id', content['source_id'])
+                    # is this a compound
+                    if content['source_type'].startswith('C'):
+                        # look up the compound data by source id
+                        # compound_records: filter = filter(lambda data_record: data_record['id'] == content['source_id'], compounds_list)
+                        compound_records: iter = self.get_list_records_by_id(compounds_list, 'id', content['source_id'])
 
-                    # for each record returned
-                    for compound_record in compound_records:
-                        # set the found flag
-                        found = True
+                        # for each record returned
+                        for compound_record in compound_records:
+                            # set the found flag
+                            found = True
 
-                        # get the pertinent info from the record
-                        good_row, equivalent_id = self.get_equivalent_id(compound_record)
+                            # get the pertinent info from the record
+                            good_row, equivalent_id = self.get_equivalent_id(compound_record)
 
-                        # is it good enough to save
-                        if good_row:
+                            # is it good enough to save
+                            if good_row:
+                                # save the node
+                                compound_node_list.append({'grp': f'{food_id}', 'node_num': 2, 'id': f'{equivalent_id}', 'name': f'{compound_record["name"]}', 'category': 'chemical_substance|molecular_entity|biological_entity|named_thing', 'equivalent_identifiers': f'{equivalent_id}', 'foodb_id': 0, 'content_type': 'compound', 'nutrient': 'false', 'unit': f'{content["orig_unit"]}', 'amount': f'{content["orig_max"]}'})
+
+                    # is this a nutrient
+                    elif content['source_type'].startswith('N'):
+                        # look up the nutrient data by source id
+                        # nutrient_records: filter = filter(lambda data_record: data_record['id'] == content['source_id'], nutrients_list)
+                        nutrient_records: iter = self.get_list_records_by_id(nutrients_list, 'id', content['source_id'])
+
+                        # for each record returned
+                        for nutrient_record in nutrient_records:
+                            # set the found flag
+                            found = True
+
                             # save the node
-                            compound_node_list.append({'grp': f'{food_id}', 'node_num': 2, 'id': f'{equivalent_id}', 'name': f'{compound_record["name"]}', 'category': 'chemical_substance|molecular_entity|biological_entity|named_thing', 'equivalent_identifiers': f'{equivalent_id}', 'foodb_id': f'{food_id}', 'content_type': 'compound', 'nutrient': 'false', 'unit': f'{content["orig_unit"]}', 'amount': f'{content["orig_max"]}'})
+                            nutrient_node_list.append({'grp': f'{food_id}', 'node_num': 3, 'id': f'{nutrient_record["public_id"]}', 'name': f'{nutrient_record["name"]}', 'category': 'chemical_substance|molecular_entity|biological_entity|named_thing', 'equivalent_identifiers': '', 'foodb_id': 0, 'content_type': 'nutrient', 'nutrient': 'true', 'unit': f'{content["orig_unit"]}', 'amount': f'{content["orig_max"]}'})
 
-                # is this a nutrient
-                elif content['source_type'] == 'Nutrient':
-                    # look up the nutrient data by source id
-                    # nutrient_records: filter = filter(lambda data_record: data_record['id'] == content['source_id'], nutrients_list)
-                    nutrient_records: iter = self.get_list_records_by_id(nutrients_list, 'id', content['source_id'])
+                    # was the compound found
+                    if not found:
+                        self.logger.info(f"{content['source_type']} not found. Food {food_id}, name: {food_name}, content id: {content['id']}, source id: {content['source_id']}")
 
-                    # for each record returned
-                    for nutrient_record in nutrient_records:
-                        # set the found flag
-                        found = True
+                # were there any compound records
+                if len(compound_node_list) > 0:
+                    # save the normalized data
+                    node_list.extend(compound_node_list)
+                else:
+                    self.logger.info(f'No compound records. Food ID {food_id}, name: {food_name}')
 
-                        # save the node
-                        nutrient_node_list.append({'grp': f'{food_id}', 'node_num': 3, 'id': f'{nutrient_record["public_id"]}', 'name': f'{nutrient_record["name"]}', 'category': 'chemical_substance|molecular_entity|biological_entity|named_thing', 'equivalent_identifiers': '', 'foodb_id': f'{food_id}', 'content_type': 'nutrient', 'nutrient': 'true', 'unit': f'{content["orig_unit"]}', 'amount': f'{content["orig_max"]}'})
-
-                # was the compound found
-                if not found:
-                    self.logger.error(f"Content {content['source_type']} not found. Food: {food_name}, content id: {content['id']}, content source id: {content['source_id']}")
-
-        # normalize the group of entries on the data frame.
-        nnu = NodeNormUtils(self.logger.level)
-
-        # were there any compound records
-        if len(compound_node_list) > 0:
-            # normalize the node data
-            self.node_norm_failures = nnu.normalize_node_data(compound_node_list, block_size=1000)
-
-            # save the normalized data
-            node_list.extend(compound_node_list)
-        else:
-            self.logger.warning(f'No compound records found for food {food_id}, name: {food_name}')
-
-        # were there nutrient records
-        if len(nutrient_node_list) > 0:
-            # extend the nutrient data
-            node_list.extend(nutrient_node_list)
-        else:
-            self.logger.warning(f'No nutrient records found for food {food_id}, name: {food_name}')
+                # were there nutrient records
+                if len(nutrient_node_list) > 0:
+                    # extend the nutrient data
+                    node_list.extend(nutrient_node_list)
+                else:
+                    self.logger.info(f'No nutrient records. Food ID {food_id}, name: {food_name}')
+            else:
+                self.logger.warning(f"NCBI Taxon ID missing. Food ID {food_id}, name: {food_name}. Continuing..")
+                continue
 
         # is there anything to do
         if len(node_list) > 0:
+            # get a reference to the node normalize utility
+            nnu = NodeNormUtils(self.logger.level)
+
+            # normalize the node data
+            self.node_norm_failures = nnu.normalize_node_data(node_list, block_size=1000)
+
             self.logger.debug('Creating edges.')
 
             # create a data frame with the node list
@@ -232,13 +237,13 @@ class FDBLoader:
                 out_node_f.write(',\n'.join(final_node_set))
             else:
                 out_node_f.write('\n'.join(final_node_set))
+
+            # finish off the json if we have to
+            if output_mode == 'json':
+                out_node_f.write('\n]}')
+                out_edge_f.write('\n]}')
         else:
             self.logger.warning(f'No records found for food {food_id}, name: {food_name}')
-
-        # finish off the json if we have to
-        if output_mode == 'json':
-            out_node_f.write('\n]}')
-            out_edge_f.write('\n]}')
 
         # output the failures
         gd.format_normalization_failures(self.get_name(), self.node_norm_failures, self.edge_norm_failures)
