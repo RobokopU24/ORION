@@ -240,6 +240,7 @@ def test_gtex_load():
     # check the line count. this behaves oddly in travis for some reason. toggles between 51 and 48.
     # may be a pytest cache issue?
     assert(len(data["edges"]) == 51)
+
     #assert (len(data["edges"]) == 48)
 
     # open the node file list and get the lines
