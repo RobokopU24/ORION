@@ -240,6 +240,9 @@ def test_gtex_load():
     # check the line count
     assert(len(data["edges"]) == 2)
 
+    assert(len(data["edges"][0]['expressed_in']) == len(data["edges"][0]['p_value']))
+    assert(len(data["edges"][0]['p_value']) == len(data["edges"][0]['slope']))
+
     assert(len(data["edges"][0]['expressed_in']) == 12)
     assert(len(data["edges"][1]['expressed_in']) == 12)
 
