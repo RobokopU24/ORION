@@ -132,6 +132,9 @@ class NodeNormUtils:
         # init the node index counter
         node_idx: int = 0
 
+        # de-dupe the list
+        node_list = [dict(t) for t in {tuple(d.items()) for d in node_list}]
+
         # save the node list count to avoid grabbing it over and over
         node_count: int = len(node_list)
 
@@ -212,7 +215,7 @@ class NodeNormUtils:
         # for each row in the slice add the new id and name
         # iterate through node groups and get only the taxa records.
         while node_idx < node_count:
-            # get a reference to the node list
+            # get get the next node list item by index
             rv = node_list[node_idx]
 
             # did we find a normalized value
