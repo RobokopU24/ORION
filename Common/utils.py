@@ -132,9 +132,6 @@ class NodeNormUtils:
         # init the node index counter
         node_idx: int = 0
 
-        # de-dupe the list
-        node_list = [dict(t) for t in {tuple(d.items()) for d in node_list}]
-
         # save the node list count to avoid grabbing it over and over
         node_count: int = len(node_list)
 

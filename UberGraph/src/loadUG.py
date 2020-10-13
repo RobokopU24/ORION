@@ -221,17 +221,17 @@ class UGLoader:
 
         self.logger.debug(f'Normalizing data.')
 
-        # normalize the edges
-        failures: list = en.normalize_edge_data(edge_list, self.cached_edge_norms, block_size=1000)
-
-        # save the edge failures
-        self.edge_norm_failures.extend(failures)
-
         # normalize the nodes
         failures: list = nn.normalize_node_data(node_list, self.cached_node_norms, block_size=2900)
 
         # save the node failures
         self.node_norm_failures.extend(failures)
+
+        # normalize the edges
+        failures: list = en.normalize_edge_data(edge_list, self.cached_edge_norms, block_size=1000)
+
+        # save the edge failures
+        self.edge_norm_failures.extend(failures)
 
         self.logger.debug('Writing out data...')
 

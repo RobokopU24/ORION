@@ -146,20 +146,18 @@ class GOALoader:
             self.logger.debug(f'Node list loaded with {len(node_list)} entries.')
 
             # de-dupe the list
-            total_nodes = [dict(t) for t in {tuple(d.items()) for d in node_list}]
-
-            self.logger.debug(f'Node list duplicates removed, now loaded with {len(total_nodes)} entries.')
+            node_list = [dict(t) for t in {tuple(d.items()) for d in node_list}]
 
             # normalize the group of entries on the data frame.
             nnu = NodeNormUtils(self.logger.level)
 
             # normalize the node data
-            self.node_norm_failures = nnu.normalize_node_data(total_nodes)
+            self.node_norm_failures = nnu.normalize_node_data(node_list)
 
             self.logger.debug('Creating edges.')
 
             # create a data frame with the node list
-            df: pd.DataFrame = pd.DataFrame(total_nodes, columns=['grp', 'node_num', 'id', 'name', 'category', 'equivalent_identifiers'])
+            df: pd.DataFrame = pd.DataFrame(node_list, columns=['grp', 'node_num', 'id', 'name', 'category', 'equivalent_identifiers'])
 
             # get the list of unique edges
             final_edges: set = self.get_edge_set(df, output_mode)
@@ -172,13 +170,13 @@ class GOALoader:
             else:
                 out_edge_f.write('\n'.join(final_edges))
 
-            self.logger.debug(f'De-duplicating {len(total_nodes)} nodes')
+            self.logger.debug(f'De-duplicating {len(node_list)} nodes')
 
             # init a set for the node de-duplication
             final_node_set: set = set()
 
             # write out the unique nodes
-            for row in total_nodes:
+            for row in node_list:
                 # format the output depending on the mode
                 if output_mode == 'json':
                     # turn these into json

@@ -169,6 +169,9 @@ class PHAROSLoader:
         node_list = self.parse_cmpd_activity_to_gene(node_list)
         # node_list = self.parse_disease_to_gene(node_list)
 
+        # de-dupe the list
+        node_list = [dict(t) for t in {tuple(d.items()) for d in node_list}]
+
         # normalize the group of entries on the data frame.
         nnu = NodeNormUtils(self.logger.level)
 

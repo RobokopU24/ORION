@@ -190,6 +190,9 @@ class FDBLoader:
 
         # is there anything to do
         if len(node_list) > 0:
+            # de-dupe the list
+            node_list = [dict(t) for t in {tuple(d.items()) for d in node_list}]
+
             # get a reference to the node normalize utility
             nnu = NodeNormUtils(self.logger.level)
 
