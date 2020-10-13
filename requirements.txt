@@ -6,3 +6,4 @@ httpsproxy_urllib2
 git+https://github.com/ObesityHub/robokop-genetics.git
 orjson
 rdflib
+mysql-connector
