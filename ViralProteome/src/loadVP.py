@@ -146,7 +146,7 @@ class VPLoader:
                 self.logger.debug(f'Node list loaded with {len(total_nodes)} entries.')
 
                 # normalize the group of entries on the data frame.
-                self.normalize_node_data(total_nodes)
+                total_nodes = self.normalize_node_data(total_nodes)
 
                 self.logger.debug('Creating edges.')
 
@@ -287,9 +287,13 @@ class VPLoader:
                     node_3_id = row[1]['id']
                     node_3_type = row[1]['category']
 
-            # create the KGX edge data for nodes 1 and 2
-            """ An edge from the gene to the organism_taxon with relation "in_taxon" """
-            edge_list.append({"predicate": "RO:0002162", "subject": f"{node_1_id}", "relation": "biolink:in_taxon", "object": f"{node_2_id}", "edge_label": "in_taxon"})
+            # check to insure we have both node ids
+            if node_1_id != '' and node_2_id != '':
+                # create the KGX edge data for nodes 1 and 2
+                """ An edge from the gene to the organism_taxon with relation "in_taxon" """
+                edge_list.append({"predicate": "RO:0002162", "subject": f"{node_1_id}", "relation": "biolink:in_taxon", "object": f"{node_2_id}", "edge_label": "in_taxon"})
+            else:
+                self.logger.warning(f'Warning: Missing 1 or more node IDs. Node type 1: {node_1_id}, Node type 2: {node_2_id}')
 
             # write out an edge that connects nodes 1 and 3
             """ An edge between the gene and the go term. If the go term is a molecular_activity, 
@@ -326,10 +330,13 @@ class VPLoader:
                 obj_node_id = node_1_id
             else:
                 valid_type = False
-                self.logger.warning(f'Warning: Unrecognized node 3 type for {node_3_id}')
 
             # was this a good value
-            if valid_type:
+            if not valid_type:
+                self.logger.debug(f'Warning: Unrecognized node 3 type')
+            elif src_node_id == '' or obj_node_id == '':
+                self.logger.warning(f'Warning: Missing 1 or more node IDs. Node type 1: {node_1_id}, Node type 3: {node_3_id}')
+            else:
                 # create the KGX edge data for nodes 1 and 3
                 edge_list.append({"predicate": predicate, "subject": src_node_id, "relation": relation, "object": obj_node_id, "edge_label": label})
 
