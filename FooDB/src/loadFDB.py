@@ -123,9 +123,6 @@ class FDBLoader:
 
             # if there is no NCBI taxon ID it can't be processed
             if food_dict["ncbi_taxonomy_id"] != '':
-                # add the food node
-                compound_node_list.append({'grp': f'{food_id}', 'node_num': 1, 'id': f'NCBITaxon:{food_dict["ncbi_taxonomy_id"]}', 'name': f'{food_name}', 'category': '', 'equivalent_identifiers': '', 'foodb_id': f'{food_id}', 'content_type': 'food', 'nutrient': 'false'})
-
                 # get the content rows for the food
                 contents: iter = self.get_list_records_by_id(contents_list, 'food_id', food_id)
 
@@ -170,6 +167,9 @@ class FDBLoader:
                     # was the compound found
                     if not found:
                         self.logger.info(f"{content['source_type']} not found. Food {food_id}, name: {food_name}, content id: {content['id']}, source id: {content['source_id']}")
+                    else:
+                        # add the food node
+                        compound_node_list.append({'grp': f'{food_id}', 'node_num': 1, 'id': f'NCBITaxon:{food_dict["ncbi_taxonomy_id"]}', 'name': f'{food_name}', 'category': '', 'equivalent_identifiers': '', 'foodb_id': f'{food_id}', 'content_type': 'food', 'nutrient': 'false'})
 
                 # were there any compound records
                 if len(compound_node_list) > 0:
