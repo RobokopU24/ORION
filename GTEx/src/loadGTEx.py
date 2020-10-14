@@ -2,7 +2,6 @@ import os
 import tarfile
 import gzip
 import json
-import orjson
 import argparse
 from pathlib import Path
 from urllib import request
@@ -204,8 +203,8 @@ class GTExLoader:
 
             self.logger.info(f'Normalizing gene and anatomy nodes complete.')
 
-            with open(nodes_output_file_path, 'a') as nodes_output_file, open(edges_output_file_path,
-                                                                              'a') as edges_output_file:
+            with open(nodes_output_file_path, 'w') as nodes_output_file, open(edges_output_file_path,
+                                                                              'w') as edges_output_file:
                 nodes_output_file.write('{"nodes":[\n')
                 edges_output_file.write('{"edges":[\n')
 
@@ -225,9 +224,9 @@ class GTExLoader:
                 for i, g in enumerate(all_gene_nodes, start=1):
                     # write a comma after each gene line until the last one, then close
                     if i < num_genes:
-                        nodes_output_file.write(orjson.dumps(g).decode() + ',\n')
+                        nodes_output_file.write(json.dumps(g) + ',\n')
                     else:
-                        nodes_output_file.write(orjson.dumps(g).decode() + '\n]}')
+                        nodes_output_file.write(json.dumps(g) + '\n]}')
                 self.logger.info('All of the variant and gene nodes are written now.')
 
             # TODO these predicates should be normalized, since they are not they might as well be hardcoded
@@ -289,7 +288,7 @@ class GTExLoader:
                 # coalesce the uberon, p-value and slopes into arrays grouping by subject/relation/object and write them out
                 self.coalesce_and_write_edges(edges_output_file)
 
-                edges_output_file.write('\n]}')
+                edges_output_file.write(']}')
                 self.logger.info(f'GTEx parsing and KGX file creation complete.')
 
         except Exception as e:
@@ -547,7 +546,7 @@ class GTExLoader:
             # normalize the chunk of variants and write them straight to file
             genetics_normalizer.batch_normalize(variant_chunk)
             for v in variant_chunk:
-                nodes_output_file.write(f'{{"id":"{v.id}","name":"{v.name}","category":{sequence_variant_category},"equivalent_identifiers":{orjson.dumps(list(v.synonyms)).decode()}}},\n')
+                nodes_output_file.write(f'{{"id":"{v.id}","name":"{v.name}","category":{sequence_variant_category},"equivalent_identifiers":{json.dumps(list(v.synonyms))}}},\n')
 
             #self.logger.info(f'Variant nodes written. Finding gene relationships from genetics_services..')
             self.logger.info(f'Variant nodes written.')
@@ -580,7 +579,7 @@ class GTExLoader:
                 # edge_id: str = f'{g_to_v_edge["subject"]}{g_to_v_edge["edge_label"]}{g_to_v_edge["object"]}'
                 # g_to_v_edge.update({"id":f'{hashlib.md5(edge_id.encode("utf-8")).hexdigest()}'})
 
-                edges_output_file.write(orjson.dumps(g_to_v_edge).decode() + ",\n")
+                edges_output_file.write(json.dumps(g_to_v_edge) + ",\n")
                 if normalized_gene_id not in all_gene_ids:
                     all_gene_nodes.append(gene)
                     all_gene_ids.add(normalized_gene_id)
