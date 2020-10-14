@@ -133,6 +133,8 @@ class UGLoader:
 
         # parse each file
         for file in split_files:
+            self.logger.info(f'Working file: {file}')
+
             # get a time stamp
             tm_start = time.time()
 
@@ -173,7 +175,7 @@ class UGLoader:
                 edge_list.append({'grp': f'{grp}', 'predicate': f'{triple[1]}', 'relation': f'{triple[1]}', 'edge_label': f'{triple[1]}'})
                 node_list.append({'grp': f'{grp}', 'node_num': 2, 'id': f'{triple[2]}', 'name': f'{triple[2]}', 'category': '', 'equivalent_identifiers': ''})
 
-            # write out any remaining data
+            # write out the data for this file
             self.write_out_data(node_list, edge_list, output_mode, 'UberGraph ' + data_file_name.split('.')[0])
 
             self.logger.debug(f'Loading complete for file {file.split(".")[2]} of {len(split_files)} in {round(time.time() - tm_start, 0)} seconds.')
@@ -235,15 +237,14 @@ class UGLoader:
 
         self.logger.debug('Writing out data...')
 
-        # write out the edges
-        self.write_edge_data(node_list, edge_list, output_mode, data_source_name)
+        # write out the edges. nodes that have edges will be returned
+        new_node_list: list = self.write_edge_data(node_list, edge_list, output_mode, data_source_name)
 
         # create a data frame with the node list
-        df: pd.DataFrame = pd.DataFrame(node_list, columns=['grp', 'node_num', 'id', 'name', 'category', 'equivalent_identifiers'])
+        df_nodes: pd.DataFrame = pd.DataFrame(new_node_list, columns=['grp', 'node_num', 'id', 'name', 'category', 'equivalent_identifiers'])
 
         # reshape the data frame and remove all node duplicates.
-        new_df = df.drop(['grp', 'node_num'], axis=1)
-        new_df.sort_values("id")
+        new_df: pd.DataFrame = df_nodes.drop(['grp', 'node_num'], axis=1)
         new_df.drop_duplicates(keep='first', inplace=True)
 
         self.logger.debug(f'{len(new_df.index)} nodes found.')
@@ -252,8 +253,8 @@ class UGLoader:
         for item in new_df.iterrows():
             if output_mode == 'json':
                 # turn these into json
-                category = json.dumps(item[1]['category'].split('|'))
-                identifiers = json.dumps(item[1]['equivalent_identifiers'].split('|'))
+                category: str = json.dumps(item[1]['category'].split('|'))
+                identifiers: str = json.dumps(item[1]['equivalent_identifiers'].split('|'))
                 name: str = item[1]["name"].replace('"', '\\"')
 
                 # output the node
@@ -273,7 +274,7 @@ class UGLoader:
 
         self.logger.debug('Writing out to data file complete.')
 
-    def write_edge_data(self, node_list: list, edge_list: list, output_mode: str, data_source_name: str):
+    def write_edge_data(self, node_list: list, edge_list: list, output_mode: str, data_source_name: str) -> list:
         """
         writes edges for the node list passed
 
@@ -286,20 +287,24 @@ class UGLoader:
 
         self.logger.debug(f'Creating edges for {len(node_list)} nodes.')
 
-        # init interaction group detection
+        # init group detection variables
         cur_grp_name: str = ''
         first: bool = True
         node_idx: int = 0
+        grp_list: list = []
+
+        # init the new node list to be returned
+        new_node_list: list = []
 
         # convert the edge list into a dataframe for faster searching
-        df = pd.DataFrame(edge_list, columns=['grp', 'predicate', 'relation', 'edge_label'])
-        df.set_index(keys=['grp'], inplace=True)
+        df_edges: pd.DataFrame = pd.DataFrame(edge_list, columns=['grp', 'predicate', 'relation', 'edge_label'])
+        df_edges.set_index(keys=['grp'], inplace=True)
 
         # sort the list of interactions in the experiment group
-        sorted_nodes = sorted(node_list, key=itemgetter('grp'))
+        sorted_nodes: list = sorted(node_list, key=itemgetter('grp'))
 
         # get the number of records in this sorted experiment group
-        node_count = len(sorted_nodes)
+        node_count: int = len(sorted_nodes)
 
         # iterate through node groups and create the edge records.
         while node_idx < node_count:
@@ -312,7 +317,7 @@ class UGLoader:
                 first = False
 
             # init the list that will contain the node groups
-            grp_list: list = []
+            grp_list.clear()
 
             # for each entry member in the group
             while sorted_nodes[node_idx]['grp'] == cur_grp_name:
@@ -336,27 +341,27 @@ class UGLoader:
 
                 # save the next interaction name
                 cur_grp_name = sorted_nodes[node_idx]['grp']
+
                 continue
 
             # init the group index counter
             grp_idx: int = 0
 
             # init the source and object ids
-            source_node_id: str = ''
-            object_node_id: str = ''
-            grp: str = ''
+            source_node: dict = {}
+            object_node: dict = {}
 
             # get the edge relation using the group name
-            edge_relation = df.loc[cur_grp_name].relation
+            edge_relation = df_edges.loc[cur_grp_name].relation
 
             # now that we have a group create the edges
             while grp_idx < len(grp_list):
                 if grp_list[grp_idx]['node_num'] == 1:
                     # get the source node id
-                    source_node_id = grp_list[grp_idx]['id']
+                    source_node = grp_list[grp_idx]
                 elif grp_list[grp_idx]['node_num'] == 2:
                     # get the object node id
-                    object_node_id = grp_list[grp_idx]['id']
+                    object_node = grp_list[grp_idx]
                 else:
                     self.logger.error(f'Unknown node number: {grp_list[grp_idx]["node_num"]}')
 
@@ -364,20 +369,24 @@ class UGLoader:
                 grp_idx += 1
 
             # did we get everything
-            if source_node_id != '' and object_node_id != '' and edge_relation != '':
+            if len(source_node) > 0 and len(object_node) > 0 and edge_relation != '':
+                # add the nodes to the new node list
+                new_node_list.append(source_node)
+                new_node_list.append(object_node)
+
                 # create the record ID
-                record_id: str = source_node_id + edge_relation + object_node_id
+                record_id: str = source_node['id'] + edge_relation + object_node['id']
 
                 # write out the edge
                 if output_mode == 'json':
-                    self.final_edge_set.add(f'{{"id":"{hashlib.md5(record_id.encode("utf-8")).hexdigest()}","subject":"{source_node_id}","relation":"{edge_relation}","object":"{object_node_id}","edge_label":"{edge_relation}","source_database":"{data_source_name}"}}')
+                    self.final_edge_set.add(f'{{"id":"{hashlib.md5(record_id.encode("utf-8")).hexdigest()}","subject":"{source_node["id"]}","relation":"{edge_relation}","object":"{object_node["id"]}","edge_label":"{edge_relation}","source_database":"{data_source_name}"}}')
                 else:
-                    self.final_edge_set.add(f'{hashlib.md5(record_id.encode("utf-8")).hexdigest()}\t{source_node_id}\t{edge_relation}\t{edge_relation}\t{object_node_id}\t{data_source_name}')
+                    self.final_edge_set.add(f'{hashlib.md5(record_id.encode("utf-8")).hexdigest()}\t{source_node["id"]}\t{edge_relation}\t{edge_relation}\t{object_node["id"]}\t{data_source_name}')
 
                 # increment the edge count
                 self.total_edges += 1
             else:
-                self.logger.debug(f'Node or edge relationship missing: {grp}. ({source_node_id})-[{edge_relation}]-({object_node_id})')
+                self.logger.debug(f'Node or edge relationship missing: {cur_grp_name}. ({source_node["id"]})-[{edge_relation}]-({object_node["id"]})')
 
             # insure we dont overrun the list
             if node_idx >= node_count:
@@ -387,6 +396,9 @@ class UGLoader:
             cur_grp_name = sorted_nodes[node_idx]['grp']
 
         self.logger.debug(f'{node_idx} edges created.')
+
+        # return the new node list to the caller
+        return new_node_list
 
     @staticmethod
     def get_dataset_provenance(data_path: str, data_prov: list, file_name: str):
