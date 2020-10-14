@@ -1,6 +1,5 @@
 import os.path
 import pytest
-import json
 
 from ViralProteome.src.loadUniRef import UniRefSimLoader
 from ViralProteome.src.loadVP import VPLoader
@@ -8,7 +7,6 @@ from IntAct.src.loadIA import IALoader
 from GOA.src.loadGOA import GOALoader
 from UberGraph.src.loadUG import UGLoader
 from FooDB.src.loadFDB import FDBLoader
-from GTEx.src.loadGTEx import GTExLoader
 from Common.utils import GetData
 
 
@@ -219,40 +217,6 @@ def test_foodb_load():
     # remove the data files
     os.remove(os.path.join(test_dir, 'foodb_test_edges.tsv'))
     os.remove(os.path.join(test_dir, 'foodb_test_nodes.tsv'))
-
-
-def test_gtex_load():
-    # get a reference to the intact data processor
-    gt = GTExLoader(test_data=True, use_cache=False)
-
-    # set the test directory
-    test_dir = os.path.dirname(os.path.abspath(__file__)) + '/resources'
-
-    gt.load(test_dir, 'gtex_test')
-
-    # check the results
-    assert(os.path.isfile(os.path.join(test_dir, 'gtex_test_edges.json')) and os.path.isfile(os.path.join(test_dir, 'gtex_test_nodes.json')))
-
-    # open the edge file list and get the lines
-    with open(os.path.join(test_dir, 'gtex_test_edges.json'), 'r') as fl:
-        data = json.load(fl)
-
-    # check the line count. this behaves oddly in travis for some reason. toggles between 51 and 48.
-    # may be a pytest cache issue?
-    assert(len(data["edges"]) == 51)
-
-    #assert (len(data["edges"]) == 48)
-
-    # open the node file list and get the lines
-    with open(os.path.join(test_dir, 'gtex_test_nodes.json'), 'r') as fl:
-        data = json.load(fl)
-
-    # check the line count
-    assert(len(data["nodes"]) == 47)
-
-    # remove the data files
-    os.remove(os.path.join(test_dir, 'gtex_test_edges.json'))
-    os.remove(os.path.join(test_dir, 'gtex_test_nodes.json'))
 
 
 @pytest.mark.skip(reason="Internal test only. This test requires a graph DB for result verification")
