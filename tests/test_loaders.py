@@ -180,7 +180,7 @@ def test_ubergraph_load():
         file_lines: list = fl.readlines()
 
     # check the line count
-    assert(len(file_lines) == 7)
+    assert(len(file_lines) == 5)
 
     # remove the data files
     os.remove(os.path.join(test_dir, 'ubergraph_test_edges.tsv'))
