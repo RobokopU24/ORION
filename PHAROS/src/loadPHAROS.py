@@ -169,9 +169,6 @@ class PHAROSLoader:
         node_list = self.parse_cmpd_activity_to_gene(node_list)
         # node_list = self.parse_disease_to_gene(node_list)
 
-        # de-dupe the list
-        node_list = [dict(t) for t in {tuple(d.items()) for d in node_list}]
-
         # normalize the group of entries on the data frame.
         nnu = NodeNormUtils(self.logger.level)
 
@@ -186,12 +183,12 @@ class PHAROSLoader:
             df: pd.DataFrame = pd.DataFrame(node_list, columns=['grp', 'node_num', 'id', 'name', 'category', 'equivalent_identifiers', 'predicate', 'relation', 'edge_label', 'pmids', 'affinity', 'affinity_parameter'])
 
             # get the list of unique edges
-            edge_set: set = self.get_edge_set(df, output_mode)
+            edge_set, node_list = self.get_edge_set(df, output_mode)
 
             self.logger.debug(f'{len(edge_set)} unique edges found, creating KGX edge file.')
 
             # write out the edge data
-            if output_mode == 'json':
+            if output_mode.startswith('json'):
                 out_edge_f.write(',\n'.join(edge_set))
             else:
                 out_edge_f.write('\n'.join(edge_set))
@@ -205,7 +202,7 @@ class PHAROSLoader:
                 name = ''.join([x if ord(x) < 128 else '?' for x in row["name"]])
 
                 # format the output depending on the mode
-                if output_mode == 'json':
+                if output_mode.startswith('json'):
                     # turn these into json
                     category: str = json.dumps(row["category"].split('|'))
                     identifiers: str = json.dumps(row["equivalent_identifiers"].split('|'))
@@ -219,7 +216,7 @@ class PHAROSLoader:
             self.logger.debug(f'Creating KGX node file with {len(final_node_set)} nodes.')
 
             # write out the node data
-            if output_mode == 'json':
+            if output_mode.startswith('json'):
                 out_node_f.write(',\n'.join(final_node_set))
             else:
                 out_node_f.write('\n'.join(final_node_set))
@@ -227,7 +224,7 @@ class PHAROSLoader:
             self.logger.warning(f'No records found for ')
 
         # finish off the json if we have to
-        if output_mode == 'json':
+        if output_mode.startswith('json'):
             out_node_f.write('\n]}')
             out_edge_f.write('\n]}')
 
@@ -237,6 +234,11 @@ class PHAROSLoader:
         self.logger.debug(f'PHAROS data parsing and KGX file creation complete.\n')
 
     def parse_gene_to_disease(self, node_list: list) -> list:
+        """
+        gets gene to disease records from the pharos DB and creates nodes
+        :param node_list: list, the node list to append this data to
+        :return: list, the node list
+        """
         # get the data
         gene_to_disease: dict = self.execute_pharos_sql(self.GENE_TO_DISEASE)
 
@@ -266,19 +268,26 @@ class PHAROSLoader:
             grp: str = gene + 'WD:P2293' + did + f'{random.random()}'
             grp = hashlib.md5(grp.encode("utf-8")).hexdigest()
 
+            # if the drug id is a gene ignore it
             if did == gene:
                 self.logger.error(f'similar parse_gene_to_disease()! {did} == {gene}, {item}')
+            else:
+                # create the gene node and add it to the node list
+                node_list.append({'grp': grp, 'node_num': 1, 'id': gene, 'name': gene_sym, 'category': '', 'equivalent_identifiers': ''})
 
-            # create the gene node and add it to the node list
-            node_list.append({'grp': grp, 'node_num': 1, 'id': gene, 'name': gene_sym, 'category': '', 'equivalent_identifiers': ''})
-
-            # create the disease node and add it to the list
-            node_list.append({'grp': grp, 'node_num': 2, 'id': did, 'name': name, 'category': '', 'equivalent_identifiers': '', 'predicate': 'WD:P2293', 'relation': 'WD:P2293', 'edge_label': 'gene_involved', 'pmids': [], 'affinity': 0, 'affinity_parameter': ''})
+                # create the disease node and add it to the list
+                node_list.append({'grp': grp, 'node_num': 2, 'id': did, 'name': name, 'category': '', 'equivalent_identifiers': '', 'predicate': 'WD:P2293', 'relation': 'WD:P2293', 'edge_label': 'gene_involved', 'pmids': [], 'affinity': 0, 'affinity_parameter': ''})
 
         # return the node list to the caller
         return node_list
 
     def parse_gene_to_drug_activity(self, node_list: list) -> list:
+        """
+        gets gene to drug activity records from the pharos DB and creates nodes
+        :param node_list: list, the node list to append this data to
+        :return: list, the node list
+        """
+
         # get the data
         gene_to_drug_activity: dict = self.execute_pharos_sql(self.GENE_TO_DRUG_ACTIVITY)
 
@@ -312,6 +321,11 @@ class PHAROSLoader:
         return node_list
 
     def parse_gene_to_cmpd_activity(self, node_list: list) -> list:
+        """
+        gets gene to compound activity records from the pharos DB and creates nodes
+        :param node_list: list, the node list to append this data to
+        :return: list, the node list
+        """
         # get the data
         gene_to_cmpd_activity: dict = self.execute_pharos_sql(self.GENE_TO_CMPD_ACTIVITY)
 
@@ -346,6 +360,11 @@ class PHAROSLoader:
         return node_list
 
     def parse_drug_activity_to_gene(self, node_list: list) -> list:
+        """
+        gets drug activity to gene records from the pharos DB and creates nodes
+        :param node_list: list, the node list to append this data to
+        :return: list, the node list
+        """
         # get the data
         drug_activity_to_gene: dict = self.execute_pharos_sql(self.DRUG_ACTIVITY_TO_GENE)
 
@@ -381,6 +400,12 @@ class PHAROSLoader:
         return node_list
 
     def parse_cmpd_activity_to_gene(self, node_list: list) -> list:
+        """
+        gets compound activity to gene records from the pharos DB and creates nodes
+        :param node_list: list, the node list to append this data to
+        :return: list, the node list
+        """
+
         # get the data
         cmpd_activity_to_gene: dict = self.execute_pharos_sql(self.CMPD_ACTIVITY_TO_GENE)
 
@@ -413,6 +438,11 @@ class PHAROSLoader:
         return node_list
 
     def parse_disease_to_gene(self, node_list: list) -> list:
+        """
+        gets disease to gene records from the pharos DB and creates nodes
+        :param node_list: list, the node list to append this data to
+        :return: list, the node list
+        """
         # get the data
         disease_to_gene: dict = self.execute_pharos_sql(self.DISEASE_TO_GENE)
 
@@ -504,9 +534,10 @@ class PHAROSLoader:
         # return to the caller
         return ret_val
 
-    def get_edge_set(self, df: pd.DataFrame, output_mode: str) -> set:
+    def get_edge_set(self, df: pd.DataFrame, output_mode: str) -> (set, list):
         """
-        gets a list of edges for the data frame passed
+        gets a list of edges for the data frame passed. this also returns a new node
+        list for nodes that were used.
 
         :param df: node storage data frame
         :param output_mode: the output mode (tsv or json)
@@ -522,26 +553,33 @@ class PHAROSLoader:
         # init a set for the edges
         edge_set: set = set()
 
+        # create a list of the nodes that actually had edges assigned
+        new_node_list: list = []
+
         # iterate through the groups and create the edge records.
         for row_index, rows in df_grp:
             # did we get the correct number of records in the group
             if len(rows) == 2:
                 # init variables for each group
                 node_1_id: str = ''
+                node_1: dict = {}
 
                 # find the node
                 for row in rows.iterrows():
-                    # save the node id for the edges
+                    # save the node and node id for the edge
                     if row[1].node_num == 1:
                         node_1_id = row[1]['id']
+                        node_1 = row[1]
                         break
 
                 # did we find the root node
                 if node_1_id != '':
                     # now for each node
                     for row in rows.iterrows():
-                        # save the node id for the edges
+                        # save the nodes and the node id for the edge
                         if row[1].node_num != 1:
+                            new_node_list.append(node_1)
+                            new_node_list.append(row[1])
                             edge_list.append({"predicate": row[1]['predicate'], "subject": node_1_id, "relation": row[1]['relation'], "object": row[1]['id'], "edge_label": row[1]['edge_label'], "pmids": '|'.join(row[1]['pmids']), "affinity": row[1]['affinity'], "affinity_parameter":  row[1]['affinity_parameter']})
             else:
                 self.logger.debug(f'node group mismatch. len: {len(rows)}, data: {rows}')
@@ -552,6 +590,7 @@ class PHAROSLoader:
         # normalize the edges
         self.edge_norm_failures = en.normalize_edge_data(edge_list)
 
+        # for each edge
         for item in edge_list:
             # if there is a relation or edge label
             if len(item["relation"]) > 0 or len(item["edge_label"]) > 0:
@@ -569,13 +608,13 @@ class PHAROSLoader:
 
         self.logger.debug(f'{len(edge_set)} unique edges identified.')
 
-        # return the list to the caller
-        return edge_set
+        # return the edge set and new node list to the caller
+        return edge_set, new_node_list
 
 
 if __name__ == '__main__':
     # create a command line parser
-    ap = argparse.ArgumentParser(description='Load the PHAROS data from a MySQL DB and create KGX import files.')
+    ap = argparse.ArgumentParser(description='Loasd the PHAROS data from a MySQL DB and create KGX import files.')
 
     # command line should be like: python loadPHAROS.py -p D:\Work\Robokop\Data_services\PHAROS_data -m json
     ap.add_argument('-s', '--data_dir', required=True, help='The location of the output directory')
