@@ -365,7 +365,7 @@ class FDBLoader:
                 for row in rows.iterrows():
                     # save the node id for the edges
                     if row[1].node_num != 1:
-                        edge_list.append({"predicate": "RO:0001019", "subject": f"{node_1_id}", "relation": "", "object": f"{row[1]['id']}", "edge_label": "biolink:contains", "unit": f"{row[1]['unit']}", "amount": f"{row[1]['amount']}"})
+                        edge_list.append({"predicate": "RO:0001019", "subject": f"{node_1_id}", "relation": "", "object": f"{row[1]['id']}", "edge_label": "biolink:related_to", "unit": f"{row[1]['unit']}", "amount": f"{row[1]['amount']}"})
 
         # get a reference to the edge normalizer
         en = EdgeNormUtils(self.logger.level)
