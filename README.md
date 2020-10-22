@@ -5,7 +5,8 @@ Parses data sets from various sources and converts them into a format that can b
 
 ## The data processing pipeline
 
-#####Retrieval -> Plan -> Parse -> Normalization -> Relationships -> Standardization -> Graph import -> Transfer
+#####
+Retrieval -> Plan -> Parse -> Normalization -> Relationships -> Standardization -> Graph import -> Transfer
 
 Where:
 
