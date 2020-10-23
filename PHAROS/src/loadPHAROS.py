@@ -602,7 +602,7 @@ class PHAROSLoader:
                     # get the pubmed ids into a text json format
                     pmids: str = json.dumps(item["pmids"].split('|'))
 
-                    edge_set.add(f'{{"id":"{hashlib.md5(record_id.encode("utf-8")).hexdigest()}", "subject":"{item["subject"]}", "relation":"{item["relation"]}", "object":"{item["object"]}", "edge_label":"{item["edge_label"]}", "pmids": {pmids}, "affinity": {item["affinity"]}, "affinity_parameter": "{item["affinity_parameter"]}", "source_database":"PHAROS 6.7"}}')
+                    edge_set.add(f'{{"id":"{hashlib.md5(record_id.encode("utf-8")).hexdigest()}", "subject":"{item["subject"]}", "relation":"{item["relation"]}", "object":"{item["object"]}", "edge_label":"{item["edge_label"]}", "publications": {pmids}, "affinity": {item["affinity"]}, "affinity_parameter": "{item["affinity_parameter"]}", "source_database":"PHAROS 6.7"}}')
                 else:
                     edge_set.add(f'{hashlib.md5(record_id.encode("utf-8")).hexdigest()}\t{item["subject"]}\t{item["relation"]}\t{item["edge_label"]}\t{item["object"]}\t{item["pmids"]}\t{item["affinity"]}\t{item["affinity_parameter"]}\tPHAROS 6.7')
 
