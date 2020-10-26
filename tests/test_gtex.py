@@ -15,7 +15,8 @@ def test_gtex_load():
         gt.load(test_dir, 'gtex_test')
 
         # check the results
-        assert(os.path.isfile(os.path.join(test_dir, 'gtex_test_edges.json')) and os.path.isfile(os.path.join(test_dir, 'gtex_test_nodes.json')))
+        assert(os.path.isfile(os.path.join(test_dir, 'gtex_test_edges.json'))
+               and os.path.isfile(os.path.join(test_dir, 'gtex_test_nodes.json')))
 
         # open the edge file list and get the lines
         with open(os.path.join(test_dir, 'gtex_test_edges.json'), 'r') as fl:
