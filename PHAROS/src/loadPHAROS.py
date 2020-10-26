@@ -292,7 +292,7 @@ class PHAROSLoader:
         # get the data
         gene_to_drug_activity: dict = self.execute_pharos_sql(self.GENE_TO_DRUG_ACTIVITY)
 
-        prefixmap = {'ChEMBL': 'CHEMBL.COMPOUND', 'Guide to Pharmacology': 'gtpo'}
+        prefixmap = {'ChEMBL': 'CHEMBL.COMPOUND', 'Guide to Pharmacology': 'gtop'}
 
         # for each item in the list
         for item in gene_to_drug_activity:
@@ -330,7 +330,7 @@ class PHAROSLoader:
         # get the data
         gene_to_cmpd_activity: dict = self.execute_pharos_sql(self.GENE_TO_CMPD_ACTIVITY)
 
-        prefixmap = {'ChEMBL': 'CHEMBL.COMPOUND', 'Guide to Pharmacology': 'gtpo'}
+        prefixmap = {'ChEMBL': 'CHEMBL.COMPOUND', 'Guide to Pharmacology': 'gtop'}
 
         # for each item in the list
         for item in gene_to_cmpd_activity:
