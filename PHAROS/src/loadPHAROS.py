@@ -34,7 +34,7 @@ class PHAROSLoader:
     #                         select distinct cmpd_id_in_src from cmpd_activity where SUBSTRING(cmpd_id_in_src, 1, 6) = 'CHEMBL'
     #                         order by 1"""
 
-    GENE_TO_DISEASE: str = """select distinct x.value, d.did, d.name, p.sym
+    GENE_TO_DISEASE: str = """select distinct x.value, d.did, d.name, p.sym, d.dtype
                                 from disease d 
                                 join xref x on x.protein_id = d.protein_id 
                                 join protein p on p.id=x.protein_id
@@ -43,7 +43,7 @@ class PHAROSLoader:
                                 and d.did not like 'NCBIGene%'"""
 
     GENE_TO_DRUG_ACTIVITY: str = """SELECT DISTINCT x.value, da.drug, da.cmpd_chemblid AS cid, 'ChEMBL' AS id_src, p.sym,
-                                da.act_value AS affinity, da.act_type AS affinity_parameter, da.action_type AS pred
+                                da.act_value AS affinity, da.act_type AS affinity_parameter, da.action_type AS pred, '' AS dtype
                                 FROM xref x
                                 JOIN drug_activity da on x.protein_id = da.target_id
                                 JOIN protein p on p.id=x.protein_id
@@ -52,27 +52,27 @@ class PHAROSLoader:
 
     GENE_TO_CMPD_ACTIVITY: str = """SELECT DISTINCT x.value, ca.cmpd_name_in_src as drug, ca.cmpd_id_in_src as cid, catype AS id_src,
                                 ca.act_value AS affinity, ca.act_type as affinity_parameter, ca.act_type AS pred, p.sym,
-                                ca.pubmed_ids AS pubmed_ids
+                                ca.pubmed_ids AS pubmed_ids, '' AS dtype
                                 FROM xref x
                                 JOIN cmpd_activity ca on x.protein_id = ca.target_id
                                 JOIN protein p on p.id=x.protein_id
                                 WHERE x.xtype='HGNC'"""
 
     DRUG_ACTIVITY_TO_GENE: str = """SELECT DISTINCT da.cmpd_chemblid, da.drug as drug, x.value, p.sym, da.act_value AS affinity,
-                                da.act_type AS affinity_parameter, da.action_type AS pred
+                                da.act_type AS affinity_parameter, da.action_type AS pred, '' AS dtype
                                 FROM xref x
                                 JOIN drug_activity da on da.target_id = x.protein_id
                                 join protein p on da.target_id = p.id
                                 WHERE x.xtype='HGNC'"""
 
     CMPD_ACTIVITY_TO_GENE: str = """SELECT DISTINCT ca.cmpd_id_in_src as drug, x.value, p.sym, ca.act_value AS affinity, ca.act_type as affinity_parameter,
-                                ca.act_type AS pred, ca.pubmed_ids AS pubmed_ids
+                                ca.act_type AS pred, ca.pubmed_ids AS pubmed_ids, '' AS dtype
                                 FROM xref x
                                 JOIN cmpd_activity ca on ca.target_id = x.protein_id
                                 JOIN protein p on ca.target_id = p.id
                                 WHERE x.xtype='HGNC'"""
 
-    DISEASE_TO_GENE: str = """select distinct x.value, d.did, d.name, p.sym
+    DISEASE_TO_GENE: str = """select distinct x.value, d.did, d.name, p.sym, d.dtype
                                 from disease d 
                                 join xref x on x.protein_id = d.protein_id 
                                 join protein p on d.protein_id = p.id 
@@ -132,7 +132,7 @@ class PHAROSLoader:
                 out_edge_f.write('{"edges":[\n')
             else:
                 out_node_f.write(f'id\tname\tcategory\tequivalent_identifiers\n')
-                out_edge_f.write(f'id\tsubject\trelation\tedge_label\tobject\tpublications\taffinity\taffinity_parameter\tsource_database\n')
+                out_edge_f.write(f'id\tsubject\trelation\tedge_label\tobject\tpublications\taffinity\taffinity_parameter\tprovenance\tsource_database\n')
 
             # parse the data
             self.parse_data_db(out_node_f, out_edge_f, output_mode)
@@ -180,7 +180,7 @@ class PHAROSLoader:
             self.logger.debug('Creating edges.')
 
             # create a data frame with the node list
-            df: pd.DataFrame = pd.DataFrame(node_list, columns=['grp', 'node_num', 'id', 'name', 'category', 'equivalent_identifiers', 'predicate', 'relation', 'edge_label', 'pmids', 'affinity', 'affinity_parameter'])
+            df: pd.DataFrame = pd.DataFrame(node_list, columns=['grp', 'node_num', 'id', 'name', 'category', 'equivalent_identifiers', 'predicate', 'relation', 'edge_label', 'pmids', 'affinity', 'affinity_parameter', 'provenance'])
 
             # get the list of unique edges
             edge_set, node_list = self.get_edge_set(df, output_mode)
@@ -252,6 +252,7 @@ class PHAROSLoader:
             did = item['did']
             name = item['name']
             gene_sym = item['sym']
+            provenance = item['dtype']
 
             # move along, no disease id
             if did is None:
@@ -276,7 +277,7 @@ class PHAROSLoader:
                 node_list.append({'grp': grp, 'node_num': 1, 'id': gene, 'name': gene_sym, 'category': '', 'equivalent_identifiers': ''})
 
                 # create the disease node and add it to the list
-                node_list.append({'grp': grp, 'node_num': 2, 'id': did, 'name': name, 'category': '', 'equivalent_identifiers': '', 'predicate': 'WD:P2293', 'relation': 'WD:P2293', 'edge_label': 'gene_involved', 'pmids': [], 'affinity': 0, 'affinity_parameter': ''})
+                node_list.append({'grp': grp, 'node_num': 2, 'id': did, 'name': name, 'category': '', 'equivalent_identifiers': '', 'predicate': 'WD:P2293', 'relation': 'WD:P2293', 'edge_label': 'gene_involved', 'pmids': [], 'affinity': 0, 'affinity_parameter': '', 'provenance': provenance})
 
         # return the node list to the caller
         return node_list
@@ -299,7 +300,7 @@ class PHAROSLoader:
             gene = item['value']
             gene_sym = item['sym']
             chembl_id = f"{prefixmap[item['id_src']]}:{item['cid']}"
-            predicate, pmids, props = self.get_edge_props(item)
+            predicate, pmids, props, provenance = self.get_edge_props(item)
 
             # if there were affinity properties use them
             if len(props) == 2:
@@ -317,7 +318,7 @@ class PHAROSLoader:
             node_list.append({'grp': grp, 'node_num': 1, 'id': chembl_id, 'name': name, 'category': '', 'equivalent_identifiers': ''})
 
             # create the gene node and add it to the list
-            node_list.append({'grp': grp, 'node_num': 2, 'id': gene, 'name': gene_sym, 'category': '', 'equivalent_identifiers': '', 'predicate': predicate, 'relation': '', 'edge_label': '', 'pmids': pmids, 'affinity': affinity, 'affinity_parameter': affinity_parameter})
+            node_list.append({'grp': grp, 'node_num': 2, 'id': gene, 'name': gene_sym, 'category': '', 'equivalent_identifiers': '', 'predicate': predicate, 'relation': '', 'edge_label': '', 'pmids': pmids, 'affinity': affinity, 'affinity_parameter': affinity_parameter, 'provenance': provenance})
         return node_list
 
     def parse_gene_to_cmpd_activity(self, node_list: list) -> list:
@@ -337,7 +338,7 @@ class PHAROSLoader:
             gene = item['value']
             gene_sym = item['sym']
             chembl_id = f"{prefixmap[item['id_src']]}:{item['cid']}"
-            predicate, pmids, props = self.get_edge_props(item)
+            predicate, pmids, props, provenance = self.get_edge_props(item)
 
             # if there were affinity properties use them
             if len(props) == 2:
@@ -355,7 +356,7 @@ class PHAROSLoader:
             node_list.append({'grp': grp, 'node_num': 1, 'id': chembl_id, 'name': name, 'category': '', 'equivalent_identifiers': ''})
 
             # create the gene node and add it to the list
-            node_list.append({'grp': grp, 'node_num': 2, 'id': gene, 'name': gene_sym, 'category': '', 'equivalent_identifiers': '', 'predicate': predicate, 'relation': '', 'edge_label': '', 'pmids': pmids, 'affinity': affinity, 'affinity_parameter': affinity_parameter})
+            node_list.append({'grp': grp, 'node_num': 2, 'id': gene, 'name': gene_sym, 'category': '', 'equivalent_identifiers': '', 'predicate': predicate, 'relation': '', 'edge_label': '', 'pmids': pmids, 'affinity': affinity, 'affinity_parameter': affinity_parameter, 'provenance': provenance})
 
         return node_list
 
@@ -377,7 +378,7 @@ class PHAROSLoader:
             gene = item['value']
             gene_sym = item['sym']
             chembl_id = 'CHEMBL.COMPOUND:' + item['cmpd_chemblid']
-            predicate, pmids, props = self.get_edge_props(item)
+            predicate, pmids, props, provenance = self.get_edge_props(item)
 
             # if there were affinity properties use them
             if len(props) == 2:
@@ -395,7 +396,7 @@ class PHAROSLoader:
             node_list.append({'grp': grp, 'node_num': 1, 'id': chembl_id, 'name': name, 'category': '', 'equivalent_identifiers': ''})
 
             # create the gene node and add it to the list
-            node_list.append({'grp': grp, 'node_num': 2, 'id': gene, 'name': gene_sym, 'category': '', 'equivalent_identifiers': '', 'predicate': predicate, 'relation': '', 'edge_label': '', 'pmids': pmids, 'affinity': affinity, 'affinity_parameter': affinity_parameter})
+            node_list.append({'grp': grp, 'node_num': 2, 'id': gene, 'name': gene_sym, 'category': '', 'equivalent_identifiers': '', 'predicate': predicate, 'relation': '', 'edge_label': '', 'pmids': pmids, 'affinity': affinity, 'affinity_parameter': affinity_parameter, 'provenance': provenance})
 
         return node_list
 
@@ -415,7 +416,7 @@ class PHAROSLoader:
             gene = item['value']
             gene_sym = item['sym']
             chembl_id = 'CHEMBL.COMPOUND:' + item['drug']
-            predicate, pmids, props = self.get_edge_props(item)
+            predicate, pmids, props, provenance = self.get_edge_props(item)
 
             # if there were affinity properties use them
             if len(props) == 2:
@@ -433,8 +434,9 @@ class PHAROSLoader:
             node_list.append({'grp': grp, 'node_num': 1, 'id': chembl_id, 'name': name, 'category': '', 'equivalent_identifiers': ''})
 
             # create the gene node and add it to the list
-            node_list.append({'grp': grp, 'node_num': 2, 'id': gene, 'name': gene_sym, 'category': '', 'equivalent_identifiers': '', 'predicate': predicate, 'relation': '', 'edge_label': '', 'pmids': pmids, 'affinity': affinity, 'affinity_parameter': affinity_parameter})
+            node_list.append({'grp': grp, 'node_num': 2, 'id': gene, 'name': gene_sym, 'category': '', 'equivalent_identifiers': '', 'predicate': predicate, 'relation': '', 'edge_label': '', 'pmids': pmids, 'affinity': affinity, 'affinity_parameter': affinity_parameter, 'provenance': provenance})
 
+        # return the node list to the caller
         return node_list
 
     def parse_disease_to_gene(self, node_list: list) -> list:
@@ -456,6 +458,7 @@ class PHAROSLoader:
             gene_sym = item['sym']
             did = item['did']
             name = item['name']
+            provenance = item['dtype']
 
             # move along, no disease id
             if did is None:
@@ -479,28 +482,41 @@ class PHAROSLoader:
             node_list.append({'grp': grp, 'node_num': 1, 'id': did, 'name': name, 'category': '', 'equivalent_identifiers': ''})
 
             # create the gene node and add it to the node list
-            node_list.append({'grp': grp, 'node_num': 2, 'id': gene, 'name': gene_sym, 'category': '', 'equivalent_identifiers': '', 'predicate': 'WD:P2293', 'relation': 'WD:P2293', 'edge_label': 'gene_involved', 'pmids': [], 'affinity': 0, 'affinity_parameter': ''})
+            node_list.append({'grp': grp, 'node_num': 2, 'id': gene, 'name': gene_sym, 'category': '', 'equivalent_identifiers': '', 'predicate': 'WD:P2293', 'relation': 'WD:P2293', 'edge_label': 'gene_involved', 'pmids': [], 'affinity': 0, 'affinity_parameter': '', 'provenance': provenance})
 
         return node_list
 
-    def get_edge_props(self, result):
+    def get_edge_props(self, result) -> (str, list, dict, str):
+        """
+        gets the edge properties from the node results
+
+        :param result:
+        :return str: predicate, list: pmids, dict: props, str: provenance:
+        """
         # if there was a predicate make it look pretty
         if result['pred'] is not None and len(result['pred']) > 1:
-            rel = self.snakify(result['pred']).lower()
+            rel: str = self.snakify(result['pred']).lower()
         else:
-            rel = 'interacts_with'
+            rel: str = 'interacts_with'
 
         # save the predicate
-        predicate = f'GAMMA:{rel}'
+        predicate: str = f'GAMMA:{rel}'
+
+        # if there was provenance data save it
+        if result['dtype'] is not None:
+            provenance: str = result['dtype']
+        else:
+            # set the defaults
+            provenance: str = ''
 
         # if there were any pubmed ids save them
         if 'pubmed_ids' in result and result['pubmed_ids'] is not None:
-            pmids = [f'PMID:{r}' for r in result['pubmed_ids'].split('|')]
+            pmids: list = [f'PMID:{r}' for r in result['pubmed_ids'].split('|')]
         else:
-            pmids = []
+            pmids: list = []
 
         # init the affinity properties dict
-        props = {}
+        props: dict = {}
 
         # if there was data save it
         if result['affinity'] is not None:
@@ -512,7 +528,7 @@ class PHAROSLoader:
             props['affinity_parameter'] = ''
 
         # return to the caller
-        return predicate, pmids, props
+        return predicate, pmids, props, provenance
 
     @staticmethod
     def snakify(text):
@@ -522,6 +538,12 @@ class PHAROSLoader:
         return resu
 
     def execute_pharos_sql(self, sql_query: str) -> dict:
+        """
+        executes a sql statement
+
+        :param sql_query:
+        :return dict of results:
+        """
         # get a cursor to the db
         cursor = self.db.cursor(dictionary=True, buffered=True)
 
@@ -580,7 +602,7 @@ class PHAROSLoader:
                         if row[1].node_num != 1:
                             new_node_list.append(node_1)
                             new_node_list.append(row[1])
-                            edge_list.append({"predicate": row[1]['predicate'], "subject": node_1_id, "relation": row[1]['relation'], "object": row[1]['id'], "edge_label": row[1]['edge_label'], "pmids": '|'.join(row[1]['pmids']), "affinity": row[1]['affinity'], "affinity_parameter":  row[1]['affinity_parameter']})
+                            edge_list.append({"predicate": row[1]['predicate'], "subject": node_1_id, "relation": row[1]['relation'], "object": row[1]['id'], "edge_label": row[1]['edge_label'], "pmids": '|'.join(row[1]['pmids']), "affinity": row[1]['affinity'], "affinity_parameter":  row[1]['affinity_parameter'], 'provenance': row[1]['provenance']})
             else:
                 self.logger.debug(f'node group mismatch. len: {len(rows)}, data: {rows}')
 
@@ -602,9 +624,9 @@ class PHAROSLoader:
                     # get the pubmed ids into a text json format
                     pmids: str = json.dumps(item["pmids"].split('|'))
 
-                    edge_set.add(f'{{"id":"{hashlib.md5(record_id.encode("utf-8")).hexdigest()}", "subject":"{item["subject"]}", "relation":"{item["relation"]}", "object":"{item["object"]}", "edge_label":"{item["edge_label"]}", "pmids": {pmids}, "affinity": {item["affinity"]}, "affinity_parameter": "{item["affinity_parameter"]}", "source_database":"PHAROS 6.7"}}')
+                    edge_set.add(f'{{"id":"{hashlib.md5(record_id.encode("utf-8")).hexdigest()}", "subject":"{item["subject"]}", "relation":"{item["relation"]}", "object":"{item["object"]}", "edge_label":"{item["edge_label"]}", "publications": {pmids}, "affinity": {item["affinity"]}, "affinity_parameter": "{item["affinity_parameter"]}", "provenance": "{item["provenance"]}", "source_database":"PHAROS 6.7"}}')
                 else:
-                    edge_set.add(f'{hashlib.md5(record_id.encode("utf-8")).hexdigest()}\t{item["subject"]}\t{item["relation"]}\t{item["edge_label"]}\t{item["object"]}\t{item["pmids"]}\t{item["affinity"]}\t{item["affinity_parameter"]}\tPHAROS 6.7')
+                    edge_set.add(f'{hashlib.md5(record_id.encode("utf-8")).hexdigest()}\t{item["subject"]}\t{item["relation"]}\t{item["edge_label"]}\t{item["object"]}\t{item["pmids"]}\t{item["affinity"]}\t{item["affinity_parameter"]}\t{item["provenance"]}\tPHAROS 6.7')
 
         self.logger.debug(f'{len(edge_set)} unique edges identified.')
 
@@ -614,7 +636,7 @@ class PHAROSLoader:
 
 if __name__ == '__main__':
     # create a command line parser
-    ap = argparse.ArgumentParser(description='Loasd the PHAROS data from a MySQL DB and create KGX import files.')
+    ap = argparse.ArgumentParser(description='Loads the PHAROS data from a MySQL DB and creates KGX import files.')
 
     # command line should be like: python loadPHAROS.py -p D:\Work\Robokop\Data_services\PHAROS_data -m json
     ap.add_argument('-s', '--data_dir', required=True, help='The location of the output directory')

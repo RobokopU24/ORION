@@ -196,7 +196,7 @@ class IALoader:
 
                         # we changed to a new experiment
                         if cur_experiment_name != pub_id:
-                            # add the experiment to the running list
+                            # add the experiment group to the running list
                             self.experiment_grp_list.extend(experiment_grp)
 
                             # clear out the experiment group list for the next one
@@ -243,8 +243,8 @@ class IALoader:
                         if interaction_counter % 250000 == 0:
                             self.logger.debug(f'Completed {interaction_counter} interactions.')
 
-            # save any remainders
-            if len(experiment_grp) > 0:
+            # write out the data
+            if len(self.experiment_grp_list) > 0:
                 self.write_out_data(out_node_f, out_edge_f, output_mode, test_mode)
                 self.logger.debug(f'Processing completed. {interaction_counter} interactions processed.')
 
@@ -347,9 +347,6 @@ class IALoader:
 
         # node list index counter
         node_idx: int = 0
-
-        # de-dupe the list
-        node_list = [dict(t) for t in {tuple(d.items()) for d in node_list}]
 
         # save the node list count to avoid grabbing it over and over
         node_count: int = len(node_list)
