@@ -101,11 +101,11 @@ def test_edge_norm():
     # check the return
     assert(edge_list[0]['predicate'] == 'SEMMEDDB:CAUSES')
     assert(edge_list[0]['relation'] == 'biolink:causes')
-    assert(edge_list[0]['edge_label'] == 'biolink:causes')
+    assert(edge_list[0]['edge_label'] == 'causes')
 
     assert(edge_list[1]['predicate'] == 'RO:0000052')
     assert(edge_list[1]['relation'] == 'biolink:affects')
-    assert(edge_list[1]['edge_label'] == 'biolink:affects')
+    assert(edge_list[1]['edge_label'] == 'affects')
 
 def test_get_node_synonym():
     # get the node norm object
