@@ -418,7 +418,7 @@ class EdgeNormUtils:
 
                 # get the label and turn it into a curie
                 if 'label' in cached_edge_norms[rv['predicate']]:
-                    edge_list[edge_idx]['edge_label'] = f'biolink:{cached_edge_norms[rv["predicate"]]["label"]}'
+                    edge_list[edge_idx]['edge_label'] = f'{cached_edge_norms[rv["predicate"]]["label"]}'
             else:
                 failed_to_normalize.append(rv['predicate'])
 
