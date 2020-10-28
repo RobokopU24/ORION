@@ -187,7 +187,23 @@ class IALoader:
                         interaction_counter += 1
 
                         # get the publication identifier
-                        pub_id: str = self.find_target_val(line[DataCols.Publication_Identifier.value], 'pubmed', True)
+                        pub_id: str = self.find_target_val(line[DataCols.Publication_Identifier.value], 'pubmed', only_num=True)
+
+                        # did we didnt get a valid pubmed id search for the IMEX id
+                        if pub_id == '':
+                            # is there an imex id in the data
+                            if line[DataCols.Publication_Identifier.value].find('imex') > 0:
+                                # get the imex id
+                                pub_id = self.find_target_val(line[DataCols.Publication_Identifier.value], 'imex', trim_hyphen=False)
+
+                                # did we get a imex id
+                                if not pub_id == '':
+                                    # imex ids come back in the form IM-####. convert it into a curie
+                                    pub_id = pub_id.replace('-', ':')
+                            else:
+                                self.logger.error(f"No Pubmed or IMEX publication ID found. Source: {line[DataCols.ID_interactor_A.value]}, Object: {line[DataCols.ID_interactor_B.value]}")
+                        else:
+                            pub_id = 'PMID:' + pub_id
 
                         # prime the experiment group tracker if this is the first time in
                         if first:
@@ -224,7 +240,7 @@ class IALoader:
                         detection_method: str = self.find_detection_method(line[DataCols.Interaction_detection_method.value])
 
                         # save the items we need in the experiment interaction
-                        interaction_line: dict = {'grp': grp, 'pmid': pub_id, 'detection_method': detection_method,
+                        interaction_line: dict = {'grp': grp, 'pub_id': pub_id, 'detection_method': detection_method,
                                                   'u_a': uniprot_a, 'u_b': uniprot_b,
                                                   'u_alias_a': uniprot_alias_a, 'u_alias_b': uniprot_alias_b,
                                                   'u_category_a': '', 'u_category_b': '',
@@ -579,8 +595,12 @@ class IALoader:
             while grp_idx < len(grp_list):
                 detection_method: str = "|".join(detection_method_set)
 
+                # alert on missing publication id
+                if grp_list[grp_idx]['pub_id'] == '':
+                    self.logger.error(f"Publication ID missing for edge. Source: {grp_list[grp_idx]['u_a']}, Object: {grp_list[grp_idx]['u_b']}")
+
                 # add the interacting node edges
-                edge_list.append({"predicate": "RO:0002436", "subject": f"{grp_list[grp_idx]['u_a']}", "relation": "biolink:directly_interacts_with", "object": f"{grp_list[grp_idx]['u_b']}", "edge_label": "directly_interacts_with", "publications": f"PMID:{grp_list[grp_idx]['pmid']}", "detection_method": detection_method})
+                edge_list.append({"predicate": "RO:0002436", "subject": f"{grp_list[grp_idx]['u_a']}", "relation": "biolink:directly_interacts_with", "object": f"{grp_list[grp_idx]['u_b']}", "edge_label": "directly_interacts_with", "publications": f"{grp_list[grp_idx]['pub_id']}", "detection_method": detection_method})
 
                 # for each type
                 for suffix in ['a', 'b']:
@@ -660,7 +680,7 @@ class IALoader:
         return ret_val
 
     @staticmethod
-    def find_target_val(element: str, target: str, only_num: bool = False, until: str = '') -> str:
+    def find_target_val(element: str, target: str, only_num: bool = False, until: str = '', trim_hyphen = True) -> str:
         """
         This method gets the value in an element that has IDs separated by '|' and the name/value
         is delimited with ":"
@@ -669,6 +689,7 @@ class IALoader:
         :param target: the name of the value we want to return
         :param only_num: flag to indicate to return the initial number portion of the value
         :param until: save everything in the value until the character is found
+        :param trim_hyphen: do not split the return on a hyphen
         :return: the found value or an empty string
         """
 
@@ -678,11 +699,11 @@ class IALoader:
         # split the element into an array
         vals: list = element.split('|')
 
-        # find the pubmed id
+        # find the target column
         for val in vals:
             # did we find the target value
             if val.startswith(target):
-                # get the pubmed id (aka experiment id)
+                # get the value (aka experiment id)
                 found_val: str = val.split(':')[1]
 
                 # are we looking for integers only
@@ -704,7 +725,6 @@ class IALoader:
                         # else do not continue if end character is found
                         else:
                             break
-
                 # return it all
                 else:
                     ret_val = found_val
@@ -712,8 +732,12 @@ class IALoader:
                 # no need to continue as it was found
                 break
 
-        # trim off any trailing "-" suffixes
-        ret_val = ret_val.split('-')[0]
+        # are we to retain the hyphen or not
+        if trim_hyphen:
+            # split the string on the hyphen and take the value
+            ret_val = ret_val.split('-')[0]
+        else:
+            ret_val = ret_val
 
         # return the value to the caller
         return ret_val
