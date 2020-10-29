@@ -24,6 +24,7 @@ env:
 # command to run tests
 script:
   - mkdir logs
+  - mkdir tests/storage
 #  - ls -al
 #  - echo $PYTHONPATH
 #  - echo $ROBOKOP_HOME
