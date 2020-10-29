@@ -295,50 +295,52 @@ class VPLoader:
             else:
                 self.logger.warning(f'Warning: Missing 1 or more node IDs. Node type 1: {node_1_id}, Node type 2: {node_2_id}')
 
-            # write out an edge that connects nodes 1 and 3
-            """ An edge between the gene and the go term. If the go term is a molecular_activity, 
-            then the edge should be (go term)-[enabled_by]->(gene). If the go term is a biological 
-            process then it should be (gene)-[actively_involved_in]->(go term). If it is a cellular 
-            component then it should be (go term)-[has_part]->(gene) """
+            # check to insure we have both node ids
+            if node_1_id != '' and node_3_id != '':
+                # write out an edge that connects nodes 1 and 3
+                """ An edge between the gene and the go term. If the go term is a molecular_activity, 
+                then the edge should be (go term)-[enabled_by]->(gene). If the go term is a biological 
+                process then it should be (gene)-[actively_involved_in]->(go term). If it is a cellular 
+                component then it should be (go term)-[has_part]->(gene) """
 
-            # init node 1 to node 3 edge details
-            predicate: str = ''
-            relation: str = ''
-            label: str = ''
-            src_node_id: str = ''
-            obj_node_id: str = ''
-            valid_type = True
+                # init node 1 to node 3 edge details
+                predicate: str = ''
+                relation: str = ''
+                label: str = ''
+                src_node_id: str = ''
+                obj_node_id: str = ''
+                valid_type = True
 
-            # find the predicate and edge relationships
-            if node_3_type.find('molecular_activity') > -1:
-                predicate = 'RO:0002333'
-                relation = 'biolink:enabled_by'
-                label = 'enabled_by'
-                src_node_id = node_3_id
-                obj_node_id = node_1_id
-            elif node_3_type.find('biological_process') > -1:
-                predicate = 'RO:0002331'
-                relation = 'actively_involved_in'
-                label = 'actively_involved_in'
-                src_node_id = node_1_id
-                obj_node_id = node_3_id
-            elif node_3_type.find('cellular_component') > -1:
-                predicate = 'RO:0000051'
-                relation = 'biolink:has_part'
-                label = 'has_part'
-                src_node_id = node_3_id
-                obj_node_id = node_1_id
-            else:
-                valid_type = False
+                # find the predicate and edge relationships
+                if node_3_type.find('molecular_activity') > -1:
+                    predicate = 'RO:0002333'
+                    relation = 'biolink:enabled_by'
+                    label = 'enabled_by'
+                    src_node_id = node_3_id
+                    obj_node_id = node_1_id
+                elif node_3_type.find('biological_process') > -1:
+                    predicate = 'RO:0002331'
+                    relation = 'actively_involved_in'
+                    label = 'actively_involved_in'
+                    src_node_id = node_1_id
+                    obj_node_id = node_3_id
+                elif node_3_type.find('cellular_component') > -1:
+                    predicate = 'RO:0000051'
+                    relation = 'biolink:has_part'
+                    label = 'has_part'
+                    src_node_id = node_3_id
+                    obj_node_id = node_1_id
+                else:
+                    valid_type = False
 
-            # was this a good value
-            if not valid_type:
-                self.logger.debug(f'Warning: Unrecognized node 3 type')
-            elif src_node_id == '' or obj_node_id == '':
-                self.logger.warning(f'Warning: Missing 1 or more node IDs. Node type 1: {node_1_id}, Node type 3: {node_3_id}')
-            else:
-                # create the KGX edge data for nodes 1 and 3
-                edge_list.append({"predicate": predicate, "subject": src_node_id, "relation": relation, "object": obj_node_id, "edge_label": label})
+                # was this a good value
+                if not valid_type:
+                    self.logger.debug(f'Warning: Unrecognized node 3 type')
+                elif src_node_id == '' or obj_node_id == '':
+                    self.logger.warning(f'Warning: Missing 1 or more node IDs. Node type 1: {node_1_id}, Node type 3: {node_3_id}')
+                else:
+                    # create the KGX edge data for nodes 1 and 3
+                    edge_list.append({"predicate": predicate, "subject": src_node_id, "relation": relation, "object": obj_node_id, "edge_label": label})
 
         self.logger.debug(f'{len(edge_list)} edges identified.')
 
@@ -517,6 +519,9 @@ class VPLoader:
 
             # go to the next index
             node_idx += 1
+
+        # remove all nodes that dont have a category as they cant have an edge if they dont
+        node_list[:] = [d for d in node_list if d['category'] != '']
 
         # return the updated list to the caller
         return node_list
