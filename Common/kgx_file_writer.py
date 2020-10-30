@@ -24,7 +24,6 @@ class KGXFileWriter:
             self.logger.error(f'KGXFileWriter error.. file already exists: {nodes_output_file_path}')
         else:
             self.nodes_output_file_handler = open(nodes_output_file_path, 'w')
-            self.nodes_output_file_handler.write('{"nodes":[\n')
 
         self.edges_output_file_handler = None
         edges_output_file_path = os.path.join(output_directory, f'{out_file_name}_edges.json')
@@ -32,7 +31,6 @@ class KGXFileWriter:
             self.logger.error(f'KGXFileWriter error.. file already exists: {edges_output_file_path}')
         else:
             self.edges_output_file_handler = open(edges_output_file_path, 'w')
-            self.edges_output_file_handler.write('{"edges":[\n')
 
     def __enter__(self):
         return self
