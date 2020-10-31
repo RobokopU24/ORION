@@ -21,6 +21,8 @@ env:
   global:
     - PYTHONPATH=$PWD:$PWD/robokop-genetics
     - ROBOKOP_HOME=$PWD
+    - DATA_SERVICES_LOGS=$PWD/logs
+    - DATA_SERVICES_STORAGE=tests/storage
 
 # command to run tests
 script:
