@@ -19,7 +19,7 @@ source_data_loader_classes = {
 
 class SourceDataLoadManager:
 
-    logger = LoggingUtil.init_logging("Data_services.Common.load_manager.SourceDataLoadManager",
+    logger = LoggingUtil.init_logging("Data_services.Common.SourceDataLoadManager",
                                       line_format='medium',
                                       log_file_path=os.environ['DATA_SERVICES_LOGS'])
 
