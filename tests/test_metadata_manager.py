@@ -25,19 +25,19 @@ def meta_manager():
 def test_metadata_manager(meta_manager):
 
     # just created, should not have a latest version
-    assert meta_manager.is_latest_version(None)
-    assert meta_manager.is_latest_version('version_1') is False
+    assert meta_manager.get_source_version() is None
+    assert meta_manager.get_source_version() != 'version_1'
     meta_manager.update_version('version_1')
-    assert meta_manager.is_latest_version('version_1') is True
+    assert meta_manager.get_source_version() == 'version_1'
 
     # save the file and then parse it again
     meta_manager.save_metadata()
     meta_manager = MetadataManager(testing_source_id_1, test_storage_dir)
-    assert meta_manager.is_latest_version('version_1') is True
+    assert meta_manager.get_source_version() == 'version_1'
     meta_manager.archive_metadata()
 
     meta_manager.update_version('version_2')
-    assert meta_manager.is_latest_version('version_2') is True
+    assert meta_manager.get_source_version() == 'version_2'
     meta_manager.archive_metadata()
     meta_manager.update_version('version_3')
     meta_manager.archive_metadata()
@@ -46,10 +46,9 @@ def test_metadata_manager(meta_manager):
     # save the file and then parse it again
     meta_manager.save_metadata()
     meta_manager = MetadataManager(testing_source_id_1, test_storage_dir)
-    previous_versions = meta_manager.get_previous_versions()
-    assert meta_manager.is_latest_version('version_4') is True
-    assert 1 in previous_versions
-    assert 3 in previous_versions
+    previous_version = meta_manager.get_previous_version()
+    assert meta_manager.get_source_version() == 'version_4'
+    assert previous_version == 3
 
 
 
