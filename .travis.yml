@@ -7,6 +7,7 @@ python:
 notifications:
   email:
     - powen@renci.org
+    - evandietzmorris@gmail.com
 
 before_install:
   - git pull
