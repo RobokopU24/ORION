@@ -30,14 +30,11 @@ def test_gtex_load():
             assert (len(edge['expressed_in']) == len(edge['p_value']))
             assert (len(edge['p_value']) == len(edge['slope']))
             if edge["edge_label"] == 'biolink:increases_expression_of':
-                assert(len(edge["expressed_in"]) == 1)
                 edges_validated += 1
             elif edge["edge_label"] == 'biolink:decreases_expression_of':
-                assert (len(edge["expressed_in"]) == 11)
                 edges_validated += 1
             elif edge["edge_label"] == 'biolink:affects_splicing_of':
                 edges_validated += 1
-                assert (len(edge["expressed_in"]) >= 1)
 
         assert edges_validated == 48
 
