@@ -6,6 +6,7 @@ import enum
 import pandas as pd
 import logging
 import json
+import re
 from datetime import datetime
 from io import TextIOBase, TextIOWrapper
 from csv import reader
@@ -186,24 +187,42 @@ class IALoader:
                         # increment the interaction counter
                         interaction_counter += 1
 
-                        # get the publication identifier
-                        pub_id: str = self.find_target_val(line[DataCols.Publication_Identifier.value], 'pubmed', only_num=True)
+                        # init the publication id
+                        pub_id: str = ''
 
-                        # did we didnt get a valid pubmed id search for the IMEX id
-                        if pub_id == '':
-                            # is there an imex id in the data
-                            if line[DataCols.Publication_Identifier.value].find('imex') > 0:
-                                # get the imex id
-                                pub_id = self.find_target_val(line[DataCols.Publication_Identifier.value], 'imex', trim_hyphen=False)
+                        # is there a pubmed id
+                        if line[DataCols.Publication_Identifier.value].find('pubmed') >= 0:
+                            # get the publication identifier
+                            pub_id = self.find_target_val(line[DataCols.Publication_Identifier.value], 'pubmed', only_num=True)
 
-                                # did we get a imex id
+                            # did we get a pubmed id
+                            if not pub_id == '':
+                                # convert it into a curie
+                                pub_id = 'PMID:' + pub_id
+
+                        # is there an IMEX id
+                        if pub_id == '' and line[DataCols.Publication_Identifier.value].find('imex') >= 0:
+                            # get the imex id
+                            pub_id = self.find_target_val(line[DataCols.Publication_Identifier.value], 'imex', trim_hyphen=False)
+
+                            # did we get a imex id
+                            if not pub_id == '':
+                                # imex ids come back in the form IM-####. convert it into a curie
+                                pub_id = pub_id.replace('-', ':')
+
+                        # is there a doi id
+                        if pub_id == '' and line[DataCols.Publication_Identifier.value].find('doi') >= 0:
+                                # try to find the doi curie
+                                pub_id = self.find_target_val(line[DataCols.Publication_Identifier.value], 'doi', regex='^10.\d{4,9}/[-._;()/:A-Z0-9]+$', trim_hyphen=False)
+
+                                # did we get a doi id
                                 if not pub_id == '':
-                                    # imex ids come back in the form IM-####. convert it into a curie
-                                    pub_id = pub_id.replace('-', ':')
-                            else:
-                                self.logger.error(f"No Pubmed or IMEX publication ID found. Source: {line[DataCols.ID_interactor_A.value]}, Object: {line[DataCols.ID_interactor_B.value]}")
-                        else:
-                            pub_id = 'PMID:' + pub_id
+                                    # convert it to a curie
+                                    pub_id = 'DOI:' + pub_id
+
+                        # alert the user if no pub id found
+                        if pub_id == '':
+                            self.logger.warning(f"No publication ID found. Source: {line[DataCols.ID_interactor_A.value]}, Object: {line[DataCols.ID_interactor_B.value]}")
 
                         # prime the experiment group tracker if this is the first time in
                         if first:
@@ -679,8 +698,8 @@ class IALoader:
 
         return ret_val
 
-    @staticmethod
-    def find_target_val(element: str, target: str, only_num: bool = False, until: str = '', trim_hyphen = True) -> str:
+    #@staticmethod
+    def find_target_val(self, element: str, target: str, only_num: bool = False, until: str = '', regex: str = '', trim_hyphen = True) -> str:
         """
         This method gets the value in an element that has IDs separated by '|' and the name/value
         is delimited with ":"
@@ -689,6 +708,7 @@ class IALoader:
         :param target: the name of the value we want to return
         :param only_num: flag to indicate to return the initial number portion of the value
         :param until: save everything in the value until the character is found
+        :param regex: use this regular expression to validate the value
         :param trim_hyphen: do not split the return on a hyphen
         :return: the found value or an empty string
         """
@@ -716,6 +736,23 @@ class IALoader:
                         # else do not continue if non-numeric is found
                         else:
                             break
+                            # use a regex if passed in
+                elif regex != '':
+                    # grab everything after the prefix
+                    found_val = val[val.find(':')+1:]
+
+                    # remove any invalid characters
+                    found_val = found_val.replace('"', '')
+
+                    # try to get a match
+                    match = re.match(regex, found_val)
+
+                    # if a match was found
+                    if match:
+                        ret_val = match.string
+                    else:
+                        self.logger.error(f'regex failure: value: {val}')
+                # keep all characters until the stop value is hit
                 elif until != '':
                     # only return the initial number portion of the value
                     for c in found_val:
@@ -734,10 +771,8 @@ class IALoader:
 
         # are we to retain the hyphen or not
         if trim_hyphen:
-            # split the string on the hyphen and take the value
+            # split the string on the hyphen and take the first value
             ret_val = ret_val.split('-')[0]
-        else:
-            ret_val = ret_val
 
         # return the value to the caller
         return ret_val
