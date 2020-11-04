@@ -320,7 +320,7 @@ class VPLoader:
                     obj_node_id = node_1_id
                 elif node_3_type.find('biological_process') > -1:
                     predicate = 'RO:0002331'
-                    relation = 'actively_involved_in'
+                    relation = 'biolink:actively_involved_in'
                     label = 'actively_involved_in'
                     src_node_id = node_1_id
                     obj_node_id = node_3_id

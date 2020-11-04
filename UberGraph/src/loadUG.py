@@ -351,8 +351,9 @@ class UGLoader:
             source_node: dict = {}
             object_node: dict = {}
 
-            # get the edge relation using the group name
+            # get the edge relation and edge label using the group name
             edge_relation = df_edges.loc[cur_grp_name].relation
+            edge_label = df_edges.loc[cur_grp_name].edge_label
 
             # now that we have a group create the edges
             while grp_idx < len(grp_list):
@@ -379,7 +380,7 @@ class UGLoader:
 
                 # write out the edge
                 if output_mode == 'json':
-                    self.final_edge_set.add(f'{{"id":"{hashlib.md5(record_id.encode("utf-8")).hexdigest()}","subject":"{source_node["id"]}","relation":"{edge_relation}","object":"{object_node["id"]}","edge_label":"{edge_relation}","source_database":"{data_source_name}"}}')
+                    self.final_edge_set.add(f'{{"id":"{hashlib.md5(record_id.encode("utf-8")).hexdigest()}","subject":"{source_node["id"]}","relation":"{edge_relation}","object":"{object_node["id"]}","edge_label":"{edge_label}","source_database":"{data_source_name}"}}')
                 else:
                     self.final_edge_set.add(f'{hashlib.md5(record_id.encode("utf-8")).hexdigest()}\t{source_node["id"]}\t{edge_relation}\t{edge_relation}\t{object_node["id"]}\t{data_source_name}')
 
