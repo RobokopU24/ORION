@@ -9,9 +9,10 @@ from collections import defaultdict
 from ftplib import FTP, all_errors as ftp_errors
 from Common.utils import LoggingUtil
 from Common.kgx_file_writer import KGXFileWriter
+from Common.loader_interface import SourceDataLoader, SourceDataBrokenError, SourceDataFailedError
 
 
-class GWASCatalogLoader:
+class GWASCatalogLoader(SourceDataLoader):
 
     logger = LoggingUtil.init_logging("Data_services.GWASCatalog.GWASCatalogLoader",
                                       line_format='medium',
@@ -24,10 +25,11 @@ class GWASCatalogLoader:
                          f'gwas-catalog-associations_ontology-annotated.tsv'
         self.variant_to_pheno_cache = defaultdict(lambda: defaultdict(list))
 
-    def load(self, output_directory: str, out_file_name: str):
+    def load(self, output_directory: str = None, out_file_name: str = None):
         gwas_catalog_data = self.get_gwas_catalog()
         load_metadata = self.parse_gwas_catalog_data(gwas_catalog=gwas_catalog_data)
-        self.write_to_file(output_directory, f'{out_file_name}')
+        if output_directory and out_file_name:
+            self.write_to_file(output_directory, f'{out_file_name}')
         return load_metadata
 
     def get_latest_source_version(self):
@@ -57,12 +59,10 @@ class GWASCatalogLoader:
         except ftp_errors as e:
             self.logger.error(f'GWAS Catalog ftp error ({e}) on retry {retries}')
             if retries == 2:
-                raise e
+                raise SourceDataFailedError(repr(e))
             else:
                 time.sleep(1)
                 return self.get_gwas_catalog(fetch_only_update_date, retries+1)
-
-
 
     def parse_gwas_catalog_data(self, gwas_catalog):
 
@@ -76,19 +76,19 @@ class GWASCatalogLoader:
             trait_ids_index = file_headers.index('MAPPED_TRAIT_URI')
         except (IndexError, ValueError) as e:
             self.logger.error(f'GWAS Catalog failed to find required headers ({e})')
-            return []
+            raise SourceDataBrokenError(f'GWAS Catalog failed to find required headers ({e})')
 
         total_lines = len(gwas_catalog) - 1
         snp_pattern = re.compile(r'[^;x\s]+')
         trait_uri_pattern = re.compile(r'[^,\s]+')
 
         all_traits = set()
-
+        unsupported_variants = set()
+        unsupported_traits = set()
         load_metadata = {
             'num_lines': total_lines,
             'unusable_lines': 0,
-            'unsupported_variants': set(),
-            'unsupported_traits': set(),
+            'corrupted_lines': 0,
             'single_snp_associations': 0,
             'multi_snp_associations': 0,
             'haplotype_associations': 0,
@@ -119,7 +119,7 @@ class GWASCatalogLoader:
                 #risk_allele_string = line[risk_allele_index]
 
             except IndexError as e:
-                load_metadata['unusable_lines'] += 1
+                load_metadata['corrupted_lines'] += 1
                 self.logger.warning(f'GWASCatalog corrupted line (#{current_line}: {e} - {line}')
                 continue
 
@@ -128,16 +128,15 @@ class GWASCatalogLoader:
                 p_value = float(p_value_string)
                 if p_value == 0:
                     p_value = sys.float_info.min
-            except ValueError as e:
-                load_metadata['unusable_lines'] += 1
-                self.logger.warning(f'GWASCatalog bad p value (#{current_line}: {e} - {line}')
-
-
+            except ValueError:
+                load_metadata['corrupted_lines'] += 1
+                self.logger.warning(f'GWASCatalog bad p value (#{current_line}: {p_value_string}')
+                continue
 
             # record some metadata about how many of each snp field type there were
-            if '*' in snps_string or ',' in snps_string:
+            if ('*' in snps_string) or (',' in snps_string):
                 load_metadata['unusable_lines'] += 1
-                load_metadata['unsupported_variants'].add(snps_string)
+                unsupported_variants.add(snps_string)
                 continue
             if 'x' in snps_string:
                 load_metadata['haplotype_associations'] += 1
@@ -157,7 +156,7 @@ class GWASCatalogLoader:
                 if snp.startswith('rs'):
                     snp_ids.append(f'DBSNP:{snp}')
                 else:
-                    load_metadata['unsupported_variants'].add(snp)
+                    unsupported_variants.add(snp)
 
             # parse and store risk alleles
             #risk_alleles = []
@@ -197,7 +196,7 @@ class GWASCatalogLoader:
                     elif trait_id.startswith('GO'):
                         curie_trait_id = f'GO:{trait_id[3:]}'
                     else:
-                        load_metadata['unsupported_traits'].add(trait_id)
+                        unsupported_traits.add(trait_id)
 
                     if curie_trait_id:
                         all_traits.add(curie_trait_id)
@@ -205,12 +204,12 @@ class GWASCatalogLoader:
 
                 except IndexError:
                     self.logger.warning(f'Trait uri error:({trait_uri}) not splittable by /')
-                    load_metadata['unsupported_traits'].add(trait_uri)
+                    unsupported_traits.add(trait_uri)
 
             # if valid trait(s) and snp(s), save the associations in memory
             if not (trait_ids and snp_ids):
                 load_metadata['unusable_lines'] += 1
-                self.logger.warning(f'GWASCatalog line missing valid snps and/or traits: line #{current_line} - {line}')
+                self.logger.debug(f'GWASCatalog line missing valid snps and/or traits: line #{current_line} - {line}')
             else:
                 for snp_id in snp_ids:
                     for trait_id in trait_ids:
@@ -223,22 +222,23 @@ class GWASCatalogLoader:
 
         load_metadata['total_variants'] = len(self.variant_to_pheno_cache)
         load_metadata['total_traits'] = len(all_traits)
-        load_metadata['unsupported_variants'] = list(load_metadata['unsupported_variants'])
-        load_metadata['unsupported_variants_count'] = len(load_metadata['unsupported_variants'])
-        load_metadata['unsupported_traits'] = list(load_metadata['unsupported_traits'])
-        load_metadata['unsupported_traits_count'] = len(load_metadata['unsupported_traits'])
-        load_metadata['success'] = True
+        load_metadata['unsupported_variants_count'] = len(unsupported_variants)
+        load_metadata['unsupported_traits_count'] = len(unsupported_traits)
 
         self.logger.info(f'GWASCatalog load results (out of {total_lines} lines of data):')
+        self.logger.info(f'GWASCatalog unsupported variants: {repr(unsupported_variants)}')
+        self.logger.info(f'GWASCatalog unsupported traits: {repr(unsupported_traits)}')
         self.logger.info(json.dumps(load_metadata, indent=4))
         return load_metadata
 
     def write_to_file(self, output_directory: str, out_file_name: str):
 
-        predicate_id = f'RO:0002200'
-        predicate_label = f'has_phenotype'
+        relation = f'RO:0002200'
+        predicate = f'biolink:has_phenotype'
 
-        with KGXFileWriter(output_directory, out_file_name) as kgx_writer:
+
+
+        with KGXFileWriter(nodes_output_file_path, out_file_name) as kgx_writer:
             for variant_id, trait_dict in self.variant_to_pheno_cache.items():
                 kgx_writer.write_node(variant_id, node_name='', node_type=node_types.SEQUENCE_VARIANT)
                 for trait_id, association_info in trait_dict.items():
@@ -248,8 +248,8 @@ class GWASCatalogLoader:
                     edge_properties = {'p_value': p_values, 'pubmed_id': pubmed_ids}
                     kgx_writer.write_edge(subject_id=variant_id,
                                           object_id=trait_id,
-                                          relation=predicate_id,
-                                          edge_label=predicate_label,
+                                          relation=relation,
+                                          predicate=predicate,
                                           edge_properties=edge_properties)
 
 
@@ -266,6 +266,6 @@ if __name__ == '__main__':
         data_storage_dir = os.environ["DATA_SERVICES_STORAGE"]
 
     loader = GWASCatalogLoader()
-    loader.load(data_storage_dir, 'GWASCatalog', 1)
+    loader.load(data_storage_dir, 'GWASCatalog')
 
 

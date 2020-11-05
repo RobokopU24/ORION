@@ -3,30 +3,31 @@ import hashlib
 import os
 import json
 from Common.utils import LoggingUtil
-from pathlib import Path
 
 
 class KGXFileWriter:
 
     logger = LoggingUtil.init_logging("Data_services.Common.KGXFileWriter",
                                       line_format='medium',
-                                      log_file_path=os.path.join(Path(__file__).parents[1], 'logs'))
+                                      log_file_path=os.environ['DATA_SERVICES_LOGS'])
 
-    def __init__(self, output_directory: str, out_file_name: str):
+    def __init__(self, nodes_output_file_path: str = None, edges_output_file_path: str = None):
         self.written_nodes = set()
 
         self.edges_to_write = []
+        self.edges_buffer_size = 10000
+
         self.nodes_to_write = []
+        self.nodes_buffer_size = 10000
 
         self.nodes_output_file_handler = None
-        nodes_output_file_path = os.path.join(output_directory, f'{out_file_name}_nodes.json')
         if os.path.isfile(nodes_output_file_path):
             self.logger.error(f'KGXFileWriter error.. file already exists: {nodes_output_file_path}')
-        else:
+        elif nodes_output_file_path:
             self.nodes_output_file_handler = open(nodes_output_file_path, 'w')
+            #self.nodes_output_file_handler.write('{')
 
         self.edges_output_file_handler = None
-        edges_output_file_path = os.path.join(output_directory, f'{out_file_name}_edges.json')
         if os.path.isfile(edges_output_file_path):
             self.logger.error(f'KGXFileWriter error.. file already exists: {edges_output_file_path}')
         else:
@@ -60,15 +61,15 @@ class KGXFileWriter:
                    subject_id: str,
                    object_id: str,
                    relation: str,
-                   edge_label: str,
+                   predicate: str,
                    edge_properties: dict = None,
                    edge_id: str = None):
         if edge_id is None:
-            composite_id = f'{object_id}{edge_label}{subject_id}'
+            composite_id = f'{object_id}{predicate}{subject_id}'
             edge_id = hashlib.md5(composite_id.encode("utf-8")).hexdigest()
         edge_object = {'id': edge_id,
                        'subject': subject_id,
-                       'edge_label': edge_label,
+                       'predicate': predicate,
                        'object': object_id,
                        'relation': relation
                        }

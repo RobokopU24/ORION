@@ -46,6 +46,14 @@ class MetadataManager:
         self.load_current_metadata()
         return self.metadata['update_status']
 
+    def set_update_error(self, update_error: str):
+        self.metadata['update_error'] = update_error
+        self.save_metadata()
+
+    def get_update_error(self):
+        self.load_current_metadata()
+        return self.metadata['update_status']
+
     def set_normalization_status(self, normalization_status: str):
         self.metadata['normalization_status'] = normalization_status
         self.save_metadata()
@@ -90,7 +98,7 @@ class MetadataManager:
     def archive_metadata(self):
         archive_path = os.path.join(self.storage_directory, f'{self.source_id}_{self.metadata["load_version"]}.meta.json')
         with open(archive_path, 'w') as meta_json_file:
-            json.dump(self.metadata, meta_json_file)
+            json.dump(self.metadata, meta_json_file, indent=4)
 
     def get_previous_version(self):
         return self.metadata['previous_version']
