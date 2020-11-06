@@ -18,18 +18,21 @@ class GWASCatalogLoader(SourceDataLoader):
                                       line_format='medium',
                                       log_file_path=os.environ['DATA_SERVICES_LOGS'])
 
-    def __init__(self):
+    def __init__(self, test_mode: bool = False):
         self.source_id = 'GWASCatalog'
         self.source_db = 'gwascatalog.sequence_variant_to_disease_or_phenotypic_feature'
         self.query_url = f'ftp.ebi.ac.uk/pub/databases/gwas/releases/latest/' \
                          f'gwas-catalog-associations_ontology-annotated.tsv'
         self.variant_to_pheno_cache = defaultdict(lambda: defaultdict(list))
 
-    def load(self, output_directory: str = None, out_file_name: str = None):
+    def load(self, nodes_output_file_path: str, edges_output_file_path: str):
+        self.logger.info(f'GWASCatalog: Fetching source files..')
         gwas_catalog_data = self.get_gwas_catalog()
+        self.logger.info(f'GWASCatalog: Parsing source files..')
         load_metadata = self.parse_gwas_catalog_data(gwas_catalog=gwas_catalog_data)
-        if output_directory and out_file_name:
-            self.write_to_file(output_directory, f'{out_file_name}')
+        if nodes_output_file_path and edges_output_file_path:
+            self.logger.info(f'GWASCatalog: Writing source data file..')
+            self.write_to_file(nodes_output_file_path, edges_output_file_path)
         return load_metadata
 
     def get_latest_source_version(self):
@@ -86,9 +89,9 @@ class GWASCatalogLoader(SourceDataLoader):
         unsupported_variants = set()
         unsupported_traits = set()
         load_metadata = {
-            'num_lines': total_lines,
-            'unusable_lines': 0,
-            'corrupted_lines': 0,
+            'num_source_lines': total_lines,
+            'unusable_source_lines': 0,
+            'corrupted_source_lines': 0,
             'single_snp_associations': 0,
             'multi_snp_associations': 0,
             'haplotype_associations': 0,
@@ -119,7 +122,7 @@ class GWASCatalogLoader(SourceDataLoader):
                 #risk_allele_string = line[risk_allele_index]
 
             except IndexError as e:
-                load_metadata['corrupted_lines'] += 1
+                load_metadata['corrupted_source_lines'] += 1
                 self.logger.warning(f'GWASCatalog corrupted line (#{current_line}: {e} - {line}')
                 continue
 
@@ -129,13 +132,13 @@ class GWASCatalogLoader(SourceDataLoader):
                 if p_value == 0:
                     p_value = sys.float_info.min
             except ValueError:
-                load_metadata['corrupted_lines'] += 1
+                load_metadata['corrupted_source_lines'] += 1
                 self.logger.warning(f'GWASCatalog bad p value (#{current_line}: {p_value_string}')
                 continue
 
             # record some metadata about how many of each snp field type there were
             if ('*' in snps_string) or (',' in snps_string):
-                load_metadata['unusable_lines'] += 1
+                load_metadata['unusable_source_lines'] += 1
                 unsupported_variants.add(snps_string)
                 continue
             if 'x' in snps_string:
@@ -208,7 +211,7 @@ class GWASCatalogLoader(SourceDataLoader):
 
             # if valid trait(s) and snp(s), save the associations in memory
             if not (trait_ids and snp_ids):
-                load_metadata['unusable_lines'] += 1
+                load_metadata['unusable_source_lines'] += 1
                 self.logger.debug(f'GWASCatalog line missing valid snps and/or traits: line #{current_line} - {line}')
             else:
                 for snp_id in snp_ids:
@@ -231,14 +234,12 @@ class GWASCatalogLoader(SourceDataLoader):
         self.logger.info(json.dumps(load_metadata, indent=4))
         return load_metadata
 
-    def write_to_file(self, output_directory: str, out_file_name: str):
+    def write_to_file(self, nodes_output_file_path: str, edges_output_file_path: str):
 
         relation = f'RO:0002200'
         predicate = f'biolink:has_phenotype'
 
-
-
-        with KGXFileWriter(nodes_output_file_path, out_file_name) as kgx_writer:
+        with KGXFileWriter(nodes_output_file_path, edges_output_file_path) as kgx_writer:
             for variant_id, trait_dict in self.variant_to_pheno_cache.items():
                 kgx_writer.write_node(variant_id, node_name='', node_type=node_types.SEQUENCE_VARIANT)
                 for trait_id, association_info in trait_dict.items():
