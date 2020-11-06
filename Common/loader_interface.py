@@ -8,8 +8,15 @@ class SourceDataLoader(metaclass=abc.ABCMeta):
         return (hasattr(subclass, 'load') and
                 callable(subclass.load_data_source) and
                 hasattr(subclass, 'get_latest_source_version') and
-                callable(subclass.extract_text) or
+                callable(subclass.extract_text) and
+                hasattr(subclass, '__init__') and
+                callable(subclass.__init__) or
                 NotImplemented)
+
+    @abc.abstractmethod
+    def __init__(self, test_mode: bool):
+        """Initialize with the option to run in testing mode."""
+        raise NotImplementedError
 
     @abc.abstractmethod
     def get_latest_source_version(self):
