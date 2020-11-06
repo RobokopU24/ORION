@@ -34,15 +34,24 @@ class MetadataManager:
         self.metadata['load_date'] = None
         self.metadata['previous_version'] = None
         self.metadata['update_status'] = self.NOT_STARTED
+        self.metadata['update_info'] = {}
         self.metadata['normalization_status'] = self.WAITING_ON_DEPENDENCY
+        self.metadata['normalization_info'] = {}
         self.metadata['annotation_status'] = self.WAITING_ON_DEPENDENCY
-        self.metadata['source_specific'] = {}
 
     def set_update_status(self, update_status: str):
         self.metadata['update_status'] = update_status
         self.save_metadata()
 
     def get_update_status(self):
+        self.load_current_metadata()
+        return self.metadata['update_status']
+
+    def set_update_error(self, update_error: str):
+        self.metadata['update_error'] = update_error
+        self.save_metadata()
+
+    def get_update_error(self):
         self.load_current_metadata()
         return self.metadata['update_status']
 
@@ -53,6 +62,14 @@ class MetadataManager:
     def get_normalization_status(self):
         self.load_current_metadata()
         return self.metadata['normalization_status']
+
+    def set_normalization_error(self, normalization_error: str):
+        self.metadata['normalization_error'] = normalization_error
+        self.save_metadata()
+
+    def get_normalization_error(self):
+        self.load_current_metadata()
+        return self.metadata['normalization_error']
 
     def set_annotation_status(self, annotation_status: str):
         self.metadata['annotation_status'] = annotation_status
@@ -79,8 +96,12 @@ class MetadataManager:
         self.metadata['load_date'] = datetime.datetime.now().strftime('%m-%d-%y %H:%M:%S')
         self.save_metadata()
 
-    def update_metadata(self, metadata: dict):
-        self.metadata['source_specific'] = metadata
+    def set_update_info(self, update_info: dict):
+        self.metadata['update_info'] = update_info
+        self.save_metadata()
+
+    def set_normalization_info(self, normalization_info: dict):
+        self.metadata['normalization_info'] = normalization_info
         self.save_metadata()
 
     def save_metadata(self):
@@ -90,7 +111,7 @@ class MetadataManager:
     def archive_metadata(self):
         archive_path = os.path.join(self.storage_directory, f'{self.source_id}_{self.metadata["load_version"]}.meta.json')
         with open(archive_path, 'w') as meta_json_file:
-            json.dump(self.metadata, meta_json_file)
+            json.dump(self.metadata, meta_json_file, indent=4)
 
     def get_previous_version(self):
         return self.metadata['previous_version']
