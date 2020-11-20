@@ -132,7 +132,7 @@ class IALoader:
                     out_edge_f.write('{"edges":[\n')
                 else:
                     out_node_f.write(f'id\tname\tcategory\tequivalent_identifiers\ttaxon\n')
-                    out_edge_f.write(f'id\tsubject\trelation\tedge_label\tpublications\tdetection_method\tobject\tsource_database\n')
+                    out_edge_f.write(f'id\tpredicate\tsubject\trelation\tedge_label\tpublications\tdetection_method\tobject\tsource_database\n')
 
                 # parse the data
                 self.parse_data_file(data_file_path, data_file_name, out_node_f, out_edge_f, output_mode, test_mode)
@@ -619,12 +619,12 @@ class IALoader:
                     self.logger.error(f"Publication ID missing for edge. Source: {grp_list[grp_idx]['u_a']}, Object: {grp_list[grp_idx]['u_b']}")
 
                 # add the interacting node edges
-                edge_list.append({"predicate": "RO:0002436", "subject": f"{grp_list[grp_idx]['u_a']}", "relation": "biolink:directly_interacts_with", "object": f"{grp_list[grp_idx]['u_b']}", "edge_label": "directly_interacts_with", "publications": f"{grp_list[grp_idx]['pub_id']}", "detection_method": detection_method})
+                edge_list.append({"predicate": "biolink:directly_interacts_with", "subject": f"{grp_list[grp_idx]['u_a']}", "relation": "RO:0002436", "object": f"{grp_list[grp_idx]['u_b']}", "edge_label": "directly_interacts_with", "publications": f"{grp_list[grp_idx]['pub_id']}", "detection_method": detection_method})
 
                 # for each type
                 for suffix in ['a', 'b']:
                     # add the taxa edges
-                    edge_list.append({"predicate": "RO:0002162", "subject": f"{grp_list[grp_idx]['u_' + suffix]}", "relation": "biolink:in_taxon", "object": f"{grp_list[grp_idx]['t_' + suffix]}", "edge_label": "in_taxon"})
+                    edge_list.append({"predicate": "biolink:in_taxon", "subject": f"{grp_list[grp_idx]['u_' + suffix]}", "relation": "RO:0002162", "object": f"{grp_list[grp_idx]['t_' + suffix]}", "edge_label": "in_taxon"})
 
                 # goto the next pair
                 grp_idx += 1
@@ -648,21 +648,21 @@ class IALoader:
             record_id: str = item["subject"] + item["relation"] + item["edge_label"] + item["object"]
 
             # if this is for the "directly interacts with" relationship
-            if item["predicate"] == 'RO:0002436':
+            if item["relation"] == 'RO:0002436':
                 # depending on the mode write out the uniprot A to uniprot B edge
                 if output_mode == 'json':
                     # get the detection methods into a list
                     detection_method: list = item['detection_method'].split('|')
 
-                    edge_set.add(f'{{"id":"{hashlib.md5(record_id.encode("utf-8")).hexdigest()}", "subject":"{item["subject"]}", "relation":"{item["relation"]}", "object":"{item["object"]}", "edge_label":"{item["edge_label"]}", "publications":"{item["publications"]}", "detection_method":{json.dumps(list(detection_method))}, "source_database":"IntAct"}}')
+                    edge_set.add(f'{{"id":"{hashlib.md5(record_id.encode("utf-8")).hexdigest()}", "predicate":"{item["predicate"]}", "subject":"{item["subject"]}", "relation":"{item["relation"]}", "object":"{item["object"]}", "edge_label":"{item["edge_label"]}", "publications":"{item["publications"]}", "detection_method":{json.dumps(list(detection_method))}, "source_database":"IntAct"}}')
                 else:
-                    edge_set.add(f'{hashlib.md5(record_id.encode("utf-8")).hexdigest()}\t{item["subject"]}\t{item["relation"]}\t{item["edge_label"]}\t{item["publications"]}\t{item["detection_method"]}\t{item["object"]}\tIntAct')
+                    edge_set.add(f'{hashlib.md5(record_id.encode("utf-8")).hexdigest()}\t{item["predicate"]}\t{item["subject"]}\t{item["relation"]}\t{item["edge_label"]}\t{item["publications"]}\t{item["detection_method"]}\t{item["object"]}\tIntAct')
             else:
                 # depending on the output mode write out the uniprot to NCBI taxon edge
                 if output_mode == 'json':
-                    edge_set.add(f'{{"id":"{hashlib.md5(record_id.encode("utf-8")).hexdigest()}", "subject":"{item["subject"]}", "relation":"{item["relation"]}", "object":"{item["object"]}", "edge_label":"{item["edge_label"]}", "source_database":"IntAct"}}')
+                    edge_set.add(f'{{"id":"{hashlib.md5(record_id.encode("utf-8")).hexdigest()}", "predicate":"{item["predicate"]}", "subject":"{item["subject"]}", "relation":"{item["relation"]}", "object":"{item["object"]}", "edge_label":"{item["edge_label"]}", "source_database":"IntAct"}}')
                 else:
-                    edge_set.add(f'{hashlib.md5(record_id.encode("utf-8")).hexdigest()}\t{item["subject"]}\t{item["relation"]}\t{item["edge_label"]}\t\t\t{item["object"]}\tIntAct')
+                    edge_set.add(f'{hashlib.md5(record_id.encode("utf-8")).hexdigest()}\t{item["predicate"]}\t{item["subject"]}\t{item["relation"]}\t{item["edge_label"]}\t\t\t{item["object"]}\tIntAct')
 
         # write out the edge data
         if output_mode == 'json':

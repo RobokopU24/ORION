@@ -87,7 +87,7 @@ class UGLoader:
                     out_edge_f.write('{"edges":[\n')
                 else:
                     out_node_f.write(f'id\tname\tcategory\tequivalent_identifiers\n')
-                    out_edge_f.write(f'id\tsubject\trelation\tedge_label\tobject\tsource_database\n')
+                    out_edge_f.write(f'id\tpredicate\tsubject\trelation\tedge_label\tobject\tsource_database\n')
 
                 self.logger.info(f'Splitting UberGraph data file: {file_name}. {file_size} records per file + remainder')
 
@@ -351,9 +351,10 @@ class UGLoader:
             source_node: dict = {}
             object_node: dict = {}
 
-            # get the edge relation and edge label using the group name
+            # get the predicate, relation and label using the group name
             edge_relation = df_edges.loc[cur_grp_name].relation
             edge_label = df_edges.loc[cur_grp_name].edge_label
+            edge_predicate = df_edges.loc[cur_grp_name].predicate
 
             # now that we have a group create the edges
             while grp_idx < len(grp_list):
@@ -380,9 +381,9 @@ class UGLoader:
 
                 # write out the edge
                 if output_mode == 'json':
-                    self.final_edge_set.add(f'{{"id":"{hashlib.md5(record_id.encode("utf-8")).hexdigest()}","subject":"{source_node["id"]}","relation":"{edge_relation}","object":"{object_node["id"]}","edge_label":"{edge_label}","source_database":"{data_source_name}"}}')
+                    self.final_edge_set.add(f'{{"id":"{hashlib.md5(record_id.encode("utf-8")).hexdigest()}","predicate":"{edge_predicate}","subject":"{source_node["id"]}","relation":"{edge_relation}","object":"{object_node["id"]}","edge_label":"{edge_label}","source_database":"{data_source_name}"}}')
                 else:
-                    self.final_edge_set.add(f'{hashlib.md5(record_id.encode("utf-8")).hexdigest()}\t{source_node["id"]}\t{edge_relation}\t{edge_relation}\t{object_node["id"]}\t{data_source_name}')
+                    self.final_edge_set.add(f'{hashlib.md5(record_id.encode("utf-8")).hexdigest()}\t{edge_predicate}\t{source_node["id"]}\t{edge_relation}\t{edge_label}\t{object_node["id"]}\t{data_source_name}')
 
                 # increment the edge count
                 self.total_edges += 1

@@ -102,7 +102,7 @@ class GOALoader:
                     out_edge_f.write('{"edges":[\n')
                 else:
                     out_node_f.write(f'id\tname\tcategory\tequivalent_identifiers\n')
-                    out_edge_f.write(f'id\tsubject\trelation\tedge_label\tobject\tsource_database\n')
+                    out_edge_f.write(f'id\tpredicate\tsubject\trelation\tedge_label\tobject\tsource_database\n')
 
                 # parse the data
                 self.parse_data_file(os.path.join(data_file_path, data_file_name), out_node_f, out_edge_f, output_mode, swiss_prots)
@@ -259,18 +259,18 @@ class GOALoader:
 
             # find the predicate and edge relationships
             if node_3_type.find('molecular_activity') > -1:
-                predicate = 'RO:0002333'
-                relation = 'biolink:enabled_by'
+                predicate = 'biolink:enabled_by'
+                relation = 'RO:0002333'
                 src_node_id = node_3_id
                 obj_node_id = node_1_id
             elif node_3_type.find('biological_process') > -1:
-                predicate = 'RO:0002331'
-                relation = 'biolink:actively_involved_in'
+                predicate = 'biolink:actively_involved_in'
+                relation = 'RO:0002331'
                 src_node_id = node_1_id
                 obj_node_id = node_3_id
             elif node_3_type.find('cellular_component') > -1:
-                predicate = 'RO:0000051'
-                relation = 'biolink:has_part'
+                predicate = 'biolink:has_part'
+                relation = 'RO:0000051'
                 src_node_id = node_3_id
                 obj_node_id = node_1_id
             else:
@@ -293,9 +293,9 @@ class GOALoader:
 
             # depending on the output mode, create the KGX edge data for nodes 1 and 3
             if output_mode == 'json':
-                edge_set.add(f'{{"id":"{hashlib.md5(record_id.encode("utf-8")).hexdigest()}", "subject":"{item["subject"]}", "relation":"{item["relation"]}", "object":"{item["object"]}", "edge_label":"{item["edge_label"]}", "source_database":"GOA_EBI-Human"}}')
+                edge_set.add(f'{{"id":"{hashlib.md5(record_id.encode("utf-8")).hexdigest()}", "predicate": "{item["predicate"]}", "subject":"{item["subject"]}", "relation":"{item["relation"]}", "object":"{item["object"]}", "edge_label":"{item["edge_label"]}", "source_database":"GOA_EBI-Human"}}')
             else:
-                edge_set.add(f'{hashlib.md5(record_id.encode("utf-8")).hexdigest()}\t{item["subject"]}\t{item["relation"]}\t{item["edge_label"]}\t{item["object"]}\tGOA_EBI-Human')
+                edge_set.add(f'{hashlib.md5(record_id.encode("utf-8")).hexdigest()}\t{item["predicate"]}\t{item["subject"]}\t{item["relation"]}\t{item["edge_label"]}\t{item["object"]}\tGOA_EBI-Human')
 
             self.logger.debug(f'{len(edge_set)} unique edges identified.')
 
