@@ -306,7 +306,7 @@ class EdgeNormUtils:
         # create a logger
         self.logger = LoggingUtil.init_logging("Data_services.Common.EdgeNormUtils", level=log_level, line_format='medium', log_file_path=os.path.join(Path(__file__).parents[1], 'logs'))
 
-    def normalize_edge_data(self, edge_list: list, cached_edge_norms: dict = None, block_size: int = 2500, deprecated_version: bool = True) -> list:
+    def normalize_edge_data(self, edge_list: list, cached_edge_norms: dict = None, block_size: int = 2500) -> list:
         """
         This method calls the EdgeNormalization web service to get the normalized identifier and labels.
         the data comes in as a edge list.
@@ -329,23 +329,19 @@ class EdgeNormUtils:
         # save the edge list count to avoid grabbing it over and over
         edge_count: int = len(edge_list)
 
-        if not deprecated_version:
-            # create a set of predicates that need normalizing
-            tmp_normalize: set = set([edge['relation'] for edge in edge_list if edge['relation'] not in cached_edge_norms])
-        else:
-            # TODO remove this when edge normalization gets updated - use relation for the pre-normalization curie now
-            # init a set to hold edge relations that have not yet been normed
-            tmp_normalize: set = set()
-            # iterate through node groups and get only the taxa records.
-            while edge_idx < edge_count:
-                # check to see if this one needs normalization data from the website
-                if not edge_list[edge_idx]['predicate'] in cached_edge_norms:
-                    tmp_normalize.add(edge_list[edge_idx]['predicate'])
-                else:
-                    self.logger.debug(f"Cache hit: {edge_list[edge_idx]['predicate']}")
+        # init a set to hold edge relations that have not yet been normed
+        tmp_normalize: set = set()
+        # iterate through node groups and get only the taxa records.
 
-                # increment to the next node array element
-                edge_idx += 1
+        while edge_idx < edge_count:
+            # check to see if this one needs normalization data from the website
+            if not edge_list[edge_idx]['relation'] in cached_edge_norms:
+                tmp_normalize.add(edge_list[edge_idx]['relation'])
+            else:
+                self.logger.debug(f"Cache hit: {edge_list[edge_idx]['relation']}")
+
+            # increment to the next node array element
+            edge_idx += 1
 
         # convert the set to a list so we can iterate through it
         to_normalize: list = list(tmp_normalize)
@@ -403,42 +399,31 @@ class EdgeNormUtils:
             else:
                 break
 
-        # TODO remove this switch after Edge Norm update
-        if not deprecated_version:
+        # reset the node index
+        edge_idx = 0
 
-            failed_to_normalize: list = list(set([edge['relation'] for edge in edge_list if edge['relation'] not in cached_edge_norms]))
+        # storage for items that failed to normalize
+        failed_to_normalize: list = list()
 
-            normalized_edges: list = [edge for edge in edge_list if edge['relation'] not in failed_to_normalize]
+        # for each row in the slice add the new id and name
+        while edge_idx < edge_count:
+            # get a reference to the edge list
+            rv = edge_list[edge_idx]
 
-            for edge in normalized_edges:
-                edge['predicate'] = cached_edge_norms[edge['relation']]['identifier']
+            # did we find a normalized value
+            if rv['relation'] in cached_edge_norms and rv['relation'] != '':
+                # find the identifier and make it the predicate
+                if 'identifier' in cached_edge_norms[rv['relation']]:
+                    edge_list[edge_idx]['predicate'] = cached_edge_norms[rv['relation']]['identifier']
 
-        else:
-            # reset the node index
-            edge_idx = 0
+                # find the label and make it the edge label
+                if 'label' in cached_edge_norms[rv['relation']]:
+                    edge_list[edge_idx]['edge_label'] = f'{cached_edge_norms[rv["relation"]]["label"]}'
+            else:
+                failed_to_normalize.append(rv['relation'])
 
-            # storage for items that failed to normalize
-            failed_to_normalize: list = list()
-
-            # for each row in the slice add the new id and name
-            while edge_idx < edge_count:
-                # get a reference to the edge list
-                rv = edge_list[edge_idx]
-
-                # did we find a normalized value
-                if rv['predicate'] in cached_edge_norms and rv['predicate'] != '':
-                    # find the identifier and make it the relation label
-                    if 'identifier' in cached_edge_norms[rv['predicate']]:
-                        edge_list[edge_idx]['relation'] = cached_edge_norms[rv['predicate']]['identifier']
-
-                    # get the label and turn it into a curie
-                    if 'label' in cached_edge_norms[rv['predicate']]:
-                        edge_list[edge_idx]['edge_label'] = f'{cached_edge_norms[rv["predicate"]]["label"]}'
-                else:
-                    failed_to_normalize.append(rv['predicate'])
-
-                # go to the next edge index
-                edge_idx += 1
+            # go to the next edge index
+            edge_idx += 1
 
         # if something failed to normalize output it
         if failed_to_normalize:
