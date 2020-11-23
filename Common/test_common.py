@@ -14,7 +14,7 @@ def test_get_uniprot_virus_date_stamp():
 
     date_stamp: str = gd.get_uniprot_virus_date_stamp(data_file_path)
 
-    assert(date_stamp == '20200617')
+    assert(date_stamp == '20201007')
 
 
 def test_pull_via_http():
@@ -42,7 +42,7 @@ def test_get_taxon_id_list():
 
     taxonid_set: set = gd.get_ncbi_taxon_id_set(data_file_path, type_virus)
 
-    assert(len(taxonid_set) == 189019)
+    assert(len(taxonid_set) == 190167)
 
 
 def test_get_virus_files():
@@ -54,11 +54,11 @@ def test_get_virus_files():
 
     taxonid_set: set = gd.get_ncbi_taxon_id_set(data_file_path, type_virus)
 
-    assert(len(taxonid_set) == 189019)
+    assert(len(taxonid_set) == 190167)
 
     file_list: list = gd.get_uniprot_virus_file_list(data_file_path, taxonid_set)
 
-    assert(len(file_list) == 3993)
+    assert(len(file_list) == 3943)
 
 
 def test_get_goa_files_chain():
@@ -70,11 +70,11 @@ def test_get_goa_files_chain():
 
     taxonid_set: set = gd.get_ncbi_taxon_id_set(data_file_path, type_virus)
 
-    assert(len(taxonid_set) == 189019)
+    assert(len(taxonid_set) == 190167)
 
     file_list: list = gd.get_uniprot_virus_file_list(data_file_path, taxonid_set)
 
-    assert(len(file_list) == 3993)
+    assert(len(file_list) == 3943)
 
     data_file_path += '/Virus_GOA_files/'
 
@@ -93,18 +93,18 @@ def test_edge_norm():
     en = EdgeNormUtils()
 
     # create an edge list
-    edge_list: list = [{'predicate': 'SEMMEDDB:CAUSES', 'relation': '', 'edge_label': ''}, {'predicate': 'RO:0000052', 'relation': '', 'edge_label': ''}]
+    edge_list: list = [{'predicate': '', 'relation': 'SEMMEDDB:CAUSES', 'edge_label': ''}, {'predicate': '', 'relation': 'RO:0000052', 'edge_label': ''}]
 
     # normalize the data
     en.normalize_edge_data(edge_list)
 
     # check the return
-    assert(edge_list[0]['predicate'] == 'SEMMEDDB:CAUSES')
-    assert(edge_list[0]['relation'] == 'biolink:causes')
+    assert(edge_list[0]['predicate'] == 'biolink:causes')
+    assert(edge_list[0]['relation'] == 'SEMMEDDB:CAUSES')
     assert(edge_list[0]['edge_label'] == 'causes')
 
-    assert(edge_list[1]['predicate'] == 'RO:0000052')
-    assert(edge_list[1]['relation'] == 'biolink:affects')
+    assert(edge_list[1]['predicate'] == 'biolink:affects')
+    assert(edge_list[1]['relation'] == 'RO:0000052')
     assert(edge_list[1]['edge_label'] == 'affects')
 
 def test_get_node_synonym():

@@ -65,7 +65,7 @@ class FDBLoader:
                 out_edge_f.write('{"edges":[\n')
             else:
                 out_node_f.write(f'id\tname\tcategory\tequivalent_identifiers\tfoodb_id\tcontent_type\tnutrient\n')
-                out_edge_f.write(f'id\tsubject\trelation\tedge_label\tobject\tunit\tamount\tsource_database\n')
+                out_edge_f.write(f'id\tpredicate\tsubject\trelation\tedge_label\tobject\tunit\tamount\tsource_database\n')
 
             # parse the data
             self.parse_data_file(data_file_path, out_node_f, out_edge_f, output_mode)
@@ -365,7 +365,7 @@ class FDBLoader:
                 for row in rows.iterrows():
                     # save the node id for the edges
                     if row[1].node_num != 1:
-                        edge_list.append({"predicate": "RO:0001019", "subject": f"{node_1_id}", "relation": "", "object": f"{row[1]['id']}", "edge_label": "biolink:related_to", "unit": f"{row[1]['unit']}", "amount": f"{row[1]['amount']}"})
+                        edge_list.append({"predicate": "", "subject": f"{node_1_id}", "relation": "RO:0001019", "object": f"{row[1]['id']}", "edge_label": "biolink:related_to", "unit": f"{row[1]['unit']}", "amount": f"{row[1]['amount']}"})
 
         # get a reference to the edge normalizer
         en = EdgeNormUtils(self.logger.level)
@@ -379,9 +379,9 @@ class FDBLoader:
 
             # depending on the output mode, create the KGX edge data for nodes 1 and 3
             if output_mode == 'json':
-                edge_set.add(f'{{"id":"{hashlib.md5(record_id.encode("utf-8")).hexdigest()}", "subject":"{item["subject"]}", "relation":"{item["relation"]}", "object":"{item["object"]}", "edge_label":"{item["edge_label"]}", "unit":"{item["unit"]}", "amount":"{item["amount"]}", "source_database":"FooDB"}}')
+                edge_set.add(f'{{"id":"{hashlib.md5(record_id.encode("utf-8")).hexdigest()}", "predicate":"{item["predicate"]}", "subject":"{item["subject"]}", "relation":"{item["relation"]}", "object":"{item["object"]}", "edge_label":"{item["edge_label"]}", "unit":"{item["unit"]}", "amount":"{item["amount"]}", "source_database":"FooDB"}}')
             else:
-                edge_set.add(f'{hashlib.md5(record_id.encode("utf-8")).hexdigest()}\t{item["subject"]}\t{item["relation"]}\t{item["edge_label"]}\t{item["object"]}\t{item["unit"]}\t{item["amount"]}\tFooDB')
+                edge_set.add(f'{hashlib.md5(record_id.encode("utf-8")).hexdigest()}\t{item["predicate"]}\t{item["subject"]}\t{item["relation"]}\t{item["edge_label"]}\t{item["object"]}\t{item["unit"]}\t{item["amount"]}\tFooDB')
 
         self.logger.debug(f'{len(edge_set)} unique edges identified.')
 

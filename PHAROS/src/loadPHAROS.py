@@ -108,7 +108,7 @@ class PHAROSLoader:
         """
 
         # create a logger
-        self.logger = LoggingUtil.init_logging("Data_services.FooDB.PHAROSLoader", level=log_level, line_format='medium', log_file_path=os.path.join(Path(__file__).parents[2], 'logs'))
+        self.logger = LoggingUtil.init_logging("Data_services.PHAROSLoader", level=log_level, line_format='medium', log_file_path=os.path.join(Path(__file__).parents[2], 'logs'))
 
         # get a connection to the PHAROS MySQL DB
         self.db = mysql.connector.connect(host="localhost", user="root", password='TSZTVhsjmoAi9MH1n1jo', database="pharos67")
@@ -132,7 +132,7 @@ class PHAROSLoader:
                 out_edge_f.write('{"edges":[\n')
             else:
                 out_node_f.write(f'id\tname\tcategory\tequivalent_identifiers\n')
-                out_edge_f.write(f'id\tsubject\trelation\tedge_label\tobject\tpublications\taffinity\taffinity_parameter\tprovenance\tsource_database\n')
+                out_edge_f.write(f'id\tpredicate\tsubject\trelation\tedge_label\tobject\tpublications\taffinity\taffinity_parameter\tprovenance\tsource_database\n')
 
             # parse the data
             self.parse_data_db(out_node_f, out_edge_f, output_mode)
@@ -277,7 +277,7 @@ class PHAROSLoader:
                 node_list.append({'grp': grp, 'node_num': 1, 'id': gene, 'name': gene_sym, 'category': '', 'equivalent_identifiers': ''})
 
                 # create the disease node and add it to the list
-                node_list.append({'grp': grp, 'node_num': 2, 'id': did, 'name': name, 'category': '', 'equivalent_identifiers': '', 'predicate': 'WD:P2293', 'relation': 'WD:P2293', 'edge_label': 'gene_involved', 'pmids': [], 'affinity': 0, 'affinity_parameter': '', 'provenance': provenance})
+                node_list.append({'grp': grp, 'node_num': 2, 'id': did, 'name': name, 'category': '', 'equivalent_identifiers': '', 'predicate': 'biolink:gene_associated_with_condition', 'relation': 'WD:P2293', 'edge_label': 'gene_involved', 'pmids': [], 'affinity': 0, 'affinity_parameter': '', 'provenance': provenance})
 
         # return the node list to the caller
         return node_list
@@ -300,7 +300,7 @@ class PHAROSLoader:
             gene = item['value']
             gene_sym = item['sym']
             chembl_id = f"{prefixmap[item['id_src']]}:{item['cid']}"
-            predicate, pmids, props, provenance = self.get_edge_props(item)
+            relation, pmids, props, provenance = self.get_edge_props(item)
 
             # if there were affinity properties use them
             if len(props) == 2:
@@ -311,14 +311,14 @@ class PHAROSLoader:
                 affinity_parameter = ''
 
             # create the group id
-            grp: str = chembl_id + predicate + gene + f'{random.random()}'
+            grp: str = chembl_id + relation + gene + f'{random.random()}'
             grp = hashlib.md5(grp.encode("utf-8")).hexdigest()
 
             # create the disease node and add it to the node list
             node_list.append({'grp': grp, 'node_num': 1, 'id': chembl_id, 'name': name, 'category': '', 'equivalent_identifiers': ''})
 
             # create the gene node and add it to the list
-            node_list.append({'grp': grp, 'node_num': 2, 'id': gene, 'name': gene_sym, 'category': '', 'equivalent_identifiers': '', 'predicate': predicate, 'relation': '', 'edge_label': '', 'pmids': pmids, 'affinity': affinity, 'affinity_parameter': affinity_parameter, 'provenance': provenance})
+            node_list.append({'grp': grp, 'node_num': 2, 'id': gene, 'name': gene_sym, 'category': '', 'equivalent_identifiers': '', 'predicate': '', 'relation': relation, 'edge_label': '', 'pmids': pmids, 'affinity': affinity, 'affinity_parameter': affinity_parameter, 'provenance': provenance})
         return node_list
 
     def parse_gene_to_cmpd_activity(self, node_list: list) -> list:
@@ -338,7 +338,7 @@ class PHAROSLoader:
             gene = item['value']
             gene_sym = item['sym']
             chembl_id = f"{prefixmap[item['id_src']]}:{item['cid']}"
-            predicate, pmids, props, provenance = self.get_edge_props(item)
+            relation, pmids, props, provenance = self.get_edge_props(item)
 
             # if there were affinity properties use them
             if len(props) == 2:
@@ -349,14 +349,14 @@ class PHAROSLoader:
                 affinity_parameter = ''
 
             # create the group id
-            grp: str = chembl_id + predicate + gene + f'{random.random()}'
+            grp: str = chembl_id + relation + gene + f'{random.random()}'
             grp = hashlib.md5(grp.encode("utf-8")).hexdigest()
 
             # create the disease node and add it to the node list
             node_list.append({'grp': grp, 'node_num': 1, 'id': chembl_id, 'name': name, 'category': '', 'equivalent_identifiers': ''})
 
             # create the gene node and add it to the list
-            node_list.append({'grp': grp, 'node_num': 2, 'id': gene, 'name': gene_sym, 'category': '', 'equivalent_identifiers': '', 'predicate': predicate, 'relation': '', 'edge_label': '', 'pmids': pmids, 'affinity': affinity, 'affinity_parameter': affinity_parameter, 'provenance': provenance})
+            node_list.append({'grp': grp, 'node_num': 2, 'id': gene, 'name': gene_sym, 'category': '', 'equivalent_identifiers': '', 'predicate': '', 'relation': relation, 'edge_label': '', 'pmids': pmids, 'affinity': affinity, 'affinity_parameter': affinity_parameter, 'provenance': provenance})
 
         return node_list
 
@@ -378,7 +378,7 @@ class PHAROSLoader:
             gene = item['value']
             gene_sym = item['sym']
             chembl_id = 'CHEMBL.COMPOUND:' + item['cmpd_chemblid']
-            predicate, pmids, props, provenance = self.get_edge_props(item)
+            relation, pmids, props, provenance = self.get_edge_props(item)
 
             # if there were affinity properties use them
             if len(props) == 2:
@@ -389,14 +389,14 @@ class PHAROSLoader:
                 affinity_parameter = ''
 
             # create the group id
-            grp: str = chembl_id + predicate + gene + f'{random.random()}'
+            grp: str = chembl_id + relation + gene + f'{random.random()}'
             grp = hashlib.md5(grp.encode("utf-8")).hexdigest()
 
             # create the disease node and add it to the node list
             node_list.append({'grp': grp, 'node_num': 1, 'id': chembl_id, 'name': name, 'category': '', 'equivalent_identifiers': ''})
 
             # create the gene node and add it to the list
-            node_list.append({'grp': grp, 'node_num': 2, 'id': gene, 'name': gene_sym, 'category': '', 'equivalent_identifiers': '', 'predicate': predicate, 'relation': '', 'edge_label': '', 'pmids': pmids, 'affinity': affinity, 'affinity_parameter': affinity_parameter, 'provenance': provenance})
+            node_list.append({'grp': grp, 'node_num': 2, 'id': gene, 'name': gene_sym, 'category': '', 'equivalent_identifiers': '', 'predicate': '', 'relation': relation, 'edge_label': '', 'pmids': pmids, 'affinity': affinity, 'affinity_parameter': affinity_parameter, 'provenance': provenance})
 
         return node_list
 
@@ -416,7 +416,7 @@ class PHAROSLoader:
             gene = item['value']
             gene_sym = item['sym']
             chembl_id = 'CHEMBL.COMPOUND:' + item['drug']
-            predicate, pmids, props, provenance = self.get_edge_props(item)
+            relation, pmids, props, provenance = self.get_edge_props(item)
 
             # if there were affinity properties use them
             if len(props) == 2:
@@ -427,14 +427,14 @@ class PHAROSLoader:
                 affinity_parameter = ''
 
             # create the group id
-            grp: str = chembl_id + predicate + gene + f'{random.random()}'
+            grp: str = chembl_id + relation + gene + f'{random.random()}'
             grp = hashlib.md5(grp.encode("utf-8")).hexdigest()
 
             # create the disease node and add it to the node list
             node_list.append({'grp': grp, 'node_num': 1, 'id': chembl_id, 'name': name, 'category': '', 'equivalent_identifiers': ''})
 
             # create the gene node and add it to the list
-            node_list.append({'grp': grp, 'node_num': 2, 'id': gene, 'name': gene_sym, 'category': '', 'equivalent_identifiers': '', 'predicate': predicate, 'relation': '', 'edge_label': '', 'pmids': pmids, 'affinity': affinity, 'affinity_parameter': affinity_parameter, 'provenance': provenance})
+            node_list.append({'grp': grp, 'node_num': 2, 'id': gene, 'name': gene_sym, 'category': '', 'equivalent_identifiers': '', 'predicate': '', 'relation': relation, 'edge_label': '', 'pmids': pmids, 'affinity': affinity, 'affinity_parameter': affinity_parameter, 'provenance': provenance})
 
         # return the node list to the caller
         return node_list
@@ -482,7 +482,7 @@ class PHAROSLoader:
             node_list.append({'grp': grp, 'node_num': 1, 'id': did, 'name': name, 'category': '', 'equivalent_identifiers': ''})
 
             # create the gene node and add it to the node list
-            node_list.append({'grp': grp, 'node_num': 2, 'id': gene, 'name': gene_sym, 'category': '', 'equivalent_identifiers': '', 'predicate': 'WD:P2293', 'relation': 'WD:P2293', 'edge_label': 'gene_involved', 'pmids': [], 'affinity': 0, 'affinity_parameter': '', 'provenance': provenance})
+            node_list.append({'grp': grp, 'node_num': 2, 'id': gene, 'name': gene_sym, 'category': '', 'equivalent_identifiers': '', 'predicate': 'biolink:gene_associated_with_condition', 'relation': 'WD:P2293', 'edge_label': 'gene_involved', 'pmids': [], 'affinity': 0, 'affinity_parameter': '', 'provenance': provenance})
 
         return node_list
 
@@ -491,7 +491,7 @@ class PHAROSLoader:
         gets the edge properties from the node results
 
         :param result:
-        :return str: predicate, list: pmids, dict: props, str: provenance:
+        :return str: relation, list: pmids, dict: props, str: provenance:
         """
         # if there was a predicate make it look pretty
         if result['pred'] is not None and len(result['pred']) > 1:
@@ -499,8 +499,8 @@ class PHAROSLoader:
         else:
             rel: str = 'interacts_with'
 
-        # save the predicate
-        predicate: str = f'GAMMA:{rel}'
+        # save the relation
+        relation: str = f'GAMMA:{rel}'
 
         # if there was provenance data save it
         if result['dtype'] is not None:
@@ -528,7 +528,7 @@ class PHAROSLoader:
             props['affinity_parameter'] = ''
 
         # return to the caller
-        return predicate, pmids, props, provenance
+        return relation, pmids, props, provenance
 
     @staticmethod
     def snakify(text):
@@ -600,9 +600,11 @@ class PHAROSLoader:
                     for row in rows.iterrows():
                         # save the nodes and the node id for the edge
                         if row[1].node_num != 1:
-                            new_node_list.append(node_1)
-                            new_node_list.append(row[1])
-                            edge_list.append({"predicate": row[1]['predicate'], "subject": node_1_id, "relation": row[1]['relation'], "object": row[1]['id'], "edge_label": row[1]['edge_label'], "pmids": '|'.join(row[1]['pmids']), "affinity": row[1]['affinity'], "affinity_parameter":  row[1]['affinity_parameter'], 'provenance': row[1]['provenance']})
+                            # only create the edge/nodes if the edge normalized properly
+                            if row[1]['predicate'] != '' and row[1]['edge_label'] != '':
+                                new_node_list.append(node_1)
+                                new_node_list.append(row[1])
+                                edge_list.append({"predicate": row[1]['predicate'], "subject": node_1_id, "relation": row[1]['relation'], "object": row[1]['id'], "edge_label": row[1]['edge_label'], "pmids": '|'.join(row[1]['pmids']), "affinity": row[1]['affinity'], "affinity_parameter":  row[1]['affinity_parameter'], 'provenance': row[1]['provenance']})
             else:
                 self.logger.debug(f'node group mismatch. len: {len(rows)}, data: {rows}')
 
@@ -624,9 +626,9 @@ class PHAROSLoader:
                     # get the pubmed ids into a text json format
                     pmids: str = json.dumps(item["pmids"].split('|'))
 
-                    edge_set.add(f'{{"id":"{hashlib.md5(record_id.encode("utf-8")).hexdigest()}", "subject":"{item["subject"]}", "relation":"{item["relation"]}", "object":"{item["object"]}", "edge_label":"{item["edge_label"]}", "publications": {pmids}, "affinity": {item["affinity"]}, "affinity_parameter": "{item["affinity_parameter"]}", "provenance": "{item["provenance"]}", "source_database":"PHAROS 6.7"}}')
+                    edge_set.add(f'{{"id":"{hashlib.md5(record_id.encode("utf-8")).hexdigest()}", "predicate":"{item["predicate"]}", "subject":"{item["subject"]}", "relation":"{item["relation"]}", "object":"{item["object"]}", "edge_label":"{item["edge_label"]}", "publications": {pmids}, "affinity": {item["affinity"]}, "affinity_parameter": "{item["affinity_parameter"]}", "provenance": "{item["provenance"]}", "source_database":"PHAROS 6.7"}}')
                 else:
-                    edge_set.add(f'{hashlib.md5(record_id.encode("utf-8")).hexdigest()}\t{item["subject"]}\t{item["relation"]}\t{item["edge_label"]}\t{item["object"]}\t{item["pmids"]}\t{item["affinity"]}\t{item["affinity_parameter"]}\t{item["provenance"]}\tPHAROS 6.7')
+                    edge_set.add(f'{hashlib.md5(record_id.encode("utf-8")).hexdigest()}\t{item["predicate"]}\t{item["subject"]}\t{item["relation"]}\t{item["edge_label"]}\t{item["object"]}\t{item["pmids"]}\t{item["affinity"]}\t{item["affinity_parameter"]}\t{item["provenance"]}\tPHAROS 6.7')
 
         self.logger.debug(f'{len(edge_set)} unique edges identified.')
 

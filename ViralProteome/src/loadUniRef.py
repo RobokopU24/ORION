@@ -85,7 +85,7 @@ class UniRefSimLoader:
                     out_edge_f.write('{"edges":[\n')
                 else:
                     out_node_f.write(f'id\tname\tcategory\tequivalent_identifiers\n')
-                    out_edge_f.write(f'id\tsubject\trelation\tedge_label\tobject\tsource_database\n')
+                    out_edge_f.write(f'id\tpredicate\tsubject\trelation\tedge_label\tobject\tsource_database\n')
 
                 # add the file extension
                 if test_mode:
@@ -558,11 +558,11 @@ class UniRefSimLoader:
                     similarity_bin = node_list[node_idx]['similarity_bin']
                 # get the UniRef entry common taxon ID and create the UniRef ID to taxon edge
                 elif node_list[node_idx]['node_num'] == 1 and gene_family_node_id != '':
-                    edge_list.append({"predicate": "RO:0002162", "subject": f"{gene_family_node_id}", "relation": "biolink:in_taxon", "object": f"{node_list[node_idx]['id']}", "edge_label": "", "source_database": f"{gene_family_node_id.split(':')[0]}"})
+                    edge_list.append({"predicate": "biolink:in_taxon", "subject": f"{gene_family_node_id}", "relation": "RO:0002162", "object": f"{node_list[node_idx]['id']}", "edge_label": "in_taxon", "source_database": f"{similarity_bin}"})
                 # get the member node edges
                 elif similarity_bin != '' and gene_family_node_id != '':
-                    edge_list.append({"predicate": "BFO:0000050", "subject": f"{node_list[node_idx]['id']}", "relation": "biolink:part_of", "object": f"{gene_family_node_id}", "edge_label": "part_of", "source_database": f"{node_list[node_idx]['id'].split(':')[0]}"})
-                    edge_list.append({"predicate": "RO:0002162", "subject": f"{node_list[node_idx]['id']}", "relation": "biolink:in_taxon", "object": f"{node_list[node_idx + 1]['id']}", "edge_label": "in_taxon", "source_database": f"{node_list[node_idx]['id'].split(':')[0]}"})
+                    edge_list.append({"predicate": "biolink:part_of", "subject": f"{node_list[node_idx]['id']}", "relation": "BFO:0000050", "object": f"{gene_family_node_id}", "edge_label": "part_of", "source_database": f"{similarity_bin}"})
+                    edge_list.append({"predicate": "biolink:in_taxon", "subject": f"{node_list[node_idx]['id']}", "relation": "RO:0002162", "object": f"{node_list[node_idx + 1]['id']}", "edge_label": "in_taxon", "source_database": f"{similarity_bin}"})
 
                     # this node is the representative UniProtKB ID node
                     if node_list[node_idx]['node_num'] == 2:
@@ -570,7 +570,7 @@ class UniRefSimLoader:
 
                     # add the spoke edge if it isn't a reflection of itself
                     if rep_member_node_id != node_list[node_idx]['id']:
-                        edge_list.append({"predicate": f"{similarity_bin}", "subject": f"{rep_member_node_id}", "relation": f"{similarity_bin}", "object": f"{node_list[node_idx]['id']}", "edge_label": "SO:similar_to", "source_database": f"{rep_member_node_id.split(':')[0]}"})
+                        edge_list.append({"predicate": "biolink:similar_to", "subject": f"{rep_member_node_id}", "relation": "RO:HOM0000000", "object": f"{node_list[node_idx]['id']}", "edge_label": "similar_to", "source_database": f"{similarity_bin}"})
 
                     # increment the node counter pairing
                     node_idx += 1
@@ -604,9 +604,9 @@ class UniRefSimLoader:
 
             # depending on the output mode save the edge data
             if output_mode == 'json':
-                edge_set.add(f'{{"id":"{hashlib.md5(record_id.encode("utf-8")).hexdigest()}", "subject":"{item["subject"]}", "relation":"{item["relation"]}", "object":"{item["object"]}", "edge_label":"{item["edge_label"]}", "source_database":"{item["source_database"]}"}}')
+                edge_set.add(f'{{"id":"{hashlib.md5(record_id.encode("utf-8")).hexdigest()}", "predicate":"{item["predicate"]}", "subject":"{item["subject"]}", "relation":"{item["relation"]}", "object":"{item["object"]}", "edge_label":"{item["edge_label"]}", "source_database":"{item["source_database"]}"}}')
             else:
-                edge_set.add(f'{hashlib.md5(record_id.encode("utf-8")).hexdigest()}\t{item["subject"]}\t{item["relation"]}\t{item["edge_label"]}\t{item["object"]}\t{item["source_database"]}')
+                edge_set.add(f'{hashlib.md5(record_id.encode("utf-8")).hexdigest()}\t{item["predicate"]}\t{item["subject"]}\t{item["relation"]}\t{item["edge_label"]}\t{item["object"]}\t{item["source_database"]}')
 
         # write out the edge data
         if output_mode == 'json':
