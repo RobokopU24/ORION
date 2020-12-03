@@ -277,7 +277,7 @@ class PHAROSLoader:
                 node_list.append({'grp': grp, 'node_num': 1, 'id': gene, 'name': gene_sym, 'category': '', 'equivalent_identifiers': ''})
 
                 # create the disease node and add it to the list
-                node_list.append({'grp': grp, 'node_num': 2, 'id': did, 'name': name, 'category': '', 'equivalent_identifiers': '', 'predicate': 'biolink:gene_associated_with_condition', 'relation': 'WD:P2293', 'edge_label': 'gene_involved', 'pmids': [], 'affinity': 0, 'affinity_parameter': '', 'provenance': provenance})
+                node_list.append({'grp': grp, 'node_num': 2, 'id': did, 'name': name, 'category': '', 'equivalent_identifiers': '', 'predicate': 'biolink:gene_associated_with_condition', 'relation': 'WD:P2293', 'edge_label': 'gene_associated_with_condition', 'pmids': [], 'affinity': 0, 'affinity_parameter': '', 'provenance': provenance})
 
         # return the node list to the caller
         return node_list
