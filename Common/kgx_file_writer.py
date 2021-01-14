@@ -52,12 +52,12 @@ class KGXFileWriter:
                 self.edges_output_file_handler.write('\n]}')
             self.edges_output_file_handler.close()
 
-    def write_node(self, node_id: str, node_name: str, node_type: str, node_properties: dict = None):
+    def write_node(self, node_id: str, node_name: str, node_types: list, node_properties: dict = None):
         if node_id in self.written_nodes:
             return
 
         self.written_nodes.add(node_id)
-        node_object = {'id': node_id, 'name': node_name, 'category': node_type}
+        node_object = {'id': node_id, 'name': node_name, 'category': node_types}
         if node_properties:
             for p in node_properties:
                 node_object[p] = node_properties[p]
@@ -66,12 +66,16 @@ class KGXFileWriter:
         self.check_node_buffer_for_flush()
 
     def write_normalized_node(self, node_json: dict):
+        if node_json['id'] in self.written_nodes:
+            return
+
+        self.written_nodes.add(node_json['id'])
         self.nodes_to_write.append(node_json)
         self.check_node_buffer_for_flush()
 
     def write_normalized_nodes(self, nodes: list):
-        self.nodes_to_write.extend(nodes)
-        self.check_node_buffer_for_flush()
+        for node in nodes:
+            self.write_normalized_node(node)
 
     def check_node_buffer_for_flush(self):
         if self.streaming and len(self.nodes_to_write) >= self.nodes_buffer_size:

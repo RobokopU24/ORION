@@ -241,9 +241,9 @@ class GWASCatalogLoader(SourceDataLoader):
 
         with KGXFileWriter(nodes_output_file_path, edges_output_file_path) as kgx_writer:
             for variant_id, trait_dict in self.variant_to_pheno_cache.items():
-                kgx_writer.write_node(variant_id, node_name='', node_type=node_types.SEQUENCE_VARIANT)
+                kgx_writer.write_node(variant_id, node_name='', node_types=[node_types.SEQUENCE_VARIANT])
                 for trait_id, association_info in trait_dict.items():
-                    kgx_writer.write_node(trait_id, node_name='', node_type=node_types.DISEASE_OR_PHENOTYPIC_FEATURE)
+                    kgx_writer.write_node(trait_id, node_name='', node_types=[node_types.DISEASE_OR_PHENOTYPIC_FEATURE])
                     p_values = [association["p_value"] for association in association_info]
                     pubmed_ids = [association["pubmed_id"] for association in association_info]
                     edge_properties = {'p_value': p_values, 'pubmed_id': pubmed_ids}

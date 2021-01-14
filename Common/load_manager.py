@@ -1,4 +1,4 @@
-
+import argparse
 import os
 import multiprocessing
 
@@ -11,7 +11,9 @@ from GWASCatalog.src.loadGWASCatalog import GWASCatalogLoader
 
 GWAS_CATALOG = 'GWASCatalog'
 
-all_sources = {GWAS_CATALOG}
+ALL_SOURCES = [GWAS_CATALOG]
+
+SOURCES_WITH_VARIANTS = [GWAS_CATALOG]
 
 source_data_loader_classes = {
     GWAS_CATALOG: GWASCatalogLoader
@@ -34,11 +36,11 @@ class SourceDataLoadManager:
         # dict of data_source_id -> latest source version (to prevent double lookups)
         self.new_version_lookup = {}
 
-        self.normalizer = None
-
-    def start(self):
+        self.file_normalizer = None
 
         self.load_previous_metadata()
+
+    def start(self):
 
         # TODO determine multiprocessing pool size by deployment capabilities
         pool_size = 6
@@ -54,6 +56,7 @@ class SourceDataLoadManager:
         self.logger.info(f'Checking for sources to normalize...')
         sources_to_normalize = self.check_sources_for_normalization()
         self.logger.info(f'Normalizing {len(sources_to_normalize)} sources: {repr(sources_to_normalize)}')
+        # TODO can we really do this in parallel or will the normalization services barf?
         normalize_func = self.normalize_source
         pool = multiprocessing.Pool(pool_size)
         pool.map(normalize_func, sources_to_normalize)
@@ -68,7 +71,7 @@ class SourceDataLoadManager:
         pool.close()
 
     def load_previous_metadata(self):
-        for source_id in all_sources:
+        for source_id in ALL_SOURCES:
             self.metadata[source_id] = Metadata(source_id, self.get_source_dir_path(source_id))
 
     def check_sources_for_updates(self):
@@ -149,7 +152,7 @@ class SourceDataLoadManager:
 
     def check_sources_for_normalization(self):
         sources_to_normalize = []
-        for source_id in all_sources:
+        for source_id in ALL_SOURCES:
             source_metadata = self.metadata[source_id]
             normalization_status = source_metadata.get_normalization_status()
             if normalization_status == Metadata.NOT_STARTED:
@@ -164,28 +167,32 @@ class SourceDataLoadManager:
         return sources_to_normalize
 
     def normalize_source(self, source_id: str):
-        self.logger.info(f"Normalizing source data for {source_id}...")
+        self.logger.debug(f"Normalizing source data for {source_id}...")
         source_metadata = self.metadata[source_id]
         source_metadata.set_normalization_status(Metadata.IN_PROGRESS)
         try:
-            if not self.normalizer:
-                self.normalizer = KGXFileNormalizer()
+            if not self.file_normalizer:
+                self.file_normalizer = KGXFileNormalizer()
 
-            self.logger.info(f"Normalizing node file for {source_id}...")
+            has_sequence_variants = True if source_id in SOURCES_WITH_VARIANTS else False
+
+            self.logger.debug(f"Normalizing node file for {source_id}...")
             nodes_source_file_path = self.get_source_node_file_path(source_id, source_metadata)
             nodes_norm_file_path = self.get_normalized_node_file_path(source_id, source_metadata)
             node_norm_failures_file_path = self.get_node_norm_failures_file_path(source_id, source_metadata)
-            node_normalization_info = self.normalizer.normalize_node_file(nodes_source_file_path,
-                                                                          nodes_norm_file_path,
-                                                                          node_norm_failures_file_path)
+            node_normalization_info = self.file_normalizer.normalize_node_file(nodes_source_file_path,
+                                                                               nodes_norm_file_path,
+                                                                               node_norm_failures_file_path,
+                                                                               has_sequence_variants=has_sequence_variants)
 
             edges_source_file_path = self.get_source_edge_file_path(source_id, source_metadata)
             edges_norm_file_path = self.get_normalized_edge_file_path(source_id, source_metadata)
             node_edge_failures_file_path = self.get_edge_norm_failures_file_path(source_id, source_metadata)
 
-            edge_normalization_info = self.normalizer.normalize_edge_file(edges_source_file_path,
-                                                                          edges_norm_file_path,
-                                                                          node_edge_failures_file_path)
+            edge_normalization_info = self.file_normalizer.normalize_edge_file(edges_source_file_path,
+                                                                               edges_norm_file_path,
+                                                                               node_edge_failures_file_path,
+                                                                               has_sequence_variants=has_sequence_variants)
 
             normalization_info = {}
             normalization_info.update(node_normalization_info)
@@ -216,7 +223,7 @@ class SourceDataLoadManager:
 
     def check_sources_for_annotation(self):
         sources_to_annotate = []
-        for source_id in all_sources:
+        for source_id in ALL_SOURCES:
             annotation_status = self.metadata[source_id].get_annotation_status()
             if annotation_status == Metadata.NOT_STARTED:
                 sources_to_annotate.append(source_id)
@@ -248,7 +255,7 @@ class SourceDataLoadManager:
 
     def get_node_norm_failures_file_path(self, source_id: str, source_metadata: dict):
         versioned_file_name = self.get_versioned_file_name(source_id, source_metadata)
-        return os.path.join(self.get_source_dir_path(source_id), f'{versioned_file_name}_norm_node_failures.json')
+        return os.path.join(self.get_source_dir_path(source_id), f'{versioned_file_name}_norm_node_failures.log')
 
     def get_normalized_edge_file_path(self, source_id: str, source_metadata: dict):
         versioned_file_name = self.get_versioned_file_name(source_id, source_metadata)
@@ -256,7 +263,7 @@ class SourceDataLoadManager:
 
     def get_edge_norm_failures_file_path(self, source_id: str, source_metadata: dict):
         versioned_file_name = self.get_versioned_file_name(source_id, source_metadata)
-        return os.path.join(self.get_source_dir_path(source_id), f'{versioned_file_name}_norm_edge_failures.json')
+        return os.path.join(self.get_source_dir_path(source_id), f'{versioned_file_name}_norm_edge_failures.log')
 
     def get_source_dir_path(self, source_id: str):
         return os.path.join(self.storage_dir, source_id)
@@ -269,9 +276,9 @@ class SourceDataLoadManager:
                 raise IOError('SourceDataLoadManager - specify the storage directory with environment variable DATA_SERVICES_STORAGE.')
 
         if not os.path.isdir(self.storage_dir):
-            raise IOError('SourceDataLoadManager - storage directory specified is invalid ({self.storage_dir}).')
+            raise IOError(f'SourceDataLoadManager - storage directory specified is invalid ({self.storage_dir}).')
 
-        for source_id in all_sources:
+        for source_id in ALL_SOURCES:
             source_dir_path = self.get_source_dir_path(source_id)
             if not os.path.isdir(source_dir_path):
                 self.logger.info(f"SourceDataLoadManager creating storage dir for {source_id}... {source_dir_path}")
@@ -279,8 +286,20 @@ class SourceDataLoadManager:
 
 
 if __name__ == '__main__':
+    parser = argparse.ArgumentParser(description="Transform data sources into KGX files.")
+    parser.add_argument('-ds', '--data_source', default='all', help=f'Select a single data source to process from the following: {ALL_SOURCES}')
+    parser.add_argument('-dir', '--storage', help='Specify the storage directory. The environment variable DATA_SERVICES_STORAGE is used otherwise.')
+    args = parser.parse_args()
+    data_source = args.data_source
+
     load_manager = SourceDataLoadManager()
-    load_manager.start()
+
+    if data_source == "all":
+        load_manager.start()
+    else:
+        load_manager.update_source(data_source)
+        load_manager.normalize_source(data_source)
+        load_manager.annotate_source(data_source)
 
 
 
