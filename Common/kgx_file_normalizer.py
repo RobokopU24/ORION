@@ -18,7 +18,11 @@ class NormalizationFailedError(Exception):
         self.error_message = error_message
         self.actual_error = actual_error
 
-
+# This piece takes a KGX-like file and normalizes all of the node IDs and predicates.
+# It then writes all of the normalized nodes and edges to new files.
+#
+# IMPORTANT: As of now, you must normalize a corresponding node file for the edges to work.
+#
 class KGXFileNormalizer:
 
     logger = LoggingUtil.init_logging("Data_services.Common.KGXFileNormalizer",
@@ -26,14 +30,19 @@ class KGXFileNormalizer:
                                       log_file_path=os.environ['DATA_SERVICES_LOGS'])
 
     def __init__(self):
-        self.node_normalizer = NodeNormUtils()
+        # these dicts will store the results from the normalization services, they are important for future lookups
         self.cached_node_norms = {}
-        self.edge_normalizer = EdgeNormUtils()
         self.cached_edge_norms = {}
-
-        self.sequence_variant_normalizer = None
         self.cached_sequence_variant_norms = {}
 
+        # instances of the normalization service wrappers - lazy instantiation for sequence variants
+        self.node_normalizer = NodeNormUtils()
+        self.edge_normalizer = EdgeNormUtils()
+        self.sequence_variant_normalizer = None
+
+    # given file paths to the source data node file and an output file,
+    # normalize the nodes and write them to the new file
+    # also write a file with the node ids that did not successfully normalize
     def normalize_node_file(self,
                             source_nodes_file_path: str,
                             nodes_output_file_path: str,
@@ -44,7 +53,7 @@ class KGXFileNormalizer:
             self.logger.debug(f'Normalizing Node File {source_nodes_file_path}...')
             regular_node_failures = []
             variant_node_failures = []
-            with open(source_nodes_file_path) as source_json, KGXFileWriter(nodes_output_file_path) as nodes_file_writer:
+            with open(source_nodes_file_path) as source_json, KGXFileWriter(nodes_output_file_path=nodes_output_file_path) as nodes_file_writer:
                 self.logger.debug(f'Parsing Node File {source_nodes_file_path}...')
                 try:
                     source_nodes = json.load(source_json)["nodes"]
@@ -52,9 +61,11 @@ class KGXFileNormalizer:
                     norm_error_msg = f'Error decoding json from {source_nodes_file_path} on line number {e.lineno}'
                     raise NormalizationFailedError(error_message=norm_error_msg, actual_error=e.msg)
 
+                # if this source has sequence variants we need to filter them to send them to the different norm services
                 if has_sequence_variants:
                     regular_nodes = [node for node in source_nodes if node_types.SEQUENCE_VARIANT not in node['category']]
                 else:
+                    # if it doesn't we'll normalize all of them with the regular node norm service
                     regular_nodes = source_nodes
 
                 self.logger.debug(f'Normalizing regular nodes...')
@@ -112,8 +123,11 @@ class KGXFileNormalizer:
 
         except IOError as e:
             norm_error_msg = f'Error reading nodes file {source_nodes_file_path}'
-            raise NormalizationFailedError(error_message=norm_error_msg, actual_error=e.msg)
+            raise NormalizationFailedError(error_message=norm_error_msg, actual_error=e)
 
+    # given file paths to the source data edge file and an output file,
+    # normalize the predicates/relations and write them to the new file
+    # also write a file with the predicates that did not successfully normalize
     def normalize_edge_file(self,
                             source_edges_file_path: str,
                             edges_output_file_path: str,
@@ -125,7 +139,7 @@ class KGXFileNormalizer:
         try:
             self.logger.debug(f'Normalizing edge file {source_edges_file_path}...')
             edge_norm_failures = []
-            with open(source_edges_file_path) as source_json, KGXFileWriter(edges_output_file_path) as edges_file_writer:
+            with open(source_edges_file_path) as source_json, KGXFileWriter(edges_output_file_path=edges_output_file_path) as edges_file_writer:
                 self.logger.debug(f'Parsing edge file {source_edges_file_path}...')
                 try:
                     source_edges = json.load(source_json)["edges"]
@@ -148,6 +162,7 @@ class KGXFileNormalizer:
                 edges_failed_due_to_relation = 0
                 if not has_sequence_variants:
                     for edge in source_edges:
+                        # Look up the normalization results from before for each edge
                         subject_id = None
                         object_id = None
                         if edge['subject'] in cached_node_norms:
@@ -158,9 +173,7 @@ class KGXFileNormalizer:
 
                         if subject_id and object_id:
                             if edge['relation'] in cached_edge_norms:
-                                # TODO this way of passing extra unspecified edge properties is pretty hacky
-                                # we need to decide if all properties should be passed along
-                                # or if we should specify a list of expected ones for each data source
+                                # write them to a file
                                 edges_file_writer.write_edge(subject_id=subject_id,
                                                              object_id=object_id,
                                                              relation=edge['relation'],
@@ -174,8 +187,13 @@ class KGXFileNormalizer:
 
                 else:
                     for edge in source_edges:
+                        # Look up the normalization results from before for each edge.
+                        # Nodes that aren't found in the regular nodes cache, see if they're sequence variants.
+                        # Sequence variants can branch after normalization,
+                        # so the normalized subjects and objects need to be lists
                         subject_ids = []
                         object_ids = []
+
                         if edge['subject'] in cached_node_norms:
                             if cached_node_norms[edge['subject']]:
                                 subject_ids = [cached_node_norms[edge['subject']]['id']['identifier']]
@@ -211,9 +229,8 @@ class KGXFileNormalizer:
                         failed_edge_file.write(f'{failed_edge_id}\n')
 
             normalization_metadata = {
-                'total_edges': len(source_edges),
-                'edges_normalized': normalized_edge_count,
-                'edges_failed': len(source_edges) - normalized_edge_count,
+                'num_source_edges': len(source_edges),
+                'num_normalized_edges': normalized_edge_count,
                 'edges_failed_due_to_nodes': edges_failed_due_to_nodes,
                 'edges_failed_due_to_relation': edges_failed_due_to_relation,
                 'unique_predicates': list(unique_predicates),

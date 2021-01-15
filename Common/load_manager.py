@@ -3,6 +3,7 @@ import os
 import multiprocessing
 
 from Common.utils import LoggingUtil
+from Common.kgx_file_writer import KGXFileWriter
 from Common.kgx_file_normalizer import KGXFileNormalizer, NormalizationBrokenError, NormalizationFailedError
 from Common.metadata_manager import MetadataManager as Metadata
 from Common.loader_interface import SourceDataBrokenError, SourceDataFailedError
@@ -26,8 +27,9 @@ class SourceDataLoadManager:
                                       line_format='medium',
                                       log_file_path=os.environ['DATA_SERVICES_LOGS'])
 
-    def __init__(self, storage_dir: str = None):
+    def __init__(self, storage_dir: str = None, test_mode: bool = False):
 
+        self.test_mode = test_mode
         self.storage_dir = storage_dir
         self.init_storage_dir()
 
@@ -109,7 +111,7 @@ class SourceDataLoadManager:
         source_metadata.set_update_status(Metadata.IN_PROGRESS)
         try:
             # create an instance of the appropriate loader using the source_data_loader_classes lookup map
-            source_data_loader = source_data_loader_classes[source_id]()
+            source_data_loader = source_data_loader_classes[source_id](test_mode=self.test_mode)
             # update the version and load information
             if source_id in self.new_version_lookup:
                 latest_source_version = self.new_version_lookup[source_id]
@@ -139,7 +141,7 @@ class SourceDataLoadManager:
 
         except SourceDataFailedError as failed_error:
             # TODO report these by email or something automated
-            self.logger.info(f"SourceDataBrokenError while updating {source_id}: {broken_error.error_message}")
+            self.logger.info(f"SourceDataFailedError while updating {source_id}: {broken_error.error_message}")
 
             source_metadata.set_update_error(failed_error.error_message)
             source_metadata.set_update_status(Metadata.FAILED)
@@ -187,11 +189,11 @@ class SourceDataLoadManager:
 
             edges_source_file_path = self.get_source_edge_file_path(source_id, source_metadata)
             edges_norm_file_path = self.get_normalized_edge_file_path(source_id, source_metadata)
-            node_edge_failures_file_path = self.get_edge_norm_failures_file_path(source_id, source_metadata)
+            edge_norm_failures_file_path = self.get_edge_norm_failures_file_path(source_id, source_metadata)
 
             edge_normalization_info = self.file_normalizer.normalize_edge_file(edges_source_file_path,
                                                                                edges_norm_file_path,
-                                                                               node_edge_failures_file_path,
+                                                                               edge_norm_failures_file_path,
                                                                                has_sequence_variants=has_sequence_variants)
 
             normalization_info = {}
@@ -268,6 +270,13 @@ class SourceDataLoadManager:
     def get_source_dir_path(self, source_id: str):
         return os.path.join(self.storage_dir, source_id)
 
+    def check_for_existing_files(self, nodes_output_file_path, edges_output_file_path):
+        # if the output file(s) already exists back out
+        if os.path.isfile(nodes_output_file_path) and not self.test_data:
+            self.logger.error(f'GTEx KGX file already created ({nodes_output_file_path}). Aborting.')
+        if os.path.isfile(edges_output_file_path and not self.test_data):
+            self.logger.error(f'GTEx KGX file already created ({edges_output_file_path}). Aborting.')
+
     def init_storage_dir(self):
         if not self.storage_dir:
             if 'DATA_SERVICES_STORAGE' in os.environ:
@@ -287,13 +296,14 @@ class SourceDataLoadManager:
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="Transform data sources into KGX files.")
-    parser.add_argument('-ds', '--data_source', default='all', help=f'Select a single data source to process from the following: {ALL_SOURCES}')
     parser.add_argument('-dir', '--storage', help='Specify the storage directory. The environment variable DATA_SERVICES_STORAGE is used otherwise.')
+    parser.add_argument('-ds', '--data_source', default='all', help=f'Select a single data source to process from the following: {ALL_SOURCES}')
+    parser.add_argument('-t', '--test_mode', action='store_true', help='Test mode will load a small sample version of the data.')
     args = parser.parse_args()
+
+    load_manager = SourceDataLoadManager(test_mode=args.test_mode)
+
     data_source = args.data_source
-
-    load_manager = SourceDataLoadManager()
-
     if data_source == "all":
         load_manager.start()
     else:

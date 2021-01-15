@@ -24,6 +24,7 @@ class GWASCatalogLoader(SourceDataLoader):
         self.query_url = f'ftp.ebi.ac.uk/pub/databases/gwas/releases/latest/' \
                          f'gwas-catalog-associations_ontology-annotated.tsv'
         self.variant_to_pheno_cache = defaultdict(lambda: defaultdict(list))
+        self.test_mode = test_mode
 
     def load(self, nodes_output_file_path: str, edges_output_file_path: str):
         self.logger.info(f'GWASCatalog: Fetching source files..')
@@ -58,7 +59,10 @@ class GWASCatalogLoader(SourceDataLoader):
                 gwas_catalog = []
                 ftp.retrlines(f'RETR {ftpfile}', gwas_catalog.append)
                 ftp.quit()
-                return gwas_catalog
+                if self.test_mode:
+                    return gwas_catalog[:50]
+                else:
+                    return gwas_catalog
         except ftp_errors as e:
             self.logger.error(f'GWAS Catalog ftp error ({e}) on retry {retries}')
             if retries == 2:
@@ -238,35 +242,35 @@ class GWASCatalogLoader(SourceDataLoader):
 
         relation = f'RO:0002200'
         predicate = f'biolink:has_phenotype'
-
-        with KGXFileWriter(nodes_output_file_path, edges_output_file_path) as kgx_writer:
+        with KGXFileWriter(nodes_output_file_path, edges_output_file_path) as file_writer:
             for variant_id, trait_dict in self.variant_to_pheno_cache.items():
-                kgx_writer.write_node(variant_id, node_name='', node_types=[node_types.SEQUENCE_VARIANT])
+                file_writer.write_node(variant_id, node_name='', node_types=[node_types.SEQUENCE_VARIANT])
                 for trait_id, association_info in trait_dict.items():
-                    kgx_writer.write_node(trait_id, node_name='', node_types=[node_types.DISEASE_OR_PHENOTYPIC_FEATURE])
+                    file_writer.write_node(trait_id, node_name='', node_types=[node_types.DISEASE_OR_PHENOTYPIC_FEATURE])
                     p_values = [association["p_value"] for association in association_info]
                     pubmed_ids = [association["pubmed_id"] for association in association_info]
                     edge_properties = {'p_value': p_values, 'pubmed_id': pubmed_ids}
-                    kgx_writer.write_edge(subject_id=variant_id,
-                                          object_id=trait_id,
-                                          relation=relation,
-                                          predicate=predicate,
-                                          edge_properties=edge_properties)
+                    file_writer.write_edge(subject_id=variant_id,
+                                           object_id=trait_id,
+                                           relation=relation,
+                                           predicate=predicate,
+                                           edge_properties=edge_properties)
 
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="Retrieve, parse, and convert GWAS Catalog data to KGX files.")
-    #parser.add_argument('--test_mode', action='store_true')
+    parser.add_argument('-t', '--test_mode', action='store_true', default=False)
     #parser.add_argument('--no_cache', action='store_true')
     #parser.add_argument('--data_dir', default='.')
-    #args = parser.parse_args()
+    args = parser.parse_args()
 
     #loader = GWASCatalogLoader(test_mode=args.test_mode, use_cache=not args.no_cache)
+
     if 'DATA_SERVICES_STORAGE' in os.environ:
         data_storage_dir = os.environ["DATA_SERVICES_STORAGE"]
 
     loader = GWASCatalogLoader()
-    loader.load(data_storage_dir, 'GWASCatalog')
+    loader.load(test_mode=args.test_mode)
 
 
