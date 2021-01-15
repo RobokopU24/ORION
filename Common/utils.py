@@ -186,10 +186,7 @@ class NodeNormUtils:
                     rvs: dict = resp.json()
 
                     # merge this list with what we have gotten so far
-                    merged = {**cached_node_norms, **rvs}
-
-                    # save the merged list
-                    cached_node_norms = merged
+                    cached_node_norms.update(**rvs)
                 else:
                     # the error that is trapped here means that the entire list of nodes didnt get normalized.
                     self.logger.error(f'Node norm response code: {resp.status_code}')
@@ -382,10 +379,7 @@ class EdgeNormUtils:
                     rvs: dict = resp.json()
 
                     # merge this list with what we have gotten so far
-                    merged = {**cached_edge_norms, **rvs}
-
-                    # save the merged list
-                    cached_edge_norms = merged
+                    cached_edge_norms.update(**rvs)
                 else:
                     # the error that is trapped here means that the entire list of nodes didnt get normalized.
                     self.logger.debug(f'Edge norm response code: {resp.status_code}')
