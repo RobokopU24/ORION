@@ -113,7 +113,6 @@ class KGXFileWriter:
             if p not in edge_object:
                 edge_object[p] = edge_properties[p]
         self.edges_to_write.append(edge_object)
-        self.logger.info(f'Adding edge to buffer.. {len(self.edges_to_write)}')
         self.check_edge_buffer_for_flush()
 
     def check_edge_buffer_for_flush(self):
