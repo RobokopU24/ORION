@@ -5,7 +5,10 @@ import csv
 import gzip
 import requests
 import pandas as pd
+import json
 
+from typing import NamedTuple
+from io import BytesIO
 from rdflib import Graph
 from urllib.request import urlopen
 from csv import reader, DictReader
@@ -442,6 +445,17 @@ class GetData:
         # create a logger
         self.logger = LoggingUtil.init_logging("Data_services.Common.GetData", level=log_level, line_format='short', log_file_path=os.path.join(Path(__file__).parents[1], 'logs'))
 
+    @staticmethod
+    def pull_via_ftp_binary(ftpsite, ftpdir, ftpfile):
+        ftp = FTP(ftpsite)
+        ftp.login()
+        ftp.cwd(ftpdir)
+        with BytesIO() as data:
+            ftp.retrbinary(f'RETR {ftpfile}', data.write)
+            binary = data.getvalue()
+        ftp.quit()
+        return binary
+
     def pull_via_ftp(self, ftp_site: str, ftp_dir: str, ftp_files: list, data_file_path: str) -> int:
         """
         gets the requested files from UniProtKB ftp directory
@@ -744,6 +758,35 @@ class GetData:
 
         # return to the caller
         return byte_count
+
+    def get_ctd_http_files(self, data_dir: str, file_list: list) -> int:
+        """
+        gets the CTD file via HTTP.
+
+        :param data_dir: the location where the data should be saved
+        :param file_list: the list of files to get
+        :return int: the number of files retrieved
+        """
+        self.logger.debug(f'Start of CTD file retrieval.')
+
+        # unit a file counter
+        file_counter: int = 0
+
+        for data_file in file_list:
+            if os.path.isfile(os.path.join(data_dir, data_file)):
+                byte_count = 1
+            else:
+                # get the rest of the files
+                byte_count: int = self.pull_via_http(f'http://ctdbase.org/reports/{data_file}', data_dir)
+
+            # did re get some good file data
+            if byte_count > 0:
+                file_counter += 1
+            else:
+                self.logger.error(f'Failed to get {data_file}.')
+
+        # return to the caller
+        return file_counter
 
     def get_goa_ftp_files(self, data_dir: str, file_list: list, ftp_parent_dir: str, ftp_sub_dir: str) -> int:
         """
