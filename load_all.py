@@ -6,6 +6,7 @@ from IntAct.src.loadIA import IALoader
 from GOA.src.loadGOA import GOALoader
 from UberGraph.src.loadUG import UGLoader
 from FooDB.src.loadFDB import FDBLoader
+from CTD.src.loadCTD import CTDLoader
 from GTEx.src.loadGTEx import GTExLoader
 from PHAROS.src.loadPHAROS import PHAROSLoader
 from Common.utils import LoggingUtil
@@ -38,6 +39,7 @@ if __name__ == '__main__':
         -o D:/Work/Robokop/Data_services/FooDB_data
         -a D:/Work/Robokop/Data_services/PHAROS_data
         -x D:/Work/Robokop/Data_services/GTEx_data
+        -c D:/Work/Robokop/Data_services/CTD_data
     """
     # create a command line parser
     ap = argparse.ArgumentParser(description='Load UniProtKB viral proteome, UniRef, Human GOA, UberGraph and IntAct data files and create KGX import files.')
@@ -53,6 +55,7 @@ if __name__ == '__main__':
     ap.add_argument('-s', '--ug_data_files', required=False, help='Comma separated UberGraph data file(s) to parse.')
     ap.add_argument('-o', '--foodb_dir', required=False, help='The data directory for FooDB')
     ap.add_argument('-a', '--pharos_dir', required=False, help='The data directory for PHAROS')
+    ap.add_argument('-c', '--ctd_dir', required=False, help='The data directory for CTD')
     ap.add_argument('-x', '--gtex_dir', required=False, help='The data directory for GTEx')
 
     # parse the arguments
@@ -134,6 +137,18 @@ if __name__ == '__main__':
 
         # load the data files and create KGX output files
         fdb.load(FDB_data_dir, 'FooDB', out_mode)
+
+    # assign the CTD directory
+    CTD_data_dir = args['ctd_dir']
+
+    if CTD_data_dir is not None:
+        # get a reference to the processor
+        ctd = CTDLoader()
+
+        logger.info('Loading CTD.')
+
+        # load the data files and create KGX output files
+        ctd.load(CTD_data_dir, )
 
     # assign the PHAROS directory
     PHAROS_data_dir = args['pharos_dir']
