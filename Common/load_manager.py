@@ -1,23 +1,25 @@
-import argparse
+
 import os
 import multiprocessing
-
+import argparse
 from Common.utils import LoggingUtil
 from Common.kgx_file_writer import KGXFileWriter
 from Common.kgx_file_normalizer import KGXFileNormalizer, NormalizationBrokenError, NormalizationFailedError
 from Common.metadata_manager import MetadataManager as Metadata
 from Common.loader_interface import SourceDataBrokenError, SourceDataFailedError
 from GWASCatalog.src.loadGWASCatalog import GWASCatalogLoader
-
+from CTD.src.loadCTD import CTDLoader
 
 GWAS_CATALOG = 'GWASCatalog'
+CTD = 'CTD'
 
-ALL_SOURCES = [GWAS_CATALOG]
+ALL_SOURCES = [GWAS_CATALOG, CTD]
 
 SOURCES_WITH_VARIANTS = [GWAS_CATALOG]
 
 source_data_loader_classes = {
-    GWAS_CATALOG: GWASCatalogLoader
+    GWAS_CATALOG: GWASCatalogLoader,
+    CTD: CTDLoader
 }
 
 
