@@ -28,14 +28,14 @@ def test_vp_load():
         file_lines: list = fl.readlines()
 
     # check the line count
-    assert(len(file_lines) == 149)
+    assert(len(file_lines) == 9)
 
     # open the node file list and get the lines
     with open(os.path.join(test_dir, 'Viral_proteome_loadtest_nodes.tsv'), 'r') as fl:
         file_lines: list = fl.readlines()
 
     # check the line count
-    assert(len(file_lines) == 86)
+    assert(len(file_lines) == 85)
 
     # open the provenance node file and get the lines
     with open(os.path.join(test_dir, 'Viral_proteome_prov_node_file.tsv'), 'r') as fl:
@@ -173,14 +173,14 @@ def test_ubergraph_load():
         file_lines: list = fl.readlines()
 
     # check the line count
-    assert(len(file_lines) == 3)
+    assert(len(file_lines) == 2)
 
     # open the node file list and get the lines
     with open(os.path.join(test_dir, 'ubergraph_test_nodes.tsv'), 'r') as fl:
         file_lines: list = fl.readlines()
 
     # check the line count
-    assert(len(file_lines) == 5)
+    assert(len(file_lines) == 3)
 
     # remove the data files
     os.remove(os.path.join(test_dir, 'ubergraph_test_edges.tsv'))
