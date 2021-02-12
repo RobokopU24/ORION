@@ -53,6 +53,8 @@ class KGXFileNormalizer:
             self.logger.debug(f'Normalizing Node File {source_nodes_file_path}...')
             regular_node_failures = []
             variant_node_failures = []
+            variant_ids = []
+
             with open(source_nodes_file_path) as source_json, KGXFileWriter(nodes_output_file_path=nodes_output_file_path) as nodes_file_writer:
                 self.logger.debug(f'Parsing Node File {source_nodes_file_path}...')
                 try:
@@ -165,14 +167,15 @@ class KGXFileNormalizer:
                         # Look up the normalization results from before for each edge
                         subject_id = None
                         object_id = None
-                        if edge['subject'] in cached_node_norms:
+
+                        if edge['subject'] in cached_node_norms and cached_node_norms[edge['subject']] is not None:
                             subject_id = cached_node_norms[edge['subject']]['id']['identifier']
 
-                        if edge['object'] in cached_node_norms:
+                        if edge['object'] in cached_node_norms and cached_node_norms[edge['object']] is not None:
                             object_id = cached_node_norms[edge['object']]['id']['identifier']
 
                         if subject_id and object_id:
-                            if edge['relation'] in cached_edge_norms:
+                            if edge['relation'] in cached_edge_norms and cached_edge_norms[edge['relation']] is not None:
                                 # write them to a file
                                 edges_file_writer.write_edge(subject_id=subject_id,
                                                              object_id=object_id,
