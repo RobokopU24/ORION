@@ -1,5 +1,7 @@
 import os
 import json
+from collections import defaultdict
+
 import Common.node_types as node_types
 from Common.utils import LoggingUtil
 from Common.utils import NodeNormUtils, EdgeNormUtils
