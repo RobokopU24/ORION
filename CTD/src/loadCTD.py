@@ -30,7 +30,7 @@ class CTDLoader(SourceDataLoader):
     node_list: list = []
     edge_list: list = []
 
-    def __init__(self):
+    def __init__(self, test_mode: bool=False):
         """
         constructor
         :param log_level - overrides default log level
@@ -38,7 +38,7 @@ class CTDLoader(SourceDataLoader):
 
         # set global variables
         self.data_path = os.environ['DATA_SERVICES_STORAGE']
-        self.test_mode = False
+        self.test_mode = test_mode
         self.source_id = 'CTD'
         self.source_db = 'Comparative Toxicogenomics Database'
 
@@ -96,12 +96,12 @@ class CTDLoader(SourceDataLoader):
             # for each node captured
             for node in self.node_list:
                 # write out the node
-                file_writer.write_node(node['id'], node_name=node['name'], node_type='', node_properties=node['properties'])
+                file_writer.write_node(node['id'], node_name=node['name'], node_types=[], node_properties=node['properties'])
 
             # for eack edge captured
             for edge in self.edge_list:
                 # write out the edge data
-                file_writer.write_edge(subject_id=edge['subject'], object_id=edge['object'], predicate=edge['predicate'], edge_properties=edge['properties'], relation='')
+                file_writer.write_edge(subject_id=edge['subject'], object_id=edge['object'], relation=edge['relation'], edge_properties=edge['properties'], predicate='')
 
     def load(self, nodes_output_file_path: str, edges_output_file_path: str):
         """
@@ -109,7 +109,7 @@ class CTDLoader(SourceDataLoader):
 
         :return:
         """
-        self.logger.info(f'CTDLoader - Start of CTD data processing. Fetching source files..')
+        self.logger.info(f'CTDLoader - Start of CTD data processing. Fetching source files.')
 
         # get the CTD data
         self.get_ctd_data()
@@ -136,6 +136,10 @@ class CTDLoader(SourceDataLoader):
         return load_metadata
 
     def parse_data(self):
+        """
+
+        :return:
+        """
         # init meta data counters
         final_record_count: int = 0
         final_skipped_count: int = 0
@@ -149,13 +153,13 @@ class CTDLoader(SourceDataLoader):
         final_skipped_count = skipped
 
         # disease to chemical
-        node_list, edge_list, records, skipped = self.disease_to_chemical(os.path.join(self.data_path, 'CTD_chemicals_diseases.tsv'))
-        self.node_list.extend(node_list)
-        self.edge_list.extend(edge_list)
-
-        # add to the final counts
-        final_record_count += records
-        final_skipped_count += skipped
+        # node_list, edge_list, records, skipped = self.disease_to_chemical(os.path.join(self.data_path, 'CTD_chemicals_diseases.tsv'))
+        # self.node_list.extend(node_list)
+        # self.edge_list.extend(edge_list)
+        #
+        # # add to the final counts
+        # final_record_count += records
+        # final_skipped_count += skipped
 
         # TODO process chemical to gene (expanded)
         # node_list, edge_list = self.chemical_to_gene_exp(os.path.join(self.data_path, 'CTD_chem_gene_expanded.tsv'))
@@ -213,7 +217,7 @@ class CTDLoader(SourceDataLoader):
                 # increment the record counter
                 record_counter += 1
                 # validate the info
-                good_row, predicate_label, props, pmids = self.check_expanded_gene_chemical_row(r)
+                good_row, relation_label, props, pmids = self.check_expanded_gene_chemical_row(r)
 
                 # skip if not all the data was there
                 if not good_row:
@@ -221,8 +225,8 @@ class CTDLoader(SourceDataLoader):
                     skipped_record_counter += 1
                     continue
 
-                # get the edge predicate
-                predicate = self.normalize_predicate(f"CTD:{predicate_label}")
+                # get the edge relation
+                relation = self.normalize_relation(f"CTD:{relation_label}")
 
                 # save the chemical node
                 node_list.append({'id': r['chemicalID'], 'name': r['chem_label'], 'properties': None})
@@ -239,7 +243,7 @@ class CTDLoader(SourceDataLoader):
                     edge_object = r['chemicalID']
 
                 # save the edge
-                edge_list.append({'subject': edge_subject, 'object': edge_object, 'predicate': predicate, 'properties': {'publications': pmids, 'source_data_base': 'ctd.chemical_to_gene_expanded'}.update(props)})
+                edge_list.append({'subject': edge_subject, 'object': edge_object, 'relation': relation, 'predicate': '', 'properties': {'publications': pmids, 'source_data_base': 'ctd.chemical_to_gene_expanded'}.update(props)})
 
         # return the node/edge lists and the record counters to the caller
         return node_list, edge_list, record_counter, skipped_record_counter
@@ -274,7 +278,7 @@ class CTDLoader(SourceDataLoader):
                 record_counter += 1
 
                 # validate the info
-                good_row, predicate_label, props, pmids = self.check_expanded_gene_chemical_row(r)
+                good_row, relation_label, props, pmids = self.check_expanded_gene_chemical_row(r)
 
                 # skip if not all the data was there
                 if not good_row:
@@ -282,8 +286,8 @@ class CTDLoader(SourceDataLoader):
                     skipped_record_counter += 1
                     continue
 
-                # get the edge predicate
-                predicate = self.normalize_predicate(predicate_label)
+                # get the edge relation
+                relation = self.normalize_relation(f"CTD:{relation_label}")
 
                 # save the chemical node
                 node_list.append({'id': r['chemicalID'], 'name': r['chem_label'], 'properties': None})
@@ -300,7 +304,7 @@ class CTDLoader(SourceDataLoader):
                     edge_object = r['chemicalID']
 
                 # save the edge
-                edge_list.append({'subject': edge_subject, 'object': edge_object, 'predicate': predicate, 'properties': {'publications': pmids, 'source_data_base': 'ctd.gene_to_chemical_expanded'}.update(props)})
+                edge_list.append({'subject': edge_subject, 'object': edge_object, 'relation': relation, 'properties': {'publications': pmids, 'source_data_base': 'ctd.gene_to_chemical_expanded'}.update(props)})
 
         # return the node/edge lists and the record counters to the caller
         return node_list, edge_list, record_counter, skipped_record_counter
@@ -335,21 +339,23 @@ class CTDLoader(SourceDataLoader):
             record_counter: int = 0
             skipped_record_counter: int = 0
 
+            pred_set: set = set()
+
             # for each record
             for r in data:
                 # increment the record counter
                 record_counter += 1
 
-                # get the predicate
-                predicate_label = r['outcomerelationship']
+                # get the f"CTD:{relation_label}"
+                relation_label = r['outcomerelationship']
 
                 # if this has no correlation skip it
-                if predicate_label == 'no correlation' or len(r['diseaseid']) == 0:
+                if relation_label == 'no correlation' or len(r['diseaseid']) == 0 or len(relation_label) == 0:
                     # increment the skipped record counter
                     skipped_record_counter += 1
                     continue
                 else:
-                    predicate_label = self.normalize_predicate(predicate_label)
+                    relation = self.normalize_relation(relation_label)
 
                 # save the disease node
                 node_list.append({'id': 'MESH:' + r['diseaseid'], 'name': r['diseasename'], 'properties': None})
@@ -358,7 +364,7 @@ class CTDLoader(SourceDataLoader):
                 node_list.append({'id': 'MESH:' + r['exposurestressorid'], 'name': r['exposurestressorname'], 'properties': None})
 
                 # save the edge
-                edge_list.append({'subject': 'MESH:' + r['diseaseid'], 'object': 'MESH:' + r['exposurestressorid'], 'predicate': predicate_label, 'properties': {'source_database': 'ctd.disease_to_exposure'}})
+                edge_list.append({'subject': 'MESH:' + r['diseaseid'], 'object': 'MESH:' + r['exposurestressorid'], 'relation': 'CTD:' + relation, 'properties': {'publications': [f"PMID:{r['reference']}"], 'source_database': 'ctd.disease_to_exposure'}})
 
         # return the node and edge lists to the caller
         return node_list, edge_list, record_counter, skipped_record_counter
@@ -483,27 +489,27 @@ class CTDLoader(SourceDataLoader):
                             # save the reference
                             marker_refs += evidence['refs']
 
-                    # get the predicate and label
-                    predicate, predicate_label = self.get_chemical_label_id(treats_count, marker_count)
+                    # get the relation and label
+                    relation, relation_label = self.get_chemical_label_id(treats_count, marker_count)
 
-                    # was there a valid predicate
-                    if predicate is None:
+                    # was there a valid relation
+                    if relation is None:
                         # increment the skipped record counter
                         skipped_record_counter += 1
                         continue
 
-                    # organize/prioritize the references by predicate
-                    if predicate == 'RO:0001001':
+                    # organize/prioritize the references by relation
+                    if relation == 'RO:0001001':
                         publications = treats_refs + marker_refs
 
-                    if 'marker' in predicate:
+                    if 'marker' in relation:
                         publications = marker_refs
 
-                    if 'therapeutic' in predicate:
+                    if 'therapeutic' in relation:
                         publications = treats_refs
 
-                    # normalize predicate
-                    predicate = self.normalize_predicate(predicate)
+                    # normalize relation
+                    relation = self.normalize_relation(relation)
 
                     # was this node already added
                     if not disease_node_added:
@@ -517,7 +523,7 @@ class CTDLoader(SourceDataLoader):
                     node_list.append({'id': 'MESH:' + c_id, 'name': chemical_info['name'], 'properties': None})
 
                     # add the edge
-                    edge_list.append({'subject': cur_disease_id, 'object': 'MESH:' + c_id, 'predicate': predicate, 'properties': {'publications': publications, 'source_database': 'ctd.disease_to_chemical'}})
+                    edge_list.append({'subject': cur_disease_id, 'object': 'MESH:' + c_id, 'relation': relation, 'predicate': '', 'properties': {'publications': publications, 'source_database': 'ctd.disease_to_chemical'}})
 
                 # insure we dont overrun the list
                 if record_idx >= record_count:
@@ -542,14 +548,14 @@ class CTDLoader(SourceDataLoader):
 
         pmids = r['PMID'].split('|')
 
-        predicate_label = r['interaction']
+        relation_label = r['interaction']
 
         # there are lots of garbage microarrays with only one paper. THey goop the place up
         # ignore them
         good_row = True
 
         if len(pmids) < 3:
-            if predicate_label in ['affects expression of', 'increases expression of',
+            if relation_label in ['affects expression of', 'increases expression of',
                                    'decreases expression of', 'affects methylation of',
                                    'increases methylation of', 'decreases methylation of',
                                    'affects molecular modification of',
@@ -558,35 +564,35 @@ class CTDLoader(SourceDataLoader):
                 good_row = False
 
         if len(pmids) < 2:
-            if predicate_label in ['affects splicing of', 'increases splicing of', 'decreases splicing of']:
+            if relation_label in ['affects splicing of', 'increases splicing of', 'decreases splicing of']:
                 good_row = False
 
         pmids = [p.upper() for p in pmids]
 
-        return good_row, predicate_label, props, pmids
+        return good_row, relation_label, props, pmids
 
     @staticmethod
-    def normalize_predicate(predicate):
+    def normalize_relation(relation):
         """
-        Removes ^ / and ` ` from the predicate id
+        Removes ^ / and ` ` from the relation id
 
-        :param predicate:
+        :param relation:
         :return:
         """
         regex = '\/|\ |\^'
 
-        return re.sub(regex, '_', predicate)
+        return re.sub(regex, '', relation)
 
     @staticmethod
-    def get_chemical_label_id(therapeutic_count, marker_count, marker_predicate_label='marker_mechanism', therapeutic_predicate_label='therapeutic'):
+    def get_chemical_label_id(therapeutic_count, marker_count, marker_relation_label='marker_mechanism', therapeutic_relation_label='therapeutic'):
         """
         This function applies rules to determine which edge to prefer in cases
         where conflicting edges are returned for a chemical disease relation ship.
 
         :param therapeutic_count:
         :param marker_count:
-        :param marker_predicate_label:
-        :param therapeutic_predicate_label:
+        :param marker_relation_label:
+        :param therapeutic_relation_label:
         :return:
         """
         if therapeutic_count == marker_count and therapeutic_count < 3:
@@ -594,20 +600,20 @@ class CTDLoader(SourceDataLoader):
 
         # avoid further checks if we find homogeneous types
         if marker_count == 0 and therapeutic_count > 0:
-            return f'CTD:{therapeutic_predicate_label}', therapeutic_predicate_label
+            return f'CTD:{therapeutic_relation_label}', therapeutic_relation_label
 
         if therapeutic_count == 0 and marker_count > 0:
-            return f'CTD:{marker_predicate_label}', marker_predicate_label
+            return f'CTD:{marker_relation_label}', marker_relation_label
 
         marker = (therapeutic_count == 1 and marker_count > 1) or (marker_count / therapeutic_count > 2)
 
         therapeutic = (marker_count == 1 and therapeutic_count > 1) or (therapeutic_count / marker_count > 2)
 
         if marker:
-            return f'CTD:{marker_predicate_label}', marker_predicate_label
+            return f'CTD:{marker_relation_label}', marker_relation_label
 
         if therapeutic:
-            return f'CTD:{therapeutic_predicate_label}', therapeutic_predicate_label
+            return f'CTD:{therapeutic_relation_label}', therapeutic_relation_label
 
         return 'RO:0001001', 'related to'
 
