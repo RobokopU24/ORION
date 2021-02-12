@@ -53,8 +53,6 @@ class KGXFileNormalizer:
             self.logger.debug(f'Normalizing Node File {source_nodes_file_path}...')
             regular_node_failures = []
             variant_node_failures = []
-            variant_ids = []
-
             with open(source_nodes_file_path) as source_json, KGXFileWriter(nodes_output_file_path=nodes_output_file_path) as nodes_file_writer:
                 self.logger.debug(f'Parsing Node File {source_nodes_file_path}...')
                 try:
@@ -138,6 +136,9 @@ class KGXFileNormalizer:
         cached_node_norms = self.cached_node_norms
         cached_edge_norms = self.cached_edge_norms
         cached_sequence_variant_norms = self.cached_sequence_variant_norms
+
+        merged_edges = defaultdict(lambda: defaultdict(dict))
+
         try:
             self.logger.debug(f'Normalizing edge file {source_edges_file_path}...')
             edge_norm_failures = []
@@ -182,6 +183,22 @@ class KGXFileNormalizer:
                                                              relation=edge['relation'],
                                                              predicate=cached_edge_norms[edge['relation']]['identifier'],
                                                              edge_properties=edge)
+                            if edge['relation'] in cached_edge_norms:
+                                predicate = cached_edge_norms[edge['relation']]['identifier']
+
+                                # merge with existing similar edges and/or queue up for writing later
+                                if ((subject_id in merged_edges) and
+                                    (object_id in merged_edges[subject_id]) and
+                                        (predicate in merged_edges[subject_id][object_id])):
+                                    previous_edge = merged_edges[subject_id][object_id][predicate]
+                                    for key, value in edge.items():
+                                        if key in previous_edge and isinstance(value, list):
+                                            previous_edge[key].extend(value)
+                                        else:
+                                            previous_edge[key] = value
+                                else:
+                                    merged_edges[subject_id][object_id][predicate] = edge
+
                                 normalized_edge_count += 1
                             else:
                                 edges_failed_due_to_relation += 1
@@ -211,20 +228,39 @@ class KGXFileNormalizer:
 
                         if subject_ids and object_ids:
                             if edge['relation'] in cached_edge_norms:
-                                relation = edge['relation']
                                 predicate = cached_edge_norms[edge['relation']]['identifier']
                                 for subject_id in subject_ids:
                                     for object_id in object_ids:
-                                        edges_file_writer.write_edge(subject_id=subject_id,
-                                                                     object_id=object_id,
-                                                                     relation=relation,
-                                                                     predicate=predicate,
-                                                                     edge_properties=edge)
+
+                                        # merge with existing similar edges and/or queue up for writing later
+                                        if ((subject_id in merged_edges) and
+                                                (object_id in merged_edges[subject_id]) and
+                                                (predicate in merged_edges[subject_id][object_id])):
+
+                                            previous_edge = merged_edges[subject_id][object_id][predicate]
+                                            for key, value in edge.items():
+                                                if key in previous_edge and isinstance(value, list):
+                                                    previous_edge[key].extend(value)
+                                                else:
+                                                    previous_edge[key] = value
+
+                                        else:
+                                            merged_edges[subject_id][object_id][predicate] = edge
+
                                         normalized_edge_count += 1
                             else:
                                 edges_failed_due_to_relation += 1
                         else:
                             edges_failed_due_to_nodes += 1
+
+                for subject_id, object_dict in merged_edges.items():
+                    for object_id, predicate_dict in object_dict.items():
+                        for predicate, edge in predicate_dict.items():
+                            edges_file_writer.write_edge(subject_id=subject_id,
+                                                         object_id=object_id,
+                                                         relation=edge['relation'],
+                                                         predicate=predicate,
+                                                         edge_properties=edge)
 
             if edge_norm_failures:
                 with open(edge_failures_output_file_path, "w") as failed_edge_file:

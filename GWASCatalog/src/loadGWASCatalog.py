@@ -247,14 +247,14 @@ class GWASCatalogLoader(SourceDataLoader):
                 file_writer.write_node(variant_id, node_name='', node_types=[node_types.SEQUENCE_VARIANT])
                 for trait_id, association_info in trait_dict.items():
                     file_writer.write_node(trait_id, node_name='', node_types=[node_types.DISEASE_OR_PHENOTYPIC_FEATURE])
-                    p_values = [association["p_value"] for association in association_info]
-                    pubmed_ids = [association["pubmed_id"] for association in association_info]
-                    edge_properties = {'p_value': p_values, 'pubmed_id': pubmed_ids}
-                    file_writer.write_edge(subject_id=variant_id,
-                                           object_id=trait_id,
-                                           relation=relation,
-                                           predicate=predicate,
-                                           edge_properties=edge_properties)
+                    for association in association_info:
+                        edge_properties = {'p_value': [association["p_value"]],
+                                           'pubmed_id': [association["pubmed_id"]]}
+                        file_writer.write_edge(subject_id=variant_id,
+                                               object_id=trait_id,
+                                               relation=relation,
+                                               predicate=predicate,
+                                               edge_properties=edge_properties)
 
 
 

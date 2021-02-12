@@ -5,17 +5,19 @@ import json
 import argparse
 from pathlib import Path
 from urllib import request
-from Common.utils import LoggingUtil, NodeNormUtils, EdgeNormUtils
-from robokop_genetics.genetics_normalization import GeneticsNormalizer
-from robokop_genetics.genetics_services import GeneticsServices, ALL_VARIANT_TO_GENE_SERVICES
-from robokop_genetics.simple_graph_components import SimpleNode, SimpleEdge
-from robokop_genetics.node_types import SEQUENCE_VARIANT
+from Common.utils import LoggingUtil
+from Common.loader_interface import SourceDataLoader, SourceDataBrokenError, SourceDataFailedError
+from Common.node_types import SEQUENCE_VARIANT, GENE, ANATOMICAL_ENTITY
+
 import hashlib
 
 
-class GTExLoader:
+class GTExLoader(SourceDataLoader):
     # create a logger
     logger = LoggingUtil.init_logging("Data_services.GTEx.GTExLoader", line_format='medium', log_file_path=os.path.join(Path(__file__).parents[2], 'logs'))
+
+    # This probably won't change very often - just hard code it for now
+    GTEX_VERSION = 8
 
     # tissue name to uberon curies, the tissue names will match gtex file names
     TISSUES = {
@@ -69,7 +71,7 @@ class GTExLoader:
         "Vagina": "0000996",
         "Whole_Blood": "0000178"}
 
-    TISSUES1 = {
+    TEST_TISSUES = {
         "Muscle_Skeletal": "0001134",
         "Colon_Transverse": "0001157",
         "Nerve_Tibial": "0001323",
@@ -87,12 +89,10 @@ class GTExLoader:
     # storage for all the edges discovered
     edge_list: list = []
 
-    def __init__(self, test_mode: bool = False, test_data: bool = False, use_cache: bool = True):
+    def __init__(self, test_mode: bool = False):
 
-        if test_data:
-            GTExLoader.TISSUES = GTExLoader.TISSUES1
-
-        self.use_cache = use_cache
+        if test_mode:
+            GTExLoader.TISSUES = GTExLoader.TEST_TISSUES
 
         # maps the HG version to the chromosome versions
         self.reference_chrom_labels: dict = {
@@ -116,53 +116,18 @@ class GTExLoader:
             }
         }
 
-        # default types, they only matter when a normalization is not found
-        # TODO we could grab these from the node normalization service
-        self.sequence_variant_types = ['sequence_variant',
-                                       'genomic_entity',
-                                       'molecular_entity',
-                                       'biological_entity',
-                                       'named_thing']
-        self.gene_types = ['gene',
-                           'gene_or_gene_product',
-                           'macromolecular_machine',
-                           'genomic_entity',
-                           'molecular_entity',
-                           'biological_entity',
-                           'named_thing']
-
         self.test_mode = test_mode
-        self.test_data = test_data
-
-        if self.test_data:
+        if self.test_mode:
             self.logger.info("Using test data for this run.")
 
-        if not self.use_cache:
-            self.logger.info("Not caching for this run.")
+    def get_latest_source_version(self):
+        return self.GTEX_VERSION
 
     # the main function to call to retrieve the GTEx data and convert it to a KGX json file
-    def load(self, output_directory: str, out_file_name: str, gtex_version: int = 8):
+    def load(self, nodes_output_file_path: str, edges_output_file_path: str):
 
         # init the return flag
         ret_val = False
-
-        # does the output directory exist
-        if not os.path.isdir(output_directory):
-            self.logger.error("Output directory does not exist. Aborting.")
-            return ret_val
-
-        # ensure the output directory string ends with a '/'
-        output_directory = f'{output_directory}/' if output_directory[-1] != '/' else output_directory
-
-        # if the output file(s) already exists back out
-        nodes_output_file_path = f'{output_directory}{out_file_name}_nodes.json'
-        if os.path.isfile(nodes_output_file_path) and not self.test_data:
-            self.logger.error(f'GTEx KGX file already created ({nodes_output_file_path}). Aborting.')
-            return ret_val
-        edges_output_file_path = f'{output_directory}{out_file_name}_edges.json'
-        if os.path.isfile(edges_output_file_path and not self.test_data):
-            self.logger.error(f'GTEx KGX file already created ({edges_output_file_path}). Aborting.')
-            return ret_val
 
         # define the urls for the raw data archives and the location to download them to
         eqtl_tar_file_name = f'GTEx_Analysis_v{gtex_version}_eQTL.tar'
@@ -176,12 +141,12 @@ class GTExLoader:
         try:
             self.logger.info(f'Downloading raw GTEx data files from {eqtl_url}.')
 
-            if not self.test_data:
+            if not self.test_mode:
                 self.fetch_and_save_tar(eqtl_url, eqtl_tar_download_path)
 
             self.logger.info(f'Downloading raw GTEx data files from {sqtl_url}.')
 
-            if not self.test_data:
+            if not self.test_mode:
                 self.fetch_and_save_tar(sqtl_url, sqtl_tar_download_path)
 
             all_gene_nodes, all_variant_nodes = self.parse_eqtl_and_sqtl_for_nodes(eqtl_tar_download_path,
@@ -544,7 +509,9 @@ class GTExLoader:
             self.logger.info(f'Processing variants.. (working on: {i * 10_000}/{num_variants}) normalizing and writing variant nodes...')
 
             # normalize the chunk of variants and write them straight to file
-            genetics_normalizer.batch_normalize(variant_chunk)
+            #genetics_normalizer.batch_normalize(variant_chunk)
+
+
             for v in variant_chunk:
                 nodes_output_file.write(f'{{"id":"{v.id}","name":"{v.name}","category":{sequence_variant_category},"equivalent_identifiers":{json.dumps(list(v.synonyms))}}},\n')
 
@@ -728,7 +695,7 @@ class GTExLoader:
             anatomy_nodes.append({'id': anatomy_curie,
                                   'original_id': anatomy_label,
                                   'name': anatomy_label.replace('_', ' '),
-                                  'category': '',
+                                  'category': [ANATOMICAL_ENTITY],
                                   'equivalent_identifiers': [anatomy_curie]})
         return anatomy_nodes
 
@@ -827,11 +794,9 @@ class GTExLoader:
 # TODO use argparse to specify output location
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="Retrieve, parse, and convert GTEx data to KGX files.")
-    parser.add_argument('--test_mode', action='store_true')
-    parser.add_argument('--test_data', action='store_true')
-    parser.add_argument('--no_cache', action='store_true')
+    parser.add_argument('-t', '--test_mode', action='store_true')
     parser.add_argument('--data_dir', default='.')
     args = parser.parse_args()
 
-    loader = GTExLoader(test_mode=args.test_mode, test_data=args.test_data, use_cache=not args.no_cache)
+    loader = GTExLoader(test_mode=args.test_mode)
     loader.load(args.data_dir, 'gtex_kgx')
