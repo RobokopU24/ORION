@@ -55,6 +55,8 @@ class KGXFileNormalizer:
             self.logger.debug(f'Normalizing Node File {source_nodes_file_path}...')
             regular_node_failures = []
             variant_node_failures = []
+            variant_ids = []
+
             with open(source_nodes_file_path) as source_json, KGXFileWriter(nodes_output_file_path=nodes_output_file_path) as nodes_file_writer:
                 self.logger.debug(f'Parsing Node File {source_nodes_file_path}...')
                 try:
