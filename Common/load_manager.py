@@ -2,8 +2,8 @@
 import os
 import multiprocessing
 import argparse
+
 from Common.utils import LoggingUtil
-from Common.kgx_file_writer import KGXFileWriter
 from Common.kgx_file_normalizer import KGXFileNormalizer, NormalizationBrokenError, NormalizationFailedError
 from Common.metadata_manager import MetadataManager as Metadata
 from Common.loader_interface import SourceDataBrokenError, SourceDataFailedError
@@ -143,7 +143,7 @@ class SourceDataLoadManager:
 
         except SourceDataFailedError as failed_error:
             # TODO report these by email or something automated
-            self.logger.info(f"SourceDataFailedError while updating {source_id}: {broken_error.error_message}")
+            self.logger.info(f"SourceDataFailedError while updating {source_id}: {failed_error.error_message}")
 
             source_metadata.set_update_error(failed_error.error_message)
             source_metadata.set_update_status(Metadata.FAILED)
@@ -242,7 +242,8 @@ class SourceDataLoadManager:
     def annotate_source(self, source_id: str):
         pass
 
-    def get_versioned_file_name(self, source_id: str, source_metadata: dict):
+    @staticmethod
+    def get_versioned_file_name(source_id: str, source_metadata: dict):
         return f'{source_id}_{source_metadata.get_load_version()}'
 
     def get_source_node_file_path(self, source_id: str, source_metadata: dict):
@@ -312,7 +313,3 @@ if __name__ == '__main__':
         load_manager.update_source(data_source)
         load_manager.normalize_source(data_source)
         load_manager.annotate_source(data_source)
-
-
-
-
