@@ -19,23 +19,15 @@ from Common.utils import LoggingUtil, GetData
 # Desc: Class that loads the CTD data and creates node/edge lists for importing into a Neo4j graph.
 ##############
 class CTDLoader(SourceDataLoader):
-    def get_latest_source_version(self):
-        pass
+    # the final output lists of nodes and edges
+    final_node_list: list = []
+    final_edge_list: list = []
 
-    # storage for nodes and edges that failed normalization
-    node_norm_failures: list = []
-    edge_norm_failures: list = []
-
-    # output node and edge lists
-    node_list: list = []
-    edge_list: list = []
-
-    def __init__(self, test_mode: bool=False):
+    def __init__(self, test_mode: bool = False):
         """
         constructor
-        :param log_level - overrides default log level
+        :param test_mode - sets the run into test mode
         """
-
         # set global variables
         self.data_path = os.environ['DATA_SERVICES_STORAGE']
         self.test_mode = test_mode
@@ -44,6 +36,9 @@ class CTDLoader(SourceDataLoader):
 
         # create a logger
         self.logger = LoggingUtil.init_logging("Data_services.CTD.CTDLoader", level=logging.DEBUG, line_format='medium', log_file_path=os.environ['DATA_SERVICES_LOGS'])
+
+        # call the super
+        # SourceDataLoader.__init__(self, test_mode)
 
     def get_name(self):
         """
@@ -61,27 +56,27 @@ class CTDLoader(SourceDataLoader):
         """
         return datetime.datetime.now().strftime("%m/%d/%Y")
 
-    def get_ctd_data(self) -> str:
+    def get_ctd_data(self):
         """
         Gets the CTD data.
 
-        :return: the version (date/time)
         """
         # and get a reference to the data gatherer
         gd: GetData = GetData(self.logger.level)
 
         # get the list of files to capture
         file_list: list = [
-                           # 'CTD_chem_gene_expanded.tsv',
-                           'CTD_exposure_events.tsv',
-                           'CTD_chemicals_diseases.tsv'
-                           ]
+            'CTD_chem_gene_expanded.tsv',
+            'CTD_exposure_events.tsv',
+            'CTD_chemicals_diseases.tsv'
+        ]
 
         # get all the files noted above
         file_count: int = gd.get_ctd_http_files(self.data_path, file_list)
 
+        # abort if we didnt get all the files
         if file_count != len(file_list):
-            raise Exception('Not all files were retreived.')
+            raise Exception('Not all files were retrieved.')
 
     def write_to_file(self, nodes_output_file_path: str, edges_output_file_path: str) -> None:
         """
@@ -89,17 +84,17 @@ class CTDLoader(SourceDataLoader):
 
         :param nodes_output_file_path: the path to the node file
         :param edges_output_file_path: the path to the edge file
-        :return:
+        :return: Nothing
         """
-        # get a KGX fiel writer
+        # get a KGX file writer
         with KGXFileWriter(nodes_output_file_path, edges_output_file_path) as file_writer:
             # for each node captured
-            for node in self.node_list:
+            for node in self.final_node_list:
                 # write out the node
                 file_writer.write_node(node['id'], node_name=node['name'], node_types=[], node_properties=node['properties'])
 
-            # for eack edge captured
-            for edge in self.edge_list:
+            # for each edge captured
+            for edge in self.final_edge_list:
                 # write out the edge data
                 file_writer.write_edge(subject_id=edge['subject'], object_id=edge['object'], relation=edge['relation'], edge_properties=edge['properties'], predicate='')
 
@@ -119,7 +114,7 @@ class CTDLoader(SourceDataLoader):
         # parse the data
         load_metadata = self.parse_data()
 
-        self.logger.info(f'CTDLoader - Writing source data file.')
+        self.logger.info(f'CTDLoader - Writing source data files.')
 
         # write the output files
         self.write_to_file(nodes_output_file_path, edges_output_file_path)
@@ -135,52 +130,49 @@ class CTDLoader(SourceDataLoader):
         # return some details of the parse
         return load_metadata
 
-    def parse_data(self):
+    def parse_data(self) -> dict:
         """
 
         :return:
         """
-        # init meta data counters
-        final_record_count: int = 0
-        final_skipped_count: int = 0
 
         # process disease to exposure
         node_list, edge_list, records, skipped = self.disease_to_exposure(os.path.join(self.data_path, 'CTD_exposure_events.tsv'))
-        self.node_list.extend(node_list)
-        self.edge_list.extend(edge_list)
+        self.final_node_list.extend(node_list)
+        self.final_edge_list.extend(edge_list)
 
-        final_record_count = records
-        final_skipped_count = skipped
+        final_record_count: int = records
+        final_skipped_count: int = skipped
 
         # disease to chemical
-        # node_list, edge_list, records, skipped = self.disease_to_chemical(os.path.join(self.data_path, 'CTD_chemicals_diseases.tsv'))
-        # self.node_list.extend(node_list)
-        # self.edge_list.extend(edge_list)
-        #
-        # # add to the final counts
-        # final_record_count += records
-        # final_skipped_count += skipped
-
-        # TODO process chemical to gene (expanded)
-        # node_list, edge_list = self.chemical_to_gene_exp(os.path.join(self.data_path, 'CTD_chem_gene_expanded.tsv'))
-        # self.node_list.extend(node_list)
-        # self.edge_list.extend(edge_list)
+        node_list, edge_list, records, skipped = self.disease_to_chemical(os.path.join(self.data_path, 'CTD_chemicals_diseases.tsv'))
+        self.final_node_list.extend(node_list)
+        self.final_edge_list.extend(edge_list)
 
         # add to the final counts
-        # final_record_count += records
-        # final_skipped_count += skipped
+        final_record_count += records
+        final_skipped_count += skipped
 
-        # TODO process gene to chemical (expanded)
-        # node_list, edge_list = self.gene_to_chemical_exp(os.path.join(self.data_path, 'CTD_chem_gene_expanded.tsv'))
-        # self.node_list.extend(node_list)
-        # self.edge_list.extend(edge_list)
+        # process chemical to gene (expanded)
+        node_list, edge_list, records, skipped = self.chemical_to_gene_exp(os.path.join(self.data_path, 'CTD_chem_gene_expanded.tsv'))
+        self.final_node_list.extend(node_list)
+        self.final_edge_list.extend(edge_list)
 
         # add to the final counts
-        # final_record_count += records
-        # final_skipped_count += skipped
+        final_record_count += records
+        final_skipped_count += skipped
+
+        # process gene to chemical (expanded)
+        node_list, edge_list, records, skipped = self.gene_to_chemical_exp(os.path.join(self.data_path, 'CTD_chem_gene_expanded.tsv'))
+        self.final_node_list.extend(node_list)
+        self.final_edge_list.extend(edge_list)
+
+        # add to the final counts
+        final_record_count += records
+        final_skipped_count += skipped
 
         # load up the metadata
-        load_metadata = {
+        load_metadata: dict = {
             'num_source_lines': final_record_count,
             'unusable_source_lines': final_skipped_count
         }
@@ -188,25 +180,25 @@ class CTDLoader(SourceDataLoader):
         # return the metadata to the caller
         return load_metadata
 
-    def chemical_to_gene_exp(self, data_path: str) -> (list, list):
+    def chemical_to_gene_exp(self, file_path: str) -> (list, list, int, int):
         """
         Parses the data file to create chemical to gene nodes and relationships
 
-        :param data_path: the path to the data file
-        :return: a node list and an edge list
+        :param file_path: the path to the data file
+        :return: a node list and an edge list with invalid records count
         """
 
-        # init the return data
+        # init the returned data
         node_list: list = []
         edge_list: list = []
 
         # open up the file
-        with open(data_path, 'r', encoding="utf-8") as fp:
+        with open(file_path, 'r', encoding="utf-8") as fp:
             # the list of columns in the data
             cols = ['chemicalID', 'chem_label', 'interaction', 'direction', 'geneID', 'gene_label', 'form', 'taxonID', 'PMID']
 
             # get a handle on the input data
-            data = csv.DictReader(filter(lambda row: row[0] != '#', fp), delimiter='\t', fieldnames=cols)
+            data = csv.DictReader(filter(lambda row: row[0] != '?', fp), delimiter='\t', fieldnames=cols)
 
             # init the record counters
             record_counter: int = 0
@@ -216,6 +208,7 @@ class CTDLoader(SourceDataLoader):
             for r in data:
                 # increment the record counter
                 record_counter += 1
+
                 # validate the info
                 good_row, relation_label, props, pmids = self.check_expanded_gene_chemical_row(r)
 
@@ -228,19 +221,23 @@ class CTDLoader(SourceDataLoader):
                 # get the edge relation
                 relation = self.normalize_relation(f"CTD:{relation_label}")
 
+                # capitalize the node IDs
+                chemical_id: str = r['chemicalID'].upper()
+                gene_id: str = r['geneID'].upper()
+
                 # save the chemical node
-                node_list.append({'id': r['chemicalID'], 'name': r['chem_label'], 'properties': None})
+                node_list.append({'id': chemical_id, 'name': r['chem_label'], 'properties': None})
 
                 # save the gene node
-                node_list.append({'id': r['geneID'], 'name': r['gene_label'], 'properties': {'taxon': r['taxonID']}})
+                node_list.append({'id': gene_id, 'name': r['gene_label'], 'properties': {'NCBITAXON': r['taxonID'].split(':')[1]}})
 
                 # get the right source/object depending on the relation direction
                 if r['direction'] == '->':
-                    edge_subject = r['chemicalID']
-                    edge_object = r['geneID']
+                    edge_subject: str = chemical_id
+                    edge_object: str = gene_id
                 else:
-                    edge_subject = r['geneID']
-                    edge_object = r['chemicalID']
+                    edge_subject: str = gene_id
+                    edge_object: str = chemical_id
 
                 # save the edge
                 edge_list.append({'subject': edge_subject, 'object': edge_object, 'relation': relation, 'predicate': '', 'properties': {'publications': pmids, 'source_data_base': 'ctd.chemical_to_gene_expanded'}.update(props)})
@@ -248,11 +245,11 @@ class CTDLoader(SourceDataLoader):
         # return the node/edge lists and the record counters to the caller
         return node_list, edge_list, record_counter, skipped_record_counter
 
-    def gene_to_chemical_exp(self, data_path: str) -> (list, list):
+    def gene_to_chemical_exp(self, file_path: str) -> (list, list):
         """
         Parses the data file to create gene to chemical nodes and relationships
 
-        :param data_path: the path to the data file
+        :param file_path: the path to the data file
         :return: a node list and an edge list
         """
 
@@ -261,12 +258,12 @@ class CTDLoader(SourceDataLoader):
         edge_list: list = []
 
         # open up the file
-        with open(data_path, 'r', encoding="utf-8") as fp:
+        with open(file_path, 'r', encoding="utf-8") as fp:
             # declare the columns in the input data
-            cols = ['chemicalID', 'chem_label', 'interaction', 'direction', 'geneID', 'gene_label', 'form', 'taxonID', 'PMID']
+            cols: list = ['chemicalID', 'chem_label', 'interaction', 'direction', 'geneID', 'gene_label', 'form', 'taxonID', 'PMID']
 
             # get a handle on the input data
-            data = csv.DictReader(filter(lambda row: row[0] != '#', fp), delimiter='\t', fieldnames=cols)
+            data = csv.DictReader(filter(lambda row: row[0] != '?', fp), delimiter='\t', fieldnames=cols)
 
             # init the record counters
             record_counter: int = 0
@@ -289,19 +286,23 @@ class CTDLoader(SourceDataLoader):
                 # get the edge relation
                 relation = self.normalize_relation(f"CTD:{relation_label}")
 
+                # capitalize the node IDs
+                chemical_id: str = r['chemicalID'].upper()
+                gene_id: str = r['geneID'].upper()
+
                 # save the chemical node
-                node_list.append({'id': r['chemicalID'], 'name': r['chem_label'], 'properties': None})
+                node_list.append({'id': chemical_id, 'name': r['chem_label'], 'properties': None})
 
                 # save the gene node
-                node_list.append({'id': r['geneID'], 'name': r['gene_label'], 'properties': {'taxon': r['taxon']}})
+                node_list.append({'id': gene_id, 'name': r['gene_label'], 'properties': {'NCBITaxon': r['taxonID'].split(':')[1]}})
 
                 # get the right source/object depending on the relation direction
                 if r['direction'] == '->':
-                    edge_subject = r['chemicalID']
-                    edge_object = r['geneID']
+                    edge_subject: str = chemical_id
+                    edge_object: str = gene_id
                 else:
-                    edge_subject = r['geneID']
-                    edge_object = r['chemicalID']
+                    edge_subject: str = gene_id
+                    edge_object: str = chemical_id
 
                 # save the edge
                 edge_list.append({'subject': edge_subject, 'object': edge_object, 'relation': relation, 'properties': {'publications': pmids, 'source_data_base': 'ctd.gene_to_chemical_expanded'}.update(props)})
@@ -309,11 +310,11 @@ class CTDLoader(SourceDataLoader):
         # return the node/edge lists and the record counters to the caller
         return node_list, edge_list, record_counter, skipped_record_counter
 
-    def disease_to_exposure(self, data_path: str) -> (list, list, int, int):
+    def disease_to_exposure(self, file_path: str) -> (list, list, int, int):
         """
         Parses the data file to create disease to exposure nodes and relationships
 
-        :param data_path: the path to the data file
+        :param file_path: the path to the data file
         :return: a node list and an edge list
         """
 
@@ -322,32 +323,30 @@ class CTDLoader(SourceDataLoader):
         edge_list: list = []
 
         # open up the file
-        with open(data_path, 'r', encoding="utf-8") as fp:
+        with open(file_path, 'r', encoding="utf-8") as fp:
             # declare the columns in the data file
-            cols = ['exposurestressorname', 'exposurestressorid', 'stressorsourcecategory', 'stressorsourcedetails', 'numberofstressorsamples',
-                    'stressornotes', 'numberofreceptors', 'receptors', 'receptornotes', 'smokingstatus', 'age',
-                    'ageunitsofmeasurement', 'agequalifier', 'sex', 'race', 'methods', 'detectionlimit',
-                    'detectionlimituom', 'detectionfrequency', 'medium', 'exposuremarker', 'exposuremarkerid', 'markerlevel',
-                    'markerunitsofmeasurement', 'markermeasurementstatistic', 'assaynotes', 'studycountries', 'stateorprovince', 'citytownregionarea', 'exposureeventnotes',
-                    'outcomerelationship', 'diseasename', 'diseaseid', 'phenotypename', 'phenotypeid', 'phenotypeactiondegreetype', 'anatomy',
-                    'exposureoutcomenotes', 'reference', 'associatedstudytitles', 'enrollmentstartyear', 'enrollmentendyear', 'studyfactors']
+            cols: list = ['exposurestressorname', 'exposurestressorid', 'stressorsourcecategory', 'stressorsourcedetails', 'numberofstressorsamples',
+                          'stressornotes', 'numberofreceptors', 'receptors', 'receptornotes', 'smokingstatus', 'age',
+                          'ageunitsofmeasurement', 'agequalifier', 'sex', 'race', 'methods', 'detectionlimit',
+                          'detectionlimituom', 'detectionfrequency', 'medium', 'exposuremarker', 'exposuremarkerid', 'markerlevel',
+                          'markerunitsofmeasurement', 'markermeasurementstatistic', 'assaynotes', 'studycountries', 'stateorprovince', 'citytownregionarea', 'exposureeventnotes',
+                          'outcomerelationship', 'diseasename', 'diseaseid', 'phenotypename', 'phenotypeid', 'phenotypeactiondegreetype', 'anatomy',
+                          'exposureoutcomenotes', 'reference', 'associatedstudytitles', 'enrollmentstartyear', 'enrollmentendyear', 'studyfactors']
 
             # get a handle on the input data
-            data = csv.DictReader(filter(lambda row: row[0] != '#', fp), delimiter='\t', fieldnames=cols)
+            data: csv.DictReader = csv.DictReader(filter(lambda row: row[0] != '#', fp), delimiter='\t', fieldnames=cols)
 
             # init the record counters
             record_counter: int = 0
             skipped_record_counter: int = 0
-
-            pred_set: set = set()
 
             # for each record
             for r in data:
                 # increment the record counter
                 record_counter += 1
 
-                # get the f"CTD:{relation_label}"
-                relation_label = r['outcomerelationship']
+                # get the relation data
+                relation_label: str = r['outcomerelationship']
 
                 # if this has no correlation skip it
                 if relation_label == 'no correlation' or len(r['diseaseid']) == 0 or len(relation_label) == 0:
@@ -355,7 +354,7 @@ class CTDLoader(SourceDataLoader):
                     skipped_record_counter += 1
                     continue
                 else:
-                    relation = self.normalize_relation(relation_label)
+                    relation: str = self.normalize_relation(relation_label)
 
                 # save the disease node
                 node_list.append({'id': 'MESH:' + r['diseaseid'], 'name': r['diseasename'], 'properties': None})
@@ -364,16 +363,17 @@ class CTDLoader(SourceDataLoader):
                 node_list.append({'id': 'MESH:' + r['exposurestressorid'], 'name': r['exposurestressorname'], 'properties': None})
 
                 # save the edge
-                edge_list.append({'subject': 'MESH:' + r['diseaseid'], 'object': 'MESH:' + r['exposurestressorid'], 'relation': 'CTD:' + relation, 'properties': {'publications': [f"PMID:{r['reference']}"], 'source_database': 'ctd.disease_to_exposure'}})
+                edge_list.append(
+                    {'subject': 'MESH:' + r['diseaseid'], 'object': 'MESH:' + r['exposurestressorid'], 'relation': 'CTD:' + relation, 'properties': {'publications': [f"PMID:{r['reference']}"], 'source_database': 'ctd.disease_to_exposure'}})
 
         # return the node and edge lists to the caller
         return node_list, edge_list, record_counter, skipped_record_counter
 
-    def disease_to_chemical(self, data_path: str):
+    def disease_to_chemical(self, file_path: str):
         """
         Parses the data file to create disease to chemical nodes and relationships
 
-        :param data_path: the path to the data file
+        :param file_path: the path to the data file
         :return: a node list and an edge list
         """
 
@@ -382,12 +382,12 @@ class CTDLoader(SourceDataLoader):
         edge_list: list = []
 
         # open up the file
-        with open(data_path, 'r', encoding="utf-8") as fp:
+        with open(file_path, 'r', encoding="utf-8") as fp:
             # declare the columns in the data
-            cols = ['ChemicalName', 'ChemicalID', 'CasRN', 'DiseaseName', 'DiseaseID', 'DirectEvidence', 'InferenceGeneSymbol', 'InferenceScore', 'OmimIDs', 'PubMedIDs']
+            cols: list = ['ChemicalName', 'ChemicalID', 'CasRN', 'DiseaseName', 'DiseaseID', 'DirectEvidence', 'InferenceGeneSymbol', 'InferenceScore', 'OmimIDs', 'PubMedIDs']
 
             # get a handle on the input data
-            data = csv.DictReader(filter(lambda row: row[0] != '#', fp), delimiter='\t', fieldnames=cols)
+            data: csv.DictReader = csv.DictReader(filter(lambda row: row[0] != '#', fp), delimiter='\t', fieldnames=cols)
 
             # init the record counters
             skipped_record_counter: int = 0
@@ -402,7 +402,7 @@ class CTDLoader(SourceDataLoader):
             record_idx: int = 0
 
             # init some working variables
-            first = True
+            first: bool = True
             disease_list: list = []
             cur_disease_id: str = ''
 
@@ -442,7 +442,7 @@ class CTDLoader(SourceDataLoader):
                     # collect those that have evidence
                     if r['DirectEvidence'] != '':
                         # save the chemical id
-                        c_id = r['ChemicalID']
+                        c_id: str = r['ChemicalID']
 
                         # if this is a new chemical
                         if c_id not in chemical_evidence_basket:
@@ -509,12 +509,12 @@ class CTDLoader(SourceDataLoader):
                         publications = treats_refs
 
                     # normalize relation
-                    relation = self.normalize_relation(relation)
+                    relation: str = self.normalize_relation(relation)
 
                     # was this node already added
                     if not disease_node_added:
                         # add the disease node
-                        node_list.append({'id': cur_disease_id, 'name': cur_disease_name, 'properties': None})
+                        node_list.append({'id': cur_disease_id.upper(), 'name': cur_disease_name, 'properties': None})
 
                         # set the flag so we dont duplicate adding this node
                         disease_node_added = True
@@ -523,7 +523,7 @@ class CTDLoader(SourceDataLoader):
                     node_list.append({'id': 'MESH:' + c_id, 'name': chemical_info['name'], 'properties': None})
 
                     # add the edge
-                    edge_list.append({'subject': cur_disease_id, 'object': 'MESH:' + c_id, 'relation': relation, 'predicate': '', 'properties': {'publications': publications, 'source_database': 'ctd.disease_to_chemical'}})
+                    edge_list.append({'subject': cur_disease_id.upper(), 'object': 'MESH:' + c_id, 'relation': relation, 'predicate': '', 'properties': {'publications': publications, 'source_database': 'ctd.disease_to_chemical'}})
 
                 # insure we dont overrun the list
                 if record_idx >= record_count:
@@ -544,31 +544,41 @@ class CTDLoader(SourceDataLoader):
         :return:
         """
 
-        props = {"description": r['interaction'], 'taxon': f"taxon:{r['taxonID']}"}
+        # get the standard properties
+        props: dict = {'description': r['interaction'], 'NCBITAXON': r['taxonID'].split(':')[1]}
 
-        pmids = r['PMID'].split('|')
+        # get the pubmed ids into a list
+        pmids: list = r['PMID'].split('|')
 
-        relation_label = r['interaction']
+        # set the relation label. might get overwritten in edge norm
+        relation_label: str = r['interaction']
 
-        # there are lots of garbage microarrays with only one paper. THey goop the place up
-        # ignore them
-        good_row = True
+        # there are lots of garbage micro-arrays with only one paper. They goop the place up so ignore them
+        good_row: bool = True
 
+        # less then 3 publications
         if len(pmids) < 3:
+            # if the relation label in this list it is not usable
             if relation_label in ['affects expression of', 'increases expression of',
-                                   'decreases expression of', 'affects methylation of',
-                                   'increases methylation of', 'decreases methylation of',
-                                   'affects molecular modification of',
-                                   'increases molecular modification of',
-                                   'decreases molecular modification of']:
+                                  'decreases expression of', 'affects methylation of',
+                                  'increases methylation of', 'decreases methylation of',
+                                  'affects molecular modification of',
+                                  'increases molecular modification of',
+                                  'decreases molecular modification of']:
+                # mark the row unusable
                 good_row = False
 
+        # less than 2 publications
         if len(pmids) < 2:
+            # if the relation label in this list it is not usable
             if relation_label in ['affects splicing of', 'increases splicing of', 'decreases splicing of']:
+                # mark the row unusable
                 good_row = False
 
-        pmids = [p.upper() for p in pmids]
+        # make a list of the publications
+        pmids: list = [p.upper() for p in pmids]
 
+        # return to the caller
         return good_row, relation_label, props, pmids
 
     @staticmethod
@@ -579,12 +589,14 @@ class CTDLoader(SourceDataLoader):
         :param relation:
         :return:
         """
+        # the capture regex
         regex = '\/|\ |\^'
 
-        return re.sub(regex, '', relation)
+        # clean up the relation
+        return re.sub(regex, '_', relation)
 
     @staticmethod
-    def get_chemical_label_id(therapeutic_count, marker_count, marker_relation_label='marker_mechanism', therapeutic_relation_label='therapeutic'):
+    def get_chemical_label_id(therapeutic_count: int, marker_count: int, marker_relation_label: str = 'marker_mechanism', therapeutic_relation_label: str = 'therapeutic') -> (str, str):
         """
         This function applies rules to determine which edge to prefer in cases
         where conflicting edges are returned for a chemical disease relation ship.
@@ -595,30 +607,42 @@ class CTDLoader(SourceDataLoader):
         :param therapeutic_relation_label:
         :return:
         """
+
+        # if this is not a good amount of evidence
         if therapeutic_count == marker_count and therapeutic_count < 3:
+            # nothing is usable
             return None, None
 
-        # avoid further checks if we find homogeneous types
+        # if there are no markers but there is evidence
         if marker_count == 0 and therapeutic_count > 0:
             return f'CTD:{therapeutic_relation_label}', therapeutic_relation_label
 
+        # if there is no therapeutic evidence but there are markers
         if therapeutic_count == 0 and marker_count > 0:
             return f'CTD:{marker_relation_label}', marker_relation_label
 
+        # get the marker flag
         marker = (therapeutic_count == 1 and marker_count > 1) or (marker_count / therapeutic_count > 2)
 
+        # get the therapeutic flag
         therapeutic = (marker_count == 1 and therapeutic_count > 1) or (therapeutic_count / marker_count > 2)
 
+        # if there are a good number of markers
         if marker:
             return f'CTD:{marker_relation_label}', marker_relation_label
 
+        # if ther eis a good amount of therapeutic evidence
         if therapeutic:
             return f'CTD:{therapeutic_relation_label}', therapeutic_relation_label
 
+        # return to caller with the default
         return 'RO:0001001', 'related to'
 
 
 if __name__ == '__main__':
+    """
+    entry point to initiate the parsing outside of the loda manager
+    """
     # create a command line parser
     ap = argparse.ArgumentParser(description='Load CTD data files and create KGX import files.')
 
@@ -628,12 +652,11 @@ if __name__ == '__main__':
     # parse the arguments
     args = vars(ap.parse_args())
 
-    # UniProtKB_data_oath = '/projects/stars/Data_services/CTD_data'
-    # UniProtKB_data_path = 'E:/Data_services/CTD_data'
-    data_path = args['data_path']
+    # the path to the data
+    data_path: str = args['data_path']
 
     # get a reference to the processor
-    ctd = CTDLoader(data_path, log_level=logging.INFO)
+    ctd: CTDLoader = CTDLoader(False)
 
     # load the data files and create KGX output
     ctd.load(data_path, 'CTD')
