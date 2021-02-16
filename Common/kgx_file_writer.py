@@ -109,9 +109,12 @@ class KGXFileWriter:
                        'object': object_id,
                        'relation': relation
                        }
-        for p in edge_properties:
-            if p not in edge_object:
-                edge_object[p] = edge_properties[p]
+
+        if edge_properties is not None:
+            for p in edge_properties:
+                if p not in edge_object:
+                    edge_object[p] = edge_properties[p]
+
         self.edges_to_write.append(edge_object)
         self.check_edge_buffer_for_flush()
 
