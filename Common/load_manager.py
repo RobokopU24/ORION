@@ -9,17 +9,20 @@ from Common.metadata_manager import MetadataManager as Metadata
 from Common.loader_interface import SourceDataBrokenError, SourceDataFailedError
 from GWASCatalog.src.loadGWASCatalog import GWASCatalogLoader
 from CTD.src.loadCTD import CTDLoader
+from FooDB.src.loadFDB import FDBLoader
 
 GWAS_CATALOG = 'GWASCatalog'
 CTD = 'CTD'
+FOODB = 'FooDB'
 
-ALL_SOURCES = [GWAS_CATALOG, CTD]
+ALL_SOURCES = [GWAS_CATALOG, CTD, FOODB]
 
 SOURCES_WITH_VARIANTS = [GWAS_CATALOG]
 
 source_data_loader_classes = {
-    GWAS_CATALOG: GWASCatalogLoader,
-    CTD: CTDLoader
+    #GWAS_CATALOG: GWASCatalogLoader,
+    #CTD: CTDLoader,
+    FOODB: FDBLoader
 }
 
 
