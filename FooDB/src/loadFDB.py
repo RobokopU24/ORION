@@ -3,9 +3,11 @@ import hashlib
 import argparse
 import pandas as pd
 import logging
-import json
+import datetime
+
+from Common.kgx_file_writer import KGXFileWriter
+from Common.loader_interface import SourceDataLoader
 from Common.utils import LoggingUtil, GetData, NodeNormUtils, EdgeNormUtils
-from pathlib import Path
 
 
 ##############
@@ -15,18 +17,24 @@ from pathlib import Path
 # Date: 8/11/2020
 # Desc: Class that loads the FooDB data and creates KGX files for importing into a Neo4j graph.
 ##############
-class FDBLoader:
-    # storage for cached node and edge normalizations
-    cached_node_norms: dict = {}
-    cached_edge_norms: dict = {}
+class FDBLoader(SourceDataLoader):
+    # the final output lists of nodes and edges
+    final_node_list: list = []
+    final_edge_list: list = []
 
-    # storage for nodes and edges that failed normalization
-    node_norm_failures: list = []
-    edge_norm_failures: list = []
+    def __init__(self, test_mode: bool = False):
+        """
+        constructor
+        :param test_mode - sets the run into test mode
+        """
+        # set global variables
+        self.data_path = os.environ['DATA_SERVICES_STORAGE']
+        self.test_mode = test_mode
+        self.source_id = 'FooDB'
+        self.source_db = 'Food Database'
 
-    # for tracking counts
-    total_nodes: int = 0
-    total_edges: int = 0
+        # create a logger
+        self.logger = LoggingUtil.init_logging("Data_services.FooDB.FooDBLoader", level=logging.DEBUG, line_format='medium', log_file_path=os.environ['DATA_SERVICES_LOGS'])
 
     def get_name(self):
         """
@@ -36,58 +44,87 @@ class FDBLoader:
         """
         return self.__class__.__name__
 
-    def __init__(self, log_level=logging.INFO):
+    def get_latest_source_version(self):
         """
-        constructor
+        gets the version of the data
 
-        :param log_level - overrides default log level
+        :return:
         """
+        return datetime.datetime.now().strftime("%m/%d/%Y")
 
-        # create a logger
-        self.logger = LoggingUtil.init_logging("Data_services.FooDB.FooDBLoader", level=log_level, line_format='medium', log_file_path=os.path.join(Path(__file__).parents[2], 'logs'))
+    def get_foodb_data(self):
+        """
+        Gets the fooDB data.
 
-    def load(self, data_file_path, out_name: str, output_mode: str = 'json') -> bool:
+        """
+        # and get a reference to the data gatherer
+        gd: GetData = GetData(self.logger.level)
+
+        # get the list of files to capture
+        file_list: list = [
+            'foods.csv',
+            'contents.csv',
+            'compounds.csv',
+            'nutrients.csv']
+
+        # get all the files noted above
+        file_count: int = gd.get_foodb_files(self.data_path, file_list)
+
+        # abort if we didnt get all the files
+        if file_count != len(file_list):
+            raise Exception('Not all files were retrieved.')
+
+    def write_to_file(self, nodes_output_file_path: str, edges_output_file_path: str) -> None:
+        """
+        sends the data over to the KGX writer to create the node/edge files
+
+        :param nodes_output_file_path: the path to the node file
+        :param edges_output_file_path: the path to the edge file
+        :return: Nothing
+        """
+        # get a KGX file writer
+        with KGXFileWriter(nodes_output_file_path, edges_output_file_path) as file_writer:
+            # for each node captured
+            for node in self.final_node_list:
+                # write out the node
+                file_writer.write_node(node['id'], node_name=node['name'], node_types=[], node_properties=node['properties'])
+
+            # for each edge captured
+            for edge in self.final_edge_list:
+                # write out the edge data
+                file_writer.write_edge(subject_id=edge['subject'], object_id=edge['object'], relation=edge['relation'], edge_properties=edge['properties'], predicate='')
+
+    def load(self, nodes_output_file_path: str, edges_output_file_path: str):
         """
         loads/parses FooDB data files
 
-        :param data_file_path: root directory of output data files
-        :param out_name: the output name prefix of the KGX files
-        :param output_mode: the output mode (tsv or json)
-        :return: True
+        :param edges_output_file_path:
+        :param nodes_output_file_path:
+        :return:
         """
-        self.logger.info(f'FooDBLoader - Start of FooDB data processing.')
+        self.logger.info(f'FooDBLoader - Start of FooDB data processing. Fetching source files.')
 
-        # open the output files and start parsing
-        with open(os.path.join(data_file_path, f'{out_name}_nodes.{output_mode}'), 'w', encoding="utf-8") as out_node_f, open(os.path.join(data_file_path, f'{out_name}_edges.{output_mode}'), 'w', encoding="utf-8") as out_edge_f:
-            # depending on the output mode, write out the node and edge data headers
-            if output_mode == 'json':
-                out_node_f.write('{"nodes":[\n')
-                out_edge_f.write('{"edges":[\n')
-            else:
-                out_node_f.write(f'id\tname\tcategory\tequivalent_identifiers\tfoodb_id\tcontent_type\tnutrient\n')
-                out_edge_f.write(f'id\tpredicate\tsubject\trelation\tedge_label\tobject\tunit\tamount\tsource_database\n')
+        # get the foodb data
+        #self.get_foodb_data()
 
-            # parse the data
-            self.parse_data_file(data_file_path, out_node_f, out_edge_f, output_mode)
+        # parse the data
+        self.parse_data()
 
-            self.logger.debug(f'File parsing complete.')
+        self.logger.info(f'CTDLoader - Writing source data files.')
 
-            # set the return flag
-            ret_val = True
+        # write the output files
+        self.write_to_file(nodes_output_file_path, edges_output_file_path)
+
+        # remove the data files if not in test mode
+        # if not test_mode:
+        #     shutil.rmtree(self.data_path)
 
         self.logger.info(f'FooDBLoader - Processing complete.')
 
-        # return the pass/fail flag to the caller
-        return ret_val
-
-    def parse_data_file(self, data_file_path, out_node_f, out_edge_f, output_mode: str):
+    def parse_data(self):
         """
         Parses the food list to create KGX files.
 
-        :param data_file_path: the path to the data files
-        :param out_edge_f: the edge file pointer
-        :param out_node_f: the node file pointer
-        :param output_mode: the output mode (tsv or json)
         :return:
         """
 
@@ -97,21 +134,17 @@ class FDBLoader:
         # storage for the nodes
         node_list: list = []
 
-        # these node types are separated because a food may not necessarily have both
-        compound_node_list: list = []
-        nutrient_node_list: list = []
-
         # get all the data to be parsed into a list of dicts
-        foods_list: list = gd.get_list_from_csv(os.path.join(data_file_path, 'foods.csv'), 'id')
-        contents_list: list = gd.get_list_from_csv(os.path.join(data_file_path, 'contents.csv'), 'food_id')
-        compounds_list: list = gd.get_list_from_csv(os.path.join(data_file_path, 'compounds.csv'), 'id')
-        nutrients_list: list = gd.get_list_from_csv(os.path.join(data_file_path, 'nutrients.csv'), 'id')
+        foods_list: list = gd.get_list_from_csv(os.path.join(self.data_path, 'foods.csv'), 'id')
+        contents_list: list = gd.get_list_from_csv(os.path.join(self.data_path, 'contents.csv'), 'food_id')
+        compounds_list: list = gd.get_list_from_csv(os.path.join(self.data_path, 'compounds.csv'), 'id')
+        nutrients_list: list = gd.get_list_from_csv(os.path.join(self.data_path, 'nutrients.csv'), 'id')
 
         # global storage for the food being parsed
         food_id: str = ''
         food_name: str = ''
 
-        # foods_list = foods_list[:5]
+        foods_list = foods_list[:2]
 
         # for each food
         for food_dict in foods_list:
@@ -120,6 +153,10 @@ class FDBLoader:
             food_name = food_dict["name_scientific"]
 
             self.logger.debug(f'Working food id: {food_id}, name: {food_name}')
+
+            # these node types are separated because a food may not necessarily have both
+            compound_node_list: list = []
+            nutrient_node_list: list = []
 
             # if there is no NCBI taxon ID it can't be processed
             if food_dict["ncbi_taxonomy_id"] != '':
@@ -147,8 +184,20 @@ class FDBLoader:
 
                             # is it good enough to save
                             if good_row:
+                                # did we get good units and max values
+                                if not content["orig_unit"].startswith('NULL'):
+                                    units = content["orig_unit"]
+                                else:
+                                    units = ''
+
+                                if not content["orig_max"].startswith('NULL'):
+                                    amount = f'{content["orig_max"]}'
+                                else:
+                                    amount = ''
+
                                 # save the node
-                                compound_node_list.append({'grp': f'{food_id}', 'node_num': 2, 'id': f'{equivalent_id}', 'name': f'{compound_record["name"]}', 'category': 'chemical_substance|molecular_entity|biological_entity|named_thing', 'equivalent_identifiers': f'{equivalent_id}', 'foodb_id': 0, 'content_type': 'compound', 'nutrient': 'false', 'unit': f'{content["orig_unit"]}', 'amount': f'{content["orig_max"]}'})
+                                compound_node_list.append({'grp': f'{food_id}', 'node_num': 2, 'id': f'{equivalent_id}', 'name': f'{compound_record["name"]}',
+                                                           'properties': {'foodb_id': f'{food_id}', 'content_type': 'compound', 'nutrient': 'false', 'unit': f'{units}', 'amount': f'{amount}'}})
 
                     # is this a nutrient
                     elif content['source_type'].startswith('N'):
@@ -161,95 +210,63 @@ class FDBLoader:
                             # set the found flag
                             found = True
 
-                            # save the node
-                            nutrient_node_list.append({'grp': f'{food_id}', 'node_num': 3, 'id': f'{nutrient_record["public_id"]}', 'name': f'{nutrient_record["name"]}', 'category': 'chemical_substance|molecular_entity|biological_entity|named_thing', 'equivalent_identifiers': '', 'foodb_id': 0, 'content_type': 'nutrient', 'nutrient': 'true', 'unit': f'{content["orig_unit"]}', 'amount': f'{content["orig_max"]}'})
+                            # did we get good units and max values
+                            if not content["orig_unit"].startswith('NULL'):
+                                units = content["orig_unit"]
+                            else:
+                                units = ''
 
-                    # was the compound found
+                            if not content["orig_max"].startswith('NULL'):
+                                amount =  f'{content["orig_max"]}'
+                            else:
+                                amount = ''
+
+                            # save the node
+                            nutrient_node_list.append({'grp': f'{food_id}', 'node_num': 3, 'id': f'{nutrient_record["public_id"]}', 'name': f'{nutrient_record["name"]}',
+                                                       'properties': {'foodb_id': f'{food_id}', 'content_type': 'nutrient', 'nutrient': 'true', 'unit': f'{units}', 'amount': f'{amount}'}})
+
+                    # was a compound or nutrient found
                     if not found:
                         self.logger.info(f"{content['source_type']} not found. Food {food_id}, name: {food_name}, content id: {content['id']}, source id: {content['source_id']}")
+
+                # were there any compound or nutrient records
+                if len(compound_node_list) > 0 or len(nutrient_node_list) > 0:
+                    # add the food node
+                    compound_node_list.append({'grp': f'{food_id}', 'node_num': 1, 'id': f'NCBITaxon:{food_dict["ncbi_taxonomy_id"]}', 'name': f'{food_name}',
+                                               'properties': {'foodb_id': f'{food_id}', 'content_type': 'food', 'nutrient': 'false'}})
+
+                    if len(compound_node_list) > 0:
+                        # save the normalized data
+                        self.final_node_list.extend(compound_node_list)
                     else:
-                        # add the food node
-                        compound_node_list.append({'grp': f'{food_id}', 'node_num': 1, 'id': f'NCBITaxon:{food_dict["ncbi_taxonomy_id"]}', 'name': f'{food_name}', 'category': '', 'equivalent_identifiers': '', 'foodb_id': f'{food_id}', 'content_type': 'food', 'nutrient': 'false'})
+                        self.logger.info(f'No compound records. Food ID {food_id}, name: {food_name}')
 
-                # were there any compound records
-                if len(compound_node_list) > 0:
-                    # save the normalized data
-                    node_list.extend(compound_node_list)
+                    # were there nutrient records
+                    if len(nutrient_node_list) > 0:
+                        # extend the nutrient data
+                        self.final_node_list.extend(nutrient_node_list)
+                    else:
+                        self.logger.info(f'No nutrient records. Food ID {food_id}, name: {food_name}')
                 else:
-                    self.logger.info(f'No compound records. Food ID {food_id}, name: {food_name}')
-
-                # were there nutrient records
-                if len(nutrient_node_list) > 0:
-                    # extend the nutrient data
-                    node_list.extend(nutrient_node_list)
-                else:
-                    self.logger.info(f'No nutrient records. Food ID {food_id}, name: {food_name}')
+                    self.logger.info(f'No compound or nutrient records. Food ID {food_id}, name: {food_name}')
             else:
                 self.logger.warning(f"NCBI Taxon ID missing. Food ID {food_id}, name: {food_name}. Continuing..")
                 continue
 
         # is there anything to do
-        if len(node_list) > 0:
-            # de-dupe the list
-            node_list = [dict(t) for t in {tuple(d.items()) for d in node_list}]
-
-            # get a reference to the node normalize utility
-            nnu = NodeNormUtils(self.logger.level)
-
-            # normalize the node data
-            self.node_norm_failures = nnu.normalize_node_data(node_list, block_size=1000)
-
+        if len(self.final_node_list) > 0:
             self.logger.debug('Creating edges.')
 
             # create a data frame with the node list
-            df: pd.DataFrame = pd.DataFrame(node_list, columns=['grp', 'node_num', 'id', 'name', 'category', 'equivalent_identifiers', 'foodb_id', 'content_type', 'nutrient', 'unit', 'amount'])
+            df: pd.DataFrame = pd.DataFrame(self.final_node_list, columns=['grp', 'node_num', 'id', 'name', 'properties'])
 
             # get the list of unique edges
-            edge_set: set = self.get_edge_set(df, output_mode)
+            self.get_edge_list(df)
 
-            self.logger.debug(f'{len(edge_set)} unique edges found, creating KGX edge file.')
+            self.logger.debug(f'{len(self.final_edge_list)} unique edges found.')
 
-            # write out the edge data
-            if output_mode == 'json':
-                out_edge_f.write(',\n'.join(edge_set))
-            else:
-                out_edge_f.write('\n'.join(edge_set))
-
-            # init a set for the node de-duplication
-            final_node_set: set = set()
-
-            # write out the unique nodes
-            for idx, row in enumerate(node_list):
-                # format the output depending on the mode
-                if output_mode == 'json':
-                    # turn these into json
-                    category: str = json.dumps(row["category"].split('|'))
-                    identifiers: str = json.dumps(row["equivalent_identifiers"].split('|'))
-                    name: str = row["name"].replace('"', '\\"')
-
-                    # save the node
-                    final_node_set.add(f'{{"id":"{row["id"]}", "name":"{name}", "category":{category}, "equivalent_identifiers":{identifiers}, "foodb_id":{row["foodb_id"]}, "content_type":"{row["content_type"]}", "nutrient":"{row["nutrient"]}"}}')
-                else:
-                    # save the node
-                    final_node_set.add(f"{row['id']}\t{row['name']}\t{row['category']}\t{row['equivalent_identifiers']}\t{row['foodb_id']}\t{row['content_type']}\t{row['nutrient']}")
-
-            self.logger.debug(f'Creating KGX node file with {len(final_node_set)} nodes.')
-
-            # write out the node data
-            if output_mode == 'json':
-                out_node_f.write(',\n'.join(final_node_set))
-            else:
-                out_node_f.write('\n'.join(final_node_set))
-
-            # finish off the json if we have to
-            if output_mode == 'json':
-                out_node_f.write('\n]}')
-                out_edge_f.write('\n]}')
         else:
             self.logger.warning(f'No records found for food {food_id}, name: {food_name}')
-
-        # output the failures
-        gd.format_normalization_failures(self.get_name(), self.node_norm_failures, self.edge_norm_failures)
 
         self.logger.debug(f'FooDB data parsing and KGX file creation complete.\n')
 
@@ -291,14 +308,14 @@ class FDBLoader:
         # return the list of contents to the caller
         return iter(ret_val)
 
-    #############
-    # get_equivalent_id - inspects a compounds record and returns pertinent info
-    #
-    # param: compound: dict - the compounds record
-    # return: good_row: bool, public_food_id: str, equivalent_identifier: str
-    #############
     @staticmethod
     def get_equivalent_id(compound: dict) -> (bool, str, dict):
+        """
+        Inspects a compounds record and returns pertinent info
+
+        :param compound: dict - the compounds record
+        :return: good_row: bool, public_food_id: str, equivalent_identifier: str
+        """
         # init the return values
         good_row: bool = False
 
@@ -329,23 +346,17 @@ class FDBLoader:
         # return to the caller
         return good_row, equivalent_identifier
 
-    def get_edge_set(self, df: pd.DataFrame, output_mode: str) -> set:
+    def get_edge_list(self, df: pd.DataFrame):
         """
         gets a list of edges for the data frame passed
 
         :param df: node storage data frame
         :param output_mode: the output mode (tsv or json)
-        :return: list of KGX ready edges
+        :return:
         """
 
         # separate the data into triplet groups
         df_grp: pd.groupby_generic.DataFrameGroupBy = df.set_index('grp').groupby('grp')
-
-        # init a list for edge normalizations
-        edge_list: list = []
-
-        # init a set for the edges
-        edge_set: set = set()
 
         # iterate through the groups and create the edge records.
         for row_index, rows in df_grp:
@@ -365,28 +376,7 @@ class FDBLoader:
                 for row in rows.iterrows():
                     # save the node id for the edges
                     if row[1].node_num != 1:
-                        edge_list.append({"predicate": "", "subject": f"{node_1_id}", "relation": "RO:0001019", "object": f"{row[1]['id']}", "edge_label": "biolink:related_to", "unit": f"{row[1]['unit']}", "amount": f"{row[1]['amount']}"})
-
-        # get a reference to the edge normalizer
-        en = EdgeNormUtils(self.logger.level)
-
-        # normalize the edges
-        self.edge_norm_failures = en.normalize_edge_data(edge_list)
-
-        for item in edge_list:
-            # create the record ID
-            record_id: str = item["subject"] + item["relation"] + item["edge_label"] + item["object"]
-
-            # depending on the output mode, create the KGX edge data for nodes 1 and 3
-            if output_mode == 'json':
-                edge_set.add(f'{{"id":"{hashlib.md5(record_id.encode("utf-8")).hexdigest()}", "predicate":"{item["predicate"]}", "subject":"{item["subject"]}", "relation":"{item["relation"]}", "object":"{item["object"]}", "edge_label":"{item["edge_label"]}", "unit":"{item["unit"]}", "amount":"{item["amount"]}", "source_database":"FooDB"}}')
-            else:
-                edge_set.add(f'{hashlib.md5(record_id.encode("utf-8")).hexdigest()}\t{item["predicate"]}\t{item["subject"]}\t{item["relation"]}\t{item["edge_label"]}\t{item["object"]}\t{item["unit"]}\t{item["amount"]}\tFooDB')
-
-        self.logger.debug(f'{len(edge_set)} unique edges identified.')
-
-        # return the list to the caller
-        return edge_set
+                        self.final_edge_list.append({"subject": f"{node_1_id}", "relation": "RO:0001019", "object": f"{row[1]['id']}", "properties": {"unit": f"{row[1]['properties']['unit']}", "amount": f"{row[1]['properties']['amount']}"}})
 
 
 if __name__ == '__main__':
@@ -394,18 +384,16 @@ if __name__ == '__main__':
     ap = argparse.ArgumentParser(description='Load UniProtKB human data files and create KGX import files.')
 
     # command line should be like: python loadFDB.py  -m json
-    ap.add_argument('-o', '--data_dir', required=True, help='The location of the FooDB data files')
-    ap.add_argument('-m', '--out_mode', required=True, help='The output file mode (tsv or json')
+    ap.add_argument('-o', '--data_path', required=True, help='The location of the FooDB data files')
 
     # parse the arguments
     args = vars(ap.parse_args())
 
     # get the params
-    data_dir: str = args['data_dir']
-    out_mode: str = args['out_mode']
+    data_path: str = args['data_path']
 
     # get a reference to the processor
-    fdb = FDBLoader()
+    fdb = FDBLoader(False)
 
     # load the data files and create KGX output
-    fdb.load(data_dir, 'FooDB', out_mode)
+    fdb.load(data_path, data_path)
