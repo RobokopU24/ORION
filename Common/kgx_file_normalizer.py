@@ -1,8 +1,9 @@
 import os
 import json
-from collections import defaultdict
-
+import logging
 import Common.node_types as node_types
+
+from collections import defaultdict
 from Common.utils import LoggingUtil
 from Common.utils import NodeNormUtils, EdgeNormUtils
 from Common.kgx_file_writer import KGXFileWriter
@@ -29,6 +30,7 @@ class KGXFileNormalizer:
 
     logger = LoggingUtil.init_logging("Data_services.Common.KGXFileNormalizer",
                                       line_format='medium',
+                                      level=logging.DEBUG,
                                       log_file_path=os.environ['DATA_SERVICES_LOGS'])
 
     def __init__(self):
