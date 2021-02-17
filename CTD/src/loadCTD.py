@@ -37,9 +37,6 @@ class CTDLoader(SourceDataLoader):
         # create a logger
         self.logger = LoggingUtil.init_logging("Data_services.CTD.CTDLoader", level=logging.DEBUG, line_format='medium', log_file_path=os.environ['DATA_SERVICES_LOGS'])
 
-        # call the super
-        # SourceDataLoader.__init__(self, test_mode)
-
     def get_name(self):
         """
         returns the name of this class
@@ -102,6 +99,8 @@ class CTDLoader(SourceDataLoader):
         """
         loads CTD associated data gathered from http://ctdbase.org/reports/
 
+        :param: nodes_output_file_path - path to node file
+        :param: edges_output_file_path - path to edge file
         :return:
         """
         self.logger.info(f'CTDLoader - Start of CTD data processing. Fetching source files.')
@@ -118,8 +117,6 @@ class CTDLoader(SourceDataLoader):
 
         # write the output files
         self.write_to_file(nodes_output_file_path, edges_output_file_path)
-
-        os.path.join(self.data_path, 'KGX_CTD_nodes.json'), os.path.join(self.data_path, 'KGX_CTD_edges.json')
 
         # remove the data files if not in test mode
         # if not test_mode:
