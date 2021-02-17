@@ -656,4 +656,4 @@ if __name__ == '__main__':
     ctd: CTDLoader = CTDLoader(False)
 
     # load the data files and create KGX output
-    ctd.load(data_path, 'CTD')
+    ctd.load()
