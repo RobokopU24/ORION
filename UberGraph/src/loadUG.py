@@ -4,13 +4,15 @@ import argparse
 import pandas as pd
 import logging
 import json
+import datetime
 import time
 
 from datetime import datetime
 from rdflib import Graph
 from operator import itemgetter
-from Common.utils import LoggingUtil, NodeNormUtils, DatasetDescription, EdgeNormUtils, GetData
-from pathlib import Path
+from Common.utils import LoggingUtil, GetData
+from Common.kgx_file_writer import KGXFileWriter
+from Common.loader_interface import SourceDataLoader
 
 
 ##############
@@ -20,49 +22,89 @@ from pathlib import Path
 # Date: 6/12/2020
 # Desc: Class that loads the UberGraph data and creates KGX files for importing into a Neo4j graph.
 ##############
-class UGLoader:
-    # storage for cached node and edge normalizations
-    cached_node_norms: dict = {}
-    cached_edge_norms: dict = {}
+class UGLoader(SourceDataLoader):
+    # the final output lists of nodes and edges
+    final_node_list: list = []
+    final_edge_list: list = []
 
-    # storage for nodes and edges that failed normalization
-    node_norm_failures: list = []
-    edge_norm_failures: list = []
+    def __init__(self, test_mode: bool = False):
+        """
+        constructor
+        :param test_mode - sets the run into test mode
+        """
+        # set global variables
+        self.data_path = os.environ['DATA_SERVICES_STORAGE']
+        self.test_mode = test_mode
+        self.source_id = 'CTD'
+        self.source_db = 'Comparative Toxicogenomics Database'
 
-    # for tracking counts
-    total_nodes: int = 0
-    total_edges: int = 0
-
-    # lists for the output data
-    final_node_set: set = set()
-    final_edge_set: set = set()
+        # create a logger
+        self.logger = LoggingUtil.init_logging("Data_services.UberGraph.UGLoader", level=logging.DEBUG, line_format='medium', log_file_path=os.environ['DATA_SERVICES_LOGS'])
 
     def get_name(self):
         """
-        returns the name of the class
+        returns the name of this class
 
         :return: str - the name of the class
         """
         return self.__class__.__name__
 
-    def __init__(self, log_level=logging.INFO):
+    def get_latest_source_version(self):
         """
-        constructor
-        :param log_level - overrides default log level
-        """
-        # create a logger
-        self.logger = LoggingUtil.init_logging("Data_services.UberGraph.UGLoader", level=log_level, line_format='medium', log_file_path=os.path.join(Path(__file__).parents[2], 'logs'))
+        gets the version of the data
 
-    # init the node and edge data arrays
-    def load(self, data_file_path: str, data_file_names: str, output_mode: str = 'json', file_size: int = 150000, test_mode: bool = False):
+        :return:
+        """
+        return datetime.datetime.now().strftime("%m/%d/%Y")
+
+    def get_ctd_data(self):
+        """
+        Gets the CTD data.
+
+        """
+        # and get a reference to the data gatherer
+        gd: GetData = GetData(self.logger.level)
+
+        # get the list of files to capture
+        file_list: list = [
+            'CTD_chem_gene_expanded.tsv',
+            'CTD_exposure_events.tsv',
+            'CTD_chemicals_diseases.tsv'
+        ]
+
+        # get all the files noted above
+        file_count: int = gd.get_ctd_http_files(self.data_path, file_list)
+
+        # abort if we didnt get all the files
+        if file_count != len(file_list):
+            raise Exception('Not all files were retrieved.')
+
+    def write_to_file(self, nodes_output_file_path: str, edges_output_file_path: str) -> None:
+        """
+        sends the data over to the KGX writer to create the node/edge files
+
+        :param nodes_output_file_path: the path to the node file
+        :param edges_output_file_path: the path to the edge file
+        :return: Nothing
+        """
+        # get a KGX file writer
+        with KGXFileWriter(nodes_output_file_path, edges_output_file_path) as file_writer:
+            # for each node captured
+            for node in self.final_node_list:
+                # write out the node
+                file_writer.write_node(node['id'], node_name=node['name'], node_types=[], node_properties=node['properties'])
+
+            # for each edge captured
+            for edge in self.final_edge_list:
+                # write out the edge data
+                file_writer.write_edge(subject_id=edge['subject'], object_id=edge['object'], relation=edge['relation'], edge_properties=edge['properties'], predicate='')
+
+    def load(self, nodes_output_file_path: str, edges_output_file_path: str):
         """
         Loads/parsers the UberGraph data file to produce node/edge KGX files for importation into a graph database.
 
-        :param data_file_path: the directory that will contain the UberGraph data file
-        :param data_file_names: The input file name.
-        :param output_mode: the output mode (tsv or json)
-        :param file_size: the threshold data count to initiate writing data out
-        :param test_mode: sets the usage of using a test data file
+        :param: nodes_output_file_path - path to node file
+        :param: edges_output_file_path - path to edge file
         :return: None
         """
         self.logger.info(f'UGLoader - Start of UberGraph data processing.')

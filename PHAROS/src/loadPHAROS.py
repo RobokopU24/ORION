@@ -3,13 +3,14 @@ import hashlib
 import argparse
 import pandas as pd
 import logging
-import json
 import mysql.connector
 import re
 import random
+import datetime
 
-from Common.utils import LoggingUtil, GetData, NodeNormUtils, EdgeNormUtils
-from pathlib import Path
+from Common.kgx_file_writer import KGXFileWriter
+from Common.loader_interface import SourceDataLoader
+from Common.utils import LoggingUtil, GetData
 
 
 ##############
@@ -18,8 +19,10 @@ from pathlib import Path
 # By: Phil Owen
 # Date: 8/11/2020
 # Desc: Class that loads the PHAROS data and creates KGX files for importing into a Neo4j graph.
+#       Note that this parser uses a MySQL database that should be started prior to launching the parse.
+#       The database (TCRDv6.7.0.sql.gz recent as of 20120/21/9) is ~3.9gb in size.
 ##############
-class PHAROSLoader:
+class PHAROSLoader(SourceDataLoader):
     # GENE_LIST_SQL: str = "select distinct value from xref where xtype='hgnc' order by 1"
     # DISEASE_LIST_SQL: str = """select distinct d.did
     #                         from disease d
@@ -80,78 +83,110 @@ class PHAROSLoader:
                                 and d.dtype <> 'Expression Atlas'
                                 and d.did not like 'NCBIGene%'"""
 
-    # storage for cached node and edge normalizations
-    cached_node_norms: dict = {}
-    cached_edge_norms: dict = {}
-
-    # storage for nodes and edges that failed normalization
-    node_norm_failures: list = []
-    edge_norm_failures: list = []
-
     # for tracking counts
     total_nodes: int = 0
     total_edges: int = 0
 
+    # the final output lists of nodes and edges
+    final_node_list: list = []
+    final_edge_list: list = []
+
+    def __init__(self, test_mode: bool = False):
+        """
+        constructor
+        :param test_mode - sets the run into test mode
+        """
+        # set global variables
+        self.data_path = os.environ['DATA_SERVICES_STORAGE']
+        self.test_mode = test_mode
+        self.source_id = 'PHAROS'
+        self.source_db = 'Druggable Genome initiative database'
+
+        # create a logger
+        self.logger = LoggingUtil.init_logging("Data_services.PHAROSLoader", level=logging.INFO, line_format='medium', log_file_path=os.environ['DATA_SERVICES_LOGS'])
+
+        # get a connection to the PHAROS MySQL DB
+        self.db = mysql.connector.connect(host="localhost", user="root", password='TSZTVhsjmoAi9MH1n1jo', database="pharos67")
+
     def get_name(self):
         """
-        returns the name of the class
+        returns the name of this class
 
         :return: str - the name of the class
         """
         return self.__class__.__name__
 
-    def __init__(self, log_level=logging.INFO):
+    def get_latest_source_version(self):
         """
-        constructor
+        gets the version of the data
 
-        :param log_level - overrides default log level
+        :return:
         """
+        return datetime.datetime.now().strftime("%m/%d/%Y")
 
-        # create a logger
-        self.logger = LoggingUtil.init_logging("Data_services.PHAROSLoader", level=log_level, line_format='medium', log_file_path=os.path.join(Path(__file__).parents[2], 'logs'))
-
-        # get a connection to the PHAROS MySQL DB
-        self.db = mysql.connector.connect(host="localhost", user="root", password='TSZTVhsjmoAi9MH1n1jo', database="pharos67")
-
-    def load(self, data_file_path, out_name: str, output_mode: str = 'json') -> bool:
+    def get_ctd_data(self):
         """
-        loads/parses PHAROS db data
+        Gets the CTD data.
 
-        :param data_file_path: root directory of output data files
-        :param out_name: the output name prefix of the KGX files
-        :param output_mode: the output mode (tsv or json)
-        :return: True
+        """
+        # and get a reference to the data gatherer
+        gd: GetData = GetData(self.logger.level)
+
+        # get the list of files to capture
+        file_list: list = [
+            'CTD_chem_gene_expanded.tsv',
+            'CTD_exposure_events.tsv',
+            'CTD_chemicals_diseases.tsv'
+        ]
+
+        # get all the files noted above
+        file_count: int = gd.get_ctd_http_files(self.data_path, file_list)
+
+        # abort if we didnt get all the files
+        if file_count != len(file_list):
+            raise Exception('Not all files were retrieved.')
+
+    def write_to_file(self, nodes_output_file_path: str, edges_output_file_path: str) -> None:
+        """
+        sends the data over to the KGX writer to create the node/edge files
+
+        :param nodes_output_file_path: the path to the node file
+        :param edges_output_file_path: the path to the edge file
+        :return: Nothing
+        """
+        # get a KGX file writer
+        with KGXFileWriter(nodes_output_file_path, edges_output_file_path) as file_writer:
+            # for each node captured
+            for node in self.final_node_list:
+                # write out the node
+                file_writer.write_node(node['id'], node_name=node['name'], node_types=[], node_properties=node['properties'])
+
+            # for each edge captured
+            for edge in self.final_edge_list:
+                # write out the edge data
+                file_writer.write_edge(subject_id=edge['subject'], object_id=edge['object'], relation=edge['relation'], edge_properties=edge['properties'], predicate='')
+
+    def load(self, nodes_output_file_path: str, edges_output_file_path: str):
+        """
+        loads CTD associated data gathered from http://ctdbase.org/reports/
+
+        :param: nodes_output_file_path - path to node file
+        :param: edges_output_file_path - path to edge file
+        :return:
         """
         self.logger.info(f'PHAROSLoader - Start of PHAROS data processing.')
 
-        # open the output files and start parsing
-        with open(os.path.join(data_file_path, f'{out_name}_nodes.{output_mode}'), 'w', encoding="utf-8") as out_node_f, open(os.path.join(data_file_path, f'{out_name}_edges.{output_mode}'), 'w', encoding="utf-8") as out_edge_f:
-            # depending on the output mode, write out the node and edge data headers
-            if output_mode == 'json':
-                out_node_f.write('{"nodes":[\n')
-                out_edge_f.write('{"edges":[\n')
-            else:
-                out_node_f.write(f'id\tname\tcategory\tequivalent_identifiers\n')
-                out_edge_f.write(f'id\tpredicate\tsubject\trelation\tedge_label\tobject\tpublications\taffinity\taffinity_parameter\tprovenance\tsource_database\n')
+        # parse the data
+        self.parse_data_db()
 
-            # parse the data
-            self.parse_data_db(out_node_f, out_edge_f, output_mode)
-
-            # set the return flag
-            ret_val = True
+        self.write_to_file(nodes_output_file_path, edges_output_file_path)
 
         self.logger.info(f'PHAROSLoader - Processing complete.')
 
-        # return the pass/fail flag to the caller
-        return ret_val
-
-    def parse_data_db(self, out_node_f, out_edge_f, output_mode: str):
+    def parse_data_db(self):
         """
         Parses the PHAROS data to create KGX files.
 
-        :param out_edge_f: the edge file pointer
-        :param out_node_f: the node file pointer
-        :param output_mode: the output mode (tsv or json)
         :return:
         """
 
@@ -163,17 +198,10 @@ class PHAROSLoader:
 
         # get the nodes and edges for each dataset
         node_list = self.parse_gene_to_disease(node_list)
-        node_list = self.parse_gene_to_drug_activity(node_list)
-        node_list = self.parse_gene_to_cmpd_activity(node_list)
-        node_list = self.parse_drug_activity_to_gene(node_list)
-        node_list = self.parse_cmpd_activity_to_gene(node_list)
-        # node_list = self.parse_disease_to_gene(node_list)
-
-        # normalize the group of entries on the data frame.
-        nnu = NodeNormUtils(self.logger.level)
-
-        # normalize the node data
-        self.node_norm_failures = nnu.normalize_node_data(node_list, cached_node_norms=self.cached_node_norms, block_size=1000)
+        # node_list = self.parse_gene_to_drug_activity(node_list)
+        # node_list = self.parse_gene_to_cmpd_activity(node_list)
+        # node_list = self.parse_drug_activity_to_gene(node_list)
+        # node_list = self.parse_cmpd_activity_to_gene(node_list)
 
         # is there anything to do
         if len(node_list) > 0:
@@ -182,56 +210,12 @@ class PHAROSLoader:
             # create a data frame with the node list
             df: pd.DataFrame = pd.DataFrame(node_list, columns=['grp', 'node_num', 'id', 'name', 'category', 'equivalent_identifiers', 'predicate', 'relation', 'edge_label', 'pmids', 'affinity', 'affinity_parameter', 'provenance'])
 
-            # get the list of unique edges
-            edge_set, node_list = self.get_edge_set(df, output_mode)
+            # get the list of unique nodes and edges
+            self.get_nodes_and_edges(df)
 
-            self.logger.debug(f'{len(edge_set)} unique edges found, creating KGX edge file.')
-
-            # write out the edge data
-            if output_mode.startswith('json'):
-                out_edge_f.write(',\n'.join(edge_set))
-            else:
-                out_edge_f.write('\n'.join(edge_set))
-
-            # init a set for the node de-duplication
-            final_node_set: set = set()
-
-            # write out the unique nodes
-            for idx, row in enumerate(node_list):
-                # make sure the name doesnt have any non utf-8 characters
-                name = ''.join([x if ord(x) < 128 else '?' for x in row["name"]])
-
-                # format the output depending on the mode
-                if output_mode.startswith('json'):
-                    # turn these into json
-                    category: str = json.dumps(row["category"].split('|'))
-                    identifiers: str = json.dumps(row["equivalent_identifiers"].split('|'))
-
-                    # save the node
-                    final_node_set.add(f'{{"id":"{row["id"]}", "name":"{name}", "category":{category}, "equivalent_identifiers":{identifiers}}}')
-                else:
-                    # save the node
-                    final_node_set.add(f"{row['id']}\t{name}\t{row['category']}\t{row['equivalent_identifiers']}")
-
-            self.logger.debug(f'Creating KGX node file with {len(final_node_set)} nodes.')
-
-            # write out the node data
-            if output_mode.startswith('json'):
-                out_node_f.write(',\n'.join(final_node_set))
-            else:
-                out_node_f.write('\n'.join(final_node_set))
+            self.logger.debug(f'{len(self.final_node_list)} nodes found, {len(self.final_edge_list)} edges found.')
         else:
-            self.logger.warning(f'No records found for ')
-
-        # finish off the json if we have to
-        if output_mode.startswith('json'):
-            out_node_f.write('\n]}')
-            out_edge_f.write('\n]}')
-
-        # output the failures
-        gd.format_normalization_failures(self.get_name(), self.node_norm_failures, self.edge_norm_failures)
-
-        self.logger.debug(f'PHAROS data parsing and KGX file creation complete.\n')
+            self.logger.warning(f'No records found.')
 
     def parse_gene_to_disease(self, node_list: list) -> list:
         """
@@ -556,27 +540,16 @@ class PHAROSLoader:
         # return to the caller
         return ret_val
 
-    def get_edge_set(self, df: pd.DataFrame, output_mode: str) -> (set, list):
+    def get_nodes_and_edges(self, df: pd.DataFrame):
         """
-        gets a list of edges for the data frame passed. this also returns a new node
-        list for nodes that were used.
+        gets a list of nodes and edges for the data frame passed.
 
         :param df: node storage data frame
-        :param output_mode: the output mode (tsv or json)
-        :return: list of KGX ready edges
+        :return:
         """
 
         # separate the data into triplet groups
         df_grp: pd.groupby_generic.DataFrameGroupBy = df.set_index('grp').groupby('grp')
-
-        # init a list for edge normalizations
-        edge_list: list = []
-
-        # init a set for the edges
-        edge_set: set = set()
-
-        # create a list of the nodes that actually had edges assigned
-        new_node_list: list = []
 
         # iterate through the groups and create the edge records.
         for row_index, rows in df_grp:
@@ -584,14 +557,19 @@ class PHAROSLoader:
             if len(rows) == 2:
                 # init variables for each group
                 node_1_id: str = ''
-                node_1: dict = {}
 
                 # find the node
                 for row in rows.iterrows():
                     # save the node and node id for the edge
                     if row[1].node_num == 1:
+                        # save the id for the edge
                         node_1_id = row[1]['id']
-                        node_1 = row[1]
+
+                        # make sure the name doesnt have any odd characters
+                        name = ''.join([x if ord(x) < 128 else '?' for x in row[1]["name"]])
+
+                        # save the node
+                        self.final_node_list.append({'id': node_1_id, 'name': name, 'properties': None})
                         break
 
                 # did we find the root node
@@ -602,38 +580,16 @@ class PHAROSLoader:
                         if row[1].node_num != 1:
                             # only create the edge/nodes if the edge normalized properly
                             if row[1]['predicate'] != '' and row[1]['edge_label'] != '':
-                                new_node_list.append(node_1)
-                                new_node_list.append(row[1])
-                                edge_list.append({"predicate": row[1]['predicate'], "subject": node_1_id, "relation": row[1]['relation'], "object": row[1]['id'], "edge_label": row[1]['edge_label'], "pmids": '|'.join(row[1]['pmids']), "affinity": row[1]['affinity'], "affinity_parameter":  row[1]['affinity_parameter'], 'provenance': row[1]['provenance']})
+                                # make sure the name doesnt have any odd characters
+                                name = ''.join([x if ord(x) < 128 else '?' for x in row[1]["name"]])
+
+                                # save the node
+                                self.final_node_list.append({'id': row[1]['id'], 'name': name, 'properties': None})
+
+                                # save the edge
+                                self.final_edge_list.append({"predicate": row[1]['predicate'], "subject": node_1_id, "relation": row[1]['relation'], "object": row[1]['id'], 'properties': {"publications": row[1]['pmids'], "affinity": row[1]['affinity'], "affinity_parameter":  row[1]['affinity_parameter'], 'provenance': row[1]['provenance']}})
             else:
                 self.logger.debug(f'node group mismatch. len: {len(rows)}, data: {rows}')
-
-        # get a reference to the edge normalizer
-        en = EdgeNormUtils(self.logger.level)
-
-        # normalize the edges
-        self.edge_norm_failures = en.normalize_edge_data(edge_list)
-
-        # for each edge
-        for item in edge_list:
-            # if there is a relation or edge label
-            if len(item["relation"]) > 0 or len(item["edge_label"]) > 0:
-                # create the record ID
-                record_id: str = item["subject"] + item["relation"] + item["edge_label"] + item["object"]
-
-                # depending on the output mode, create the KGX edge data for nodes 1 and 3
-                if output_mode == 'json':
-                    # get the pubmed ids into a text json format
-                    pmids: str = json.dumps(item["pmids"].split('|'))
-
-                    edge_set.add(f'{{"id":"{hashlib.md5(record_id.encode("utf-8")).hexdigest()}", "predicate":"{item["predicate"]}", "subject":"{item["subject"]}", "relation":"{item["relation"]}", "object":"{item["object"]}", "edge_label":"{item["edge_label"]}", "publications": {pmids}, "affinity": {item["affinity"]}, "affinity_parameter": "{item["affinity_parameter"]}", "provenance": "{item["provenance"]}", "source_database":"PHAROS 6.7"}}')
-                else:
-                    edge_set.add(f'{hashlib.md5(record_id.encode("utf-8")).hexdigest()}\t{item["predicate"]}\t{item["subject"]}\t{item["relation"]}\t{item["edge_label"]}\t{item["object"]}\t{item["pmids"]}\t{item["affinity"]}\t{item["affinity_parameter"]}\t{item["provenance"]}\tPHAROS 6.7')
-
-        self.logger.debug(f'{len(edge_set)} unique edges identified.')
-
-        # return the edge set and new node list to the caller
-        return edge_set, new_node_list
 
 
 if __name__ == '__main__':
@@ -642,17 +598,15 @@ if __name__ == '__main__':
 
     # command line should be like: python loadPHAROS.py -p D:\Work\Robokop\Data_services\PHAROS_data -m json
     ap.add_argument('-s', '--data_dir', required=True, help='The location of the output directory')
-    ap.add_argument('-m', '--out_mode', required=True, help='The output file mode (tsv or json')
 
     # parse the arguments
     args = vars(ap.parse_args())
 
     # get the params
     data_dir: str = args['data_dir']
-    out_mode: str = args['out_mode']
 
     # get a reference to the processor
     pdb = PHAROSLoader()
 
     # load the data and create KGX output
-    pdb.load(data_dir, 'PHAROS', out_mode)
+    pdb.load(data_dir, data_dir)

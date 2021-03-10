@@ -35,7 +35,7 @@ class CTDLoader(SourceDataLoader):
         self.source_db = 'Comparative Toxicogenomics Database'
 
         # create a logger
-        self.logger = LoggingUtil.init_logging("Data_services.CTD.CTDLoader", level=logging.DEBUG, line_format='medium', log_file_path=os.environ['DATA_SERVICES_LOGS'])
+        self.logger = LoggingUtil.init_logging("Data_services.CTD.CTDLoader", level=logging.INFO, line_format='medium', log_file_path=os.environ['DATA_SERVICES_LOGS'])
 
     def get_name(self):
         """
@@ -95,13 +95,13 @@ class CTDLoader(SourceDataLoader):
                 # write out the edge data
                 file_writer.write_edge(subject_id=edge['subject'], object_id=edge['object'], relation=edge['relation'], edge_properties=edge['properties'], predicate='')
 
-    def load(self, nodes_output_file_path: str, edges_output_file_path: str):
+    def load(self, nodes_output_file_path: str, edges_output_file_path: str) -> dict:
         """
         loads CTD associated data gathered from http://ctdbase.org/reports/
 
         :param: nodes_output_file_path - path to node file
         :param: edges_output_file_path - path to edge file
-        :return:
+        :return: dict of load statistics
         """
         self.logger.info(f'CTDLoader - Start of CTD data processing. Fetching source files.')
 
@@ -111,16 +111,12 @@ class CTDLoader(SourceDataLoader):
         self.logger.info(f'CTDLoader - Parsing source files.')
 
         # parse the data
-        load_metadata = self.parse_data()
+        load_metadata: dict = self.parse_data()
 
         self.logger.info(f'CTDLoader - Writing source data files.')
 
         # write the output files
         self.write_to_file(nodes_output_file_path, edges_output_file_path)
-
-        # remove the data files if not in test mode
-        # if not test_mode:
-        #     shutil.rmtree(self.data_path)
 
         self.logger.info(f'CTDLoader - Processing complete.')
 
@@ -656,4 +652,4 @@ if __name__ == '__main__':
     ctd: CTDLoader = CTDLoader(False)
 
     # load the data files and create KGX output
-    ctd.load()
+    ctd.load(data_path, data_path)

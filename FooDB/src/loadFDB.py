@@ -1,5 +1,4 @@
 import os
-import hashlib
 import argparse
 import pandas as pd
 import logging
@@ -7,7 +6,7 @@ import datetime
 
 from Common.kgx_file_writer import KGXFileWriter
 from Common.loader_interface import SourceDataLoader
-from Common.utils import LoggingUtil, GetData, NodeNormUtils, EdgeNormUtils
+from Common.utils import LoggingUtil, GetData
 
 
 ##############
@@ -34,7 +33,7 @@ class FDBLoader(SourceDataLoader):
         self.source_db = 'Food Database'
 
         # create a logger
-        self.logger = LoggingUtil.init_logging("Data_services.FooDB.FooDBLoader", level=logging.DEBUG, line_format='medium', log_file_path=os.environ['DATA_SERVICES_LOGS'])
+        self.logger = LoggingUtil.init_logging("Data_services.FooDB.FooDBLoader", level=logging.INFO, line_format='medium', log_file_path=os.environ['DATA_SERVICES_LOGS'])
 
     def get_name(self):
         """
@@ -52,7 +51,7 @@ class FDBLoader(SourceDataLoader):
         """
         return datetime.datetime.now().strftime("%m/%d/%Y")
 
-    def get_foodb_data(self):
+    def get_foodb_data(self, archive_name: str):
         """
         Gets the fooDB data.
 
@@ -62,17 +61,20 @@ class FDBLoader(SourceDataLoader):
 
         # get the list of files to capture
         file_list: list = [
-            'foods.csv',
-            'contents.csv',
-            'compounds.csv',
-            'nutrients.csv']
+            'Food.csv',
+            'Content.csv',
+            'Compound.csv',
+            'Nutrient.csv']
 
         # get all the files noted above
-        file_count: int = gd.get_foodb_files(self.data_path, file_list)
+        file_count, foodb_dir = gd.get_foodb_files(self.data_path, archive_name, file_list)
 
         # abort if we didnt get all the files
         if file_count != len(file_list):
             raise Exception('Not all files were retrieved.')
+
+        # return the path to the extracted data files
+        return foodb_dir
 
     def write_to_file(self, nodes_output_file_path: str, edges_output_file_path: str) -> None:
         """
@@ -104,13 +106,16 @@ class FDBLoader(SourceDataLoader):
         """
         self.logger.info(f'FooDBLoader - Start of FooDB data processing. Fetching source files.')
 
+        # set the archive name we will parse
+        archive_name: str = 'foodb_2020_4_7_csv'
+
         # get the foodb data
-        #self.get_foodb_data()
+        foodb_dir = self.get_foodb_data(archive_name)
 
         # parse the data
-        self.parse_data()
+        self.parse_data(foodb_dir)
 
-        self.logger.info(f'CTDLoader - Writing source data files.')
+        self.logger.info(f'FooDBLoader - Writing source data files.')
 
         # write the output files
         self.write_to_file(nodes_output_file_path, edges_output_file_path)
@@ -121,7 +126,7 @@ class FDBLoader(SourceDataLoader):
 
         self.logger.info(f'FooDBLoader - Processing complete.')
 
-    def parse_data(self):
+    def parse_data(self, data_dir: str):
         """
         Parses the food list to create KGX files.
 
@@ -131,28 +136,32 @@ class FDBLoader(SourceDataLoader):
         # and get a reference to the data gatherer
         gd = GetData(self.logger.level)
 
-        # storage for the nodes
-        node_list: list = []
+        self.logger.debug(f"FooDBLoader - Loading source files.")
 
         # get all the data to be parsed into a list of dicts
-        foods_list: list = gd.get_list_from_csv(os.path.join(self.data_path, 'foods.csv'), 'id')
-        contents_list: list = gd.get_list_from_csv(os.path.join(self.data_path, 'contents.csv'), 'food_id')
-        compounds_list: list = gd.get_list_from_csv(os.path.join(self.data_path, 'compounds.csv'), 'id')
-        nutrients_list: list = gd.get_list_from_csv(os.path.join(self.data_path, 'nutrients.csv'), 'id')
+        foods_list: list = gd.get_list_from_csv(os.path.join(self.data_path, data_dir, 'Food.csv'), 'id')
+        contents_list: list = gd.get_list_from_csv(os.path.join(self.data_path, data_dir, 'Content.csv'), 'food_id')
+        compounds_list: list = gd.get_list_from_csv(os.path.join(self.data_path, data_dir, 'Compound.csv'), 'id')
+        nutrients_list: list = gd.get_list_from_csv(os.path.join(self.data_path, data_dir, 'Nutrient.csv'), 'id')
 
         # global storage for the food being parsed
         food_id: str = ''
         food_name: str = ''
 
-        foods_list = foods_list[:2]
+        self.logger.debug(f"FooDBLoader - Parsing source files.")
 
         # for each food
         for food_dict in foods_list:
             # save the basic food info for this run
             food_id = food_dict["id"]
-            food_name = food_dict["name_scientific"]
 
-            self.logger.debug(f'Working food id: {food_id}, name: {food_name}')
+            # get the food name
+            if food_dict["name_scientific"] != '':
+                food_name = food_dict["name_scientific"]
+            else:
+                food_name = food_dict['name']
+
+            self.logger.info(f'Working food id: {food_id}, name: {food_name}')
 
             # these node types are separated because a food may not necessarily have both
             compound_node_list: list = []
@@ -217,7 +226,7 @@ class FDBLoader(SourceDataLoader):
                                 units = ''
 
                             if not content["orig_max"].startswith('NULL'):
-                                amount =  f'{content["orig_max"]}'
+                                amount = f'{content["orig_max"]}'
                             else:
                                 amount = ''
 
@@ -227,7 +236,7 @@ class FDBLoader(SourceDataLoader):
 
                     # was a compound or nutrient found
                     if not found:
-                        self.logger.info(f"{content['source_type']} not found. Food {food_id}, name: {food_name}, content id: {content['id']}, source id: {content['source_id']}")
+                        self.logger.debug(f"{content['source_type']} not found. Food {food_id}, name: {food_name}, content id: {content['id']}, source id: {content['source_id']}")
 
                 # were there any compound or nutrient records
                 if len(compound_node_list) > 0 or len(nutrient_node_list) > 0:
@@ -302,7 +311,7 @@ class FDBLoader(SourceDataLoader):
                     if index > last_index:
                         break
 
-                # we gone thru all the contents with this food id
+                # we gone thru all the contents with this id
                 break
 
         # return the list of contents to the caller
@@ -324,19 +333,22 @@ class FDBLoader(SourceDataLoader):
 
         # get the identifier. these are in priority order
         if compound['moldb_inchikey'] != '':
-            equivalent_identifier = f'INCHIKEY:{compound["moldb_inchikey"]}'.replace('InChIKey=', '')
-        elif compound['chembl_id'] != '':
-            equivalent_identifier = f'CHEMBL:{compound["chembl_id"]}'
-        elif compound['drugbank_id'] != '':
-            equivalent_identifier = f'DRUGBANK:{compound["drugbank_id"]}'
-        elif compound['kegg_compound_id'] != '':
-            equivalent_identifier = f'KEGG:{compound["kegg_compound_id"]}'
-        elif compound['chebi_id'] != '':
-            equivalent_identifier = f'CHEBI:{compound["chebi_id"]}'
-        elif compound['hmdb_id'] != '':
-            equivalent_identifier = f'HMDB:{compound["hmdb_id"]}'
-        elif compound['pubchem_compound_id'] != '':
-            equivalent_identifier = f'PUBCHEM.COMPOUND:{compound["pubchem_compound_id"]}'
+            equivalent_identifier = f'INCHIKEY:{compound["moldb_inchikey"]}'
+        elif compound['moldb_smiles'] != '':
+            equivalent_identifier = f'SMILES:{compound["moldb_inchikey"]}'
+        # no longer supported in latest data set
+        # elif compound['chembl_id'] != '':
+        #     equivalent_identifier = f'CHEMBL:{compound["chembl_id"]}'
+        # elif compound['drugbank_id'] != '':
+        #     equivalent_identifier = f'DRUGBANK:{compound["drugbank_id"]}'
+        # elif compound['kegg_compound_id'] != '':
+        #     equivalent_identifier = f'KEGG:{compound["kegg_compound_id"]}'
+        # elif compound['chebi_id'] != '':
+        #     equivalent_identifier = f'CHEBI:{compound["chebi_id"]}'
+        # elif compound['hmdb_id'] != '':
+        #     equivalent_identifier = f'HMDB:{compound["hmdb_id"]}'
+        # elif compound['pubchem_compound_id'] != '':
+        #     equivalent_identifier = f'PUBCHEM.COMPOUND:{compound["pubchem_compound_id"]}'
 
         # if no identifier found the record is no good
         if equivalent_identifier != '':
@@ -351,7 +363,6 @@ class FDBLoader(SourceDataLoader):
         gets a list of edges for the data frame passed
 
         :param df: node storage data frame
-        :param output_mode: the output mode (tsv or json)
         :return:
         """
 
@@ -376,7 +387,8 @@ class FDBLoader(SourceDataLoader):
                 for row in rows.iterrows():
                     # save the node id for the edges
                     if row[1].node_num != 1:
-                        self.final_edge_list.append({"subject": f"{node_1_id}", "relation": "RO:0001019", "object": f"{row[1]['id']}", "properties": {"unit": f"{row[1]['properties']['unit']}", "amount": f"{row[1]['properties']['amount']}"}})
+                        self.final_edge_list.append({"subject": f"{node_1_id}", "relation": "RO:0001019", "object": f"{row[1]['id']}",
+                                                     "properties": {"unit": f"{row[1]['properties']['unit']}", "amount": f"{row[1]['properties']['amount']}", 'source_data_base': 'FooDB'}})
 
 
 if __name__ == '__main__':

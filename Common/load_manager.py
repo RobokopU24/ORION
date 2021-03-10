@@ -10,19 +10,39 @@ from Common.loader_interface import SourceDataBrokenError, SourceDataFailedError
 from GWASCatalog.src.loadGWASCatalog import GWASCatalogLoader
 from CTD.src.loadCTD import CTDLoader
 from FooDB.src.loadFDB import FDBLoader
+from GOA.src.loadGOA import GOALoader
+from IntAct.src.loadIA import IALoader
+from ViralProteome.src.loadUniRef import UniRefSimLoader
+from PHAROS.src.loadPHAROS import PHAROSLoader
 
 GWAS_CATALOG = 'GWASCatalog'
 CTD = 'CTD'
 FOODB = 'FooDB'
+GOA = 'HumanGOA'
+INTACT = "IntAct"
+UNIREF = "UniRef"
+PHAROS = 'PHAROS'
 
-ALL_SOURCES = [GWAS_CATALOG, CTD, FOODB]
+ALL_SOURCES = [
+    #GWAS_CATALOG,
+    CTD,
+    FOODB,
+    GOA,
+    INTACT,
+    UNIREF,
+    PHAROS
+]
 
 SOURCES_WITH_VARIANTS = [GWAS_CATALOG]
 
 source_data_loader_classes = {
-    #GWAS_CATALOG: GWASCatalogLoader,
-    #CTD: CTDLoader,
-    FOODB: FDBLoader
+    # GWAS_CATALOG: GWASCatalogLoader,
+    CTD: CTDLoader,
+    FOODB: FDBLoader,
+    GOA: GOALoader,
+    INTACT: IALoader,
+    UNIREF: UniRefSimLoader,
+    PHAROS: PHAROSLoader
 }
 
 

@@ -337,7 +337,7 @@ class VPLoader:
                 if not valid_type:
                     self.logger.debug(f'Warning: Unrecognized node 3 type')
                 elif src_node_id == '' or obj_node_id == '':
-                    self.logger.warning(f'Warning: Missing 1 or more node IDs. Node type 1: {node_1_id}, Node type 3: {node_3_id}')
+                    self.logger.debug(f'Warning: Missing 1 or more node IDs. Node type 1: {node_1_id}, Node type 3: {node_3_id}')
                 else:
                     # create the KGX edge data for nodes 1 and 3
                     edge_list.append({"predicate": predicate, "subject": src_node_id, "relation": relation, "object": obj_node_id, "edge_label": label})
@@ -378,7 +378,7 @@ class VPLoader:
                 """ A gene with identifier UniProtKB:O73942, and name "apeI", 
                     and description "Homing endonuclease I-ApeI". These nodes won't be 
                     found in node normalizer, so we'll need to construct them by hand. """
-                node_list.append({'grp': grp, 'node_num': 1, 'id': f'{line[DATACOLS.DB.value]}:{line[DATACOLS.DB_Object_ID.value]}', 'name': f'{line[DATACOLS.DB_Object_Symbol.value]}', 'category': 'gene|gene_or_gene_product|macromolecular_machine|genomic_entity|molecular_entity|biological_entity|named_thing',
+                node_list.append({'grp': grp, 'node_num': 1, 'id': f'{line[DATACOLS.DB.value]}:{line[DATACOLS.DB_Object_ID.value]}', 'name': f'{line[DATACOLS.DB_Object_Symbol.value]}', 'category': 'biolink:Gene|biolink:GeneOrGeneProduct|biolink:MacromolecularMachine|biolink:GenomicEntity|biolink:MolecularEntity|biolink:BiologicalEntity|biolink:NamedThing',
                                   'equivalent_identifiers': f'{line[DATACOLS.DB.value]}:{line[DATACOLS.DB_Object_ID.value]}'})
 
                 # create node type 2
