@@ -49,7 +49,7 @@ if __name__ == '__main__':
     logger.info('Executing dos2unix command.')
 
     # optional: execute the dos2unix command on the target taxon file to get the line endings correct
-    os.system(f'dos2unix "{search_file_path}."')
+    os.system(f'dos2unix {search_file_path}')
 
     # for each uniref file type
     for file in in_file_list:
@@ -68,7 +68,7 @@ if __name__ == '__main__':
         # grep -F -b -f "/e/Data_services/UniRef_data/taxon_list.txt" "/e/Data_services/UniRef_data/uniref100.xml" >> "/e/Data_services/UniRef_data/uniref100_taxon_file_indexes.txt"
         # grep -F -b -f "/e/Data_services/UniRef_data/taxon_list.txt" "/e/Data_services/UniRef_data/uniref90.xml" >> "/e/Data_services/UniRef_data/uniref90_taxon_file_indexes.txt"
         # grep -F -b -f "/e/Data_services/UniRef_data/taxon_list.txt" "/e/Data_services/UniRef_data/uniref50.xml" >> "/e/Data_services/UniRef_data/uniref50_taxon_file_indexes.txt"
-        # os.system(f'grep -F -b -f "{search_file_path}" "{uniref_infile_path}" >> "{index_file_path}"')
+        os.system(f'grep -F -b -f "{search_file_path}" "{uniref_infile_path}" >> "{index_file_path}"')
 
     # do not remove the file if in debug mode
     # if logger.level != logging.DEBUG:
