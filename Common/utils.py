@@ -5,9 +5,7 @@ import csv
 import gzip
 import requests
 import pandas as pd
-import json
 
-from typing import NamedTuple
 from io import BytesIO
 from rdflib import Graph
 from urllib.request import urlopen
@@ -114,7 +112,7 @@ class NodeNormUtils:
         # create a logger
         self.logger = LoggingUtil.init_logging("Data_services.Common.NodeNormUtils", level=log_level, line_format='medium', log_file_path=os.path.join(Path(__file__).parents[1], 'logs'))
 
-    def normalize_node_data(self, node_list: list, cached_node_norms: dict = None, for_json: bool = False, block_size: int = 2500) -> list:
+    def normalize_node_data(self, node_list: list, cached_node_norms: dict = None, for_json: bool = False, block_size: int = 1000) -> list:
         """
         This method calls the NodeNormalization web service to get the normalized identifier and name of the taxon node.
         the data comes in as a node list.
@@ -608,6 +606,54 @@ class GetData:
         # return the list
         return ret_val
 
+    def get_foodb_files(self, data_dir: str, data_file_name: str, file_list: list) -> int:
+        """
+        gets the food db files in the specified list from:
+        https://foodb.ca/public/system/downloads/foodb_2020_4_7_csv.tar.gz.
+
+        :param data_dir: the directory to place the file temporarily
+        :param data_file_name: the name of the target file archive
+        :param file_list: list of files to get
+        :return:
+        """
+
+        self.logger.debug('Start of foodb file retrieval')
+
+        # init the file counter
+        file_count: int = 0
+
+        # init the extraction directory
+        foodb_dir: str = ''
+
+        # get the tar file that has the taxon id data
+        self.pull_via_http('https://foodb.ca/public/system/downloads/' + data_file_name + '.tar.gz', data_dir)
+
+        # open the tar file
+        tar = tarfile.open(os.path.join(data_dir, data_file_name + '.tar.gz'), "r")
+
+        # for each member of the tar fiule
+        for member in tar.getmembers():
+            # get the name
+            name = member.name.split('/')
+
+            # if a valid name was found
+            if len(name) > 1:
+                # is the name in the target list
+                if name[1] in file_list:
+                    # save the file
+                    tar.extract(member, data_dir)
+
+                    # save the extraction directory
+                    foodb_dir = name[0]
+
+                    # increment the file counter
+                    file_count += 1
+
+        self.logger.debug(f'End of foodb file retrieval. {file_count} files retrieved.')
+
+        # return the list
+        return file_count, foodb_dir
+
     def get_ncbi_taxon_id_set(self, taxon_data_dir, organism_type: str) -> set:
         """
         gets the files associated with viruses (and/or maybe bacteria)
@@ -971,39 +1017,3 @@ class GetData:
 
         # return to the caller
         return ret_val
-
-
-class DatasetDescription:
-    @staticmethod
-    def create_description(data_path: str, prov_data: dict, out_name: str):
-        """
-        creates a graph node that contains detailed information on a parsed/loaded dataset
-
-        Biolink model specs:
-            https://biolink.github.io/biolinkml/
-
-            https://biolink.github.io/biolink-model/docs/DataSet.html
-            https://biolink.github.io/biolink-model/docs/DataSetVersion.html
-            https://biolink.github.io/biolink-model/docs/DataSetSummary.html
-            https://biolink.github.io/biolink-model/docs/DistributionLevel.html
-
-            https://biolink.github.io/biolink-model/docs/DataFile.html
-            https://biolink.github.io/biolink-model/docs/SourceFile.html
-
-        Expected parameters/values passed in are:
-            data_set_name
-            data_set_title
-            data_set_web_site
-            data_set_download_url
-            data_set_version
-            data_set_retrieved_on
-
-        :return:
-        """
-        # open the output node files
-        with open(os.path.join(data_path, f'{out_name}_prov_node_file.tsv'), 'w', encoding="utf-8") as out_node_f:
-            # write out the node and edge data headers
-            out_node_f.write(f'id\tname\tcategory\ttitle\tsource_web_page\tdownloadURL\tsource_version\tretrievedOn\n')
-
-            # write out the node data
-            out_node_f.write(f'{prov_data["data_set_version"]}_{prov_data["data_set_name"]}\t{prov_data["data_set_name"]}\tdataset|named_thing\t{prov_data["data_set_title"]}\t{prov_data["data_set_web_site"]}\t{prov_data["data_set_download_url"]}\t{prov_data["data_set_version"]}\t{prov_data["data_set_retrieved_on"]}\n')
