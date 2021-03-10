@@ -1,6 +1,8 @@
 import hashlib
 import os
 import json
+import logging
+
 from Common.utils import LoggingUtil
 
 
@@ -8,6 +10,7 @@ class KGXFileWriter:
 
     logger = LoggingUtil.init_logging("Data_services.Common.KGXFileWriter",
                                       line_format='medium',
+                                      level=logging.DEBUG,
                                       log_file_path=os.environ['DATA_SERVICES_LOGS'])
 
     def __init__(self, nodes_output_file_path: str = None, edges_output_file_path: str = None, streaming: bool = False):
