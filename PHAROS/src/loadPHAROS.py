@@ -124,28 +124,6 @@ class PHAROSLoader(SourceDataLoader):
         """
         return datetime.datetime.now().strftime("%m/%d/%Y")
 
-    def get_ctd_data(self):
-        """
-        Gets the CTD data.
-
-        """
-        # and get a reference to the data gatherer
-        gd: GetData = GetData(self.logger.level)
-
-        # get the list of files to capture
-        file_list: list = [
-            'CTD_chem_gene_expanded.tsv',
-            'CTD_exposure_events.tsv',
-            'CTD_chemicals_diseases.tsv'
-        ]
-
-        # get all the files noted above
-        file_count: int = gd.get_ctd_http_files(self.data_path, file_list)
-
-        # abort if we didnt get all the files
-        if file_count != len(file_list):
-            raise Exception('Not all files were retrieved.')
-
     def write_to_file(self, nodes_output_file_path: str, edges_output_file_path: str) -> None:
         """
         sends the data over to the KGX writer to create the node/edge files
@@ -189,9 +167,6 @@ class PHAROSLoader(SourceDataLoader):
 
         :return:
         """
-
-        # and get a reference to the data gatherer
-        gd = GetData(self.logger.level)
 
         # storage for the node list
         node_list: list = []
@@ -587,7 +562,7 @@ class PHAROSLoader(SourceDataLoader):
                                 self.final_node_list.append({'id': row[1]['id'], 'name': name, 'properties': None})
 
                                 # save the edge
-                                self.final_edge_list.append({"predicate": row[1]['predicate'], "subject": node_1_id, "relation": row[1]['relation'], "object": row[1]['id'], 'properties': {"publications": row[1]['pmids'], "affinity": row[1]['affinity'], "affinity_parameter":  row[1]['affinity_parameter'], 'provenance': row[1]['provenance']}})
+                                self.final_edge_list.append({"predicate": row[1]['predicate'], "subject": node_1_id, "relation": row[1]['relation'], "object": row[1]['id'], 'properties': {"publications": row[1]['pmids'], "affinity": row[1]['affinity'], "affinity_parameter":  row[1]['affinity_parameter'], 'provenance': row[1]['provenance'], 'source_database': 'PHAROS'}})
             else:
                 self.logger.debug(f'node group mismatch. len: {len(rows)}, data: {rows}')
 

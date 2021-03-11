@@ -5,10 +5,10 @@ import logging
 import re
 import datetime
 
-from Common.kgx_file_writer import KGXFileWriter
-from Common.loader_interface import SourceDataLoader
 from operator import itemgetter
 from Common.utils import LoggingUtil, GetData
+from Common.kgx_file_writer import KGXFileWriter
+from Common.loader_interface import SourceDataLoader
 
 
 ##############

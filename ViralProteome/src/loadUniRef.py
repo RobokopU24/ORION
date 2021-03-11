@@ -104,8 +104,6 @@ class UniRefSimLoader(SourceDataLoader):
             # create a test set of target taxa
             target_taxon_set: set = {'654924', '2219562', '10493', '160691', '2219561', ''}
 
-        file_count = 1
-
         # return the file count to the caller
         return target_taxon_set
 
