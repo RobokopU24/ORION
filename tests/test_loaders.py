@@ -195,7 +195,7 @@ def test_foodb_load():
     # set the test directory
     test_dir = os.path.dirname(os.path.abspath(__file__)) + '/resources'
 
-    fdb.load(test_dir, 'foodb_test', output_mode='tsv')
+    fdb.load(test_dir, test_dir)
 
     # check the results
     assert(os.path.isfile(os.path.join(test_dir, 'foodb_test_edges.tsv')) and os.path.isfile(os.path.join(test_dir, 'foodb_test_nodes.tsv')))
