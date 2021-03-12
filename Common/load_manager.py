@@ -15,38 +15,42 @@ from IntAct.src.loadIA import IALoader
 from ViralProteome.src.loadUniRef import UniRefSimLoader
 from PHAROS.src.loadPHAROS import PHAROSLoader
 from UberGraph.src.loadUG import UGLoader
+from ViralProteome.src.loadVP import VPLoader
 
 GWAS_CATALOG = 'GWASCatalog'
 CTD = 'CTD'
 FOODB = 'FooDB'
 GOA = 'HumanGOA'
 INTACT = "IntAct"
-UNIREF = "UniRef"
 PHAROS = 'PHAROS'
 UBERGRAPH = 'UberGraph'
+UNIREF = "UniRef"
+VP = 'ViralProteome'
 
 ALL_SOURCES = [
     # GWAS_CATALOG,
-    # CTD,
-    # FOODB,
-    # GOA,
-    # INTACT,
-    # UNIREF,
-    # PHAROS,
-    UBERGRAPH
+    CTD,
+    FOODB,
+    GOA,
+    INTACT,
+    PHAROS,
+    UBERGRAPH,
+    UNIREF,
+    VP
 ]
 
 SOURCES_WITH_VARIANTS = [GWAS_CATALOG]
 
 source_data_loader_classes = {
     # GWAS_CATALOG: GWASCatalogLoader,
-    # CTD: CTDLoader,
-    # FOODB: FDBLoader,
-    # GOA: GOALoader,
-    # INTACT: IALoader,
-    # UNIREF: UniRefSimLoader,
-    # PHAROS: PHAROSLoader,
-    UBERGRAPH: UGLoader
+    CTD: CTDLoader,
+    FOODB: FDBLoader,
+    GOA: GOALoader,
+    INTACT: IALoader,
+    PHAROS: PHAROSLoader,
+    UBERGRAPH: UGLoader,
+    UNIREF: UniRefSimLoader,
+    VP: VPLoader
 }
 
 
