@@ -189,9 +189,9 @@ class UniRefSimLoader(SourceDataLoader):
                 else:
                     self.logger.error(f'Error: Entry node for {line} at line number {index_counter} invalid.')
 
-                # TODO remove after testinmg
-                if index_counter > 1000:
-                    break
+                # TODO remove after testing
+                # if index_counter > 1000:
+                #     break
 
         # save any remainders
         if len(node_list) > 0:
