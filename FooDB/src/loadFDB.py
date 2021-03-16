@@ -144,7 +144,6 @@ class FDBLoader(SourceDataLoader):
 
         :return:
         """
-        self.logger.debug(f"FooDBLoader - Parsing source files.")
 
         # get the compound rows for the food
         compound_records, cols = foodb.lookup_food()
