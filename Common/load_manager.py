@@ -19,7 +19,7 @@ from ViralProteome.src.loadVP import VPLoader
 
 GWAS_CATALOG = 'GWASCatalog'
 CTD = 'CTD'
-FOODB = 'FooDB'
+# this is on hold, data needs review after latest release of data. FOODB = 'FooDB'
 GOA = 'HumanGOA'
 INTACT = "IntAct"
 PHAROS = 'PHAROS'
@@ -30,7 +30,7 @@ VP = 'ViralProteome'
 ALL_SOURCES = [
     # GWAS_CATALOG,
     CTD,
-    FOODB,
+    # FOODB,
     GOA,
     INTACT,
     PHAROS,
@@ -44,7 +44,7 @@ SOURCES_WITH_VARIANTS = [GWAS_CATALOG]
 source_data_loader_classes = {
     # GWAS_CATALOG: GWASCatalogLoader,
     CTD: CTDLoader,
-    FOODB: FDBLoader,
+    # FOODB: FDBLoader,
     GOA: GOALoader,
     INTACT: IALoader,
     PHAROS: PHAROSLoader,
