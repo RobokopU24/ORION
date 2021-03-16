@@ -77,8 +77,14 @@ class FDBLoader(SourceDataLoader):
         if file_count != len(file_list):
             raise Exception('Not all files were retrieved.')
 
+        # get the Food DB sqlite object
+        foodb = FoodSQL(os.path.join(self.data_path, foodb_dir))
+
+        # create the DB
+        foodb.create_db()
+
         # return the path to the extracted data files
-        return foodb_dir
+        return foodb
 
     def write_to_file(self, nodes_output_file_path: str, edges_output_file_path: str) -> None:
         """
@@ -108,24 +114,20 @@ class FDBLoader(SourceDataLoader):
         :param nodes_output_file_path:
         :return:
         """
-        self.logger.info(f'FooDBLoader - Start of FooDB data processing. Fetching source files.')
+        self.logger.info(f'FooDBLoader - Start of FooDB data processing. Fetching source files and loading database.')
 
         # set the archive name we will parse
         archive_name: str = 'foodb_2020_4_7_csv'
 
-        # get the foodb data
-        foodb_dir = self.get_foodb_data(archive_name)
+        # get the foodb data ito a database
+        foodb = self.get_foodb_data(archive_name)
 
-        # get the Food DB sqlite object
-        foodb = FoodSQL(os.path.join(self.data_path, foodb_dir))
-
-        # create the DB
-        foodb.create_db()
+        self.logger.info(f'FooDBLoader - Parsing data.')
 
         # parse the data
         self.parse_data(foodb)
 
-        self.logger.info(f'FooDBLoader - Writing source data files.')
+        self.logger.info(f'FooDBLoader - Writing output data files.')
 
         # write the output files
         self.write_to_file(nodes_output_file_path, edges_output_file_path)
