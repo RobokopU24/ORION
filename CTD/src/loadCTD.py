@@ -125,6 +125,7 @@ class CTDLoader(SourceDataLoader):
 
     def parse_data(self) -> dict:
         """
+        Parses the CTD data files
 
         :return:
         """
