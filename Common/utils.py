@@ -834,6 +834,35 @@ class GetData:
         # return to the caller
         return file_counter
 
+    def get_gtopdb_http_files(self, data_dir: str, file_list: list) -> int:
+        """
+        gets the gtopdb files via HTTP.
+
+        :param data_dir: the location where the data should be saved
+        :param file_list: the files to get
+        :return int: the number of files retrieved
+        """
+        self.logger.debug(f'Start of GtoPdb file retrieval.')
+
+        # unit a file counter
+        file_counter: int = 0
+
+        for data_file in file_list:
+            if os.path.isfile(os.path.join(data_dir, data_file)):
+                byte_count = 1
+            else:
+                # get the rest of the files
+                byte_count: int = self.pull_via_http(f'https://www.guidetopharmacology.org/DATA/{data_file}', data_dir)
+
+            # did re get some good file data
+            if byte_count > 0:
+                file_counter += 1
+            else:
+                self.logger.error(f'Failed to get {data_file}.')
+
+        # return to the caller
+        return file_counter
+
     def get_goa_ftp_files(self, data_dir: str, file_list: list, ftp_parent_dir: str, ftp_sub_dir: str) -> int:
         """
         gets the uniprot GOA data file(s).
