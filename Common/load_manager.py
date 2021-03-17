@@ -16,41 +16,45 @@ from ViralProteome.src.loadUniRef import UniRefSimLoader
 from PHAROS.src.loadPHAROS import PHAROSLoader
 from UberGraph.src.loadUG import UGLoader
 from ViralProteome.src.loadVP import VPLoader
+from gtopdb.src.loadGtoPdb import GtoPdbLoader
 
 GWAS_CATALOG = 'GWASCatalog'
 CTD = 'CTD'
-# this is on hold, data needs review after latest release of data. FOODB = 'FooDB'
+FOODB = 'FooDB' # this is on hold, data needs review after latest release of data.
 GOA = 'HumanGOA'
 INTACT = "IntAct"
 PHAROS = 'PHAROS'
 UBERGRAPH = 'UberGraph'
 UNIREF = "UniRef"
 VP = 'ViralProteome'
+GTOPDB = 'GtoPdb'
 
 ALL_SOURCES = [
-    # GWAS_CATALOG,
+    GWAS_CATALOG,
     CTD,
-    # FOODB,
+    FOODB,
     GOA,
     INTACT,
     PHAROS,
     UBERGRAPH,
     UNIREF,
-    VP
+    VP,
+    GTOPDB
 ]
 
 SOURCES_WITH_VARIANTS = [GWAS_CATALOG]
 
 source_data_loader_classes = {
-    # GWAS_CATALOG: GWASCatalogLoader,
+    GWAS_CATALOG: GWASCatalogLoader,
     CTD: CTDLoader,
-    # FOODB: FDBLoader,
+    FOODB: FDBLoader,
     GOA: GOALoader,
     INTACT: IALoader,
     PHAROS: PHAROSLoader,
     UBERGRAPH: UGLoader,
     UNIREF: UniRefSimLoader,
-    VP: VPLoader
+    VP: VPLoader,
+    GTOPDB: GtoPdbLoader
 }
 
 
