@@ -93,12 +93,18 @@ class UGLoader(SourceDataLoader):
         # split the input file names
         file_names = ['properties-nonredundant.ttl']
 
+        # init the record counters
+        final_record_count: int = 0
+        final_skipped_count: int = 0
+
         # loop through the data files
         for file_name in file_names:
             self.logger.info(f'Splitting UberGraph data file: {file_name}. {self.file_size} records per file + remainder')
 
             # parse the data
-            self.parse_data_file(self.data_path, file_name)
+            split_files, records, skipped = self.parse_data_file(self.data_path, file_name)
+            final_record_count: int = records
+            final_skipped_count: int = skipped
 
             # do not remove the file if in debug mode
             # split_files = self.parse_data_file(nodes_output_file_path, file_name)
@@ -110,19 +116,30 @@ class UGLoader(SourceDataLoader):
             #     for file in split_files:
             #         os.remove(file)
 
-
         self.write_to_file(nodes_output_file_path, edges_output_file_path)
 
         self.logger.info(f'UGLoader - Processing complete.')
 
-    def parse_data_file(self, data_file_path: str, data_file_name: str) -> list:
+        # load up the metadata
+        load_metadata: dict = {
+            'num_source_lines': final_record_count,
+            'unusable_source_lines': final_skipped_count
+        }
+
+        # return the metadata to the caller
+        return load_metadata
+
+    def parse_data_file(self, data_file_path: str, data_file_name: str) -> (list, int, int):
         """
         Parses the data file for graph nodes/edges and writes them out the KGX tsv files.
 
         :param data_file_path: the path to the UberGraph data file
         :param data_file_name: the name of the UberGraph file
-        :return: split_files: the temporary files created of the input file
+        :return: split_files: the temporary files created of the input file and the parsed metadata
         """
+        # init the record counters
+        record_counter: int = 0
+        skipped_record_counter: int = 0
 
         # get a reference to the data handler object
         gd = GetData(self.logger.level)
@@ -151,36 +168,50 @@ class UGLoader(SourceDataLoader):
 
             # for every triple in the input data
             for t in g_t:
+                # increment the record counter
+                record_counter += 1
+
                 # clear before use
                 triple.clear()
 
                 # get the curie for each element in the triple
                 for n in t:
+                    #init the value storage
+                    val = None
+
                     try:
                         # get the value
-                        val: str = g.compute_qname(n)[2]
+                        qname = g.compute_qname(n)
 
+                        # HGNC must be handled differently that the others
+                        if qname[1].find('hgnc') > 0:
+                            val = "HGNC:" + qname[2]
                         # if string is all lower it is not a curie
-                        if not val.islower():
+                        elif not qname[2].islower():
                             # replace the underscores to create a curie
-                            val = g.compute_qname(n)[2].replace('_', ':')
+                            val = qname[2].replace('_', ':')
+
                     except Exception as e:
-                        # save it anyway
-                        val = n
-                        self.logger.warning(f'Exception parsing RDF qname {val}. {e}')
+                        self.logger.warning(f'Exception parsing RDF qname {qname}. {e}')
 
-                    # add it to the group
-                    triple.append(val)
+                    # did we get a valid value
+                    if val is not None:
+                        # add it to the group
+                        triple.append(val)
 
-                # create the nodes
-                self.final_node_list.append({'id': triple[0], 'name': triple[0], 'properties': None})
-                self.final_edge_list.append({'subject': triple[0], 'predicate': triple[1], 'relation': triple[1], 'object': triple[2], 'properties': {'source_database': source_database}})
-                self.final_node_list.append({'id': triple[2], 'name': triple[2], 'properties': None})
+                # make sure we have all 3 entries
+                if len(triple) == 3:
+                    # create the nodes
+                    self.final_node_list.append({'id': triple[0], 'name': triple[0], 'properties': None})
+                    self.final_edge_list.append({'subject': triple[0], 'predicate': triple[1], 'relation': triple[1], 'object': triple[2], 'properties': {'source_database': source_database}})
+                    self.final_node_list.append({'id': triple[2], 'name': triple[2], 'properties': None})
+                else:
+                    skipped_record_counter += 1
 
             self.logger.debug(f'Loading complete for file {file.split(".")[2]} of {len(split_files)} in {round(time.time() - tm_start, 0)} seconds.')
 
         # return the split file names so they can be removed if desired
-        return split_files
+        return split_files, record_counter, skipped_record_counter
 
 
 if __name__ == '__main__':
