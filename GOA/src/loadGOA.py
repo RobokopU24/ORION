@@ -10,7 +10,7 @@ from Common.kgx_file_writer import KGXFileWriter
 from Common.loader_interface import SourceDataLoader
 from io import TextIOWrapper
 from csv import reader
-from Common.utils import LoggingUtil, GetData, NodeNormUtils
+from Common.utils import LoggingUtil, GetData
 
 
 # the data header columns are:
@@ -129,13 +129,16 @@ class GOALoader(SourceDataLoader):
         """
         self.logger.info(f'GOALoader - Start of GOA data processing.')
 
+        # init the return
+        load_metadata: dict = {}
+
         # get the human goa data
         byte_count, swiss_prots = self.get_human_goa_data()
 
         # did we get all the files and swiss prots
         if byte_count > 0 and len(swiss_prots) > 0:
             # parse the data
-            self.parse_data_file(os.path.join(self.data_path, self.data_file), swiss_prots)
+            load_metadata = self.parse_data_file(os.path.join(self.data_path, self.data_file), swiss_prots)
 
             self.logger.debug(f'File parsing complete.')
 
@@ -151,27 +154,24 @@ class GOALoader(SourceDataLoader):
 
         self.logger.info(f'GOALoader - Processing complete.')
 
-    def parse_data_file(self, infile_path: str, swiss_prots: set):
+        # return the metadata results
+        return load_metadata
+
+    def parse_data_file(self, infile_path: str, swiss_prots: set) -> dict:
         """
         Parses the data file for nodes/edges
 
         :param infile_path: the name of the GOA file to process
         :param swiss_prots: the list of uniprot ids that have been swiss curated
-        :return:
+        :return: parsing meta data results
         """
 
         with gzip.open(infile_path, 'r') as zf:
             # read the file and make the list
-            node_list: list = self.get_node_list(zf, swiss_prots)
+            node_list, load_metadata = self.get_node_list(zf, swiss_prots)
 
             # de-dupe the list
             node_list = [dict(t) for t in {tuple(d.items()) for d in node_list}]
-
-            # normalize the group of entries on the data frame.
-            nnu = NodeNormUtils(self.logger.level)
-
-            # normalize the node data
-            nnu.normalize_node_data(node_list)
 
             self.logger.debug('Creating edges.')
 
@@ -180,6 +180,8 @@ class GOALoader(SourceDataLoader):
 
             # get the list of unique edges
             self.final_edge_list = self.get_edge_list(df)
+
+            self.logger.debug(f'{len(self.final_edge_list)} unique edges found.')
 
             # loop through all the nodes
             for n in node_list:
@@ -190,9 +192,10 @@ class GOALoader(SourceDataLoader):
                 # add it to the final node list
                 self.final_node_list.append(n)
 
-            self.logger.debug(f'{len(self.final_edge_list)} unique edges found.')
-
         self.logger.debug(f'GOA data parsing and KGX file creation complete.\n')
+
+        # return to the caller
+        return load_metadata
 
     def get_edge_list(self, df: pd.DataFrame) -> list:
         """
@@ -266,7 +269,7 @@ class GOALoader(SourceDataLoader):
         # return the list to the caller
         return edge_list
 
-    def get_node_list(self, fp, swiss_prots: set) -> list:
+    def get_node_list(self, fp, swiss_prots: set) -> (list, dict):
         """ loads the nodes from the file handle passed
 
         :param fp: open file pointer
@@ -283,13 +286,20 @@ class GOALoader(SourceDataLoader):
         # set the default category. could be overwritten in normalization
         default_category: str = 'biolink:Gene|biolink:GeneOrGeneProduct|biolink:MacromolecularMachine|biolink:GenomicEntity|biolink:MolecularEntity|biolink:BiologicalEntity|biolink:NamedThing'
 
+        # init the record counters
+        record_counter: int = 0
+        skipped_record_counter: int = 0
+
         # while there are lines in the csv file
         for line in lines:
             # skip over data comments
             if line[0] == '!' or line[0][0] == '!':
                 continue
 
-            # is this a swiss-port curated entry
+            # increment the counter
+            record_counter += 1
+
+            # is this a swiss curated entry
             if line[1] in swiss_prots:
                 # set the default identifier. could be overwritten in normalization
                 # default_identifier: str = f'{line[DATACOLS.DB.value]}:{line[DATACOLS.DB_Object_ID.value]}'
@@ -310,10 +320,22 @@ class GOALoader(SourceDataLoader):
                     """ A node for the GO term GO:0004518. It should normalize, telling us the type/name. """
                     node_list.append({'grp': grp, 'node_num': 3, 'id': f'{line[DATACOLS.GO_ID.value]}', 'name': '', 'category': '', 'properties': None})
                 except Exception as e:
-                    self.logger.error(f'Error: Exception: {e}')
+                    # increment the counter
+                    skipped_record_counter += 1
 
-        # return the list to the caller
-        return node_list
+                    self.logger.error(f'Error: Exception: {e}')
+            else:
+                # increment the counter
+                skipped_record_counter += 1
+
+        # load up the metadata
+        load_metadata: dict = {
+            'num_source_lines': record_counter,
+            'unusable_source_lines': skipped_record_counter
+        }
+
+        # return to the caller
+        return node_list, load_metadata
 
 
 if __name__ == '__main__':
