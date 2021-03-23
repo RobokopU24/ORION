@@ -61,9 +61,10 @@ class VPLoader(SourceDataLoader):
         self.source_id = 'Viral proteome'
         self.source_db = 'GOA viral proteomes'
         self.goa_data_dir = self.data_path + '/Virus_GOA_files/'
+        self.swiss_prots: set = set()
 
         # create a logger
-        self.logger = LoggingUtil.init_logging("Data_services.ViralProteome.VPLoader", level=logging.DEBUG, line_format='medium', log_file_path=os.environ['DATA_SERVICES_LOGS'])
+        self.logger = LoggingUtil.init_logging("Data_services.ViralProteome.VPLoader", level=logging.INFO, line_format='medium', log_file_path=os.environ['DATA_SERVICES_LOGS'])
 
     def get_name(self):
         """
@@ -98,6 +99,9 @@ class VPLoader(SourceDataLoader):
 
             # get the data files
             file_count: int = gd.get_goa_ftp_files(self.goa_data_dir, file_list, '/pub/databases/GO/goa', '/proteomes/')
+
+            # get the uniprot kb ids that were curated by swiss-prot
+            self.swiss_prots: set = gd.get_swiss_prot_id_set(self.data_path)
         else:
             # setup for the test
             file_count: int = 1
@@ -125,7 +129,7 @@ class VPLoader(SourceDataLoader):
                 # write out the edge data
                 file_writer.write_edge(subject_id=edge['subject'], object_id=edge['object'], relation=edge['relation'], edge_properties=edge['properties'], predicate='')
 
-    def load(self, nodes_output_file_path: str, edges_output_file_path: str):
+    def load(self, nodes_output_file_path: str, edges_output_file_path: str) -> dict:
         """
         loads goa and gaf associated data gathered from ftp://ftp.ebi.ac.uk/pub/databases/GO/goa/proteomes/
 
@@ -136,6 +140,9 @@ class VPLoader(SourceDataLoader):
         self.logger.info(f'VPLoader - Start of viral proteome data processing.')
 
         file_count, file_list = self.get_vp_data()
+
+        final_record_count: int = 0
+        final_skipped_count: int = 0
 
         # did we get everything
         if len(file_list) == file_count:
@@ -149,13 +156,17 @@ class VPLoader(SourceDataLoader):
                     # increment the file counter
                     file_counter += 1
 
-                    self.logger.debug(f'Parsing file number {file_counter}, {f[:-1]}.')
+                    self.logger.debug(f'Parsing file number {file_counter}, {f}.')
 
                     # read the file and make the list
-                    node_list: list = self.get_node_list(fp)
+                    node_list, records, skipped = self.get_node_list(fp)
 
                     # save this list of nodes to the running collection
                     self.final_node_list.extend(node_list)
+
+                    # add to the final counts
+                    final_record_count += records
+                    final_skipped_count += skipped
 
             self.logger.debug(f'{len(self.final_node_list)} nodes found')
 
@@ -167,6 +178,9 @@ class VPLoader(SourceDataLoader):
 
             self.logger.debug(f'{len(self.final_edge_list)} edges found')
 
+            # de-dupe the node list
+            self.final_node_list = [dict(t) for t in {tuple(d.items()) for d in self.final_node_list}]
+
             # write the output files
             self.write_to_file(nodes_output_file_path, edges_output_file_path)
 
@@ -177,6 +191,15 @@ class VPLoader(SourceDataLoader):
             self.logger.info(f'VPLoader - Processing complete.')
         else:
             self.logger.error('Error: Did not receive all the UniProtKB GOA files.')
+
+        # load up the metadata
+        load_metadata: dict = {
+            'num_source_lines': final_record_count,
+            'unusable_source_lines': final_skipped_count
+        }
+
+        # return the metadata to the caller
+        return load_metadata
 
     def get_edge_list(self, df) -> list:
         """
@@ -257,7 +280,7 @@ class VPLoader(SourceDataLoader):
                 else:
                     valid_type = False
 
-                # TODO: this no longer works b/c of no pre normalization
+                # TODO: this no longer works b/c of no pre node normalization
                 # was this a good value
                 # if not valid_type:
                 #     self.logger.debug(f'Warning: Unrecognized node 3 type')
@@ -275,7 +298,7 @@ class VPLoader(SourceDataLoader):
         # return the list to the caller
         return edge_list
 
-    def get_node_list(self, fp) -> list:
+    def get_node_list(self, fp) -> (list, int, int):
         """ loads the nodes from the file handle passed
 
         :param fp: open file pointer
@@ -288,10 +311,15 @@ class VPLoader(SourceDataLoader):
         # clear out the node list
         node_list: list = []
 
+        # init the record counters
+        record_counter: int = 0
+        skipped_record_counter: int = 0
+
         # for the rest of the lines in the file
         for line in csv_reader:
-            # skip over data comments
-            if line[0] == '!' or line[0][0] == '!':
+            # skip over data comments. 2 sars records start with a curie 'ComplexPortal' which will also be skipped
+            if line[0] == '!' or line[0][0] == '!' or line[0][0].startswith('Complex') or line[1] not in self.swiss_prots:
+                skipped_record_counter += 1
                 continue
 
             try:
@@ -324,11 +352,17 @@ class VPLoader(SourceDataLoader):
                 # create node type 3
                 """ A node for the GO term GO:0004518. It should normalize, telling us the type / name. """
                 node_list.append({'grp': grp, 'node_num': 3, 'id': line[DATACOLS.GO_ID.value], 'name': '', 'category': '', 'properties': None})
+
+                # increment the record counter
+                record_counter += 1
             except Exception as e:
+                # increment the record counter
+                skipped_record_counter += 1
+
                 self.logger.error(f'Error: Exception: {e}')
 
         # return the list to the caller
-        return node_list
+        return node_list, record_counter, skipped_record_counter
 
 
 if __name__ == '__main__':
