@@ -124,7 +124,7 @@ class FDBLoader(SourceDataLoader):
         self.logger.info(f'FooDBLoader - Parsing data.')
 
         # parse the data
-        self.parse_data(foodb)
+        load_metadata = self.parse_data(foodb)
 
         self.logger.info(f'FooDBLoader - Writing output data files.')
 
@@ -137,18 +137,29 @@ class FDBLoader(SourceDataLoader):
 
         self.logger.info(f'FooDBLoader - Processing complete.')
 
-    def parse_data(self, foodb):
+        # return the metadata results
+        return load_metadata
+
+    def parse_data(self, foodb) -> dict:
         """
         Parses the food list to create KGX files.
 
-        :return:
+        :param: foodb database connection object
+        :return: parsing meta data results
         """
 
         # get the compound rows for the food
         compound_records, cols = foodb.lookup_food()
 
+        # flag to indicate that this is the first record
         first = True
+
+        # init the food id
         food_id = None
+
+        # init the record counters
+        record_counter: int = 0
+        skipped_record_counter: int = 0
 
         # did we get anything for this food id
         if compound_records is not None:
@@ -156,11 +167,12 @@ class FDBLoader(SourceDataLoader):
             compound_list: list = []
 
             for compound_record in compound_records:
-                # {'food_id': 0, 'food_name': 1, 'ncbi_taxonomy_id': 2, 'content_id': 3, 'content_unit': 4, 'content_max': 5,
-                # 'content_source_id': 6, 'content_source_type': 7, 'compound_name': 8, 'compound_equivalent_id': 9}
+                # increment the record counter
+                record_counter += 1
 
                 # save the first food id record to prime the list
                 if first:
+                    # get the current food id
                     food_id = compound_record[cols['food_id']]
 
                     # add the food node
@@ -172,15 +184,18 @@ class FDBLoader(SourceDataLoader):
 
                 # if the food id changes write out the data
                 if food_id != compound_record[cols['food_id']]:
+                    # save the current node list
                     self.final_node_list.extend(compound_list)
 
-                    source_id = compound_list[0]['id']
+                    # get the subject id
+                    subject_id = compound_list[0]['id']
 
+                    # save all the edges
                     for item in compound_list[1:]:
-                        self.final_edge_list.append({'subject': source_id, 'predicate': 'biolink:related_to', 'relation': 'RO:0001019', 'object': item['id'],
+                        self.final_edge_list.append({'subject': subject_id, 'predicate': 'biolink:related_to', 'relation': 'RO:0001019', 'object': item['id'],
                                                      'properties': {'unit': item['properties']['unit'], 'amount': item['properties']['amount'], 'source_data_base': 'FooDB'}})
 
-                    # clear the list for this food
+                    # clear the list for this food for the next round
                     compound_list.clear()
 
                     # save the new food id
@@ -190,7 +205,7 @@ class FDBLoader(SourceDataLoader):
                     compound_list.append({'id': f'NCBITaxon:{int(compound_record[cols["ncbi_taxonomy_id"]])}', 'name': compound_record[cols['food_name']],
                                           'properties': {'foodb_id': compound_record[cols['food_id']], 'content_type': 'food'}})
 
-                # get the equivalent id
+                # get the equivalent id. this selection is in order of priority
                 if compound_record[cols["inchikey"]] is not None:
                     equivalent_id = f'INCHIKEY:{compound_record[cols["inchikey"]].split("=")[1]}'
                 elif compound_record[cols["smiles"]] is not None:
@@ -214,28 +229,31 @@ class FDBLoader(SourceDataLoader):
                     # save the node
                     compound_list.append({'id': equivalent_id, 'name': compound_record[cols['compound_name']],
                                           'properties': {'foodb_id': compound_record[cols['food_id']], 'content_type': 'compound', 'unit': f'{units}', 'amount': amount}})
+                else:
+                    # cant use this record
+                    skipped_record_counter += 1
+
             # save any remainders
             self.final_node_list.extend(compound_list)
 
-            source_id = compound_list[0]['id']
+            # get the last subject id
+            subject_id = compound_list[0]['id']
 
+            # save all the collected edges
             for item in compound_list[1:]:
-                self.final_edge_list.append({'subject': source_id, 'predicate': 'biolink:related_to', 'relation': 'RO:0001019', 'object': item['id'],
+                self.final_edge_list.append({'subject': subject_id, 'predicate': 'biolink:related_to', 'relation': 'RO:0001019', 'object': item['id'],
                                              'properties': {'unit': item['properties']['unit'], 'amount': item['properties']['amount'], 'source_data_base': 'FooDB'}})
 
-        # # is there anything to do
-        # if len(self.final_node_list) > 0:
-        #     self.logger.debug('Creating edges.')
-        #
-        #     # create a data frame with the node list
-        #     df: pd.DataFrame = pd.DataFrame(self.final_node_list, columns=['grp', 'node_num', 'id', 'name', 'properties'])
-        #
-        #     # get the list of unique edges
-        #     self.get_edge_list(df)
-        #
-        #     self.logger.debug(f'{len(self.final_edge_list)} unique edges found.')
-
         self.logger.debug(f'FooDB data parsing and KGX file creation complete.\n')
+
+        # load up the metadata
+        load_metadata: dict = {
+            'num_source_lines': record_counter,
+            'unusable_source_lines': skipped_record_counter
+        }
+
+        # return to the caller
+        return load_metadata
 
 
 if __name__ == '__main__':
