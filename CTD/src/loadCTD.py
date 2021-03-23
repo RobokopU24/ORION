@@ -186,6 +186,10 @@ class CTDLoader(SourceDataLoader):
         node_list: list = []
         edge_list: list = []
 
+        # init the record counters
+        record_counter: int = 0
+        skipped_record_counter: int = 0
+
         # open up the file
         with open(file_path, 'r', encoding="utf-8") as fp:
             # the list of columns in the data
@@ -193,10 +197,6 @@ class CTDLoader(SourceDataLoader):
 
             # get a handle on the input data
             data = csv.DictReader(filter(lambda row: row[0] != '?', fp), delimiter='\t', fieldnames=cols)
-
-            # init the record counters
-            record_counter: int = 0
-            skipped_record_counter: int = 0
 
             # for each record
             for r in data:
@@ -251,6 +251,10 @@ class CTDLoader(SourceDataLoader):
         node_list: list = []
         edge_list: list = []
 
+        # init the record counters
+        record_counter: int = 0
+        skipped_record_counter: int = 0
+
         # open up the file
         with open(file_path, 'r', encoding="utf-8") as fp:
             # declare the columns in the input data
@@ -258,10 +262,6 @@ class CTDLoader(SourceDataLoader):
 
             # get a handle on the input data
             data = csv.DictReader(filter(lambda row: row[0] != '?', fp), delimiter='\t', fieldnames=cols)
-
-            # init the record counters
-            record_counter: int = 0
-            skipped_record_counter: int = 0
 
             # for each record
             for r in data:
@@ -316,6 +316,10 @@ class CTDLoader(SourceDataLoader):
         node_list: list = []
         edge_list: list = []
 
+        # init the record counters
+        record_counter: int = 0
+        skipped_record_counter: int = 0
+
         # open up the file
         with open(file_path, 'r', encoding="utf-8") as fp:
             # declare the columns in the data file
@@ -329,10 +333,6 @@ class CTDLoader(SourceDataLoader):
 
             # get a handle on the input data
             data: csv.DictReader = csv.DictReader(filter(lambda row: row[0] != '#', fp), delimiter='\t', fieldnames=cols)
-
-            # init the record counters
-            record_counter: int = 0
-            skipped_record_counter: int = 0
 
             # for each record
             for r in data:
@@ -375,6 +375,10 @@ class CTDLoader(SourceDataLoader):
         node_list: list = []
         edge_list: list = []
 
+        # init the record counters
+        record_counter: int = 0
+        skipped_record_counter: int = 0
+
         # open up the file
         with open(file_path, 'r', encoding="utf-8") as fp:
             # declare the columns in the data
@@ -383,17 +387,11 @@ class CTDLoader(SourceDataLoader):
             # get a handle on the input data
             data: csv.DictReader = csv.DictReader(filter(lambda row: row[0] != '#', fp), delimiter='\t', fieldnames=cols)
 
-            # init the record counters
-            skipped_record_counter: int = 0
-
             # sort the data so we can walk through it
             sorted_data = sorted(data, key=itemgetter('DiseaseID'))
 
             # get the number of records in this sorted group
-            record_count: int = len(sorted_data)
-
-            # get a record index
-            record_idx: int = 0
+            record_count = len(sorted_data)
 
             # init some working variables
             first: bool = True
@@ -401,31 +399,31 @@ class CTDLoader(SourceDataLoader):
             cur_disease_id: str = ''
 
             # iterate through node groups and create the edge records.
-            while record_idx < record_count:
+            while record_counter < record_count:
                 # if its the first time in prime the pump
                 if first:
                     # save the disease id
-                    cur_disease_id = sorted_data[record_idx]['DiseaseID']
+                    cur_disease_id = sorted_data[record_counter]['DiseaseID']
 
                     # reset the first record flag
                     first = False
 
                 # get the current disease name
-                cur_disease_name: str = sorted_data[record_idx]['DiseaseName']
+                cur_disease_name: str = sorted_data[record_counter]['DiseaseName']
 
                 # clear the disease list for this run
                 disease_list.clear()
 
                 # for each entry member in the group
-                while sorted_data[record_idx]['DiseaseID'] == cur_disease_id:
+                while sorted_data[record_counter]['DiseaseID'] == cur_disease_id:
                     # add the dict to the group
-                    disease_list.append(sorted_data[record_idx])
+                    disease_list.append(sorted_data[record_counter])
 
                     # increment the record counter
-                    record_idx += 1
+                    record_counter += 1
 
                     # insure we dont overrun the list
-                    if record_idx >= record_count:
+                    if record_counter >= record_count:
                         break
 
                 # create a dict for some chemical data
@@ -520,14 +518,14 @@ class CTDLoader(SourceDataLoader):
                     edge_list.append({'subject': cur_disease_id.upper(), 'object': 'MESH:' + c_id, 'relation': relation, 'predicate': '', 'properties': {'publications': publications, 'source_database': 'ctd.disease_to_chemical'}})
 
                 # insure we dont overrun the list
-                if record_idx >= record_count:
+                if record_counter >= record_count:
                     break
 
                 # save the next disease id
-                cur_disease_id = sorted_data[record_idx]['DiseaseID']
+                cur_disease_id = sorted_data[record_counter]['DiseaseID']
 
         # return the node/edge lists and counters to the caller
-        return node_list, edge_list, record_idx, skipped_record_counter
+        return node_list, edge_list, record_counter, skipped_record_counter
 
     @staticmethod
     def check_expanded_gene_chemical_row(r):
