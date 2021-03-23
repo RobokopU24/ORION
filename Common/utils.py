@@ -21,7 +21,7 @@ class LoggingUtil(object):
     creates and configures a logger
     """
     @staticmethod
-    def init_logging(name, level=logging.INFO, line_format='short', log_file_path=None):
+    def init_logging(name, level=logging.INFO, line_format='minimum', log_file_path=None):
         """
             Logging utility controlling format and setting initial logging level
         """
@@ -110,9 +110,9 @@ class NodeNormUtils:
         :param log_level - overrides default log level
         """
         # create a logger
-        self.logger = LoggingUtil.init_logging("Data_services.Common.NodeNormUtils", level=log_level, line_format='medium', log_file_path=os.path.join(Path(__file__).parents[1], 'logs'))
+        self.logger = LoggingUtil.init_logging("Data_services.Common.NodeNormUtils", level=log_level, line_format='medium', log_file_path=os.environ['DATA_SERVICES_LOGS'])
 
-    def normalize_node_data(self, node_list: list, cached_node_norms: dict = None, for_json: bool = False, block_size: int = 1000) -> list:
+    def normalize_node_data(self, node_list: list, cached_node_norms: dict = None, for_json: bool = False, block_size: int = 5000) -> list:
         """
         This method calls the NodeNormalization web service to get the normalized identifier and name of the taxon node.
         the data comes in as a node list.
@@ -179,7 +179,7 @@ class NodeNormUtils:
                 # self.logger.info(f'Calling node norm service. request size is {len("&curie=".join(data_chunk))} bytes')
 
                 # get the data
-                resp: requests.models.Response = requests.get('https://nodenormalization-sri.renci.org/get_normalized_nodes?curie=' + '&curie='.join(data_chunk))
+                resp: requests.models.Response = requests.post('https://nodenormalization-sri.renci.org/get_normalized_nodes', json={'curies': data_chunk})
 
                 # did we get a good status code
                 if resp.status_code == 200:
@@ -302,7 +302,7 @@ class EdgeNormUtils:
         :param log_level - overrides default log level
         """
         # create a logger
-        self.logger = LoggingUtil.init_logging("Data_services.Common.EdgeNormUtils", level=log_level, line_format='medium', log_file_path=os.path.join(Path(__file__).parents[1], 'logs'))
+        self.logger = LoggingUtil.init_logging("Data_services.Common.EdgeNormUtils", level=log_level, line_format='medium', log_file_path=os.environ['DATA_SERVICES_LOGS'])
 
     def normalize_edge_data(self, edge_list: list, cached_edge_norms: dict = None, block_size: int = 2500) -> list:
         """
@@ -441,7 +441,7 @@ class GetData:
         :param log_level - overrides default log level
         """
         # create a logger
-        self.logger = LoggingUtil.init_logging("Data_services.Common.GetData", level=log_level, line_format='short', log_file_path=os.path.join(Path(__file__).parents[1], 'logs'))
+        self.logger = LoggingUtil.init_logging("Data_services.Common.GetData", level=log_level, line_format='medium', log_file_path=os.environ['DATA_SERVICES_LOGS'])
 
     @staticmethod
     def pull_via_ftp_binary(ftpsite, ftpdir, ftpfile):
@@ -597,9 +597,9 @@ class GetData:
                         ret_val.add(item.strip(';\n'))
 
         # do not remove the file if in debug mode
-        if self.logger.level != logging.DEBUG and not debug_mode:
-            # remove the target file
-            os.remove(os.path.join(data_dir, data_file_name))
+        # if self.logger.level != logging.DEBUG and not debug_mode:
+        #     # remove the target file
+        #     os.remove(os.path.join(data_dir, data_file_name))
 
         self.logger.debug(f'End of swiss-prot uniprot id retrieval. {len(ret_val)} retrieved.')
 
@@ -909,7 +909,7 @@ class GetData:
         :param edge_norm_failures: set of edge predicates
         :return:
         """
-        the_logger = LoggingUtil.init_logging(f"Data_services.Common.NormFailures.{data_set_name}", level=logging.INFO, line_format='minimum', log_file_path=os.path.join(Path(__file__).parents[1], 'logs'))
+        the_logger = LoggingUtil.init_logging(f"Data_services.Common.NormFailures.{data_set_name}", level=logging.INFO, line_format='medium', log_file_path=os.path.join(Path(__file__).parents[1], 'logs'))
 
         # get the list into a dataframe group
         df = pd.DataFrame(node_norm_failures, columns=['curie'])
