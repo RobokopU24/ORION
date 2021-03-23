@@ -32,6 +32,7 @@ class GtoPdbLoader(SourceDataLoader):
         self.source_id: str = 'GtoPdb'
         self.source_db: str = 'Guide to Pharmacology database'
         self.gene_map: dict = {}
+        self.ligands: list = []
 
         # create a logger
         self.logger = LoggingUtil.init_logging("Data_services.GtoPdb.GtoPdbLoader", level=logging.INFO, line_format='medium', log_file_path=os.environ['DATA_SERVICES_LOGS'])
@@ -60,7 +61,7 @@ class GtoPdbLoader(SourceDataLoader):
         # and get a reference to the data gatherer
         gd: GetData = GetData(self.logger.level)
 
-        file_list: list = ['interactions.tsv', 'peptides.tsv', 'GtP_to_HGNC_mapping.tsv']
+        file_list: list = ['interactions.tsv', 'peptides.tsv', 'GtP_to_HGNC_mapping.tsv', 'ligands.tsv']
 
         # get all the files noted above
         file_count: int = gd.get_gtopdb_http_files(self.data_path, file_list)
@@ -103,7 +104,10 @@ class GtoPdbLoader(SourceDataLoader):
         self.get_gtopdb_data()
 
         # get the gene map data
-        self.gene_map = self.get_gene_map(os.path.join(self.data_path, 'GtP_to_HGNC_mapping.tsv'))
+        self.get_gene_map(os.path.join(self.data_path, 'GtP_to_HGNC_mapping.tsv'))
+
+        # get the list of non-peptide ligands
+        self.get_ligands(os.path.join(self.data_path, 'ligands.tsv'))
 
         self.logger.info(f'GtoPdbLoader - Parsing source files.')
 
@@ -120,8 +124,7 @@ class GtoPdbLoader(SourceDataLoader):
         # return some details of the parse
         return load_metadata
 
-    @staticmethod
-    def get_gene_map(file_path):
+    def get_gene_map(self, file_path):
         """
         gets the gene map from the input file
 
@@ -133,17 +136,21 @@ class GtoPdbLoader(SourceDataLoader):
             # the list of columns in the data
             cols = ['hgnc_symbol', 'hgnc_id', 'iuphar_name', 'iuphar_id', 'gtp_url']
 
+            # set a flag to indicate first time in
+            first = True
+
             # get a handle on the input data
             data = csv.DictReader(filter(lambda row: row[0] != '?', fp), delimiter='\t', fieldnames=cols)
 
-            # init a list for the lookup
-            gene_map: dict = {}
-
             # for each record
             for r in data:
-                gene_map.update({r['hgnc_symbol']: r['hgnc_id']})
+                # first record
+                if first:
+                    # set the flag and skip this record
+                    first = False
+                    continue
 
-        return gene_map
+                self.gene_map.update({r['hgnc_symbol']: r['hgnc_id']})
 
     def parse_data(self) -> dict:
         """
@@ -276,7 +283,7 @@ class GtoPdbLoader(SourceDataLoader):
                 record_counter += 1
 
                 # do the ligand to gene nodes/edges
-                if r['target_species'].startswith('Human') and r['target'] != '':
+                if r['target_species'].startswith('Human') and r['target_ensembl_gene_id'] != '' and r['target'] != '' and r['ligand_id'] in self.ligands:
                     # (GTOPDB:<ligand_id>, name=<ligand>)
                     ligand_node: dict = {'id': 'GTOPDB:' + r['ligand_id'], 'name': r['ligand']}
 
@@ -357,6 +364,124 @@ class GtoPdbLoader(SourceDataLoader):
 
         # return the node/edge lists and the record counters to the caller
         return node_list, edge_list, record_counter, skipped_record_counter
+
+    def get_ligands_diffs(self, file_path):
+        """
+        tester for comparing the ligands against normalized values and peptides.
+
+        :param file_path:
+        :return:
+        """
+        # open up the file
+        with open(file_path, 'r', encoding="utf-8") as fp:
+            # the list of columns in the data
+            cols = ["Ligand id", "Name", "Species", "Type", "Approved", "Withdrawn", "Labelled", "Radioactive", "PubChem SID",
+                    "PubChem CID", "UniProt id", "IUPAC name", "INN", "Synonyms", "SMILES", "InChIKey", "InChI", "GtoImmuPdb", "GtoMPdb"]
+
+            # get a handle on the input data
+            data = csv.DictReader(filter(lambda row: row[0] != '?', fp), delimiter='\t', fieldnames=cols)
+
+            # skip the first header record
+            first = True
+
+            norm_ligands: list = []
+
+            # go through the data
+            for r in data:
+                # first time in skip the header record
+                if first:
+                    # set the flag and continue
+                    first = False
+                    continue
+
+                norm_ligands.append({'id': f'{"GTOPDB:" + r["Ligand id"]}', 'orig': r["Ligand id"], 'type': r["Type"], 'name': '', 'category': '', 'equivalent_identifiers': ''})
+
+            ligands = norm_ligands.copy()
+
+            from Common.utils import NodeNormUtils
+            gd = NodeNormUtils()
+            fails = gd.normalize_node_data(norm_ligands)
+
+            print('\nAll ligands')
+            for x in ligands:
+                print(f"GTOPB:{x['orig'] + ', ' + x['type']}")
+
+            print('\nNode norm fails')
+            for fail in fails:
+                val1 = int(fail.split(':')[1])
+
+                for ligand in ligands:
+                    val2 = int(ligand['orig'])
+
+                    if val1 == val2:
+                        print(f"GTOPB:{ligand['orig']}, {ligand['type']}")
+                        break
+
+            # open up the file
+            with open(os.path.join(self.data_path, 'peptides.tsv'), 'r', encoding="utf-8") as fp1:
+                # the list of columns in the data
+                cols = ["Ligand id", "Name", "Species", "Type", "Subunit ids", "Subunit names", "Approved", "Withdrawn", "Labelled", "Radioactive", "PubChem SID",
+                        "PubChem CID", "UniProt id", "INN", "Single letter amino acid sequence", "Three letter amino acid sequence", "Post-translational modification",
+                        "Chemical modification", "SMILES", "InChIKey"]
+
+                # get a handle on the input data
+                data = csv.DictReader(filter(lambda row: row[0] != '?', fp1), delimiter='\t', fieldnames=cols)
+
+                print('\npeptides')
+
+                first = True
+
+                # for each record
+                for r in data:
+                    if first:
+                        first = False
+                        continue
+
+                    found = False
+                    val1 = int(r["Ligand id"])
+
+                    for ligand in ligands:
+                        val2 = int(ligand['orig'])
+
+                        if val1 == val2:
+                            found = True
+                            break
+
+                    if not found:
+                        print(f"GTOPDB:{r['Ligand id']}, {r['Type']}")
+
+            print('\ndone')
+
+    def get_ligands(self, file_path):
+        """
+        Gets the list of ligands to filter against.
+
+        :param file_path:
+        :return:
+        """
+        # open up the file
+        with open(file_path, 'r', encoding="utf-8") as fp:
+            # the list of columns in the data
+            cols = ["Ligand id", "Name", "Species", "Type", "Approved", "Withdrawn", "Labelled", "Radioactive", "PubChem SID",
+                    "PubChem CID", "UniProt id", "IUPAC name", "INN", "Synonyms", "SMILES", "InChIKey", "InChI", "GtoImmuPdb", "GtoMPdb"]
+
+            # get a handle on the input data
+            data = csv.DictReader(filter(lambda row: row[0] != '?', fp), delimiter='\t', fieldnames=cols)
+
+            # skip the first header record
+            first = True
+
+            # go through the data
+            for r in data:
+                # first time in skip the header record
+                if first:
+                    # set the flag and continue
+                    first = False
+                    continue
+
+                # all ids that arent a peptide or an antibody are good
+                if not r['Type'].startswith('Peptide') and not r['Type'].startswith('Antibody'):
+                    self.ligands.append(r['Ligand id'])
 
 
 if __name__ == '__main__':
