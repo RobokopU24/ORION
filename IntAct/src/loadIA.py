@@ -13,6 +13,7 @@ from Common.utils import LoggingUtil, GetData
 from Common.kgx_file_writer import KGXFileWriter
 from Common.loader_interface import SourceDataLoader
 
+
 # data column enumerators
 class DataCols(enum.IntEnum):
     ID_interactor_A = 0
@@ -80,11 +81,12 @@ class IALoader(SourceDataLoader):
         :param test_mode - sets the run into test mode
         """
         # set global variables
-        self.data_path = os.environ['DATA_SERVICES_STORAGE']
-        self.data_file = 'intact.zip'
-        self.test_mode = test_mode
-        self.source_id = 'IntAct'
-        self.source_db = 'IntAct Molecular Interaction Database'
+        self.data_path: str = os.environ['DATA_SERVICES_STORAGE']
+        self.data_file: str = 'intact.zip'
+        self.test_mode: bool = test_mode
+        self.source_id: str = 'IntAct'
+        self.source_db: str = 'IntAct Molecular Interaction Database'
+        self.swiss_prots: set = set()
 
         # create a logger
         self.logger = LoggingUtil.init_logging("Data_services.IntAct.IALoader", level=logging.INFO, line_format='medium', log_file_path=os.environ['DATA_SERVICES_LOGS'])
@@ -116,6 +118,9 @@ class IALoader(SourceDataLoader):
         # do the real thing if we arent in debug mode
         if not self.test_mode:
             file_count: int = gd.pull_via_ftp('ftp.ebi.ac.uk', '/pub/databases/IntAct/current/psimitab/', [self.data_file], self.data_path)
+
+            # get the uniprot kb ids that were curated by swiss-prot
+            self.swiss_prots: set = gd.get_swiss_prot_id_set(self.data_path, self.test_mode)
         else:
             file_count: int = 1
 
@@ -152,17 +157,21 @@ class IALoader(SourceDataLoader):
         """
         self.logger.info(f'IALoader - Start of IntAct data processing.')
 
+        # get the intact data
         file_count = self.get_intact_data()
+
+        # init the return
+        load_metadata: dict = {}
 
         # get the intact archive
         if file_count == 1:
-            self. logger.debug(f'{self.data_file} archive retrieved. Parsing IntAct data.')
+            self.logger.debug(f'{self.data_file} archive retrieved. Parsing IntAct data.')
 
             # parse the data
-            self.parse_data_file(self.data_path, self.data_file, self.test_mode)
+            load_metadata = self.parse_data_file(self.data_path, self.data_file)
 
             # do not remove the file if in debug mode
-            # if logger.level != logging.DEBUG and not test_mode:
+            # if logger.level != logging.DEBUG and not self.test_mode:
             #     # remove the data file
             #     os.remove(os.path.join(data_file_path, data_file_name))
 
@@ -176,23 +185,27 @@ class IALoader(SourceDataLoader):
             # write the output files
             self.write_to_file(nodes_output_file_path, edges_output_file_path)
 
-            self.logger.debug(f'File parsing complete.')
+            self.logger.info(f'IALoader - Processing complete.')
         else:
             self.logger.error(f'Error: Retrieving IntAct archive failed.')
 
-        self.logger.info(f'IALoader - Processing complete.')
+        # return the metadata results
+        return load_metadata
 
-    def parse_data_file(self, data_file_path: str, data_file_name: str, test_mode: bool = False):
+    def parse_data_file(self, data_file_path: str, data_file_name: str) -> dict:
         """
         Parses the data file for graph nodes/edges and writes them out the KGX tsv files.
 
         :param data_file_path: the path to the IntAct zip file
         :param data_file_name: the name of the intact zip file
-        :param test_mode: indicates we are in debug mode
-        :return:
+        :return: the parsed meta data results
         """
 
         infile_path: str = os.path.join(data_file_path, data_file_name)
+
+        # init the record counters
+        record_counter: int = 0
+        skipped_record_counter: int = 0
 
         with ZipFile(infile_path) as zf:
             # open the taxon file indexes and the uniref data file
@@ -211,7 +224,13 @@ class IALoader(SourceDataLoader):
                 # while there are lines in the csv file
                 for line in lines:
                     # did we get something usable back
-                    if line[DataCols.ID_interactor_A.value].startswith('u') and line[DataCols.ID_interactor_B.value].startswith('u'):
+                    if line[DataCols.ID_interactor_A.value].startswith('u') and \
+                            line[DataCols.ID_interactor_B.value].startswith('u') and \
+                            line[DataCols.ID_interactor_A.value].split(':')[1] in self.swiss_prots and \
+                            line[DataCols.ID_interactor_B.value].split(':')[1] in self.swiss_prots:
+                        # increment the counter
+                        record_counter += 1
+
                         # increment the interaction counter
                         interaction_counter += 1
 
@@ -240,13 +259,13 @@ class IALoader(SourceDataLoader):
 
                         # is there a doi id
                         if pub_id == '' and line[DataCols.Publication_Identifier.value].find('doi') >= 0:
-                                # try to find the doi curie
-                                pub_id = self.find_target_val(line[DataCols.Publication_Identifier.value], 'doi', regex='^10.\d{4,9}/[-._;()/:A-Z0-9]+$', trim_hyphen=False)
+                            # try to find the doi curie
+                            pub_id = self.find_target_val(line[DataCols.Publication_Identifier.value], 'doi', regex='^10.\d{4,9}/[-._;()/:A-Z0-9]+$', trim_hyphen=False)
 
-                                # did we get a doi id
-                                if not pub_id == '':
-                                    # convert it to a curie
-                                    pub_id = 'DOI:' + pub_id
+                            # did we get a doi id
+                            if not pub_id == '':
+                                # convert it to a curie
+                                pub_id = 'DOI:' + pub_id
 
                         # alert the user if no pub id found
                         if pub_id == '':
@@ -288,7 +307,7 @@ class IALoader(SourceDataLoader):
 
                         # get the default categories
                         default_taxon_category: str = 'biolink:OrganismTaxon|biolink:OntologyClass|biolink:NamedThing"'
-                        default_gene_category: str = None  # 'biolink:Gene|biolink:GeneOrGeneProduct|biolink:MacromolecularMachine|biolink:GenomicEntity|biolink:MolecularEntity|biolink:BiologicalEntity|biolink:NamedThing'
+                        default_gene_category: str = ''  # 'biolink:Gene|biolink:GeneOrGeneProduct|biolink:MacromolecularMachine|biolink:GenomicEntity|biolink:MolecularEntity|biolink:BiologicalEntity|biolink:NamedThing'
 
                         # save the items we need in the experiment interaction
                         interaction_line: dict = {'grp': grp, 'pub_id': pub_id, 'detection_method': detection_method,
@@ -309,8 +328,20 @@ class IALoader(SourceDataLoader):
                         # output a status indicator
                         if interaction_counter % 250000 == 0:
                             self.logger.debug(f'Completed {interaction_counter} interactions.')
+                    else:
+                        # increment the counter
+                        skipped_record_counter += 1
 
-                self.logger.debug(f'Processing completed. {interaction_counter} total interactions processed.')
+        self.logger.debug(f'Processing completed. {interaction_counter} total interactions processed.')
+
+        # load up the metadata
+        load_metadata: dict = {
+            'num_source_lines': record_counter,
+            'unusable_source_lines': skipped_record_counter
+        }
+
+        # return to the caller
+        return load_metadata
 
     def get_node_list(self):
         """
@@ -335,10 +366,10 @@ class IALoader(SourceDataLoader):
                         properties = None
 
                     self.final_node_list.append({'id': item[prefix + suffix],
-                                      'name': item[prefix + 'alias_' + suffix],
-                                      'category': [],  # item[prefix + 'category_' + suffix].split('|')
-                                      'properties': properties}
-                                     )
+                                                 'name': item[prefix + 'alias_' + suffix],
+                                                 'category': [],  # item[prefix + 'category_' + suffix].split('|')
+                                                 'properties': properties}
+                                                )
 
         self.logger.debug("get_node_list() end.")
 
@@ -414,7 +445,8 @@ class IALoader(SourceDataLoader):
                     self.logger.debug(f"Publication ID missing for edge. Source: {grp_list[grp_idx]['u_a']}, Object: {grp_list[grp_idx]['u_b']}")
 
                 # add the interacting node edges
-                self.final_edge_list.append({"predicate": "", "subject": f"{grp_list[grp_idx]['u_a']}", "relation": "RO:0002436", "object": f"{grp_list[grp_idx]['u_b']}", "properties": {"publications": f"{grp_list[grp_idx]['pub_id']}", "detection_method": detection_method, 'source_data_base': 'IntAct'}})
+                self.final_edge_list.append({"predicate": "", "subject": f"{grp_list[grp_idx]['u_a']}", "relation": "RO:0002436", "object": f"{grp_list[grp_idx]['u_b']}",
+                                             "properties": {"publications": f"{grp_list[grp_idx]['pub_id']}", "detection_method": detection_method, 'source_data_base': 'IntAct'}})
 
                 # for each type
                 for suffix in ['a', 'b']:
@@ -455,8 +487,8 @@ class IALoader(SourceDataLoader):
 
         return ret_val
 
-    #@staticmethod
-    def find_target_val(self, element: str, target: str, only_num: bool = False, until: str = '', regex: str = '', trim_hyphen = True) -> str:
+    # @staticmethod
+    def find_target_val(self, element: str, target: str, only_num: bool = False, until: str = '', regex: str = '', trim_hyphen=True) -> str:
         """
         This method gets the value in an element that has IDs separated by '|' and the name/value
         is delimited with ":"
@@ -496,7 +528,7 @@ class IALoader(SourceDataLoader):
                             # use a regex if passed in
                 elif regex != '':
                     # grab everything after the prefix
-                    found_val = val[val.find(':')+1:]
+                    found_val = val[val.find(':') + 1:]
 
                     # remove any invalid characters
                     found_val = found_val.replace('"', '')
