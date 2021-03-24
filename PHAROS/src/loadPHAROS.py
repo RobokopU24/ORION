@@ -10,7 +10,7 @@ import datetime
 
 from Common.kgx_file_writer import KGXFileWriter
 from Common.loader_interface import SourceDataLoader
-from Common.utils import LoggingUtil, GetData
+from Common.utils import LoggingUtil
 
 
 ##############
@@ -43,15 +43,19 @@ class PHAROSLoader(SourceDataLoader):
                                 join protein p on p.id=x.protein_id
                                 where x.xtype = 'HGNC' 
                                 and d.dtype <> 'Expression Atlas'
-                                and d.did not like 'NCBIGene%'"""
+                                and d.did not like 'NCBIGene%' 
+                                and d.did not like 'AmyCo%'
+                                and d.did not like 'ENSP%'"""
 
-    GENE_TO_DRUG_ACTIVITY: str = """SELECT DISTINCT x.value, da.drug, da.cmpd_chemblid AS cid, 'ChEMBL' AS id_src, p.sym,
-                                da.act_value AS affinity, da.act_type AS affinity_parameter, da.action_type AS pred, '' AS dtype
-                                FROM xref x
-                                JOIN drug_activity da on x.protein_id = da.target_id
-                                JOIN protein p on p.id=x.protein_id
-                                WHERE da.cmpd_chemblid IS NOT NULL
-                                AND x.xtype='HGNC'"""
+    DISEASE_TO_GENE: str = """select distinct x.value, d.did, d.name, p.sym, d.dtype
+                                from disease d 
+                                join xref x on x.protein_id = d.protein_id 
+                                join protein p on d.protein_id = p.id 
+                                where x.xtype = 'HGNC' 
+                                and d.dtype <> 'Expression Atlas'
+                                and d.did not like 'NCBIGene%' 
+                                and d.did not like 'AmyCo%'
+                                and d.did not like 'ENSP%'"""
 
     GENE_TO_CMPD_ACTIVITY: str = """SELECT DISTINCT x.value, ca.cmpd_name_in_src as drug, ca.cmpd_id_in_src as cid, catype AS id_src,
                                 ca.act_value AS affinity, ca.act_type as affinity_parameter, ca.act_type AS pred, p.sym,
@@ -61,27 +65,27 @@ class PHAROSLoader(SourceDataLoader):
                                 JOIN protein p on p.id=x.protein_id
                                 WHERE x.xtype='HGNC'"""
 
-    DRUG_ACTIVITY_TO_GENE: str = """SELECT DISTINCT da.cmpd_chemblid, da.drug as drug, x.value, p.sym, da.act_value AS affinity,
-                                da.act_type AS affinity_parameter, da.action_type AS pred, '' AS dtype
-                                FROM xref x
-                                JOIN drug_activity da on da.target_id = x.protein_id
-                                join protein p on da.target_id = p.id
-                                WHERE x.xtype='HGNC'"""
-
-    CMPD_ACTIVITY_TO_GENE: str = """SELECT DISTINCT ca.cmpd_id_in_src as drug, x.value, p.sym, ca.act_value AS affinity, ca.act_type as affinity_parameter,
+    CMPD_ACTIVITY_TO_GENE: str = """SELECT DISTINCT x.value, ca.cmpd_id_in_src as drug, p.sym, ca.act_value AS affinity, ca.act_type as affinity_parameter,
                                 ca.act_type AS pred, ca.pubmed_ids AS pubmed_ids, '' AS dtype
                                 FROM xref x
                                 JOIN cmpd_activity ca on ca.target_id = x.protein_id
                                 JOIN protein p on ca.target_id = p.id
                                 WHERE x.xtype='HGNC'"""
 
-    DISEASE_TO_GENE: str = """select distinct x.value, d.did, d.name, p.sym, d.dtype
-                                from disease d 
-                                join xref x on x.protein_id = d.protein_id 
-                                join protein p on d.protein_id = p.id 
-                                where x.xtype = 'HGNC' 
-                                and d.dtype <> 'Expression Atlas'
-                                and d.did not like 'NCBIGene%'"""
+    GENE_TO_DRUG_ACTIVITY: str = """SELECT DISTINCT x.value, da.drug, da.cmpd_chemblid AS cid, 'ChEMBL' AS id_src, p.sym,
+                                da.act_value AS affinity, da.act_type AS affinity_parameter, da.action_type AS pred, '' AS dtype
+                                FROM xref x
+                                JOIN drug_activity da on x.protein_id = da.target_id
+                                JOIN protein p on p.id=x.protein_id
+                                WHERE da.cmpd_chemblid IS NOT NULL
+                                AND x.xtype='HGNC'"""
+
+    DRUG_ACTIVITY_TO_GENE: str = """SELECT DISTINCT x.value, da.cmpd_chemblid, da.drug as drug, p.sym, da.act_value AS affinity,
+                                da.act_type AS affinity_parameter, da.action_type AS pred, '' AS dtype
+                                FROM xref x
+                                JOIN drug_activity da on da.target_id = x.protein_id
+                                join protein p on da.target_id = p.id
+                                WHERE x.xtype='HGNC'"""
 
     # for tracking counts
     total_nodes: int = 0
@@ -103,7 +107,7 @@ class PHAROSLoader(SourceDataLoader):
         self.source_db = 'Druggable Genome initiative database'
 
         # create a logger
-        self.logger = LoggingUtil.init_logging("Data_services.PHAROSLoader", level=logging.INFO, line_format='medium', log_file_path=os.environ['DATA_SERVICES_LOGS'])
+        self.logger = LoggingUtil.init_logging("Data_services.PHAROSLoader", level=logging.DEBUG, line_format='medium', log_file_path=os.environ['DATA_SERVICES_LOGS'])
 
         # get a connection to the PHAROS MySQL DB
         self.db = mysql.connector.connect(host="localhost", user="root", password='TSZTVhsjmoAi9MH1n1jo', database="pharos67")
@@ -146,7 +150,7 @@ class PHAROSLoader(SourceDataLoader):
 
     def load(self, nodes_output_file_path: str, edges_output_file_path: str):
         """
-        loads CTD associated data gathered from http://ctdbase.org/reports/
+        loads PHAROS associated data gathered from http://ctdbase.org/reports/
 
         :param: nodes_output_file_path - path to node file
         :param: edges_output_file_path - path to edge file
@@ -155,32 +159,52 @@ class PHAROSLoader(SourceDataLoader):
         self.logger.info(f'PHAROSLoader - Start of PHAROS data processing.')
 
         # parse the data
-        self.parse_data_db()
+        load_metadata = self.parse_data_db()
 
+        # write the data to the file system
         self.write_to_file(nodes_output_file_path, edges_output_file_path)
 
         self.logger.info(f'PHAROSLoader - Processing complete.')
 
-    def parse_data_db(self):
+        # return the metadata to the caller
+        return load_metadata
+
+    def parse_data_db(self) -> dict:
         """
         Parses the PHAROS data to create KGX files.
 
-        :return:
+        :return: parsed meta data results
         """
-
         # storage for the node list
         node_list: list = []
 
+        final_record_count: int = 0
+        final_skipped_count: int = 0
+
         # get the nodes and edges for each dataset
-        node_list = self.parse_gene_to_disease(node_list)
-        # node_list = self.parse_gene_to_drug_activity(node_list)
-        # node_list = self.parse_gene_to_cmpd_activity(node_list)
-        # node_list = self.parse_drug_activity_to_gene(node_list)
-        # node_list = self.parse_cmpd_activity_to_gene(node_list)
+        node_list, records, skipped = self.parse_gene_to_disease(node_list)
+        final_record_count += records
+        final_skipped_count += skipped
+
+        node_list, records, skipped = self.parse_gene_to_drug_activity(node_list)
+        final_record_count += records
+        final_skipped_count += skipped
+
+        node_list, records, skipped = self.parse_gene_to_cmpd_activity(node_list)
+        final_record_count += records
+        final_skipped_count += skipped
+
+        node_list, records, skipped = self.parse_drug_activity_to_gene(node_list)
+        final_record_count += records
+        final_skipped_count += skipped
+
+        node_list, records, skipped = self.parse_cmpd_activity_to_gene(node_list)
+        final_record_count += records
+        final_skipped_count += skipped
 
         # is there anything to do
         if len(node_list) > 0:
-            self.logger.debug('Creating edges.')
+            self.logger.debug('Creating nodes and edges.')
 
             # create a data frame with the node list
             df: pd.DataFrame = pd.DataFrame(node_list, columns=['grp', 'node_num', 'id', 'name', 'category', 'equivalent_identifiers', 'predicate', 'relation', 'edge_label', 'pmids', 'affinity', 'affinity_parameter', 'provenance'])
@@ -192,12 +216,25 @@ class PHAROSLoader(SourceDataLoader):
         else:
             self.logger.warning(f'No records found.')
 
-    def parse_gene_to_disease(self, node_list: list) -> list:
+        # load up the metadata
+        load_metadata = {
+            'num_source_lines': final_record_count,
+            'unusable_source_lines': final_skipped_count
+        }
+
+        # return the metadata to the caller
+        return load_metadata
+
+    def parse_gene_to_disease(self, node_list: list) -> (list, int, int):
         """
         gets gene to disease records from the pharos DB and creates nodes
         :param node_list: list, the node list to append this data to
-        :return: list, the node list
+        :return: list, the node list and record counters
         """
+        # init the record counters
+        record_counter: int = 0
+        skipped_record_counter: int = 0
+
         # get the data
         gene_to_disease: dict = self.execute_pharos_sql(self.GENE_TO_DISEASE)
 
@@ -206,6 +243,9 @@ class PHAROSLoader(SourceDataLoader):
 
         # for each item in the list
         for item in gene_to_disease:
+            # increment the counter
+            record_counter += 1
+
             # get the pertinent info from the record
             gene = item['value']
             did = item['did']
@@ -215,6 +255,9 @@ class PHAROSLoader(SourceDataLoader):
 
             # move along, no disease id
             if did is None:
+                # increment the counter
+                skipped_record_counter += 1
+
                 continue
             # if this is a UML node, create the curie
             elif pattern.match(did):
@@ -239,22 +282,28 @@ class PHAROSLoader(SourceDataLoader):
                 node_list.append({'grp': grp, 'node_num': 2, 'id': did, 'name': name, 'category': '', 'equivalent_identifiers': '', 'predicate': 'biolink:gene_associated_with_condition', 'relation': 'WD:P2293', 'edge_label': 'gene_associated_with_condition', 'pmids': [], 'affinity': 0, 'affinity_parameter': '', 'provenance': provenance})
 
         # return the node list to the caller
-        return node_list
+        return node_list, record_counter, skipped_record_counter
 
-    def parse_gene_to_drug_activity(self, node_list: list) -> list:
+    def parse_gene_to_drug_activity(self, node_list: list) -> (list, int, int):
         """
         gets gene to drug activity records from the pharos DB and creates nodes
         :param node_list: list, the node list to append this data to
-        :return: list, the node list
+        :return: list, the node list and record counters
         """
+        # init the record counters
+        record_counter: int = 0
+        skipped_record_counter: int = 0
 
         # get the data
         gene_to_drug_activity: dict = self.execute_pharos_sql(self.GENE_TO_DRUG_ACTIVITY)
 
-        prefixmap = {'ChEMBL': 'CHEMBL.COMPOUND', 'Guide to Pharmacology': 'gtpo'}
+        prefixmap = {'ChEMBL': 'CHEMBL.COMPOUND', 'Guide to Pharmacology': 'GTOPDB'}
 
         # for each item in the list
         for item in gene_to_drug_activity:
+            # increment the counter
+            record_counter += 1
+
             name = item['drug']
             gene = item['value']
             gene_sym = item['sym']
@@ -278,21 +327,29 @@ class PHAROSLoader(SourceDataLoader):
 
             # create the gene node and add it to the list
             node_list.append({'grp': grp, 'node_num': 2, 'id': gene, 'name': gene_sym, 'category': '', 'equivalent_identifiers': '', 'predicate': '', 'relation': relation, 'edge_label': '', 'pmids': pmids, 'affinity': affinity, 'affinity_parameter': affinity_parameter, 'provenance': provenance})
-        return node_list
 
-    def parse_gene_to_cmpd_activity(self, node_list: list) -> list:
+        return node_list, record_counter, skipped_record_counter
+
+    def parse_gene_to_cmpd_activity(self, node_list: list) -> (list, int, int):
         """
         gets gene to compound activity records from the pharos DB and creates nodes
         :param node_list: list, the node list to append this data to
-        :return: list, the node list
+        :return: list, the node list and record counters
         """
+        # init the record counters
+        record_counter: int = 0
+        skipped_record_counter: int = 0
+
         # get the data
         gene_to_cmpd_activity: dict = self.execute_pharos_sql(self.GENE_TO_CMPD_ACTIVITY)
 
-        prefixmap = {'ChEMBL': 'CHEMBL.COMPOUND', 'Guide to Pharmacology': 'gtpo'}
+        prefixmap = {'ChEMBL': 'CHEMBL.COMPOUND', 'Guide to Pharmacology': 'GTOPDB'}
 
         # for each item in the list
         for item in gene_to_cmpd_activity:
+            # increment the counter
+            record_counter += 1
+
             name = item['drug']
             gene = item['value']
             gene_sym = item['sym']
@@ -317,20 +374,30 @@ class PHAROSLoader(SourceDataLoader):
             # create the gene node and add it to the list
             node_list.append({'grp': grp, 'node_num': 2, 'id': gene, 'name': gene_sym, 'category': '', 'equivalent_identifiers': '', 'predicate': '', 'relation': relation, 'edge_label': '', 'pmids': pmids, 'affinity': affinity, 'affinity_parameter': affinity_parameter, 'provenance': provenance})
 
-        return node_list
+        return node_list, record_counter, skipped_record_counter
 
-    def parse_drug_activity_to_gene(self, node_list: list) -> list:
+    def parse_drug_activity_to_gene(self, node_list: list) -> (list, int, int):
         """
         gets drug activity to gene records from the pharos DB and creates nodes
         :param node_list: list, the node list to append this data to
-        :return: list, the node list
+        :return: list, the node list and record counters
         """
+        # init the record counters
+        record_counter: int = 0
+        skipped_record_counter: int = 0
+
         # get the data
         drug_activity_to_gene: dict = self.execute_pharos_sql(self.DRUG_ACTIVITY_TO_GENE)
 
         # for each item in the list
         for item in drug_activity_to_gene:
+            # increment the counter
+            record_counter += 1
+
             if item['cmpd_chemblid'] is None:
+                # increment the counter
+                skipped_record_counter += 1
+
                 continue
 
             name = item['drug']
@@ -357,20 +424,26 @@ class PHAROSLoader(SourceDataLoader):
             # create the gene node and add it to the list
             node_list.append({'grp': grp, 'node_num': 2, 'id': gene, 'name': gene_sym, 'category': '', 'equivalent_identifiers': '', 'predicate': '', 'relation': relation, 'edge_label': '', 'pmids': pmids, 'affinity': affinity, 'affinity_parameter': affinity_parameter, 'provenance': provenance})
 
-        return node_list
+        return node_list, record_counter, skipped_record_counter
 
-    def parse_cmpd_activity_to_gene(self, node_list: list) -> list:
+    def parse_cmpd_activity_to_gene(self, node_list: list) -> (list, int, int):
         """
         gets compound activity to gene records from the pharos DB and creates nodes
         :param node_list: list, the node list to append this data to
-        :return: list, the node list
+        :return: list, the node list and record counters
         """
+        # init the record counters
+        record_counter: int = 0
+        skipped_record_counter: int = 0
 
         # get the data
         cmpd_activity_to_gene: dict = self.execute_pharos_sql(self.CMPD_ACTIVITY_TO_GENE)
 
         # for each item in the list
         for item in cmpd_activity_to_gene:
+            # increment the counter
+            record_counter += 1
+
             name = item['drug']
             gene = item['value']
             gene_sym = item['sym']
@@ -396,14 +469,18 @@ class PHAROSLoader(SourceDataLoader):
             node_list.append({'grp': grp, 'node_num': 2, 'id': gene, 'name': gene_sym, 'category': '', 'equivalent_identifiers': '', 'predicate': '', 'relation': relation, 'edge_label': '', 'pmids': pmids, 'affinity': affinity, 'affinity_parameter': affinity_parameter, 'provenance': provenance})
 
         # return the node list to the caller
-        return node_list
+        return node_list, record_counter, skipped_record_counter
 
-    def parse_disease_to_gene(self, node_list: list) -> list:
+    def parse_disease_to_gene(self, node_list: list) -> (list, int, int):
         """
         gets disease to gene records from the pharos DB and creates nodes
         :param node_list: list, the node list to append this data to
-        :return: list, the node list
+        :return: list, the node list and record counters
         """
+        # init the record counters
+        record_counter: int = 0
+        skipped_record_counter: int = 0
+
         # get the data
         disease_to_gene: dict = self.execute_pharos_sql(self.DISEASE_TO_GENE)
 
@@ -412,6 +489,9 @@ class PHAROSLoader(SourceDataLoader):
 
         # for each item in the list
         for item in disease_to_gene:
+            # increment the counter
+            record_counter += 1
+
             # get the pertinent info from the record
             gene = item['value']
             gene_sym = item['sym']
@@ -421,6 +501,9 @@ class PHAROSLoader(SourceDataLoader):
 
             # move along, no disease id
             if did is None:
+                # increment the counter
+                skipped_record_counter += 1
+
                 continue
             # if this is a UML node, create the curie
             elif pattern.match(did):
@@ -443,7 +526,7 @@ class PHAROSLoader(SourceDataLoader):
             # create the gene node and add it to the node list
             node_list.append({'grp': grp, 'node_num': 2, 'id': gene, 'name': gene_sym, 'category': '', 'equivalent_identifiers': '', 'predicate': 'biolink:gene_associated_with_condition', 'relation': 'WD:P2293', 'edge_label': 'gene_involved', 'pmids': [], 'affinity': 0, 'affinity_parameter': '', 'provenance': provenance})
 
-        return node_list
+        return node_list, record_counter, skipped_record_counter
 
     def get_edge_props(self, result) -> (str, list, dict, str):
         """
@@ -537,15 +620,16 @@ class PHAROSLoader(SourceDataLoader):
                 for row in rows.iterrows():
                     # save the node and node id for the edge
                     if row[1].node_num == 1:
-                        # save the id for the edge
-                        node_1_id = row[1]['id']
+                        if row[1]["name"] is not None:
+                            # save the id for the edge
+                            node_1_id = row[1]['id']
 
-                        # make sure the name doesnt have any odd characters
-                        name = ''.join([x if ord(x) < 128 else '?' for x in row[1]["name"]])
+                            # make sure the name doesnt have any odd characters
+                            name = ''.join([x if ord(x) < 128 else '?' for x in row[1]["name"]])
 
-                        # save the node
-                        self.final_node_list.append({'id': node_1_id, 'name': name, 'properties': None})
-                        break
+                            # save the node
+                            self.final_node_list.append({'id': node_1_id, 'name': name, 'properties': None})
+                            break
 
                 # did we find the root node
                 if node_1_id != '':
@@ -553,18 +637,19 @@ class PHAROSLoader(SourceDataLoader):
                     for row in rows.iterrows():
                         # save the nodes and the node id for the edge
                         if row[1].node_num != 1:
-                            # only create the edge/nodes if the edge normalized properly
-                            if row[1]['predicate'] != '' and row[1]['edge_label'] != '':
-                                # make sure the name doesnt have any odd characters
-                                name = ''.join([x if ord(x) < 128 else '?' for x in row[1]["name"]])
+                            # make sure the name doesnt have any odd characters
+                            name = ''.join([x if ord(x) < 128 else '?' for x in row[1]["name"]])
 
-                                # save the node
-                                self.final_node_list.append({'id': row[1]['id'], 'name': name, 'properties': None})
+                            # save the node
+                            self.final_node_list.append({'id': row[1]['id'], 'name': name, 'properties': None})
 
-                                # save the edge
-                                self.final_edge_list.append({"predicate": row[1]['predicate'], "subject": node_1_id, "relation": row[1]['relation'], "object": row[1]['id'], 'properties': {"publications": row[1]['pmids'], "affinity": row[1]['affinity'], "affinity_parameter":  row[1]['affinity_parameter'], 'provenance': row[1]['provenance'], 'source_database': 'PHAROS'}})
+                            # save the edge
+                            self.final_edge_list.append({"subject": node_1_id, "predicate": row[1]['predicate'], "relation": row[1]['relation'], "object": row[1]['id'], 'properties': {"publications": row[1]['pmids'], "affinity": row[1]['affinity'], "affinity_parameter":  row[1]['affinity_parameter'], 'provenance': row[1]['provenance'], 'source_database': 'PHAROS'}})
             else:
                 self.logger.debug(f'node group mismatch. len: {len(rows)}, data: {rows}')
+
+        # de-dupe the node list
+        self.final_node_list = [dict(t) for t in {tuple(d.items()) for d in self.final_node_list}]
 
 
 if __name__ == '__main__':
