@@ -5,7 +5,7 @@ import logging
 import enum
 import datetime
 import pandas as pd
-import hashlib
+import requests
 
 from csv import reader
 from Common.utils import LoggingUtil, GetData
@@ -49,6 +49,8 @@ class VPLoader(SourceDataLoader):
     # the final output lists of nodes and edges
     final_node_list: list = []
     final_edge_list: list = []
+
+    node_norm_failures: list = []
 
     def __init__(self, test_mode: bool = False):
         """
@@ -168,6 +170,12 @@ class VPLoader(SourceDataLoader):
                     final_record_count += records
                     final_skipped_count += skipped
 
+            # de-dupe the list
+            self.final_node_list = [dict(t) for t in {tuple(d.items()) for d in self.final_node_list}]
+
+            # normalize the group of entries on the data frame.
+            self.final_node_list = self.normalize_node_data(self.final_node_list)
+
             self.logger.debug(f'{len(self.final_node_list)} nodes found')
 
             # create a data frame with the node list
@@ -201,6 +209,130 @@ class VPLoader(SourceDataLoader):
         # return the metadata to the caller
         return load_metadata
 
+    def normalize_node_data(self, node_list: list) -> list:
+        """
+        This method calls the NodeNormalization web service to get the normalized identifier and name of the chemical substance node.
+        the data comes in as a grouped data frame and we will normalize the node_2 and node_3 groups.
+
+        :param node_list: data frame with items to normalize
+        :return: the data frame passed in with updated node data
+        """
+
+        # storage for cached node normalizations
+        cached_node_norms: dict = {}
+
+        # loop through the list and only save the NCBI taxa nodes
+        node_idx: int = 0
+
+        # save the node list count to avoid grabbing it over and over
+        node_count: int = len(node_list)
+
+        # init a list to identify taxa that has not been node normed
+        tmp_normalize: set = set()
+
+        # iterate through the data and get the keys to normalize
+        while node_idx < node_count:
+            # check to see if this one needs normalization data from the website
+            if node_list[node_idx]['node_num'] in [2, 3]:
+                if not node_list[node_idx]['id'] in cached_node_norms:
+                    tmp_normalize.add(node_list[node_idx]['id'])
+
+            node_idx += 1
+
+        # convert the set to a list so we can iterate through it
+        to_normalize: list = list(tmp_normalize)
+
+        # define the chuck size
+        chunk_size: int = 5000
+
+        # init the indexes
+        start_index: int = 0
+
+        # get the last index of the list
+        last_index: int = len(to_normalize)
+
+        self.logger.debug(f'{last_index} unique nodes will be normalized.')
+
+        # grab chunks of the data frame
+        while True:
+            if start_index < last_index:
+                # define the end index of the slice
+                end_index: int = start_index + chunk_size
+
+                # force the end index to be the last index to insure no overflow
+                if end_index >= last_index:
+                    end_index = last_index
+
+                self.logger.debug(f'Working block indexes {start_index} to {end_index} of {last_index}.')
+
+                # collect a slice of records from the data frame
+                data_chunk: list = to_normalize[start_index: end_index]
+
+                # get the data
+                # resp: requests.models.Response = requests.get('https://nodenormalization-sri.renci.org/get_normalized_nodes?curie=' + '&curie='.join(data_chunk))
+                resp: requests.models.Response = requests.post('https://nodenormalization-sri.renci.org/get_normalized_nodes', json={'curies': data_chunk})
+
+                # did we get a good status code
+                if resp.status_code == 200:
+                    # convert to json
+                    rvs: dict = resp.json()
+
+                    # merge this list with what we have gotten so far
+                    merged = {**cached_node_norms, **rvs}
+
+                    # save the merged list
+                    cached_node_norms = merged
+                else:
+                    # the 404 error that is trapped here means that the entire list of nodes didnt get normalized.
+                    self.logger.debug(f'response code: {resp.status_code}')
+
+                    # since they all failed to normalize add to the list so we dont try them again
+                    for item in data_chunk:
+                        cached_node_norms.update({item: None})
+
+                # move on down the list
+                start_index += chunk_size
+            else:
+                break
+
+        # reset the node index
+        node_idx = 0
+
+        # for each row in the slice add the new id and name
+        # iterate through node groups and get only the taxa records.
+        while node_idx < node_count:
+            # is this something that has been normalized
+            if node_list[node_idx]['node_num'] in [2, 3]:
+                # save the target data element
+                rv = node_list[node_idx]
+
+                # did we find a normalized value
+                if cached_node_norms[rv['id']] is not None:
+                    # find the name and replace it with label
+                    if 'label' in cached_node_norms[rv['id']]['id']:
+                        node_list[node_idx]['name'] = cached_node_norms[rv['id']]['id']['label']
+
+                    if 'type' in cached_node_norms[rv['id']]:
+                        node_list[node_idx]['category'] = '|'.join(cached_node_norms[rv['id']]['type'])
+
+                    # get the equivalent identifiers
+                    if 'equivalent_identifiers' in cached_node_norms[rv['id']] and len(cached_node_norms[rv['id']]['equivalent_identifiers']) > 0:
+                        node_list[node_idx]['equivalent_identifiers'] = '|'.join(list((item['identifier']) for item in cached_node_norms[rv['id']]['equivalent_identifiers']))
+
+                    # find the id and replace it with the normalized value
+                    node_list[node_idx]['id'] = cached_node_norms[rv['id']]['id']['identifier']
+                else:
+                    self.node_norm_failures.append(rv['id'])
+
+            # go to the next index
+            node_idx += 1
+
+        # remove all nodes that dont have a category as they cant have an edge if they dont
+        node_list[:] = [d for d in node_list if d['category'] != '']
+
+        # return the updated list to the caller
+        return node_list
+
     def get_edge_list(self, df) -> list:
         """
         gets a list of edges for the data frame passed
@@ -224,8 +356,8 @@ class VPLoader(SourceDataLoader):
             node_3_type: str = ''
 
             # if we dont get a set of 3 something is odd (but not necessarily bad)
-            # if len(rows) != 3:
-            #     self.logger.warning(f'Warning: Mis-matched node grouping. {rows}')
+            if len(rows) != 3:
+                self.logger.warning(f'Warning: Mis-matched node grouping. {rows}')
 
             # for each row in the triplet
             for row in rows.iterrows():
@@ -243,8 +375,8 @@ class VPLoader(SourceDataLoader):
                 # create the KGX edge data for nodes 1 and 2
                 """ An edge from the gene to the organism_taxon with relation "in_taxon" """
                 edge_list.append({"subject": f"{node_1_id}", "predicate": "biolink:in_taxon", "relation": "RO:0002162", "object": f"{node_2_id}", 'properties': {'source_database': 'Viral proteome'}})
-            # else:
-            #     self.logger.warning(f'Warning: Missing 1 or more node IDs. Node type 1: {node_1_id}, Node type 2: {node_2_id}')
+            else:
+                self.logger.warning(f'Warning: Missing 1 or more node IDs. Node type 1: {node_1_id}, Node type 2: {node_2_id}')
 
             # check to insure we have both node ids
             if node_1_id != '' and node_3_id != '':
@@ -280,18 +412,14 @@ class VPLoader(SourceDataLoader):
                 else:
                     valid_type = False
 
-                # TODO: this no longer works b/c of no pre node normalization
                 # was this a good value
-                # if not valid_type:
-                #     self.logger.debug(f'Warning: Unrecognized node 3 type')
-                # elif src_node_id == '' or obj_node_id == '':
-                #     self.logger.debug(f'Warning: Missing 1 or more node IDs. Node type 1: {node_1_id}, Node type 3: {node_3_id}')
-                # else:
-                #     # create the record ID
-                #     record_id: str = src_node_id + relation + obj_node_id
-                #
-                #     # create the KGX edge data for nodes 1 and 3
-                #     edge_list.append({'id': f'{hashlib.md5(record_id.encode("utf-8")).hexdigest()}', 'subject': src_node_id, 'predicate': predicate, 'relation': relation, "object": obj_node_id, 'properties': {'source_database': 'Viral proteome'}})
+                if not valid_type:
+                    self.logger.debug(f'Warning: Unrecognized node 3 type')
+                elif src_node_id == '' or obj_node_id == '':
+                    self.logger.debug(f'Warning: Missing 1 or more node IDs. Node type 1: {node_1_id}, Node type 3: {node_3_id}')
+                else:
+                    # create the KGX edge data for nodes 1 and 3
+                    edge_list.append({'id': '', 'subject': src_node_id, 'predicate': predicate, 'relation': relation, "object": obj_node_id, 'properties': {'source_database': 'Viral proteome'}})
 
         self.logger.debug(f'{len(edge_list)} edges identified.')
 
@@ -334,7 +462,9 @@ class VPLoader(SourceDataLoader):
                 """ A gene with identifier UniProtKB:O73942, and name "apeI", 
                     and description "Homing endonuclease I-ApeI". These nodes won't be 
                     found in node normalizer, so we'll need to construct them by hand. """
-                node_list.append({'grp': grp, 'node_num': 1, 'id': f'{line[DATACOLS.DB.value]}:{line[DATACOLS.DB_Object_ID.value]}', 'name': line[DATACOLS.DB_Object_Symbol.value], 'category': '', 'properties': None})
+                node_list.append({'grp': grp, 'node_num': 1, 'id': f'{line[DATACOLS.DB.value]}:{line[DATACOLS.DB_Object_ID.value]}', 'name': line[DATACOLS.DB_Object_Symbol.value],
+                                  'category': 'biolink:Gene|biolink:GeneOrGeneProduct|biolink:MacromolecularMachine|biolink:GenomicEntity|biolink:MolecularEntity|biolink:BiologicalEntity|biolink:NamedThing',
+                                  'properties': None})
 
                 # create node type 2
                 """ An organism_taxon with identifier NCBITaxon:272557. This one should  
