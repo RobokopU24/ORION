@@ -444,14 +444,36 @@ class GetData:
         self.logger = LoggingUtil.init_logging("Data_services.Common.GetData", level=log_level, line_format='medium', log_file_path=os.environ['DATA_SERVICES_LOGS'])
 
     @staticmethod
-    def pull_via_ftp_binary(ftpsite, ftpdir, ftpfile):
-        ftp = FTP(ftpsite)
+    def pull_via_ftp_binary(ftp_site, ftp_dir, ftp_file):
+        """
+        Gets the ftp file in binary mode
+
+        :param ftp_site: the URL of the ftp site
+        :param ftp_dir: the directory in the ftp site
+        :param ftp_file: the name of the file to retrieve
+        :return:
+        """
+        # create the FTP object
+        ftp = FTP(ftp_site)
+
+        # log into the FTP site
         ftp.login()
-        ftp.cwd(ftpdir)
+
+        # change to the correct directory on the ftp site
+        ftp.cwd(ftp_dir)
+
+        # for each data byte retreived
         with BytesIO() as data:
-            ftp.retrbinary(f'RETR {ftpfile}', data.write)
+            # capture the data and put it in the buffer
+            ftp.retrbinary(f'RETR {ftp_file}', data.write)
+
+            # get the data in a stream
             binary = data.getvalue()
+
+        # close the connection to the ftp site
         ftp.quit()
+
+        # return the data stream
         return binary
 
     def pull_via_ftp(self, ftp_site: str, ftp_dir: str, ftp_files: list, data_file_path: str) -> int:
@@ -484,6 +506,7 @@ class GetData:
 
                 # does the file exist and has data in it
                 try:
+                    # get the size of the file
                     size: int = os.path.getsize(os.path.join(data_file_path, f))
                 except FileNotFoundError:
                     size: int = 0
@@ -498,6 +521,7 @@ class GetData:
                 # inform user of progress
                 file_counter += 1
 
+                # progress output
                 if file_counter % 50 == 0:
                     self.logger.debug(f'{file_counter} files retrieved, {len(ftp_files) - file_counter} to go.')
 
