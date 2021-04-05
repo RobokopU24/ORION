@@ -27,6 +27,9 @@ class UGLoader(SourceDataLoader):
         constructor
         :param test_mode - sets the run into test mode
         """
+        # call the super
+        super(SourceDataLoader, self).__init__()
+
         # set global variables
         self.data_path = os.environ['DATA_SERVICES_STORAGE']
         self.test_mode = test_mode
@@ -142,7 +145,7 @@ class UGLoader(SourceDataLoader):
         skipped_record_counter: int = 0
 
         # get a reference to the data handler object
-        gd = GetData(self.logger.level)
+        gd: GetData = GetData(self.logger.level)
 
         # init a list for the output data
         triple: list = []
@@ -176,7 +179,7 @@ class UGLoader(SourceDataLoader):
 
                 # get the curie for each element in the triple
                 for n in t:
-                    #init the value storage
+                    # init the value storage
                     val = None
 
                     try:
@@ -192,7 +195,7 @@ class UGLoader(SourceDataLoader):
                             val = qname[2].replace('_', ':')
 
                     except Exception as e:
-                        self.logger.warning(f'Exception parsing RDF qname {qname}. {e}')
+                        self.logger.warning(f'Exception parsing RDF {t}. {e}')
 
                     # did we get a valid value
                     if val is not None:
