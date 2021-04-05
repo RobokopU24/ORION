@@ -5,6 +5,7 @@ import pandas as pd
 import gzip
 import logging
 import datetime
+import requests
 
 from Common.kgx_file_writer import KGXFileWriter
 from Common.loader_interface import SourceDataLoader
@@ -46,11 +47,16 @@ class GOALoader(SourceDataLoader):
     final_node_list: list = []
     final_edge_list: list = []
 
+    node_norm_failures: list = []
+
     def __init__(self, test_mode: bool = False):
         """
         constructor
         :param test_mode - sets the run into test mode
         """
+        # call the super
+        super(SourceDataLoader, self).__init__()
+
         # set global variables
         self.data_path = os.environ['DATA_SERVICES_STORAGE']
         self.data_file = 'goa_human.gaf.gz'
@@ -83,7 +89,7 @@ class GOALoader(SourceDataLoader):
 
         """
         # and get a reference to the data gatherer
-        gd = GetData(self.logger.level)
+        gd: GetData = GetData(self.logger.level)
 
         # do the real thing if we arent in debug mode
         if not self.test_mode:
@@ -169,9 +175,6 @@ class GOALoader(SourceDataLoader):
         with gzip.open(infile_path, 'r') as zf:
             # read the file and make the list
             node_list, load_metadata = self.get_node_list(zf, swiss_prots)
-
-            # de-dupe the list
-            node_list = [dict(t) for t in {tuple(d.items()) for d in node_list}]
 
             self.logger.debug('Creating edges.')
 
@@ -260,10 +263,14 @@ class GOALoader(SourceDataLoader):
                 obj_node_id = node_1_id
             else:
                 valid_type = False
-                self.logger.debug(f'Debug: Unrecognized node 3 type for {grp}')
 
             # was this a good value
-            if valid_type:
+            if not valid_type:
+                self.logger.debug(f'Warning: Unrecognized node 3 type')
+            elif src_node_id == '' or obj_node_id == '':
+                self.logger.debug(f'Warning: Missing 1 or more node IDs. Node type 1: {node_1_id}, Node type 3: {node_3_id}')
+            else:
+                # create the KGX edge data for nodes 1 and 3
                 edge_list.append({"id": "", "subject": f"{src_node_id}", "relation": f"{relation}", "object": f"{obj_node_id}", "properties": {'source_data_base': 'UniProtKB Human GOA'}})
 
         # return the list to the caller
@@ -284,7 +291,7 @@ class GOALoader(SourceDataLoader):
         node_list: list = []
 
         # set the default category. could be overwritten in normalization
-        default_category: str = 'biolink:Gene|biolink:GeneOrGeneProduct|biolink:MacromolecularMachine|biolink:GenomicEntity|biolink:MolecularEntity|biolink:BiologicalEntity|biolink:NamedThing'
+        default_category: str = 'biolink:Gene|biolink:GenomicEntity|biolink:MolecularEntity|biolink:BiologicalEntity|biolink:NamedThing|biolink:Entity'
 
         # init the record counters
         record_counter: int = 0
@@ -301,9 +308,6 @@ class GOALoader(SourceDataLoader):
 
             # is this a swiss curated entry
             if line[1] in swiss_prots:
-                # set the default identifier. could be overwritten in normalization
-                # default_identifier: str = f'{line[DATACOLS.DB.value]}:{line[DATACOLS.DB_Object_ID.value]}'
-
                 try:
                     # an example record looks like this
                     """ UniProtKB       O73942  apeI            GO:0004518      GO_REF:0000043  IEA     UniProtKB-KW:KW-0540    F       
@@ -334,8 +338,124 @@ class GOALoader(SourceDataLoader):
             'unusable_source_lines': skipped_record_counter
         }
 
+        # de-dupe the list
+        node_list = [dict(t) for t in {tuple(d.items()) for d in node_list}]
+
+        # normalize the group of entries on the data frame.
+        node_list = self.normalize_node_data(node_list)
+
         # return to the caller
         return node_list, load_metadata
+
+    def normalize_node_data(self, node_list: list) -> list:
+        """
+        This method calls the NodeNormalization web service to get the normalized identifier and name of the chemical substance node.
+        the data comes in as a grouped data frame and we will normalize the node_2 and node_3 groups.
+
+        :param node_list: data frame with items to normalize
+        :return: the data frame passed in with updated node data
+        """
+
+        # storage for cached node normalizations
+        cached_node_norms: dict = {}
+
+        # loop through the list and only save the NCBI taxa nodes
+        node_idx: int = 0
+
+        # save the node list count to avoid grabbing it over and over
+        node_count: int = len(node_list)
+
+        # init a list to identify taxa that has not been node normed
+        tmp_normalize: set = set()
+
+        # iterate through the data and get the keys to normalize
+        while node_idx < node_count:
+            # check to see if this one needs normalization data from the website
+            if node_list[node_idx]['node_num'] == 3:
+                if not node_list[node_idx]['id'] in cached_node_norms:
+                    tmp_normalize.add(node_list[node_idx]['id'])
+
+            node_idx += 1
+
+        # convert the set to a list so we can iterate through it
+        to_normalize: list = list(tmp_normalize)
+
+        # define the chuck size
+        chunk_size: int = 5000
+
+        # init the indexes
+        start_index: int = 0
+
+        # get the last index of the list
+        last_index: int = len(to_normalize)
+
+        self.logger.debug(f'{last_index} unique nodes will be normalized.')
+
+        # grab chunks of the data frame
+        while True:
+            if start_index < last_index:
+                # define the end index of the slice
+                end_index: int = start_index + chunk_size
+
+                # force the end index to be the last index to insure no overflow
+                if end_index >= last_index:
+                    end_index = last_index
+
+                self.logger.debug(f'Working block indexes {start_index} to {end_index} of {last_index}.')
+
+                # collect a slice of records from the data frame
+                data_chunk: list = to_normalize[start_index: end_index]
+
+                # get the data
+                # resp: requests.models.Response = requests.get('https://nodenormalization-sri.renci.org/get_normalized_nodes?curie=' + '&curie='.join(data_chunk))
+                resp: requests.models.Response = requests.post('https://nodenormalization-sri.renci.org/get_normalized_nodes', json={'curies': data_chunk})
+
+                # did we get a good status code
+                if resp.status_code == 200:
+                    # convert to json
+                    rvs: dict = resp.json()
+
+                    # merge this list with what we have gotten so far
+                    merged = {**cached_node_norms, **rvs}
+
+                    # save the merged list
+                    cached_node_norms = merged
+                else:
+                    # the 404 error that is trapped here means that the entire list of nodes didnt get normalized.
+                    self.logger.debug(f'response code: {resp.status_code}')
+
+                    # since they all failed to normalize add to the list so we dont try them again
+                    for item in data_chunk:
+                        cached_node_norms.update({item: None})
+
+                # move on down the list
+                start_index += chunk_size
+            else:
+                break
+
+        # reset the node index
+        node_idx = 0
+
+        # for each row in the slice add the new id and name
+        # iterate through node groups and get only the taxa records.
+        while node_idx < node_count:
+            # is this something that has been normalized
+            if node_list[node_idx]['node_num'] == 3:
+                # save the target data element
+                rv = node_list[node_idx]
+
+                # did we find a normalized value
+                if cached_node_norms[rv['id']] is not None:
+                    if 'type' in cached_node_norms[rv['id']]:
+                        node_list[node_idx]['category'] = '|'.join(cached_node_norms[rv['id']]['type'])
+                else:
+                    self.node_norm_failures.append(rv['id'])
+
+            # go to the next index
+            node_idx += 1
+
+        # return the updated list to the caller
+        return node_list
 
 
 if __name__ == '__main__':
