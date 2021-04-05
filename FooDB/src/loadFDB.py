@@ -26,6 +26,9 @@ class FDBLoader(SourceDataLoader):
         constructor
         :param test_mode - sets the run into test mode
         """
+        # call the super
+        super(SourceDataLoader, self).__init__()
+
         # set global variables
         self.data_path = os.environ['DATA_SERVICES_STORAGE']
         self.test_mode = test_mode
