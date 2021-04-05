@@ -57,6 +57,9 @@ class VPLoader(SourceDataLoader):
         constructor
         :param test_mode - sets the run into test mode
         """
+        # call the super
+        super(SourceDataLoader, self).__init__()
+
         # set global variables
         self.data_path = os.environ['DATA_SERVICES_STORAGE']
         self.test_mode = test_mode
@@ -86,7 +89,7 @@ class VPLoader(SourceDataLoader):
 
     def get_vp_data(self):
         # and get a reference to the data gatherer
-        gd = GetData(self.logger.level)
+        gd: GetData = GetData(self.logger.level)
 
         # are we in test mode
         if not self.test_mode:
@@ -308,27 +311,13 @@ class VPLoader(SourceDataLoader):
 
                 # did we find a normalized value
                 if cached_node_norms[rv['id']] is not None:
-                    # find the name and replace it with label
-                    if 'label' in cached_node_norms[rv['id']]['id']:
-                        node_list[node_idx]['name'] = cached_node_norms[rv['id']]['id']['label']
-
                     if 'type' in cached_node_norms[rv['id']]:
                         node_list[node_idx]['category'] = '|'.join(cached_node_norms[rv['id']]['type'])
-
-                    # get the equivalent identifiers
-                    if 'equivalent_identifiers' in cached_node_norms[rv['id']] and len(cached_node_norms[rv['id']]['equivalent_identifiers']) > 0:
-                        node_list[node_idx]['equivalent_identifiers'] = '|'.join(list((item['identifier']) for item in cached_node_norms[rv['id']]['equivalent_identifiers']))
-
-                    # find the id and replace it with the normalized value
-                    node_list[node_idx]['id'] = cached_node_norms[rv['id']]['id']['identifier']
                 else:
                     self.node_norm_failures.append(rv['id'])
 
             # go to the next index
             node_idx += 1
-
-        # remove all nodes that dont have a category as they cant have an edge if they dont
-        node_list[:] = [d for d in node_list if d['category'] != '']
 
         # return the updated list to the caller
         return node_list
@@ -394,19 +383,19 @@ class VPLoader(SourceDataLoader):
                 valid_type = True
 
                 # find the predicate and edge relationships
-                if node_3_type.find('molecular_activity') > -1:
+                if node_3_type.find('MolecularActivity') > -1:
                     predicate = 'biolink:enabled_by'
                     relation = 'RO:0002333'
                     src_node_id = node_3_id
                     obj_node_id = node_1_id
-                elif node_3_type.find('biological_process') > -1:
+                elif node_3_type.find('BiologicalProcess') > -1:
                     predicate = 'biolink:actively_involved_in'
                     relation = 'RO:0002331'
                     src_node_id = node_1_id
                     obj_node_id = node_3_id
-                elif node_3_type.find('cellular_component') > -1:
+                elif node_3_type.find('CellularComponent') > -1:
                     predicate = 'biolink:has_part'
-                    relation = 'RO:0000051'
+                    relation = 'RO:0001019'
                     src_node_id = node_3_id
                     obj_node_id = node_1_id
                 else:
@@ -443,6 +432,9 @@ class VPLoader(SourceDataLoader):
         record_counter: int = 0
         skipped_record_counter: int = 0
 
+        # set the default category. could be overwritten in normalization
+        default_category: str = 'biolink:Gene|biolink:GenomicEntity|biolink:MolecularEntity|biolink:BiologicalEntity|biolink:NamedThing|biolink:Entity'
+
         # for the rest of the lines in the file
         for line in csv_reader:
             # skip over data comments. 2 sars records start with a curie 'ComplexPortal' which will also be skipped
@@ -463,7 +455,7 @@ class VPLoader(SourceDataLoader):
                     and description "Homing endonuclease I-ApeI". These nodes won't be 
                     found in node normalizer, so we'll need to construct them by hand. """
                 node_list.append({'grp': grp, 'node_num': 1, 'id': f'{line[DATACOLS.DB.value]}:{line[DATACOLS.DB_Object_ID.value]}', 'name': line[DATACOLS.DB_Object_Symbol.value],
-                                  'category': 'biolink:Gene|biolink:GeneOrGeneProduct|biolink:MacromolecularMachine|biolink:GenomicEntity|biolink:MolecularEntity|biolink:BiologicalEntity|biolink:NamedThing',
+                                  'category': default_category,
                                   'properties': None})
 
                 # create node type 2
