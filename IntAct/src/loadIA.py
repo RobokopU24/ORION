@@ -80,6 +80,9 @@ class IALoader(SourceDataLoader):
         constructor
         :param test_mode - sets the run into test mode
         """
+        # call the super
+        super(SourceDataLoader, self).__init__()
+
         # set global variables
         self.data_path: str = os.environ['DATA_SERVICES_STORAGE']
         self.data_file: str = 'intact.zip'
@@ -113,7 +116,7 @@ class IALoader(SourceDataLoader):
 
         """
         # get a reference to the data gathering class
-        gd = GetData(self.logger.level)
+        gd: GetData = GetData(self.logger.level)
 
         # do the real thing if we arent in debug mode
         if not self.test_mode:
@@ -200,7 +203,7 @@ class IALoader(SourceDataLoader):
         :param data_file_name: the name of the intact zip file
         :return: the parsed meta data results
         """
-
+        # get the path to the data file
         infile_path: str = os.path.join(data_file_path, data_file_name)
 
         # init the record counters
