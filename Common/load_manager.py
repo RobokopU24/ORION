@@ -17,29 +17,37 @@ from PHAROS.src.loadPHAROS import PHAROSLoader
 from UberGraph.src.loadUG import UGLoader
 from ViralProteome.src.loadVP import VPLoader
 from gtopdb.src.loadGtoPdb import GtoPdbLoader
+from hmdb.src.loadHMDB import HMDBLoader
+from hgnc.src.loadHGNC import HGNCLoader
 
 GWAS_CATALOG = 'GWASCatalog'
 CTD = 'CTD'
 FOODB = 'FooDB' # this is on hold, data needs review after latest release of data.
-GOA = 'HumanGOA'
+GOA = 'HumanGOA' # this has normalization issues (needs pre-norm to create edges)
 INTACT = "IntAct"
 PHAROS = 'PHAROS'
 UBERGRAPH = 'UberGraph'
 UNIREF = "UniRef"
 VP = 'ViralProteome'
 GTOPDB = 'GtoPdb'
+HMDB = 'HMDB'
+HGNC = 'HGNC'
 
 ALL_SOURCES = [
     GWAS_CATALOG,
     CTD,
-    FOODB,
-    GOA,
     INTACT,
-    PHAROS,
     UBERGRAPH,
-    UNIREF,
+    PHAROS,
+    GTOPDB,
+    GOA,
     VP,
-    GTOPDB
+    HMDB,
+    HGNC,
+
+    # items with issues
+    # FOODB,
+    # UNIREF,
 ]
 
 SOURCES_WITH_VARIANTS = [GWAS_CATALOG]
@@ -47,14 +55,18 @@ SOURCES_WITH_VARIANTS = [GWAS_CATALOG]
 source_data_loader_classes = {
     GWAS_CATALOG: GWASCatalogLoader,
     CTD: CTDLoader,
-    FOODB: FDBLoader,
-    GOA: GOALoader,
     INTACT: IALoader,
-    PHAROS: PHAROSLoader,
     UBERGRAPH: UGLoader,
-    UNIREF: UniRefSimLoader,
+    PHAROS: PHAROSLoader,
+    GTOPDB: GtoPdbLoader,
+    GOA: GOALoader,
     VP: VPLoader,
-    GTOPDB: GtoPdbLoader
+    HMDB: HMDBLoader,
+    HGNC: HGNCLoader,
+
+    # items with issues
+    # FOODB: FDBLoader,
+    # UNIREF: UniRefSimLoader,
 }
 
 
