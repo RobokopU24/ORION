@@ -89,7 +89,6 @@ class IALoader(SourceDataLoader):
         self.test_mode: bool = test_mode
         self.source_id: str = 'IntAct'
         self.source_db: str = 'IntAct Molecular Interaction Database'
-        self.swiss_prots: set = set()
 
         # create a logger
         self.logger = LoggingUtil.init_logging("Data_services.IntAct.IALoader", level=logging.INFO, line_format='medium', log_file_path=os.environ['DATA_SERVICES_LOGS'])
@@ -121,9 +120,6 @@ class IALoader(SourceDataLoader):
         # do the real thing if we arent in debug mode
         if not self.test_mode:
             file_count: int = gd.pull_via_ftp('ftp.ebi.ac.uk', '/pub/databases/IntAct/current/psimitab/', [self.data_file], self.data_path)
-
-            # get the uniprot kb ids that were curated by swiss-prot
-            self.swiss_prots: set = gd.get_swiss_prot_id_set(self.data_path, self.test_mode)
         else:
             file_count: int = 1
 
@@ -228,9 +224,8 @@ class IALoader(SourceDataLoader):
                 for line in lines:
                     # did we get something usable back
                     if line[DataCols.ID_interactor_A.value].startswith('u') and \
-                            line[DataCols.ID_interactor_B.value].startswith('u') and \
-                            line[DataCols.ID_interactor_A.value].split(':')[1] in self.swiss_prots and \
-                            line[DataCols.ID_interactor_B.value].split(':')[1] in self.swiss_prots:
+                            line[DataCols.ID_interactor_B.value].startswith('u'):
+
                         # increment the counter
                         record_counter += 1
 

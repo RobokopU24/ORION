@@ -32,7 +32,7 @@ class HMDBLoader(SourceDataLoader):
 
         # set global variables
         self.data_path: str = os.environ['DATA_SERVICES_STORAGE']
-        self.data_file: str = 'HMDB'
+        self.data_file: str = 'hmdb_metabolites.zip'
         self.test_mode: bool = test_mode
         self.source_id: str = 'HMDB'
         self.source_db: str = 'Human Metabolome Database'
@@ -87,9 +87,6 @@ class HMDBLoader(SourceDataLoader):
         # do the real thing if we arent in debug mode
         if not self.test_mode:
             file_count: int = gd.pull_via_http('https://hmdb.ca/system/downloads/current/hmdb_metabolites.zip', self.data_path)
-
-            # get the uniprot kb ids that were curated by swiss-prot
-            # self.swiss_prots: set = gd.get_swiss_prot_id_set(self.data_path, self.test_mode)
         else:
             file_count: int = 1
 

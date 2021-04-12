@@ -83,7 +83,7 @@ class GOALoader(SourceDataLoader):
         """
         return datetime.datetime.now().strftime("%m/%d/%Y")
 
-    def get_human_goa_data(self) -> (int, set):
+    def get_human_goa_data(self) -> (int):
         """
         Gets the human goa data.
 
@@ -93,17 +93,13 @@ class GOALoader(SourceDataLoader):
 
         # do the real thing if we arent in debug mode
         if not self.test_mode:
-            # get the uniprot kb ids that were curated by swiss-prot
-            swiss_prots: set = gd.get_swiss_prot_id_set(self.data_path, self.test_mode)
-
             # get the GOA data file
             byte_count: int = gd.get_goa_http_file(self.data_path, self.data_file)
         else:
-            swiss_prots: set = {'A0A024RBG1'}
             byte_count: int = 1
 
-        # return the byte count and swiss prots to the caller
-        return byte_count, swiss_prots
+        # return the byte count to the caller
+        return byte_count
 
     def write_to_file(self, nodes_output_file_path: str, edges_output_file_path: str) -> None:
         """
@@ -139,12 +135,12 @@ class GOALoader(SourceDataLoader):
         load_metadata: dict = {}
 
         # get the human goa data
-        byte_count, swiss_prots = self.get_human_goa_data()
+        byte_count = self.get_human_goa_data()
 
-        # did we get all the files and swiss prots
-        if byte_count > 0 and len(swiss_prots) > 0:
+        # did we get all the files
+        if byte_count > 0:
             # parse the data
-            load_metadata = self.parse_data_file(os.path.join(self.data_path, self.data_file), swiss_prots)
+            load_metadata = self.parse_data_file(os.path.join(self.data_path, self.data_file))
 
             self.logger.debug(f'File parsing complete.')
 
@@ -163,18 +159,17 @@ class GOALoader(SourceDataLoader):
         # return the metadata results
         return load_metadata
 
-    def parse_data_file(self, infile_path: str, swiss_prots: set) -> dict:
+    def parse_data_file(self, infile_path: str) -> dict:
         """
         Parses the data file for nodes/edges
 
         :param infile_path: the name of the GOA file to process
-        :param swiss_prots: the list of uniprot ids that have been swiss curated
         :return: parsing meta data results
         """
 
         with gzip.open(infile_path, 'r') as zf:
             # read the file and make the list
-            node_list, load_metadata = self.get_node_list(zf, swiss_prots)
+            node_list, load_metadata = self.get_node_list(zf)
 
             self.logger.debug('Creating edges.')
 
@@ -276,11 +271,10 @@ class GOALoader(SourceDataLoader):
         # return the list to the caller
         return edge_list
 
-    def get_node_list(self, fp, swiss_prots: set) -> (list, dict):
+    def get_node_list(self, fp) -> (list, dict):
         """ loads the nodes from the file handle passed
 
         :param fp: open file pointer
-        :param swiss_prots: list of swiss-prot curated uniprot id entries
         :return: list of nodes for further processing
         """
 
@@ -306,31 +300,26 @@ class GOALoader(SourceDataLoader):
             # increment the counter
             record_counter += 1
 
-            # is this a swiss curated entry
-            if line[1] in swiss_prots:
-                try:
-                    # an example record looks like this
-                    """ UniProtKB       O73942  apeI            GO:0004518      GO_REF:0000043  IEA     UniProtKB-KW:KW-0540    F       
-                        Homing endonuclease I-ApeI      apeI|APE_1929.1 protein 272557  20200229        UniProt """
+            try:
+                # an example record looks like this
+                """ UniProtKB       O73942  apeI            GO:0004518      GO_REF:0000043  IEA     UniProtKB-KW:KW-0540    F       
+                    Homing endonuclease I-ApeI      apeI|APE_1929.1 protein 272557  20200229        UniProt """
 
-                    # create a unique group identifier
-                    grp: str = f'{line[DATACOLS.DB_Object_ID.value]}/{line[DATACOLS.GO_ID.value]}'
+                # create a unique group identifier
+                grp: str = f'{line[DATACOLS.DB_Object_ID.value]}/{line[DATACOLS.GO_ID.value]}'
 
-                    # create node type 1
-                    """ A gene with identifier UniProtKB:O73942, and name "apeI", and description "Homing endonuclease I-ApeI". """
-                    node_list.append({'grp': grp, 'node_num': 1, 'id': f'{line[DATACOLS.DB.value]}:{line[DATACOLS.DB_Object_ID.value]}', 'name': f'{line[DATACOLS.DB_Object_Symbol.value]}', 'category': f'{default_category}', 'properties': None})
+                # create node type 1
+                """ A gene with identifier UniProtKB:O73942, and name "apeI", and description "Homing endonuclease I-ApeI". """
+                node_list.append({'grp': grp, 'node_num': 1, 'id': f'{line[DATACOLS.DB.value]}:{line[DATACOLS.DB_Object_ID.value]}', 'name': f'{line[DATACOLS.DB_Object_Symbol.value]}', 'category': f'{default_category}', 'properties': None})
 
-                    # create node type 3
-                    """ A node for the GO term GO:0004518. It should normalize, telling us the type/name. """
-                    node_list.append({'grp': grp, 'node_num': 3, 'id': f'{line[DATACOLS.GO_ID.value]}', 'name': '', 'category': '', 'properties': None})
-                except Exception as e:
-                    # increment the counter
-                    skipped_record_counter += 1
-
-                    self.logger.error(f'Error: Exception: {e}')
-            else:
+                # create node type 3
+                """ A node for the GO term GO:0004518. It should normalize, telling us the type/name. """
+                node_list.append({'grp': grp, 'node_num': 3, 'id': f'{line[DATACOLS.GO_ID.value]}', 'name': '', 'category': '', 'properties': None})
+            except Exception as e:
                 # increment the counter
                 skipped_record_counter += 1
+
+                self.logger.error(f'Error: Exception: {e}')
 
         # load up the metadata
         load_metadata: dict = {

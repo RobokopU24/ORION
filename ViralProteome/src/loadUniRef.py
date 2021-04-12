@@ -39,7 +39,6 @@ class UniRefSimLoader(SourceDataLoader):
         self.test_mode = test_mode
         self.source_id = 'UniRef'
         self.source_db = 'UniProt UniRef gene similarity data'
-        self.swiss_prots: set = set()
 
         # create a logger
         self.logger = LoggingUtil.init_logging("Data_services.ViralProteome.UniRefSimLoader", level=logging.INFO, line_format='medium', log_file_path=os.environ['DATA_SERVICES_LOGS'])
@@ -96,9 +95,6 @@ class UniRefSimLoader(SourceDataLoader):
         else:
             # create a test set of target taxa
             target_taxon_set: set = {'654924', '2219562', '10493', '160691', '2219561', ''}
-
-        # get the uniprot kb ids that were curated by swiss-prot
-        self.swiss_prots: set = gd.get_swiss_prot_id_set(self.data_path)
 
         # return the file count to the caller
         return target_taxon_set
@@ -295,108 +291,106 @@ class UniRefSimLoader(SourceDataLoader):
         # set the entry name
         entry_name = root.attrib['id'].replace('_', ':')
 
-        # is this a swissprot verified gene
-        if entry_name.split(':')[1] in self.swiss_prots:
-            # set the group id and similarity bin name
-            grp: str = entry_name.split(':')[1]
-            similarity_bin: str = entry_name.split(':')[0]
+        # set the group id and similarity bin name
+        grp: str = entry_name.split(':')[1]
+        similarity_bin: str = entry_name.split(':')[0]
 
-            # create local storage for the nodes will conditionally add to main node list later
-            tmp_node_list: list = []
+        # create local storage for the nodes will conditionally add to main node list later
+        tmp_node_list: list = []
 
-            # init the node counter
-            node_counter: int = 0
+        # init the node counter
+        node_counter: int = 0
 
-            # init the flag to indicate we did something
-            virus_capture: bool = False
+        # init the flag to indicate we did something
+        virus_capture: bool = False
 
-            # declare some default categories for genes and taxons
-            default_taxon_category: str = 'biolink:OrganismTaxon|biolink:OntologyClass|biolink:NamedThing'
-            default_gene_category: str = ''  # 'biolink:Gene|biolink:GeneOrGeneProduct|biolink:MacromolecularMachine|biolink:GenomicEntity|biolink:MolecularEntity|biolink:BiologicalEntity|biolink:NamedThing'
+        # declare some default categories for genes and taxons
+        default_taxon_category: str = 'biolink:OrganismTaxon|biolink:OntologyClass|biolink:NamedThing'
+        default_gene_category: str = ''  # 'biolink:Gene|biolink:GeneOrGeneProduct|biolink:MacromolecularMachine|biolink:GenomicEntity|biolink:MolecularEntity|biolink:BiologicalEntity|biolink:NamedThing'
 
-            # loop through the child elements of the entry
-            for entry_child in root:
-                """
-                Entry XML elements: UniRef node "UniRef###_accession" (gene_family) and "common taxon ID" (creates 1 node pair)
-                Ex. (node number type 0, 1): UniRef100_Q6GZX4, NCBITaxon:10493
-    
-                Representative member XML elements: "UniProtKB accession" (gene) and "NCBI taxonomy" (creates 1 node pair)
-                Ex. (node number type 2):  UniProt:Q6GZX4, NCBITaxon:654924
-    
-                Member XML elements: "UniProtKB accession" (gene) and "NCBI taxonomy" (creates N node pairs)
-                Ex. (node number type 3+):  UniProt:A0A0F6NZX8, NCBITaxon:10493...
-                """
+        # loop through the child elements of the entry
+        for entry_child in root:
+            """
+            Entry XML elements: UniRef node "UniRef###_accession" (gene_family) and "common taxon ID" (creates 1 node pair)
+            Ex. (node number type 0, 1): UniRef100_Q6GZX4, NCBITaxon:10493
 
-                try:
-                    if entry_child.attrib['type'] == 'common taxon ID':
-                        # we found a virus to capture
-                        virus_capture = True
+            Representative member XML elements: "UniProtKB accession" (gene) and "NCBI taxonomy" (creates 1 node pair)
+            Ex. (node number type 2):  UniProt:Q6GZX4, NCBITaxon:654924
 
-                        # save nodes for UniRef ID (UniRef###_accession) and UniRef taxon nodes (common taxon ID) for the entry
-                        tmp_node_list.append({'grp': grp, 'node_num': node_counter, 'id': entry_name, 'name': entry_name, 'category': default_gene_category, 'similarity_bin': similarity_bin})
+            Member XML elements: "UniProtKB accession" (gene) and "NCBI taxonomy" (creates N node pairs)
+            Ex. (node number type 3+):  UniProt:A0A0F6NZX8, NCBITaxon:10493...
+            """
 
-                        # get the taxon id
-                        taxon_id = 'NCBITaxon:' + entry_child.attrib['value']
+            try:
+                if entry_child.attrib['type'] == 'common taxon ID':
+                    # we found a virus to capture
+                    virus_capture = True
 
-                        # save the taxon node
-                        tmp_node_list.append({'grp': grp, 'node_num': node_counter + 1, 'id': taxon_id, 'name': 'NCBITaxon:' + entry_child.attrib['value'],
-                                              'category': default_taxon_category, 'similarity_bin': similarity_bin})
+                    # save nodes for UniRef ID (UniRef###_accession) and UniRef taxon nodes (common taxon ID) for the entry
+                    tmp_node_list.append({'grp': grp, 'node_num': node_counter, 'id': entry_name, 'name': entry_name, 'category': default_gene_category, 'similarity_bin': similarity_bin})
 
-                        # increment the node counter
-                        node_counter += 2
-                except KeyError:
-                    pass
+                    # get the taxon id
+                    taxon_id = 'NCBITaxon:' + entry_child.attrib['value']
 
-                # get the similar members that are related to the entry. there could be a large number of these
-                if virus_capture and (entry_child.tag == 'member' or entry_child.tag == 'representativeMember'):
-                    # loop through the members
-                    for member in iter(entry_child):
-                        # look for the DB reference node.
-                        if member.tag == 'dbReference':
-                            # logger.debug(f"\t\tCluster dbReference\" element member: \"{member.attrib['type']}\" is {member.attrib['id']}.")
-                            member_uniprotkb_id: str = member.attrib['id']
+                    # save the taxon node
+                    tmp_node_list.append({'grp': grp, 'node_num': node_counter + 1, 'id': taxon_id, 'name': 'NCBITaxon:' + entry_child.attrib['value'],
+                                          'category': default_taxon_category, 'similarity_bin': similarity_bin})
 
-                            # init node data with the node grouping mechanism
-                            member_props: dict = {'grp': grp}
+                    # increment the node counter
+                    node_counter += 2
+            except KeyError:
+                pass
 
-                            # init the uniprot accession first found flag
-                            found_uniprot_access: bool = False
+            # get the similar members that are related to the entry. there could be a large number of these
+            if virus_capture and (entry_child.tag == 'member' or entry_child.tag == 'representativeMember'):
+                # loop through the members
+                for member in iter(entry_child):
+                    # look for the DB reference node.
+                    if member.tag == 'dbReference':
+                        # logger.debug(f"\t\tCluster dbReference\" element member: \"{member.attrib['type']}\" is {member.attrib['id']}.")
+                        member_uniprotkb_id: str = member.attrib['id']
 
-                            # loop through the member properties
-                            for db_ref_prop in member:
-                                # get the needed DB reference properties for the similar member
-                                if db_ref_prop.tag == 'property' and db_ref_prop.attrib['type'] in {'UniProtKB accession', 'source organism', 'NCBI taxonomy', 'protein name'}:
-                                    if db_ref_prop.attrib['type'] == 'UniProtKB accession':
-                                        if not found_uniprot_access:
-                                            found_uniprot_access = True
-                                            # logger.debug(f"\t\t\tdbReference property: \"{db_ref_prop.attrib['type']}\" is {db_ref_prop.attrib['value']}")
-                                            member_props.update({'id': member_uniprotkb_id, db_ref_prop.attrib['type']: db_ref_prop.attrib['value']})
-                                    else:
+                        # init node data with the node grouping mechanism
+                        member_props: dict = {'grp': grp}
+
+                        # init the uniprot accession first found flag
+                        found_uniprot_access: bool = False
+
+                        # loop through the member properties
+                        for db_ref_prop in member:
+                            # get the needed DB reference properties for the similar member
+                            if db_ref_prop.tag == 'property' and db_ref_prop.attrib['type'] in {'UniProtKB accession', 'source organism', 'NCBI taxonomy', 'protein name'}:
+                                if db_ref_prop.attrib['type'] == 'UniProtKB accession':
+                                    if not found_uniprot_access:
+                                        found_uniprot_access = True
                                         # logger.debug(f"\t\t\tdbReference property: \"{db_ref_prop.attrib['type']}\" is {db_ref_prop.attrib['value']}")
                                         member_props.update({'id': member_uniprotkb_id, db_ref_prop.attrib['type']: db_ref_prop.attrib['value']})
+                                else:
+                                    # logger.debug(f"\t\t\tdbReference property: \"{db_ref_prop.attrib['type']}\" is {db_ref_prop.attrib['value']}")
+                                    member_props.update({'id': member_uniprotkb_id, db_ref_prop.attrib['type']: db_ref_prop.attrib['value']})
 
-                            try:
-                                # is this a virus taxon
-                                if member_props['NCBI taxonomy'] in in_taxon_set:
-                                    # insure all member elements are there before we add the nodes
-                                    ncbi_taxon: str = 'NCBITaxon:' + member_props['NCBI taxonomy']
-                                    uniprot: str = 'UniProtKB:' + member_props['UniProtKB accession']
-                                    source_organ: str = member_props["source organism"]
-                                    protein_name: str = member_props["protein name"]
+                        try:
+                            # is this a virus taxon
+                            if member_props['NCBI taxonomy'] in in_taxon_set:
+                                # insure all member elements are there before we add the nodes
+                                ncbi_taxon: str = 'NCBITaxon:' + member_props['NCBI taxonomy']
+                                uniprot: str = 'UniProtKB:' + member_props['UniProtKB accession']
+                                source_organ: str = member_props["source organism"]
+                                protein_name: str = member_props["protein name"]
 
-                                    # add the member Uniprot KB accession node
-                                    tmp_node_list.append({'grp': grp, 'node_num': node_counter, 'id': uniprot, 'name': protein_name,
-                                                          'category': default_gene_category, 'equivalent_identifiers': uniprot, 'similarity_bin': similarity_bin})
+                                # add the member Uniprot KB accession node
+                                tmp_node_list.append({'grp': grp, 'node_num': node_counter, 'id': uniprot, 'name': protein_name,
+                                                      'category': default_gene_category, 'equivalent_identifiers': uniprot, 'similarity_bin': similarity_bin})
 
-                                    # add the member NCBI taxon node
-                                    tmp_node_list.append({'grp': grp, 'node_num': node_counter, 'id': ncbi_taxon, 'name': source_organ,
-                                                          'category': default_taxon_category, 'similarity_bin': similarity_bin})
+                                # add the member NCBI taxon node
+                                tmp_node_list.append({'grp': grp, 'node_num': node_counter, 'id': ncbi_taxon, 'name': source_organ,
+                                                      'category': default_taxon_category, 'similarity_bin': similarity_bin})
 
-                                    # make ready for the next member node pair
-                                    node_counter += 1
+                                # make ready for the next member node pair
+                                node_counter += 1
 
-                            except KeyError:
-                                pass
+                        except KeyError:
+                            pass
 
             # did we get at least 3 node pairs (entry node pair, rep member node pair, at least 1 cluster member pair)
             if len(tmp_node_list) >= 6:

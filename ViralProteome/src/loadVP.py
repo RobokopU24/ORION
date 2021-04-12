@@ -66,7 +66,6 @@ class VPLoader(SourceDataLoader):
         self.source_id = 'Viral proteome'
         self.source_db = 'GOA viral proteomes'
         self.goa_data_dir = self.data_path + '/Virus_GOA_files/'
-        self.swiss_prots: set = set()
 
         # create a logger
         self.logger = LoggingUtil.init_logging("Data_services.ViralProteome.VPLoader", level=logging.INFO, line_format='medium', log_file_path=os.environ['DATA_SERVICES_LOGS'])
@@ -104,9 +103,6 @@ class VPLoader(SourceDataLoader):
 
             # get the data files
             file_count: int = gd.get_goa_ftp_files(self.goa_data_dir, file_list, '/pub/databases/GO/goa', '/proteomes/')
-
-            # get the uniprot kb ids that were curated by swiss-prot
-            self.swiss_prots: set = gd.get_swiss_prot_id_set(self.data_path)
         else:
             # setup for the test
             file_count: int = 1
@@ -438,7 +434,7 @@ class VPLoader(SourceDataLoader):
         # for the rest of the lines in the file
         for line in csv_reader:
             # skip over data comments. 2 sars records start with a curie 'ComplexPortal' which will also be skipped
-            if line[0] == '!' or line[0][0] == '!' or line[0][0].startswith('Complex') or line[1] not in self.swiss_prots:
+            if line[0] == '!' or line[0][0] == '!' or line[0][0].startswith('Complex'):
                 skipped_record_counter += 1
                 continue
 
