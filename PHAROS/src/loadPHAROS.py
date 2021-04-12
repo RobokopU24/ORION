@@ -310,7 +310,7 @@ class PHAROSLoader(SourceDataLoader):
             name = item['drug']
             gene = item['value']
             gene_sym = item['sym']
-            chembl_id = f"{prefixmap[item['id_src']]}:{item['cid']}"
+            chembl_id = f"{prefixmap[item['id_src']]}:{item['cid'].replace('CHEMBL', '')}"
             relation, pmids, props, provenance = self.get_edge_props(item)
 
             # if there were affinity properties use them
@@ -356,7 +356,7 @@ class PHAROSLoader(SourceDataLoader):
             name = item['drug']
             gene = item['value']
             gene_sym = item['sym']
-            chembl_id = f"{prefixmap[item['id_src']]}:{item['cid']}"
+            chembl_id = f"{prefixmap[item['id_src']]}:{item['cid'].replace('CHEMBL', '')}"
             relation, pmids, props, provenance = self.get_edge_props(item)
 
             # if there were affinity properties use them
@@ -406,7 +406,7 @@ class PHAROSLoader(SourceDataLoader):
             name = item['drug']
             gene = item['value']
             gene_sym = item['sym']
-            chembl_id = 'CHEMBL.COMPOUND:' + item['cmpd_chemblid']
+            chembl_id = 'CHEMBL.COMPOUND:' + item['cmpd_chemblid'].replace('CHEMBL', '')
             relation, pmids, props, provenance = self.get_edge_props(item)
 
             # if there were affinity properties use them
@@ -450,7 +450,7 @@ class PHAROSLoader(SourceDataLoader):
             name = item['drug']
             gene = item['value']
             gene_sym = item['sym']
-            chembl_id = 'CHEMBL.COMPOUND:' + item['drug']
+            chembl_id = 'CHEMBL.COMPOUND:' + item['drug'].replace('CHEMBL', '')
             relation, pmids, props, provenance = self.get_edge_props(item)
 
             # if there were affinity properties use them
