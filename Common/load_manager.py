@@ -12,18 +12,19 @@ from CTD.src.loadCTD import CTDLoader
 from FooDB.src.loadFDB import FDBLoader
 from GOA.src.loadGOA import GOALoader
 from IntAct.src.loadIA import IALoader
-from ViralProteome.src.loadUniRef import UniRefSimLoader
 from PHAROS.src.loadPHAROS import PHAROSLoader
 from UberGraph.src.loadUG import UGLoader
 from ViralProteome.src.loadVP import VPLoader
+from ViralProteome.src.loadUniRef import UniRefSimLoader
 from gtopdb.src.loadGtoPdb import GtoPdbLoader
 from hmdb.src.loadHMDB import HMDBLoader
 from hgnc.src.loadHGNC import HGNCLoader
+from panther.src.loadPanther import PLoader
 
 GWAS_CATALOG = 'GWASCatalog'
 CTD = 'CTD'
 FOODB = 'FooDB' # this is on hold, data needs review after latest release of data.
-GOA = 'HumanGOA' # this has normalization issues (needs pre-norm to create edges)
+HUMAN_GOA = 'HumanGOA' # this has normalization issues (needs pre-norm to create edges)
 INTACT = "IntAct"
 PHAROS = 'PHAROS'
 UBERGRAPH = 'UberGraph'
@@ -32,41 +33,74 @@ VP = 'ViralProteome'
 GTOPDB = 'GtoPdb'
 HMDB = 'HMDB'
 HGNC = 'HGNC'
+PANTHER = 'PANTHER'
 
 ALL_SOURCES = [
-    GWAS_CATALOG,
     CTD,
     INTACT,
-    UBERGRAPH,
-    PHAROS,
     GTOPDB,
-    GOA,
+    HUMAN_GOA,
+    HGNC,
+    UBERGRAPH,
     VP,
     HMDB,
-    HGNC,
+
+    # in progress
+    # PANTHER,
+
+    # items to go
+    # biolink,
+    # chembio,
+    # chemnorm,
+    # cord19-scibite,
+    # cord19-scigraph,
+    # covid-phenotypes,
+    # hetio,
+    # kegg,
+    # mychem,
+    # ontological-hierarchy,
+    # textminingkp,
 
     # items with issues
-    # FOODB,
-    # UNIREF,
+    # PHAROS - normalization issues in load manager. normalization lists are too large to parse.
+    # GWAS_CATALOG,
+    # FOODB - no longer has curies that will normalize.
+    # UNIREF - normalization issues in load manager. normalization lists are too large to parse.
 ]
 
 SOURCES_WITH_VARIANTS = [GWAS_CATALOG]
 
 source_data_loader_classes = {
-    GWAS_CATALOG: GWASCatalogLoader,
     CTD: CTDLoader,
     INTACT: IALoader,
-    UBERGRAPH: UGLoader,
-    PHAROS: PHAROSLoader,
     GTOPDB: GtoPdbLoader,
-    GOA: GOALoader,
+    HUMAN_GOA: GOALoader,
+    HGNC: HGNCLoader,
+    UBERGRAPH: UGLoader,
     VP: VPLoader,
     HMDB: HMDBLoader,
-    HGNC: HGNCLoader,
+
+    # in progress
+    # PANTHER: PLoader,
+
+    # items to go
+    # biolink,
+    # chembio,
+    # chemnorm,
+    # cord19-scibite,
+    # cord19-scigraph,
+    # covid-phenotypes,
+    # hetio,
+    # kegg,
+    # mychem,
+    # ontological-hierarchy,
+    # textminingkp,
 
     # items with issues
-    # FOODB: FDBLoader,
-    # UNIREF: UniRefSimLoader,
+    # PHAROS: PHAROSLoader - normalization issues in load manager. normalization lists are too large to parse.
+    # GWAS_CATALOG: GWASCatalogLoader,
+    # FOODB: FDBLoader - no longer has curies that will normalize
+    # UNIREF: UniRefSimLoader - normalization issues in load manager. normalization lists are too large to parse.
 }
 
 
