@@ -1,13 +1,12 @@
 import os
 import json
+import jsonlines
 import logging
-import Common.node_types as node_types
-
 from collections import defaultdict
+from Common.node_types import SEQUENCE_VARIANT
 from Common.utils import LoggingUtil
 from Common.utils import NodeNormUtils, EdgeNormUtils
 from Common.kgx_file_writer import KGXFileWriter
-from robokop_genetics.genetics_normalization import GeneticsNormalizer
 
 
 class NormalizationBrokenError(Exception):
@@ -21,10 +20,10 @@ class NormalizationFailedError(Exception):
         self.error_message = error_message
         self.actual_error = actual_error
 
-# This piece takes a KGX-like file and normalizes all of the node IDs and predicates.
-# It then writes all of the normalized nodes and edges to new files.
+
 #
-# IMPORTANT: As of now, you must normalize a corresponding node file for the edges to work.
+# This piece takes KGX-like files and normalizes the nodes and edges for biolink compliance.
+# It then writes all of the normalized nodes and edges to new files.
 #
 class KGXFileNormalizer:
 
@@ -33,261 +32,238 @@ class KGXFileNormalizer:
                                       level=logging.DEBUG,
                                       log_file_path=os.environ['DATA_SERVICES_LOGS'])
 
-    def __init__(self):
-        # these dicts will store the results from the normalization services, they are important for future lookups
-        self.cached_node_norms = {}
-        self.cached_edge_norms = {}
-        self.cached_sequence_variant_norms = {}
+    def __init__(self,
+                 source_nodes_file_path: str,
+                 nodes_output_file_path: str,
+                 node_norm_failures_output_file_path: str,
+                 source_edges_file_path: str,
+                 edges_output_file_path: str,
+                 edge_norm_failures_output_file_path: str,
+                 has_sequence_variants: bool = False,
+                 strict_normalization: bool = True):
+        self.has_sequence_variants = has_sequence_variants
+        self.source_nodes_file_path = source_nodes_file_path
+        self.source_edges_file_path = source_edges_file_path
+        self.nodes_output_file_path = nodes_output_file_path
+        self.edges_output_file_path = edges_output_file_path
+        self.node_norm_failures_output_file_path = node_norm_failures_output_file_path
+        self.edge_norm_failures_output_file_path = edge_norm_failures_output_file_path
+        self.normalization_metadata = {}
 
-        # instances of the normalization service wrappers - lazy instantiation for sequence variants
-        self.node_normalizer = NodeNormUtils()
+        # instances of the normalization service wrappers
+        # strict normalization flag tells normalizer to throw away any nodes that don't normalize
+        self.node_normalizer = NodeNormUtils(strict_normalization=strict_normalization)
         self.edge_normalizer = EdgeNormUtils()
-        self.sequence_variant_normalizer = None
+
+    def normalize_kgx_files(self):
+        self.normalization_metadata = {}
+        self.normalize_node_file()
+        self.normalize_edge_file()
+        return self.normalization_metadata
 
     # given file paths to the source data node file and an output file,
     # normalize the nodes and write them to the new file
     # also write a file with the node ids that did not successfully normalize
-    def normalize_node_file(self,
-                            source_nodes_file_path: str,
-                            nodes_output_file_path: str,
-                            norm_failures_output_file_path: str,
-                            has_sequence_variants: bool = False):
+    def normalize_node_file(self):
 
         try:
-            self.logger.debug(f'Normalizing Node File {source_nodes_file_path}...')
-            regular_node_failures = []
-            variant_node_failures = []
-            variant_ids = []
+            self.logger.debug(f'Normalizing Node File {self.source_nodes_file_path}...')
 
-            with open(source_nodes_file_path) as source_json, KGXFileWriter(nodes_output_file_path=nodes_output_file_path) as nodes_file_writer:
-                self.logger.debug(f'Parsing Node File {source_nodes_file_path}...')
+            with open(self.source_nodes_file_path) as source_json, \
+                    KGXFileWriter(nodes_output_file_path=self.nodes_output_file_path) as output_file_writer:
+                self.logger.debug(f'Parsing Node File {self.source_nodes_file_path}...')
                 try:
-                    source_nodes = json.load(source_json)["nodes"]
+                    source_reader = jsonlines.Reader(source_json)
+                    source_nodes = [node for node in source_reader]
                 except json.JSONDecodeError as e:
-                    norm_error_msg = f'Error decoding json from {source_nodes_file_path} on line number {e.lineno}'
+                    norm_error_msg = f'Error decoding json from {self.source_nodes_file_path} on line number {e.lineno}'
                     raise NormalizationFailedError(error_message=norm_error_msg, actual_error=e.msg)
 
-                # if this source has sequence variants we need to filter them to send them to the different norm services
-                if has_sequence_variants:
-                    regular_nodes = [node for node in source_nodes if node_types.SEQUENCE_VARIANT not in node['category']]
+                # if this source has sequence variants we need to segregate them for the different norm services
+                regular_nodes = []
+                if self.has_sequence_variants:
+                    variant_nodes = []
+                    for node in source_nodes:
+                        if SEQUENCE_VARIANT in node['category']:
+                            variant_nodes.append(node)
+                        else:
+                            regular_nodes.append(node)
                 else:
-                    # if it doesn't we'll normalize all of them with the regular node norm service
                     regular_nodes = source_nodes
 
-                self.logger.debug(f'Normalizing regular nodes...')
-                regular_node_failures = self.node_normalizer.normalize_node_data(regular_nodes,
-                                                                                 cached_node_norms=self.cached_node_norms,
-                                                                                 for_json=True)
+                # send the regular nodes through the normalizer - they will be normalized in place in memory
+                source_regular_node_count = len(regular_nodes)
+                self.logger.debug(f'Normalizing {source_regular_node_count} regular nodes...')
+                self.node_normalizer.normalize_node_data(regular_nodes)
+                regular_nodes_post_norm = len(regular_nodes)
+                self.logger.debug(f'Writing {regular_nodes_post_norm} regular nodes to file...')
+                output_file_writer.write_normalized_nodes(regular_nodes)
 
-                self.logger.debug(f'Regular node norm complete.. Writing regular nodes to file...')
-                for regular_node in [node for node in regular_nodes if node['id'] not in regular_node_failures]:
-                    nodes_file_writer.write_normalized_node(regular_node)
+                source_variant_node_count = 0
+                variant_nodes_post_norm = 0
+                if self.has_sequence_variants:
+                    source_variant_node_count = len(variant_nodes)
+                    self.logger.debug(f'Normalizing {source_variant_node_count} sequence variant nodes...')
+                    self.node_normalizer.normalize_sequence_variants(variant_nodes)
+                    variant_nodes_post_norm = len(variant_nodes)
+                    self.logger.debug(f'Writing sequence variant nodes to file...')
+                    output_file_writer.write_normalized_nodes(variant_nodes)
 
-                if has_sequence_variants:
-                    variant_ids = [node["id"] for node in source_nodes if node not in regular_nodes]
-                    if variant_ids:
-                        if not self.sequence_variant_normalizer:
-                            self.sequence_variant_normalizer = GeneticsNormalizer(use_cache=False)
-                        self.logger.debug(f'Found {len(variant_ids)} sequence variant nodes to normalize. Normalizing...')
-                        self.cached_sequence_variant_norms = self.sequence_variant_normalizer.normalize_variants(variant_ids)
-                        variant_node_types = self.sequence_variant_normalizer.get_sequence_variant_node_types()
-                        for variant_id in variant_ids:
-                            if variant_id in self.cached_sequence_variant_norms:
-                                # Sequence variants can sometimes normalize to multiple nodes (split from one to many)
-                                # We take all of them and write them
-                                for normalized_info in self.cached_sequence_variant_norms[variant_id]:
-                                    nodes_file_writer.write_node(normalized_info["id"],
-                                                                 normalized_info["name"],
-                                                                 variant_node_types,
-                                                                 {"equivalent_identifiers":
-                                                                  normalized_info["equivalent_identifiers"]})
-                            else:
-                                variant_node_failures.append(variant_id)
-                        variant_node_fail_count = len(variant_node_failures)
-                        self.logger.debug(
-                            f'Variant node norm complete - {variant_node_fail_count} nodes failed to normalize...')
-                        self.logger.debug(f'Writing sequence variant nodes to file...')
+                merged_node_count = output_file_writer.repeat_node_count
 
-            if regular_node_failures or variant_node_failures:
+            regular_node_norm_failures = self.node_normalizer.failed_to_normalize_ids
+            variant_node_norm_failures = self.node_normalizer.failed_to_normalize_variant_ids
+            if regular_node_norm_failures or variant_node_norm_failures:
                 self.logger.debug(f'Writing normalization failures to file...')
-                with open(norm_failures_output_file_path, "w") as failed_norm_file:
-                    for failed_node_id in regular_node_failures:
+                with open(self.node_norm_failures_output_file_path, "w") as failed_norm_file:
+                    for failed_node_id in regular_node_norm_failures:
                         failed_norm_file.write(f'{failed_node_id}\n')
-                    for failed_node_id in variant_node_failures:
+                    for failed_node_id in variant_node_norm_failures:
                         failed_norm_file.write(f'{failed_node_id}\n')
 
-            normalization_metadata = {
-                'regular_nodes_normalized': len(source_nodes) - len(regular_node_failures),
-                'regular_nodes_failed': len(regular_node_failures),
-                'variant_nodes_normalized': len(variant_ids) - len(variant_node_failures),
-                'variant_nodes_failed': len(variant_node_failures)
-            }
+            self.normalization_metadata.update({
+                'strict_normalization': self.node_normalizer.strict_normalization,
+                'source_regular_node_count': source_regular_node_count,
+                'regular_node_norm_failures': len(regular_node_norm_failures),
+                'regular_nodes_post_norm': regular_nodes_post_norm
+            })
 
-            self.logger.info(json.dumps(normalization_metadata, indent=4))
+            if self.has_sequence_variants:
+                variant_split_count = len([variant for sublist in self.node_normalizer.variant_node_splits.values() for variant in sublist]) \
+                                      - len(self.node_normalizer.variant_node_splits)
+                self.normalization_metadata.update({
+                    'source_variant_node_count': source_variant_node_count,
+                    'variant_node_norm_failures': len(variant_node_norm_failures),
+                    # variant nodes could split during normalization - this keeps a record of those
+                    'variant_nodes_split': self.node_normalizer.variant_node_splits,
+                    # this count represents the number of added nodes due to splits
+                    # ie source_variant_node_count - variant_node_norm_failures + variant_nodes_split_count
+                    # should equal variant_nodes_post_norm
+                    'variant_nodes_split_count': variant_split_count,
+                    'variant_nodes_post_norm': variant_nodes_post_norm
+                })
 
-            return normalization_metadata
+            self.normalization_metadata.update({
+                'all_nodes_post_norm': regular_nodes_post_norm + variant_nodes_post_norm,
+                'merged_nodes_post_norm': merged_node_count,
+                'final_normalized_nodes': regular_nodes_post_norm + variant_nodes_post_norm - merged_node_count
+            })
+
+            # self.logger.debug(json.dumps(self.normalization_metadata, indent=4))
 
         except IOError as e:
-            norm_error_msg = f'Error reading nodes file {source_nodes_file_path}'
+            norm_error_msg = f'Error reading nodes file {self.source_nodes_file_path}'
             raise NormalizationFailedError(error_message=norm_error_msg, actual_error=e)
 
     # given file paths to the source data edge file and an output file,
     # normalize the predicates/relations and write them to the new file
     # also write a file with the predicates that did not successfully normalize
-    def normalize_edge_file(self,
-                            source_edges_file_path: str,
-                            edges_output_file_path: str,
-                            edge_failures_output_file_path: str,
-                            has_sequence_variants: bool = False):
-        cached_node_norms = self.cached_node_norms
-        cached_edge_norms = self.cached_edge_norms
-        cached_sequence_variant_norms = self.cached_sequence_variant_norms
+    def normalize_edge_file(self):
 
         merged_edges = defaultdict(lambda: defaultdict(dict))
 
         try:
-            self.logger.debug(f'Normalizing edge file {source_edges_file_path}...')
+            self.logger.debug(f'Normalizing edge file {self.source_edges_file_path}...')
             edge_norm_failures = []
-            with open(source_edges_file_path) as source_json, KGXFileWriter(edges_output_file_path=edges_output_file_path) as edges_file_writer:
-                self.logger.debug(f'Parsing edge file {source_edges_file_path}...')
+            with open(self.source_edges_file_path) as source_json, \
+                    KGXFileWriter(edges_output_file_path=self.edges_output_file_path) as output_file_writer:
+                self.logger.debug(f'Parsing edge file {self.source_edges_file_path}...')
                 try:
-                    source_edges = json.load(source_json)["edges"]
+                    source_reader = jsonlines.Reader(source_json)
+                    source_edges = [edge for edge in source_reader]
                 except json.JSONDecodeError as e:
-                    norm_error_msg = f'Error decoding json from {source_edges_file_path} on line number {e.lineno}'
+                    norm_error_msg = f'Error decoding json from {self.source_edges_file_path} on line number {e.lineno}'
                     raise NormalizationFailedError(error_message=norm_error_msg, actual_error=e.msg)
 
-                self.logger.debug(f'Parsed edges from {source_edges_file_path}...')
+                self.logger.debug(f'Parsed edges from {self.source_edges_file_path}...')
 
-                unique_predicates = set([edge['relation'] for edge in source_edges])
-                unique_predicates_count = len(unique_predicates)
-                self.logger.debug(f'Normalizing {unique_predicates_count} predicates from {source_edges_file_path}...')
-                edge_norm_failures = self.edge_normalizer.normalize_edge_data(source_edges,
-                                                                              cached_edge_norms)
+                # this is expensive for large sets and happens in the normalizer already, do we even need it here?
+                # unique_predicates = set([edge['relation'] for edge in source_edges])
+                # unique_predicates_count = len(unique_predicates)
+                self.logger.debug(f'Normalizing predicates from {self.source_edges_file_path}...')
+                edge_norm_failures = self.edge_normalizer.normalize_edge_data(source_edges)
                 self.logger.debug(f'Edge normalization complete {len(edge_norm_failures)} predicates failed..')
                 self.logger.debug(f'Writing normalized edges..')
 
                 normalized_edge_count = 0
+                edge_mergers = 0
+                edge_splits = 0
                 edges_failed_due_to_nodes = 0
                 edges_failed_due_to_relation = 0
-                if not has_sequence_variants:
-                    for edge in source_edges:
-                        # Look up the normalization results from before for each edge
-                        subject_id = None
-                        object_id = None
 
-                        if edge['subject'] in cached_node_norms and cached_node_norms[edge['subject']] is not None:
-                            subject_id = cached_node_norms[edge['subject']]['id']['identifier']
+                node_norm_lookup = self.node_normalizer.node_normalization_lookup
+                edge_norm_lookup = self.edge_normalizer.edge_normalization_lookup
 
-                        if edge['object'] in cached_node_norms and cached_node_norms[edge['object']] is not None:
-                            object_id = cached_node_norms[edge['object']]['id']['identifier']
-
-                        if subject_id and object_id:
-                            if edge['relation'] in cached_edge_norms and cached_edge_norms[edge['relation']] is not None:
-                                # write them to a file
-                                edges_file_writer.write_edge(subject_id=subject_id,
-                                                             object_id=object_id,
-                                                             relation=edge['relation'],
-                                                             predicate=cached_edge_norms[edge['relation']]['identifier'],
-                                                             edge_properties=edge)
-                            if edge['relation'] in cached_edge_norms:
-                                predicate = cached_edge_norms[edge['relation']]['identifier']
-
-                                # merge with existing similar edges and/or queue up for writing later
-                                if ((subject_id in merged_edges) and
-                                    (object_id in merged_edges[subject_id]) and
-                                        (predicate in merged_edges[subject_id][object_id])):
-                                    previous_edge = merged_edges[subject_id][object_id][predicate]
-                                    for key, value in edge.items():
-                                        if key in previous_edge and isinstance(value, list):
-                                            previous_edge[key].extend(value)
-                                        else:
-                                            previous_edge[key] = value
-                                else:
-                                    merged_edges[subject_id][object_id][predicate] = edge
-
-                                normalized_edge_count += 1
-                            else:
-                                edges_failed_due_to_relation += 1
+                for edge in source_edges:
+                    normalized_subject_ids = node_norm_lookup[edge['subject']]
+                    normalized_object_ids = node_norm_lookup[edge['object']]
+                    if not (normalized_subject_ids and normalized_object_ids):
+                        edges_failed_due_to_nodes += 1
+                    else:
+                        normalized_predicate = edge_norm_lookup[edge['relation']]
+                        if not normalized_predicate:
+                            edges_failed_due_to_relation += 1
                         else:
-                            edges_failed_due_to_nodes += 1
+                            edge_count = 0
+                            for norm_subject_id in normalized_subject_ids:
+                                for norm_object_id in normalized_object_ids:
+                                    edge_count += 1
+                                    # create a new edge with the normalized values
+                                    # start with the original edge to preserve other properties
+                                    normalized_edge = edge.copy()
+                                    normalized_edge['subject'] = norm_subject_id
+                                    normalized_edge['object'] = norm_object_id
+                                    normalized_edge['predicate'] = normalized_predicate
 
-                else:
-                    for edge in source_edges:
-                        # Look up the normalization results from before for each edge.
-                        # Nodes that aren't found in the regular nodes cache, see if they're sequence variants.
-                        # Sequence variants can branch after normalization,
-                        # so the normalized subjects and objects need to be lists
-                        subject_ids = []
-                        object_ids = []
-
-                        if edge['subject'] in cached_node_norms:
-                            if cached_node_norms[edge['subject']]:
-                                subject_ids = [cached_node_norms[edge['subject']]['id']['identifier']]
-                        elif edge['subject'] in cached_sequence_variant_norms:
-                            subject_ids = [variant['id'] for variant in cached_sequence_variant_norms[edge['subject']]]
-
-                        if edge['object'] in cached_node_norms:
-                            if cached_node_norms[edge['object']]:
-                                object_ids = [cached_node_norms[edge['object']]['id']['identifier']]
-                        elif edge['object'] in cached_sequence_variant_norms:
-                            object_ids = [variant['id'] for variant in cached_sequence_variant_norms[edge['object']]]
-
-                        if subject_ids and object_ids:
-                            if edge['relation'] in cached_edge_norms:
-                                predicate = cached_edge_norms[edge['relation']]['identifier']
-                                for subject_id in subject_ids:
-                                    for object_id in object_ids:
-
-                                        # merge with existing similar edges and/or queue up for writing later
-                                        if ((subject_id in merged_edges) and
-                                                (object_id in merged_edges[subject_id]) and
-                                                (predicate in merged_edges[subject_id][object_id])):
-
-                                            previous_edge = merged_edges[subject_id][object_id][predicate]
-                                            for key, value in edge.items():
-                                                if key in previous_edge and isinstance(value, list):
-                                                    previous_edge[key].extend(value)
-                                                else:
-                                                    previous_edge[key] = value
-
-                                        else:
-                                            merged_edges[subject_id][object_id][predicate] = edge
-
-                                        normalized_edge_count += 1
-                            else:
-                                edges_failed_due_to_relation += 1
-                        else:
-                            edges_failed_due_to_nodes += 1
+                                    # merge with existing similar edges and/or queue up for writing later
+                                    if ((norm_subject_id in merged_edges) and
+                                            (norm_object_id in merged_edges[norm_subject_id]) and
+                                            (normalized_predicate in merged_edges[norm_subject_id][norm_object_id])):
+                                        previous_edge = merged_edges[norm_subject_id][norm_object_id][normalized_predicate]
+                                        edge_mergers += 1
+                                        for key, value in normalized_edge.items():
+                                            # TODO - make sure this is the behavior we want -
+                                            # for properties that are lists append the values
+                                            # otherwise overwrite them
+                                            if key in previous_edge and isinstance(value, list):
+                                                previous_edge[key].extend(value)
+                                            else:
+                                                previous_edge[key] = value
+                                    else:
+                                        merged_edges[norm_subject_id][norm_object_id][normalized_predicate] = normalized_edge
+                            if edge_count > 1:
+                                edge_splits += edge_count - 1
 
                 for subject_id, object_dict in merged_edges.items():
                     for object_id, predicate_dict in object_dict.items():
                         for predicate, edge in predicate_dict.items():
-                            edges_file_writer.write_edge(subject_id=subject_id,
-                                                         object_id=object_id,
-                                                         relation=edge['relation'],
-                                                         predicate=predicate,
-                                                         edge_properties=edge)
+                            normalized_edge_count += 1
+                            output_file_writer.write_edge(subject_id=subject_id,
+                                                          object_id=object_id,
+                                                          relation=edge['relation'],
+                                                          predicate=predicate,
+                                                          edge_properties=edge)
 
             if edge_norm_failures:
-                with open(edge_failures_output_file_path, "w") as failed_edge_file:
-                    for failed_edge_id in edge_norm_failures:
-                        failed_edge_file.write(f'{failed_edge_id}\n')
+                with open(self.edge_norm_failures_output_file_path, "w") as failed_edge_file:
+                    for failed_relation in edge_norm_failures:
+                        failed_edge_file.write(f'{failed_relation}\n')
 
-            normalization_metadata = {
-                'num_source_edges': len(source_edges),
-                'num_normalized_edges': normalized_edge_count,
+            self.normalization_metadata.update({
+                'source_edges': len(source_edges),
                 'edges_failed_due_to_nodes': edges_failed_due_to_nodes,
                 'edges_failed_due_to_relation': edges_failed_due_to_relation,
-                'unique_predicates': list(unique_predicates),
-                'unique_predicates_count': unique_predicates_count,
-                'predicates_failed': len(edge_norm_failures),
-            }
+                # these keep track of how many edges merged into another, or split into multiple edges
+                # this should be true: source_edges - failures - mergers + splits = edges post norm
+                'edge_mergers': edge_mergers,
+                'edge_splits': edge_splits,
+                'final_normalized_edges': normalized_edge_count,
+                'relations_that_failed_normalization': len(edge_norm_failures)
+            })
 
-            self.logger.info(json.dumps(normalization_metadata, indent=4))
-
-            return normalization_metadata
+            #self.logger.debug(json.dumps(self.normalization_metadata, indent=4))
 
         except IOError as e:
-            norm_error_msg = f'Error reading edges file {source_edges_file_path}'
+            norm_error_msg = f'Error reading edges file {self.source_edges_file_path}'
             raise NormalizationFailedError(error_message=norm_error_msg, actual_error=e.msg)
 

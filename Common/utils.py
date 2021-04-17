@@ -14,6 +14,8 @@ from ftplib import FTP
 from datetime import datetime
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
+from robokop_genetics.genetics_normalization import GeneticsNormalizer
+from Common.node_types import ROOT_ENTITY
 
 
 class LoggingUtil(object):
@@ -104,51 +106,45 @@ class NodeNormUtils:
         equivalent_identifiers: the list of synonymous ids
     """
 
-    def __init__(self, log_level=logging.INFO):
+    def __init__(self, log_level=logging.INFO, strict_normalization: bool = True):
         """
         constructor
         :param log_level - overrides default log level
         """
         # create a logger
         self.logger = LoggingUtil.init_logging("Data_services.Common.NodeNormUtils", level=log_level, line_format='medium', log_file_path=os.environ['DATA_SERVICES_LOGS'])
+        # storage for regular nodes that failed to normalize
+        self.failed_to_normalize_ids = set()
+        # storage for variant nodes that failed to normalize
+        self.failed_to_normalize_variant_ids = set()
+        # flag that determines whether nodes that failed to normalize should be included or thrown out
+        self.strict_normalization = strict_normalization
+        # storage for variant nodes that split into multiple new nodes in normalization
+        self.variant_node_splits = {}
+        # normalization map for future look up of all normalized node IDs
+        self.node_normalization_lookup = {}
 
-    def normalize_node_data(self, node_list: list, cached_node_norms: dict = None, for_json: bool = False, block_size: int = 5000) -> list:
+    def normalize_node_data(self, node_list: list, block_size: int = 5000) -> list:
         """
-        This method calls the NodeNormalization web service to get the normalized identifier and name of the taxon node.
+        This method calls the NodeNormalization web service to get the normalized identifier and name of the node.
         the data comes in as a node list.
 
         :param node_list: A list with items to normalize
         :param cached_node_norms: dict of previously captured normalizations
-        :param for_json: flag to indicate json output
         :param block_size: the number of curies in the request
         :return:
         """
 
         self.logger.debug(f'Start of normalize_node_data. items: {len(node_list)}')
 
-        # init the cache list if it wasn't passed in
-        if cached_node_norms is None:
-            cached_node_norms: dict = {}
-
-        # init the node index counter
-        node_idx: int = 0
+        # init the cache list - this accumulates all of the results from the node norm service
+        cached_node_norms: dict = {}
 
         # save the node list count to avoid grabbing it over and over
         node_count: int = len(node_list)
 
-        # init a set to hold taxa that have not yet been node normed
-        tmp_normalize: set = set()
-
-        # iterate through node groups and get only the taxa records.
-        while node_idx < node_count:
-            # check to see if this one needs normalization data from the website
-            if not node_list[node_idx]['id'] in cached_node_norms:
-                tmp_normalize.add(node_list[node_idx]['id'])
-            else:
-                self.logger.debug(f"Cache hit: {node_list[node_idx]['id']}")
-
-            # increment to the next node array element
-            node_idx += 1
+        # create a unique set of node ids
+        tmp_normalize: set = set([node['id'] for node in node_list])
 
         # convert the set to a list so we can iterate through it
         to_normalize: list = list(tmp_normalize)
@@ -204,55 +200,60 @@ class NodeNormUtils:
         # reset the node index
         node_idx = 0
 
-        # storage for items that failed to normalize
+        # node ids that failed to normalize
         failed_to_normalize: list = []
 
-        # for each row in the slice add the new id and name
-        # iterate through node groups and get only the taxa records.
+        # for each node update the node with normalized information
+        # store the normalized IDs for later look up
         while node_idx < node_count:
-            # get get the next node list item by index
-            rv = node_list[node_idx]
+            # get the next node list item by index
+            current_node_id = node_list[node_idx]['id']
 
             # did we find a normalized value
-            if cached_node_norms[rv['id']] is not None:
-                # find the name and replace it with label
-                if 'label' in cached_node_norms[rv['id']]['id']:
-                    node_list[node_idx]['name'] = cached_node_norms[rv['id']]['id']['label']
+            if cached_node_norms[current_node_id] is not None:
 
-                # find the type and use it as a category
-                if 'type' in cached_node_norms[rv['id']]:
-                    if for_json:
-                        node_list[node_idx]['category'] = cached_node_norms[rv['id']]['type']
-                    else:
-                        node_list[node_idx]['category'] = '|'.join(cached_node_norms[rv['id']]['type'])
+                # update the node with the normalized info
+                current_node = node_list[node_idx]
+                normalized_id = cached_node_norms[current_node_id]['id']['identifier']
+                current_node['id'] = normalized_id
+                current_node['category'] = cached_node_norms[current_node_id]['type']
+                current_node['equivalent_identifiers'] = list(item['identifier'] for item in cached_node_norms[current_node_id]['equivalent_identifiers'])
+                # set the name as the label if it exists
+                if 'label' in cached_node_norms[current_node_id]['id']:
+                    current_node['name'] = cached_node_norms[current_node_id]['id']['label']
 
-                # get the equivalent identifiers
-                if 'equivalent_identifiers' in cached_node_norms[rv['id']] and len(cached_node_norms[rv['id']]['equivalent_identifiers']) > 0:
-                    if for_json:
-                        node_list[node_idx]['equivalent_identifiers'] = list(item['identifier'] for item in cached_node_norms[rv['id']]['equivalent_identifiers'])
-                    else:
-                        node_list[node_idx]['equivalent_identifiers'] = '|'.join(list((item['identifier']) for item in cached_node_norms[rv['id']]['equivalent_identifiers']))
-
-                # find the id and replace it with the normalized value
-                node_list[node_idx]['id'] = cached_node_norms[rv['id']]['id']['identifier']
+                self.node_normalization_lookup[current_node_id] = [normalized_id]
             else:
-                # add for display purposes
-                failed_to_normalize.append(rv['id'])
+                # we didn't find a normalization - add it to the failure list
+                failed_to_normalize.append(current_node_id)
+                if self.strict_normalization:
+                    # if strict normalization is on we set that index to None so that it is later removed
+                    node_list[node_idx] = None
+                    # store None in the normalization map so we know it didn't normalize
+                    self.node_normalization_lookup[current_node_id] = None
+                else:
+                    #  if strict normalization is off we set a default node type
+                    node_list[node_idx]['category'] = [ROOT_ENTITY]
+                    if not node_list[node_idx]['name']:
+                        node_list[node_idx]['name'] = node_list[node_idx]['id']
+                    # if strict normalization is off set its previous id in the normalization map
+                    self.node_normalization_lookup[current_node_id] = [current_node_id]
 
             # go to the next node index
             node_idx += 1
 
-        # if something failed to normalize output it
+        # if something failed to normalize - log it and optionally remove it from the node list
         if len(failed_to_normalize) > 0:
-            # remove all nodes that dont have a category as they cant have an edge if they dont
-            node_list[:] = [d for d in node_list if d['category'] != '']
+            self.failed_to_normalize_ids.update(failed_to_normalize)
 
-            self.logger.debug(f'Of {len(node_list)} nodes, {len(failed_to_normalize)} failed to normalize and were removed: {", ".join(failed_to_normalize)}')
+            # if strict remove all nodes that failed normalization
+            if self.strict_normalization:
+                node_list[:] = [d for d in node_list if d is not None]
 
         self.logger.debug(f'End of normalize_node_data.')
 
         # return the failed list to the caller
-        return list(set(failed_to_normalize))
+        return failed_to_normalize
 
     def synomymize_node_data(self, node_list: list) -> list:
         # for each node list item
@@ -283,6 +284,49 @@ class NodeNormUtils:
         # return the list to the caller
         return node_list
 
+    def normalize_sequence_variants(self, variant_nodes: list):
+
+        sequence_variant_normalizer = GeneticsNormalizer(use_cache=False)
+        variant_ids = [node['id'] for node in variant_nodes]
+        sequence_variant_norms = sequence_variant_normalizer.normalize_variants(variant_ids)
+        variant_node_types = sequence_variant_normalizer.get_sequence_variant_node_types()
+
+        variant_nodes.clear()
+        for variant_id, variant_norms in sequence_variant_norms.items():
+            if variant_norms:
+                for normalized_info in variant_norms:
+                    normalized_node = {
+                        'id': normalized_info["id"],
+                        'name':  normalized_info["name"],
+                        # as long as sequence variant types are all the same we can skip this assignment
+                        # 'category': normalized_info["type"],
+                        'category': variant_node_types,
+                        'equivalent_identifiers': normalized_info['equivalent_identifiers']
+                    }
+                    variant_nodes.append(normalized_node)
+                if len(variant_norms) > 1:
+                    split_ids = [node['id'] for node in variant_norms]
+                    self.variant_node_splits[variant_id] = split_ids
+                    self.node_normalization_lookup[variant_id] = split_ids
+                else:
+                    self.node_normalization_lookup[variant_id] = [variant_norms[0]['id']]
+            else:
+                self.failed_to_normalize_variant_ids.add(variant_id)
+                self.node_normalization_lookup[variant_id] = None
+                if not self.strict_normalization:
+                    self.node_normalization_lookup[variant_id] = variant_id
+                    # TODO for now we dont preserve other properties on variant nodes that didnt normalize
+                    # the splitting makes that complicated and doesnt seem worth it until we have a good use case
+                    fake_normalized_node = {
+                        'id': variant_id,
+                        'name': variant_id,
+                        'category': variant_node_types,
+                        'equivalent_identifiers': []
+                    }
+                    variant_nodes.append(fake_normalized_node)
+
+        return variant_nodes
+
 
 class EdgeNormUtils:
     """
@@ -303,8 +347,13 @@ class EdgeNormUtils:
         """
         # create a logger
         self.logger = LoggingUtil.init_logging("Data_services.Common.EdgeNormUtils", level=log_level, line_format='medium', log_file_path=os.environ['DATA_SERVICES_LOGS'])
+        # normalization map for future look up of all normalized predicates
+        self.edge_normalization_lookup = {}
 
-    def normalize_edge_data(self, edge_list: list, cached_edge_norms: dict = None, block_size: int = 2500) -> list:
+    def normalize_edge_data(self,
+                            edge_list: list,
+                            cached_edge_norms: dict = None,
+                            block_size: int = 2500) -> list:
         """
         This method calls the EdgeNormalization web service to get the normalized identifier and labels.
         the data comes in as a edge list.
@@ -394,31 +443,21 @@ class EdgeNormUtils:
             else:
                 break
 
-        # reset the node index
-        edge_idx = 0
-
         # storage for items that failed to normalize
         failed_to_normalize: list = list()
 
-        # for each row in the slice add the new id and name
-        while edge_idx < edge_count:
-            # get a reference to the edge list
-            rv = edge_list[edge_idx]
-
-            # did we find a normalized value
-            if rv['relation'] in cached_edge_norms and rv['relation'] != '':
-                # find the identifier and make it the predicate
-                if 'identifier' in cached_edge_norms[rv['relation']]:
-                    edge_list[edge_idx]['predicate'] = cached_edge_norms[rv['relation']]['identifier']
-
-                # find the label and make it the edge label
-                if 'label' in cached_edge_norms[rv['relation']]:
-                    edge_list[edge_idx]['edge_label'] = f'{cached_edge_norms[rv["relation"]]["label"]}'
-            else:
-                failed_to_normalize.append(rv['relation'])
-
-            # go to the next edge index
-            edge_idx += 1
+        # walk through the unique relations and extract the normalized predicate for the lookup map
+        for relation in to_normalize:
+            success = False
+            # did the service return a value
+            if relation in cached_edge_norms:
+                if 'identifier' in cached_edge_norms[relation]:
+                    # store it in the look up map
+                    self.edge_normalization_lookup[relation] = cached_edge_norms[relation]['identifier']
+                    success = True
+            if not success:
+                # if no result for whatever reason add it to the fail list
+                failed_to_normalize.append(relation)
 
         # if something failed to normalize output it
         if failed_to_normalize:

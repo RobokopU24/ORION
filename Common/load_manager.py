@@ -2,6 +2,7 @@
 import os
 import multiprocessing
 import argparse
+import yaml
 
 from Common.utils import LoggingUtil
 from Common.kgx_file_normalizer import KGXFileNormalizer, NormalizationBrokenError, NormalizationFailedError
@@ -19,7 +20,7 @@ from ViralProteome.src.loadUniRef import UniRefSimLoader
 from gtopdb.src.loadGtoPdb import GtoPdbLoader
 from hmdb.src.loadHMDB import HMDBLoader
 from hgnc.src.loadHGNC import HGNCLoader
-from panther.src.loadPanther import PLoader
+#from panther.src.loadPanther import PLoader
 
 GWAS_CATALOG = 'GWASCatalog'
 CTD = 'CTD'
@@ -44,6 +45,7 @@ ALL_SOURCES = [
     UBERGRAPH,
     VP,
     HMDB,
+    GWAS_CATALOG
 
     # in progress
     # PANTHER,
@@ -63,12 +65,9 @@ ALL_SOURCES = [
 
     # items with issues
     # PHAROS - normalization issues in load manager. normalization lists are too large to parse.
-    # GWAS_CATALOG,
     # FOODB - no longer has curies that will normalize.
     # UNIREF - normalization issues in load manager. normalization lists are too large to parse.
 ]
-
-SOURCES_WITH_VARIANTS = [GWAS_CATALOG]
 
 source_data_loader_classes = {
     CTD: CTDLoader,
@@ -79,6 +78,7 @@ source_data_loader_classes = {
     UBERGRAPH: UGLoader,
     VP: VPLoader,
     HMDB: HMDBLoader,
+    GWAS_CATALOG: GWASCatalogLoader
 
     # in progress
     # PANTHER: PLoader,
@@ -98,7 +98,6 @@ source_data_loader_classes = {
 
     # items with issues
     # PHAROS: PHAROSLoader - normalization issues in load manager. normalization lists are too large to parse.
-    # GWAS_CATALOG: GWASCatalogLoader,
     # FOODB: FDBLoader - no longer has curies that will normalize
     # UNIREF: UniRefSimLoader - normalization issues in load manager. normalization lists are too large to parse.
 }
@@ -110,19 +109,35 @@ class SourceDataLoadManager:
                                       line_format='medium',
                                       log_file_path=os.environ['DATA_SERVICES_LOGS'])
 
-    def __init__(self, storage_dir: str = None, test_mode: bool = False):
+    def __init__(self,
+                 storage_dir: str = None,
+                 test_mode: bool = False,
+                 source_subset: list = None):
 
         self.test_mode = test_mode
-        self.storage_dir = storage_dir
-        self.init_storage_dir()
+
+        # locate and verify the main storage directory
+        self.init_storage_dir(storage_dir)
+
+        # load the config which sets up information about the data sources
+        self.sources_without_strict_normalization = []
+        self.sources_with_variants = []
+        self.load_config()
+
+        # if there is a subset specified with the command line override the master source list
+        if source_subset:
+            self.source_list = source_subset
+
+        # set up the individual subdirectories for each data source
+        self.init_source_dirs()
 
         # dict of data_source_id -> MetadataManager object
         self.metadata = {}
+
         # dict of data_source_id -> latest source version (to prevent double lookups)
         self.new_version_lookup = {}
 
-        self.file_normalizer = None
-
+        # load any existing metadata found in storage
         self.load_previous_metadata()
 
     def start(self):
@@ -156,14 +171,13 @@ class SourceDataLoadManager:
         pool.close()
 
     def load_previous_metadata(self):
-        for source_id in ALL_SOURCES:
+        for source_id in self.source_list:
             self.metadata[source_id] = Metadata(source_id, self.get_source_dir_path(source_id))
 
     def check_sources_for_updates(self):
         sources_to_update = []
-        for source_id, loader_class in source_data_loader_classes.items():
+        for source_id in self.source_list:
             source_metadata = self.metadata[source_id]
-
             update_status = source_metadata.get_update_status()
             if update_status == Metadata.NOT_STARTED:
                 sources_to_update.append(source_id)
@@ -176,16 +190,25 @@ class SourceDataLoadManager:
                 # TODO do we want to retry these automatically?
 
             else:
-                loader = loader_class()
-                self.logger.info(f"Retrieving source version for {source_id}...")
-                latest_source_version = loader.get_latest_source_version()
-                if latest_source_version != source_metadata.get_source_version():
-                    self.logger.info(f"Found new source version for {source_id}: {latest_source_version}")
-                    source_metadata.archive_metadata()
-                    sources_to_update.append(source_id)
-                    self.new_version_lookup[source_id] = latest_source_version
-                else:
-                    self.logger.info(f"Source version for {source_id} is up to date ({latest_source_version})")
+                try:
+                    loader = source_data_loader_classes[source_id]()
+                    self.logger.info(f"Retrieving source version for {source_id}...")
+                    latest_source_version = loader.get_latest_source_version()
+                    if latest_source_version != source_metadata.get_source_version():
+                        self.logger.info(f"Found new source version for {source_id}: {latest_source_version}")
+                        source_metadata.archive_metadata()
+                        sources_to_update.append(source_id)
+                        self.new_version_lookup[source_id] = latest_source_version
+                    else:
+                        self.logger.info(f"Source version for {source_id} is up to date ({latest_source_version})")
+                except SourceDataFailedError as failed_error:
+                    # TODO report these by email or something automated
+                    self.logger.info(
+                        f"SourceDataFailedError while checking for updated version for {source_id}: {failed_error.error_message}")
+                    # TODO there isn't currently a good spot to indicate an error here in the metadata
+                    #source_metadata.set_version_update_error(failed_error.error_message)
+                    #source_metadata.set_version_update_status(Metadata.FAILED)
+
         return sources_to_update
 
     def update_source(self, source_id: str):
@@ -225,7 +248,6 @@ class SourceDataLoadManager:
         except SourceDataFailedError as failed_error:
             # TODO report these by email or something automated
             self.logger.info(f"SourceDataFailedError while updating {source_id}: {failed_error.error_message}")
-
             source_metadata.set_update_error(failed_error.error_message)
             source_metadata.set_update_status(Metadata.FAILED)
 
@@ -237,7 +259,7 @@ class SourceDataLoadManager:
 
     def check_sources_for_normalization(self):
         sources_to_normalize = []
-        for source_id in ALL_SOURCES:
+        for source_id in self.source_list:
             source_metadata = self.metadata[source_id]
             normalization_status = source_metadata.get_normalization_status()
             if normalization_status == Metadata.NOT_STARTED:
@@ -246,9 +268,8 @@ class SourceDataLoadManager:
                   and (source_metadata.get_update_status() == Metadata.STABLE)):
                 sources_to_normalize.append(source_id)
             elif normalization_status == Metadata.FAILED:
-                # sources_to_normalize.append(source_id)
-                # TODO do we want to retry these automatically?
-                pass
+                sources_to_normalize.append(source_id)
+                # TODO should probably have a retry max limit
         return sources_to_normalize
 
     def normalize_source(self, source_id: str):
@@ -256,51 +277,46 @@ class SourceDataLoadManager:
         source_metadata = self.metadata[source_id]
         source_metadata.set_normalization_status(Metadata.IN_PROGRESS)
         try:
-            if not self.file_normalizer:
-                self.file_normalizer = KGXFileNormalizer()
+            strict_normalization = False if source_id in self.sources_without_strict_normalization else True
 
-            has_sequence_variants = True if source_id in SOURCES_WITH_VARIANTS else False
+            has_sequence_variants = True if source_id in self.sources_with_variants else False
 
-            self.logger.debug(f"Normalizing node file for {source_id}...")
+            self.logger.debug(f"Normalizing KGX files for {source_id}...")
             nodes_source_file_path = self.get_source_node_file_path(source_id, source_metadata)
             nodes_norm_file_path = self.get_normalized_node_file_path(source_id, source_metadata)
             node_norm_failures_file_path = self.get_node_norm_failures_file_path(source_id, source_metadata)
-            node_normalization_info = self.file_normalizer.normalize_node_file(nodes_source_file_path,
-                                                                               nodes_norm_file_path,
-                                                                               node_norm_failures_file_path,
-                                                                               has_sequence_variants=has_sequence_variants)
-
             edges_source_file_path = self.get_source_edge_file_path(source_id, source_metadata)
             edges_norm_file_path = self.get_normalized_edge_file_path(source_id, source_metadata)
             edge_norm_failures_file_path = self.get_edge_norm_failures_file_path(source_id, source_metadata)
+            file_normalizer = KGXFileNormalizer(nodes_source_file_path,
+                                                nodes_norm_file_path,
+                                                node_norm_failures_file_path,
+                                                edges_source_file_path,
+                                                edges_norm_file_path,
+                                                edge_norm_failures_file_path,
+                                                has_sequence_variants=has_sequence_variants,
+                                                strict_normalization=strict_normalization)
 
-            edge_normalization_info = self.file_normalizer.normalize_edge_file(edges_source_file_path,
-                                                                               edges_norm_file_path,
-                                                                               edge_norm_failures_file_path,
-                                                                               has_sequence_variants=has_sequence_variants)
-
-            normalization_info = {}
-            normalization_info.update(node_normalization_info)
-            normalization_info.update(edge_normalization_info)
-            self.logger.info(f"Normalization info for {source_id}: {normalization_info}")
+            normalization_info = file_normalizer.normalize_kgx_files()
+            # self.logger.info(f"Normalization info for {source_id}: {normalization_info}")
 
             # update the associated metadata
             source_metadata.set_normalization_status(Metadata.STABLE)
             source_metadata.set_normalization_info(normalization_info)
-            self.logger.info(f"Normalizing source {source_id} complete.")
+            self.logger.debug(f"Normalizing source {source_id} complete.")
 
         except NormalizationBrokenError as broken_error:
             # TODO report these by email or something automated
-            self.logger.info(f"NormalizationBrokenError while normalizing {source_id}: {broken_error.error_message}")
+            self.logger.error(f"NormalizationBrokenError while normalizing {source_id}: {broken_error.error_message}")
             source_metadata.set_normalization_error(broken_error.error_message)
             source_metadata.set_normalization_status(Metadata.BROKEN)
         except NormalizationFailedError as failed_error:
             # TODO report these by email or something automated
-            self.logger.info(f"NormalizationFailedError while normalizing {source_id}: {failed_error.error_message}")
+            self.logger.error(f"NormalizationFailedError while normalizing {source_id}: {failed_error.error_message}")
             source_metadata.set_normalization_error(failed_error.error_message)
             source_metadata.set_normalization_status(Metadata.FAILED)
         except Exception as e:
-            self.logger.info(f"Error while normalizing {source_id}: {repr(e)}")
+            self.logger.error(f"Error while normalizing {source_id}: {repr(e)}")
             # TODO report these by email or something automated
             source_metadata.set_normalization_error(repr(e))
             source_metadata.set_normalization_status(Metadata.FAILED)
@@ -308,7 +324,7 @@ class SourceDataLoadManager:
 
     def check_sources_for_annotation(self):
         sources_to_annotate = []
-        for source_id in ALL_SOURCES:
+        for source_id in self.source_list:
             annotation_status = self.metadata[source_id].get_annotation_status()
             if annotation_status == Metadata.NOT_STARTED:
                 sources_to_annotate.append(source_id)
@@ -354,28 +370,53 @@ class SourceDataLoadManager:
     def get_source_dir_path(self, source_id: str):
         return os.path.join(self.storage_dir, source_id)
 
-    def check_for_existing_files(self, nodes_output_file_path, edges_output_file_path):
-        # if the output file(s) already exists back out
-        if os.path.isfile(nodes_output_file_path) and not self.test_data:
-            self.logger.error(f'GTEx KGX file already created ({nodes_output_file_path}). Aborting.')
-        if os.path.isfile(edges_output_file_path and not self.test_data):
-            self.logger.error(f'GTEx KGX file already created ({edges_output_file_path}). Aborting.')
-
-    def init_storage_dir(self):
-        if not self.storage_dir:
+    def init_storage_dir(self, storage_dir: str):
+        # use the storage directory specified if there is one
+        if storage_dir:
+            self.storage_dir = storage_dir
+        else:
+            # otherwise use the one specified by the environment variable
             if 'DATA_SERVICES_STORAGE' in os.environ:
                 self.storage_dir = os.environ["DATA_SERVICES_STORAGE"]
             else:
+                # if neither exist back out
                 raise IOError('SourceDataLoadManager - specify the storage directory with environment variable DATA_SERVICES_STORAGE.')
 
+        # make sure the storage dir is a real directory
         if not os.path.isdir(self.storage_dir):
             raise IOError(f'SourceDataLoadManager - storage directory specified is invalid ({self.storage_dir}).')
 
-        for source_id in ALL_SOURCES:
+    def init_source_dirs(self):
+        # for each source on the source_list make sure they have subdirectories set up
+        for source_id in self.source_list:
             source_dir_path = self.get_source_dir_path(source_id)
             if not os.path.isdir(source_dir_path):
                 self.logger.info(f"SourceDataLoadManager creating storage dir for {source_id}... {source_dir_path}")
                 os.mkdir(source_dir_path)
+
+    def load_config(self):
+        # check for a config file name specified by the environment variable
+        # a custom config file must reside at the top level of the storage directory
+        if 'DATA_SERVICES_CONFIG' in os.environ:
+            config_file_name = os.environ['DATA_SERVICES_CONFIG']
+            config_path = os.path.join(self.storage_dir, config_file_name)
+        else:
+            # otherwise use the default one included in the codebase
+            config_path = os.path.dirname(os.path.abspath(__file__)) + '/default-config.yml'
+
+        with open(config_path) as config_file:
+            config = yaml.full_load(config_file)
+            self.source_list = []
+            for data_source_config in config['data_sources']:
+                data_source_id = data_source_config['id']
+                self.source_list.append(data_source_id)
+                if 'strict_normalization' in data_source_config:
+                    if not data_source_config['strict_normalization']:
+                        self.sources_without_strict_normalization.append(data_source_id)
+                if 'has_sequence_variants' in data_source_config:
+                    if data_source_config['has_sequence_variants']:
+                        self.sources_with_variants.append(data_source_id)
+            self.logger.info(f'Loaded config:\nAll sources: {self.source_list}\nSources with variants: {self.sources_with_variants}\nSources without Strict Norm: {self.sources_without_strict_normalization}')
 
 
 if __name__ == '__main__':
@@ -385,12 +426,13 @@ if __name__ == '__main__':
     parser.add_argument('-t', '--test_mode', action='store_true', help='Test mode will load a small sample version of the data.')
     args = parser.parse_args()
 
-    load_manager = SourceDataLoadManager(test_mode=args.test_mode)
-
     data_source = args.data_source
     if data_source == "all":
+        load_manager = SourceDataLoadManager(test_mode=args.test_mode)
         load_manager.start()
     else:
-        load_manager.update_source(data_source)
-        load_manager.normalize_source(data_source)
-        load_manager.annotate_source(data_source)
+        if data_source not in ALL_SOURCES:
+            print(f'Data source not valid. Aborting. (Invalid source: {data_source})')
+        else:
+            load_manager = SourceDataLoadManager(source_subset=[data_source], test_mode=args.test_mode)
+            load_manager.start()
