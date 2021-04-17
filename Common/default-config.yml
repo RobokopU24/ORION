@@ -1,0 +1,34 @@
+# all of the data sources to include when running everything
+#
+# optional attributes
+# has_sequence_variants: boolean - should be set to true for data sets containing sequence variants
+# strict_normalization: boolean - should be set to false when normalization should allow failures to pass
+data_sources:
+
+  - id: GWASCatalog
+    has_sequence_variants: true
+    #strict_normalization: false # <--- example for turning strict normalization off, by default it is on
+
+  - id: CTD
+
+  #- id: FooDB # this is on hold, data needs review after latest release of data.
+
+  #- id: HumanGOA # this has normalization issues (needs pre-norm to create edges)
+
+  - id: IntAct
+
+  - id: PHAROS
+
+  - id: UberGraph
+
+  - id: UniRef
+
+  - id: ViralProteome
+
+  - id: GtoPdb
+
+  - id: HMDB
+
+  - id: HGNC
+
+  - id: PANTHER
