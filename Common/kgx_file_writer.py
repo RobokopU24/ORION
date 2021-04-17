@@ -1,6 +1,6 @@
 import hashlib
 import os
-import json
+import jsonlines
 import logging
 
 from Common.utils import LoggingUtil
@@ -13,32 +13,30 @@ class KGXFileWriter:
                                       level=logging.DEBUG,
                                       log_file_path=os.environ['DATA_SERVICES_LOGS'])
 
-    def __init__(self, nodes_output_file_path: str = None, edges_output_file_path: str = None, streaming: bool = False):
+    def __init__(self, nodes_output_file_path: str = None, edges_output_file_path: str = None):
         self.written_nodes = set()
-        self.streaming = streaming
         self.edges_to_write = []
         self.edges_buffer_size = 10000
-        self.edges_written_flag = False
 
         self.nodes_to_write = []
         self.nodes_buffer_size = 10000
-        self.nodes_written_flag = False
+        self.repeat_node_count = 0
 
         self.nodes_output_file_handler = None
         if nodes_output_file_path:
             if os.path.isfile(nodes_output_file_path):
-                self.logger.warning(f'KGXFileWriter error.. file already exists: {nodes_output_file_path} - overwriting!')
+                # TODO verify - do we really want to overwrite existing files? we could remove them on previous errors instead
+                self.logger.warning(f'KGXFileWriter warning.. file already existed: {nodes_output_file_path}! Overwriting it!')
             self.nodes_output_file_handler = open(nodes_output_file_path, 'w')
-            if streaming:
-                self.nodes_output_file_handler.write('{"nodes": [\n')
+            self.nodes_jsonl_writer = jsonlines.Writer(self.nodes_output_file_handler)
 
         self.edges_output_file_handler = None
         if edges_output_file_path:
             if os.path.isfile(edges_output_file_path):
-                self.logger.warning(f'KGXFileWriter error.. file already exists: {edges_output_file_path} - overwriting!')
+                # TODO verify - do we really want to overwrite existing files? we could remove them on previous errors instead
+                self.logger.warning(f'KGXFileWriter warning.. file already existed: {edges_output_file_path}! Overwriting it!')
             self.edges_output_file_handler = open(edges_output_file_path, 'w')
-            if streaming:
-                self.edges_output_file_handler.write('{"edges": [\n')
+            self.edges_jsonl_writer = jsonlines.Writer(self.edges_output_file_handler)
 
     def __enter__(self):
         return self
@@ -46,55 +44,47 @@ class KGXFileWriter:
     def __exit__(self, exc_type, exc_value, traceback):
         if self.nodes_output_file_handler:
             self.__write_nodes_to_file()
-            if self.streaming:
-                self.nodes_output_file_handler.write('\n]}')
+            self.nodes_jsonl_writer.close()
             self.nodes_output_file_handler.close()
         if self.edges_output_file_handler:
             self.__write_edges_to_file()
-            if self.streaming:
-                self.edges_output_file_handler.write('\n]}')
+            self.edges_jsonl_writer.close()
             self.edges_output_file_handler.close()
 
-    def write_node(self, node_id: str, node_name: str, node_types: list, node_properties: dict = None):
-        if node_id in self.written_nodes:
+    def write_node(self, node_id: str, node_name: str, node_types: list, node_properties: dict = None, uniquify: bool = True):
+        if uniquify and node_id in self.written_nodes:
+            self.repeat_node_count += 1
             return
 
         self.written_nodes.add(node_id)
         node_object = {'id': node_id, 'name': node_name, 'category': node_types}
         if node_properties:
-            for p in node_properties:
-                node_object[p] = node_properties[p]
+            node_object.update(node_properties)
 
         self.nodes_to_write.append(node_object)
         self.check_node_buffer_for_flush()
 
-    def write_normalized_node(self, node_json: dict):
-        if node_json['id'] in self.written_nodes:
+    def write_normalized_node(self, node_json: dict, uniquify: bool = True):
+        if uniquify and node_json['id'] in self.written_nodes:
+            self.repeat_node_count += 1
             return
 
         self.written_nodes.add(node_json['id'])
         self.nodes_to_write.append(node_json)
         self.check_node_buffer_for_flush()
 
-    def write_normalized_nodes(self, nodes: list):
+    def write_normalized_nodes(self, nodes: list, uniquify: bool = True):
         for node in nodes:
-            self.write_normalized_node(node)
+            self.write_normalized_node(node, uniquify)
 
     def check_node_buffer_for_flush(self):
-        if self.streaming and len(self.nodes_to_write) >= self.nodes_buffer_size:
+        if len(self.nodes_to_write) >= self.nodes_buffer_size:
             self.__write_nodes_to_file()
 
     def __write_nodes_to_file(self):
-        if self.nodes_to_write:
-            if self.streaming:
-                prefix = ",\n" if self.nodes_written_flag else ""
-                next_chunk_to_write = prefix + ",\n".join([json.dumps(node) for node in self.nodes_to_write])
-                self.nodes_output_file_handler.write(next_chunk_to_write)
-                self.nodes_written_flag = True
-                self.nodes_to_write = []
-            else:
-                nodes_json_object = {"nodes": self.nodes_to_write}
-                self.nodes_output_file_handler.write(json.dumps(nodes_json_object, indent=4))
+        for node in self.nodes_to_write:
+            self.nodes_jsonl_writer.write(node)
+        self.nodes_to_write = []
 
     def write_edge(self,
                    subject_id: str,
@@ -110,29 +100,19 @@ class KGXFileWriter:
                        'subject': subject_id,
                        'predicate': predicate,
                        'object': object_id,
-                       'relation': relation
-                       }
+                       'relation': relation}
 
         if edge_properties is not None:
-            for p in edge_properties:
-                if p not in edge_object:
-                    edge_object[p] = edge_properties[p]
+            edge_object.update(edge_properties)
 
         self.edges_to_write.append(edge_object)
         self.check_edge_buffer_for_flush()
 
     def check_edge_buffer_for_flush(self):
-        if self.streaming and len(self.edges_to_write) >= self.edges_buffer_size:
+        if len(self.edges_to_write) >= self.edges_buffer_size:
             self.__write_edges_to_file()
 
     def __write_edges_to_file(self):
-        if self.edges_to_write:
-            if self.streaming:
-                prefix = ",\n" if self.edges_written_flag else ""
-                next_chunk_to_write = prefix + ",\n".join([json.dumps(edge) for edge in self.edges_to_write])
-                self.edges_output_file_handler.write(next_chunk_to_write)
-                self.edges_written_flag = True
-                self.edges_to_write = []
-            else:
-                edges_json_object = {"edges": self.edges_to_write}
-                self.edges_output_file_handler.write(json.dumps(edges_json_object, indent=4))
+        for edge in self.edges_to_write:
+            self.edges_jsonl_writer.write(edge)
+        self.edges_to_write = []
