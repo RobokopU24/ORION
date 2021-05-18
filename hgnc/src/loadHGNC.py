@@ -190,18 +190,21 @@ class HGNCLoader(SourceDataLoader):
                         # split the gene family name
                         gene_family = r['gene_family'].split('|')
 
+                        # save the gene family curie
+                        gene_family_curie = f'HGNC.FAMILY:' + gene_family_id
+
                         # create the gene family node
-                        self.final_node_list.append({'id': 'HGNC.FAMILY:' + gene_family_id, 'name': gene_family[idx]})
+                        self.final_node_list.append({'id': gene_family_curie, 'name': gene_family[idx]})
 
                         # get the baseline properties
-                        props = {'gene_family': gene_family[idx], 'gene_family_id': gene_family_id, 'source_database': 'hgnc'}
+                        props = {'source_database': 'hgnc'}
 
                         # were there publications
                         if len(r['pubmed_id']) > 0:
                             props.update({'publications': ['PMID:' + v for v in r['pubmed_id'].split('|')]})
 
                         # create the gene to gene family edge
-                        self.final_edge_list.append({'subject': r['hgnc_id'], 'relation': 'BFO:0000051', 'object': 'HGNC.FAMILY:' + gene_family_id, 'properties': props})
+                        self.final_edge_list.append({'subject': gene_family_curie, 'relation': 'BFO:0000051', 'object': r['hgnc_id'], 'properties': props})
                 else:
                     skipped_record_counter += 1
 
