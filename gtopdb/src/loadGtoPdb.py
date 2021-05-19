@@ -103,7 +103,7 @@ class GtoPdbLoader(SourceDataLoader):
         """
         self.logger.info(f'GtoPdbLoader - Start of GtoPdb data processing. Fetching source files.')
 
-        # get the CTD data
+        # get the GtoPDB data
         self.get_gtopdb_data()
 
         # get the gene map data
@@ -218,7 +218,7 @@ class GtoPdbLoader(SourceDataLoader):
                 record_counter += 1
 
                 # only process human records
-                if r['Species'].startswith('Human') and r['Subunit ids'] != '':
+                if r['Species'].upper().find('HUMAN') > -1 and r['Subunit ids'] != '':
                     # (GTOPDB:<ligand_id>, name=<ligand>)
                     ligand_node: dict = {'id': 'GTOPDB:' + r['Ligand id'], 'name': r['Name']}
 
@@ -236,7 +236,6 @@ class GtoPdbLoader(SourceDataLoader):
                         # create the node
                         part_node: dict = {'id': 'GTOPDB:' + subunit_id, 'name': subunit_name[idx]}
 
-                        # [predicate=type, pmid=[pubmed_id], primaryTarget=primary_target, affinityParameter=affinity_units, affinity=affinity_median, endogenous=endogenous>, edge_source=gtopdb.ligand_to_gene]
                         props: dict = {'edge_source': 'gtopdb.complex_to_part', 'source_database': 'GtoPdb'}
                         edge = {'subject': 'GTOPDB:' + r['Ligand id'], 'object': 'GTOPDB:' + subunit_id, 'relation': 'BFO:0000051', 'properties': props}
 
@@ -307,7 +306,7 @@ class GtoPdbLoader(SourceDataLoader):
                         # create the node
                         gene_node: dict = {'id': 'ENSEMBL:' + gene_id, 'name': gene_name[idx]}
 
-                        # [predicate=type, pmid=[pubmed_id], primaryTarget=primary_target, affinityParameter=affinity_units, affinity=affinity_median, endogenous=endogenous>, edge_source=gtopdb.ligand_to_gene]
+                        # get all the properties
                         props: dict = {'primaryTarget': r['primary_target'].lower().startswith('t'), 'affinityParameter': r['affinity_units'], 'endogenous': r['endogenous'].lower().startswith('t'), 'edge_source': 'gtopdb.ligand_to_gene', 'source_database': 'GtoPdb'}
 
                         # check the affinity and insure it is a float
@@ -348,6 +347,7 @@ class GtoPdbLoader(SourceDataLoader):
                                 # create the nodes
                                 gene_node: dict = {'id': gene_id, 'name': r['ligand_gene_symbol']}
 
+                                # declare the default properties
                                 props: dict = {'edge_source': 'gtopdb.chem_to_precursor', 'source_database': 'GtoPdb'}
 
                                 # check the pubmed id and insure they are ints
