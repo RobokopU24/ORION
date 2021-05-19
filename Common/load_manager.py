@@ -1,13 +1,14 @@
 
 import os
-import multiprocessing
 import argparse
 import yaml
+import datetime
 
 from Common.utils import LoggingUtil
 from Common.kgx_file_normalizer import KGXFileNormalizer, NormalizationBrokenError, NormalizationFailedError
 from Common.metadata_manager import MetadataManager as Metadata
 from Common.loader_interface import SourceDataBrokenError, SourceDataFailedError
+from Common.supplementation import SequenceVariantSupplementation, SupplementationFailedError
 from GWASCatalog.src.loadGWASCatalog import GWASCatalogLoader
 from CTD.src.loadCTD import CTDLoader
 from FooDB.src.loadFDB import FDBLoader
@@ -105,14 +106,14 @@ source_data_loader_classes = {
 
 class SourceDataLoadManager:
 
-    logger = LoggingUtil.init_logging("Data_services.Common.SourceDataLoadManager",
-                                      line_format='medium',
-                                      log_file_path=os.environ['DATA_SERVICES_LOGS'])
-
     def __init__(self,
                  storage_dir: str = None,
                  test_mode: bool = False,
                  source_subset: list = None):
+
+        self.logger = LoggingUtil.init_logging("Data_services.Common.SourceDataLoadManager",
+                                               line_format='medium',
+                                               log_file_path=os.environ['DATA_SERVICES_LOGS'])
 
         self.test_mode = test_mode
 
@@ -121,12 +122,13 @@ class SourceDataLoadManager:
 
         # load the config which sets up information about the data sources
         self.sources_without_strict_normalization = []
-        self.sources_with_variants = []
         self.load_config()
 
         # if there is a subset specified with the command line override the master source list
         if source_subset:
             self.source_list = source_subset
+
+        self.logger.info(f'Active Source list: {self.source_list}\n')
 
         # set up the individual subdirectories for each data source
         self.init_source_dirs()
@@ -141,54 +143,46 @@ class SourceDataLoadManager:
         self.load_previous_metadata()
 
     def start(self):
+        work_to_do, source_id = self.find_work_to_do()
+        while work_to_do:
+            work_to_do(source_id)
+            work_to_do, source_id = self.find_work_to_do()
+        self.logger.info(f'Work complete!')
 
-        # TODO determine multiprocessing pool size by deployment capabilities
-        pool_size = 6
+    def find_work_to_do(self):
 
         self.logger.info(f'Checking for sources to update...')
-        sources_to_update = self.check_sources_for_updates()
-        self.logger.info(f'Updating {len(sources_to_update)} sources: {repr(sources_to_update)}')
-        update_func = self.update_source
-        pool = multiprocessing.Pool(pool_size)
-        pool.map(update_func, sources_to_update)
-        pool.close()
+        source_id = self.find_a_source_to_update()
+        if source_id:
+            return self.update_source, source_id
 
-        self.logger.info(f'Checking for sources to normalize...')
-        sources_to_normalize = self.check_sources_for_normalization()
-        self.logger.info(f'Normalizing {len(sources_to_normalize)} sources: {repr(sources_to_normalize)}')
-        # TODO can we really do this in parallel or will the normalization services barf?
-        normalize_func = self.normalize_source
-        pool = multiprocessing.Pool(pool_size)
-        pool.map(normalize_func, sources_to_normalize)
-        pool.close()
+        self.logger.info(f'No more sources to update.. Checking for sources to normalize...')
+        source_id = self.find_a_source_to_normalize()
+        if source_id:
+            return self.normalize_source, source_id
 
-        self.logger.info(f'Checking for sources to annotate...')
-        sources_to_annotate = self.check_sources_for_annotation()
-        self.logger.info(f'Annotating {len(sources_to_annotate)} sources: {repr(sources_to_annotate)}')
-        annotate_func = self.annotate_source
-        pool = multiprocessing.Pool(pool_size)
-        pool.map(annotate_func, sources_to_annotate)
-        pool.close()
+        self.logger.info(f'No more sources to normalize.. Checking for sources to supplement...')
+        source_id = self.find_a_source_for_supplementation()
+        if source_id:
+            return self.supplement_source, source_id
+
+        return None, None
 
     def load_previous_metadata(self):
         for source_id in self.source_list:
             self.metadata[source_id] = Metadata(source_id, self.get_source_dir_path(source_id))
 
-    def check_sources_for_updates(self):
-        sources_to_update = []
+    def find_a_source_to_update(self):
         for source_id in self.source_list:
             source_metadata = self.metadata[source_id]
             update_status = source_metadata.get_update_status()
             if update_status == Metadata.NOT_STARTED:
-                sources_to_update.append(source_id)
+                return source_id
             elif update_status == Metadata.IN_PROGRESS:
                 continue
-            elif update_status == Metadata.BROKEN:
-                pass
-            elif update_status == Metadata.FAILED:
-                pass
+            elif update_status == Metadata.BROKEN or update_status == Metadata.FAILED:
                 # TODO do we want to retry these automatically?
-
+                pass
             else:
                 try:
                     loader = source_data_loader_classes[source_id]()
@@ -197,27 +191,27 @@ class SourceDataLoadManager:
                     if latest_source_version != source_metadata.get_source_version():
                         self.logger.info(f"Found new source version for {source_id}: {latest_source_version}")
                         source_metadata.archive_metadata()
-                        sources_to_update.append(source_id)
                         self.new_version_lookup[source_id] = latest_source_version
+                        return source_id
                     else:
                         self.logger.info(f"Source version for {source_id} is up to date ({latest_source_version})")
                 except SourceDataFailedError as failed_error:
                     # TODO report these by email or something automated
                     self.logger.info(
                         f"SourceDataFailedError while checking for updated version for {source_id}: {failed_error.error_message}")
-                    # TODO there isn't currently a good spot to indicate an error here in the metadata
-                    #source_metadata.set_version_update_error(failed_error.error_message)
-                    #source_metadata.set_version_update_status(Metadata.FAILED)
+                    source_metadata.set_version_update_error(failed_error.error_message)
+                    source_metadata.set_version_update_status(Metadata.FAILED)
 
-        return sources_to_update
+        return None
 
     def update_source(self, source_id: str):
-        self.logger.info(f"Updating source data for {source_id}...")
         source_metadata = self.metadata[source_id]
         source_metadata.set_update_status(Metadata.IN_PROGRESS)
+        self.logger.info(f"Updating source data for {source_id}...")
         try:
             # create an instance of the appropriate loader using the source_data_loader_classes lookup map
             source_data_loader = source_data_loader_classes[source_id](test_mode=self.test_mode)
+
             # update the version and load information
             if source_id in self.new_version_lookup:
                 latest_source_version = self.new_version_lookup[source_id]
@@ -225,18 +219,24 @@ class SourceDataLoadManager:
                 self.logger.info(f"Retrieving source version for {source_id}...")
                 latest_source_version = source_data_loader.get_latest_source_version()
                 self.logger.info(f"Found new source version for {source_id}: {latest_source_version}")
-
             source_metadata.update_version(latest_source_version)
+
             # call the loader - retrieve/parse data and write to a kgx file
             self.logger.info(f"Loading new version of {source_id} ({latest_source_version})...")
             nodes_output_file_path = self.get_source_node_file_path(source_id, source_metadata)
             edges_output_file_path = self.get_source_edge_file_path(source_id, source_metadata)
-            load_meta_data = source_data_loader.load(nodes_output_file_path, edges_output_file_path)
+            update_metadata = source_data_loader.load(nodes_output_file_path, edges_output_file_path)
 
             # update the associated metadata
             self.logger.info(f"Load finished. Updating {source_id} metadata...")
+            has_sequence_variants = source_data_loader.has_sequence_variants()
+            current_time = datetime.datetime.now().strftime('%m-%d-%y %H:%M:%S')
+            source_metadata.set_update_info(update_metadata,
+                                            update_time=current_time,
+                                            has_sequence_variants=has_sequence_variants)
             source_metadata.set_update_status(Metadata.STABLE)
-            source_metadata.set_update_info(load_meta_data)
+            source_metadata.set_normalization_status(Metadata.WAITING_ON_DEPENDENCY)
+            source_metadata.set_supplementation_status(Metadata.WAITING_ON_DEPENDENCY)
             self.logger.info(f"Updating {source_id} complete.")
 
         except SourceDataBrokenError as broken_error:
@@ -248,7 +248,7 @@ class SourceDataLoadManager:
         except SourceDataFailedError as failed_error:
             # TODO report these by email or something automated
             self.logger.info(f"SourceDataFailedError while updating {source_id}: {failed_error.error_message}")
-            source_metadata.set_update_error(failed_error.error_message)
+            source_metadata.set_update_error(f'{failed_error.error_message} - {failed_error.actual_error}')
             source_metadata.set_update_status(Metadata.FAILED)
 
         except Exception as e:
@@ -257,31 +257,32 @@ class SourceDataLoadManager:
             source_metadata.set_update_status(Metadata.FAILED)
             raise e
 
-    def check_sources_for_normalization(self):
-        sources_to_normalize = []
+    def find_a_source_to_normalize(self):
         for source_id in self.source_list:
             source_metadata = self.metadata[source_id]
-            normalization_status = source_metadata.get_normalization_status()
-            if normalization_status == Metadata.NOT_STARTED:
-                sources_to_normalize.append(source_id)
-            elif ((normalization_status == Metadata.WAITING_ON_DEPENDENCY)
-                  and (source_metadata.get_update_status() == Metadata.STABLE)):
-                sources_to_normalize.append(source_id)
-            elif normalization_status == Metadata.FAILED:
-                sources_to_normalize.append(source_id)
-                # TODO should probably have a retry max limit
-        return sources_to_normalize
+            # we only proceed with normalization if the latest source data update is stable
+            if source_metadata.get_update_status() == Metadata.STABLE:
+                normalization_status = source_metadata.get_normalization_status()
+                # if we haven't attempted normalization for this source data version, queue it up
+                if normalization_status == Metadata.NOT_STARTED or \
+                        normalization_status == Metadata.WAITING_ON_DEPENDENCY:
+                    return source_id
+                elif normalization_status == Metadata.FAILED or \
+                        normalization_status == Metadata.BROKEN:
+                    # TODO do we want to retry these automatically?
+                    pass
+        return None
 
     def normalize_source(self, source_id: str):
-        self.logger.debug(f"Normalizing source data for {source_id}...")
+        self.logger.info(f"Normalizing source data for {source_id}...")
         source_metadata = self.metadata[source_id]
         source_metadata.set_normalization_status(Metadata.IN_PROGRESS)
         try:
             strict_normalization = False if source_id in self.sources_without_strict_normalization else True
 
-            has_sequence_variants = True if source_id in self.sources_with_variants else False
+            has_sequence_variants = source_metadata.has_sequence_variants()
 
-            self.logger.debug(f"Normalizing KGX files for {source_id}...")
+            self.logger.info(f"Normalizing KGX files for {source_id}...")
             nodes_source_file_path = self.get_source_node_file_path(source_id, source_metadata)
             nodes_norm_file_path = self.get_normalized_node_file_path(source_id, source_metadata)
             node_norm_failures_file_path = self.get_node_norm_failures_file_path(source_id, source_metadata)
@@ -301,9 +302,11 @@ class SourceDataLoadManager:
             # self.logger.info(f"Normalization info for {source_id}: {normalization_info}")
 
             # update the associated metadata
+            current_time = datetime.datetime.now().strftime('%m-%d-%y %H:%M:%S')
+            source_metadata.set_normalization_info(normalization_info, normalization_time=current_time)
             source_metadata.set_normalization_status(Metadata.STABLE)
-            source_metadata.set_normalization_info(normalization_info)
-            self.logger.debug(f"Normalizing source {source_id} complete.")
+            source_metadata.set_supplementation_status(Metadata.WAITING_ON_DEPENDENCY)
+            self.logger.info(f"Normalizing source {source_id} complete.")
 
         except NormalizationBrokenError as broken_error:
             # TODO report these by email or something automated
@@ -313,7 +316,7 @@ class SourceDataLoadManager:
         except NormalizationFailedError as failed_error:
             # TODO report these by email or something automated
             self.logger.error(f"NormalizationFailedError while normalizing {source_id}: {failed_error.error_message}")
-            source_metadata.set_normalization_error(failed_error.error_message)
+            source_metadata.set_normalization_error(f'{failed_error.error_message} - {failed_error.actual_error}')
             source_metadata.set_normalization_status(Metadata.FAILED)
         except Exception as e:
             self.logger.error(f"Error while normalizing {source_id}: {repr(e)}")
@@ -322,22 +325,55 @@ class SourceDataLoadManager:
             source_metadata.set_normalization_status(Metadata.FAILED)
             raise e
 
-    def check_sources_for_annotation(self):
-        sources_to_annotate = []
+    def find_a_source_for_supplementation(self):
         for source_id in self.source_list:
-            annotation_status = self.metadata[source_id].get_annotation_status()
-            if annotation_status == Metadata.NOT_STARTED:
-                sources_to_annotate.append(source_id)
-            elif ((annotation_status == Metadata.WAITING_ON_DEPENDENCY)
-                  and (self.metadata[source_id].get_normalization_status() == Metadata.STABLE)):
-                sources_to_annotate.append(source_id)
-            elif annotation_status:
-                # TODO - log and report errors
-                pass
-        return sources_to_annotate
+            if self.metadata[source_id].get_normalization_status() == Metadata.STABLE:
+                supplementation_status = self.metadata[source_id].get_supplementation_status()
+                if supplementation_status == Metadata.NOT_STARTED or \
+                        supplementation_status == Metadata.WAITING_ON_DEPENDENCY:
+                    return source_id
+                elif supplementation_status == Metadata.FAILED or supplementation_status == Metadata.BROKEN:
+                    # TODO do we want to retry these automatically?
+                    pass
+        return None
 
-    def annotate_source(self, source_id: str):
-        pass
+    def supplement_source(self, source_id: str):
+        self.logger.info(f"Supplementing source {source_id}...")
+        source_metadata = self.metadata[source_id]
+        source_metadata.set_supplementation_status(Metadata.IN_PROGRESS)
+        try:
+            if source_metadata.has_sequence_variants():
+                nodes_file_path = self.get_normalized_node_file_path(source_id, source_metadata)
+                supplemental_node_file_path = self.get_supplemental_node_file_path(source_id, source_metadata)
+                normalized_supp_node_file_path = self.get_normalized_supp_node_file_path(source_id, source_metadata)
+                supp_node_norm_failures_file_path = self.get_supp_node_norm_failures_file_path(source_id, source_metadata)
+                supplemental_edge_file_path = self.get_supplemental_edge_file_path(source_id, source_metadata)
+                normalized_supp_edge_file_path = self.get_normalized_supplemental_edge_file_path(source_id, source_metadata)
+                supp_edge_norm_failures_file_path = self.get_supp_edge_norm_failures_file_path(source_id, source_metadata)
+                sv_supp = SequenceVariantSupplementation(os.path.join(self.storage_dir, "resources"))
+                supplementation_info = sv_supp.find_supplemental_data(nodes_file_path=nodes_file_path,
+                                                                      supp_nodes_file_path=supplemental_node_file_path,
+                                                                      normalized_supp_node_file_path=normalized_supp_node_file_path,
+                                                                      supp_node_norm_failures_file_path=supp_node_norm_failures_file_path,
+                                                                      supp_edges_file_path=supplemental_edge_file_path,
+                                                                      normalized_supp_edge_file_path=normalized_supp_edge_file_path,
+                                                                      supp_edge_norm_failures_file_path=supp_edge_norm_failures_file_path
+                                                                      )
+                current_time = datetime.datetime.now().strftime('%m-%d-%y %H:%M:%S')
+                source_metadata.set_supplementation_info(supplementation_info, supplementation_time=current_time)
+                source_metadata.set_supplementation_status(Metadata.STABLE)
+            self.logger.info(f"Supplementing source {source_id} complete.")
+        except SupplementationFailedError as failed_error:
+            # TODO report these by email or something automated
+            self.logger.error(f"SupplementationFailedError while supplementing {source_id}: {failed_error.error_message}")
+            source_metadata.set_supplementation_error(f'{failed_error.error_message} - {failed_error.actual_error}')
+            source_metadata.set_supplementation_status(Metadata.FAILED)
+        except Exception as e:
+            self.logger.error(f"Error while supplementing {source_id}: {repr(e)}")
+            # TODO report these by email or something automated
+            source_metadata.set_supplementation_error(repr(e))
+            source_metadata.set_supplementation_status(Metadata.FAILED)
+            raise e
 
     @staticmethod
     def get_versioned_file_name(source_id: str, source_metadata: dict):
@@ -366,6 +402,31 @@ class SourceDataLoadManager:
     def get_edge_norm_failures_file_path(self, source_id: str, source_metadata: dict):
         versioned_file_name = self.get_versioned_file_name(source_id, source_metadata)
         return os.path.join(self.get_source_dir_path(source_id), f'{versioned_file_name}_norm_edge_failures.log')
+
+    def get_supplemental_node_file_path(self, source_id: str, source_metadata: dict):
+        versioned_file_name = self.get_versioned_file_name(source_id, source_metadata)
+        return os.path.join(self.get_source_dir_path(source_id), f'{versioned_file_name}_supp_nodes.json')
+
+    def get_normalized_supp_node_file_path(self, source_id: str, source_metadata: dict):
+        versioned_file_name = self.get_versioned_file_name(source_id, source_metadata)
+        return os.path.join(self.get_source_dir_path(source_id), f'{versioned_file_name}_norm_supp_nodes.json')
+
+    def get_supp_node_norm_failures_file_path(self, source_id: str, source_metadata: dict):
+        versioned_file_name = self.get_versioned_file_name(source_id, source_metadata)
+        return os.path.join(self.get_source_dir_path(source_id), f'{versioned_file_name}_norm_supp_nodes_failures.log')
+
+    def get_supplemental_edge_file_path(self, source_id: str, source_metadata: dict):
+        versioned_file_name = self.get_versioned_file_name(source_id, source_metadata)
+        return os.path.join(self.get_source_dir_path(source_id), f'{versioned_file_name}_supp_edges.json')
+
+    def get_normalized_supplemental_edge_file_path(self, source_id: str, source_metadata: dict):
+        versioned_file_name = self.get_versioned_file_name(source_id, source_metadata)
+        return os.path.join(self.get_source_dir_path(source_id), f'{versioned_file_name}_norm_supp_edges.json')
+
+    def get_supp_edge_norm_failures_file_path(self, source_id: str, source_metadata: dict):
+        versioned_file_name = self.get_versioned_file_name(source_id, source_metadata)
+        return os.path.join(self.get_source_dir_path(source_id), f'{versioned_file_name}_norm_supp_edge_failures.log')
+
 
     def get_source_dir_path(self, source_id: str):
         return os.path.join(self.storage_dir, source_id)
@@ -397,12 +458,12 @@ class SourceDataLoadManager:
     def load_config(self):
         # check for a config file name specified by the environment variable
         # a custom config file must reside at the top level of the storage directory
-        if 'DATA_SERVICES_CONFIG' in os.environ:
+        if 'DATA_SERVICES_CONFIG' in os.environ and os.environ['DATA_SERVICES_CONFIG']:
             config_file_name = os.environ['DATA_SERVICES_CONFIG']
             config_path = os.path.join(self.storage_dir, config_file_name)
         else:
             # otherwise use the default one included in the codebase
-            config_path = os.path.dirname(os.path.abspath(__file__)) + '/default-config.yml'
+            config_path = os.path.dirname(os.path.abspath(__file__)) + '/../default-config.yml'
 
         with open(config_path) as config_file:
             config = yaml.full_load(config_file)
@@ -413,10 +474,9 @@ class SourceDataLoadManager:
                 if 'strict_normalization' in data_source_config:
                     if not data_source_config['strict_normalization']:
                         self.sources_without_strict_normalization.append(data_source_id)
-                if 'has_sequence_variants' in data_source_config:
-                    if data_source_config['has_sequence_variants']:
-                        self.sources_with_variants.append(data_source_id)
-            self.logger.info(f'Loaded config:\nAll sources: {self.source_list}\nSources with variants: {self.sources_with_variants}\nSources without Strict Norm: {self.sources_without_strict_normalization}')
+        self.logger.info(f'Config loaded... ({config_path})\n'
+                         f'Sources without Strict Norm: {self.sources_without_strict_normalization}')
+
 
 
 if __name__ == '__main__':
