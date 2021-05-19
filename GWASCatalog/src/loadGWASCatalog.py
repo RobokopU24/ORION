@@ -9,10 +9,10 @@ from collections import defaultdict
 from ftplib import FTP, all_errors as ftp_errors
 from Common.utils import LoggingUtil
 from Common.kgx_file_writer import KGXFileWriter
-from Common.loader_interface import SourceDataLoader, SourceDataBrokenError, SourceDataFailedError
+from Common.loader_interface import SourceDataWithVariantsLoader, SourceDataBrokenError, SourceDataFailedError
 
 
-class GWASCatalogLoader(SourceDataLoader):
+class GWASCatalogLoader(SourceDataWithVariantsLoader):
 
     logger = LoggingUtil.init_logging("Data_services.GWASCatalog.GWASCatalogLoader",
                                       line_format='medium',
@@ -102,7 +102,7 @@ class GWASCatalogLoader(SourceDataLoader):
             'total_variants': 0,
             'single_trait_associations': 0,
             'multi_trait_associations': 0,
-            'total_traits': 0,
+            'total_traits': 0
         }
 
         for current_line, line in enumerate(gwas_catalog[1:], start=1):
@@ -249,7 +249,9 @@ class GWASCatalogLoader(SourceDataLoader):
                     file_writer.write_node(trait_id, node_name='', node_types=[node_types.DISEASE_OR_PHENOTYPIC_FEATURE])
                     for association in association_info:
                         edge_properties = {'p_value': [association["p_value"]],
-                                           'pubmed_id': [association["pubmed_id"]]}
+                                           'pubmed_id': [association["pubmed_id"]],
+                                           'edge_source': 'gwascatalog',
+                                           'source_database': 'GWASCatalog'}
                         file_writer.write_edge(subject_id=variant_id,
                                                object_id=trait_id,
                                                relation=relation,
