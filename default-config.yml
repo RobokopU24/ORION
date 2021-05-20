@@ -4,29 +4,30 @@
 # strict_normalization: boolean - should be set to false when normalization should allow failures to pass
 data_sources:
 
-  - id: GWASCatalog
-    #strict_normalization: false # <--- example for turning strict normalization off, by default it is on
-
   - id: CTD
 
-  #- id: FooDB # this is on hold, data needs review after latest release of data.
-
-  #- id: HumanGOA # this has normalization issues (needs pre-norm to create edges)
-
-  - id: IntAct
-
-  #- id: PHAROS
-
-  - id: UberGraph
-
-  #- id: UniRef
-
-  - id: ViralProteome
+  - id: FooDB # this is on hold, data needs review after latest release of data.
 
   - id: GtoPdb
+
+#  - id: GWASCatalog
+    #strict_normalization: false # <--- example for turning strict normalization off, by default it is on
 
   - id: HMDB
 
   - id: HGNC
 
-  #- id: PANTHER
+  - id: HumanGOA
+
+  - id: IntAct
+
+#  - id: PANTHER
+
+  - id: PHAROS
+
+  - id: UberGraph
+
+#  - id: UniRef
+
+  - id: ViralProteome
+
