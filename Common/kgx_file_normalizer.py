@@ -199,7 +199,7 @@ class KGXFileNormalizer:
                         normalized_subject_ids = node_norm_lookup[edge['subject']]
                         normalized_object_ids = node_norm_lookup[edge['object']]
                     except KeyError as e:
-                        raise NormalizationFailedError(error_message="One of the node IDs from the edge file was "
+                        raise NormalizationBrokenError(error_message="One of the node IDs from the edge file was "
                                                                      "missing from the normalizer look up, "
                                                                      "it's probably not in the node file.",
                                                        actual_error=f'KeyError: {e}')
