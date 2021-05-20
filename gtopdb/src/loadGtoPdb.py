@@ -220,7 +220,7 @@ class GtoPdbLoader(SourceDataLoader):
                 # only process human records
                 if r['Species'].startswith('Human') and r['Subunit ids'] != '':
                     # (GTOPDB:<ligand_id>, name=<ligand>)
-                    ligand_node: dict = {'id': 'GTOPDB:' + r['Ligand id'], 'name': r['Name']}
+                    ligand_node: dict = {'id': 'GTOPDB:' + r['Ligand id'], 'name': r['Name'].encode('ascii',errors='ignore').decode(encoding="utf-8")}
 
                     # save the ligand node
                     node_list.append(ligand_node)
@@ -234,7 +234,7 @@ class GtoPdbLoader(SourceDataLoader):
                         subunit_name = r['Subunit names'].split('|')
 
                         # create the node
-                        part_node: dict = {'id': 'GTOPDB:' + subunit_id, 'name': subunit_name[idx]}
+                        part_node: dict = {'id': 'GTOPDB:' + subunit_id, 'name': subunit_name[idx].encode('ascii',errors='ignore').decode(encoding="utf-8")}
 
                         # [predicate=type, pmid=[pubmed_id], primaryTarget=primary_target, affinityParameter=affinity_units, affinity=affinity_median, endogenous=endogenous>, edge_source=gtopdb.ligand_to_gene]
                         props: dict = {'edge_source': 'gtopdb.complex_to_part', 'source_database': 'GtoPdb'}
@@ -286,9 +286,9 @@ class GtoPdbLoader(SourceDataLoader):
                 record_counter += 1
 
                 # do the ligand to gene nodes/edges
-                if r['target_species'].startswith('Human') and r['target_ensembl_gene_id'] != '' and r['target'] != '' and r['ligand_id'] in self.ligands:
+                if r['target_species'].startswith('Human') and r['target_ensembl_gene_id'] != '' and r['target'] != '':  # and r['ligand_id'] in self.ligands
                     # (GTOPDB:<ligand_id>, name=<ligand>)
-                    ligand_node: dict = {'id': 'GTOPDB:' + r['ligand_id'], 'name': r['ligand']}
+                    ligand_node: dict = {'id': 'GTOPDB:' + r['ligand_id'], 'name': r['ligand'].encode('ascii',errors='ignore').decode(encoding="utf-8")}
 
                     # save the ligand node
                     node_list.append(ligand_node)
@@ -305,7 +305,7 @@ class GtoPdbLoader(SourceDataLoader):
                         gene_name = r['target_gene_symbol'].split('|')
 
                         # create the node
-                        gene_node: dict = {'id': 'ENSEMBL:' + gene_id, 'name': gene_name[idx]}
+                        gene_node: dict = {'id': 'ENSEMBL:' + gene_id, 'name': gene_name[idx].encode('ascii',errors='ignore').decode(encoding="utf-8")}
 
                         # [predicate=type, pmid=[pubmed_id], primaryTarget=primary_target, affinityParameter=affinity_units, affinity=affinity_median, endogenous=endogenous>, edge_source=gtopdb.ligand_to_gene]
                         props: dict = {'primaryTarget': r['primary_target'].lower().startswith('t'), 'affinityParameter': r['affinity_units'], 'endogenous': r['endogenous'].lower().startswith('t'), 'edge_source': 'gtopdb.ligand_to_gene', 'source_database': 'GtoPdb'}
@@ -346,7 +346,7 @@ class GtoPdbLoader(SourceDataLoader):
                                 gene_id = 'HGNC:' + gene_id
 
                                 # create the nodes
-                                gene_node: dict = {'id': gene_id, 'name': r['ligand_gene_symbol']}
+                                gene_node: dict = {'id': gene_id, 'name': r['ligand_gene_symbol'].encode('ascii',errors='ignore').decode(encoding="utf-8")}
 
                                 props: dict = {'edge_source': 'gtopdb.chem_to_precursor', 'source_database': 'GtoPdb'}
 
