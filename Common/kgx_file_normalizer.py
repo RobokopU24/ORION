@@ -195,8 +195,14 @@ class KGXFileNormalizer:
                 edge_norm_lookup = self.edge_normalizer.edge_normalization_lookup
 
                 for edge in source_edges:
-                    normalized_subject_ids = node_norm_lookup[edge['subject']]
-                    normalized_object_ids = node_norm_lookup[edge['object']]
+                    try:
+                        normalized_subject_ids = node_norm_lookup[edge['subject']]
+                        normalized_object_ids = node_norm_lookup[edge['object']]
+                    except KeyError as e:
+                        raise NormalizationFailedError(error_message="One of the node IDs from the edge file was "
+                                                                     "missing from the normalizer look up, "
+                                                                     "it's probably not in the node file.",
+                                                       actual_error=f'KeyError: {e}')
                     if not (normalized_subject_ids and normalized_object_ids):
                         edges_failed_due_to_nodes += 1
                     else:
