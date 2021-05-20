@@ -310,13 +310,15 @@ class SourceDataLoadManager:
 
         except NormalizationBrokenError as broken_error:
             # TODO report these by email or something automated
-            self.logger.error(f"NormalizationBrokenError while normalizing {source_id}: {broken_error.error_message}")
-            source_metadata.set_normalization_error(broken_error.error_message)
+            error_message = f"{source_id} NormalizationBrokenError: {broken_error.error_message} - {broken_error.actual_error}"
+            self.logger.error(error_message)
+            source_metadata.set_normalization_error(error_message)
             source_metadata.set_normalization_status(Metadata.BROKEN)
         except NormalizationFailedError as failed_error:
             # TODO report these by email or something automated
-            self.logger.error(f"NormalizationFailedError while normalizing {source_id}: {failed_error.error_message}")
-            source_metadata.set_normalization_error(f'{failed_error.error_message} - {failed_error.actual_error}')
+            error_message = f"{source_id} NormalizationFailedError: {failed_error.error_message} - {failed_error.actual_error}"
+            self.logger.error(error_message)
+            source_metadata.set_normalization_error(error_message)
             source_metadata.set_normalization_status(Metadata.FAILED)
         except Exception as e:
             self.logger.error(f"Error while normalizing {source_id}: {repr(e)}")
@@ -365,11 +367,13 @@ class SourceDataLoadManager:
             self.logger.info(f"Supplementing source {source_id} complete.")
         except SupplementationFailedError as failed_error:
             # TODO report these by email or something automated
-            self.logger.error(f"SupplementationFailedError while supplementing {source_id}: {failed_error.error_message}")
-            source_metadata.set_supplementation_error(f'{failed_error.error_message} - {failed_error.actual_error}')
+            error_message = f"{source_id} SupplementationFailedError: " \
+                            f"{failed_error.error_message} - {failed_error.actual_error}"
+            self.logger.error(error_message)
+            source_metadata.set_supplementation_error(error_message)
             source_metadata.set_supplementation_status(Metadata.FAILED)
         except Exception as e:
-            self.logger.error(f"Error while supplementing {source_id}: {repr(e)}")
+            self.logger.error(f"{source_id} Error while supplementing: {repr(e)}")
             # TODO report these by email or something automated
             source_metadata.set_supplementation_error(repr(e))
             source_metadata.set_supplementation_status(Metadata.FAILED)

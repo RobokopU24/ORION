@@ -38,12 +38,15 @@ class MetadataManager:
         self.metadata['update_status'] = self.NOT_STARTED
         self.metadata['update_time'] = ''
         self.metadata['update_info'] = {}
+        self.metadata['update_error'] = ''
         self.metadata['normalization_status'] = self.WAITING_ON_DEPENDENCY
         self.metadata['normalization_time'] = ''
         self.metadata['normalization_info'] = {}
+        self.metadata['normalization_error'] = ''
         self.metadata['supplementation_status'] = self.WAITING_ON_DEPENDENCY
         self.metadata['supplementation_time'] = ''
         self.metadata['supplementation_info'] = {}
+        self.metadata['supplementation_error'] = ''
 
     def set_update_status(self, update_status: str):
         self.metadata['update_status'] = update_status
