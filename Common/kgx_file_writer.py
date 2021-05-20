@@ -83,8 +83,13 @@ class KGXFileWriter:
 
     def __write_nodes_to_file(self):
         for node in self.nodes_to_write:
-            self.nodes_jsonl_writer.write(node)
-        self.nodes_to_write = []
+            try:
+                self.nodes_jsonl_writer.write(node)
+            except Exception as e:
+                self.logger.error(f'KGXFileWriter error: Failed to write json node data: {node}')
+                raise e
+
+        self.nodes_to_write.clear()
 
     def write_edge(self,
                    subject_id: str,
@@ -114,5 +119,10 @@ class KGXFileWriter:
 
     def __write_edges_to_file(self):
         for edge in self.edges_to_write:
-            self.edges_jsonl_writer.write(edge)
-        self.edges_to_write = []
+            try:
+                self.edges_jsonl_writer.write(edge)
+            except Exception as e:
+                self.logger.error(f'KGXFileWriter error: Failed to write json edge data: {edge}')
+                raise e
+
+        self.edges_to_write.clear()
