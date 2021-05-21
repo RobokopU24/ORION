@@ -541,40 +541,50 @@ class CTDLoader(SourceDataLoader):
         :param r:
         :return:
         """
-
-        # get the standard properties
-        props: dict = {'description': r['interaction'], 'NCBITAXON': r['taxonID'].split(':')[1]}
-
-        # get the pubmed ids into a list
-        pmids: list = r['PMID'].split('|')
-
-        # set the relation label. might get overwritten in edge norm
-        relation_label: str = r['interaction']
-
-        # there are lots of garbage micro-arrays with only one paper. They goop the place up so ignore them
+        # init returned variables
         good_row: bool = True
+        props: dict = {}
+        pmids: list = []
+        relation_label: str = ''
 
-        # less then 3 publications
-        if len(pmids) < 3:
-            # if the relation label in this list it is not usable
-            if relation_label in ['affects expression of', 'increases expression of',
-                                  'decreases expression of', 'affects methylation of',
-                                  'increases methylation of', 'decreases methylation of',
-                                  'affects molecular modification of',
-                                  'increases molecular modification of',
-                                  'decreases molecular modification of']:
-                # mark the row unusable
+        # loop through data and search for "?" which indicates incomplete data
+        for item in r:
+            if r[item].find('?') > -1:
                 good_row = False
+                break
 
-        # less than 2 publications
-        if len(pmids) < 2:
-            # if the relation label in this list it is not usable
-            if relation_label in ['affects splicing of', 'increases splicing of', 'decreases splicing of']:
-                # mark the row unusable
-                good_row = False
+        # check for invalid data
+        if good_row:
+            # get the standard properties
+            props: dict = {'description': r['interaction'], 'NCBITAXON': r['taxonID'].split(':')[1]}
 
-        # make a list of the publications
-        pmids: list = [p.upper() for p in pmids]
+            # get the pubmed ids into a list
+            pmids: list = r['PMID'].split('|')
+
+            # set the relation label. might get overwritten in edge norm
+            relation_label: str = r['interaction']
+
+            # less then 3 publications
+            if len(pmids) < 3:
+                # if the relation label in this list it is not usable
+                if relation_label in ['affects expression of', 'increases expression of',
+                                      'decreases expression of', 'affects methylation of',
+                                      'increases methylation of', 'decreases methylation of',
+                                      'affects molecular modification of',
+                                      'increases molecular modification of',
+                                      'decreases molecular modification of']:
+                    # mark the row unusable
+                    good_row = False
+
+            # less than 2 publications
+            if len(pmids) < 2:
+                # if the relation label in this list it is not usable
+                if relation_label in ['affects splicing of', 'increases splicing of', 'decreases splicing of']:
+                    # mark the row unusable
+                    good_row = False
+
+            # make a list of the publications
+            pmids: list = [p.upper() for p in pmids]
 
         # return to the caller
         return good_row, relation_label, props, pmids
