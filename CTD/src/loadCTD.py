@@ -229,7 +229,7 @@ class CTDLoader(SourceDataLoader):
                 node_list.append({'id': chemical_id, 'name': r['chem_label'], 'properties': None})
 
                 # save the gene node
-                node_list.append({'id': gene_id, 'name': r['gene_label'], 'properties': {'NCBITaxon': r['taxonID'].split(':')[1]}})
+                node_list.append({'id': gene_id, 'name': r['gene_label'], 'properties': {'NCBITAXON': r['taxonID'].split(':')[1]}})
 
                 # get the right source/object depending on the relation direction
                 if r['direction'] == '->':
@@ -533,7 +533,8 @@ class CTDLoader(SourceDataLoader):
         # return the node/edge lists and counters to the caller
         return node_list, edge_list, record_counter, skipped_record_counter
 
-    def check_expanded_gene_chemical_row(self, r):
+    @staticmethod
+    def check_expanded_gene_chemical_row(r):
         """
         Validates the a row of gene/chemical data
 
@@ -541,46 +542,39 @@ class CTDLoader(SourceDataLoader):
         :return:
         """
 
+        # get the standard properties
+        props: dict = {'description': r['interaction'], 'NCBITAXON': r['taxonID'].split(':')[1]}
+
+        # get the pubmed ids into a list
+        pmids: list = r['PMID'].split('|')
+
+        # set the relation label. might get overwritten in edge norm
+        relation_label: str = r['interaction']
+
         # there are lots of garbage micro-arrays with only one paper. They goop the place up so ignore them
         good_row: bool = True
-        props: dict = {}
-        pmids: list = []
-        relation_label: str = ''
 
-        try:
-            # get the standard properties
-            props = {'description': r['interaction'], 'NCBITaxon': r['taxonID'].split(':')[1]}
+        # less then 3 publications
+        if len(pmids) < 3:
+            # if the relation label in this list it is not usable
+            if relation_label in ['affects expression of', 'increases expression of',
+                                  'decreases expression of', 'affects methylation of',
+                                  'increases methylation of', 'decreases methylation of',
+                                  'affects molecular modification of',
+                                  'increases molecular modification of',
+                                  'decreases molecular modification of']:
+                # mark the row unusable
+                good_row = False
 
-            # get the pubmed ids into a list
-            pmids = r['PMID'].split('|')
+        # less than 2 publications
+        if len(pmids) < 2:
+            # if the relation label in this list it is not usable
+            if relation_label in ['affects splicing of', 'increases splicing of', 'decreases splicing of']:
+                # mark the row unusable
+                good_row = False
 
-            # set the relation label. might get overwritten in edge norm
-            relation_label = r['interaction']
-
-            # less then 3 publications
-            if len(pmids) < 3:
-                # if the relation label in this list it is not usable
-                if relation_label in ['affects expression of', 'increases expression of',
-                                      'decreases expression of', 'affects methylation of',
-                                      'increases methylation of', 'decreases methylation of',
-                                      'affects molecular modification of',
-                                      'increases molecular modification of',
-                                      'decreases molecular modification of']:
-                    # mark the row unusable
-                    good_row = False
-
-            # less than 2 publications
-            if len(pmids) < 2 and good_row:
-                # if the relation label in this list it is not usable
-                if relation_label in ['affects splicing of', 'increases splicing of', 'decreases splicing of']:
-                    # mark the row unusable
-                    good_row = False
-
-            # make a list of the publications
-            pmids: list = [p.upper() for p in pmids]
-        except Exception as e:
-            self.logger.error(f'CTDLoader - Record invalid: {r}, Exception: {e}')
-            good_row = False
+        # make a list of the publications
+        pmids: list = [p.upper() for p in pmids]
 
         # return to the caller
         return good_row, relation_label, props, pmids

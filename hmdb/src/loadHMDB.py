@@ -183,7 +183,7 @@ class HMDBLoader(SourceDataLoader):
                             # did we get something created
                             if pathway_success or disease_success or gene_success:
                                 # create a metabolite node and add it to the list
-                                self.final_node_list.append({'id': metabolite_id, 'name': metabolite_name.text})
+                                self.final_node_list.append({'id': metabolite_id, 'name': metabolite_name.text.encode('ascii',errors='ignore').decode(encoding="utf-8")})
                             else:
                                 # increment the counter
                                 skipped_record_counter += 1
@@ -283,7 +283,7 @@ class HMDBLoader(SourceDataLoader):
 
                         # was the name found (optional)
                         if el_name is not None and el_name.text is not None:
-                            name: str = el_name.text
+                            name: str = el_name.text.encode('ascii',errors='ignore').decode(encoding="utf-8")
                         else:
                             name: str = ''
 
@@ -352,7 +352,7 @@ class HMDBLoader(SourceDataLoader):
 
                     # was the name found (optional)
                     if name is not None and name.text is not None:
-                        name: str = name.text
+                        name: str = name.text.encode('ascii',errors='ignore').decode(encoding="utf-8")
                     else:
                         name: str = ''
 
@@ -438,7 +438,7 @@ class HMDBLoader(SourceDataLoader):
 
                         # did we get a good value (optional)
                         if name_el is not None and name_el.text is not None:
-                            name: str = name_el.text
+                            name: str = name_el.text.encode('ascii',errors='ignore').decode(encoding="utf-8")
                         else:
                             name: str = ''
 

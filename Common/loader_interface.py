@@ -6,9 +6,9 @@ class SourceDataLoader(metaclass=abc.ABCMeta):
     @classmethod
     def __subclasshook__(cls, subclass):
         return (hasattr(subclass, 'load') and
-                callable(subclass.load_data_source) and
+                callable(subclass.load) and
                 hasattr(subclass, 'get_latest_source_version') and
-                callable(subclass.extract_text) and
+                callable(subclass.get_latest_source_version) and
                 hasattr(subclass, '__init__') and
                 callable(subclass.__init__) or
                 NotImplemented)
@@ -27,6 +27,24 @@ class SourceDataLoader(metaclass=abc.ABCMeta):
     def load(self, nodes_output_file_path: str, edges_output_file_path: str):
         """Load the source data and write it to kgx files in the specified locations."""
         raise NotImplementedError
+
+    def has_sequence_variants(self):
+        return False
+
+
+class SourceDataWithVariantsLoader(SourceDataLoader):
+
+    def __init__(self, test_mode: bool):
+        raise NotImplementedError
+
+    def get_latest_source_version(self):
+        raise NotImplementedError
+
+    def load(self, nodes_output_file_path: str, edges_output_file_path: str):
+        raise NotImplementedError
+
+    def has_sequence_variants(self):
+        return True
 
 
 class SourceDataBrokenError(Exception):

@@ -46,9 +46,9 @@ def test_metadata_manager(meta_manager):
     # save the file and then parse it again
     meta_manager.save_metadata()
     meta_manager = MetadataManager(testing_source_id_1, test_storage_dir)
-    previous_version = meta_manager.get_previous_version()
+    previous_load_version = meta_manager.get_previous_load_version()
     assert meta_manager.get_source_version() == 'version_4'
-    assert previous_version == 3
+    assert previous_load_version == 3
 
 
 
