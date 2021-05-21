@@ -101,7 +101,7 @@ class FDBLoader(SourceDataLoader):
             # for each node captured
             for node in self.final_node_list:
                 # write out the node
-                file_writer.write_node(node['id'], node_name=node['name'].encode('ascii',errors='ignore').decode(encoding="utf-8"), node_types=[], node_properties=node['properties'])
+                file_writer.write_node(node['id'], node_name=node['name'].encode('ascii', errors='ignore').decode(encoding="utf-8"), node_types=[], node_properties=node['properties'])
 
             # for each edge captured
             for edge in self.final_edge_list:
@@ -196,7 +196,7 @@ class FDBLoader(SourceDataLoader):
                     # save all the edges
                     for item in compound_list[1:]:
                         self.final_edge_list.append({'subject': subject_id, 'predicate': 'biolink:related_to', 'relation': 'RO:0001019', 'object': item['id'],
-                                                     'properties': {'unit': item['properties']['unit'].encode('ascii',errors='ignore').decode(encoding="utf-8"), 'amount': item['properties']['amount'], 'source_data_base': 'FooDB'}})
+                                                     'properties': {'unit': item['properties']['unit'].encode('ascii', errors='ignore').decode(encoding="utf-8"), 'amount': item['properties']['amount'], 'source_data_base': 'FooDB'}})
 
                     # clear the list for this food for the next round
                     compound_list.clear()
@@ -220,7 +220,7 @@ class FDBLoader(SourceDataLoader):
                 if equivalent_id is not None:
                     # did we get good units and max values
                     if compound_record[cols['content_unit']] is not None:
-                        units = compound_record[cols['content_unit']].encode('ascii',errors='ignore').decode(encoding="utf-8")
+                        units = compound_record[cols['content_unit']].encode('ascii', errors='ignore').decode(encoding="utf-8")
                     else:
                         units = ''
 
@@ -245,7 +245,7 @@ class FDBLoader(SourceDataLoader):
             # save all the collected edges
             for item in compound_list[1:]:
                 self.final_edge_list.append({'subject': subject_id, 'predicate': 'biolink:related_to', 'relation': 'RO:0001019', 'object': item['id'],
-                                             'properties': {'unit': item['properties']['unit'].encode('ascii',errors='ignore').decode(encoding="utf-8"), 'amount': item['properties']['amount'], 'source_data_base': 'FooDB'}})
+                                             'properties': {'unit': item['properties']['unit'].encode('ascii', errors='ignore').decode(encoding="utf-8"), 'amount': item['properties']['amount'], 'source_data_base': 'FooDB'}})
 
         self.logger.debug(f'FooDB data parsing and KGX file creation complete.\n')
 
