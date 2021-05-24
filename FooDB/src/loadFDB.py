@@ -1,8 +1,10 @@
 import os
 import argparse
 import logging
-import datetime
+import re
+import requests
 
+from bs4 import BeautifulSoup
 from FooDB.src.FoodSQL import FoodSQL
 from Common.kgx_file_writer import KGXFileWriter
 from Common.loader_interface import SourceDataLoader
@@ -35,6 +37,11 @@ class FDBLoader(SourceDataLoader):
         self.source_id = 'FooDB'
         self.source_db = 'Food Database'
 
+        self.archive_name = ''
+        self.full_url_path = ''
+
+        self.get_latest_source_version()
+
         # create a logger
         self.logger = LoggingUtil.init_logging("Data_services.FooDB.FooDBLoader", level=logging.INFO, line_format='medium', log_file_path=os.environ['DATA_SERVICES_LOGS'])
 
@@ -52,7 +59,24 @@ class FDBLoader(SourceDataLoader):
 
         :return:
         """
-        return datetime.datetime.now().strftime("%m/%d/%Y")
+        # init the return
+        ret_val: str = 'Not found'
+
+        # load the web page for CTD
+        html_page: requests.Response = requests.get('https://foodb.ca/downloads')
+
+        # get the html into a parsable object
+        resp: BeautifulSoup = BeautifulSoup(html_page.content, 'html.parser')
+
+        # get the file name
+        url = str(resp.find(href=re.compile('csv.tar.gz')))
+
+        self.full_url_path = url.replace('<a href="', 'https://foodb.ca/').replace('">Download</a>', '')
+
+        self.archive_name = self.full_url_path.split('/')[-1]
+
+        # return to the caller
+        return self.archive_name
 
     def get_foodb_data(self, archive_name: str, food_data_path=None):
         """
@@ -73,7 +97,7 @@ class FDBLoader(SourceDataLoader):
             food_data_path = self.data_path
 
         # get all the files noted above
-        file_count, foodb_dir = gd.get_foodb_files(food_data_path, archive_name, file_list)
+        file_count, foodb_dir = gd.get_foodb_files(self.full_url_path, food_data_path, self.archive_name, file_list)
 
         # abort if we didnt get all the files
         if file_count != len(file_list):
@@ -118,11 +142,8 @@ class FDBLoader(SourceDataLoader):
         """
         self.logger.info(f'FooDBLoader - Start of FooDB data processing. Fetching source files and loading database.')
 
-        # set the archive name we will parse
-        archive_name: str = 'foodb_2020_4_7_csv'
-
         # get the foodb data ito a database
-        foodb = self.get_foodb_data(archive_name)
+        foodb = self.get_foodb_data(self.archive_name)
 
         self.logger.info(f'FooDBLoader - Parsing data.')
 
