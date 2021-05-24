@@ -206,6 +206,7 @@ class IALoader(SourceDataLoader):
         record_counter: int = 0
         skipped_record_counter: int = 0
 
+        # open the zipped data file
         with ZipFile(infile_path) as zf:
             # open the taxon file indexes and the uniref data file
             with zf.open('intact.txt', 'r') as fp:
