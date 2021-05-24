@@ -3,8 +3,8 @@ import csv
 import argparse
 import logging
 import re
-import requests
 import tarfile
+import requests
 
 from bs4 import BeautifulSoup
 from operator import itemgetter
@@ -74,6 +74,7 @@ class CTDLoader(SourceDataLoader):
             # save the value
             ret_val = version.text.split(':')[1].strip()
 
+        # return to the caller
         return ret_val
 
     def get_ctd_data(self):
