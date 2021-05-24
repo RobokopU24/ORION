@@ -3,8 +3,8 @@ import csv
 import argparse
 import logging
 import re
-import datetime
 import requests
+import tarfile
 
 from bs4 import BeautifulSoup
 from operator import itemgetter
@@ -64,7 +64,7 @@ class CTDLoader(SourceDataLoader):
         html_page: requests.Response = requests.get('http://ctdbase.org/about/dataStatus.go')
 
         # get the html into a parsable object
-        resp:BeautifulSoup = BeautifulSoup(html_page.content, 'html.parser')
+        resp: BeautifulSoup = BeautifulSoup(html_page.content, 'html.parser')
 
         # find the version string
         version: BeautifulSoup.Tag = resp.find(id='pgheading')
@@ -97,9 +97,11 @@ class CTDLoader(SourceDataLoader):
         # abort if we didnt get all the files
         if file_count != len(file_list):
             raise Exception('Not all files were retrieved.')
-        # # if everything is ok so far get the hand curated file
-        # else:
-        #     'ctd-grouped-pipes.tsv,
+        # if everything is ok so far get the hand curated file in the right place
+        else:
+            tar = tarfile.open(os.path.join(os.path.dirname(__file__), 'ctd.tar.gz'))
+            tar.extractall(self.data_path)
+            tar.close()
 
     def write_to_file(self, nodes_output_file_path: str, edges_output_file_path: str) -> None:
         """
@@ -155,9 +157,6 @@ class CTDLoader(SourceDataLoader):
 
         :return:
         """
-        final_record_count: int = 0
-        final_skipped_count: int = 0
-
         # process disease to exposure
         node_list, edge_list, records, skipped = self.disease_to_exposure(os.path.join(self.data_path, 'CTD_exposure_events.tsv'))
         self.final_node_list.extend(node_list)
@@ -661,7 +660,7 @@ class CTDLoader(SourceDataLoader):
         if marker:
             return f'CTD:{marker_relation_label}', marker_relation_label
 
-        # if ther eis a good amount of therapeutic evidence
+        # if there is a good amount of therapeutic evidence
         if therapeutic:
             return f'CTD:{therapeutic_relation_label}', therapeutic_relation_label
 
@@ -671,7 +670,7 @@ class CTDLoader(SourceDataLoader):
 
 if __name__ == '__main__':
     """
-    entry point to initiate the parsing outside of the loda manager
+    entry point to initiate the parsing outside of the load manager
     """
     # create a command line parser
     ap = argparse.ArgumentParser(description='Load CTD data files and create KGX import files.')
