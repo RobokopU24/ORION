@@ -6,11 +6,11 @@ import gzip
 import requests
 import pandas as pd
 
+from urllib import request
 from zipfile import ZipFile
 from io import TextIOWrapper
 from io import BytesIO
 from rdflib import Graph
-import urllib
 from csv import reader, DictReader
 from ftplib import FTP
 from datetime import datetime
@@ -576,12 +576,13 @@ class GetData:
         # return pass/fail to the caller
         return file_counter
 
-    def pull_via_http(self, url: str, data_dir: str) -> int:
+    def pull_via_http(self, url: str, data_dir: str, is_gzip=False) -> int:
         """
         gets the file from an http stream.
 
         :param url:
         :param data_dir:
+        :param is_gzip:
         :return: the number of bytes read
         """
 
@@ -596,11 +597,16 @@ class GetData:
             self.logger.debug(f'Retrieving {url} -> {data_dir}')
 
             hdr = {'User-Agent': 'Mozilla/5.0 (Windows NT 6.1; Win64; x64)'}
-            req = urllib.request.Request(url, headers=hdr)
+            req = request.Request(url, headers=hdr)
 
             # Read the file inside the .gz archive located at url
-            with urllib.request.urlopen(req) as response:
-                with gzip.GzipFile(fileobj=response) as uncompressed:
+            file_content = request.urlopen(req)
+
+            # is this a gzip file
+            if is_gzip:
+                # get a handle to the data
+                with gzip.GzipFile(fileobj=file_content) as uncompressed:
+                    # decompress the file
                     file_content = uncompressed.read()
 
                     # strip off the .gz if exists
@@ -610,6 +616,32 @@ class GetData:
                     with open(os.path.join(data_dir, data_file), 'wb') as fp:
                         # output the data to the file
                         byte_counter = fp.write(file_content)
+            else:
+                file_content = file_content.read()
+
+            with open(os.path.join(data_dir, data_file), 'wb') as fp:
+                # output the data to the file
+                byte_counter = fp.write(file_content)
+
+                # # open a file for the data
+                # with open(os.path.join(data_dir, data_file), 'wb') as fp:
+                #     # init the retrieve bytes by block size
+                #     block = 8192
+                #
+                #     # until all bytes read
+                #     while True:
+                #         # get some bytes
+                #         buffer = file_content.read(block)
+                #
+                #         # did we run out of data
+                #         if not buffer:
+                #             break
+                #
+                #         # keep track of the number of bytes transferred
+                #         byte_counter += len(buffer)
+                #
+                #         # output the data to the file
+                #         fp.write(buffer)
         else:
             byte_counter = 1
 
@@ -664,11 +696,11 @@ class GetData:
         # return the list
         return ret_val
 
-    def get_foodb_files(self, data_dir: str, data_file_name: str, file_list: list) -> int:
+    def get_foodb_files(self, full_url: str, data_dir: str, data_file_name: str, file_list: list) -> int:
         """
-        gets the food db files in the specified list from:
-        https://foodb.ca/public/system/downloads/foodb_2020_4_7_csv.tar.gz.
+        gets the food db files
 
+        :param full_url: the URL to the data file
         :param data_dir: the directory to place the file temporarily
         :param data_file_name: the name of the target file archive
         :param file_list: list of files to get
@@ -683,11 +715,11 @@ class GetData:
         # init the extraction directory
         foodb_dir: str = ''
 
-        # get the tar file that has the taxon id data
-        self.pull_via_http('https://foodb.ca/public/system/downloads/' + data_file_name + '.tar.gz', data_dir)
+        # get the tar file that has the foodb data
+        self.pull_via_http(full_url, data_dir)
 
         # open the tar file
-        tar = tarfile.open(os.path.join(data_dir, data_file_name + '.tar.gz'), "r")
+        tar = tarfile.open(os.path.join(data_dir, data_file_name), "r")
 
         # for each member of the tar fiule
         for member in tar.getmembers():
@@ -881,7 +913,7 @@ class GetData:
                 byte_count = 1
             else:
                 # get the rest of the files
-                byte_count: int = self.pull_via_http(f'http://ctdbase.org/reports/{data_file}.gz', data_dir)
+                byte_count: int = self.pull_via_http(f'http://ctdbase.org/reports/{data_file}.gz', data_dir, True)
 
             # did re get some good file data
             if byte_count > 0:
