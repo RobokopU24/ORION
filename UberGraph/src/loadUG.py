@@ -102,7 +102,7 @@ class UGLoader(SourceDataLoader):
 
         # loop through the data files
         for file_name in file_names:
-            self.logger.info(f'Splitting UberGraph data file: {file_name}. {self.file_size} records per file + remainder')
+            self.logger.info(f'Parsing UberGraph data file: {file_name}. {self.file_size} records per file + remainder')
 
             # parse the data
             split_files, records, skipped = self.parse_data_file(self.data_path, file_name)
@@ -153,8 +153,11 @@ class UGLoader(SourceDataLoader):
         # get the source database name
         source_database = 'UberGraph ' + data_file_name.split('.')[0]
 
+        # set the infile path
+        infile_path = os.path.join(os.path.dirname(__file__), f"{data_file_name.split('.')[0]}.zip")
+
         # split the file into pieces
-        split_files: list = gd.split_file(data_file_path, data_file_name, self.file_size)
+        split_files: list = gd.split_file(infile_path, data_file_path, data_file_name, self.file_size)
 
         # parse each file
         for file in split_files:
