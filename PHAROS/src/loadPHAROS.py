@@ -113,7 +113,12 @@ class PHAROSLoader(SourceDataLoader):
         self.logger = LoggingUtil.init_logging("Data_services.PHAROSLoader", level=logging.DEBUG, line_format='medium', log_file_path=os.environ['DATA_SERVICES_LOGS'])
 
         # get a connection to the PHAROS MySQL DB
-        self.db = mysql.connector.connect(host="localhost", user="root", password='TSZTVhsjmoAi9MH1n1jo', database="pharos67")
+        host = os.environ('PHAROS_HOST', '')
+        user = os.environ('PHAROS_USER', '')
+        password = os.environ('PHAROS_PASSWORD', '')
+        database = os.environ('PHAROS_DATABASE', '')
+
+        self.db = mysql.connector.connect(host=host, user=user, password=password, database=database)
 
     def get_name(self):
         """
@@ -153,7 +158,7 @@ class PHAROSLoader(SourceDataLoader):
 
     def load(self, nodes_output_file_path: str, edges_output_file_path: str):
         """
-        loads PHAROS associated data gathered from http://ctdbase.org/reports/
+        loads PHAROS associated data gathered from
 
         :param: nodes_output_file_path - path to node file
         :param: edges_output_file_path - path to edge file
