@@ -4,7 +4,9 @@ import argparse
 import logging
 import re
 import datetime
+import requests
 
+from bs4 import BeautifulSoup
 from operator import itemgetter
 from Common.utils import LoggingUtil, GetData
 from Common.kgx_file_writer import KGXFileWriter
@@ -48,13 +50,31 @@ class CTDLoader(SourceDataLoader):
         """
         return self.__class__.__name__
 
-    def get_latest_source_version(self):
+    def get_latest_source_version(self) -> str:
         """
         gets the version of the data
 
         :return:
         """
-        return datetime.datetime.now().strftime("%m/%d/%Y")
+
+        # init the return
+        ret_val: str = 'Not found'
+
+        # load the web page for CTD
+        html_page: requests.Response = requests.get('http://ctdbase.org/about/dataStatus.go')
+
+        # get the html into a parsable object
+        resp:BeautifulSoup = BeautifulSoup(html_page.content, 'html.parser')
+
+        # find the version string
+        version: BeautifulSoup.Tag = resp.find(id='pgheading')
+
+        # was the version found
+        if version is not None:
+            # save the value
+            ret_val = version.text.split(':')[1].strip()
+
+        return ret_val
 
     def get_ctd_data(self):
         """
@@ -67,9 +87,8 @@ class CTDLoader(SourceDataLoader):
         # get the list of files to capture
         # note: there is a file that comes fom Balhoffs team (ctd-grouped-pipes.tsv) that must be retrieved manually
         file_list: list = [
-            'ctd-grouped-pipes.tsv',
-            'CTD_exposure_events.tsv',
-            'CTD_chemicals_diseases.tsv'
+            'CTD_chemicals_diseases.tsv',
+            'CTD_exposure_events.tsv'
         ]
 
         # get all the files noted above
@@ -78,6 +97,9 @@ class CTDLoader(SourceDataLoader):
         # abort if we didnt get all the files
         if file_count != len(file_list):
             raise Exception('Not all files were retrieved.')
+        # # if everything is ok so far get the hand curated file
+        # else:
+        #     'ctd-grouped-pipes.tsv,
 
     def write_to_file(self, nodes_output_file_path: str, edges_output_file_path: str) -> None:
         """

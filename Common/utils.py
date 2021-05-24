@@ -8,7 +8,7 @@ import pandas as pd
 
 from io import BytesIO
 from rdflib import Graph
-from urllib.request import urlopen
+import urllib
 from csv import reader, DictReader
 from ftplib import FTP
 from datetime import datetime
@@ -593,28 +593,21 @@ class GetData:
         if not os.path.exists(os.path.join(data_dir, data_file)):
             self.logger.debug(f'Retrieving {url} -> {data_dir}')
 
-            # get the file
-            file_data = urlopen(url)
+            hdr = {'User-Agent': 'Mozilla/5.0 (Windows NT 6.1; Win64; x64)'}
+            req = urllib.request.Request(url, headers=hdr)
 
-            # open a file for the data
-            with open(os.path.join(data_dir, data_file), 'wb') as fp:
-                # init the retrieve bytes by block size
-                block = 8192
+            # Read the file inside the .gz archive located at url
+            with urllib.request.urlopen(req) as response:
+                with gzip.GzipFile(fileobj=response) as uncompressed:
+                    file_content = uncompressed.read()
 
-                # until all bytes read
-                while True:
-                    # get some bytes
-                    buffer = file_data.read(block)
+                    # strip off the .gz if exists
+                    data_file = data_file.replace('.gz', '')
 
-                    # did we run out of data
-                    if not buffer:
-                        break
-
-                    # keep track of the number of bytes transferred
-                    byte_counter += len(buffer)
-
-                    # output the data to the file
-                    fp.write(buffer)
+                    # open a file for the data
+                    with open(os.path.join(data_dir, data_file), 'wb') as fp:
+                        # output the data to the file
+                        byte_counter = fp.write(file_content)
         else:
             byte_counter = 1
 
@@ -886,7 +879,7 @@ class GetData:
                 byte_count = 1
             else:
                 # get the rest of the files
-                byte_count: int = self.pull_via_http(f'http://ctdbase.org/reports/{data_file}', data_dir)
+                byte_count: int = self.pull_via_http(f'http://ctdbase.org/reports/{data_file}.gz', data_dir)
 
             # did re get some good file data
             if byte_count > 0:

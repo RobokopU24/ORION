@@ -8,3 +8,4 @@ rdflib
 mysql-connector
 jsonlines
 pyyaml
+bs4
