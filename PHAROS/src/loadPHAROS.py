@@ -6,11 +6,10 @@ import logging
 import mysql.connector
 import re
 import random
-import datetime
 
 from Common.kgx_file_writer import KGXFileWriter
 from Common.loader_interface import SourceDataLoader
-from Common.utils import LoggingUtil
+from Common.utils import LoggingUtil, GetData
 
 
 ##############
@@ -110,14 +109,18 @@ class PHAROSLoader(SourceDataLoader):
         self.source_db = 'Druggable Genome initiative database'
 
         # create a logger
-        self.logger = LoggingUtil.init_logging("Data_services.PHAROSLoader", level=logging.DEBUG, line_format='medium', log_file_path=os.environ['DATA_SERVICES_LOGS'])
+        self.logger = LoggingUtil.init_logging("Data_services.PHAROSLoader", level=logging.INFO, line_format='medium', log_file_path=os.environ['DATA_SERVICES_LOGS'])
 
         # get a connection to the PHAROS MySQL DB
-        host = os.environ('PHAROS_HOST', '')
-        user = os.environ('PHAROS_USER', '')
-        password = os.environ('PHAROS_PASSWORD', '')
-        database = os.environ('PHAROS_DATABASE', '')
+        host = os.environ.get('PHAROS_HOST', '')
+        user = os.environ.get('PHAROS_USER', '')
+        password = os.environ.get('PHAROS_PASSWORD', '')
+        database = os.environ.get('PHAROS_DATABASE', '')
 
+        # get the pharos data
+        self.get_pharos_data()
+
+        # connect to the DB
         self.db = mysql.connector.connect(host=host, user=user, password=password, database=database)
 
     def get_name(self):
@@ -128,13 +131,38 @@ class PHAROSLoader(SourceDataLoader):
         """
         return self.__class__.__name__
 
-    def get_latest_source_version(self):
+    def get_latest_source_version(self) -> str:
         """
         gets the version of the data
 
-        :return:
+        :return: the version of the data
         """
-        return datetime.datetime.now().strftime("%m/%d/%Y")
+
+        # use the DB to get the version
+        version = self.execute_pharos_sql('SELECT data_ver FROM dbinfo')
+
+        # return to the caller
+        return version[0]['data_ver']
+
+    def get_pharos_data(self):
+        """
+        Gets the PHAROS (https://pharos.nih.gov/) data from https://juniper.health.unm.edu/tcrd/download/
+
+        """
+        # and get a reference to the data gatherer
+        gd: GetData = GetData(self.logger.level)
+
+        # get all the files noted above
+        file_count: int = gd.get_pharos_http_file(self.data_path, 'latest.sql')
+
+        # abort if we didnt get the file
+        if file_count != 1:
+            raise Exception('The file wasnt retrieved.')
+
+        # TODO load the datafile into the database
+
+        # delete the data file after loading
+        os.remove(os.path.join(self.data_path, 'latest.sql'))
 
     def write_to_file(self, nodes_output_file_path: str, edges_output_file_path: str) -> None:
         """
