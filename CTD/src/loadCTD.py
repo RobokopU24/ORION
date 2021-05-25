@@ -39,6 +39,15 @@ class CTDLoader(SourceDataLoader):
         self.source_id = 'CTD'
         self.source_db = 'Comparative Toxicogenomics Database'
 
+        self.file_list: list = [
+            'CTD_chemicals_diseases.tsv',
+            'CTD_exposure_events.tsv'
+        ]
+
+        # this file is from JB
+        self.hand_curated_data_file = 'ctd.tar.gz'
+        self.hand_curated_file = 'ctd-grouped-pipes.tsv'
+
         # create a logger
         self.logger = LoggingUtil.init_logging("Data_services.CTD.CTDLoader", level=logging.INFO, line_format='medium', log_file_path=os.environ['DATA_SERVICES_LOGS'])
 
@@ -85,24 +94,21 @@ class CTDLoader(SourceDataLoader):
         # and get a reference to the data gatherer
         gd: GetData = GetData(self.logger.level)
 
-        # get the list of files to capture
-        # note: there is a file that comes fom Balhoffs team (ctd-grouped-pipes.tsv) that must be retrieved manually
-        file_list: list = [
-            'CTD_chemicals_diseases.tsv',
-            'CTD_exposure_events.tsv'
-        ]
-
         # get all the files noted above
-        file_count: int = gd.get_ctd_http_files(self.data_path, file_list)
+        file_count: int = gd.get_ctd_http_files(self.data_path, self.file_list)
 
         # abort if we didnt get all the files
-        if file_count != len(file_list):
-            raise Exception('Not all files were retrieved.')
+        if file_count != len(self.file_list):
+            self.logger.error('CTDLoader - Not all files were retrieved from CTD.')
+            raise Exception('CTDLoader - Not all files were retrieved from CTD')
         # if everything is ok so far get the hand curated file in the right place
         else:
-            tar = tarfile.open(os.path.join(os.path.dirname(__file__), 'ctd.tar.gz'))
+            tar = tarfile.open(os.path.join(os.path.dirname(__file__), self.hand_curated_data_file))
             tar.extractall(self.data_path)
             tar.close()
+
+            # save the file in the list
+            self.file_list.append(self.hand_curated_file)
 
     def write_to_file(self, nodes_output_file_path: str, edges_output_file_path: str) -> None:
         """
@@ -146,6 +152,10 @@ class CTDLoader(SourceDataLoader):
 
         # write the output files
         self.write_to_file(nodes_output_file_path, edges_output_file_path)
+
+        # remove the intermediate files
+        for file in self.file_list:
+            os.remove(os.path.join(self.data_path, file))
 
         self.logger.info(f'CTDLoader - Processing complete.')
 

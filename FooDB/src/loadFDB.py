@@ -3,6 +3,7 @@ import argparse
 import logging
 import re
 import requests
+import shutil
 
 from bs4 import BeautifulSoup
 from FooDB.src.FoodSQL import FoodSQL
@@ -36,11 +37,15 @@ class FDBLoader(SourceDataLoader):
         self.test_mode = test_mode
         self.source_id = 'FooDB'
         self.source_db = 'Food Database'
+        self.file_list: list = [
+            'Food.csv',
+            'Content.csv',
+            'Compound.csv',
+            'Nutrient.csv']
 
-        self.archive_name = ''
-        self.full_url_path = ''
-
-        self.get_latest_source_version()
+        self.archive_name = None
+        self.full_url_path = None
+        self.tar_dir_name = None
 
         # create a logger
         self.logger = LoggingUtil.init_logging("Data_services.FooDB.FooDBLoader", level=logging.INFO, line_format='medium', log_file_path=os.environ['DATA_SERVICES_LOGS'])
@@ -59,8 +64,6 @@ class FDBLoader(SourceDataLoader):
 
         :return:
         """
-        # init the return
-        ret_val: str = 'Not found'
 
         # load the web page for CTD
         html_page: requests.Response = requests.get('https://foodb.ca/downloads')
@@ -71,14 +74,21 @@ class FDBLoader(SourceDataLoader):
         # get the file name
         url = str(resp.find(href=re.compile('csv.tar.gz')))
 
-        self.full_url_path = url.replace('<a href="', 'https://foodb.ca/').replace('">Download</a>', '')
+        # was the archive found
+        if not url.startswith('None'):
+            # get the full url to the data
+            self.full_url_path = url.replace('<a href="', 'https://foodb.ca/').replace('">Download</a>', '')
 
-        self.archive_name = self.full_url_path.split('/')[-1]
+            # save the name of the archive for the version
+            self.archive_name = self.full_url_path.split('/')[-1]
+        else:
+            self.logger.error(f'FooDBLoader - Cannot find FooDB archive.')
+            raise Exception('FooDBLoader - Cannot find FooDB archive.')
 
         # return to the caller
         return self.archive_name
 
-    def get_foodb_data(self, archive_name: str, food_data_path=None):
+    def get_foodb_data(self):
         """
         Gets the fooDB data.
 
@@ -86,22 +96,13 @@ class FDBLoader(SourceDataLoader):
         # and get a reference to the data gatherer
         gd: GetData = GetData(self.logger.level)
 
-        # get the list of files to capture
-        file_list: list = [
-            'Food.csv',
-            'Content.csv',
-            'Compound.csv',
-            'Nutrient.csv']
-
-        if food_data_path is None:
-            food_data_path = self.data_path
-
         # get all the files noted above
-        file_count, foodb_dir = gd.get_foodb_files(self.full_url_path, food_data_path, self.archive_name, file_list)
+        file_count, foodb_dir, self.tar_dir_name = gd.get_foodb_files(self.full_url_path, self.data_path, self.archive_name, self.file_list)
 
         # abort if we didnt get all the files
-        if file_count != len(file_list):
-            raise Exception('Not all files were retrieved.')
+        if file_count != len(self.file_list):
+            self.logger.error('FooDBLoader - Not all files were retrieved from FooDB.')
+            raise Exception('FooDBLoader - Not all files were retrieved from FooDB.')
 
         # get the Food DB sqlite object
         foodb = FoodSQL(os.path.join(self.data_path, foodb_dir))
@@ -143,7 +144,7 @@ class FDBLoader(SourceDataLoader):
         self.logger.info(f'FooDBLoader - Start of FooDB data processing. Fetching source files and loading database.')
 
         # get the foodb data ito a database
-        foodb = self.get_foodb_data(self.archive_name)
+        foodb = self.get_foodb_data()
 
         self.logger.info(f'FooDBLoader - Parsing data.')
 
@@ -155,11 +156,13 @@ class FDBLoader(SourceDataLoader):
         # write the output files
         self.write_to_file(nodes_output_file_path, edges_output_file_path)
 
-        # remove the data files if not in test mode
-        # if not test_mode:
-        #     shutil.rmtree(self.data_path)
+        # remove the archive
+        if self.archive_name is not None:
+            os.remove(os.path.join(self.data_path, self.archive_name))
 
-        self.logger.info(f'FooDBLoader - Processing complete.')
+        # remove the intermediate files and the DB
+        if self.tar_dir_name is not None:
+            shutil.rmtree(os.path.join(self.data_path, self.tar_dir_name))
 
         # return the metadata results
         return load_metadata
@@ -269,6 +272,9 @@ class FDBLoader(SourceDataLoader):
                                              'properties': {'unit': item['properties']['unit'].encode('ascii', errors='ignore').decode(encoding="utf-8"), 'amount': item['properties']['amount'], 'source_data_base': 'FooDB'}})
 
         self.logger.debug(f'FooDB data parsing and KGX file creation complete.\n')
+
+        # close the DB connection
+        foodb.conn.close()
 
         # load up the metadata
         load_metadata: dict = {
