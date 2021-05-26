@@ -2,8 +2,10 @@ import os
 import csv
 import argparse
 import logging
-import datetime
+import requests
+import re
 
+from bs4 import BeautifulSoup
 from Common.utils import LoggingUtil, GetData
 from Common.kgx_file_writer import KGXFileWriter
 from Common.loader_interface import SourceDataLoader
@@ -40,7 +42,7 @@ class GtoPdbLoader(SourceDataLoader):
         # create a logger
         self.logger = LoggingUtil.init_logging("Data_services.GtoPdb.GtoPdbLoader", level=logging.INFO, line_format='medium', log_file_path=os.environ['DATA_SERVICES_LOGS'])
 
-    def get_name(self):
+    def get_name(self) -> str:
         """
         returns the name of this class
 
@@ -48,13 +50,34 @@ class GtoPdbLoader(SourceDataLoader):
         """
         return self.__class__.__name__
 
-    def get_latest_source_version(self):
+    def get_latest_source_version(self) -> str:
         """
         gets the version of the data
 
         :return:
         """
-        return datetime.datetime.now().strftime("%m/%d/%Y")
+
+        # init the return
+        ret_val: str = 'Not found'
+
+        # load the web page for CTD
+        html_page: requests.Response = requests.get('https://www.guidetopharmacology.org/download.jsp')
+
+        # get the html into a parsable object
+        resp: BeautifulSoup = BeautifulSoup(html_page.content, 'html.parser')
+
+        # init the search text
+        search_text = 'Downloads are from the *'
+
+        # find the version string
+        b_tag: BeautifulSoup.Tag = resp.find('b', string=re.compile(search_text))
+
+        # did we find version data
+        if len(b_tag) > 0:
+            ret_val = b_tag.text[len(search_text)-1:]
+
+        # return to the caller
+        return ret_val
 
     def get_gtopdb_data(self):
         """
