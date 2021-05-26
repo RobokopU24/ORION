@@ -38,7 +38,7 @@ class UGLoader(SourceDataLoader):
         self.file_size = 200000
 
         # create a logger
-        self.logger = LoggingUtil.init_logging("Data_services.UberGraph.UGLoader", level=logging.DEBUG, line_format='medium', log_file_path=os.environ['DATA_SERVICES_LOGS'])
+        self.logger = LoggingUtil.init_logging("Data_services.UberGraph.UGLoader", level=logging.INFO, line_format='medium', log_file_path=os.environ['DATA_SERVICES_LOGS'])
 
     def get_name(self):
         """
@@ -109,15 +109,12 @@ class UGLoader(SourceDataLoader):
             final_record_count: int = records
             final_skipped_count: int = skipped
 
-            # do not remove the file if in debug mode
-            # split_files = self.parse_data_file(nodes_output_file_path, file_name)
-            # if self.logger.level != logging.DEBUG:
-            #     # remove the data file
-            #     os.remove(os.path.join(nodes_output_file_path, file_name))
-            #
-            #     # remove all the intermediate files
-            #     for file in split_files:
-            #         os.remove(file)
+            # remove all the intermediate files
+            for file in split_files:
+                os.remove(file)
+
+            # remove the data file
+            # os.remove(os.path.join(nodes_output_file_path, file_name))
 
         self.write_to_file(nodes_output_file_path, edges_output_file_path)
 

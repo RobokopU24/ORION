@@ -117,9 +117,6 @@ class PHAROSLoader(SourceDataLoader):
         password = os.environ.get('PHAROS_PASSWORD', '')
         database = os.environ.get('PHAROS_DATABASE', '')
 
-        # get the pharos data
-        self.get_pharos_data()
-
         # connect to the DB
         self.db = mysql.connector.connect(host=host, user=user, password=password, database=database)
 
@@ -157,7 +154,8 @@ class PHAROSLoader(SourceDataLoader):
 
         # abort if we didnt get the file
         if file_count != 1:
-            raise Exception('The file wasnt retrieved.')
+            self.logger.error(f'PHAROSLoader - The PHAROS data file was not retrieved.')
+            raise Exception('PHAROSLoader - The PHAROS data file was not retrieved.')
 
         # TODO load the datafile into the database
 
@@ -193,6 +191,9 @@ class PHAROSLoader(SourceDataLoader):
         :return:
         """
         self.logger.info(f'PHAROSLoader - Start of PHAROS data processing.')
+
+        # TODO: get the pharos data
+        # self.get_pharos_data()
 
         # parse the data
         load_metadata = self.parse_data_db()
