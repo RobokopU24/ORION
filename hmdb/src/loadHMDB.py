@@ -1,10 +1,12 @@
+import os
 import argparse
 import logging
-import datetime
-
-import os
-from zipfile import ZipFile
+import requests
+import re
 import xml.etree.cElementTree as E_Tree
+
+from bs4 import BeautifulSoup
+from zipfile import ZipFile
 from Common.utils import LoggingUtil, GetData
 from Common.kgx_file_writer import KGXFileWriter
 from Common.loader_interface import SourceDataLoader
@@ -54,7 +56,27 @@ class HMDBLoader(SourceDataLoader):
 
         :return:
         """
-        return datetime.datetime.now().strftime("%m/%d/%Y")
+        # init the return
+        ret_val: str = 'Not found'
+
+        # load the web page for CTD
+        html_page: requests.Response = requests.get('https://hmdb.ca/downloads')
+
+        # get the html into a parsable object
+        resp: BeautifulSoup = BeautifulSoup(html_page.content, 'html.parser')
+
+        # init the search text
+        search_text = 'Current Version '
+
+        # find the version div area
+        div_tag = resp.find('a', string=re.compile('Current Version'))
+
+        # did we find version data
+        if len(div_tag) > 0:
+            ret_val = div_tag.text.split(search_text)[1].strip('() ')
+
+        # return to the caller
+        return ret_val
 
     def write_to_file(self, nodes_output_file_path: str, edges_output_file_path: str) -> None:
         """
@@ -125,6 +147,9 @@ class HMDBLoader(SourceDataLoader):
             self.logger.info(f'HMDBLoader - Processing complete.')
         else:
             self.logger.error(f'Error: Retrieving HMDB archive failed.')
+
+        # remove the intermediate data
+        os.remove(os.path.join(self.data_path, 'hmdb_metabolites.zip'))
 
         # return the metadata to the caller
         return load_metadata
