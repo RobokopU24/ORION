@@ -101,13 +101,20 @@ class IALoader(SourceDataLoader):
         """
         return self.__class__.__name__
 
-    def get_latest_source_version(self):
+    def get_latest_source_version(self) -> str:
         """
         gets the version of the data
 
         :return:
         """
-        return datetime.datetime.now().strftime("%m/%d/%Y")
+        # get the util object
+        gd = GetData(self.logger.level)
+
+        # get the file date
+        ret_val: str = gd.get_ftp_file_date('ftp.ebi.ac.uk', '/pub/databases/IntAct/current/psimitab/', self.data_file)
+
+        # return to the caller
+        return ret_val
 
     def get_intact_data(self) -> int:
         """
@@ -169,11 +176,6 @@ class IALoader(SourceDataLoader):
             # parse the data
             load_metadata = self.parse_data_file(self.data_path, self.data_file)
 
-            # do not remove the file if in debug mode
-            # if logger.level != logging.DEBUG and not self.test_mode:
-            #     # remove the data file
-            #     os.remove(os.path.join(data_file_path, data_file_name))
-
             # write out the data
             if len(self.experiment_grp_list) > 0:
                 self.get_node_list()
@@ -183,6 +185,9 @@ class IALoader(SourceDataLoader):
 
             # write the output files
             self.write_to_file(nodes_output_file_path, edges_output_file_path)
+
+            # remove the intermediate data
+            os.remove(os.path.join(self.data_path, self.data_file))
 
             self.logger.info(f'IALoader - Processing complete.')
         else:
