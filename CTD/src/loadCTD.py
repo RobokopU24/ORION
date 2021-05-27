@@ -39,10 +39,7 @@ class CTDLoader(SourceDataLoader):
         self.source_id = 'CTD'
         self.source_db = 'Comparative Toxicogenomics Database'
 
-        self.file_list: list = [
-            'CTD_chemicals_diseases.tsv',
-            'CTD_exposure_events.tsv'
-        ]
+        self.file_list: list = ['CTD_chemicals_diseases.tsv', 'CTD_exposure_events.tsv']
 
         # this file is from JB
         self.hand_curated_data_file = 'ctd.tar.gz'
