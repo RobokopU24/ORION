@@ -52,9 +52,18 @@ class HGNCLoader(SourceDataLoader):
         """
         gets the version of the data
 
-        :return:
+        :return: the data version
         """
-        return datetime.datetime.now().strftime("%m/%d/%Y")
+        # get the util object
+        gd = GetData(self.logger.level)
+
+        # get the file dates
+        ret_val: str = gd.get_ftp_file_date('ftp.ebi.ac.uk', '/pub/databases/genenames/hgnc/tsv/', self.data_file[0])
+
+        # the_date2 = gd.get_http_file_date('https://www.genenames.org/cgi-bin/genegroup/download-all/' + self.data_file[1])
+
+        # return to the caller
+        return ret_val
 
     def write_to_file(self, nodes_output_file_path: str, edges_output_file_path: str) -> None:
         """
@@ -105,7 +114,7 @@ class HGNCLoader(SourceDataLoader):
 
     def load(self, nodes_output_file_path: str, edges_output_file_path: str) -> dict:
         """
-        parses the HGNC data file gathered from https://HGNC.ca/system/downloads/current/HGNC_metabolites.zip
+        parses the HGNC data files
 
         :param nodes_output_file_path: the path to the node file
         :param edges_output_file_path: the path to the edge file
@@ -135,6 +144,10 @@ class HGNCLoader(SourceDataLoader):
             self.logger.info(f'HGNCLoader - Processing complete.')
         else:
             self.logger.error(f'Error: Retrieving HGNC archive failed.')
+
+        # remove intermediate data
+        for item in self.data_file:
+            os.remove(os.path.join(self.data_path, item))
 
         # return the metadata to the caller
         return load_metadata
