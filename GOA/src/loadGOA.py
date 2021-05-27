@@ -4,7 +4,6 @@ import enum
 import pandas as pd
 import gzip
 import logging
-import datetime
 import requests
 
 from Common.kgx_file_writer import KGXFileWriter
@@ -81,7 +80,39 @@ class GOALoader(SourceDataLoader):
 
         :return:
         """
-        return datetime.datetime.now().strftime("%m/%d/%Y")
+        # init the return
+        ret_val: str = 'Not found'
+
+        # and get a reference to the data gatherer
+        gd: GetData = GetData(self.logger.level)
+
+        # the name of the file that has the version date
+        data_file_name: str = 'summary.txt'
+
+        # get the summary file
+        byte_count: int = gd.pull_via_http(f'http://current.geneontology.org/{data_file_name}', self.data_path)
+
+        # did we get the file
+        if byte_count > 0:
+            with open(os.path.join(self.data_path, data_file_name), 'r') as inf:
+                # read all the lines
+                lines = inf.readlines()
+
+                # what to look for in the file
+                search_text = 'Start date: '
+
+                # for each line
+                for line in lines:
+                    # is this the line we are looking for
+                    if line.startswith(search_text):
+                        # save teh date
+                        ret_val = line.split(search_text)[1].strip()
+
+            # remove the file
+            os.remove(os.path.join(self.data_path, data_file_name))
+
+        # return to the caller
+        return ret_val
 
     def get_human_goa_data(self) -> (int):
         """
@@ -149,10 +180,8 @@ class GOALoader(SourceDataLoader):
         else:
             self.logger.error(f'Error: Retrieving file {self.data_file} failed.')
 
-        # do not remove the file if in debug mode
-        if self.logger.level != logging.DEBUG and not self.test_mode:
-            # remove the data file
-            os.remove(os.path.join(self.data_path, self.data_file))
+        # remove the data file
+        os.remove(os.path.join(self.data_path, self.data_file))
 
         self.logger.info(f'GOALoader - Processing complete.')
 
