@@ -5,6 +5,7 @@ import csv
 import gzip
 import requests
 import pandas as pd
+from dateutil import parser as dp
 
 from urllib import request
 from zipfile import ZipFile
@@ -516,6 +517,36 @@ class GetData:
         # return the data stream
         return binary
 
+    def get_ftp_file_date(self, ftp_site, ftp_dir, ftp_file) -> str:
+        """
+        gets the modified date of the file from the ftp site
+
+        :param ftp_site:
+        :param ftp_dir:
+        :param ftp_file:
+        :return:
+        """
+        # init the return value
+        ret_val: str = 'Not found'
+
+        try:
+            # open the FTP connection and go to the directory
+            ftp: FTP = FTP(ftp_site)
+            ftp.login()
+            ftp.cwd(ftp_dir)
+
+            # get the date of the file
+            date_val = ftp.voidcmd(f'MDTM {ftp_file}').split(' ')
+
+            # did we get something
+            if len(date_val) > 0:
+                # grab the parsed date
+                ret_val = dp.parse(date_val[1])
+        except Exception as e:
+            self.logger.error(f'Error getting modification date for ftp file: {ftp_site} {ftp_dir} {ftp_file}.')
+
+        return str(ret_val)
+
     def pull_via_ftp(self, ftp_site: str, ftp_dir: str, ftp_files: list, data_file_path: str) -> int:
         """
         gets the requested files from UniProtKB ftp directory
@@ -598,7 +629,7 @@ class GetData:
             hdr = {'User-Agent': 'Mozilla/5.0 (Windows NT 6.1; Win64; x64)'}
             req = request.Request(url, headers=hdr)
 
-            # Read the file inside the .gz archive located at url
+            # get the the file data handle
             file_data = request.urlopen(req)
 
             # is this a gzip file
@@ -610,7 +641,7 @@ class GetData:
                 data_file = data_file.replace('.gz', '')
 
             with open(os.path.join(data_dir, data_file), 'wb') as fp:
-                # init the retrieve bytes by block size
+                # specify the buffered data block size
                 block = 131072
 
                 # until all bytes read
