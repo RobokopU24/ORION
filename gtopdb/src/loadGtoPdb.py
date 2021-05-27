@@ -39,6 +39,8 @@ class GtoPdbLoader(SourceDataLoader):
         self.gene_map: dict = {}
         self.ligands: list = []
 
+        self.file_list: list = ['interactions.tsv', 'peptides.tsv', 'GtP_to_HGNC_mapping.tsv', 'ligands.tsv']
+
         # create a logger
         self.logger = LoggingUtil.init_logging("Data_services.GtoPdb.GtoPdbLoader", level=logging.INFO, line_format='medium', log_file_path=os.environ['DATA_SERVICES_LOGS'])
 
@@ -87,13 +89,11 @@ class GtoPdbLoader(SourceDataLoader):
         # and get a reference to the data gatherer
         gd: GetData = GetData(self.logger.level)
 
-        file_list: list = ['interactions.tsv', 'peptides.tsv', 'GtP_to_HGNC_mapping.tsv', 'ligands.tsv']
-
         # get all the files noted above
-        file_count: int = gd.get_gtopdb_http_files(self.data_path, file_list)
+        file_count: int = gd.get_gtopdb_http_files(self.data_path, self.file_list)
 
         # abort if we didnt get all the files
-        if file_count != len(file_list):
+        if file_count != len(self.file_list):
             raise Exception(f'One or more of the GtoPdb files were not retrieved.')
 
     def write_to_file(self, nodes_output_file_path: str, edges_output_file_path: str) -> None:
@@ -146,6 +146,10 @@ class GtoPdbLoader(SourceDataLoader):
         self.write_to_file(nodes_output_file_path, edges_output_file_path)
 
         self.logger.info(f'GtoPdbLoader - Processing complete.')
+
+        # remove the intermediate files
+        for item in self.file_list:
+            os.remove(os.path.join(self.data_path, item))
 
         # return some details of the parse
         return load_metadata
