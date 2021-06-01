@@ -9,6 +9,7 @@ services:
       # this passes the DATA_SERVICES_CONFIG environment variable from the host straight to the container
       # DATA_SERVICES_CONFIG is expected to be a file name for a config file in the storage directory
       - DATA_SERVICES_CONFIG
+      - DATA_SERVICES_TEST_MODE
     volumes:
       - .:/Data_services
       - "${DATA_SERVICES_STORAGE}:/Data_services_storage"

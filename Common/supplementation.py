@@ -45,7 +45,7 @@ class SequenceVariantSupplementation:
                                supp_node_norm_failures_file_path: str,
                                supp_edges_file_path: str,
                                normalized_supp_edge_file_path: str,
-                               supp_edge_norm_failures_file_path: str):
+                               supp_edge_norm_predicate_map_file_path: str):
 
         source_nodes = self.parse_nodes_file(nodes_file_path)
 
@@ -75,7 +75,7 @@ class SequenceVariantSupplementation:
                                             supp_node_norm_failures_file_path,
                                             supp_edges_file_path,
                                             normalized_supp_edge_file_path,
-                                            supp_edge_norm_failures_file_path,
+                                            supp_edge_norm_predicate_map_file_path,
                                             has_sequence_variants=True)
         supp_normalization_info = file_normalizer.normalize_kgx_files()
         supplmentation_info['normalization_info'] = supp_normalization_info
