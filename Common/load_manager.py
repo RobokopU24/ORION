@@ -21,7 +21,7 @@ from ViralProteome.src.loadUniRef import UniRefSimLoader
 from gtopdb.src.loadGtoPdb import GtoPdbLoader
 from hmdb.src.loadHMDB import HMDBLoader
 from hgnc.src.loadHGNC import HGNCLoader
-#from panther.src.loadPanther import PLoader
+from panther.src.loadPanther import PLoader
 
 GWAS_CATALOG = 'GWASCatalog'
 CTD = 'CTD'
@@ -49,7 +49,7 @@ ALL_SOURCES = [
     GWAS_CATALOG
 
     # in progress
-    # PANTHER,
+    PANTHER,
 
     # items to go
     # biolink,
@@ -82,7 +82,7 @@ source_data_loader_classes = {
     GWAS_CATALOG: GWASCatalogLoader
 
     # in progress
-    # PANTHER: PLoader,
+    PANTHER: PLoader,
 
     # items to go
     # biolink,

@@ -2,7 +2,6 @@ import os
 import argparse
 import enum
 import logging
-import datetime
 import re
 
 from io import TextIOWrapper
