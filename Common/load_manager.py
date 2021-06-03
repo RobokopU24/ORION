@@ -9,19 +9,19 @@ from Common.kgx_file_normalizer import KGXFileNormalizer, NormalizationBrokenErr
 from Common.metadata_manager import MetadataManager as Metadata
 from Common.loader_interface import SourceDataBrokenError, SourceDataFailedError
 from Common.supplementation import SequenceVariantSupplementation, SupplementationFailedError
-from GWASCatalog.src.loadGWASCatalog import GWASCatalogLoader
-from CTD.src.loadCTD import CTDLoader
-from FooDB.src.loadFDB import FDBLoader
-from GOA.src.loadGOA import GOALoader
-from IntAct.src.loadIA import IALoader
-from PHAROS.src.loadPHAROS import PHAROSLoader
-from UberGraph.src.loadUG import UGLoader
-from ViralProteome.src.loadVP import VPLoader
-from ViralProteome.src.loadUniRef import UniRefSimLoader
-from gtopdb.src.loadGtoPdb import GtoPdbLoader
-from hmdb.src.loadHMDB import HMDBLoader
-from hgnc.src.loadHGNC import HGNCLoader
-from panther.src.loadPanther import PLoader
+from parsers.GWASCatalog.src.loadGWASCatalog import GWASCatalogLoader
+from parsers.CTD.src.loadCTD import CTDLoader
+from parsers.FooDB.src.loadFDB import FDBLoader
+from parsers.GOA.src.loadGOA import GOALoader
+from parsers.IntAct.src.loadIA import IALoader
+from parsers.PHAROS.src.loadPHAROS import PHAROSLoader
+from parsers.UberGraph.src.loadUG import UGLoader
+from parsers.ViralProteome.src.loadVP import VPLoader
+from parsers.ViralProteome.src.loadUniRef import UniRefSimLoader
+from parsers.gtopdb.src.loadGtoPdb import GtoPdbLoader
+from parsers.hmdb.src.loadHMDB import HMDBLoader
+from parsers.hgnc.src.loadHGNC import HGNCLoader
+from parsers.panther.src.loadPanther import PLoader
 
 GWAS_CATALOG = 'GWASCatalog'
 CTD = 'CTD'
