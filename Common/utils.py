@@ -806,10 +806,8 @@ class GetData:
         fp.close()
         tar_file.close()
 
-        # do not remove the file if in debug mode
-        if self.logger.level != logging.DEBUG:
-            # remove the target file
-            os.remove(os.path.join(taxon_data_dir, data_file_name))
+        # remove the target file
+        os.remove(os.path.join(taxon_data_dir, data_file_name))
 
         self.logger.debug(f'Start of NCBI taxon retrieval. {len(ret_val)} retrieved.')
 

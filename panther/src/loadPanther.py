@@ -2,8 +2,11 @@ import os
 import csv
 import argparse
 import logging
-import datetime
+import re
 
+import requests
+
+from bs4 import BeautifulSoup
 from Common.utils import LoggingUtil, GetData
 from Common.kgx_file_writer import KGXFileWriter
 from Common.loader_interface import SourceDataLoader
@@ -31,8 +34,8 @@ class PLoader(SourceDataLoader):
 
         # set global variables
         self.data_path: str = os.environ['DATA_SERVICES_STORAGE']
-        self.data_version: str = '16.0'
-        self.data_file: str = f'PTHR{self.data_version}_human'
+        self.data_version: str = ''
+        self.data_file: str = 'PTHR~_human'
         self.test_mode: bool = test_mode
         self.source_id: str = 'PANTHER'
         self.source_db: str = 'Protein ANalysis THrough Evolutionary Relationships'
@@ -54,7 +57,36 @@ class PLoader(SourceDataLoader):
 
         :return:
         """
-        return datetime.datetime.now().strftime("%m/%d/%Y")
+        # init the return
+        ret_val: str = 'Not found'
+
+        # load the web page for CTD
+        html_page: requests.Response = requests.get('http://data.pantherdb.org/ftp/sequence_classifications/current_release/PANTHER_Sequence_Classification_files/')
+
+        # get the html into a parsable object
+        resp: BeautifulSoup = BeautifulSoup(html_page.content, 'html.parser')
+
+        # set the search text
+        search_text = 'PTHR*'
+
+        # find the version tag
+        a_tag: BeautifulSoup.Tag = resp.find('a', string=re.compile(search_text))
+
+        # was the tag found
+        if a_tag is not None:
+            # strip off the search text
+            val = a_tag.text.split(search_text[:-1])[1].strip()
+
+            # get the actual version number
+            ret_val = val.split('_')[0]
+
+            # save the version for data gathering later
+            self.data_version = ret_val
+
+            # make the data file name correct
+            self.data_file = self.data_file.replace('~', ret_val)
+        # return to the caller
+        return ret_val
 
     def write_to_file(self, nodes_output_file_path: str, edges_output_file_path: str) -> None:
         """
@@ -103,7 +135,7 @@ class PLoader(SourceDataLoader):
         :return the parsed metadata stats
         """
 
-        self.logger.info(f' - Start of Panther data processing.')
+        self.logger.info(f'Panther - Start of Panther data processing.')
 
         # get the list of taxons to process
         file_count = self.get_panther_data()
@@ -111,9 +143,9 @@ class PLoader(SourceDataLoader):
         # init the return
         load_metadata: dict = {}
 
-        # get the intact archive
+        # get the panther archive
         if file_count == 1:
-            self.logger.debug(f'{self.data_file} archive retrieved. Parsing data.')
+            self.logger.debug(f'Panther - {self.data_file} archive retrieved. Parsing data.')
 
             # parse the data
             load_metadata = self.parse_data_file(self.data_path, self.data_file)
@@ -125,7 +157,10 @@ class PLoader(SourceDataLoader):
 
             self.logger.info(f'Panther - Processing complete.')
         else:
-            self.logger.error(f'Error: Retrieving  archive failed.')
+            self.logger.error(f'Panther - Error: Retrieving  archive failed.')
+
+        # remove the intermediate file
+        os.remove(os.path.join(self.data_path, self.data_file))
 
         # return the metadata to the caller
         return load_metadata
@@ -153,7 +188,7 @@ class PLoader(SourceDataLoader):
                     'cellular_components', 'protein_class', 'pathway']
 
             # get a handle on the input data
-            data = csv.DictReader(filter(lambda row: row[0] != '?', fp), delimiter='\t', fieldnames=cols)
+            data = csv.DictReader(fp, delimiter='\t', fieldnames=cols)
 
             # go through the data. no column header in this data
             for r in data:

@@ -4,7 +4,6 @@ import datetime
 import csv
 import os
 
-import xml.etree.cElementTree as E_Tree
 from Common.utils import LoggingUtil, GetData
 from Common.kgx_file_writer import KGXFileWriter
 from Common.loader_interface import SourceDataLoader
@@ -54,16 +53,16 @@ class HGNCLoader(SourceDataLoader):
 
         :return: the data version
         """
+        # this does not work as the files seem to change daily.
         # get the util object
-        gd = GetData(self.logger.level)
-
+        # gd = GetData(self.logger.level)
+        #
         # get the file dates
-        ret_val: str = gd.get_ftp_file_date('ftp.ebi.ac.uk', '/pub/databases/genenames/hgnc/tsv/', self.data_file[0])
-
-        # the_date2 = gd.get_http_file_date('https://www.genenames.org/cgi-bin/genegroup/download-all/' + self.data_file[1])
+        # ret_val: str = gd.get_ftp_file_date('ftp.ebi.ac.uk', '/pub/databases/genenames/hgnc/tsv/', self.data_file[0])
+        # TODO get info on https://www.genenames.org/cgi-bin/genegroup/download-all/' + self.data_file[1])
 
         # return to the caller
-        return ret_val
+        return datetime.datetime.now().strftime("%m/%d/%Y")
 
     def write_to_file(self, nodes_output_file_path: str, edges_output_file_path: str) -> None:
         """
@@ -85,7 +84,7 @@ class HGNCLoader(SourceDataLoader):
                 # write out the edge data
                 file_writer.write_edge(subject_id=edge['subject'], object_id=edge['object'], relation=edge['relation'], edge_properties=edge['properties'], predicate='')
 
-    def get_HGNC_data(self) -> int:
+    def get_hgnc_data(self) -> int:
         """
         Gets the HGNC data from two sources.
 
@@ -124,7 +123,7 @@ class HGNCLoader(SourceDataLoader):
         self.logger.info(f'HGNCloader - Start of HGNC data processing.')
 
         # get the list of taxons to process
-        file_count = self.get_HGNC_data()
+        file_count = self.get_hgnc_data()
 
         # init the return
         load_metadata: dict = {}
@@ -134,7 +133,7 @@ class HGNCLoader(SourceDataLoader):
             self.logger.debug(f'{self.data_file} archive retrieved. Parsing HGNC data.')
 
             # parse the data
-            load_metadata = self.parse_data_file(self.data_path, self.data_file[0], self.data_file[1])
+            load_metadata = self.parse_data_file(self.data_path, self.data_file[0])  # , self.data_file[1]
 
             self.logger.info(f'HGNCLoader - {self.data_file} Processing complete.')
 
@@ -152,13 +151,13 @@ class HGNCLoader(SourceDataLoader):
         # return the metadata to the caller
         return load_metadata
 
-    def parse_data_file(self, data_file_path: str, complete_set_file_name: str, gene_groups_file_name: str) -> dict:
+    def parse_data_file(self, data_file_path: str, complete_set_file_name: str) -> dict:
         """
         Parses the data file for graph nodes/edges and writes them to the KGX csv files.
 
         :param data_file_path: the path to the HGNC data
         :param complete_set_file_name: the name of the HGNC complete set file name
-        :param gene_groups_file_name: the name of the HGNC gene groups file name
+        # :param gene_groups_file_name: the name of the HGNC gene groups file name
         :return: ret_val: record counts
         """
         # get the path to the data file
@@ -180,7 +179,7 @@ class HGNCLoader(SourceDataLoader):
             data = csv.DictReader(filter(lambda row: row[0] != '?', fp), delimiter='\t', fieldnames=cols)
 
             # init the first record flag
-            first : bool = True
+            first: bool = True
 
             # for each record
             for r in data:
@@ -221,7 +220,7 @@ class HGNCLoader(SourceDataLoader):
                 else:
                     skipped_record_counter += 1
 
-        # TODO parse the hgnc genes in group file?
+        # TODO parse the hgnc genes in group file?, gene_groups_file_name: str
 
         self.logger.debug(f'Parsing XML data file complete.')
 

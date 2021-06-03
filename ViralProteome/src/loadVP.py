@@ -3,9 +3,9 @@ import csv
 import argparse
 import logging
 import enum
-import datetime
 import pandas as pd
 import requests
+import shutil
 
 from csv import reader
 from Common.utils import LoggingUtil, GetData
@@ -70,6 +70,15 @@ class VPLoader(SourceDataLoader):
         # create a logger
         self.logger = LoggingUtil.init_logging("Data_services.ViralProteome.VPLoader", level=logging.INFO, line_format='medium', log_file_path=os.environ['DATA_SERVICES_LOGS'])
 
+        # get the util object
+        self.gd = GetData(self.logger.level)
+
+        # get the list of target taxa
+        target_taxa_set: set = self.gd.get_ncbi_taxon_id_set(self.data_path, self.TYPE_VIRUS)
+
+        # get the viral proteome file list
+        self.file_list: list = self.gd.get_uniprot_virus_file_list(self.data_path, target_taxa_set)
+
     def get_name(self):
         """
         returns the name of this class
@@ -84,31 +93,29 @@ class VPLoader(SourceDataLoader):
 
         :return:
         """
-        return datetime.datetime.now().strftime("%m/%d/%Y")
+        # get the file dates
+        sars_version: str = self.gd.get_ftp_file_date('ftp.ebi.ac.uk', '/pub/contrib/goa/', 'uniprot_sars-cov-2.gaf')
+        proteome_version: str = self.gd.get_ftp_file_date('ftp.ebi.ac.uk', '/pub/databases/GO/goa/proteomes/', self.file_list[0])
+
+        ret_val = f'{sars_version}, {proteome_version}'
+
+        # return to the caller
+        return ret_val
 
     def get_vp_data(self):
-        # and get a reference to the data gatherer
-        gd: GetData = GetData(self.logger.level)
-
         # are we in test mode
         if not self.test_mode:
-            # get the list of target taxa
-            target_taxa_set: set = gd.get_ncbi_taxon_id_set(self.data_path, self.TYPE_VIRUS)
-
-            # get the list of files that contain those taxa
-            file_list: list = gd.get_uniprot_virus_file_list(self.data_path, target_taxa_set)
-
             # get the 1 sars-cov-2 file manually
-            gd.pull_via_ftp('ftp.ebi.ac.uk', '/pub/contrib/goa/', ['uniprot_sars-cov-2.gaf'], self.goa_data_dir)
+            self.gd.pull_via_ftp('ftp.ebi.ac.uk', '/pub/contrib/goa/', ['uniprot_sars-cov-2.gaf'], self.goa_data_dir)
 
             # get the data files
-            file_count: int = gd.get_goa_ftp_files(self.goa_data_dir, file_list, '/pub/databases/GO/goa', '/proteomes/')
+            file_count: int = self.gd.get_goa_ftp_files(self.goa_data_dir, self.file_list, '/pub/databases/GO/goa', '/proteomes/')
         else:
             # setup for the test
             file_count: int = 1
-            file_list: list = ['uniprot.goa']
+            self.file_list: list = ['uniprot.goa']
 
-        return file_count, file_list
+        return file_count, self.file_list
 
     def write_to_file(self, nodes_output_file_path: str, edges_output_file_path: str) -> None:
         """
@@ -192,8 +199,7 @@ class VPLoader(SourceDataLoader):
             self.write_to_file(nodes_output_file_path, edges_output_file_path)
 
             # remove the VP data files if not in test mode
-            # if not test_mode:
-            #     shutil.rmtree(goa_data_dir)
+            shutil.rmtree(os.path.join(self.data_path, self.goa_data_dir))
 
             self.logger.info(f'VPLoader - Processing complete.')
         else:
