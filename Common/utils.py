@@ -6,6 +6,7 @@ import gzip
 import requests
 import yaml
 import pandas as pd
+from dateutil import parser as dp
 
 from urllib import request
 from zipfile import ZipFile
@@ -133,7 +134,6 @@ class NodeNormUtils:
         the data comes in as a node list.
 
         :param node_list: A list with items to normalize
-        :param cached_node_norms: dict of previously captured normalizations
         :param block_size: the number of curies in the request
         :return:
         """
@@ -558,6 +558,36 @@ class GetData:
         # return the data stream
         return binary
 
+    def get_ftp_file_date(self, ftp_site, ftp_dir, ftp_file) -> str:
+        """
+        gets the modified date of the file from the ftp site
+
+        :param ftp_site:
+        :param ftp_dir:
+        :param ftp_file:
+        :return:
+        """
+        # init the return value
+        ret_val: str = 'Not found'
+
+        try:
+            # open the FTP connection and go to the directory
+            ftp: FTP = FTP(ftp_site)
+            ftp.login()
+            ftp.cwd(ftp_dir)
+
+            # get the date of the file
+            date_val = ftp.voidcmd(f'MDTM {ftp_file}').split(' ')
+
+            # did we get something
+            if len(date_val) > 0:
+                # grab the parsed date
+                ret_val = dp.parse(date_val[1])
+        except Exception as e:
+            self.logger.error(f'Error getting modification date for ftp file: {ftp_site} {ftp_dir} {ftp_file}.')
+
+        return str(ret_val)
+
     def pull_via_ftp(self, ftp_site: str, ftp_dir: str, ftp_files: list, data_file_path: str) -> int:
         """
         gets the requested files from UniProtKB ftp directory
@@ -640,49 +670,35 @@ class GetData:
             hdr = {'User-Agent': 'Mozilla/5.0 (Windows NT 6.1; Win64; x64)'}
             req = request.Request(url, headers=hdr)
 
-            # Read the file inside the .gz archive located at url
-            file_content = request.urlopen(req)
+            # get the the file data handle
+            file_data = request.urlopen(req)
 
             # is this a gzip file
             if is_gzip:
                 # get a handle to the data
-                with gzip.GzipFile(fileobj=file_content) as uncompressed:
-                    # decompress the file
-                    file_content = uncompressed.read()
+                file_data = gzip.GzipFile(fileobj=file_data)
 
-                    # strip off the .gz if exists
-                    data_file = data_file.replace('.gz', '')
-
-                    # open a file for the data
-                    with open(os.path.join(data_dir, data_file), 'wb') as fp:
-                        # output the data to the file
-                        byte_counter = fp.write(file_content)
-            else:
-                file_content = file_content.read()
+                # strip off the .gz if exists
+                data_file = data_file.replace('.gz', '')
 
             with open(os.path.join(data_dir, data_file), 'wb') as fp:
-                # output the data to the file
-                byte_counter = fp.write(file_content)
+                # specify the buffered data block size
+                block = 131072
 
-                # # open a file for the data
-                # with open(os.path.join(data_dir, data_file), 'wb') as fp:
-                #     # init the retrieve bytes by block size
-                #     block = 8192
-                #
-                #     # until all bytes read
-                #     while True:
-                #         # get some bytes
-                #         buffer = file_content.read(block)
-                #
-                #         # did we run out of data
-                #         if not buffer:
-                #             break
-                #
-                #         # keep track of the number of bytes transferred
-                #         byte_counter += len(buffer)
-                #
-                #         # output the data to the file
-                #         fp.write(buffer)
+                # until all bytes read
+                while True:
+                    # get some bytes
+                    buffer = file_data.read(block)
+
+                    # did we run out of data
+                    if not buffer:
+                        break
+
+                    # keep track of the number of bytes transferred
+                    byte_counter += len(buffer)
+
+                    # output the data to the file
+                    fp.write(buffer)
         else:
             byte_counter = 1
 
@@ -737,7 +753,7 @@ class GetData:
         # return the list
         return ret_val
 
-    def get_foodb_files(self, full_url: str, data_dir: str, data_file_name: str, file_list: list) -> int:
+    def get_foodb_files(self, full_url: str, data_dir: str, data_file_name: str, file_list: list) -> (int, str, str):
         """
         gets the food db files
 
@@ -783,7 +799,7 @@ class GetData:
         self.logger.debug(f'End of foodb file retrieval. {file_count} files retrieved.')
 
         # return the list
-        return file_count, foodb_dir
+        return file_count, foodb_dir, name[0]
 
     def get_ncbi_taxon_id_set(self, taxon_data_dir, organism_type: str) -> set:
         """
@@ -831,10 +847,8 @@ class GetData:
         fp.close()
         tar_file.close()
 
-        # do not remove the file if in debug mode
-        if self.logger.level != logging.DEBUG:
-            # remove the target file
-            os.remove(os.path.join(taxon_data_dir, data_file_name))
+        # remove the target file
+        os.remove(os.path.join(taxon_data_dir, data_file_name))
 
         self.logger.debug(f'Start of NCBI taxon retrieval. {len(ret_val)} retrieved.')
 
@@ -961,6 +975,34 @@ class GetData:
                 file_counter += 1
             else:
                 self.logger.error(f'Failed to get {data_file}.')
+
+        # return to the caller
+        return file_counter
+
+    def get_pharos_http_file(self, data_dir: str, data_file: str) -> int:
+        """
+        gets the PHAROS file via HTTP.
+
+        :param data_dir: the location where the data should be saved
+        :param data_file: the file to get
+        :return int: the number of files retrieved
+        """
+        self.logger.debug(f'Start of PHAROS retrieval.')
+
+        # unit a file counter
+        file_counter: int = 0
+
+        if os.path.isfile(os.path.join(data_dir, data_file)):
+            byte_count = 1
+        else:
+            # get the rest of the files
+            byte_count: int = self.pull_via_http(f'http://juniper.health.unm.edu/tcrd/download/{data_file}.gz', data_dir, True)
+
+        # did re get some good file data
+        if byte_count > 0:
+            file_counter += 1
+        else:
+            self.logger.error(f'Failed to get {data_file}.')
 
         # return to the caller
         return file_counter

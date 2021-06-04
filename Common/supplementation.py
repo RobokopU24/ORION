@@ -23,8 +23,8 @@ class SequenceVariantSupplementation:
     def __init__(self, workspace_dir: str):
 
         self.logger = LoggingUtil.init_logging("Data_services.Common.SequenceVariantSupplementation",
-                                      line_format='medium',
-                                      log_file_path=environ['DATA_SERVICES_LOGS'])
+                                               line_format='medium',
+                                               log_file_path=environ['DATA_SERVICES_LOGS'])
 
         if not path.isdir(workspace_dir):
             mkdir(workspace_dir)
@@ -59,7 +59,7 @@ class SequenceVariantSupplementation:
         snpeff_db = 'GRCh38.99'
         #snpeff_db = 'GRCh38.mane.0.93.ensembl'
 
-        supplmentation_info = {}
+        supplementation_info = {}
 
         self.run_snpeff(vcf_file_path,
                         annotated_vcf_path,
@@ -68,7 +68,7 @@ class SequenceVariantSupplementation:
         more_supplementation_info = self.convert_snpeff_to_kgx(annotated_vcf_path,
                                                                supp_nodes_file_path,
                                                                supp_edges_file_path)
-        supplmentation_info.update(more_supplementation_info)
+        supplementation_info.update(more_supplementation_info)
 
         file_normalizer = KGXFileNormalizer(supp_nodes_file_path,
                                             normalized_supp_node_file_path,
@@ -78,9 +78,9 @@ class SequenceVariantSupplementation:
                                             supp_edge_norm_predicate_map_file_path,
                                             has_sequence_variants=True)
         supp_normalization_info = file_normalizer.normalize_kgx_files()
-        supplmentation_info['normalization_info'] = supp_normalization_info
+        supplementation_info['normalization_info'] = supp_normalization_info
 
-        return supplmentation_info
+        return supplementation_info
 
         #raise SupplementationFailedError("Supplementation Failed", 'Testing Error')
 
