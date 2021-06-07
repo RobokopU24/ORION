@@ -6,7 +6,7 @@ import requests
 import shutil
 
 from bs4 import BeautifulSoup
-from FooDB.src.FoodSQL import FoodSQL
+from parsers.FooDB.src.FoodSQL import FoodSQL
 from Common.kgx_file_writer import KGXFileWriter
 from Common.loader_interface import SourceDataLoader
 from Common.utils import LoggingUtil, GetData
