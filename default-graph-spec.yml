@@ -1,0 +1,18 @@
+# Default graph spec
+graphs:
+  - graph_id: Big_Graph_1
+    sources:
+      - source_id: GWASCatalog
+        #load_version: 1
+      - source_id: GtoPdb
+      - source_id: GTEx
+
+  - graph_id: GWASCatalog_Automat
+    sources:
+      - source_id: GWASCatalog
+        #load_version: latest
+
+  - graph_id: GTEx_Automat
+    sources:
+      - source_id: GTEx
+        #load_version: latest
