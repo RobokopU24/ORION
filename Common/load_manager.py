@@ -11,17 +11,18 @@ from Common.loader_interface import SourceDataBrokenError, SourceDataFailedError
 from Common.supplementation import SequenceVariantSupplementation, SupplementationFailedError
 from parsers.GWASCatalog.src.loadGWASCatalog import GWASCatalogLoader
 from parsers.CTD.src.loadCTD import CTDLoader
-from parsers.FooDB.src.loadFDB import FDBLoader
+#from parsers.FooDB.src.loadFDB import FDBLoader
 from parsers.GOA.src.loadGOA import GOALoader
 from parsers.IntAct.src.loadIA import IALoader
-from parsers.PHAROS.src.loadPHAROS import PHAROSLoader
+#from parsers.PHAROS.src.loadPHAROS import PHAROSLoader
 from parsers.UberGraph.src.loadUG import UGLoader
 from parsers.ViralProteome.src.loadVP import VPLoader
-from parsers.ViralProteome.src.loadUniRef import UniRefSimLoader
+#from parsers.ViralProteome.src.loadUniRef import UniRefSimLoader
 from parsers.gtopdb.src.loadGtoPdb import GtoPdbLoader
 from parsers.hmdb.src.loadHMDB import HMDBLoader
 from parsers.hgnc.src.loadHGNC import HGNCLoader
 from parsers.panther.src.loadPanther import PLoader
+from parsers.GTEx.src.loadGTEx import GTExLoader
 
 GWAS_CATALOG = 'GWASCatalog'
 CTD = 'CTD'
@@ -36,6 +37,7 @@ GTOPDB = 'GtoPdb'
 HMDB = 'HMDB'
 HGNC = 'HGNC'
 PANTHER = 'PANTHER'
+GTEX = 'GTEx'
 
 SOURCE_DATA_LOADER_CLASSES = {
     CTD: CTDLoader,
@@ -46,10 +48,11 @@ SOURCE_DATA_LOADER_CLASSES = {
     UBERGRAPH: UGLoader,
     VP: VPLoader,
     HMDB: HMDBLoader,
-    GWAS_CATALOG: GWASCatalogLoader
+    GWAS_CATALOG: GWASCatalogLoader,
+    GTEX: GTExLoader,
 
     # in progress
-    PANTHER: PLoader,
+    PANTHER: PLoader
 
     # items to go
     # biolink,
