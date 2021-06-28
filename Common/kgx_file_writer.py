@@ -95,17 +95,22 @@ class KGXFileWriter:
                    subject_id: str,
                    object_id: str,
                    relation: str,
-                   predicate: str,
+                   predicate: str = None,
                    edge_properties: dict = None,
                    edge_id: str = None):
-        if edge_id is None:
-            composite_id = f'{object_id}{predicate}{subject_id}'
-            edge_id = hashlib.md5(composite_id.encode("utf-8")).hexdigest()
-        edge_object = {'id': edge_id,
-                       'subject': subject_id,
-                       'predicate': predicate,
-                       'object': object_id,
-                       'relation': relation}
+        if predicate:
+            if edge_id is None:
+                composite_id = f'{object_id}{predicate}{subject_id}'
+                edge_id = hashlib.md5(composite_id.encode("utf-8")).hexdigest()
+            edge_object = {'id': edge_id,
+                           'subject': subject_id,
+                           'predicate': predicate,
+                           'object': object_id,
+                           'relation': relation}
+        else:
+            edge_object = {'subject': subject_id,
+                           'object': object_id,
+                           'relation': relation}
 
         if edge_properties is not None:
             edge_object.update(edge_properties)

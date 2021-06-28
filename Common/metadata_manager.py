@@ -43,6 +43,7 @@ class MetadataManager:
         self.metadata['normalization_time'] = ''
         self.metadata['normalization_info'] = {}
         self.metadata['normalization_error'] = ''
+        self.metadata['has_supplementation'] = False
         self.metadata['supplementation_status'] = self.WAITING_ON_DEPENDENCY
         self.metadata['supplementation_time'] = ''
         self.metadata['supplementation_info'] = {}
@@ -138,6 +139,20 @@ class MetadataManager:
         self.metadata['supplementation_info'] = supplementation_info
         self.metadata['supplementation_time'] = supplementation_time
         self.save_metadata()
+
+    def has_supplemental_data(self):
+        if self.metadata['supplementation_info']:
+            return True
+        else:
+            return False
+
+    def is_ready_to_build(self):
+        if ((self.get_update_status() == self.STABLE) and
+            (self.get_normalization_status() == self.STABLE) and
+             (self.get_supplementation_status() == self.STABLE)):
+            return True
+        else:
+            return False
 
     def save_metadata(self):
         with open(self.metadata_file_path, 'w') as meta_json_file:

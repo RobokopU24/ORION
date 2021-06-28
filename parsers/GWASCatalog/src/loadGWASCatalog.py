@@ -235,7 +235,7 @@ class GWASCatalogLoader(SourceDataWithVariantsLoader):
         self.logger.info(f'GWASCatalog load results (out of {total_lines} lines of data):')
         self.logger.info(f'GWASCatalog unsupported variants: {repr(unsupported_variants)}')
         self.logger.info(f'GWASCatalog unsupported traits: {repr(unsupported_traits)}')
-        self.logger.info(json.dumps(load_metadata, indent=4))
+        #self.logger.info(json.dumps(load_metadata, indent=4))
         return load_metadata
 
     def write_to_file(self, nodes_output_file_path: str, edges_output_file_path: str):

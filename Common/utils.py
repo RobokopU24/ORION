@@ -4,6 +4,7 @@ import tarfile
 import csv
 import gzip
 import requests
+import yaml
 import pandas as pd
 from dateutil import parser as dp
 
@@ -329,6 +330,26 @@ class NodeNormUtils:
 
         return variant_nodes
 
+    @staticmethod
+    def get_current_node_norm_version():
+        """
+        Retrieves the current production version from the node normalization service
+        """
+        # fetch the node norm openapi spec
+        node_norm_openapi_url = 'https://nodenormalization-sri.renci.org/openapi.json'
+        resp: requests.models.Response = requests.get(node_norm_openapi_url)
+
+        # did we get a good status code
+        if resp.status_code == 200:
+            # convert json to dict
+            openapi: dict = resp.json()
+            # extract the version
+            node_norm_version = openapi['info']['version']
+            return node_norm_version
+        else:
+            # this shouldn't happen, raise an exception
+            resp.raise_for_status()
+
 
 class EdgeNormUtils:
     """
@@ -469,6 +490,26 @@ class EdgeNormUtils:
 
         # return the failed list to the caller
         return failed_to_normalize
+
+    @staticmethod
+    def get_current_edge_norm_version():
+        """
+        Retrieves the current production version from the edge normalization service
+        """
+        # fetch the edge norm openapi spec
+        edge_norm_openapi_url = 'https://edgenormalization-sri.renci.org/apidocs/openapi.yml'
+        resp: requests.models.Response = requests.get(edge_norm_openapi_url)
+
+        # did we get a good status code
+        if resp.status_code == 200:
+            # parse yaml
+            yaml_spec = yaml.load(resp.text, yaml.SafeLoader)
+            # extract the version
+            edge_norm_version = yaml_spec['info']['version']
+            return edge_norm_version
+        else:
+            # this shouldn't happen, raise an exception
+            resp.raise_for_status()
 
 
 class GetData:

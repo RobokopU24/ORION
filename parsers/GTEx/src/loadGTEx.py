@@ -1,124 +1,135 @@
 import os
 import tarfile
 import gzip
-import json
 import argparse
-from pathlib import Path
 from urllib import request
-from Common.utils import LoggingUtil
-from Common.loader_interface import SourceDataLoader, SourceDataBrokenError, SourceDataFailedError
-from Common.node_types import SEQUENCE_VARIANT, GENE, ANATOMICAL_ENTITY
+from Common.utils import LoggingUtil, NodeNormUtils
+from Common.kgx_file_writer import KGXFileWriter
+from Common.loader_interface import SourceDataWithVariantsLoader, SourceDataBrokenError, SourceDataFailedError
+from Common.node_types import SEQUENCE_VARIANT, GENE
 
-import hashlib
 
-
-class GTExLoader(SourceDataLoader):
+class GTExLoader(SourceDataWithVariantsLoader):
     # create a logger
-    logger = LoggingUtil.init_logging("Data_services.GTEx.GTExLoader", line_format='medium', log_file_path=os.path.join(Path(__file__).parents[2], 'logs'))
+    logger = LoggingUtil.init_logging("Data_services.GTEx.GTExLoader",
+                                      line_format='medium',
+                                      log_file_path=os.environ['DATA_SERVICES_LOGS'])
 
-    # This probably won't change very often - just hard code it for now
+    # this probably won't change very often - just hard code it for now
     GTEX_VERSION = 8
 
     # tissue name to uberon curies, the tissue names will match gtex file names
     TISSUES = {
-        "Adipose_Subcutaneous": "0002190",
-        "Adipose_Visceral_Omentum": "0003688",
-        "Adrenal_Gland": "0018303",
-        "Artery_Aorta": "0004178",
-        "Artery_Coronary": "0002111",
-        "Artery_Tibial": "0007610",
-        "Brain_Amygdala": "0001876",
-        "Brain_Anterior_cingulate_cortex_BA24": "0006101",
-        "Brain_Caudate_basal_ganglia": "0002420",
-        "Brain_Cerebellar_Hemisphere": "0002245",
-        "Brain_Cerebellum": "0002037",
-        "Brain_Cortex": "0001851",
-        "Brain_Frontal_Cortex_BA9": "0013540",
-        "Brain_Hippocampus": "0002310",
-        "Brain_Hypothalamus": "0001898",
-        "Brain_Nucleus_accumbens_basal_ganglia": "0001882",
-        "Brain_Putamen_basal_ganglia": "0001874",
-        "Brain_Spinal_cord_cervical_c-1": "0002726",
-        "Brain_Substantia_nigra": "0002038",
-        "Breast_Mammary_Tissue": "0001911",
-        "Cells_Cultured_fibroblasts": "0015764",
-        "Cells_EBV-transformed_lymphocytes": "0001744",
-        "Colon_Sigmoid": "0001159",
-        "Colon_Transverse": "0001157",
-        "Esophagus_Gastroesophageal_Junction": "0007650",
-        "Esophagus_Mucosa": "0002469",
-        "Esophagus_Muscularis": "0004648",
-        "Heart_Atrial_Appendage": "0006618",
-        "Heart_Left_Ventricle": "0002084",
-        "Kidney_Cortex": "0001225",
-        "Liver": "0002107",
-        "Lung": "0002048",
-        "Minor_Salivary_Gland": "0001830",
-        "Muscle_Skeletal": "0001134",
-        "Nerve_Tibial": "0001323",
-        "Ovary": "0000992",
-        "Pancreas": "0001264",
-        "Pituitary": "0000007",
-        "Prostate": "0002367",
-        "Skin_Not_Sun_Exposed_Suprapubic": "0036149",
-        "Skin_Sun_Exposed_Lower_leg": "0004264",
-        "Small_Intestine_Terminal_Ileum": "0002116",
-        "Spleen": "0002106",
-        "Stomach": "0000945",
-        "Testis": "0000473",
-        "Thyroid": "0002046",
-        "Uterus": "0000995",
-        "Vagina": "0000996",
-        "Whole_Blood": "0000178"}
+        "Adipose_Subcutaneous": "UBERON:0002190",
+        "Adipose_Visceral_Omentum": "UBERON:0003688",
+        "Adrenal_Gland": "UBERON:0018303",
+        "Artery_Aorta": "UBERON:0004178",
+        "Artery_Coronary": "UBERON:0002111",
+        "Artery_Tibial": "UBERON:0007610",
+        "Brain_Amygdala": "UBERON:0001876",
+        "Brain_Anterior_cingulate_cortex_BA24": "UBERON:0006101",
+        "Brain_Caudate_basal_ganglia": "UBERON:0002420",
+        "Brain_Cerebellar_Hemisphere": "UBERON:0002245",
+        "Brain_Cerebellum": "UBERON:0002037",
+        "Brain_Cortex": "UBERON:0001851",
+        "Brain_Frontal_Cortex_BA9": "UBERON:0013540",
+        "Brain_Hippocampus": "UBERON:0002310",
+        "Brain_Hypothalamus": "UBERON:0001898",
+        "Brain_Nucleus_accumbens_basal_ganglia": "UBERON:0001882",
+        "Brain_Putamen_basal_ganglia": "UBERON:0001874",
+        "Brain_Spinal_cord_cervical_c-1": "UBERON:0002726",
+        "Brain_Substantia_nigra": "UBERON:0002038",
+        "Breast_Mammary_Tissue": "UBERON:0001911",
+        "Cells_Cultured_fibroblasts": "UBERON:0015764",
+        "Cells_EBV-transformed_lymphocytes": "UBERON:0001744",
+        "Colon_Sigmoid": "UBERON:0001159",
+        "Colon_Transverse": "UBERON:0001157",
+        "Esophagus_Gastroesophageal_Junction": "UBERON:0007650",
+        "Esophagus_Mucosa": "UBERON:0002469",
+        "Esophagus_Muscularis": "UBERON:0004648",
+        "Heart_Atrial_Appendage": "UBERON:0006618",
+        "Heart_Left_Ventricle": "UBERON:0002084",
+        "Kidney_Cortex": "UBERON:0001225",
+        "Liver": "UBERON:0002107",
+        "Lung": "UBERON:0002048",
+        "Minor_Salivary_Gland": "UBERON:0001830",
+        "Muscle_Skeletal": "UBERON:0001134",
+        "Nerve_Tibial": "UBERON:0001323",
+        "Ovary": "UBERON:0000992",
+        "Pancreas": "UBERON:0001264",
+        "Pituitary": "UBERON:0000007",
+        "Prostate": "UBERON:0002367",
+        "Skin_Not_Sun_Exposed_Suprapubic": "UBERON:0036149",
+        "Skin_Sun_Exposed_Lower_leg": "UBERON:0004264",
+        "Small_Intestine_Terminal_Ileum": "UBERON:0002116",
+        "Spleen": "UBERON:0002106",
+        "Stomach": "UBERON:0000945",
+        "Testis": "UBERON:0000473",
+        "Thyroid": "UBERON:0002046",
+        "Uterus": "UBERON:0000995",
+        "Vagina": "UBERON:0000996",
+        "Whole_Blood": "UBERON:0000178"}
 
     TEST_TISSUES = {
-        "Muscle_Skeletal": "0001134",
-        "Colon_Transverse": "0001157",
-        "Nerve_Tibial": "0001323",
-        "Brain_Cortex": "0001851",
-        "Adipose_Subcutaneous": "0002190",
-        "Adipose_Visceral_Omentum": "0003688",
-        "Artery_Aorta": "0004178",
-        "Skin_Sun_Exposed_Lower_leg": "0004264",
-        "Brain_Anterior_cingulate_cortex_BA24": "0006101",
-        "Cells_Cultured_fibroblasts": "0015764",
-        "Adrenal_Gland": "0018303",
-        "Skin_Not_Sun_Exposed_Suprapubic": "0036149"
+        "Muscle_Skeletal": "UBERON:0001134",
+        "Colon_Transverse": "UBERON:0001157",
+        "Nerve_Tibial": "UBERON:0001323",
+        "Brain_Cortex": "UBERON:0001851",
+        "Adipose_Subcutaneous": "UBERON:0002190",
+        "Adipose_Visceral_Omentum": "UBERON:0003688",
+        "Artery_Aorta": "UBERON:0004178",
+        "Skin_Sun_Exposed_Lower_leg": "UBERON:0004264",
+        "Brain_Anterior_cingulate_cortex_BA24": "UBERON:0006101",
+        "Cells_Cultured_fibroblasts": "UBERON:0015764",
+        "Adrenal_Gland": "UBERON:0018303",
+        "Skin_Not_Sun_Exposed_Suprapubic": "UBERON:0036149"
     }
 
-    # storage for all the edges discovered
-    edge_list: list = []
-
-    def __init__(self, test_mode: bool = False):
-
-        if test_mode:
-            GTExLoader.TISSUES = GTExLoader.TEST_TISSUES
-
-        # maps the HG version to the chromosome versions
-        self.reference_chrom_labels: dict = {
-            'b37': {
-                'p1': {
-                    1: 'NC_000001.10', 2: 'NC_000002.11', 3: 'NC_000003.11', 4: 'NC_000004.11', 5: 'NC_000005.9',
-                    6: 'NC_000006.11', 7: 'NC_000007.13', 8: 'NC_000008.10', 9: 'NC_000009.11', 10: 'NC_000010.10', 11: 'NC_000011.9',
-                    12: 'NC_000012.11', 13: 'NC_000013.10', 14: 'NC_000014.8', 15: 'NC_000015.9', 16: 'NC_000016.9', 17: 'NC_000017.10',
-                    18: 'NC_000018.9', 19: 'NC_000019.9', 20: 'NC_000020.10', 21: 'NC_000021.8', 22: 'NC_000022.10', 23: 'NC_000023.10',
-                    24: 'NC_000024.9'
-                }
-            },
-            'b38': {
-                'p1': {
-                    1: 'NC_000001.11', 2: 'NC_000002.12', 3: 'NC_000003.12', 4: 'NC_000004.12', 5: 'NC_000005.10',
-                    6: 'NC_000006.12', 7: 'NC_000007.14', 8: 'NC_000008.11', 9: 'NC_000009.12', 10: 'NC_000010.11', 11: 'NC_000011.10',
-                    12: 'NC_000012.12', 13: 'NC_000013.11', 14: 'NC_000014.9', 15: 'NC_000015.10', 16: 'NC_000016.10', 17: 'NC_000017.11',
-                    18: 'NC_000018.10', 19: 'NC_000019.10', 20: 'NC_000020.11', 21: 'NC_000021.9', 22: 'NC_000022.11', 23: 'NC_000023.11',
-                    24: 'NC_000024.10'
-                }
+    # look up for reference chromosomes for HGVS conversion
+    REFERENCE_CHROMOSOME_LOOKUP: dict = {
+        'b37': {
+            'p1': {
+                1: 'NC_000001.10', 2: 'NC_000002.11', 3: 'NC_000003.11', 4: 'NC_000004.11', 5: 'NC_000005.9',
+                6: 'NC_000006.11', 7: 'NC_000007.13', 8: 'NC_000008.10', 9: 'NC_000009.11', 10: 'NC_000010.10',
+                11: 'NC_000011.9', 12: 'NC_000012.11', 13: 'NC_000013.10', 14: 'NC_000014.8', 15: 'NC_000015.9',
+                16: 'NC_000016.9', 17: 'NC_000017.10', 18: 'NC_000018.9', 19: 'NC_000019.9', 20: 'NC_000020.10',
+                21: 'NC_000021.8', 22: 'NC_000022.10', 23: 'NC_000023.10', 24: 'NC_000024.9'
+            }
+        },
+        'b38': {
+            'p1': {
+                1: 'NC_000001.11', 2: 'NC_000002.12', 3: 'NC_000003.12', 4: 'NC_000004.12', 5: 'NC_000005.10',
+                6: 'NC_000006.12', 7: 'NC_000007.14', 8: 'NC_000008.11', 9: 'NC_000009.12', 10: 'NC_000010.11',
+                11: 'NC_000011.10', 12: 'NC_000012.12', 13: 'NC_000013.11', 14: 'NC_000014.9', 15: 'NC_000015.10',
+                16: 'NC_000016.10', 17: 'NC_000017.11', 18: 'NC_000018.10', 19: 'NC_000019.10', 20: 'NC_000020.11',
+                21: 'NC_000021.9', 22: 'NC_000022.11', 23: 'NC_000023.11', 24: 'NC_000024.10'
             }
         }
+    }
 
+    def __init__(self, test_mode: bool = False):
+        self.source_id = 'GTEx'
         self.test_mode = test_mode
         if self.test_mode:
-            self.logger.info("Using test data for this run.")
+            self.logger.info(f"Loading GTEx in test mode. Only expecting a subset of tissues.")
+            self.anatomy_id_lookup = GTExLoader.TEST_TISSUES
+        else:
+            self.anatomy_id_lookup = GTExLoader.TISSUES
+        self.normalize_anatomy_ids()
+
+        # the file writer prevents duplicates by default but we can probably do it more efficiently,
+        # specifically, we prevent converting the gtex variant field to hgvs multiple times,
+        # and we prevent looking up potential duplicate genes from the entire list of variants
+        self.gtex_variant_to_hgvs_lookup = {}
+        self.variants_that_failed_hgvs_conversion = set()
+        self.written_genes = set()
+
+        # the defaults for the types/category field
+        self.variant_node_types = [SEQUENCE_VARIANT]
+        self.gene_node_types = [GENE]
+
+        # accumulate edges while parsing for merging
+        self.edge_list: list = []
 
     def get_latest_source_version(self):
         return self.GTEX_VERSION
@@ -126,474 +137,168 @@ class GTExLoader(SourceDataLoader):
     # the main function to call to retrieve the GTEx data and convert it to a KGX json file
     def load(self, nodes_output_file_path: str, edges_output_file_path: str):
 
-        # init the return flag
-        ret_val = False
+        workspace_directory = os.path.join(os.environ["DATA_SERVICES_STORAGE"], self.source_id, "")
 
         # define the urls for the raw data archives and the location to download them to
+        gtex_version = self.GTEX_VERSION
         eqtl_tar_file_name = f'GTEx_Analysis_v{gtex_version}_eQTL.tar'
         eqtl_url = f'https://storage.googleapis.com/gtex_analysis_v{gtex_version}/single_tissue_qtl_data/{eqtl_tar_file_name}'
-        eqtl_tar_download_path = f'{output_directory}{eqtl_tar_file_name}'
+        eqtl_tar_download_path = f'{workspace_directory}{eqtl_tar_file_name}'
 
         sqtl_tar_file_name = f'GTEx_Analysis_v{gtex_version}_sQTL.tar'
         sqtl_url = f'https://storage.googleapis.com/gtex_analysis_v{gtex_version}/single_tissue_qtl_data/{sqtl_tar_file_name}'
-        sqtl_tar_download_path = f'{output_directory}{sqtl_tar_file_name}'
+        sqtl_tar_download_path = f'{workspace_directory}{sqtl_tar_file_name}'
 
         try:
-            self.logger.info(f'Downloading raw GTEx data files from {eqtl_url}.')
+            self.logger.debug(f'Downloading raw GTEx data files from {eqtl_url}.')
 
             if not self.test_mode:
                 self.fetch_and_save_tar(eqtl_url, eqtl_tar_download_path)
 
-            self.logger.info(f'Downloading raw GTEx data files from {sqtl_url}.')
+            self.logger.debug(f'Downloading raw GTEx data files from {sqtl_url}.')
 
             if not self.test_mode:
                 self.fetch_and_save_tar(sqtl_url, sqtl_tar_download_path)
 
-            all_gene_nodes, all_variant_nodes = self.parse_eqtl_and_sqtl_for_nodes(eqtl_tar_download_path,
-                                                                                   sqtl_tar_download_path)
+            with KGXFileWriter(nodes_output_file_path=nodes_output_file_path) as kgx_file_writer:
 
-            anatomy_nodes: list = self.get_anatomy_nodes()
-            self.logger.info(f'Found {len(anatomy_nodes)} tissues for anatomy nodes.')
+                self.logger.debug('Parsing eqtl and sqtl data and writing nodes...')
+                for gtex_relationship in self.parse_file_and_yield_relationships(eqtl_tar_download_path):
+                    # unpack the gtex_relationship tuple
+                    anatomy_id, gtex_variant, gtex_gene, p_value, slope = gtex_relationship
+                    # process and write the nodes
+                    variant_id = self.process_variant(gtex_variant, kgx_file_writer)
+                    gene_id = self.process_gene(gtex_gene, kgx_file_writer)
+                    # create the edge (stored in self.edge_list)
+                    self.create_edge(anatomy_id, variant_id, gene_id, p_value, slope)
 
-            all_regular_nodes = [*all_gene_nodes, *anatomy_nodes]
-            self.logger.info(f'Normalizing the gene and anatomy nodes.. ({len(all_regular_nodes)} nodes)')
-            nnu = NodeNormUtils()
-            nnu.normalize_node_data(all_regular_nodes, for_json=True, block_size=1000)
-            # store these look up dicts so that the edges can point to the right node ids later
-            normalized_node_id_lookup = {}
-            for n in all_regular_nodes:
-                normalized_node_id_lookup[n['original_id']] = n['id']
+                for gtex_relationship in self.parse_file_and_yield_relationships(sqtl_tar_download_path,
+                                                                                 is_sqtl=True):
+                    # unpack the gtex_relationship tuple
+                    anatomy_id, gtex_variant, gtex_gene, p_value, slope = gtex_relationship
+                    # process and write the nodes
+                    variant_id = self.process_variant(gtex_variant, kgx_file_writer)
+                    gene_id = self.process_gene(gtex_gene, kgx_file_writer)
+                    # create the edge (stored in self.edge_list)
+                    self.create_edge(anatomy_id, variant_id, gene_id, p_value, slope, is_sqtl=True)
 
-            # all_regular_nodes = None
+            # using two different file writers here so that the nodes flush and write before the edges
+            # this should help with max memory usage and related issues
+            with KGXFileWriter(edges_output_file_path=edges_output_file_path) as kgx_file_writer:
+                self.logger.debug('Merging and writing edges...')
+                # coalesce the edges that share subject/relation/object, turning relevant properties into arrays
+                # write them to file
+                self.coalesce_and_write_edges(kgx_file_writer)
 
-            self.logger.info(f'Normalizing gene and anatomy nodes complete.')
-
-            with open(nodes_output_file_path, 'w') as nodes_output_file, open(edges_output_file_path,
-                                                                              'w') as edges_output_file:
-                nodes_output_file.write('{"nodes":[\n')
-                edges_output_file.write('{"edges":[\n')
-
-                # Normalize and write all of the variants to file,
-                # in the process find variant-to-gene relationships from other services.
-                # All of the edges found are written to file.
-                # Any new genes are added to the all_gene_nodes list.
-                normalized_variant_id_lookup = self.process_sequence_variants(all_variant_nodes,
-                                                                              all_gene_nodes,
-                                                                              nodes_output_file,
-                                                                              edges_output_file)
-
-                # Write all of the gene nodes and finish the nodes file
-                # dumping the array but removing the brackets with the [1:-1]
-                self.logger.info('Writing all of the gene nodes...')
-                num_genes = len(all_gene_nodes)
-                for i, g in enumerate(all_gene_nodes, start=1):
-                    # write a comma after each gene line until the last one, then close
-                    if i < num_genes:
-                        nodes_output_file.write(json.dumps(g) + ',\n')
-                    else:
-                        nodes_output_file.write(json.dumps(g) + '\n]}')
-                self.logger.info('All of the variant and gene nodes are written now.')
-
-            # TODO these predicates should be normalized, since they are not they might as well be hardcoded
-            # increases_expression_relation = 'CTD:increases_expression_of'
-            # increases_expression_edge_label = 'biolink:increases_expression_of'
-
-            # decreases_expression_relation = 'CTD:decreases_expression_of'
-            # decreases_expression_edge_label = 'biolink:decreases_expression_of'
-
-            # variant_gene_sqtl_relation = 'CTD:affects_splicing_of'
-            # variant_gene_sqtl_edge_label = 'biolink:affects_splicing_of'
-
-            # gtex_edge_info comes back as
-            # [normalized_anatomy_id,
-            #  normalized_gene_id,
-            #  normalized_sv_id,
-            #  p_value,
-            #  slope]
-            with open(edges_output_file_path, 'a') as edges_output_file:
-
-                self.logger.info('Parsing and writing eqtl edges...')
-
-                for i, gtex_edge_info in enumerate(self.parse_files_and_yield_edge_info(eqtl_tar_download_path,
-                                                                                        normalized_node_id_lookup,
-                                                                                        normalized_variant_id_lookup,
-                                                                                        is_sqtl=False), start=1):
-                    normalized_anatomy_id, normalized_gene_id, normalized_sv_id, p_value, slope = gtex_edge_info
-                    if float(slope) > 0:
-                        edge_id: str = f'{normalized_sv_id}"CTD:increases_expression_of"{normalized_gene_id}'
-                        # edges_output_file.write(f'{{"id":"{hashlib.md5(edge_id.encode("utf-8")).hexdigest()}","subject":"{normalized_sv_id}","edge_label":"biolink:increases_expression_of","object":"{normalized_gene_id}","relation":"CTD:increases_expression_of","expressed_in":"{normalized_anatomy_id}","p_value":{p_value},"slope":{slope}}},\n')
-                        self.edge_list.append(
-                            {"id": f'{hashlib.md5(edge_id.encode("utf-8")).hexdigest()}', "subject": normalized_sv_id, "edge_label": "biolink:increases_expression_of", "object": normalized_gene_id, "relation": "CTD:increases_expression_of",
-                             "expressed_in": normalized_anatomy_id, "p_value": p_value, "slope": slope})
-                    else:
-                        edge_id: str = f'{normalized_sv_id}"CTD:decreases_expression_of"{normalized_gene_id}'
-                        # edges_output_file.write(f'{{"id":"{hashlib.md5(edge_id.encode("utf-8")).hexdigest()}","subject":"{normalized_sv_id}","edge_label":"biolink:decreases_expression_of","object":"{normalized_gene_id}","relation":"CTD:decreases_expression_of","expressed_in":"{normalized_anatomy_id}","p_value":{p_value},"slope":{slope}}},\n')
-                        self.edge_list.append(
-                            {"id": f'{hashlib.md5(edge_id.encode("utf-8")).hexdigest()}', "subject": normalized_sv_id, "edge_label": "biolink:decreases_expression_of", "object": normalized_gene_id, "relation": "CTD:decreases_expression_of",
-                             "expressed_in": normalized_anatomy_id, "p_value": p_value, "slope": slope})
-
-                self.logger.info('Writing eqtl edges complete. Starting sqtl edges...')
-                # sqtl_edges = []
-                for i, gtex_edge_info in enumerate(self.parse_files_and_yield_edge_info(sqtl_tar_download_path,
-                                                                                        normalized_node_id_lookup,
-                                                                                        normalized_variant_id_lookup,
-                                                                                        is_sqtl=True), start=1):
-                    normalized_anatomy_id, normalized_gene_id, normalized_sv_id, p_value, slope = gtex_edge_info
-                    edge_id: str = f'{normalized_sv_id}"CTD:affects_splicing_of"{normalized_gene_id}'
-                    # sqtl_edges.append(f'{{"id":"{hashlib.md5(edge_id.encode("utf-8")).hexdigest()}","subject":"{normalized_sv_id}","edge_label":"biolink:affects_splicing_of","object":"{normalized_gene_id}","relation":"CTD:affects_splicing_of","expressed_in":"{normalized_anatomy_id}","p_value":{p_value},"slope":{slope}}}')
-                    self.edge_list.append(
-                        {"id": f'{hashlib.md5(edge_id.encode("utf-8")).hexdigest()}', "subject": normalized_sv_id, "edge_label": "biolink:affects_splicing_of", "object": normalized_gene_id, "relation": "CTD:affects_splicing_of",
-                         "expressed_in": normalized_anatomy_id, "p_value": p_value, "slope": slope})
-                #     if i % 1000:
-                #         edges_output_file.write(",\n".join(sqtl_edges))
-                #         sqtl_edges = [""]
-                # if len(sqtl_edges) > 1:
-                #     edges_output_file.write(",\n".join(sqtl_edges))
-
-                # coalesce the uberon, p-value and slopes into arrays grouping by subject/relation/object and write them out
-                self.coalesce_and_write_edges(edges_output_file)
-
-                edges_output_file.write(']}')
-                self.logger.info(f'GTEx parsing and KGX file creation complete.')
+            self.logger.debug(f'GTEx parsing and KGX file creation complete.')
 
         except Exception as e:
+            # might be helpful to see stack trace
+            # raise e
             self.logger.error(f'Exception caught. Exception: {e}')
-            ret_val = e
+            raise SourceDataFailedError(e)
 
-        # finally:
-        #     # remove all the intermediate (tar) files
-        #     if os.path.isfile(eqtl_tar_download_path):
-        #         os.remove(eqtl_tar_download_path)
-        #     if os.path.isfile(sqtl_tar_download_path):
-        #         os.remove(sqtl_tar_download_path)
+        finally:
+            # remove all the intermediate (tar) files
+            if not self.test_mode:
+                if os.path.isfile(eqtl_tar_download_path):
+                    os.remove(eqtl_tar_download_path)
+                if os.path.isfile(sqtl_tar_download_path):
+                    os.remove(sqtl_tar_download_path)
 
-        return ret_val
+    # given a gtex variant check to see if it has been encountered already
+    # if so return the previously generated hgvs curie
+    # otherwise generate a HGVS curie from the gtex variant and write the node to file
+    def process_variant(self,
+                        gtex_variant_id,
+                        kgx_file_writer: KGXFileWriter):
+        # we might have gotten the variant from another file already
+        if gtex_variant_id not in self.gtex_variant_to_hgvs_lookup:
+            # if not convert it to an HGVS value
+            hgvs: str = self.convert_gtex_variant_to_hgvs(gtex_variant_id)
+            if hgvs:
+                # store the hgvs value and write the node to the kgx file
+                variant_id = f'HGVS:{hgvs}'
+                self.gtex_variant_to_hgvs_lookup[gtex_variant_id] = variant_id
+                kgx_file_writer.write_node(variant_id,
+                                           node_name=hgvs,
+                                           node_types=self.variant_node_types)
+            else:
+                self.logger.error(
+                    f'GTEx had a variant that we could not convert to HGVS: {gtex_variant_id}')
+                self.variants_that_failed_hgvs_conversion.add(gtex_variant_id)
+                return None
+        else:
+            # if so just grab the variant id generated previously
+            variant_id = self.gtex_variant_to_hgvs_lookup[gtex_variant_id]
 
-    def coalesce_and_write_edges(self, edge_file):
-        """
-            Coalesces edge data so that expressed_in, p_value, slope are arrays on a single edge
+        return variant_id
 
-        :param edge_file: The target edge file
-        :return: Noting
-        """
-        # sort the list of dicts
-        self.edge_list = sorted(self.edge_list, key=lambda i: (i['subject'], i['object'], i['edge_label']))
+    # given a gene id from the gtex data (already in curie form)
+    # write it to file if it hasn't been done already
+    def process_gene(self,
+                     gtex_gene_id,
+                     kgx_file_writer: KGXFileWriter):
+        # write the gene to file if needed
+        if gtex_gene_id not in self.written_genes:
+            # write the node to the kgx file
+            kgx_file_writer.write_node(gtex_gene_id,
+                                       node_name=gtex_gene_id.split(':')[1],
+                                       node_types=self.gene_node_types)
+            self.written_genes.add(gtex_gene_id)
+        return gtex_gene_id
 
-        # create a list for the uberons, p-values and slope
-        uberons: list = []
-        p_values: list = []
-        slopes: list = []
+    def create_edge(self,
+                    anatomy_id: str,
+                    variant_id: str,
+                    gene_id: str,
+                    p_value: str,
+                    slope: str,
+                    is_sqtl: bool = False):
+        if is_sqtl:
+            relation = "CTD:affects_splicing_of"
+        elif float(slope) > 0:
+            relation = "CTD:increases_expression_of"
+        else:
+            relation = "CTD:decreases_expression_of"
+        self.edge_list.append(
+            {"subject": variant_id,
+             "object": gene_id,
+             "relation": relation,
+             "expressed_in": anatomy_id,
+             "p_value": p_value,
+             "slope": slope})
 
-        # prime the boundary keys
-        item: dict = self.edge_list[0]
+    def parse_file_and_yield_relationships(self,
+                                           full_tar_path: str,
+                                           is_sqtl: bool = False):
+        # column indexes for the gtex data files
+        variant_column_index = 0
+        gene_column_index = 1
+        pval_column_index = 6
+        slope_column_index = 7
 
-        # create boundary group keys. the key will be the subject - edge label - object
-        start_group_key: str = item["subject"] + item["edge_label"] + item["object"]
-
-        # prime the loop with the first record
-        cur_record: dict = item
-
-        # loop through the edge data
-        for item in self.edge_list:
-            # get the current group key
-            cur_group_key: str = item["subject"] + item["edge_label"] + item["object"]
-
-            # did we encounter a new grouping
-            if cur_group_key != start_group_key:
-                # update the record with the arrays
-                cur_record["expressed_in"] = '["' + '","'.join(uberons) + '"]'
-                cur_record["p_value"] = '[' + ','.join(p_values) + ']'
-                cur_record["slope"] = '[' + ','.join(slopes) + ']'
-
-                # write out the coalesced record
-                edge_file.write(
-                    f'{{"id":"{hashlib.md5(start_group_key.encode("utf-8")).hexdigest()}"'
-                    f',"subject":"{cur_record["subject"]}"'
-                    f',"edge_label":"{cur_record["edge_label"]}"'
-                    f',"object":"{cur_record["object"]}"'
-                    f',"relation":"{cur_record["relation"]}"'
-                    f',"expressed_in":{cur_record["expressed_in"]}'
-                    f',"p_value":{cur_record["p_value"]}'
-                    f',"slope":{cur_record["slope"]}}},\n')
-
-                # reset the record storage and intermediate items for the next group
-                cur_record = item
-                uberons = []
-                p_values = []
-                slopes = []
-
-                # save the new group key
-                start_group_key = cur_group_key
-
-            # save the uberon in the list
-            uberons.append(item["expressed_in"])
-            p_values.append(item["p_value"])
-            slopes.append(item["slope"])
-
-        # save anything that is left
-        if len(uberons) > 0:
-            # update the record with the arrays
-            cur_record["expressed_in"] = '["' + '","'.join(uberons) + '"]'
-            cur_record["p_value"] = '[' + ','.join(p_values) + ']'
-            cur_record["slope"] = '[' + ','.join(slopes) + ']'
-
-            # write out the coalesced record
-            edge_file.write(
-                f'{{"id":"{hashlib.md5(start_group_key.encode("utf-8")).hexdigest()}"'
-                f',"subject":"{cur_record["subject"]}"'
-                f',"edge_label":"{cur_record["edge_label"]}"'
-                f',"object":"{cur_record["object"]}"'
-                f',"relation":"{cur_record["relation"]}"'
-                f',"expressed_in":{cur_record["expressed_in"]}'
-                f',"p_value":{cur_record["p_value"]}'
-                f',"slope":{cur_record["slope"]}}}\n')
-
-    # This will parse all of the files in the specified tar and return all of the nodes not already found.
-    # Due to having different normalizers, sequence variants are SimpleNode objects and gene nodes are dicts.
-    # Pass the same already_found sets along each time this is used.
-    def parse_files_for_nodes(self,
-                              full_tar_path: str,
-                              already_found_genes: set,
-                              already_found_variants: set,
-                              is_sqtl: bool = False):
-
-        sequence_variant_nodes = []
-        gene_nodes = []
-
-        # messy but faster than using constant lookups (I think?)
-        variant_file_index = 0
-        gene_file_index = 1
-
-        # this might increase speed (local reference)
-        convert_gtex_variant_to_hgvs_ref = self.convert_gtex_variant_to_hgvs
-        gene_types = self.gene_types
-
-        # for each file in the tar archive
+        # read the gtex tar
         with tarfile.open(full_tar_path, 'r:') as tar_files:
-            # for each tissue data file in the tar
+            # each tissue has it's own file, iterate through them
             for tissue_file in tar_files:
-
-                # is this a significant variant-gene data file? expecting formats:
-                # eqtl - 'GTEx_Analysis_v8_eQTL/<tissue_name>.v8.signif_variant_gene_pairs.txt.gz'
-                # sqtl - 'GTEx_Analysis_v8_sQTL/<tissue_name>.v8.sqtl_signifpairs.txt.gz'
-                if tissue_file.name.find('signif') != -1:
-
-                    if self.test_mode and tissue_file.name.find('Salivary') == -1:
-                        continue
-
-                    self.logger.info(f'Processing tissue file {tissue_file.name} for nodes.')
-
-                    # get the tissue name from the name of the file
-                    tissue_name: str = tissue_file.name.split('/')[1].split('.')[0]
-
-                    # check to make sure we know about this tissue
-                    if tissue_name in GTExLoader.TISSUES:
-
-                        # get a handle to the tissue file
-                        tissue_handle = tar_files.extractfile(tissue_file)
-
-                        # open up the compressed file
-                        with gzip.open(tissue_handle, 'rt') as compressed_file:
-                            # skip the headers line of the file
-                            next(compressed_file)
-
-                            # for each line in the file
-                            for i, line in enumerate(compressed_file, start=1):
-
-                                if self.test_mode and i == 5000:
-                                    return gene_nodes, sequence_variant_nodes
-
-                                # split line the into an array
-                                line_split: list = line.split('\t')
-
-                                # check the column count
-                                if len(line_split) != 12:
-                                    self.logger.error(f'Error with column count or delimiter in {tissue_file.name}. (line {i}:{line})')
-                                else:
-                                    # get the variant ID value
-                                    gtex_variant_id: str = line_split[variant_file_index]
-
-                                    # we might have gotten it from another file
-                                    if gtex_variant_id not in already_found_variants:
-                                        # convert it to an HGVS value
-                                        hgvs: str = convert_gtex_variant_to_hgvs_ref(gtex_variant_id)
-                                        if not hgvs:
-                                            self.logger.error(f'GTEx had a variant that we could not convert to HGVS: {gtex_variant_id}')
-                                            continue
-
-                                        hgvs_curie = f'HGVS:{hgvs}'
-                                        new_node = SimpleNode(id=hgvs_curie, type=SEQUENCE_VARIANT, name=hgvs)
-                                        new_node.original_id = gtex_variant_id
-                                        sequence_variant_nodes.append(new_node)
-                                        already_found_variants.add(gtex_variant_id)
-
-                                    if is_sqtl:
-                                        # for sqtl we have a "phenotype_id" that contains the ensembl id for the gene.
-                                        # it has the format: chr1:497299:498399:clu_51878:ENSG00000237094.11
-                                        phenotype_id: str = line_split[gene_file_index]
-                                        gene: str = phenotype_id.split(':')[4]
-                                        gene_id = gene.split('.')[0]
-                                    else:
-                                        # for eqtl this should just be the ensembl gene id, remove the version number
-                                        gene_id: str = line_split[gene_file_index].split('.')[0]
-
-                                    if gene_id not in already_found_genes:
-                                        curie = f'ENSEMBL:{gene_id}'
-                                        gene_nodes.append({'id': curie,
-                                                           'original_id': gene_id,
-                                                           'name': gene_id,
-                                                           'category': gene_types,
-                                                           'equivalent_identifiers': [curie]})
-                                        already_found_genes.add(gene_id)
-                    else:
-                        self.logger.info(f'Skipping unexpected tissue file {tissue_file.name}.')
-                else:
-                    self.logger.debug(f'Skipping genes file {tissue_file.name}.')
-
-        return gene_nodes, sequence_variant_nodes
-
-    # helper function that calls parse_files_for_nodes for eqtl and sqtl and accumulates all of the results
-    def parse_eqtl_and_sqtl_for_nodes(self, eqtl_tar_path: str, sqtl_tar_path: str):
-
-        # create a common set that will be used for both to avoid duplicates
-        already_found_genes = set()
-        already_found_variants = set()
-        self.logger.info(f'Parsing eqtl for nodes.')
-        eqtl_genes, eqtl_variants = self.parse_files_for_nodes(eqtl_tar_path,
-                                                               already_found_genes=already_found_genes,
-                                                               already_found_variants=already_found_variants)
-        self.logger.info(f'EQTL found {len(eqtl_genes)} genes and {len(eqtl_variants)} variants.')
-
-        self.logger.info(f'Parsing sqtl for nodes.')
-        sqtl_genes, sqtl_variants = self.parse_files_for_nodes(sqtl_tar_path,
-                                                               already_found_genes=already_found_genes,
-                                                               already_found_variants=already_found_variants,
-                                                               is_sqtl=True)
-        self.logger.info(f'SQTL found {len(sqtl_genes)} genes and {len(sqtl_variants)} variants that were not in eqtl.')
-
-        # combine the eqtl and sqtl lists
-        all_gene_nodes = [*eqtl_genes, *sqtl_genes]
-        all_variant_nodes = [*eqtl_variants, *sqtl_variants]
-        self.logger.info(f'GTEx found {len(all_gene_nodes)} genes and {len(all_variant_nodes)} variants in total.')
-        return all_gene_nodes, all_variant_nodes
-
-    def process_sequence_variants(self,
-                                  all_variant_nodes: list,
-                                  all_gene_nodes: list,
-                                  nodes_output_file,
-                                  edges_output_file):
-
-        # grab local references to these for efficiency
-        sequence_variant_category = json.dumps(self.sequence_variant_types)
-        convert_node_to_dict = self.convert_simple_node_to_dict
-        convert_edge_to_dict = self.convert_simple_edge_to_dict
-
-        self.logger.info(f'Processing the sequence variants (normalizing and finding related genes)..')
-
-        nnu = NodeNormUtils()
-        cached_node_norms = {}
-
-        enu = EdgeNormUtils()
-        cached_edge_norms = {}
-
-        genetics_normalizer = GeneticsNormalizer(use_cache=self.use_cache)
-        genetics_services = GeneticsServices(use_cache=self.use_cache)
-
-        num_variants = len(all_variant_nodes)
-        all_gene_ids = set([gene["id"] for gene in all_gene_nodes])
-        normalized_variant_lookup = {}
-
-        chunks_of_variants = [all_variant_nodes[i:i + 10_000] for i in range(0, num_variants, 10_000)]
-        for i, variant_chunk in enumerate(chunks_of_variants, start=1):
-
-            self.logger.info(f'Processing variants.. (working on: {i * 10_000}/{num_variants}) normalizing and writing variant nodes...')
-
-            # normalize the chunk of variants and write them straight to file
-            #genetics_normalizer.batch_normalize(variant_chunk)
-
-
-            for v in variant_chunk:
-                nodes_output_file.write(f'{{"id":"{v.id}","name":"{v.name}","category":{sequence_variant_category},"equivalent_identifiers":{json.dumps(list(v.synonyms))}}},\n')
-
-            #self.logger.info(f'Variant nodes written. Finding gene relationships from genetics_services..')
-            self.logger.info(f'Variant nodes written.')
-            """
-            variant_to_gene_results = genetics_services.get_variant_to_gene(ALL_VARIANT_TO_GENE_SERVICES,
-                                                                            variant_chunk)
-            self.logger.info(f'Gene relationships from genetics_services found.. Normalizing gene nodes...')
-
-            new_genes = [convert_node_to_dict(node)
-                         for results_list in variant_to_gene_results.values() if results_list
-                         for (edge, node) in results_list]
-
-            nnu.normalize_node_data(new_genes, cached_node_norms, for_json=True, block_size=1000)
-
-            self.logger.info(f'Gene relationships from genetics_services found.. Normalizing edges...')
-
-            variant_to_gene_edges = [convert_edge_to_dict(edge)
-                                     for results_list in variant_to_gene_results.values() if results_list
-                                     for (edge, node) in results_list]
-
-            enu.normalize_edge_data(variant_to_gene_edges, cached_edge_norms)
-
-            self.logger.info(f'Writing genetics_services variant to gene edges to file...')
-
-            for j, gene in enumerate(new_genes):
-                normalized_gene_id = gene["id"]
-                g_to_v_edge = variant_to_gene_edges[j]
-                g_to_v_edge["object"] = normalized_gene_id
-
-                # edge_id: str = f'{g_to_v_edge["subject"]}{g_to_v_edge["edge_label"]}{g_to_v_edge["object"]}'
-                # g_to_v_edge.update({"id":f'{hashlib.md5(edge_id.encode("utf-8")).hexdigest()}'})
-
-                edges_output_file.write(json.dumps(g_to_v_edge) + ",\n")
-                if normalized_gene_id not in all_gene_ids:
-                    all_gene_nodes.append(gene)
-                    all_gene_ids.add(normalized_gene_id)
-            """
-
-        self.logger.info(f'GTEx variant processing complete. Making variant id lookup table..')
-
-        for i, v in enumerate(all_variant_nodes):
-            normalized_variant_lookup[v.original_id] = v.id
-            all_variant_nodes[i] = None
-        return normalized_variant_lookup
-
-    def parse_files_and_yield_edge_info(self,
-                                        full_tar_path: str,
-                                        normalized_node_lookup: dict,
-                                        normalized_variant_lookup: dict,
-                                        is_sqtl: bool = False):
-
-        variant_file_index = 0
-        gene_file_index = 1
-        pval_file_index = 6
-        slope_file_index = 7
-
-        # for each file in the tar archive
-        with tarfile.open(full_tar_path, 'r:') as tar_files:
-            # for each tissue data file in the tar
-            for tissue_file in tar_files:
-                # get a handle to the tissue file
+                # get a handle for an extracted tissue file
                 tissue_handle = tar_files.extractfile(tissue_file)
 
                 # is this a significant_variant-gene data file? expecting formats:
                 # eqtl - 'GTEx_Analysis_v8_eQTL/<tissue_name>.v8.signif_variant_gene_pairs.txt.gz'
                 # sqtl - 'GTEx_Analysis_v8_sQTL/<tissue_name>.v8.sqtl_signifpairs.txt.gz'
                 if tissue_file.name.find('signif') != -1:
+                    self.logger.debug(f'Reading tissue file {tissue_file.name}.')
 
-                    if self.test_mode and tissue_file.name.find('Salivary') == -1:
-                        continue
-
-                    self.logger.info(f'Processing tissue file {tissue_file.name} for edges.')
                     # get the tissue name from the name of the file
                     tissue_name = tissue_file.name.split('/')[1].split('.')[0]
 
                     # check to make sure we know about this tissue
-                    if tissue_name in GTExLoader.TISSUES:
+                    if tissue_name in self.anatomy_id_lookup:
 
-                        # determine normalized anatomy ID
-                        normalized_anatomy_id = normalized_node_lookup[tissue_name]
+                        # determine anatomy ID
+                        anatomy_id = self.anatomy_id_lookup[tissue_name]
 
                         # open up the compressed file
                         with gzip.open(tissue_handle, 'rt') as compressed_file:
@@ -603,9 +308,6 @@ class GTExLoader(SourceDataLoader):
                             # for each line in the file
                             for i, line in enumerate(compressed_file, start=1):
 
-                                if self.test_mode and i == 5000:
-                                    return
-
                                 # split line the into an array
                                 line_split: list = line.split('\t')
 
@@ -614,30 +316,27 @@ class GTExLoader(SourceDataLoader):
                                     self.logger.error(f'Error with column count or delimiter in {tissue_file.name}. (line {i}:{line})')
                                 else:
                                     try:
-                                        # get the variant ID value - the [3:] removes the first 3 characters (chr)
-                                        gtex_variant_id: str = line_split[variant_file_index]
-
-                                        normalized_variant_id = normalized_variant_lookup[gtex_variant_id]
+                                        # get the variant gtex id
+                                        gtex_variant_id: str = line_split[variant_column_index]
 
                                         if is_sqtl:
                                             # for sqtl the phenotype id contains the ensembl id for the gene.
                                             # it has the format: chr1:497299:498399:clu_51878:ENSG00000237094.11
-                                            phenotype_id: str = line_split[gene_file_index]
+                                            phenotype_id: str = line_split[gene_column_index]
                                             gene: str = phenotype_id.split(':')[4]
                                             # remove the version number
                                             gene_id: str = gene.split('.')[0]
                                         else:
                                             # for eqtl this should just be the ensembl gene id, remove the version number
-                                            gene_id: str = line_split[gene_file_index].split('.')[0]
+                                            gene_id: str = line_split[gene_column_index].split('.')[0]
 
-                                        normalized_gene_id = normalized_node_lookup[gene_id]
+                                        gene_id = f'ENSEMBL:{gene_id}'
+                                        p_value = line_split[pval_column_index]
+                                        slope = line_split[slope_column_index]
 
-                                        p_value = line_split[pval_file_index]
-                                        slope = line_split[slope_file_index]
-
-                                        yield (normalized_anatomy_id,
-                                               normalized_gene_id,
-                                               normalized_variant_id,
+                                        yield (anatomy_id,
+                                               gtex_variant_id,
+                                               gene_id,
                                                p_value,
                                                slope)
                                     except KeyError as e:
@@ -646,6 +345,94 @@ class GTExLoader(SourceDataLoader):
 
                     else:
                         self.logger.debug(f'Skipping unexpected tissue file {tissue_file.name}.')
+
+    def coalesce_and_write_edges(self, kgx_file_writer: KGXFileWriter):
+        """
+            Coalesces edge data so that expressed_in, p_value, slope are arrays on a single edge
+
+        :param kgx_file_writer: an already opened kgx_file_writer
+        :return: Nothing
+        """
+        # sort the list of dicts
+        self.edge_list = sorted(self.edge_list, key=lambda i: (i['subject'], i['object'], i['relation']))
+
+        # create a list for the anatomy_ids, p-values and slope
+        anatomy_ids: list = []
+        p_values: list = []
+        slopes: list = []
+
+        # prime the boundary keys
+        item: dict = self.edge_list[0]
+
+        # create boundary group keys. the key will be the subject - edge label - object
+        start_group_key: str = item["subject"] + item["relation"] + item["object"]
+
+        # prime the loop with the first record
+        cur_record: dict = item
+
+        # loop through the edge data
+        for item in self.edge_list:
+            # get the current group key
+            cur_group_key: str = item["subject"] + item["relation"] + item["object"]
+
+            # did we encounter a new grouping
+            if cur_group_key != start_group_key:
+
+                # merge the properties of the previous edge group into arrays
+                edge_properties = {'expressed_in': '[' + ','.join(anatomy_ids) + ']',
+                                   'p_value': '[' + ','.join(p_values) + ']',
+                                   'slope': '[' + ','.join(slopes) + ']',
+                                   'edge_source': 'GTEx',
+                                   'source_database': 'GTEx'}
+
+                # write out the coalesced edge for the previous group
+                kgx_file_writer.write_edge(subject_id=cur_record["subject"],
+                                           object_id=cur_record["object"],
+                                           relation=cur_record["relation"],
+                                           edge_properties=edge_properties)
+
+                # reset the record storage and intermediate items for the next group
+                cur_record = item
+                anatomy_ids = []
+                p_values = []
+                slopes = []
+
+                # save the new group key
+                start_group_key = cur_group_key
+
+            # save the uberon in the list
+            anatomy_ids.append(item["expressed_in"])
+            p_values.append(item["p_value"])
+            slopes.append(item["slope"])
+
+        # save anything that is left
+        if len(anatomy_ids) > 0:
+            # merge the properties of the previous edge group into arrays
+            edge_properties = {'expressed_in': '[' + ','.join(anatomy_ids) + ']',
+                               'p_value': '[' + ','.join(p_values) + ']',
+                               'slope': '[' + ','.join(slopes) + ']',
+                               'edge_source': 'GTEx',
+                               'source_database': 'GTEx'}
+
+            # write out the coalesced edge for the previous group
+            kgx_file_writer.write_edge(subject_id=cur_record["subject"],
+                                       object_id=cur_record["object"],
+                                       relation=cur_record["relation"],
+                                       edge_properties=edge_properties)
+
+    # take the UBERON ids for the anatomy / tissues and normalize them with the normalization API
+    # this step would normally happen post-parsing for nodes but the anatomy IDs are set as edge properties
+    def normalize_anatomy_ids(self):
+        node_normalizer = NodeNormUtils()
+        anatomy_nodes = [{'id': anatomy_id} for anatomy_id in self.anatomy_id_lookup.values()]
+        node_normalizer.normalize_node_data(anatomy_nodes)
+        for anatomy_label, anatomy_id in self.anatomy_id_lookup.items():
+            normalized_ids = node_normalizer.node_normalization_lookup[anatomy_id]
+            if normalized_ids:
+                real_anatomy_id = normalized_ids[0]
+                self.anatomy_id_lookup[anatomy_label] = real_anatomy_id
+            else:
+                self.logger.error(f'Anatomy normalization failed to normalize: {anatomy_id} ({anatomy_label})')
 
     # download a tar file and write it locally
     @staticmethod
@@ -667,38 +454,6 @@ class GTExLoader(SourceDataLoader):
                 # write out the data to the output file
                 tar_file.write(data)
 
-    @staticmethod
-    def convert_simple_node_to_dict(node: SimpleNode):
-        return {"id": node.id,
-                "name": node.name,
-                "category": ['named_thing', node.type],
-                "equivalent_identifiers": [node.id]}
-
-    @staticmethod
-    def convert_simple_edge_to_dict(edge: SimpleEdge):
-        new_dict = {"subject": edge.source_id,
-                    "edge_label": edge.predicate_label,
-                    "object": edge.target_id,
-                    "predicate": edge.predicate_id,
-                    "provided_by": edge.provided_by,
-                    **edge.properties}
-        return new_dict
-
-    # get the full list of anatomy/tissues and make dicts for normalization
-    # set the label as the original ID so we can look it up by the GTEx file names later
-    # note that anatomy nodes are not written to KGX, they are just normalized for IDs for edge targets
-    @staticmethod
-    def get_anatomy_nodes():
-        anatomy_nodes = []
-        for anatomy_label, anatomy_id in GTExLoader.TISSUES.items():
-            anatomy_curie = f'UBERON:{anatomy_id}'
-            anatomy_nodes.append({'id': anatomy_curie,
-                                  'original_id': anatomy_label,
-                                  'name': anatomy_label.replace('_', ' '),
-                                  'category': [ANATOMICAL_ENTITY],
-                                  'equivalent_identifiers': [anatomy_curie]})
-        return anatomy_nodes
-
     #############
     # convert_gtex_variant_to_hgvs - parses the GTEx variant ID and converts it to an HGVS expression
     #
@@ -707,7 +462,7 @@ class GTExLoader(SourceDataLoader):
     #############
     def convert_gtex_variant_to_hgvs(self, gtex_variant_id: str):
         try:
-            # split the string into the components
+            # split the string into it's components (3: removes "chr" from the start)
             variant_id = gtex_variant_id[3:].split('_')
 
             # get position indexes into the data element
@@ -727,7 +482,7 @@ class GTExLoader(SourceDataLoader):
                 chromosome = int(variant_id[0])
 
             # get the HGVS chromosome label
-            ref_chromosome = self.reference_chrom_labels[reference_genome][reference_patch][chromosome]
+            ref_chromosome = self.REFERENCE_CHROMOSOME_LOOKUP[reference_genome][reference_patch][chromosome]
         except KeyError:
             return ''
 
