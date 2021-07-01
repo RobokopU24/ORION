@@ -38,6 +38,13 @@ class LoggingUtil(object):
         if not logger.parent.name == 'root':
             return logger
 
+        # get the logger with the specified name
+        logger = logging.getLogger(name)
+
+        # if it already has handlers, it was already instantiated - return it
+        if logger.hasHandlers():
+            return logger
+
         # define the various output formats
         format_type = {
             "minimum": '%(message)s',
@@ -55,10 +62,9 @@ class LoggingUtil(object):
         # set the formatter on the console stream
         stream_handler.setFormatter(formatter)
 
-        # get the name of this logger
-        logger = logging.getLogger(name)
-
         # set the logging level
+        if 'DATA_SERVICES_TEST_MODE' in os.environ and os.environ['DATA_SERVICES_TEST_MODE']:
+            level = logging.DEBUG
         logger.setLevel(level)
 
         # if there was a file path passed in use it
@@ -389,6 +395,8 @@ class EdgeNormUtils:
 
         self.logger.debug(f'Start of normalize_edge_data. items: {len(edge_list)}')
 
+        edge_norm_version = self.get_current_edge_norm_version()
+
         # init the cache list if it wasn't passed in
         if cached_edge_norms is None:
             cached_edge_norms: dict = {}
@@ -434,17 +442,17 @@ class EdgeNormUtils:
                 if end_index >= last_index:
                     end_index = last_index
 
-                self.logger.debug(f'Working block {start_index} to {end_index}.')
+                #self.logger.debug(f'Working block {start_index} to {end_index}.')
 
                 # collect a slice of records from the data frame
                 data_chunk: list = to_normalize[start_index: end_index]
 
-                self.logger.debug(f'Calling edge norm service. request size is {len("&predicate=".join(data_chunk))} bytes')
+                #self.logger.debug(f'Calling edge norm service. request size is {len("&predicate=".join(data_chunk))} bytes')
 
                 # get the data
-                resp: requests.models.Response = requests.get('https://edgenormalization-sri.renci.org/resolve_predicate?version=latest&predicate=' + '&predicate='.join(data_chunk))
+                resp: requests.models.Response = requests.get(f'https://bl-lookup-sri.renci.org/resolve_predicate?version={edge_norm_version}&predicate=' + '&predicate='.join(data_chunk))
 
-                self.logger.debug(f'End calling edge norm service.')
+                #self.logger.debug(f'End calling edge norm service.')
 
                 # did we get a good status code
                 if resp.status_code == 200:
@@ -455,7 +463,7 @@ class EdgeNormUtils:
                     cached_edge_norms.update(**rvs)
                 else:
                     # the error that is trapped here means that the entire list of nodes didnt get normalized.
-                    self.logger.debug(f'Edge norm response code: {resp.status_code}')
+                    self.logger.error(f'Edge norm response code: {resp.status_code}')
 
                     # since they all failed to normalize add to the list so we dont try them again
                     for item in data_chunk:
@@ -486,7 +494,7 @@ class EdgeNormUtils:
         if failed_to_normalize:
             self.logger.debug(f'Failed to normalize: {", ".join(failed_to_normalize)}')
 
-        self.logger.debug(f'End of normalize_edge_data.')
+        #self.logger.debug(f'End of normalize_edge_data.')
 
         # return the failed list to the caller
         return failed_to_normalize
@@ -497,15 +505,16 @@ class EdgeNormUtils:
         Retrieves the current production version from the edge normalization service
         """
         # fetch the edge norm openapi spec
-        edge_norm_openapi_url = 'https://edgenormalization-sri.renci.org/apidocs/openapi.yml'
-        resp: requests.models.Response = requests.get(edge_norm_openapi_url)
+        edge_norm_versions_url = 'https://bl-lookup-sri.renci.org/versions'
+        resp: requests.models.Response = requests.get(edge_norm_versions_url)
 
         # did we get a good status code
         if resp.status_code == 200:
-            # parse yaml
-            yaml_spec = yaml.load(resp.text, yaml.SafeLoader)
-            # extract the version
-            edge_norm_version = yaml_spec['info']['version']
+            # parse json
+            versions = resp.json()
+
+            # extract the latest version that isn't "latest"
+            edge_norm_version = versions[-2]
             return edge_norm_version
         else:
             # this shouldn't happen, raise an exception
