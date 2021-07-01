@@ -4,6 +4,8 @@ import argparse
 import yaml
 import datetime
 
+from multiprocessing import Pool
+
 from Common.utils import LoggingUtil, NodeNormUtils, EdgeNormUtils
 from Common.kgx_file_normalizer import KGXFileNormalizer, NormalizationBrokenError, NormalizationFailedError
 from Common.metadata_manager import MetadataManager as Metadata
@@ -73,6 +75,8 @@ SOURCE_DATA_LOADER_CLASSES = {
     # UNIREF: UniRefSimLoader - normalization issues in load manager. normalization lists are too large to parse.
 }
 
+RESOURCE_HOGS = [GTEX, UNIREF]
+
 
 class SourceDataLoadManager:
 
@@ -125,20 +129,28 @@ class SourceDataLoadManager:
         self.supplementation_version = None
 
     def start(self):
-        for source_id in self.source_list:
-            self.logger.debug(f"Checking for work to do on source {source_id}...")
-            if self.update_needed(source_id):
-                self.logger.debug(f"Updating source {source_id}...")
-                self.update_source(source_id)
-                self.logger.debug(f"Updating source {source_id} complete...")
-            if self.normalization_needed(source_id):
-                self.logger.debug(f"Normalizing source {source_id}...")
-                self.normalize_source(source_id)
-                self.logger.debug(f"Normalizing source {source_id} complete...")
-            if self.supplementation_needed(source_id):
-                self.logger.debug(f"Supplementing source {source_id}...")
-                self.supplement_source(source_id)
-                self.logger.debug(f"Supplementing source {source_id} complete...")
+        sources_to_run_in_parallel = [source_id for source_id in self.source_list if source_id not in RESOURCE_HOGS]
+        with Pool() as p:
+            p.map(self.run_pipeline, sources_to_run_in_parallel)
+
+        sources_to_run_sequentially = [source_id for source_id in self.source_list if source_id in RESOURCE_HOGS]
+        for source_id in sources_to_run_sequentially:
+            self.run_pipeline(source_id)
+
+    def run_pipeline(self, source_id: str):
+        self.logger.debug(f"Checking for work to do on source {source_id}...")
+        if self.update_needed(source_id):
+            self.logger.debug(f"Updating source {source_id}...")
+            self.update_source(source_id)
+            self.logger.debug(f"Updating source {source_id} complete...")
+        if self.normalization_needed(source_id):
+            self.logger.debug(f"Normalizing source {source_id}...")
+            self.normalize_source(source_id)
+            self.logger.debug(f"Normalizing source {source_id} complete...")
+        if self.supplementation_needed(source_id):
+            self.logger.debug(f"Supplementing source {source_id}...")
+            self.supplement_source(source_id)
+            self.logger.debug(f"Supplementing source {source_id} complete...")
 
     def load_previous_metadata(self):
         for source_id in self.source_list:
