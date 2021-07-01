@@ -5,6 +5,7 @@ services:
       context: .
     environment:
       - DATA_SERVICES_STORAGE=/Data_services_storage
+      - DATA_SERVICES_RESOURCES=/Data_services_resources
       - DATA_SERVICES_GRAPHS=/Data_services_graphs
       - DATA_SERVICES_LOGS=/Data_services_logs
       # DATA_SERVICES_CONFIG - optional env var - file name for a data config in the storage directory
@@ -23,6 +24,7 @@ services:
     volumes:
       - .:/Data_services
       - "${DATA_SERVICES_STORAGE}:/Data_services_storage"
+      - "${DATA_SERVICES_RESOURCES}:/Data_services_resources"
       - "${DATA_SERVICES_GRAPHS}:/Data_services_graphs"
       - "${DATA_SERVICES_LOGS}:/Data_services_logs"
     networks:
