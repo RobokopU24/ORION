@@ -40,11 +40,12 @@ class MetadataManager:
         self.metadata['update_info'] = {}
         self.metadata['update_error'] = ''
         self.metadata['normalization_status'] = self.WAITING_ON_DEPENDENCY
+        self.metadata['normalization_version'] = None
         self.metadata['normalization_time'] = ''
         self.metadata['normalization_info'] = {}
         self.metadata['normalization_error'] = ''
-        self.metadata['has_supplementation'] = False
         self.metadata['supplementation_status'] = self.WAITING_ON_DEPENDENCY
+        self.metadata['supplementation_version'] = None
         self.metadata['supplementation_time'] = ''
         self.metadata['supplementation_info'] = {}
         self.metadata['supplementation_error'] = ''
@@ -89,6 +90,13 @@ class MetadataManager:
         self.load_current_metadata()
         return self.metadata['normalization_error']
 
+    def get_normalization_version(self):
+        return self.metadata['normalization_version']
+
+    def set_normalization_version(self, normalization_version: str):
+        self.metadata['normalization_version'] = normalization_version
+        self.save_metadata()
+
     def set_supplementation_status(self, supplementation_status: str):
         self.metadata['supplementation_status'] = supplementation_status
         self.save_metadata()
@@ -104,6 +112,13 @@ class MetadataManager:
     def get_supplementation_error(self):
         self.load_current_metadata()
         return self.metadata['supplementation_error']
+
+    def get_supplementation_version(self):
+        return self.metadata['supplementation_version']
+
+    def set_supplementation_version(self, supplementation_version: str):
+        self.metadata['supplementation_version'] = supplementation_version
+        self.save_metadata()
 
     def get_source_version(self):
         self.load_current_metadata()
