@@ -481,7 +481,7 @@ class EdgeNormUtils:
         for relation in to_normalize:
             success = False
             # did the service return a value
-            if relation in cached_edge_norms:
+            if relation in cached_edge_norms and cached_edge_norms[relation]:
                 if 'identifier' in cached_edge_norms[relation]:
                     # store it in the look up map
                     self.edge_normalization_lookup[relation] = cached_edge_norms[relation]['identifier']
