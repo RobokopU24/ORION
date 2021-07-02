@@ -107,6 +107,16 @@ class CTDLoader(SourceDataLoader):
             # save the file in the list
             self.file_list.append(self.hand_curated_file)
 
+    def get_provenance(self) -> dict:
+        """
+        specifies the source provenance of this parser
+        """
+        # create the record
+        provenance: dict = {'attribute_type_id': 'biolink:original_knowledge_source', 'value': 'infores:ctd'}
+
+        # return to the caller
+        return provenance
+
     def write_to_file(self, nodes_output_file_path: str, edges_output_file_path: str) -> None:
         """
         sends the data over to the KGX writer to create the node/edge files
@@ -269,7 +279,7 @@ class CTDLoader(SourceDataLoader):
                     edge_object: str = chemical_id
 
                 # save the edge
-                edge_list.append({'subject': edge_subject, 'object': edge_object, 'relation': relation, 'predicate': '', 'properties': {'publications': pmids, 'source_data_base': 'ctd.chemical_to_gene_expanded'}.update(props)})
+                edge_list.append({'subject': edge_subject, 'object': edge_object, 'relation': relation, 'predicate': '', 'properties': {'publications': pmids}.update(props)})
 
         # return the node/edge lists and the record counters to the caller
         return node_list, edge_list, record_counter, skipped_record_counter
@@ -334,7 +344,7 @@ class CTDLoader(SourceDataLoader):
                     edge_object: str = chemical_id
 
                 # save the edge
-                edge_list.append({'subject': edge_subject, 'object': edge_object, 'relation': relation, 'properties': {'publications': pmids, 'source_data_base': 'ctd.gene_to_chemical_expanded'}.update(props)})
+                edge_list.append({'subject': edge_subject, 'object': edge_object, 'relation': relation, 'properties': {'publications': pmids}.update(props)})
 
         # return the node/edge lists and the record counters to the caller
         return node_list, edge_list, record_counter, skipped_record_counter
@@ -393,7 +403,7 @@ class CTDLoader(SourceDataLoader):
 
                 # save the edge
                 edge_list.append(
-                    {'subject': 'MESH:' + r['diseaseid'], 'object': 'MESH:' + r['exposurestressorid'], 'relation': 'CTD:' + relation, 'properties': {'publications': [f"PMID:{r['reference']}"], 'source_database': 'ctd.disease_to_exposure'}})
+                    {'subject': 'MESH:' + r['diseaseid'], 'object': 'MESH:' + r['exposurestressorid'], 'relation': 'CTD:' + relation, 'properties': {'publications': [f"PMID:{r['reference']}"]}})
 
         # return the node and edge lists to the caller
         return node_list, edge_list, record_counter, skipped_record_counter
@@ -550,7 +560,7 @@ class CTDLoader(SourceDataLoader):
                     node_list.append({'id': 'MESH:' + c_id, 'name': chemical_info['name'], 'properties': None})
 
                     # add the edge
-                    edge_list.append({'subject': cur_disease_id.upper(), 'object': 'MESH:' + c_id, 'relation': relation, 'predicate': '', 'properties': {'publications': publications, 'source_database': 'ctd.disease_to_chemical'}})
+                    edge_list.append({'subject': cur_disease_id.upper(), 'object': 'MESH:' + c_id, 'relation': relation, 'predicate': '', 'properties': {'publications': publications}})
 
                 # insure we dont overrun the list
                 if record_counter >= record_count:

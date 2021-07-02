@@ -105,7 +105,7 @@ class SequenceVariantSupplementation:
                               kgx_nodes_path: str,
                               kgx_edges_path: str):
         supplementation_info = {}
-        edge_props = {'edge_source': 'snpeff', 'source_database': 'SnpEff'}
+        edge_props = {}
 
         with open(annotated_vcf_path, 'r') as snpeff_output, \
                 KGXFileWriter(nodes_output_file_path=kgx_nodes_path,

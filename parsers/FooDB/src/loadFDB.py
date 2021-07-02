@@ -113,6 +113,16 @@ class FDBLoader(SourceDataLoader):
         # return the path to the extracted data files
         return foodb
 
+    def get_provenance(self) -> dict:
+        """
+        specifies the source provenance of this parser
+        """
+        # create the record
+        provenance: dict = {'attribute_type_id': 'biolink:original_knowledge_source', 'value': 'infores:foodb'}
+
+        # return to the caller
+        return provenance
+
     def write_to_file(self, nodes_output_file_path: str, edges_output_file_path: str) -> None:
         """
         sends the data over to the KGX writer to create the node/edge files
@@ -220,7 +230,7 @@ class FDBLoader(SourceDataLoader):
                     # save all the edges
                     for item in compound_list[1:]:
                         self.final_edge_list.append({'subject': subject_id, 'predicate': 'biolink:related_to', 'relation': 'RO:0001019', 'object': item['id'],
-                                                     'properties': {'unit': item['properties']['unit'].encode('ascii', errors='ignore').decode(encoding="utf-8"), 'amount': item['properties']['amount'], 'source_data_base': 'FooDB'}})
+                                                     'properties': {'unit': item['properties']['unit'].encode('ascii', errors='ignore').decode(encoding="utf-8"), 'amount': item['properties']['amount']}})
 
                     # clear the list for this food for the next round
                     compound_list.clear()
@@ -269,7 +279,7 @@ class FDBLoader(SourceDataLoader):
             # save all the collected edges
             for item in compound_list[1:]:
                 self.final_edge_list.append({'subject': subject_id, 'predicate': 'biolink:related_to', 'relation': 'RO:0001019', 'object': item['id'],
-                                             'properties': {'unit': item['properties']['unit'].encode('ascii', errors='ignore').decode(encoding="utf-8"), 'amount': item['properties']['amount'], 'source_data_base': 'FooDB'}})
+                                             'properties': {'unit': item['properties']['unit'].encode('ascii', errors='ignore').decode(encoding="utf-8"), 'amount': item['properties']['amount']}})
 
         self.logger.debug(f'FooDB data parsing and KGX file creation complete.\n')
 

@@ -63,6 +63,16 @@ class UGLoader(SourceDataLoader):
         """
         pass
 
+    def get_provenance(self) -> dict:
+        """
+        specifies the source provenance of this parser
+        """
+        # create the record
+        provenance: dict = {'attribute_type_id': 'biolink:original_knowledge_source', 'value': 'infores:ubergraph'}
+
+        # return to the caller
+        return provenance
+
     def write_to_file(self, nodes_output_file_path: str, edges_output_file_path: str) -> None:
         """
         sends the data over to the KGX writer to create the node/edge files
@@ -147,9 +157,6 @@ class UGLoader(SourceDataLoader):
         # init a list for the output data
         triple: list = []
 
-        # get the source database name
-        source_database = 'UberGraph ' + data_file_name.split('.')[0]
-
         # set the infile path
         infile_path = os.path.join(os.path.dirname(__file__), f"{data_file_name.split('.')[0]}.zip")
 
@@ -206,7 +213,7 @@ class UGLoader(SourceDataLoader):
                 if len(triple) == 3:
                     # create the nodes
                     self.final_node_list.append({'id': triple[0], 'name': triple[0], 'properties': None})
-                    self.final_edge_list.append({'subject': triple[0], 'predicate': triple[1], 'relation': triple[1], 'object': triple[2], 'properties': {'source_database': source_database}})
+                    self.final_edge_list.append({'subject': triple[0], 'predicate': triple[1], 'relation': triple[1], 'object': triple[2], 'properties': {}})
                     self.final_node_list.append({'id': triple[2], 'name': triple[2], 'properties': None})
                 else:
                     skipped_record_counter += 1

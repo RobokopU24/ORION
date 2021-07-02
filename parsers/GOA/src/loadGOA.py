@@ -132,6 +132,16 @@ class GOALoader(SourceDataLoader):
         # return the byte count to the caller
         return byte_count
 
+    def get_provenance(self) -> dict:
+        """
+        specifies the source provenance of this parser
+        """
+        # create the record
+        provenance: dict = {'attribute_type_id': 'biolink:original_knowledge_source', 'value': 'infores:goa'}
+
+        # return to the caller
+        return provenance
+
     def write_to_file(self, nodes_output_file_path: str, edges_output_file_path: str) -> None:
         """
         sends the data over to the KGX writer to create the node/edge files
@@ -295,7 +305,7 @@ class GOALoader(SourceDataLoader):
                 self.logger.debug(f'Warning: Missing 1 or more node IDs. Node type 1: {node_1_id}, Node type 3: {node_3_id}')
             else:
                 # create the KGX edge data for nodes 1 and 3
-                edge_list.append({"id": "", "subject": f"{src_node_id}", "relation": f"{relation}", "object": f"{obj_node_id}", "properties": {'source_data_base': 'UniProtKB Human GOA'}})
+                edge_list.append({"id": "", "subject": f"{src_node_id}", "relation": f"{relation}", "object": f"{obj_node_id}", "properties": {}})
 
         # return the list to the caller
         return edge_list

@@ -162,6 +162,16 @@ class PHAROSLoader(SourceDataLoader):
         # delete the data file after loading
         os.remove(os.path.join(self.data_path, 'latest.sql'))
 
+    def get_provenance(self) -> dict:
+        """
+        specifies the source provenance of this parser
+        """
+        # create the record
+        provenance: dict = {'attribute_type_id': 'biolink:original_knowledge_source', 'value': 'infores:pharos'}
+
+        # return to the caller
+        return provenance
+
     def write_to_file(self, nodes_output_file_path: str, edges_output_file_path: str) -> None:
         """
         sends the data over to the KGX writer to create the node/edge files
@@ -681,7 +691,7 @@ class PHAROSLoader(SourceDataLoader):
                             self.final_node_list.append({'id': row[1]['id'], 'name': name, 'properties': None})
 
                             # save the edge
-                            self.final_edge_list.append({"subject": node_1_id, "predicate": row[1]['predicate'], "relation": row[1]['relation'], "object": row[1]['id'], 'properties': {"publications": row[1]['pmids'], "affinity": row[1]['affinity'], "affinity_parameter":  row[1]['affinity_parameter'], 'provenance': row[1]['provenance'], 'source_database': 'PHAROS'}})
+                            self.final_edge_list.append({"subject": node_1_id, "predicate": row[1]['predicate'], "relation": row[1]['relation'], "object": row[1]['id'], 'properties': {"publications": row[1]['pmids'], "affinity": row[1]['affinity'], "affinity_parameter":  row[1]['affinity_parameter'], 'provenance': row[1]['provenance']}})
             else:
                 self.logger.debug(f'node group mismatch. len: {len(rows)}, data: {rows}')
 

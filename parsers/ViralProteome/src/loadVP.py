@@ -117,6 +117,16 @@ class VPLoader(SourceDataLoader):
 
         return file_count, self.file_list
 
+    def get_provenance(self) -> dict:
+        """
+        specifies the source provenance of this parser
+        """
+        # create the record
+        provenance: dict = {'attribute_type_id': 'biolink:original_knowledge_source', 'value': 'infores:goa'}
+
+        # return to the caller
+        return provenance
+
     def write_to_file(self, nodes_output_file_path: str, edges_output_file_path: str) -> None:
         """
         sends the data over to the KGX writer to create the node/edge files
@@ -365,7 +375,7 @@ class VPLoader(SourceDataLoader):
             if node_1_id != '' and node_2_id != '':
                 # create the KGX edge data for nodes 1 and 2
                 """ An edge from the gene to the organism_taxon with relation "in_taxon" """
-                edge_list.append({"subject": f"{node_1_id}", "predicate": "biolink:in_taxon", "relation": "RO:0002162", "object": f"{node_2_id}", 'properties': {'source_database': 'Viral proteome'}})
+                edge_list.append({"subject": f"{node_1_id}", "predicate": "biolink:in_taxon", "relation": "RO:0002162", "object": f"{node_2_id}", 'properties': {}})
             else:
                 self.logger.warning(f'Warning: Missing 1 or more node IDs. Node type 1: {node_1_id}, Node type 2: {node_2_id}')
 
@@ -410,7 +420,7 @@ class VPLoader(SourceDataLoader):
                     self.logger.debug(f'Warning: Missing 1 or more node IDs. Node type 1: {node_1_id}, Node type 3: {node_3_id}')
                 else:
                     # create the KGX edge data for nodes 1 and 3
-                    edge_list.append({'id': '', 'subject': src_node_id, 'predicate': predicate, 'relation': relation, "object": obj_node_id, 'properties': {'source_database': 'Viral proteome'}})
+                    edge_list.append({'id': '', 'subject': src_node_id, 'predicate': predicate, 'relation': relation, "object": obj_node_id, 'properties': {}})
 
         self.logger.debug(f'{len(edge_list)} edges identified.')
 

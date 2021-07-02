@@ -238,6 +238,16 @@ class GWASCatalogLoader(SourceDataWithVariantsLoader):
         #self.logger.info(json.dumps(load_metadata, indent=4))
         return load_metadata
 
+    def get_provenance(self) -> dict:
+        """
+        specifies the source provenance of this parser
+        """
+        # create the record
+        provenance: dict = {'attribute_type_id': 'biolink:original_knowledge_source', 'value': 'infores:gwas'}
+
+        # return to the caller
+        return provenance
+
     def write_to_file(self, nodes_output_file_path: str, edges_output_file_path: str):
 
         relation = f'RO:0002200'
@@ -250,8 +260,7 @@ class GWASCatalogLoader(SourceDataWithVariantsLoader):
                     for association in association_info:
                         edge_properties = {'p_value': [association["p_value"]],
                                            'pubmed_id': [association["pubmed_id"]],
-                                           'edge_source': 'gwascatalog',
-                                           'source_database': 'GWASCatalog'}
+                                           }
                         file_writer.write_edge(subject_id=variant_id,
                                                object_id=trait_id,
                                                relation=relation,

@@ -134,6 +134,16 @@ class GTExLoader(SourceDataWithVariantsLoader):
     def get_latest_source_version(self):
         return self.GTEX_VERSION
 
+    def get_provenance(self) -> dict:
+        """
+        specifies the source provenance of this parser
+        """
+        # create the record
+        provenance: dict = {'attribute_type_id': 'biolink:original_knowledge_source', 'value': 'infores:gtex'}
+
+        # return to the caller
+        return provenance
+
     # the main function to call to retrieve the GTEx data and convert it to a KGX json file
     def load(self, nodes_output_file_path: str, edges_output_file_path: str):
 
@@ -382,8 +392,7 @@ class GTExLoader(SourceDataWithVariantsLoader):
                 edge_properties = {'expressed_in': '[' + ','.join(anatomy_ids) + ']',
                                    'p_value': '[' + ','.join(p_values) + ']',
                                    'slope': '[' + ','.join(slopes) + ']',
-                                   'edge_source': 'GTEx',
-                                   'source_database': 'GTEx'}
+                                    }
 
                 # write out the coalesced edge for the previous group
                 kgx_file_writer.write_edge(subject_id=cur_record["subject"],
@@ -411,8 +420,7 @@ class GTExLoader(SourceDataWithVariantsLoader):
             edge_properties = {'expressed_in': '[' + ','.join(anatomy_ids) + ']',
                                'p_value': '[' + ','.join(p_values) + ']',
                                'slope': '[' + ','.join(slopes) + ']',
-                               'edge_source': 'GTEx',
-                               'source_database': 'GTEx'}
+                               }
 
             # write out the coalesced edge for the previous group
             kgx_file_writer.write_edge(subject_id=cur_record["subject"],

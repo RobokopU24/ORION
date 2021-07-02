@@ -64,6 +64,16 @@ class HGNCLoader(SourceDataLoader):
         # return to the caller
         return datetime.datetime.now().strftime("%m/%d/%Y")
 
+    def get_provenance(self) -> dict:
+        """
+        specifies the source provenance of this parser
+        """
+        # create the record
+        provenance: dict = {'attribute_type_id': 'biolink:original_knowledge_source', 'value': 'infores:hgnc'}
+
+        # return to the caller
+        return provenance
+
     def write_to_file(self, nodes_output_file_path: str, edges_output_file_path: str) -> None:
         """
         sends the data over to the KGX writer to create the node/edge files
@@ -209,7 +219,7 @@ class HGNCLoader(SourceDataLoader):
                         self.final_node_list.append({'id': gene_family_curie, 'name': gene_family[idx]})
 
                         # get the baseline properties
-                        props = {'source_database': 'hgnc'}
+                        props = {}
 
                         # were there publications
                         if len(r['pubmed_id']) > 0:

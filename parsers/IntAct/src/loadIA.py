@@ -132,6 +132,16 @@ class IALoader(SourceDataLoader):
         # return the file count to the caller
         return file_count
 
+    def get_provenance(self) -> dict:
+        """
+        specifies the source provenance of this parser
+        """
+        # create the record
+        provenance: dict = {'attribute_type_id': 'biolink:original_knowledge_source', 'value': 'infores:intact'}
+
+        # return to the caller
+        return provenance
+
     def write_to_file(self, nodes_output_file_path: str, edges_output_file_path: str) -> None:
         """
         sends the data over to the KGX writer to create the node/edge files
@@ -449,12 +459,12 @@ class IALoader(SourceDataLoader):
 
                 # add the interacting node edges
                 self.final_edge_list.append({"predicate": "", "subject": f"{grp_list[grp_idx]['u_a']}", "relation": "RO:0002436", "object": f"{grp_list[grp_idx]['u_b']}",
-                                             "properties": {"publications": f"{grp_list[grp_idx]['pub_id']}", "detection_method": detection_method, 'source_data_base': 'IntAct'}})
+                                             "properties": {"publications": f"{grp_list[grp_idx]['pub_id']}", "detection_method": detection_method}})
 
                 # for each type
                 for suffix in ['a', 'b']:
                     # add the taxa edges
-                    self.final_edge_list.append({"predicate": "", "subject": f"{grp_list[grp_idx]['u_' + suffix]}", "relation": "RO:0002162", "object": f"{grp_list[grp_idx]['t_' + suffix]}", "properties": {'source_data_base': 'IntAct'}})
+                    self.final_edge_list.append({"predicate": "", "subject": f"{grp_list[grp_idx]['u_' + suffix]}", "relation": "RO:0002162", "object": f"{grp_list[grp_idx]['t_' + suffix]}", "properties": {}})
 
                 # goto the next pair
                 grp_idx += 1

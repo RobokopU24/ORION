@@ -96,6 +96,16 @@ class GtoPdbLoader(SourceDataLoader):
         if file_count != len(self.file_list):
             raise Exception(f'One or more of the GtoPdb files were not retrieved.')
 
+    def get_provenance(self) -> dict:
+        """
+        specifies the source provenance of this parser
+        """
+        # create the record
+        provenance: dict = {'attribute_type_id': 'biolink:original_knowledge_source', 'value': 'infores:gtopdb'}
+
+        # return to the caller
+        return provenance
+
     def write_to_file(self, nodes_output_file_path: str, edges_output_file_path: str) -> None:
         """
         sends the data over to the KGX writer to create the node/edge files
@@ -263,7 +273,7 @@ class GtoPdbLoader(SourceDataLoader):
                         # create the node
                         part_node: dict = {'id': 'GTOPDB:' + subunit_id, 'name': subunit_name[idx].encode('ascii',errors='ignore').decode(encoding="utf-8")}
 
-                        props: dict = {'edge_source': 'gtopdb.complex_to_part', 'source_database': 'GtoPdb'}
+                        props: dict = {'edge_source': 'gtopdb.complex_to_part'}
                         edge = {'subject': 'GTOPDB:' + r['Ligand id'], 'object': 'GTOPDB:' + subunit_id, 'relation': 'BFO:0000051', 'properties': props}
 
                         # save the gene node
@@ -334,7 +344,7 @@ class GtoPdbLoader(SourceDataLoader):
                         gene_node: dict = {'id': 'ENSEMBL:' + gene_id, 'name': gene_name[idx].encode('ascii',errors='ignore').decode(encoding="utf-8")}
 
                         # get all the properties
-                        props: dict = {'primaryTarget': r['primary_target'].lower().startswith('t'), 'affinityParameter': r['affinity_units'], 'endogenous': r['endogenous'].lower().startswith('t'), 'edge_source': 'gtopdb.ligand_to_gene', 'source_database': 'GtoPdb'}
+                        props: dict = {'primaryTarget': r['primary_target'].lower().startswith('t'), 'affinityParameter': r['affinity_units'], 'endogenous': r['endogenous'].lower().startswith('t'), 'edge_source': 'gtopdb.ligand_to_gene'}
 
                         # check the affinity and insure it is a float
                         if r['affinity_median'] != '':
@@ -375,7 +385,7 @@ class GtoPdbLoader(SourceDataLoader):
                                 gene_node: dict = {'id': gene_id, 'name': r['ligand_gene_symbol'].encode('ascii',errors='ignore').decode(encoding="utf-8")}
 
                                 # declare the default properties
-                                props: dict = {'edge_source': 'gtopdb.chem_to_precursor', 'source_database': 'GtoPdb'}
+                                props: dict = {'edge_source': 'gtopdb.chem_to_precursor'}
 
                                 # check the pubmed id and insure they are ints
                                 if r['pubmed_id'] != '':
