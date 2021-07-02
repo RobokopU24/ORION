@@ -102,21 +102,21 @@ class HGNCLoader(SourceDataLoader):
         # get a reference to the data gathering class
         gd: GetData = GetData(self.logger.level)
 
-        # do the real thing if we arent in debug mode
-        if not self.test_mode:
-            # get the complete data set
-            file_count: int = gd.pull_via_ftp('ftp.ebi.ac.uk', '/pub/databases/genenames/hgnc/tsv/', [self.data_file[0]], self.data_path)
+        # TODO
+        # if self.test_mode:
+        #   set up test data instead
+        # else:
+        # get the complete data set
+        file_count: int = gd.pull_via_ftp('ftp.ebi.ac.uk', '/pub/databases/genenames/hgnc/tsv/', [self.data_file[0]], self.data_path)
 
-            # did we get the file
-            if file_count > 0:
-                # get the gene groups dataset
-                byte_count: int = gd.pull_via_http('https://www.genenames.org/cgi-bin/genegroup/download-all/' + self.data_file[1], self.data_path)
+        # did we get the file
+        if file_count > 0:
+            # get the gene groups dataset
+            byte_count: int = gd.pull_via_http('https://www.genenames.org/cgi-bin/genegroup/download-all/' + self.data_file[1], self.data_path)
 
-                # did we get the data
-                if byte_count > 0:
-                    file_count += 1
-        else:
-            file_count: int = 1
+            # did we get the data
+            if byte_count > 0:
+                file_count += 1
 
         # return the file count to the caller
         return file_count

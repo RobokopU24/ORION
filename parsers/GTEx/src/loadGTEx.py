@@ -115,7 +115,6 @@ class GTExLoader(SourceDataWithVariantsLoader):
             self.anatomy_id_lookup = GTExLoader.TEST_TISSUES
         else:
             self.anatomy_id_lookup = GTExLoader.TISSUES
-        self.normalize_anatomy_ids()
 
         # the file writer prevents duplicates by default but we can probably do it more efficiently,
         # specifically, we prevent converting the gtex variant field to hgvs multiple times,
@@ -146,6 +145,8 @@ class GTExLoader(SourceDataWithVariantsLoader):
 
     # the main function to call to retrieve the GTEx data and convert it to a KGX json file
     def load(self, nodes_output_file_path: str, edges_output_file_path: str):
+
+        self.normalize_anatomy_ids()
 
         workspace_directory = os.path.join(os.environ["DATA_SERVICES_STORAGE"], self.source_id, "")
 

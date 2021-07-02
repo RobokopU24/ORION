@@ -60,6 +60,10 @@ class GraphBuilder:
                 source_dict[source.source_id] = {'input': {'name': source_id,
                                                            'format': 'jsonl',
                                                            'filename': file_paths}}
+            else:
+                self.logger.info(f'Could not build graph {graph_spec.graph_id} because {source_id} is not stable.')
+                return
+
 
         """
         saving this in case we want to merge straight into a graph in the future
@@ -99,9 +103,6 @@ class GraphBuilder:
             yaml.dump(kgx_merge_config, merge_cfg_file)
         kgx_merge(kgx_merge_config_filepath)
         os.remove(kgx_merge_config_filepath)
-
-        # TODO ideally here we could trigger the neo4j to go offline, create a back up, then start fresh
-        return
 
     def load_graph_specs(self):
         if 'DATA_SERVICES_GRAPH_SPEC' in os.environ:

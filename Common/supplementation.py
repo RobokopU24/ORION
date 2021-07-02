@@ -6,6 +6,7 @@ from os import path, mkdir, environ
 from io import BytesIO
 from urllib.request import urlopen
 from zipfile import ZipFile
+from collections import defaultdict
 from Common.node_types import SEQUENCE_VARIANT, GENE
 from Common.utils import LoggingUtil
 from Common.kgx_file_writer import KGXFileWriter
@@ -20,14 +21,13 @@ class SupplementationFailedError(Exception):
 
 class SequenceVariantSupplementation:
 
-    def __init__(self, workspace_dir: str):
+    def __init__(self):
 
         self.logger = LoggingUtil.init_logging("Data_services.Common.SequenceVariantSupplementation",
                                                line_format='medium',
                                                log_file_path=environ['DATA_SERVICES_LOGS'])
 
-        if not path.isdir(workspace_dir):
-            mkdir(workspace_dir)
+        workspace_dir = environ["DATA_SERVICES_STORAGE"]
 
         # if the snpEff dir exists, assume we already downloaded it
         self.snpeff_dir = path.join(workspace_dir, "snpEff")
@@ -47,29 +47,25 @@ class SequenceVariantSupplementation:
                                normalized_supp_edge_file_path: str,
                                supp_edge_norm_predicate_map_file_path: str):
 
+        self.logger.debug('Parsing nodes file..')
         source_nodes = self.parse_nodes_file(nodes_file_path)
 
-        # create a VCF file from the nodes
-        base_source_file_path = nodes_file_path.rsplit("norm_nodes.", 1)[0]
-        vcf_file_path = f'{base_source_file_path}variants.vcf'
-        annotated_vcf_path = f'{base_source_file_path}variants_ann.vcf'
+        self.logger.debug('Creating VCF file from source nodes..')
+        nodes_file_path_base = nodes_file_path.rsplit("nodes.", 1)[0]
+        vcf_file_path = f'{nodes_file_path_base}variants.vcf'
         self.create_vcf_from_variant_nodes(source_nodes,
                                            vcf_file_path)
-
-        snpeff_db = 'GRCh38.99'
-        #snpeff_db = 'GRCh38.mane.0.93.ensembl'
-
-        supplementation_info = {}
-
+        self.logger.debug('Running SNPEFF, creating annotated VCF..')
+        annotated_vcf_path = f'{nodes_file_path_base}variants_ann.vcf'
         self.run_snpeff(vcf_file_path,
-                        annotated_vcf_path,
-                        snpeff_db)
+                        annotated_vcf_path)
 
-        more_supplementation_info = self.convert_snpeff_to_kgx(annotated_vcf_path,
-                                                               supp_nodes_file_path,
-                                                               supp_edges_file_path)
-        supplementation_info.update(more_supplementation_info)
+        self.logger.debug('Converting annotated VCF to KGX File..')
+        supplementation_metadata = self.convert_snpeff_to_kgx(annotated_vcf_path,
+                                                              supp_nodes_file_path,
+                                                              supp_edges_file_path)
 
+        self.logger.debug('Normalizing Supplemental KGX File..')
         file_normalizer = KGXFileNormalizer(supp_nodes_file_path,
                                             normalized_supp_node_file_path,
                                             supp_node_norm_failures_file_path,
@@ -77,21 +73,22 @@ class SequenceVariantSupplementation:
                                             normalized_supp_edge_file_path,
                                             supp_edge_norm_predicate_map_file_path,
                                             has_sequence_variants=True)
-        supp_normalization_info = file_normalizer.normalize_kgx_files()
-        supplementation_info['normalization_info'] = supp_normalization_info
+        supp_normalization_info = file_normalizer.normalize_kgx_files(edge_subject_pre_normalized=True)
+        supplementation_metadata['normalization_info'] = supp_normalization_info
 
-        return supplementation_info
-
-        #raise SupplementationFailedError("Supplementation Failed", 'Testing Error')
+        return supplementation_metadata
 
     def run_snpeff(self,
                    vcf_file_path: str,
                    annotated_vcf_path: str,
-                   reference_genome: str,
                    ud_distance: int = 500000):
+
+        # changing this reference genome DB may break things,
+        # such as assuming gene IDs and biotypes are from ensembl
+        reference_genome = 'GRCh38.99'
         try:
             with open(annotated_vcf_path, "w") as new_snpeff_file:
-                snpeff_results = subprocess.run(['java', '-Xmx8g', '-jar', 'snpEff.jar', '-noStats', '-ud', str(ud_distance), reference_genome, vcf_file_path],
+                snpeff_results = subprocess.run(['java', '-Xmx12g', '-jar', 'snpEff.jar', '-noStats', '-ud', str(ud_distance), reference_genome, vcf_file_path],
                                                 cwd=self.snpeff_dir,
                                                 stdout=new_snpeff_file,
                                                 stderr=subprocess.STDOUT)
@@ -105,7 +102,8 @@ class SequenceVariantSupplementation:
                               kgx_nodes_path: str,
                               kgx_edges_path: str):
         supplementation_info = {}
-        edge_props = {}
+        edge_props = {'edge_source': 'snpeff', 'source_database': 'SnpEff'}
+        gene_biotypes_to_ignore = set()
 
         with open(annotated_vcf_path, 'r') as snpeff_output, \
                 KGXFileWriter(nodes_output_file_path=kgx_nodes_path,
@@ -117,23 +115,32 @@ class SequenceVariantSupplementation:
                     if 'SnpEffCmd' in line:
                         supplementation_info['SnpEffCmd'] = line.split("=")[1]
                     continue
-                vcf_info = line.split('\t')
-                all_info = vcf_info[7].split(';')
-                variant_id = vcf_info[2]
-                for info in all_info:
+                vcf_line_split = line.split('\t')
+                variant_id = vcf_line_split[2]
+                info_field = vcf_line_split[7].split(';')
+                for info in info_field:
                     if info.startswith('ANN='):
-                        output_file_writer.write_node(variant_id, None, [SEQUENCE_VARIANT])
+                        annotations_to_write = defaultdict(set)
                         annotations = info[4:].split(',')
-                        # TODO collapse identical edges here to prevent giant normalization memory usage later
                         for annotation in annotations:
                             annotation_info = annotation.split('|')
                             effects = annotation_info[1].split("&")
-                            gene_ids = annotation_info[4].split('-')
+                            genes = annotation_info[4].split('-')
+                            gene_biotype = annotation_info[7]
+                            if gene_biotype not in gene_biotypes_to_ignore:
+                                for gene in genes:
+                                    gene_id = f'ENSEMBL:{gene}'
+                                    for effect in effects:
+                                        effect_predicate = f'SNPEFF:{effect}'
+                                        annotations_to_write[effect_predicate].add(gene_id)
+                        for effect_predicate, gene_ids in annotations_to_write.items():
                             for gene_id in gene_ids:
-                                gene_curie = f'ENSEMBL:{gene_id}'
-                                for effect in effects:
-                                    output_file_writer.write_node(gene_curie, None, [GENE])
-                                    output_file_writer.write_edge(variant_id, gene_curie, f'SNPEFF:{effect}', None, edge_props)
+                                output_file_writer.write_node(gene_id, gene_id, [GENE])
+                                output_file_writer.write_edge(variant_id,
+                                                              gene_id,
+                                                              effect_predicate,
+                                                              edge_properties=edge_props)
+                        break
 
         return supplementation_info
 
