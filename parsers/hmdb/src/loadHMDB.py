@@ -108,12 +108,12 @@ class HMDBLoader(SourceDataLoader):
 
         # do the real thing if we arent in debug mode
         if not self.test_mode:
-            file_count: int = gd.pull_via_http('https://hmdb.ca/system/downloads/current/hmdb_metabolites.zip', self.data_path)
+            byte_count: int = gd.pull_via_http('https://hmdb.ca/system/downloads/current/hmdb_metabolites.zip', self.data_path)
         else:
-            file_count: int = 1
+            byte_count: int = 1
 
         # return the file count to the caller
-        return file_count
+        return byte_count
 
     def load(self, nodes_output_file_path: str, edges_output_file_path: str) -> dict:
         """
