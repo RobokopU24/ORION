@@ -35,6 +35,7 @@ class UGLoader(SourceDataLoader):
         self.test_mode = test_mode
         self.source_id = 'UberGraph'
         self.source_db = 'properties-nonredundant.ttl'
+        self.provenance_id = 'infores:ubergraph'
         self.file_size = 200000
 
         # create a logger
@@ -63,16 +64,6 @@ class UGLoader(SourceDataLoader):
         """
         pass
 
-    def get_provenance(self) -> dict:
-        """
-        specifies the source provenance of this parser
-        """
-        # create the record
-        provenance: dict = {'attribute_type_id': 'biolink:original_knowledge_source', 'value': 'infores:ubergraph'}
-
-        # return to the caller
-        return provenance
-
     def write_to_file(self, nodes_output_file_path: str, edges_output_file_path: str) -> None:
         """
         sends the data over to the KGX writer to create the node/edge files
@@ -91,7 +82,11 @@ class UGLoader(SourceDataLoader):
             # for each edge captured
             for edge in self.final_edge_list:
                 # write out the edge data
-                file_writer.write_edge(subject_id=edge['subject'], object_id=edge['object'], relation=edge['relation'], edge_properties=edge['properties'], predicate='')
+                file_writer.write_edge(subject_id=edge['subject'],
+                                       object_id=edge['object'],
+                                       relation=edge['relation'],
+                                       original_knowledge_source=self.provenance_id,
+                                       edge_properties=edge['properties'])
 
     def load(self, nodes_output_file_path: str, edges_output_file_path: str):
         """

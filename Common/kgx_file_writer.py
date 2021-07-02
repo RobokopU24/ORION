@@ -96,6 +96,7 @@ class KGXFileWriter:
                    object_id: str,
                    relation: str,
                    predicate: str = None,
+                   original_knowledge_source: str = None,
                    edge_properties: dict = None,
                    edge_id: str = None):
         if predicate:
@@ -111,6 +112,9 @@ class KGXFileWriter:
             edge_object = {'subject': subject_id,
                            'object': object_id,
                            'relation': relation}
+
+        if original_knowledge_source is not None:
+            edge_object['original_knowledge_source'] = original_knowledge_source
 
         if edge_properties is not None:
             edge_object.update(edge_properties)

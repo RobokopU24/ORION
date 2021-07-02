@@ -109,6 +109,7 @@ class GTExLoader(SourceDataWithVariantsLoader):
 
     def __init__(self, test_mode: bool = False):
         self.source_id = 'GTEx'
+        self.provenance_id = 'infores:gtex'
         self.test_mode = test_mode
         if self.test_mode:
             self.logger.info(f"Loading GTEx in test mode. Only expecting a subset of tissues.")
@@ -132,16 +133,6 @@ class GTExLoader(SourceDataWithVariantsLoader):
 
     def get_latest_source_version(self):
         return self.GTEX_VERSION
-
-    def get_provenance(self) -> dict:
-        """
-        specifies the source provenance of this parser
-        """
-        # create the record
-        provenance: dict = {'attribute_type_id': 'biolink:original_knowledge_source', 'value': 'infores:gtex'}
-
-        # return to the caller
-        return provenance
 
     # the main function to call to retrieve the GTEx data and convert it to a KGX json file
     def load(self, nodes_output_file_path: str, edges_output_file_path: str):
@@ -399,6 +390,7 @@ class GTExLoader(SourceDataWithVariantsLoader):
                 kgx_file_writer.write_edge(subject_id=cur_record["subject"],
                                            object_id=cur_record["object"],
                                            relation=cur_record["relation"],
+                                           original_knowledge_source=self.provenance_id,
                                            edge_properties=edge_properties)
 
                 # reset the record storage and intermediate items for the next group
@@ -427,6 +419,7 @@ class GTExLoader(SourceDataWithVariantsLoader):
             kgx_file_writer.write_edge(subject_id=cur_record["subject"],
                                        object_id=cur_record["object"],
                                        relation=cur_record["relation"],
+                                       original_knowledge_source=self.provenance_id,
                                        edge_properties=edge_properties)
 
     # take the UBERON ids for the anatomy / tissues and normalize them with the normalization API

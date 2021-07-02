@@ -36,6 +36,7 @@ class GtoPdbLoader(SourceDataLoader):
         self.test_mode: bool = test_mode
         self.source_id: str = 'GtoPdb'
         self.source_db: str = 'Guide to Pharmacology database'
+        self.provenance_id: str = 'infores:gtopdb'
         self.gene_map: dict = {}
         self.ligands: list = []
 
@@ -96,16 +97,6 @@ class GtoPdbLoader(SourceDataLoader):
         if file_count != len(self.file_list):
             raise Exception(f'One or more of the GtoPdb files were not retrieved.')
 
-    def get_provenance(self) -> dict:
-        """
-        specifies the source provenance of this parser
-        """
-        # create the record
-        provenance: dict = {'attribute_type_id': 'biolink:original_knowledge_source', 'value': 'infores:gtopdb'}
-
-        # return to the caller
-        return provenance
-
     def write_to_file(self, nodes_output_file_path: str, edges_output_file_path: str) -> None:
         """
         sends the data over to the KGX writer to create the node/edge files
@@ -124,7 +115,11 @@ class GtoPdbLoader(SourceDataLoader):
             # for each edge captured
             for edge in self.final_edge_list:
                 # write out the edge data
-                file_writer.write_edge(subject_id=edge['subject'], object_id=edge['object'], relation=edge['relation'], edge_properties=edge['properties'], predicate='')
+                file_writer.write_edge(subject_id=edge['subject'],
+                                       object_id=edge['object'],
+                                       relation=edge['relation'],
+                                       original_knowledge_source=self.provenance_id,
+                                       edge_properties=edge['properties'])
 
     def load(self, nodes_output_file_path: str, edges_output_file_path: str) -> dict:
         """

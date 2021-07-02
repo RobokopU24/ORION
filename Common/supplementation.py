@@ -139,6 +139,7 @@ class SequenceVariantSupplementation:
                                 output_file_writer.write_edge(variant_id,
                                                               gene_id,
                                                               effect_predicate,
+                                                              original_knowledge_source='infores:snpeff',
                                                               edge_properties=edge_props)
                         break
 
