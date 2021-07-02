@@ -501,6 +501,10 @@ class EdgeNormUtils:
 
     @staticmethod
     def get_current_edge_norm_version():
+
+        # hard coded for now because the latest isn't working
+        return '1.8.2'
+
         """
         Retrieves the current production version from the edge normalization service
         """
