@@ -38,6 +38,7 @@ class HMDBLoader(SourceDataLoader):
         self.test_mode: bool = test_mode
         self.source_id: str = 'HMDB'
         self.source_db: str = 'Human Metabolome Database'
+        self.provenance_id: str = 'infores:hmdb'
 
         # create a logger
         self.logger = LoggingUtil.init_logging("Data_services.HMDB.HMDBLoader", level=logging.INFO, line_format='medium', log_file_path=os.environ['DATA_SERVICES_LOGS'])
@@ -96,7 +97,11 @@ class HMDBLoader(SourceDataLoader):
             # for each edge captured
             for edge in self.final_edge_list:
                 # write out the edge data
-                file_writer.write_edge(subject_id=edge['subject'], object_id=edge['object'], relation=edge['relation'], edge_properties=edge['properties'], predicate='')
+                file_writer.write_edge(subject_id=edge['subject'],
+                                       object_id=edge['object'],
+                                       relation=edge['relation'],
+                                       original_knowledge_source=self.provenance_id,
+                                       edge_properties=edge['properties'])
 
     def get_hmdb_data(self) -> int:
         """
@@ -246,7 +251,6 @@ class HMDBLoader(SourceDataLoader):
             "provided_by": "hmdb.metabolite_to_enzyme",
             "subject": "CHEBI:16040", (chemical compound, ie. metabolite)
             "object": "NCBIGene:29974", (protein, ie. gene)
-            "source_database": "hmdb",
             "relation": "RO:0002434",
             "publications": []
 
@@ -254,7 +258,6 @@ class HMDBLoader(SourceDataLoader):
             "provided_by": "hmdb.enzyme_to_metabolite",
             "subject": "CHEBI:84764", (chemical compound, ie. metabolite)
             "object": "NCBIGene:53947", (protein, ie. gene)
-            "source_database": "hmdb",
             "relation": "RO:0002434",
             "publications": []
 
@@ -291,14 +294,14 @@ class HMDBLoader(SourceDataLoader):
                         # what type of protein is this
                         if protein_type.text.startswith('Enzyme'):
                             # create the edge data
-                            props: dict = {'provided_by': 'hmdb.enzyme_to_metabolite', 'source_database': 'hmdb'}
+                            props: dict = {'provided_by': 'hmdb.enzyme_to_metabolite'}
                             subject_id: str = gene_id
                             object_id: str = metabolite_id
                             relation: str = 'CTD:affects_abundance_of'
                         # else it must be a transport?
                         else:
                             # create the edge data
-                            props: dict = {'provided_by': 'hmdb.metabolite_to_enzyme', 'source_database': 'hmdb'}
+                            props: dict = {'provided_by': 'hmdb.metabolite_to_enzyme'}
                             subject_id: str = metabolite_id
                             object_id: str = gene_id
                             relation: str = 'CTD:increases_transport_of'
@@ -338,7 +341,6 @@ class HMDBLoader(SourceDataLoader):
               "provided_by": "hmdb.metabolite_to_disease",
               "subject": "CHEBI:16742", (chemical compound, ie. the metabolite)
               "object": "UMLS:C4324375", (disease, ie. the OMIM value)
-              "source_database": "hmdb",
               "relation": "SEMMEDDB:ASSOCIATED_WITH",
               "publications": []
 
@@ -346,7 +348,6 @@ class HMDBLoader(SourceDataLoader):
               "provided_by": "hmdb.disease_to_metabolite",
               "subject": "CHEBI:16742", (chemical compound, ie. the metabolite)
               "object": "MONDO:0005335", (disease, ie. the OMIM value)
-              "source_database": "hmdb",
               "relation": "SEMMEDDB:ASSOCIATED_WITH",
               "publications": []
 
@@ -400,7 +401,7 @@ class HMDBLoader(SourceDataLoader):
                                 pmids.append('PMID:' + pmid.text)
 
                         # create the edge property data
-                        props: dict = {'provided_by': 'hmdb.metabolite_to_disease', 'source_database': 'hmdb'}
+                        props: dict = {'provided_by': 'hmdb.metabolite_to_disease'}
 
                         # if we found any pubmed ids add them to the properties (optional)
                         if len(pmids) > 0:
@@ -427,7 +428,6 @@ class HMDBLoader(SourceDataLoader):
               "provided_by": "hmdb.metabolite_to_pathway",
               "subject": "CHEBI:80603", (chemical compound, ie. the metabolite)
               "object": "SMPDB:SMP0000627", (SMP pathway)
-              "source_database": "hmdb",
               "relation": "RO:0000056",
               "publications": []
 
@@ -471,7 +471,7 @@ class HMDBLoader(SourceDataLoader):
                         self.final_node_list.append({'id': object_id, 'name': name})
 
                         # create an edge and add it to the list
-                        self.final_edge_list.append({'subject': metabolite_id, 'relation': 'RO:0000056', 'object': object_id, 'properties': {'provided_by': 'HMDB.metabolite_to_pathway', 'source_database': 'HMDB'}})
+                        self.final_edge_list.append({'subject': metabolite_id, 'relation': 'RO:0000056', 'object': object_id, 'properties': {'provided_by': 'HMDB.metabolite_to_pathway'}})
                     else:
                         self.logger.debug(f'invalid smpdb for {metabolite_id}')
                 else:

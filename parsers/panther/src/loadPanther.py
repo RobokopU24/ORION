@@ -114,6 +114,16 @@ class PLoader(SourceDataLoader):
         # return to the caller
         return ret_val
 
+    def get_provenance(self) -> dict:
+        """
+        specifies the source provenance of this parser
+        """
+        # create the record
+        provenance: dict = {'attribute_type_id': 'biolink:original_knowledge_source', 'value': 'infores:panther'}
+
+        # return to the caller
+        return provenance
+
     def write_to_file(self, nodes_output_file_path: str, edges_output_file_path: str) -> None:
         """
         sends the data over to the KGX writer to create the node/edge files

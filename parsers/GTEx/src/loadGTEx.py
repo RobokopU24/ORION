@@ -109,6 +109,7 @@ class GTExLoader(SourceDataWithVariantsLoader):
 
     def __init__(self, test_mode: bool = False):
         self.source_id = 'GTEx'
+        self.provenance_id = 'infores:gtex'
         self.test_mode = test_mode
         if self.test_mode:
             self.logger.info(f"Loading GTEx in test mode. Only expecting a subset of tissues.")
@@ -383,13 +384,13 @@ class GTExLoader(SourceDataWithVariantsLoader):
                 edge_properties = {'expressed_in': '[' + ','.join(anatomy_ids) + ']',
                                    'p_value': '[' + ','.join(p_values) + ']',
                                    'slope': '[' + ','.join(slopes) + ']',
-                                   'edge_source': 'GTEx',
-                                   'source_database': 'GTEx'}
+                                    }
 
                 # write out the coalesced edge for the previous group
                 kgx_file_writer.write_edge(subject_id=cur_record["subject"],
                                            object_id=cur_record["object"],
                                            relation=cur_record["relation"],
+                                           original_knowledge_source=self.provenance_id,
                                            edge_properties=edge_properties)
 
                 # reset the record storage and intermediate items for the next group
@@ -412,13 +413,13 @@ class GTExLoader(SourceDataWithVariantsLoader):
             edge_properties = {'expressed_in': '[' + ','.join(anatomy_ids) + ']',
                                'p_value': '[' + ','.join(p_values) + ']',
                                'slope': '[' + ','.join(slopes) + ']',
-                               'edge_source': 'GTEx',
-                               'source_database': 'GTEx'}
+                               }
 
             # write out the coalesced edge for the previous group
             kgx_file_writer.write_edge(subject_id=cur_record["subject"],
                                        object_id=cur_record["object"],
                                        relation=cur_record["relation"],
+                                       original_knowledge_source=self.provenance_id,
                                        edge_properties=edge_properties)
 
     # take the UBERON ids for the anatomy / tissues and normalize them with the normalization API

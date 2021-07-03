@@ -88,6 +88,7 @@ class IALoader(SourceDataLoader):
         self.test_mode: bool = test_mode
         self.source_id: str = 'IntAct'
         self.source_db: str = 'IntAct Molecular Interaction Database'
+        self.provenance_id: str = 'infores:intact'
 
         # create a logger
         self.logger = LoggingUtil.init_logging("Data_services.IntAct.IALoader", level=logging.INFO, line_format='medium', log_file_path=os.environ['DATA_SERVICES_LOGS'])
@@ -150,7 +151,11 @@ class IALoader(SourceDataLoader):
             # for each edge captured
             for edge in self.final_edge_list:
                 # write out the edge data
-                file_writer.write_edge(subject_id=edge['subject'], object_id=edge['object'], relation=edge['relation'], edge_properties=edge['properties'], predicate='')
+                file_writer.write_edge(subject_id=edge['subject'],
+                                       object_id=edge['object'],
+                                       relation=edge['relation'],
+                                       original_knowledge_source=self.provenance_id,
+                                       edge_properties=edge['properties'])
 
     def load(self, nodes_output_file_path: str, edges_output_file_path: str):
         """
@@ -449,12 +454,12 @@ class IALoader(SourceDataLoader):
 
                 # add the interacting node edges
                 self.final_edge_list.append({"predicate": "", "subject": f"{grp_list[grp_idx]['u_a']}", "relation": "RO:0002436", "object": f"{grp_list[grp_idx]['u_b']}",
-                                             "properties": {"publications": f"{grp_list[grp_idx]['pub_id']}", "detection_method": detection_method, 'source_data_base': 'IntAct'}})
+                                             "properties": {"publications": f"{grp_list[grp_idx]['pub_id']}", "detection_method": detection_method}})
 
                 # for each type
                 for suffix in ['a', 'b']:
                     # add the taxa edges
-                    self.final_edge_list.append({"predicate": "", "subject": f"{grp_list[grp_idx]['u_' + suffix]}", "relation": "RO:0002162", "object": f"{grp_list[grp_idx]['t_' + suffix]}", "properties": {'source_data_base': 'IntAct'}})
+                    self.final_edge_list.append({"predicate": "", "subject": f"{grp_list[grp_idx]['u_' + suffix]}", "relation": "RO:0002162", "object": f"{grp_list[grp_idx]['t_' + suffix]}", "properties": {}})
 
                 # goto the next pair
                 grp_idx += 1

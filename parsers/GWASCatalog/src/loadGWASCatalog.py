@@ -20,7 +20,7 @@ class GWASCatalogLoader(SourceDataWithVariantsLoader):
 
     def __init__(self, test_mode: bool = False):
         self.source_id = 'GWASCatalog'
-        self.source_db = 'gwascatalog.sequence_variant_to_disease_or_phenotypic_feature'
+        self.provenance_id = 'infores:gwas-catalog'
         self.query_url = f'ftp.ebi.ac.uk/pub/databases/gwas/releases/latest/' \
                          f'gwas-catalog-associations_ontology-annotated.tsv'
         self.variant_to_pheno_cache = defaultdict(lambda: defaultdict(list))
@@ -241,7 +241,6 @@ class GWASCatalogLoader(SourceDataWithVariantsLoader):
     def write_to_file(self, nodes_output_file_path: str, edges_output_file_path: str):
 
         relation = f'RO:0002200'
-        predicate = f'biolink:has_phenotype'
         with KGXFileWriter(nodes_output_file_path, edges_output_file_path) as file_writer:
             for variant_id, trait_dict in self.variant_to_pheno_cache.items():
                 file_writer.write_node(variant_id, node_name='', node_types=[node_types.SEQUENCE_VARIANT])
@@ -250,14 +249,12 @@ class GWASCatalogLoader(SourceDataWithVariantsLoader):
                     for association in association_info:
                         edge_properties = {'p_value': [association["p_value"]],
                                            'pubmed_id': [association["pubmed_id"]],
-                                           'edge_source': 'gwascatalog',
-                                           'source_database': 'GWASCatalog'}
+                                           }
                         file_writer.write_edge(subject_id=variant_id,
                                                object_id=trait_id,
                                                relation=relation,
-                                               predicate=predicate,
+                                               original_knowledge_source=self.provenance_id,
                                                edge_properties=edge_properties)
-
 
 
 if __name__ == '__main__':

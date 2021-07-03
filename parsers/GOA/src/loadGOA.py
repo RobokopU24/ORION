@@ -62,6 +62,7 @@ class GOALoader(SourceDataLoader):
         self.test_mode = test_mode
         self.source_id = 'HumanGOA'
         self.source_db = 'UniProtKB'
+        self.provenance_id = 'infores:goa'
 
         # create a logger
         self.logger = LoggingUtil.init_logging("Data_services.GOA.GOALoader", level=logging.INFO, line_format='medium', log_file_path=os.environ['DATA_SERVICES_LOGS'])
@@ -150,7 +151,11 @@ class GOALoader(SourceDataLoader):
             # for each edge captured
             for edge in self.final_edge_list:
                 # write out the edge data
-                file_writer.write_edge(subject_id=edge['subject'], object_id=edge['object'], relation=edge['relation'], edge_properties=edge['properties'], predicate='')
+                file_writer.write_edge(subject_id=edge['subject'],
+                                       object_id=edge['object'],
+                                       relation=edge['relation'],
+                                       original_knowledge_source=self.provenance_id,
+                                       edge_properties=edge['properties'])
 
     def load(self, nodes_output_file_path: str, edges_output_file_path: str):
         """
@@ -295,7 +300,7 @@ class GOALoader(SourceDataLoader):
                 self.logger.debug(f'Warning: Missing 1 or more node IDs. Node type 1: {node_1_id}, Node type 3: {node_3_id}')
             else:
                 # create the KGX edge data for nodes 1 and 3
-                edge_list.append({"id": "", "subject": f"{src_node_id}", "relation": f"{relation}", "object": f"{obj_node_id}", "properties": {'source_data_base': 'UniProtKB Human GOA'}})
+                edge_list.append({"id": "", "subject": f"{src_node_id}", "relation": f"{relation}", "object": f"{obj_node_id}", "properties": {}})
 
         # return the list to the caller
         return edge_list
@@ -425,8 +430,7 @@ class GOALoader(SourceDataLoader):
                 data_chunk: list = to_normalize[start_index: end_index]
 
                 # get the data
-                # resp: requests.models.Response = requests.get('https://nodenormalization-sri.renci.org/get_normalized_nodes?curie=' + '&curie='.join(data_chunk))
-                resp: requests.models.Response = requests.post('https://nodenormalization-sri.renci.org/get_normalized_nodes', json={'curies': data_chunk})
+                resp: requests.models.Response = requests.post('https://nodenormalization-sri.renci.org/1.1/get_normalized_nodes', json={'curies': data_chunk})
 
                 # did we get a good status code
                 if resp.status_code == 200:

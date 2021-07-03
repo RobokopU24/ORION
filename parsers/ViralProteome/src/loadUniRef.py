@@ -39,6 +39,7 @@ class UniRefSimLoader(SourceDataLoader):
         self.test_mode = test_mode
         self.source_id = 'UniRef'
         self.source_db = 'UniProt UniRef gene similarity data'
+        self.provenance_id = 'infores:uniref'
 
         # create a logger
         self.logger = LoggingUtil.init_logging("Data_services.ViralProteome.UniRefSimLoader", level=logging.INFO, line_format='medium', log_file_path=os.environ['DATA_SERVICES_LOGS'])
@@ -77,7 +78,11 @@ class UniRefSimLoader(SourceDataLoader):
             # for each edge captured
             for edge in self.final_edge_list:
                 # write out the edge data
-                file_writer.write_edge(subject_id=edge['subject'], object_id=edge['object'], relation=edge['relation'], edge_properties=edge['properties'], predicate='')
+                file_writer.write_edge(subject_id=edge['subject'],
+                                       object_id=edge['object'],
+                                       relation=edge['relation'],
+                                       original_knowledge_source=self.provenance_id,
+                                       edge_properties=edge['properties'])
 
     def get_uniref_data(self) -> set:
         """
@@ -481,7 +486,7 @@ class UniRefSimLoader(SourceDataLoader):
                 Ex. (node number X and Y): (gene UniProt:Q6GZX4)-[SO:similar_to]-(gene UniProt:A0A0F6NZX8)            
                 """
 
-                props = {'source_database': similarity_bin}
+                props = {'similarity_bin': similarity_bin}
 
                 # get the UniRef entry ID and similarity bin
                 if node_list[node_idx]['node_num'] == 0:

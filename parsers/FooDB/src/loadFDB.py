@@ -37,6 +37,7 @@ class FDBLoader(SourceDataLoader):
         self.test_mode = test_mode
         self.source_id = 'FooDB'
         self.source_db = 'Food Database'
+        self.provenance_id = 'infores:foodb'
         self.file_list: list = [
             'Food.csv',
             'Content.csv',
@@ -131,7 +132,11 @@ class FDBLoader(SourceDataLoader):
             # for each edge captured
             for edge in self.final_edge_list:
                 # write out the edge data
-                file_writer.write_edge(subject_id=edge['subject'], object_id=edge['object'], relation=edge['relation'], edge_properties=edge['properties'], predicate='')
+                file_writer.write_edge(subject_id=edge['subject'],
+                                       object_id=edge['object'],
+                                       relation=edge['relation'],
+                                       original_knowledge_source=self.provenance_id,
+                                       edge_properties=edge['properties'])
 
     def load(self, nodes_output_file_path: str, edges_output_file_path: str):
         """
@@ -220,7 +225,7 @@ class FDBLoader(SourceDataLoader):
                     # save all the edges
                     for item in compound_list[1:]:
                         self.final_edge_list.append({'subject': subject_id, 'predicate': 'biolink:related_to', 'relation': 'RO:0001019', 'object': item['id'],
-                                                     'properties': {'unit': item['properties']['unit'].encode('ascii', errors='ignore').decode(encoding="utf-8"), 'amount': item['properties']['amount'], 'source_data_base': 'FooDB'}})
+                                                     'properties': {'unit': item['properties']['unit'].encode('ascii', errors='ignore').decode(encoding="utf-8"), 'amount': item['properties']['amount']}})
 
                     # clear the list for this food for the next round
                     compound_list.clear()
@@ -269,7 +274,7 @@ class FDBLoader(SourceDataLoader):
             # save all the collected edges
             for item in compound_list[1:]:
                 self.final_edge_list.append({'subject': subject_id, 'predicate': 'biolink:related_to', 'relation': 'RO:0001019', 'object': item['id'],
-                                             'properties': {'unit': item['properties']['unit'].encode('ascii', errors='ignore').decode(encoding="utf-8"), 'amount': item['properties']['amount'], 'source_data_base': 'FooDB'}})
+                                             'properties': {'unit': item['properties']['unit'].encode('ascii', errors='ignore').decode(encoding="utf-8"), 'amount': item['properties']['amount']}})
 
         self.logger.debug(f'FooDB data parsing and KGX file creation complete.\n')
 

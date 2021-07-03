@@ -34,6 +34,7 @@ class HetioLoader(SourceDataLoader):
         self.test_mode: bool = test_mode
         self.source_id: str = ''
         self.source_db: str = 'Hetio'
+        self.provenance_id: str = 'infores:hetio'
 
         # create a logger
         self.logger = LoggingUtil.init_logging("Data_services..Loader", level=logging.INFO, line_format='medium', log_file_path=os.environ['DATA_SERVICES_LOGS'])
@@ -72,7 +73,11 @@ class HetioLoader(SourceDataLoader):
             # for each edge captured
             for edge in self.final_edge_list:
                 # write out the edge data
-                file_writer.write_edge(subject_id=edge['subject'], object_id=edge['object'], relation=edge['relation'], edge_properties=edge['properties'], predicate='')
+                file_writer.write_edge(subject_id=edge['subject'],
+                                       object_id=edge['object'],
+                                       relation=edge['relation'],
+                                       original_knowledge_source=self.provenance_id,
+                                       edge_properties=edge['properties'])
 
     def get_hetio_data(self) -> int:
         """

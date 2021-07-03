@@ -184,7 +184,7 @@ class NodeNormUtils:
                 # self.logger.info(f'Calling node norm service. request size is {len("&curie=".join(data_chunk))} bytes')
 
                 # get the data
-                resp: requests.models.Response = requests.post('https://nodenormalization-sri.renci.org/get_normalized_nodes', json={'curies': data_chunk})
+                resp: requests.models.Response = requests.post('https://nodenormalization-sri.renci.org/1.1/get_normalized_nodes', json={'curies': data_chunk})
 
                 # did we get a good status code
                 if resp.status_code == 200:
@@ -342,7 +342,7 @@ class NodeNormUtils:
         Retrieves the current production version from the node normalization service
         """
         # fetch the node norm openapi spec
-        node_norm_openapi_url = 'https://nodenormalization-sri.renci.org/openapi.json'
+        node_norm_openapi_url = 'https://nodenormalization-sri.renci.org/1.1/openapi.json'
         resp: requests.models.Response = requests.get(node_norm_openapi_url)
 
         # did we get a good status code
@@ -501,6 +501,10 @@ class EdgeNormUtils:
 
     @staticmethod
     def get_current_edge_norm_version():
+
+        # hard coded for now because the latest isn't working
+        return '1.8.2'
+
         """
         Retrieves the current production version from the edge normalization service
         """
