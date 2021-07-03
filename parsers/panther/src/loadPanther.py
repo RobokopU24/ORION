@@ -13,6 +13,7 @@ from Common.loader_interface import SourceDataLoader
 from functools import partial
 from typing import NamedTuple
 
+
 class LabeledID(NamedTuple):
     """
     Labeled Thing Object
@@ -20,6 +21,7 @@ class LabeledID(NamedTuple):
     """
     identifier: str
     label: str = ''
+
 
 ##############
 # Class: PANTHER loader, Protein ANalysis THrough Evolutionary Relationships
@@ -55,7 +57,7 @@ class PLoader(SourceDataLoader):
                                       'cellular_components', 'protein_class', 'pathway']
 
         self.split_mapping = {
-            'gene_identifier': partial(self.split_with, splitter='|', keys=['organism', 'gene_id', 'protein_id']),
+            'gene_identifier': partial(self.split_with, splitter='|', keys=['organism', 'gene_id', 'protein_id'], ignore_length_mismatch=True),
             'panther_molecular_func': partial(self.split_with, splitter=';'),
             'panther_biological_process': partial(self.split_with, splitter=';'),
             'cellular_components': partial(self.split_with, splitter=';'),
@@ -188,7 +190,8 @@ class PLoader(SourceDataLoader):
         # return the metadata to the caller
         return load_metadata
 
-    def split_with(self, input_str, splitter, keys=[], ignore_length_mismatch=False):
+    @staticmethod
+    def split_with(input_str, splitter, keys=[], ignore_length_mismatch=False):
         """
         Splits a string based on splitter. If keys is provided it will return a dictionary where the keys of the dictionary map to
         the splitted values.
@@ -233,7 +236,7 @@ class PLoader(SourceDataLoader):
         # reorganize them to 'family-key'-'sub-family'
         self.__gene_family_data__ = {}
 
-        for row in with_columns:
+        for row in rows:
             fam_id, sub_id = row['panther_sf_id'].split(':')
             family_name = row['panther_family_name']
             sub_family_name = row['panther_subfamily_name']
@@ -257,6 +260,8 @@ class PLoader(SourceDataLoader):
         """
         Parses the data file for graph nodes/edges and writes them to the KGX csv files.
 
+        note: this is a port from robo-commons/greent/services
+
         :return: ret_val: record counts
         """
         # init the record counters
@@ -265,28 +270,24 @@ class PLoader(SourceDataLoader):
 
         gene_fam_data = self.gene_family_data
 
-        lids: list = []
+        gene_families: list = []
 
         for key in gene_fam_data:
             name = gene_fam_data[key]['family_name']
             name = f'{name} ({key})' if 'NOT NAMED' in name else name
-            lids.append(LabeledID(f'PANTHER.FAMILY:{key}', name))
-            sub_keys = [k for k in gene_fam_data[key].keys() if k !='family_name']
+            gene_families.append(LabeledID(f'PANTHER.FAMILY:{key}', name))
+            sub_keys = [k for k in gene_fam_data[key].keys() if k != 'family_name']
             for k in sub_keys:
                 name = gene_fam_data[key][k]['sub_family_name']
                 name = f'{name} ({key})' if 'NOT NAMED' in name else name
-                lids.append(LabeledID(f'PANTHER.FAMILY:{key}:{k}',gene_fam_data[key][k]['sub_family_name'] ))
+                gene_families.append(LabeledID(f'PANTHER.FAMILY:{key}:{k}', gene_fam_data[key][k]['sub_family_name']))
 
-        #for id in lids:
-
-        # fam_id, sub_id = r['panther_sf_id'].split(':')
-        # fam_name = r['panther_family_name']
-        #
-        # self.get_gene_family_by_gene_family(fam_name, fam_id, sub_id, r)
-        # self.get_gene_by_gene_family(fam_name, fam_id, r)
-        # self.get_cellular_component_by_gene_family(fam_name, fam_id, r)
-        # self.get_biological_process_or_activity_by_gene_family(fam_name, fam_id, r)
-        # self.get_pathway_by_gene_family(fam_name, fam_id, r)
+        for family in gene_families:
+            self.get_gene_family_by_gene_family(family)
+            # self.get_gene_by_gene_family(family)
+            # self.get_cellular_component_by_gene_family(family)
+            # self.get_biological_process_or_activity_by_gene_family(family)
+            # self.get_pathway_by_gene_family(family)
 
         self.logger.debug(f'Parsing data file complete.')
 
@@ -299,49 +300,90 @@ class PLoader(SourceDataLoader):
         # return to the caller
         return load_metadata
 
-    def get_gene_family_by_gene_family(self, fam_name, fam_id, sub_id, r):
+    def get_gene_family_by_gene_family(self, family):
+        predicate = LabeledID('BFO:0000050', 'part of')
+
+        # family_data = self.gene_family_data[family.identifier.split(':')[1]]
+
+        fam_id, sub_fam_id = self.get_family_sub_family_ids_from_curie(family.identifier)
+
+        if sub_fam_id == None:
+            # we are looking for subfamilies
+            sub_id_keys = [y for y in self.gene_family_data[fam_id] if y != 'family_name']
+
+            for sub_id in sub_id_keys:
+                panther_id = f'{fam_id}:{sub_id}'
+
+                # logger.debug(f'GENE _ FAMILY DATA: { self.gene_family_data[fam_id]}')
+                sub_family_node = self.__create_gene_family_node(panther_id, self.gene_family_data[fam_id][sub_id]['sub_family_name'])
+
+                # create the gene family node
+                self.final_node_list.append({'id': family.identifier, 'name': family.family_name, 'properties': None})
+
+                # create the gene sub-family node
+                self.final_node_list.append({'id': family.identifier + ':' + sub_id, 'name': '', 'properties': None})
+
+                # edge = self.create_edge(
+                #     sub_family_node,
+                #     gene_family_node,
+                #     'panther.get_gene_family_by_gene_family',
+                #     sub_family_node.id,
+                #     predicate
+                # )
+
+                # create the edge
+                self.final_edge_list.append({})
+
+
+    def get_gene_by_gene_family(self, family):
         # get the family name
-        family_name = r['panther_family_name']
+        family_name = family['panther_family_name']
 
         # create the gene family node
-        self.final_node_list.append({'id': family_name, 'name': '', 'properties': {}})
+        self.final_node_list.append({'id': '', 'name': '', 'properties': {}})
 
-        # create the sub gene family name
+        # create the sub gene family namea
         self.final_node_list.append({'id': '', 'name': '', 'properties': {}})
 
         # create the edge
         self.final_edge_list.append({})
 
-    def get_gene_by_gene_family(self, r):
-        # get the family name
-        family_name = r['panther_family_name']
-
-        # create the gene family node
-        self.final_node_list.append({'id': family_name, 'name': '', 'properties': {}})
-
-        # create the sub gene family name
-        self.final_node_list.append({'id': '', 'name': '', 'properties': {}})
-
-        # create the edge
-        self.final_edge_list.append({})
-
-    def get_cellular_component_by_gene_family(self):
+    def get_cellular_component_by_gene_family(self, family):
         # create the gene node
         self.final_node_list.append({'id': '', 'name': '', 'properties': {}})
 
         pass
 
-    def get_biological_process_or_activity_by_gene_family(self):
+    def get_biological_process_or_activity_by_gene_family(self, family):
         # create the gene node
         self.final_node_list.append({'id': '', 'name': '', 'properties': {}})
 
         pass
 
-    def get_pathway_by_gene_family(self):
+    def get_pathway_by_gene_family(self, family):
         # create the gene node
         self.final_node_list.append({'id': '', 'name': '', 'properties': {}})
 
         pass
+
+    @staticmethod
+    def un_curie (text):
+        return ':'.join(text.split (':', 1)[1:]) if ':' in text else text
+
+    def get_family_sub_family_ids_from_curie(self, curie):
+        """
+        Splits a panther curie into family id and sub family id
+        whenever possible.
+        """
+        if 'PANTHER.FAMILY' in curie:
+            curie = self.un_curie(curie)
+
+        splitted = curie.split(':')
+
+        if len(splitted) == 1:
+            return (splitted[0], None)
+
+        return (splitted)
 
 
 if __name__ == '__main__':
