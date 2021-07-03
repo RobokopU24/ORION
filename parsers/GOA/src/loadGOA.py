@@ -6,7 +6,6 @@ import gzip
 import logging
 import requests
 
-from Common.kgx_file_writer import KGXFileWriter
 from Common.loader_interface import SourceDataLoader
 from io import TextIOWrapper
 from csv import reader
@@ -67,13 +66,6 @@ class GOALoader(SourceDataLoader):
         # create a logger
         self.logger = LoggingUtil.init_logging("Data_services.GOA.GOALoader", level=logging.INFO, line_format='medium', log_file_path=os.environ['DATA_SERVICES_LOGS'])
 
-    def get_name(self):
-        """
-        returns the name of the class
-
-        :return: str - the name of the class
-        """
-        return self.__class__.__name__
 
     def get_latest_source_version(self):
         """
@@ -115,7 +107,7 @@ class GOALoader(SourceDataLoader):
         # return to the caller
         return ret_val
 
-    def get_human_goa_data(self) -> (int):
+    def get_data(self) -> (int):
         """
         Gets the human goa data.
 
@@ -133,65 +125,6 @@ class GOALoader(SourceDataLoader):
         # return the byte count to the caller
         return byte_count
 
-    def write_to_file(self, nodes_output_file_path: str, edges_output_file_path: str) -> None:
-        """
-        sends the data over to the KGX writer to create the node/edge files
-
-        :param nodes_output_file_path: the path to the node file
-        :param edges_output_file_path: the path to the edge file
-        :return: Nothing
-        """
-        # get a KGX file writer
-        with KGXFileWriter(nodes_output_file_path, edges_output_file_path) as file_writer:
-            # for each node captured
-            for node in self.final_node_list:
-                # write out the node
-                file_writer.write_node(node['id'], node_name=node['name'], node_types=node['category'], node_properties=node['properties'])
-
-            # for each edge captured
-            for edge in self.final_edge_list:
-                # write out the edge data
-                file_writer.write_edge(subject_id=edge['subject'],
-                                       object_id=edge['object'],
-                                       relation=edge['relation'],
-                                       original_knowledge_source=self.provenance_id,
-                                       edge_properties=edge['properties'])
-
-    def load(self, nodes_output_file_path: str, edges_output_file_path: str):
-        """
-        loads/parses human GOA data files
-
-        :param edges_output_file_path:
-        :param nodes_output_file_path:
-        :return:
-        """
-        self.logger.info(f'GOALoader - Start of GOA data processing.')
-
-        # init the return
-        load_metadata: dict = {}
-
-        # get the human goa data
-        byte_count = self.get_human_goa_data()
-
-        # did we get all the files
-        if byte_count > 0:
-            # parse the data
-            load_metadata = self.parse_data_file(os.path.join(self.data_path, self.data_file))
-
-            self.logger.debug(f'File parsing complete.')
-
-            # write the output files
-            self.write_to_file(nodes_output_file_path, edges_output_file_path)
-        else:
-            self.logger.error(f'Error: Retrieving file {self.data_file} failed.')
-
-        # remove the data file
-        os.remove(os.path.join(self.data_path, self.data_file))
-
-        self.logger.info(f'GOALoader - Processing complete.')
-
-        # return the metadata results
-        return load_metadata
 
     def parse_data_file(self, infile_path: str) -> dict:
         """
@@ -497,4 +430,4 @@ if __name__ == '__main__':
     goa = GOALoader(False)
 
     # load the data files and create KGX output
-    goa.load(data_dir, data_dir)
+    goa.load(f"{data_dir}/nodes", f"{data_dir}/edges")
