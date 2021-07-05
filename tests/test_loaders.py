@@ -3,12 +3,12 @@ import pytest
 #TODO: testing
 """
 
-from ViralProteome.src.loadUniRef import UniRefSimLoader
-from ViralProteome.src.loadVP import VPLoader
-from IntAct.src.loadIA import IALoader
-from GOA.src.loadGOA import GOALoader
-from UberGraph.src.loadUG import UGLoader
-from FooDB.src.loadFDB import FDBLoader
+from parsers.ViralProteome.src.loadUniRef import UniRefSimLoader
+from parsers.ViralProteome.src.loadVP import VPLoader
+from parsers.IntAct.src.loadIA import IALoader
+from parsers.GOA.src.loadGOA import GOALoader
+from parsers.UberGraph.src.loadUG import UGLoader
+from parsers.FooDB.src.loadFDB import FDBLoader
 from Common.utils import GetData
 
 
