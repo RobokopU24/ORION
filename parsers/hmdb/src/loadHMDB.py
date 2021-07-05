@@ -138,7 +138,7 @@ class HMDBLoader(SourceDataLoader):
         load_metadata: dict = {}
 
         # did we get the archive
-        if file_count == 1:
+        if file_count >= 1:
             self.logger.debug(f'{self.data_file} archive retrieved. Parsing HMDB data.')
 
             # parse the data
