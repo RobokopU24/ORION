@@ -77,16 +77,16 @@ class SourceDataLoader(metaclass=abc.ABCMeta):
             # for each node captured
             for node in self.final_node_list:
                 # write out the node
-                file_writer.write_node(node['id'], node_name=node['name'], node_types=node['category'], node_properties=node['properties'])
+                file_writer.write_node(node.identifier, node_name=node.name, node_types=node.categories, node_properties=node.properties)
 
             # for each edge captured
             for edge in self.final_edge_list:
                 # write out the edge data
-                file_writer.write_edge(subject_id=edge['subject'],
-                                       object_id=edge['object'],
-                                       relation=edge['relation'],
+                file_writer.write_edge(subject_id=edge.subjectid,
+                                       object_id=edge.objectid,
+                                       relation=edge.relation,
                                        original_knowledge_source=self.provenance_id,
-                                       edge_properties=edge['properties'])
+                                       edge_properties=edge.properties)
 
 
     def has_sequence_variants(self):
