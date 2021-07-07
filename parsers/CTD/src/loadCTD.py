@@ -38,6 +38,7 @@ class CTDLoader(SourceDataLoader):
         self.test_mode = test_mode
         self.source_id = 'CTD'
         self.source_db = 'Comparative Toxicogenomics Database'
+        self.provenance_id = 'infores:ctd'
 
         self.file_list: list = ['CTD_chemicals_diseases.tsv', 'CTD_exposure_events.tsv']
 
@@ -125,7 +126,11 @@ class CTDLoader(SourceDataLoader):
             # for each edge captured
             for edge in self.final_edge_list:
                 # write out the edge data
-                file_writer.write_edge(subject_id=edge['subject'], object_id=edge['object'], relation=edge['relation'], edge_properties=edge['properties'], predicate='')
+                file_writer.write_edge(subject_id=edge['subject'],
+                                       object_id=edge['object'],
+                                       relation=edge['relation'],
+                                       original_knowledge_source=self.provenance_id,
+                                       edge_properties=edge['properties'])
 
     def load(self, nodes_output_file_path: str, edges_output_file_path: str) -> dict:
         """
@@ -269,7 +274,7 @@ class CTDLoader(SourceDataLoader):
                     edge_object: str = chemical_id
 
                 # save the edge
-                edge_list.append({'subject': edge_subject, 'object': edge_object, 'relation': relation, 'predicate': '', 'properties': {'publications': pmids, 'source_data_base': 'ctd.chemical_to_gene_expanded'}.update(props)})
+                edge_list.append({'subject': edge_subject, 'object': edge_object, 'relation': relation, 'predicate': '', 'properties': {'publications': pmids}.update(props)})
 
         # return the node/edge lists and the record counters to the caller
         return node_list, edge_list, record_counter, skipped_record_counter
@@ -334,7 +339,7 @@ class CTDLoader(SourceDataLoader):
                     edge_object: str = chemical_id
 
                 # save the edge
-                edge_list.append({'subject': edge_subject, 'object': edge_object, 'relation': relation, 'properties': {'publications': pmids, 'source_data_base': 'ctd.gene_to_chemical_expanded'}.update(props)})
+                edge_list.append({'subject': edge_subject, 'object': edge_object, 'relation': relation, 'properties': {'publications': pmids}.update(props)})
 
         # return the node/edge lists and the record counters to the caller
         return node_list, edge_list, record_counter, skipped_record_counter
@@ -393,7 +398,7 @@ class CTDLoader(SourceDataLoader):
 
                 # save the edge
                 edge_list.append(
-                    {'subject': 'MESH:' + r['diseaseid'], 'object': 'MESH:' + r['exposurestressorid'], 'relation': 'CTD:' + relation, 'properties': {'publications': [f"PMID:{r['reference']}"], 'source_database': 'ctd.disease_to_exposure'}})
+                    {'subject': 'MESH:' + r['diseaseid'], 'object': 'MESH:' + r['exposurestressorid'], 'relation': 'CTD:' + relation, 'properties': {'publications': [f"PMID:{r['reference']}"]}})
 
         # return the node and edge lists to the caller
         return node_list, edge_list, record_counter, skipped_record_counter
@@ -550,7 +555,7 @@ class CTDLoader(SourceDataLoader):
                     node_list.append({'id': 'MESH:' + c_id, 'name': chemical_info['name'], 'properties': None})
 
                     # add the edge
-                    edge_list.append({'subject': cur_disease_id.upper(), 'object': 'MESH:' + c_id, 'relation': relation, 'predicate': '', 'properties': {'publications': publications, 'source_database': 'ctd.disease_to_chemical'}})
+                    edge_list.append({'subject': cur_disease_id.upper(), 'object': 'MESH:' + c_id, 'relation': relation, 'predicate': '', 'properties': {'publications': publications}})
 
                 # insure we dont overrun the list
                 if record_counter >= record_count:

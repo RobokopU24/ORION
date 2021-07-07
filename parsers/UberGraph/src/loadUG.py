@@ -35,6 +35,7 @@ class UGLoader(SourceDataLoader):
         self.test_mode = test_mode
         self.source_id = 'UberGraph'
         self.source_db = 'properties-nonredundant.ttl'
+        self.provenance_id = 'infores:ubergraph'
         self.file_size = 200000
 
         # create a logger
@@ -81,7 +82,11 @@ class UGLoader(SourceDataLoader):
             # for each edge captured
             for edge in self.final_edge_list:
                 # write out the edge data
-                file_writer.write_edge(subject_id=edge['subject'], object_id=edge['object'], relation=edge['relation'], edge_properties=edge['properties'], predicate='')
+                file_writer.write_edge(subject_id=edge['subject'],
+                                       object_id=edge['object'],
+                                       relation=edge['relation'],
+                                       original_knowledge_source=self.provenance_id,
+                                       edge_properties=edge['properties'])
 
     def load(self, nodes_output_file_path: str, edges_output_file_path: str):
         """
@@ -147,9 +152,6 @@ class UGLoader(SourceDataLoader):
         # init a list for the output data
         triple: list = []
 
-        # get the source database name
-        source_database = 'UberGraph ' + data_file_name.split('.')[0]
-
         # set the infile path
         infile_path = os.path.join(os.path.dirname(__file__), f"{data_file_name.split('.')[0]}.zip")
 
@@ -206,7 +208,7 @@ class UGLoader(SourceDataLoader):
                 if len(triple) == 3:
                     # create the nodes
                     self.final_node_list.append({'id': triple[0], 'name': triple[0], 'properties': None})
-                    self.final_edge_list.append({'subject': triple[0], 'predicate': triple[1], 'relation': triple[1], 'object': triple[2], 'properties': {'source_database': source_database}})
+                    self.final_edge_list.append({'subject': triple[0], 'predicate': triple[1], 'relation': triple[1], 'object': triple[2], 'properties': {}})
                     self.final_node_list.append({'id': triple[2], 'name': triple[2], 'properties': None})
                 else:
                     skipped_record_counter += 1

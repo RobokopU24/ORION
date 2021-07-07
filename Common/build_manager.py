@@ -49,6 +49,9 @@ class GraphBuilder:
         for source in graph_spec.sources:
             source_id = source.source_id
             source_load_version = source.load_version
+            if source_id not in self.data_manager.metadata:
+                self.logger.info(f'Could not build graph {graph_spec.graph_id} because {source_id} is not active.')
+                return
             source_metadata = self.data_manager.metadata[source_id]
             if source_metadata.is_ready_to_build():
                 file_paths = list()

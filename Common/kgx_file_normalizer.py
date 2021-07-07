@@ -10,13 +10,13 @@ from Common.kgx_file_writer import KGXFileWriter
 
 
 class NormalizationBrokenError(Exception):
-    def __init__(self, error_message: str, actual_error: str):
+    def __init__(self, error_message: str, actual_error: str = ''):
         self.error_message = error_message
         self.actual_error = actual_error
 
 
 class NormalizationFailedError(Exception):
-    def __init__(self, error_message: str, actual_error: str):
+    def __init__(self, error_message: str, actual_error: str = ''):
         self.error_message = error_message
         self.actual_error = actual_error
 

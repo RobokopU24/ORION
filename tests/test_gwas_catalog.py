@@ -1,5 +1,5 @@
 
-from GWASCatalog.src.loadGWASCatalog import GWASCatalogLoader
+from parsers.GWASCatalog.src.loadGWASCatalog import GWASCatalogLoader
 
 
 def test_gwas_catalog_update_version():

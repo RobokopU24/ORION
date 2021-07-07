@@ -6,7 +6,7 @@ import datetime
 
 from multiprocessing import Pool
 
-from Common.utils import LoggingUtil, NodeNormUtils, EdgeNormUtils
+from Common.utils import LoggingUtil, NodeNormUtils, EdgeNormUtils, GetDataPullError
 from Common.kgx_file_normalizer import KGXFileNormalizer, NormalizationBrokenError, NormalizationFailedError
 from Common.metadata_manager import MetadataManager as Metadata
 from Common.loader_interface import SourceDataBrokenError, SourceDataFailedError
@@ -188,7 +188,7 @@ class SourceDataLoadManager:
                 source_metadata.set_version_update_status(Metadata.FAILED)
                 return False
 
-    def update_source(self, source_id: str):
+    def update_source(self, source_id: str, retries: int = 0):
         source_metadata = self.metadata[source_id]
         source_metadata.set_update_status(Metadata.IN_PROGRESS)
         self.logger.debug(f"Updating source data for {source_id}...")
@@ -202,8 +202,8 @@ class SourceDataLoadManager:
             else:
                 self.logger.info(f"Retrieving source version for {source_id}...")
                 latest_source_version = source_data_loader.get_latest_source_version()
+                self.new_version_lookup[source_id] = latest_source_version
                 self.logger.info(f"Found new source version for {source_id}: {latest_source_version}")
-            source_metadata.update_version(latest_source_version)
 
             # call the loader - retrieve/parse data and write to a kgx file
             self.logger.info(f"Loading new version of {source_id} ({latest_source_version})...")
@@ -213,6 +213,7 @@ class SourceDataLoadManager:
 
             # update the associated metadata
             self.logger.info(f"Load finished. Updating {source_id} metadata...")
+            source_metadata.update_version(latest_source_version)
             has_sequence_variants = source_data_loader.has_sequence_variants()
             current_time = datetime.datetime.now().strftime('%m-%d-%y %H:%M:%S')
             source_metadata.set_update_info(update_metadata,
@@ -230,10 +231,20 @@ class SourceDataLoadManager:
             source_metadata.set_update_status(Metadata.BROKEN)
 
         except SourceDataFailedError as failed_error:
-            # TODO report these by email or something automated
-            self.logger.info(f"SourceDataFailedError while updating {source_id}: {failed_error.error_message}")
+            self.logger.error(f"SourceDataFailedError while updating {source_id}: {failed_error.error_message}")
             source_metadata.set_update_error(f'{failed_error.error_message}')
             source_metadata.set_update_status(Metadata.FAILED)
+
+        except GetDataPullError as data_pull_error:
+            self.logger.error(f"GetDataPullError while updating {source_id}: {data_pull_error.error_message}")
+            # allow two retries for this type of error
+            if retries < 2:
+                self.logger.error(f"Retrying update for {source_id}.. (retry {retries + 1})")
+                self.update_source(source_id, retries + 1)
+            else:
+                # after that set FAILED state and bail
+                source_metadata.set_update_error(f'{data_pull_error.error_message}')
+                source_metadata.set_update_status(Metadata.FAILED)
 
         except Exception as e:
             # TODO report these by email or something automated

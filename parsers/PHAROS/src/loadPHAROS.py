@@ -107,6 +107,7 @@ class PHAROSLoader(SourceDataLoader):
         self.test_mode = test_mode
         self.source_id = 'PHAROS'
         self.source_db = 'Druggable Genome initiative database'
+        self.provenance_id = 'infores:pharos'
 
         # create a logger
         self.logger = LoggingUtil.init_logging("Data_services.PHAROSLoader", level=logging.INFO, line_format='medium', log_file_path=os.environ['DATA_SERVICES_LOGS'])
@@ -180,7 +181,11 @@ class PHAROSLoader(SourceDataLoader):
             # for each edge captured
             for edge in self.final_edge_list:
                 # write out the edge data
-                file_writer.write_edge(subject_id=edge['subject'], object_id=edge['object'], relation=edge['relation'], edge_properties=edge['properties'], predicate='')
+                file_writer.write_edge(subject_id=edge['subject'],
+                                       object_id=edge['object'],
+                                       relation=edge['relation'],
+                                       original_knowledge_source=self.provenance_id,
+                                       edge_properties=edge['properties'])
 
     def load(self, nodes_output_file_path: str, edges_output_file_path: str):
         """
@@ -681,7 +686,7 @@ class PHAROSLoader(SourceDataLoader):
                             self.final_node_list.append({'id': row[1]['id'], 'name': name, 'properties': None})
 
                             # save the edge
-                            self.final_edge_list.append({"subject": node_1_id, "predicate": row[1]['predicate'], "relation": row[1]['relation'], "object": row[1]['id'], 'properties': {"publications": row[1]['pmids'], "affinity": row[1]['affinity'], "affinity_parameter":  row[1]['affinity_parameter'], 'provenance': row[1]['provenance'], 'source_database': 'PHAROS'}})
+                            self.final_edge_list.append({"subject": node_1_id, "predicate": row[1]['predicate'], "relation": row[1]['relation'], "object": row[1]['id'], 'properties': {"publications": row[1]['pmids'], "affinity": row[1]['affinity'], "affinity_parameter":  row[1]['affinity_parameter'], 'provenance': row[1]['provenance']}})
             else:
                 self.logger.debug(f'node group mismatch. len: {len(rows)}, data: {rows}')
 

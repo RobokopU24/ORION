@@ -6,7 +6,7 @@ import os
 
 from Common.utils import LoggingUtil, GetData
 from Common.kgx_file_writer import KGXFileWriter
-from Common.loader_interface import SourceDataLoader
+from Common.loader_interface import SourceDataLoader, SourceDataFailedError
 
 
 ##############
@@ -35,6 +35,7 @@ class HGNCLoader(SourceDataLoader):
         self.test_mode: bool = test_mode
         self.source_id: str = 'HGNC'
         self.source_db: str = 'HUGO Gene Nomenclature Committee'
+        self.provenance_id: str = 'infores:hgnc'
 
         # create a logger
         self.logger = LoggingUtil.init_logging("Data_services.HGNC.HGNCLoader", level=logging.INFO, line_format='medium', log_file_path=os.environ['DATA_SERVICES_LOGS'])
@@ -82,8 +83,11 @@ class HGNCLoader(SourceDataLoader):
             # for each edge captured
             for edge in self.final_edge_list:
                 # write out the edge data
-                file_writer.write_edge(subject_id=edge['subject'], object_id=edge['object'], relation=edge['relation'], edge_properties=edge['properties'], predicate='')
-
+                file_writer.write_edge(subject_id=edge['subject'],
+                                       object_id=edge['object'],
+                                       relation=edge['relation'],
+                                       original_knowledge_source=self.provenance_id,
+                                       edge_properties=edge['properties'])
     def get_hgnc_data(self) -> int:
         """
         Gets the HGNC data from two sources.
@@ -142,7 +146,9 @@ class HGNCLoader(SourceDataLoader):
 
             self.logger.info(f'HGNCLoader - Processing complete.')
         else:
-            self.logger.error(f'Error: Retrieving HGNC archive failed.')
+            error_message = f'Error: Retrieving HGNC archive failed.'
+            self.logger.error(error_message)
+            raise SourceDataFailedError(error_message=error_message)
 
         # remove intermediate data
         for item in self.data_file:
@@ -209,7 +215,7 @@ class HGNCLoader(SourceDataLoader):
                         self.final_node_list.append({'id': gene_family_curie, 'name': gene_family[idx]})
 
                         # get the baseline properties
-                        props = {'source_database': 'hgnc'}
+                        props = {}
 
                         # were there publications
                         if len(r['pubmed_id']) > 0:

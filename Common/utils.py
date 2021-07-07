@@ -184,7 +184,7 @@ class NodeNormUtils:
                 # self.logger.info(f'Calling node norm service. request size is {len("&curie=".join(data_chunk))} bytes')
 
                 # get the data
-                resp: requests.models.Response = requests.post('https://nodenormalization-sri.renci.org/get_normalized_nodes', json={'curies': data_chunk})
+                resp: requests.models.Response = requests.post('https://nodenormalization-sri.renci.org/1.1/get_normalized_nodes', json={'curies': data_chunk})
 
                 # did we get a good status code
                 if resp.status_code == 200:
@@ -342,7 +342,7 @@ class NodeNormUtils:
         Retrieves the current production version from the node normalization service
         """
         # fetch the node norm openapi spec
-        node_norm_openapi_url = 'https://nodenormalization-sri.renci.org/openapi.json'
+        node_norm_openapi_url = 'https://nodenormalization-sri.renci.org/1.1/openapi.json'
         resp: requests.models.Response = requests.get(node_norm_openapi_url)
 
         # did we get a good status code
@@ -481,7 +481,7 @@ class EdgeNormUtils:
         for relation in to_normalize:
             success = False
             # did the service return a value
-            if relation in cached_edge_norms:
+            if relation in cached_edge_norms and cached_edge_norms[relation]:
                 if 'identifier' in cached_edge_norms[relation]:
                     # store it in the look up map
                     self.edge_normalization_lookup[relation] = cached_edge_norms[relation]['identifier']
@@ -501,6 +501,10 @@ class EdgeNormUtils:
 
     @staticmethod
     def get_current_edge_norm_version():
+
+        # hard coded for now because the latest isn't working
+        return '1.8.2'
+
         """
         Retrieves the current production version from the edge normalization service
         """
@@ -519,6 +523,11 @@ class EdgeNormUtils:
         else:
             # this shouldn't happen, raise an exception
             resp.raise_for_status()
+
+
+class GetDataPullError(Exception):
+    def __init__(self, error_message: str):
+        self.error_message = error_message
 
 
 class GetData:
@@ -544,25 +553,31 @@ class GetData:
         :param ftp_file: the name of the file to retrieve
         :return:
         """
-        # create the FTP object
-        ftp = FTP(ftp_site)
 
-        # log into the FTP site
-        ftp.login()
+        try:
+            # create the FTP object
+            ftp = FTP(ftp_site)
 
-        # change to the correct directory on the ftp site
-        ftp.cwd(ftp_dir)
+            # log into the FTP site
+            ftp.login()
 
-        # for each data byte retreived
-        with BytesIO() as data:
-            # capture the data and put it in the buffer
-            ftp.retrbinary(f'RETR {ftp_file}', data.write)
+            # change to the correct directory on the ftp site
+            ftp.cwd(ftp_dir)
 
-            # get the data in a stream
-            binary = data.getvalue()
+            # for each data byte retreived
+            with BytesIO() as data:
+                # capture the data and put it in the buffer
+                ftp.retrbinary(f'RETR {ftp_file}', data.write)
 
-        # close the connection to the ftp site
-        ftp.quit()
+                # get the data in a stream
+                binary = data.getvalue()
+
+            # close the connection to the ftp site
+            ftp.quit()
+
+        except Exception as e:
+            error_message = f'GetDataPullError pull_via_ftp_binary() failed for {ftp_site}. Exception: {e}'
+            raise GetDataPullError(error_message)
 
         # return the data stream
         return binary
@@ -651,7 +666,9 @@ class GetData:
             # close the ftp object
             ftp.quit()
         except Exception as e:
-            self.logger.error(f'Error: pull_via_ftp() failed. Exception: {e}')
+            error_message = f'GetDataPullError pull_via_ftp() failed for {ftp_site}. Exception: {e}'
+            self.logger.error(error_message)
+            raise GetDataPullError(error_message)
 
         # return pass/fail to the caller
         return file_counter
@@ -674,40 +691,46 @@ class GetData:
 
         # get the file if its not there
         if not os.path.exists(os.path.join(data_dir, data_file)):
+
             self.logger.debug(f'Retrieving {url} -> {data_dir}')
+            try:
+                hdr = {'User-Agent': 'Mozilla/5.0 (Windows NT 6.1; Win64; x64)'}
+                req = request.Request(url, headers=hdr)
 
-            hdr = {'User-Agent': 'Mozilla/5.0 (Windows NT 6.1; Win64; x64)'}
-            req = request.Request(url, headers=hdr)
+                # get the the file data handle
+                file_data = request.urlopen(req)
 
-            # get the the file data handle
-            file_data = request.urlopen(req)
+                # is this a gzip file
+                if is_gzip:
+                    # get a handle to the data
+                    file_data = gzip.GzipFile(fileobj=file_data)
 
-            # is this a gzip file
-            if is_gzip:
-                # get a handle to the data
-                file_data = gzip.GzipFile(fileobj=file_data)
+                    # strip off the .gz if exists
+                    data_file = data_file.replace('.gz', '')
 
-                # strip off the .gz if exists
-                data_file = data_file.replace('.gz', '')
+                with open(os.path.join(data_dir, data_file), 'wb') as fp:
+                    # specify the buffered data block size
+                    block = 131072
 
-            with open(os.path.join(data_dir, data_file), 'wb') as fp:
-                # specify the buffered data block size
-                block = 131072
+                    # until all bytes read
+                    while True:
+                        # get some bytes
+                        buffer = file_data.read(block)
 
-                # until all bytes read
-                while True:
-                    # get some bytes
-                    buffer = file_data.read(block)
+                        # did we run out of data
+                        if not buffer:
+                            break
 
-                    # did we run out of data
-                    if not buffer:
-                        break
+                        # keep track of the number of bytes transferred
+                        byte_counter += len(buffer)
 
-                    # keep track of the number of bytes transferred
-                    byte_counter += len(buffer)
+                        # output the data to the file
+                        fp.write(buffer)
+            except Exception as e:
+                error_message = f'GetDataPullError pull_via_http() failed. URL: {url}. Exception: {e}'
+                self.logger.error(error_message)
+                raise GetDataPullError(error_message)
 
-                    # output the data to the file
-                    fp.write(buffer)
         else:
             byte_counter = 1
 
@@ -1040,7 +1063,9 @@ class GetData:
             if byte_count > 0:
                 file_counter += 1
             else:
-                self.logger.error(f'Failed to get {data_file}.')
+                error_message = f'GetDataPullError get_gtopdb_http_files() failed to download file {data_file}.'
+                self.logger.error(error_message)
+                raise GetDataPullError(error_message)
 
         # return to the caller
         return file_counter

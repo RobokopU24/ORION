@@ -65,6 +65,7 @@ class VPLoader(SourceDataLoader):
         self.test_mode = test_mode
         self.source_id = 'Viral proteome'
         self.source_db = 'GOA viral proteomes'
+        self.provenance_id = 'infores:uniref-viral-proteins'
         self.goa_data_dir = self.data_path + '/Virus_GOA_files/'
 
         # create a logger
@@ -135,7 +136,11 @@ class VPLoader(SourceDataLoader):
             # for each edge captured
             for edge in self.final_edge_list:
                 # write out the edge data
-                file_writer.write_edge(subject_id=edge['subject'], object_id=edge['object'], relation=edge['relation'], edge_properties=edge['properties'], predicate='')
+                file_writer.write_edge(subject_id=edge['subject'],
+                                       object_id=edge['object'],
+                                       relation=edge['relation'],
+                                       original_knowledge_source=self.provenance_id,
+                                       edge_properties=edge['properties'])
 
     def load(self, nodes_output_file_path: str, edges_output_file_path: str) -> dict:
         """
@@ -274,8 +279,7 @@ class VPLoader(SourceDataLoader):
                 data_chunk: list = to_normalize[start_index: end_index]
 
                 # get the data
-                # resp: requests.models.Response = requests.get('https://nodenormalization-sri.renci.org/get_normalized_nodes?curie=' + '&curie='.join(data_chunk))
-                resp: requests.models.Response = requests.post('https://nodenormalization-sri.renci.org/get_normalized_nodes', json={'curies': data_chunk})
+                resp: requests.models.Response = requests.post('https://nodenormalization-sri.renci.org/1.1/get_normalized_nodes', json={'curies': data_chunk})
 
                 # did we get a good status code
                 if resp.status_code == 200:
@@ -365,7 +369,7 @@ class VPLoader(SourceDataLoader):
             if node_1_id != '' and node_2_id != '':
                 # create the KGX edge data for nodes 1 and 2
                 """ An edge from the gene to the organism_taxon with relation "in_taxon" """
-                edge_list.append({"subject": f"{node_1_id}", "predicate": "biolink:in_taxon", "relation": "RO:0002162", "object": f"{node_2_id}", 'properties': {'source_database': 'Viral proteome'}})
+                edge_list.append({"subject": f"{node_1_id}", "predicate": "biolink:in_taxon", "relation": "RO:0002162", "object": f"{node_2_id}", 'properties': {}})
             else:
                 self.logger.warning(f'Warning: Missing 1 or more node IDs. Node type 1: {node_1_id}, Node type 2: {node_2_id}')
 
@@ -410,7 +414,7 @@ class VPLoader(SourceDataLoader):
                     self.logger.debug(f'Warning: Missing 1 or more node IDs. Node type 1: {node_1_id}, Node type 3: {node_3_id}')
                 else:
                     # create the KGX edge data for nodes 1 and 3
-                    edge_list.append({'id': '', 'subject': src_node_id, 'predicate': predicate, 'relation': relation, "object": obj_node_id, 'properties': {'source_database': 'Viral proteome'}})
+                    edge_list.append({'id': '', 'subject': src_node_id, 'predicate': predicate, 'relation': relation, "object": obj_node_id, 'properties': {}})
 
         self.logger.debug(f'{len(edge_list)} edges identified.')
 
