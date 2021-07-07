@@ -40,7 +40,6 @@ class SourceDataLoader(metaclass=abc.ABCMeta):
         # did we get all the files
         if byte_count > 0:
             # parse the data
-            #load_metadata = self.parse_data_file(os.path.join(self.data_path, self.data_file))
             load_metadata = self.parse_data_file()
 
             self.logger.debug(f'File parsing complete.')
@@ -51,7 +50,7 @@ class SourceDataLoader(metaclass=abc.ABCMeta):
             self.logger.error(f'Error: Retrieving file {self.data_file} failed.')
 
         # remove the data file
-        os.remove(os.path.join(self.data_path, self.data_file))
+        #os.remove(os.path.join(self.data_path, self.data_file))
 
         self.logger.info(f'{self.get_name()}:Processing complete')
 

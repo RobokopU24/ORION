@@ -147,18 +147,18 @@ class GOALoader(SourceDataLoader):
 
         infile_path = os.path.join(self.data_path, self.data_file)
 
-        extractor = Extractor(
-            lambda line: f'{line[DATACOLS.DB.value]}:{line[DATACOLS.DB_Object_ID.value]}',  #extract subject id,
-            lambda line: f'{line[DATACOLS.GO_ID.value]}',  #extract object id
-            lambda line: self.predicates[ line[DATACOLS.Qualifier] ],  #predicate extractor
-            lambda line: {},  #subject props
-            lambda line: {},  # object props
-            lambda line: {}  # edge props)
-        )
+        extractor = Extractor( )
 
         with gzip.open(infile_path, 'r') as zf:
-            extractor.csv_extract(TextIOWrapper(zf, "utf-8"), comment_character = "!", delim = '\t' )
-
+            extractor.csv_extract(TextIOWrapper(zf, "utf-8"),
+                                  lambda line: f'{line[DATACOLS.DB.value]}:{line[DATACOLS.DB_Object_ID.value]}',
+                                  # extract subject id,
+                                  lambda line: f'{line[DATACOLS.GO_ID.value]}',  # extract object id
+                                  lambda line: self.predicates[line[DATACOLS.Qualifier]],  # predicate extractor
+                                  lambda line: {},  # subject props
+                                  lambda line: {},  # object props
+                                  lambda line: {},  # edge props
+                                  comment_character = "!", delim = '\t' )
         # return to the caller
         self.final_node_list = extractor.nodes
         self.final_edge_list = extractor.edges

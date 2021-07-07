@@ -8,10 +8,11 @@ import random
 import psycopg2
 import psycopg2.extras
 
+
 from Common.extractor import Extractor
 from Common.loader_interface import SourceDataLoader
 from Common.utils import LoggingUtil, GetData
-
+from Common import prefixes
 
 ##############
 # Class: DrugCentral loader
@@ -44,7 +45,13 @@ class DrugCentralLoader(SourceDataLoader):
         # create a logger
         self.logger = LoggingUtil.init_logging("Data_services.DrugCentralLoader", level=logging.INFO, line_format='medium', log_file_path=os.environ['DATA_SERVICES_LOGS'])
 
-        self.faers_query='SELECT t.struct_id, t.meddra_code, t.llc FROM public.faers t WHERE t.llr > t.llr_threshold and t.drug_ae > 25'
+        self.omop_relationmap = {'off-label use': 'RO:0002606' , #is substance that treats
+                                 'reduce risk': 'RO:0002606', #is substance that treats
+                                 'contraindication': 'biolink:contraindicated_for', # should be: NCIT:C37933', #contraindication
+                                 'symptomatic treatment': 'RO:0002606', #is substance that treats
+                                 'indication': 'RO:0002606', #is substance that treats
+                                 'diagnosis': 'RO:0002606', #theres only one row like this.
+                                 }
         self.bioactivity_query='select struct_id, target_id, accession, act_value, act_unit, act_type, act_source, act_source_url, action_type from act_table_full ;'
 
     def get_latest_source_version(self) -> str:
@@ -84,522 +91,113 @@ class DrugCentralLoader(SourceDataLoader):
 
     def parse_data_file(self):
         conn = psycopg2.connect("user='postgres' host='localhost'")
-        cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+        cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
         extractor = Extractor()
+
+        #chemical/phenotypes
         chemical_phenotype_query='select struct_id, relationship_name, umls_cui from public.omop_relationship where umls_cui is not null'
-        extractor.sql_extract(cur,chemical_phenotype_query)
-
-        #cp_nodes, cp_edges, metadata = extract(chemical_phenotype_query)
-        #retury load_metadata
-
-    def loadx(self, nodes_output_file_path: str, edges_output_file_path: str):
-        """
-        loads PHAROS associated data gathered from
-
-        :param: nodes_output_file_path - path to node file
-        :param: edges_output_file_path - path to edge file
-        :return:
-        """
-        self.logger.info(f'PHAROSLoader - Start of PHAROS data processing.')
-
-        # TODO: get the pharos data
-        # self.get_pharos_data()
-
-        # parse the data
-        load_metadata = self.parse_data_db()
-
-        # write the data to the file system
-        self.write_to_file(nodes_output_file_path, edges_output_file_path)
-
-        self.logger.info(f'PHAROSLoader - Processing complete.')
-
-        # return the metadata to the caller
-        return load_metadata
-
-
-
-    def parse_data_db(self) -> dict:
-        """
-        Parses the PHAROS data to create KGX files.
-
-        :return: parsed meta data results
-        """
-        # storage for the node list
-        node_list: list = []
-
-        final_record_count: int = 0
-        final_skipped_count: int = 0
-
-        # get the nodes and edges for each dataset
-        node_list, records, skipped = self.parse_gene_to_disease(node_list)
-        final_record_count += records
-        final_skipped_count += skipped
-
-        node_list, records, skipped = self.parse_gene_to_drug_activity(node_list)
-        final_record_count += records
-        final_skipped_count += skipped
-
-        node_list, records, skipped = self.parse_gene_to_cmpd_activity(node_list)
-        final_record_count += records
-        final_skipped_count += skipped
-
-        node_list, records, skipped = self.parse_drug_activity_to_gene(node_list)
-        final_record_count += records
-        final_skipped_count += skipped
-
-        node_list, records, skipped = self.parse_cmpd_activity_to_gene(node_list)
-        final_record_count += records
-        final_skipped_count += skipped
-
-        # is there anything to do
-        if len(node_list) > 0:
-            self.logger.debug('Creating nodes and edges.')
-
-            # create a data frame with the node list
-            df: pd.DataFrame = pd.DataFrame(node_list, columns=['grp', 'node_num', 'id', 'name', 'category', 'equivalent_identifiers', 'predicate', 'relation', 'edge_label', 'pmids', 'affinity', 'affinity_parameter', 'provenance'])
-
-            # get the list of unique nodes and edges
-            self.get_nodes_and_edges(df)
-
-            self.logger.debug(f'{len(self.final_node_list)} nodes found, {len(self.final_edge_list)} edges found.')
-        else:
-            self.logger.warning(f'No records found.')
-
-        # load up the metadata
-        load_metadata = {
-            'num_source_lines': final_record_count,
-            'unusable_source_lines': final_skipped_count
-        }
-
-        # return the metadata to the caller
-        return load_metadata
-
-    def parse_gene_to_disease(self, node_list: list) -> (list, int, int):
-        """
-        gets gene to disease records from the pharos DB and creates nodes
-        :param node_list: list, the node list to append this data to
-        :return: list, the node list and record counters
-        """
-        # init the record counters
-        record_counter: int = 0
-        skipped_record_counter: int = 0
-
-        # get the data
-        gene_to_disease: dict = self.execute_pharos_sql(self.GENE_TO_DISEASE)
-
-        # create a regex pattern to find UML nodes
-        pattern = re.compile('^C\d+$')  # pattern for umls local id
-
-        # for each item in the list
-        for item in gene_to_disease:
-            # increment the counter
-            record_counter += 1
-
-            # get the pertinent info from the record
-            gene = item['value']
-            did = item['did']
-            name = item['name']
-            gene_sym = item['sym']
-            provenance = item['dtype']
-
-            # move along, no disease id
-            if did is None:
-                # increment the counter
-                skipped_record_counter += 1
-
-                continue
-            # if this is a UML node, create the curie
-            elif pattern.match(did):
-                did = f"UMLS:{did}"
-            # if this is a orphanet node, create the curie
-            elif did.startswith('Orphanet:'):
-                dparts = did.split(':')
-                did = 'ORPHANET:' + dparts[1]
-
-            # create the group id
-            grp: str = gene + 'WD:P2293' + did + f'{random.random()}'
-            grp = hashlib.md5(grp.encode("utf-8")).hexdigest()
-
-            # if the drug id is a gene ignore it
-            if did == gene:
-                self.logger.error(f'similar parse_gene_to_disease()! {did} == {gene}, {item}')
-            else:
-                # create the gene node and add it to the node list
-                node_list.append({'grp': grp, 'node_num': 1, 'id': gene, 'name': gene_sym, 'category': '', 'equivalent_identifiers': ''})
-
-                # create the disease node and add it to the list
-                node_list.append({'grp': grp, 'node_num': 2, 'id': did, 'name': name, 'category': '', 'equivalent_identifiers': '', 'predicate': 'biolink:gene_associated_with_condition', 'relation': 'WD:P2293', 'edge_label': 'gene_associated_with_condition', 'pmids': [], 'affinity': 0, 'affinity_parameter': '', 'provenance': provenance})
-
-        # return the node list to the caller
-        return node_list, record_counter, skipped_record_counter
-
-    def parse_gene_to_drug_activity(self, node_list: list) -> (list, int, int):
-        """
-        gets gene to drug activity records from the pharos DB and creates nodes
-        :param node_list: list, the node list to append this data to
-        :return: list, the node list and record counters
-        """
-        # init the record counters
-        record_counter: int = 0
-        skipped_record_counter: int = 0
-
-        # get the data
-        gene_to_drug_activity: dict = self.execute_pharos_sql(self.GENE_TO_DRUG_ACTIVITY)
-
-        prefixmap = {'ChEMBL': 'CHEMBL.COMPOUND', 'Guide to Pharmacology': 'GTOPDB'}
-
-        # for each item in the list
-        for item in gene_to_drug_activity:
-            # increment the counter
-            record_counter += 1
-
-            name = item['drug']
-            gene = item['value']
-            gene_sym = item['sym']
-            chembl_id = f"{prefixmap[item['id_src']]}:{item['cid'].replace('CHEMBL', '')}"
-            relation, pmids, props, provenance = self.get_edge_props(item)
-
-            # if there were affinity properties use them
-            if len(props) == 2:
-                affinity = props['affinity']
-                affinity_parameter = props['affinity_parameter']
-            else:
-                affinity = 0
-                affinity_parameter = ''
-
-            # create the group id
-            grp: str = chembl_id + relation + gene + f'{random.random()}'
-            grp = hashlib.md5(grp.encode("utf-8")).hexdigest()
-
-            # create the disease node and add it to the node list
-            node_list.append({'grp': grp, 'node_num': 1, 'id': chembl_id, 'name': name, 'category': '', 'equivalent_identifiers': ''})
-
-            # create the gene node and add it to the list
-            node_list.append({'grp': grp, 'node_num': 2, 'id': gene, 'name': gene_sym, 'category': '', 'equivalent_identifiers': '', 'predicate': '', 'relation': relation, 'edge_label': '', 'pmids': pmids, 'affinity': affinity, 'affinity_parameter': affinity_parameter, 'provenance': provenance})
-
-        return node_list, record_counter, skipped_record_counter
-
-    def parse_gene_to_cmpd_activity(self, node_list: list) -> (list, int, int):
-        """
-        gets gene to compound activity records from the pharos DB and creates nodes
-        :param node_list: list, the node list to append this data to
-        :return: list, the node list and record counters
-        """
-        # init the record counters
-        record_counter: int = 0
-        skipped_record_counter: int = 0
-
-        # get the data
-        gene_to_cmpd_activity: dict = self.execute_pharos_sql(self.GENE_TO_CMPD_ACTIVITY)
-
-        prefixmap = {'ChEMBL': 'CHEMBL.COMPOUND', 'Guide to Pharmacology': 'GTOPDB'}
-
-        # for each item in the list
-        for item in gene_to_cmpd_activity:
-            # increment the counter
-            record_counter += 1
-
-            name = item['drug']
-            gene = item['value']
-            gene_sym = item['sym']
-            chembl_id = f"{prefixmap[item['id_src']]}:{item['cid'].replace('CHEMBL', '')}"
-            relation, pmids, props, provenance = self.get_edge_props(item)
-
-            # if there were affinity properties use them
-            if len(props) == 2:
-                affinity = props['affinity']
-                affinity_parameter = props['affinity_parameter']
-            else:
-                affinity = 0
-                affinity_parameter = ''
-
-            # create the group id
-            grp: str = chembl_id + relation + gene + f'{random.random()}'
-            grp = hashlib.md5(grp.encode("utf-8")).hexdigest()
-
-            # create the disease node and add it to the node list
-            node_list.append({'grp': grp, 'node_num': 1, 'id': chembl_id, 'name': name, 'category': '', 'equivalent_identifiers': ''})
-
-            # create the gene node and add it to the list
-            node_list.append({'grp': grp, 'node_num': 2, 'id': gene, 'name': gene_sym, 'category': '', 'equivalent_identifiers': '', 'predicate': '', 'relation': relation, 'edge_label': '', 'pmids': pmids, 'affinity': affinity, 'affinity_parameter': affinity_parameter, 'provenance': provenance})
-
-        return node_list, record_counter, skipped_record_counter
-
-    def parse_drug_activity_to_gene(self, node_list: list) -> (list, int, int):
-        """
-        gets drug activity to gene records from the pharos DB and creates nodes
-        :param node_list: list, the node list to append this data to
-        :return: list, the node list and record counters
-        """
-        # init the record counters
-        record_counter: int = 0
-        skipped_record_counter: int = 0
-
-        # get the data
-        drug_activity_to_gene: dict = self.execute_pharos_sql(self.DRUG_ACTIVITY_TO_GENE)
-
-        # for each item in the list
-        for item in drug_activity_to_gene:
-            # increment the counter
-            record_counter += 1
-
-            if item['cmpd_chemblid'] is None:
-                # increment the counter
-                skipped_record_counter += 1
-
-                continue
-
-            name = item['drug']
-            gene = item['value']
-            gene_sym = item['sym']
-            chembl_id = 'CHEMBL.COMPOUND:' + item['cmpd_chemblid'].replace('CHEMBL', '')
-            relation, pmids, props, provenance = self.get_edge_props(item)
-
-            # if there were affinity properties use them
-            if len(props) == 2:
-                affinity = props['affinity']
-                affinity_parameter = props['affinity_parameter']
-            else:
-                affinity = 0
-                affinity_parameter = ''
-
-            # create the group id
-            grp: str = chembl_id + relation + gene + f'{random.random()}'
-            grp = hashlib.md5(grp.encode("utf-8")).hexdigest()
-
-            # create the disease node and add it to the node list
-            node_list.append({'grp': grp, 'node_num': 1, 'id': chembl_id, 'name': name, 'category': '', 'equivalent_identifiers': ''})
-
-            # create the gene node and add it to the list
-            node_list.append({'grp': grp, 'node_num': 2, 'id': gene, 'name': gene_sym, 'category': '', 'equivalent_identifiers': '', 'predicate': '', 'relation': relation, 'edge_label': '', 'pmids': pmids, 'affinity': affinity, 'affinity_parameter': affinity_parameter, 'provenance': provenance})
-
-        return node_list, record_counter, skipped_record_counter
-
-    def parse_cmpd_activity_to_gene(self, node_list: list) -> (list, int, int):
-        """
-        gets compound activity to gene records from the pharos DB and creates nodes
-        :param node_list: list, the node list to append this data to
-        :return: list, the node list and record counters
-        """
-        # init the record counters
-        record_counter: int = 0
-        skipped_record_counter: int = 0
-
-        # get the data
-        cmpd_activity_to_gene: dict = self.execute_pharos_sql(self.CMPD_ACTIVITY_TO_GENE)
-
-        # for each item in the list
-        for item in cmpd_activity_to_gene:
-            # increment the counter
-            record_counter += 1
-
-            name = item['drug']
-            gene = item['value']
-            gene_sym = item['sym']
-            chembl_id = 'CHEMBL.COMPOUND:' + item['drug'].replace('CHEMBL', '')
-            relation, pmids, props, provenance = self.get_edge_props(item)
-
-            # if there were affinity properties use them
-            if len(props) == 2:
-                affinity = props['affinity']
-                affinity_parameter = props['affinity_parameter']
-            else:
-                affinity = 0
-                affinity_parameter = ''
-
-            # create the group id
-            grp: str = chembl_id + relation + gene + f'{random.random()}'
-            grp = hashlib.md5(grp.encode("utf-8")).hexdigest()
-
-            # create the disease node and add it to the node list
-            node_list.append({'grp': grp, 'node_num': 1, 'id': chembl_id, 'name': name, 'category': '', 'equivalent_identifiers': ''})
-
-            # create the gene node and add it to the list
-            node_list.append({'grp': grp, 'node_num': 2, 'id': gene, 'name': gene_sym, 'category': '', 'equivalent_identifiers': '', 'predicate': '', 'relation': relation, 'edge_label': '', 'pmids': pmids, 'affinity': affinity, 'affinity_parameter': affinity_parameter, 'provenance': provenance})
-
-        # return the node list to the caller
-        return node_list, record_counter, skipped_record_counter
-
-    def parse_disease_to_gene(self, node_list: list) -> (list, int, int):
-        """
-        gets disease to gene records from the pharos DB and creates nodes
-        :param node_list: list, the node list to append this data to
-        :return: list, the node list and record counters
-        """
-        # init the record counters
-        record_counter: int = 0
-        skipped_record_counter: int = 0
-
-        # get the data
-        disease_to_gene: dict = self.execute_pharos_sql(self.DISEASE_TO_GENE)
-
-        # create a regex pattern to find UML nodes
-        pattern = re.compile('^C\d+$')  # pattern for umls local id
-
-        # for each item in the list
-        for item in disease_to_gene:
-            # increment the counter
-            record_counter += 1
-
-            # get the pertinent info from the record
-            gene = item['value']
-            gene_sym = item['sym']
-            did = item['did']
-            name = item['name']
-            provenance = item['dtype']
-
-            # move along, no disease id
-            if did is None:
-                # increment the counter
-                skipped_record_counter += 1
-
-                continue
-            # if this is a UML node, create the curie
-            elif pattern.match(did):
-                did = f"UMLS:{did}"
-            # if this is a orphanet node, create the curie
-            elif did.startswith('Orphanet:'):
-                dparts = did.split(':')
-                did = 'ORPHANET:' + dparts[1]
-
-            if did == gene:
-                self.logger.error(f'similar! {did} == {gene}, {item}')
-
-            # create the group id
-            grp: str = did + 'WD:P2293' + gene + f'{random.random()}'
-            grp = hashlib.md5(grp.encode("utf-8")).hexdigest()
-
-            # create the disease node and add it to the list
-            node_list.append({'grp': grp, 'node_num': 1, 'id': did, 'name': name, 'category': '', 'equivalent_identifiers': ''})
-
-            # create the gene node and add it to the node list
-            node_list.append({'grp': grp, 'node_num': 2, 'id': gene, 'name': gene_sym, 'category': '', 'equivalent_identifiers': '', 'predicate': 'biolink:gene_associated_with_condition', 'relation': 'WD:P2293', 'edge_label': 'gene_involved', 'pmids': [], 'affinity': 0, 'affinity_parameter': '', 'provenance': provenance})
-
-        return node_list, record_counter, skipped_record_counter
-
-    def get_edge_props(self, result) -> (str, list, dict, str):
-        """
-        gets the edge properties from the node results
-
-        :param result:
-        :return str: relation, list: pmids, dict: props, str: provenance:
-        """
-        # if there was a predicate make it look pretty
-        if result['pred'] is not None and len(result['pred']) > 1:
-            rel: str = self.snakify(result['pred']).lower()
-        else:
-            rel: str = 'interacts_with'
-
-        # save the relation
-        relation: str = f'GAMMA:{rel}'
-
-        # if there was provenance data save it
-        if result['dtype'] is not None:
-            provenance: str = result['dtype']
-        else:
-            # set the defaults
-            provenance: str = ''
-
-        # if there were any pubmed ids save them
-        if 'pubmed_ids' in result and result['pubmed_ids'] is not None:
-            pmids: list = [f'PMID:{r}' for r in result['pubmed_ids'].split('|')]
-        else:
-            pmids: list = []
-
-        # init the affinity properties dict
-        props: dict = {}
-
-        # if there was data save it
-        if result['affinity'] is not None:
-            props['affinity'] = float(result['affinity'])
-            props['affinity_parameter'] = result['affinity_parameter']
-        else:
-            # set the defaults
-            props['affinity'] = float(0)
-            props['affinity_parameter'] = ''
-
-        # return to the caller
-        return relation, pmids, props, provenance
-
-    @staticmethod
-    def snakify(text):
-        decomma = '_'.join(text.split(','))
-        dedash = '_'.join(decomma.split('-'))
-        resu = '_'.join(dedash.split())
-        return resu
-
-    def execute_pharos_sql(self, sql_query: str) -> dict:
-        """
-        executes a sql statement
-
-        :param sql_query:
-        :return dict of results:
-        """
-        # get a cursor to the db
-        cursor = self.db.cursor(dictionary=True, buffered=True)
-
-        # execute the sql
-        cursor.execute(sql_query)
-
-        # get all the records
-        ret_val: dict = cursor.fetchall()
-
-        # return to the caller
-        return ret_val
-
-    def get_nodes_and_edges(self, df: pd.DataFrame):
-        """
-        gets a list of nodes and edges for the data frame passed.
-
-        :param df: node storage data frame
-        :return:
-        """
-
-        # separate the data into triplet groups
-        df_grp: pd.groupby_generic.DataFrameGroupBy = df.set_index('grp').groupby('grp')
-
-        # iterate through the groups and create the edge records.
-        for row_index, rows in df_grp:
-            # did we get the correct number of records in the group
-            if len(rows) == 2:
-                # init variables for each group
-                node_1_id: str = ''
-
-                # find the node
-                for row in rows.iterrows():
-                    # save the node and node id for the edge
-                    if row[1].node_num == 1:
-                        if row[1]["name"] is not None:
-                            # save the id for the edge
-                            node_1_id = row[1]['id']
-
-                            # make sure the name doesnt have any odd characters
-                            name = ''.join([x if ord(x) < 128 else '?' for x in row[1]["name"]])
-
-                            # save the node
-                            self.final_node_list.append({'id': node_1_id, 'name': name, 'properties': None})
-                            break
-
-                # did we find the root node
-                if node_1_id != '':
-                    # now for each node
-                    for row in rows.iterrows():
-                        # save the nodes and the node id for the edge
-                        if row[1].node_num != 1:
-                            # make sure the name doesnt have any odd characters
-                            name = ''.join([x if ord(x) < 128 else '?' for x in row[1]["name"]])
-
-                            # save the node
-                            self.final_node_list.append({'id': row[1]['id'], 'name': name, 'properties': None})
-
-                            # save the edge
-                            self.final_edge_list.append({"subject": node_1_id, "predicate": row[1]['predicate'], "relation": row[1]['relation'], "object": row[1]['id'], 'properties': {"publications": row[1]['pmids'], "affinity": row[1]['affinity'], "affinity_parameter":  row[1]['affinity_parameter'], 'provenance': row[1]['provenance']}})
-            else:
-                self.logger.debug(f'node group mismatch. len: {len(rows)}, data: {rows}')
-
-        # de-dupe the node list
-        self.final_node_list = [dict(t) for t in {tuple(d.items()) for d in self.final_node_list}]
-
+        extractor.sql_extract(cur,chemical_phenotype_query,
+                              lambda line: f'{prefixes.DRUGBANK}:{line["struct_id"]}',
+                              lambda line: f'{prefixes.UMLS}:{line["umls_cui"]}',
+                              lambda line: self.omop_relationmap[line['relationship_name']],
+                              lambda line: {},  # subject props
+                              lambda line: {},  # object props
+                              lambda line: {},  # edge props
+                              )
+
+        #adverse events
+        #TODO: the original source of this data is not drugcentral, but faers.  So we need to have the ability to have
+        # longer provenance chain, it should be aggregate_source: drugcentral, original_source: faers  (or wahtever)
+        faers_query = 'SELECT struct_id, meddra_code, llr FROM public.faers WHERE llr > llr_threshold and drug_ae > 25'
+        extractor.sql_extract(cur, faers_query,
+                              lambda line: f'{prefixes.DRUGBANK}:{line["struct_id"]}',
+                              lambda line: f'{prefixes.MEDDRA}:{line["meddra_code"]}',
+                              lambda line: 'biolink:causes_adverse_event', #It would be better if there were a mapping...
+                              lambda line: {},  # subject props
+                              lambda line: {},  # object props
+                              lambda line: { 'FAERS_llr': line['llr'] }  # edge props
+                              )
+
+        #bioactivity.  There are several rows in the main activity table (act_table_full) that include multiple accessions
+        # the joins to td2tc and target_component split these out so that each accession appears once per row.
+        # TODO: many of these will represent components, perhaps GO CCs, and it would be good to make a link from chem -> CC
+        bioactivity_query='''select a.struct_id as struct_id, a.act_value as act_value, a.act_unit as act_unit, a.act_type as act_type, 
+                            a.act_source as act_source, a.act_source_url as act_source_url, a.action_type as action_type, 
+                            dc.component_id as component_id, c.accession as accession
+                            from public.act_table_full a, public.td2tc dc, public.target_component c
+                            where a.target_id = dc.target_id
+                            and dc.component_id = c.id'''
+        extractor.sql_extract(cur, bioactivity_query,
+                              lambda line: f'{prefixes.DRUGBANK}:{line["struct_id"]}',
+                              lambda line: f'{prefixes.UNIPROTKB}:{line["accession"]}',
+                              lambda line: get_bioactivity_predicate(line),
+                              lambda line: {},  # subject props
+                              lambda line: {},  # object props
+                              lambda line: get_bioactivity_attributes(line)  # edge props
+                              )
+
+        self.final_node_list = extractor.nodes
+        self.final_edge_list = extractor.edges
+
+        return extractor.load_metadata
+
+def get_bioactivity_predicate(line):
+    action_type_mappings={
+        'ANTAGONIST':'biolink:decreases_activity_of',
+        'AGONIST':'biolink:increases_activity_of',
+        'POSITIVE MODULATOR':'biolink:increases_activity_of',
+        'GATING INHIBITOR':'biolink:decreases_activity_of',
+        'BLOCKER':'biolink:decreases_activity_of',
+        'NEGATIVE MODULATOR':'biolink:decreases_activity_of',
+        'ACTIVATOR':'biolink:increases_activity_of',
+        'BINDING AGENT':'biolink:interacts_with',
+        'ANTISENSE INHIBITOR':'biolink:decreases_activity_of',
+        'POSITIVE ALLOSTERIC MODULATOR':'biolink:increases_activity_of',
+        'INVERSE AGONIST':'biolink:increases_activity_of',
+        'PHARMACOLOGICAL CHAPERONE':'biolink:interacts_with',
+        'PARTIAL AGONIST':'biolink:increases_activity_of',
+        'NEGATIVE ALLOSTERIC MODULATOR':'biolink:decreases_activity_of',
+        'ANTIBODY BINDING':'biolink:interacts_with',
+        'ALLOSTERIC ANTAGONIST':'biolink:decreases_activity_of',
+        'INHIBITOR':'biolink:decreases_activity_of',
+        'OPENER':'biolink:increases_activity_of',
+        'SUBSTRATE':'biolink:is_substrate_of',
+        'MODULATOR':'biolink:affects',
+        'ALLOSTERIC MODULATOR':'biolink:affects',
+        'RELEASING AGENT':'biolink:interacts_with'}
+    if line['action_type'] is not None and line['action_type'] in action_type_mappings:
+        return action_type_mappings[line['action_type']]
+    act_type_mappings = {
+        'IC50':'biolink:decreases_activity_of',
+        'Kd':'biolink:interacts_with',
+        'AC50':'biolink:increases_activity_of',
+        'Ki':'biolink:decreases_activity_of',
+        'EC50':'biolink:increases_activity_of'
+    }
+    acttype = line['act_type']
+    if acttype is not None and acttype in act_type_mappings:
+        if line['act_value'] is not None and line['act_value']> 6:
+            return act_type_mappings[acttype]
+    return 'biolink:interacts_with'
+
+def get_bioactivity_attributes(line):
+    preds = {}
+    if line['act_type'] is not None:
+        preds['affinity'] = line['act_value']
+        preds['affinityParameter'] = line['act_type']
+    if line['act_source'] == 'SCIENTIFIC LITERATURE' and line['act_source_url'] is not None:
+        papersource = line['act_source_url']
+        if papersource.startswith('http://www.ncbi.nlm.nih.gov/pubmed'):
+            papersource=f'{prefixes.PUBMED}:{papersource.split("/")[-1]}'
+        preds['publications'] = [papersource]
+    if line['act_source'] == 'IUPHAR':
+        preds['biolink:aggregator_knowlege_source'] = 'infores:gtopdb'
+    if line['act_source'] == 'KEGG DRUG':
+        preds['biolink:aggregator_knowlege_source'] = 'infores:kegg'
+    if line['act_source'] == 'PDSP':
+        preds['biolink:aggregator_knowlege_source'] = 'infores:pdsp'
+    if line['act_source'] == 'CHEMBL':
+        preds['biolink:aggregator_knowlege_source'] = 'infores:chembl'
 
 if __name__ == '__main__':
     # create a command line parser

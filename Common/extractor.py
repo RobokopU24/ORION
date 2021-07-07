@@ -6,18 +6,10 @@ class Extractor:
     Also so that it can provide a few different interfaces (csv, sql) and keep the guts of the callback code in one
     place.
     """
-    def __init__(self,subject_extractor,
-                   object_extractor,
-                   predicate_extractor,
-                   subject_property_extractor,
-                   object_property_extractor,
-                   edge_property_extractor):
-        self.subject_extractor = subject_extractor
-        self.object_extractor = object_extractor
-        self.predicate_extractor=predicate_extractor
-        self.subject_property_extractor= subject_property_extractor
-        self.object_property_extractor= object_property_extractor
-        self.edge_property_extractor=edge_property_extractor
+    def __init__(self):
+        #You might thing it would be good to include all the extractors at this level, but they are really file or query
+        # level things.  You might want to use the same extractor with two differently formatted files or two different
+        # sql queries.
 
         self.node_ids = set()
         self.nodes = []
@@ -25,7 +17,13 @@ class Extractor:
 
         self.load_metadata = { 'record_counter': 0, 'skipped_record_counter': 0 }
 
-    def csv_extract(self, infile, comment_character="#",delim='\t'):
+    def csv_extract(self, infile, subject_extractor,
+                   object_extractor,
+                   predicate_extractor,
+                   subject_property_extractor,
+                   object_property_extractor,
+                   edge_property_extractor,
+                   comment_character="#",delim='\t'):
         """Read a csv, perform callbacks to retrieve node and edge info per row.
         Assumes that all of the properties extractable for a node occur on the line with the node identifier"""
         for line in infile:
@@ -35,32 +33,34 @@ class Extractor:
             self.load_metadata['record_counter'] += 1
             try:
                 x = line[:-1].split(delim)
-                self.parse_row(x)
+                self.parse_row(x, subject_extractor, object_extractor, predicate_extractor, subject_property_extractor, object_property_extractor, edge_property_extractor)
             except Exception as e:
                 self.load_metadata['skipped_record_counter'] += 1
 
-    def sql_extract(self, cursor, sql_query):
+    def sql_extract(self, cursor, sql_query, subject_extractor, object_extractor, predicate_extractor, subject_property_extractor, object_property_extractor, edge_property_extractor):
         """Read a csv, perform callbacks to retrieve node and edge info per row.
         Assumes that all of the properties extractable for a node occur on the line with the node identifier"""
 
         cursor.execute(sql_query)
         rows = cursor.fetchall()
-
         for row in rows:
             self.load_metadata['record_counter'] += 1
             try:
-                self.parse_row(row)
+                self.parse_row(row, subject_extractor, object_extractor, predicate_extractor, subject_property_extractor, object_property_extractor, edge_property_extractor)
             except Exception as e:
+                print(e)
+                print(row)
+                exit()
                 self.load_metadata['skipped_record_counter'] += 1
 
-    def parse_row(self, row):
+    def parse_row(self, row, subject_extractor, object_extractor, predicate_extractor, subject_property_extractor, object_property_extractor, edge_property_extractor):
         # pull the information out of the edge
-        subject_id = self.subject_extractor(row)
-        object_id = self.object_extractor(row)
-        predicate = self.predicate_extractor(row)
-        subjectprops = self.subject_property_extractor(row)
-        objectprops = self.object_property_extractor(row)
-        edgeprops = self.edge_property_extractor(row)
+        subject_id = subject_extractor(row)
+        object_id = object_extractor(row)
+        predicate = predicate_extractor(row)
+        subjectprops = subject_property_extractor(row)
+        objectprops = object_property_extractor(row)
+        edgeprops = edge_property_extractor(row)
 
         # if we  haven't seen the subject before, add it to nodes
         if subject_id not in self.node_ids:
