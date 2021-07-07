@@ -114,7 +114,7 @@ class KGXFileWriter:
                            'relation': relation}
 
         if original_knowledge_source is not None:
-            edge_object['original_knowledge_source'] = original_knowledge_source
+            edge_object['biolink:original_knowledge_source'] = original_knowledge_source
 
         if edge_properties is not None:
             edge_object.update(edge_properties)
