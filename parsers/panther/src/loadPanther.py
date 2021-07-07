@@ -50,6 +50,7 @@ class PLoader(SourceDataLoader):
         self.test_mode: bool = test_mode
         self.source_id: str = 'PANTHER'
         self.source_db: str = 'Protein ANalysis THrough Evolutionary Relationships'
+        self.provenance_id = 'infores:panther'
 
         # the list of columns in the data
         self.sequence_file_columns = ['gene_identifier', 'protein_id', 'gene_name', 'panther_sf_id', 'panther_family_name',
@@ -132,7 +133,7 @@ class PLoader(SourceDataLoader):
             # for each edge captured
             for edge in self.final_edge_list:
                 # write out the edge data
-                file_writer.write_edge(subject_id=edge['subject'], object_id=edge['object'], relation=edge['relation'], edge_properties=edge['properties'], predicate='')
+                file_writer.write_edge(subject_id=edge['subject'], object_id=edge['object'], relation=edge['relation'], edge_properties=edge['properties'], original_knowledge_source=self.provenance_id, predicate='')
 
     def get_panther_data(self) -> int:
         """
@@ -274,20 +275,23 @@ class PLoader(SourceDataLoader):
 
         for key in gene_fam_data:
             name = gene_fam_data[key]['family_name']
-            name = f'{name} ({key})' if 'NOT NAMED' in name else name
+
             gene_families.append(LabeledID(f'PANTHER.FAMILY:{key}', name))
+
             sub_keys = [k for k in gene_fam_data[key].keys() if k != 'family_name']
+
             for k in sub_keys:
                 name = gene_fam_data[key][k]['sub_family_name']
-                name = f'{name} ({key})' if 'NOT NAMED' in name else name
-                gene_families.append(LabeledID(f'PANTHER.FAMILY:{key}:{k}', gene_fam_data[key][k]['sub_family_name']))
 
+                gene_families.append(LabeledID(f'PANTHER.FAMILY:{key}:{k}', name))
+
+        # for each family
         for family in gene_families:
             self.get_gene_family_by_gene_family(family)
-            # self.get_gene_by_gene_family(family)
-            # self.get_cellular_component_by_gene_family(family)
-            # self.get_biological_process_or_activity_by_gene_family(family)
-            # self.get_pathway_by_gene_family(family)
+            self.get_gene_by_gene_family(family)
+            self.get_cellular_component_by_gene_family(family)
+            self.get_pathway_by_gene_family(family)
+            self.get_biological_process_or_activity_by_gene_family(family)
 
         self.logger.debug(f'Parsing data file complete.')
 
@@ -301,74 +305,132 @@ class PLoader(SourceDataLoader):
         return load_metadata
 
     def get_gene_family_by_gene_family(self, family):
-        predicate = LabeledID('BFO:0000050', 'part of')
-
-        # family_data = self.gene_family_data[family.identifier.split(':')[1]]
-
+        # get the family and sub family info
         fam_id, sub_fam_id = self.get_family_sub_family_ids_from_curie(family.identifier)
 
+        # is no sub ids search the list
         if sub_fam_id == None:
             # we are looking for subfamilies
             sub_id_keys = [y for y in self.gene_family_data[fam_id] if y != 'family_name']
 
-            for sub_id in sub_id_keys:
-                panther_id = f'{fam_id}:{sub_id}'
-
-                # logger.debug(f'GENE _ FAMILY DATA: { self.gene_family_data[fam_id]}')
-                sub_family_node = self.__create_gene_family_node(panther_id, self.gene_family_data[fam_id][sub_id]['sub_family_name'])
-
+            # if we got some sub ids for this family
+            if len(sub_id_keys) > 0:
                 # create the gene family node
-                self.final_node_list.append({'id': family.identifier, 'name': family.family_name, 'properties': None})
+                self.final_node_list.append({'id': family.identifier, 'name': family.label, 'properties': None})
 
-                # create the gene sub-family node
-                self.final_node_list.append({'id': family.identifier + ':' + sub_id, 'name': '', 'properties': None})
+                for sub_id in sub_id_keys:
+                    # logger.debug(f'GENE _ FAMILY DATA: { self.gene_family_data[fam_id]}')
+                    sub_family = self.gene_family_data[fam_id][sub_id]
 
-                edge = self.create_edge(
-                    sub_family_node,
-                    gene_family_node,
-                    'panther.get_gene_family_by_gene_family',
-                    sub_family_node.id,
-                    predicate
-                )
+                    # create the gene sub-family node
+                    self.final_node_list.append({'id': f'{family.identifier}:{sub_id}', 'name': sub_family['sub_family_name'], 'properties': None})
 
-                # create the edge
-                self.final_edge_list.append({})
-
+                    # create the edge
+                    self.final_edge_list.append({'subject': f'{family.identifier}:{sub_id}', 'relation': 'BFO:0000050', 'object': family.identifier, 'properties': {'provided_by': 'panther.get_gene_family_by_gene_family'}})
 
     def get_gene_by_gene_family(self, family):
-        # get the family name
-        family_name = family['panther_family_name']
+        # get the data rows for this family
+        rows = self.get_rows_using_curie(family.identifier)
 
-        # create the gene family node
-        self.final_node_list.append({'id': '', 'name': '', 'properties': {}})
+        # look at all the family records and get the gene nodes
+        for gene_family_data in rows:
+            # get the gene data into a list
+            gene_data = gene_family_data['gene_identifier']
+            gene_data = gene_data.split('|')
 
-        # create the sub gene family namea
-        self.final_node_list.append({'id': '', 'name': '', 'properties': {}})
+            # find a good gene id
+            for item in gene_data:
+                if item.find('=') > 0 and item.find('_HUMAN') == -1 and item.find('Gene') == -1:
+                    gene_id = item.replace('=', ':').upper()
+                    break
 
-        # create the edge
-        self.final_edge_list.append({})
+            # if the gene id was found
+            if gene_id is not None:
+                # get the gene name
+                gene_name = gene_family_data['gene_name'] if gene_family_data['gene_name'] and len(gene_family_data['gene_name']) > 1 else gene_id
 
-    def get_cellular_component_by_gene_family(self, family):
-        # create the gene node
-        self.final_node_list.append({'id': '', 'name': '', 'properties': {}})
+                # create the gene sub-family node
+                self.final_node_list.append({'id': gene_id, 'name': gene_name, 'properties': None})
 
-        pass
+                # create the edge
+                self.final_edge_list.append({'subject': gene_id, 'relation': 'BFO:0000050', 'object': family.identifier, 'properties': None})
+            else:
+                print('Gene name not found')
 
     def get_biological_process_or_activity_by_gene_family(self, family):
-        # create the gene node
-        self.final_node_list.append({'id': '', 'name': '', 'properties': {}})
+        # get the data rows for this family
+        rows = self.get_rows_using_curie(family.identifier)
 
-        pass
+        # look at all the family records
+        for gene_family_data in rows:
+            # for each family record get the cellular component nodes
+            for mole_func in gene_family_data['panther_molecular_func'].split(';'):
+                # was there a molecular function
+                if len(mole_func) > 0:
+                    # get the pathway pieces
+                    name, id = mole_func.split('#')
+
+                    # create the gene sub-family node
+                    self.final_node_list.append({'id': id, 'name': name, 'properties': None})
+
+                    # create the edge
+                    self.final_edge_list.append({'subject': family.identifier, 'relation': 'BFO:0000056', 'object': id, 'properties': None})
+
+    def get_cellular_component_by_gene_family(self, family):
+        # get the data rows for this family
+        rows = self.get_rows_using_curie(family.identifier)
+
+        # look at all the family records
+        for gene_family_data in rows:
+            # for each family record get the cellular component nodes
+            for item in gene_family_data['cellular_components'].split(';'):
+                # was there a cellular component
+                if len(item) > 0:
+                    # get the pieces
+                    name, id = item.split('#')
+
+                    # create the gene sub-family node
+                    self.final_node_list.append({'id': id, 'name': name, 'properties': None})
+
+                    # create the edge
+                    self.final_edge_list.append({'subject': family.identifier, 'relation': 'BFO:0000050', 'object': id, 'properties': None})
 
     def get_pathway_by_gene_family(self, family):
-        # create the gene node
-        self.final_node_list.append({'id': '', 'name': '', 'properties': {}})
+        # get the data rows for this family
+        rows = self.get_rows_using_curie(family.identifier)
 
-        pass
+        # look at all the family records
+        for gene_family_data in rows:
+            # for each family record find the pathway
+            pathway = gene_family_data['pathway'].split('>')
+
+            # was there a pathway
+            if len(pathway) > 0 and len(pathway[0]) > 0:
+                # get the pathway pieces
+                pathway_name, pathway_access = pathway[0].split('#')
+
+                # create the gene sub-family node
+                self.final_node_list.append({'id': f'PANTHER.PATHWAY:{pathway_access}', 'name': pathway_name, 'properties': None})
+
+                # create the edge
+                self.final_edge_list.append({'subject': family.identifier, 'relation': 'BFO:0000054', 'object': f'PANTHER.PATHWAY:{pathway_access}', 'properties': None})
 
     @staticmethod
     def un_curie (text):
         return ':'.join(text.split (':', 1)[1:]) if ':' in text else text
+
+    def get_rows_using_curie(self, curie):
+        """
+        Get all information from the Panther.gene_family_data using a panther identifier.
+        """
+        fam_id, sub_fam_id = self.get_family_sub_family_ids_from_curie(curie)
+        if sub_fam_id == None:
+            rows = []
+            sub_ids = [y for y in list(self.gene_family_data[fam_id].keys()) if y != 'family_name']
+            for sub_id in sub_ids:
+                rows += [x for x in self.gene_family_data[fam_id][sub_id]['rows'] if x not in rows]
+            return rows
+        return self.gene_family_data[fam_id][sub_fam_id]['rows']
 
     def get_family_sub_family_ids_from_curie(self, curie):
         """
