@@ -12,6 +12,7 @@ import psycopg2.extras
 from Common.extractor import Extractor
 from Common.loader_interface import SourceDataLoader
 from Common.utils import LoggingUtil, GetData
+from Common.node_types import ORIGINAL_KNOWLEDGE_SOURCE, PRIMARY_KNOWLEDGE_SOURCE, AGGREGATOR_KNOWLEDGE_SOURCE
 from Common import prefixes
 
 ##############
@@ -19,13 +20,10 @@ from Common import prefixes
 #
 ##############
 class DrugCentralLoader(SourceDataLoader):
-    # for tracking counts
-    total_nodes: int = 0
-    total_edges: int = 0
 
-    # the final output lists of nodes and edges
-    final_node_list: list = []
-    final_edge_list: list = []
+    source_id = 'DrugCentral'
+    source_db = 'DrugCentral'
+    provenance_id = 'infores:drugcentral'
 
     def __init__(self, test_mode: bool = False):
         """
@@ -34,13 +32,16 @@ class DrugCentralLoader(SourceDataLoader):
         """
         # call the super
         super(SourceDataLoader, self).__init__()
-
-        # set global variables
         self.data_path = os.environ['DATA_SERVICES_STORAGE']
         self.test_mode = test_mode
-        self.source_id = 'DrugCentral'
-        self.source_db = 'DrugCentral'
-        self.provenance_id = 'infores:drugcentral'
+
+        # for tracking counts
+        self.total_nodes: int = 0
+        self.total_edges: int = 0
+
+        # the final output lists of nodes and edges
+        self.final_node_list: list = []
+        self.final_edge_list: list = []
 
         # create a logger
         self.logger = LoggingUtil.init_logging("Data_services.DrugCentralLoader", level=logging.INFO, line_format='medium', log_file_path=os.environ['DATA_SERVICES_LOGS'])
@@ -97,12 +98,12 @@ class DrugCentralLoader(SourceDataLoader):
         #chemical/phenotypes
         chemical_phenotype_query='select struct_id, relationship_name, umls_cui from public.omop_relationship where umls_cui is not null'
         extractor.sql_extract(cur,chemical_phenotype_query,
-                              lambda line: f'{prefixes.DRUGBANK}:{line["struct_id"]}',
+                              lambda line: f'{prefixes.DRUGCENTRAL}:{line["struct_id"]}',
                               lambda line: f'{prefixes.UMLS}:{line["umls_cui"]}',
                               lambda line: self.omop_relationmap[line['relationship_name']],
                               lambda line: {},  # subject props
                               lambda line: {},  # object props
-                              lambda line: {},  # edge props
+                              lambda line: {AGGREGATOR_KNOWLEDGE_SOURCE : DrugCentralLoader.provenance_id}  # edge props
                               )
 
         #adverse events
@@ -110,12 +111,14 @@ class DrugCentralLoader(SourceDataLoader):
         # longer provenance chain, it should be aggregate_source: drugcentral, original_source: faers  (or wahtever)
         faers_query = 'SELECT struct_id, meddra_code, llr FROM public.faers WHERE llr > llr_threshold and drug_ae > 25'
         extractor.sql_extract(cur, faers_query,
-                              lambda line: f'{prefixes.DRUGBANK}:{line["struct_id"]}',
+                              lambda line: f'{prefixes.DRUGCENTRAL}:{line["struct_id"]}',
                               lambda line: f'{prefixes.MEDDRA}:{line["meddra_code"]}',
                               lambda line: 'biolink:causes_adverse_event', #It would be better if there were a mapping...
                               lambda line: {},  # subject props
                               lambda line: {},  # object props
-                              lambda line: { 'FAERS_llr': line['llr'] }  # edge props
+                              lambda line: { 'FAERS_llr': line['llr'],
+                                             AGGREGATOR_KNOWLEDGE_SOURCE : DrugCentralLoader.provenance_id,
+                                             ORIGINAL_KNOWLEDGE_SOURCE : 'infores:faers' }  # edge props
                               )
 
         #bioactivity.  There are several rows in the main activity table (act_table_full) that include multiple accessions
@@ -128,7 +131,7 @@ class DrugCentralLoader(SourceDataLoader):
                             where a.target_id = dc.target_id
                             and dc.component_id = c.id'''
         extractor.sql_extract(cur, bioactivity_query,
-                              lambda line: f'{prefixes.DRUGBANK}:{line["struct_id"]}',
+                              lambda line: f'{prefixes.DRUGCENTRAL}:{line["struct_id"]}',
                               lambda line: f'{prefixes.UNIPROTKB}:{line["accession"]}',
                               lambda line: get_bioactivity_predicate(line),
                               lambda line: {},  # subject props
@@ -181,23 +184,27 @@ def get_bioactivity_predicate(line):
     return 'biolink:interacts_with'
 
 def get_bioactivity_attributes(line):
-    preds = {}
+    edge_props = {}
     if line['act_type'] is not None:
-        preds['affinity'] = line['act_value']
-        preds['affinityParameter'] = line['act_type']
+        edge_props['affinity'] = line['act_value']
+        edge_props['affinityParameter'] = line['act_type']
     if line['act_source'] == 'SCIENTIFIC LITERATURE' and line['act_source_url'] is not None:
+        edge_props[ORIGINAL_KNOWLEDGE_SOURCE] = DrugCentralLoader.provenance_id
         papersource = line['act_source_url']
         if papersource.startswith('http://www.ncbi.nlm.nih.gov/pubmed'):
             papersource=f'{prefixes.PUBMED}:{papersource.split("/")[-1]}'
-        preds['publications'] = [papersource]
-    if line['act_source'] == 'IUPHAR':
-        preds['biolink:aggregator_knowlege_source'] = 'infores:gtopdb'
-    if line['act_source'] == 'KEGG DRUG':
-        preds['biolink:aggregator_knowlege_source'] = 'infores:kegg'
-    if line['act_source'] == 'PDSP':
-        preds['biolink:aggregator_knowlege_source'] = 'infores:pdsp'
-    if line['act_source'] == 'CHEMBL':
-        preds['biolink:aggregator_knowlege_source'] = 'infores:chembl'
+            edge_props['publications'] = [papersource]
+    else:
+        edge_props[AGGREGATOR_KNOWLEDGE_SOURCE] = DrugCentralLoader.provenance_id
+        if line['act_source'] == 'IUPHAR':
+            edge_props[PRIMARY_KNOWLEDGE_SOURCE] = 'infores:gtopdb'
+        elif line['act_source'] == 'KEGG DRUG':
+            edge_props[PRIMARY_KNOWLEDGE_SOURCE] = 'infores:kegg'
+        elif line['act_source'] == 'PDSP':
+            edge_props[PRIMARY_KNOWLEDGE_SOURCE] = 'infores:pdsp'
+        elif line['act_source'] == 'CHEMBL':
+            edge_props[PRIMARY_KNOWLEDGE_SOURCE] = 'infores:chembl'
+    return edge_props
 
 if __name__ == '__main__':
     # create a command line parser
@@ -213,8 +220,8 @@ if __name__ == '__main__':
     data_dir = args['data_dir']
 
     # get a reference to the processor
-    goa = DrugCentralLoader(False)
+    loader = DrugCentralLoader(False)
 
     # load the data files and create KGX output
-    goa.load(f"{data_dir}/nodes", f"{data_dir}/edges")
+    loader.load(f"{data_dir}/nodes", f"{data_dir}/edges")
 
