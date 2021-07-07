@@ -326,7 +326,7 @@ class PLoader(SourceDataLoader):
                     self.final_node_list.append({'id': f'{family.identifier}:{sub_id}', 'name': sub_family['sub_family_name'], 'properties': None})
 
                     # create the edge
-                    self.final_edge_list.append({'subject': f'{family.identifier}:{sub_id}', 'relation': 'BFO:0000050', 'object': family.identifier, 'properties': {'provided_by': 'panther.get_gene_family_by_gene_family'}})
+                    self.final_edge_list.append({'subject': f'{family.identifier}:{sub_id}', 'relation': 'BFO:0000050', 'object': family.identifier, 'properties': None})
 
     def get_gene_by_gene_family(self, family):
         # get the data rows for this family
