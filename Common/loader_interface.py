@@ -49,12 +49,23 @@ class SourceDataLoader(metaclass=abc.ABCMeta):
         else:
             self.logger.error(f'Error: Retrieving file {self.data_file} failed.')
 
-        # remove the data file
-        #os.remove(os.path.join(self.data_path, self.data_file))
+        # remove the temp data files or do any necessary clean up
+        self.clean_up()
 
         self.logger.info(f'{self.get_name()}:Processing complete')
 
         return load_metadata
+
+    def clean_up(self):
+        if isinstance(self.data_file, list):
+            for data_file_name in self.data_file:
+                file_to_remove = os.path.join(self.data_path, data_file_name)
+                if os.path.exists(file_to_remove):
+                    os.remove(file_to_remove)
+        else:
+            file_to_remove = os.path.join(self.data_path, self.data_file)
+            if os.path.exists(file_to_remove):
+                os.remove(file_to_remove)
 
     def get_name(self):
         """
