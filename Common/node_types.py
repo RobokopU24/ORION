@@ -56,6 +56,6 @@ node_types = [
 
 # A collection of biolink property variable names.
 
-ORIGINAL_KNOWLEDGE_SOURCE = 'original_knowledge_source'
-PRIMARY_KNOWLEDGE_SOURCE = 'primary_knowledge_source'
-AGGREGATOR_KNOWLEDGE_SOURCE = 'aggregator_knowledge_source'
+ORIGINAL_KNOWLEDGE_SOURCE = 'biolink:original_knowledge_source'
+PRIMARY_KNOWLEDGE_SOURCE = 'biolink:primary_knowledge_source'
+AGGREGATOR_KNOWLEDGE_SOURCE = 'biolink:aggregator_knowledge_source'

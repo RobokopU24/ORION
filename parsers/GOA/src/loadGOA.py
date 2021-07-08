@@ -8,6 +8,7 @@ from Common.loader_interface import SourceDataLoader
 from Common.extractor import Extractor
 from io import TextIOWrapper
 from Common.utils import LoggingUtil, GetData
+from Common.node_types import PRIMARY_KNOWLEDGE_SOURCE
 
 
 # the data header columns are:
@@ -157,12 +158,13 @@ class GOALoader(SourceDataLoader):
                                   lambda line: self.predicates[line[DATACOLS.Qualifier]],  # predicate extractor
                                   lambda line: {},  # subject props
                                   lambda line: {},  # object props
-                                  lambda line: {},  # edge props
+                                  lambda line: {PRIMARY_KNOWLEDGE_SOURCE: self.provenance_id},  # edge props
                                   comment_character = "!", delim = '\t' )
         # return to the caller
         self.final_node_list = extractor.nodes
         self.final_edge_list = extractor.edges
         return extractor.load_metadata
+
 
 if __name__ == '__main__':
     # create a command line parser
