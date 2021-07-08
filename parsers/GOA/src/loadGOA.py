@@ -1,15 +1,12 @@
 import os
 import argparse
 import enum
-import pandas as pd
 import gzip
 import logging
-import requests
 
 from Common.loader_interface import SourceDataLoader
-from Common.csv_extractor import extract
+from Common.extractor import Extractor
 from io import TextIOWrapper
-from csv import reader
 from Common.utils import LoggingUtil, GetData
 
 
@@ -141,35 +138,38 @@ class GOALoader(SourceDataLoader):
         return byte_count
 
 
-    def parse_data_file(self, infile_path: str) -> dict:
+    def parse_data_file(self) -> dict:
         """
         Parses the data file for nodes/edges
 
-        :param infile_path: the name of the GOA file to process
         :return: parsing meta data results
         """
 
-        with gzip.open(infile_path, 'r') as zf:
-            self.final_node_list, self.final_edge_list, load_metadata = \
-                extract(TextIOWrapper(zf, "utf-8"),
-                        lambda line: f'{line[DATACOLS.DB.value]}:{line[DATACOLS.DB_Object_ID.value]}',  #extract subject id,
-                        lambda line: f'{line[DATACOLS.GO_ID.value]}',  #extract object id
-                        lambda line: self.predicates[ line[DATACOLS.Qualifier] ],  #predicate extractor
-                        lambda line: {},  #subject props
-                        lambda line: {},  # object props
-                        lambda line: {},  # edge props
-                        comment_character = "!", delim = '\t'
-                        )
+        infile_path = os.path.join(self.data_path, self.data_file)
 
+        extractor = Extractor( )
+
+        with gzip.open(infile_path, 'r') as zf:
+            extractor.csv_extract(TextIOWrapper(zf, "utf-8"),
+                                  lambda line: f'{line[DATACOLS.DB.value]}:{line[DATACOLS.DB_Object_ID.value]}',
+                                  # extract subject id,
+                                  lambda line: f'{line[DATACOLS.GO_ID.value]}',  # extract object id
+                                  lambda line: self.predicates[line[DATACOLS.Qualifier]],  # predicate extractor
+                                  lambda line: {},  # subject props
+                                  lambda line: {},  # object props
+                                  lambda line: {},  # edge props
+                                  comment_character = "!", delim = '\t' )
         # return to the caller
-        return load_metadata
+        self.final_node_list = extractor.nodes
+        self.final_edge_list = extractor.edges
+        return extractor.load_metadata
 
 if __name__ == '__main__':
     # create a command line parser
-    ap = argparse.ArgumentParser(description='Load UniProtKB human data files and create KGX import files.')
+    ap = argparse.ArgumentParser(description='Load human GOA files and create KGX import files.')
 
     # command line should be like: python loadGOA.py -p /projects/stars/Data_services/UniProtKB_data -g goa_human.gaf.gz -m json
-    ap.add_argument('-p', '--data_dir', required=True, help='The location of the UniProtKB data files')
+    ap.add_argument('-p', '--data_dir', required=True, help='The location of the data files')
 
     # parse the arguments
     args = vars(ap.parse_args())

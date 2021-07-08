@@ -25,6 +25,7 @@ from parsers.hmdb.src.loadHMDB import HMDBLoader
 from parsers.hgnc.src.loadHGNC import HGNCLoader
 from parsers.panther.src.loadPanther import PLoader
 from parsers.GTEx.src.loadGTEx import GTExLoader
+from parsers.drugcentral.src.loaddrugcentral import DrugCentralLoader
 
 GWAS_CATALOG = 'GWASCatalog'
 CTD = 'CTD'
@@ -40,6 +41,7 @@ HMDB = 'HMDB'
 HGNC = 'HGNC'
 PANTHER = 'PANTHER'
 GTEX = 'GTEx'
+DRUG_CENTRAL = 'DrugCentral'
 
 SOURCE_DATA_LOADER_CLASSES = {
     CTD: CTDLoader,
@@ -52,6 +54,7 @@ SOURCE_DATA_LOADER_CLASSES = {
     HMDB: HMDBLoader,
     GWAS_CATALOG: GWASCatalogLoader,
     GTEX: GTExLoader,
+    DRUG_CENTRAL: DrugCentralLoader,
 
     # in progress
     PANTHER: PLoader
