@@ -40,7 +40,7 @@ class SourceDataLoader(metaclass=abc.ABCMeta):
         # did we get all the files
         if byte_count > 0:
             # parse the data
-            load_metadata = self.parse_data_file(os.path.join(self.data_path, self.data_file))
+            load_metadata = self.parse_data_file()
 
             self.logger.debug(f'File parsing complete.')
 
@@ -49,11 +49,23 @@ class SourceDataLoader(metaclass=abc.ABCMeta):
         else:
             self.logger.error(f'Error: Retrieving file {self.data_file} failed.')
 
-        # remove the data file
-        os.remove(os.path.join(self.data_path, self.data_file))
+        # remove the temp data files or do any necessary clean up
+        self.clean_up()
 
         self.logger.info(f'{self.get_name()}:Processing complete')
 
+        return load_metadata
+
+    def clean_up(self):
+        if isinstance(self.data_file, list):
+            for data_file_name in self.data_file:
+                file_to_remove = os.path.join(self.data_path, data_file_name)
+                if os.path.exists(file_to_remove):
+                    os.remove(file_to_remove)
+        else:
+            file_to_remove = os.path.join(self.data_path, self.data_file)
+            if os.path.exists(file_to_remove):
+                os.remove(file_to_remove)
 
     def get_name(self):
         """
@@ -77,7 +89,10 @@ class SourceDataLoader(metaclass=abc.ABCMeta):
             # for each node captured
             for node in self.final_node_list:
                 # write out the node
-                file_writer.write_node(node.identifier, node_name=node.name, node_types=node.categories, node_properties=node.properties)
+                file_writer.write_node(node.identifier,
+                                       node_name=node.name,
+                                       node_types=node.categories,
+                                       node_properties=node.properties)
 
             # for each edge captured
             for edge in self.final_edge_list:
@@ -85,7 +100,6 @@ class SourceDataLoader(metaclass=abc.ABCMeta):
                 file_writer.write_edge(subject_id=edge.subjectid,
                                        object_id=edge.objectid,
                                        relation=edge.relation,
-                                       original_knowledge_source=self.provenance_id,
                                        edge_properties=edge.properties)
 
 

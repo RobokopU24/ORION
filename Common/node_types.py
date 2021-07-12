@@ -52,3 +52,10 @@ node_types = [
     GENE_FAMILY,
     FOOD
 ]
+
+
+# A collection of biolink property variable names.
+
+ORIGINAL_KNOWLEDGE_SOURCE = 'biolink:original_knowledge_source'
+PRIMARY_KNOWLEDGE_SOURCE = 'biolink:primary_knowledge_source'
+AGGREGATOR_KNOWLEDGE_SOURCE = 'biolink:aggregator_knowledge_source'
