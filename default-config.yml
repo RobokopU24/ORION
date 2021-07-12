@@ -10,7 +10,7 @@ data_sources:
 
    - id: GtoPdb
 
-   - id: GWASCatalog
+#   - id: GWASCatalog
     #strict_normalization: false # <--- example for turning strict normalization off, by default it is on
 
  # - id: HMDB
@@ -21,7 +21,7 @@ data_sources:
 
 #  - id: IntAct
 
-   - id: PANTHER
+#   - id: PANTHER
 
 #  - id: PHAROS
 
