@@ -195,11 +195,9 @@ class NodeNormUtils:
                     cached_node_norms.update(**rvs)
                 else:
                     # the error that is trapped here means that the entire list of nodes didnt get normalized.
-                    self.logger.error(f'Node norm response code: {resp.status_code}')
-
-                    # since they all failed to normalize add to the list so we dont try them again
-                    for item in data_chunk:
-                        cached_node_norms.update({item: None})
+                    error_message = f'Node norm response code: {resp.status_code}'
+                    self.logger.error(error_message)
+                    resp.raise_for_status()
 
                 # move on down the list
                 start_index += block_size
@@ -462,12 +460,10 @@ class EdgeNormUtils:
                     # merge this list with what we have gotten so far
                     cached_edge_norms.update(**rvs)
                 else:
-                    # the error that is trapped here means that the entire list of nodes didnt get normalized.
-                    self.logger.error(f'Edge norm response code: {resp.status_code}')
-
-                    # since they all failed to normalize add to the list so we dont try them again
-                    for item in data_chunk:
-                        cached_edge_norms.update({item: None})
+                    # the error that is trapped here means that the entire list of edges didnt get normalized.
+                    error_message = f'Edge norm response code: {resp.status_code}'
+                    self.logger.error(error_message)
+                    resp.raise_for_status()
 
                 # move on down the list
                 start_index += block_size
@@ -501,6 +497,9 @@ class EdgeNormUtils:
 
     @staticmethod
     def get_current_edge_norm_version():
+
+        # hardcoded while bl and norm transition occurs
+        return '1.8.2'
 
         """
         Retrieves the current production version from the edge normalization service

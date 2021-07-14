@@ -223,6 +223,7 @@ class KGXFileNormalizer:
         edge_mergers = 0
         edge_splits = 0
         edges_failed_due_to_nodes = 0
+        edges_failed_due_to_predicates = 0
 
         node_norm_lookup = self.node_normalizer.node_normalization_lookup
         edge_norm_lookup = self.edge_normalizer.edge_normalization_lookup
@@ -247,11 +248,11 @@ class KGXFileNormalizer:
             else:
                 try:
                     normalized_predicate = edge_norm_lookup[edge['relation']]
-                except KeyError as e:
-                    raise NormalizationBrokenError(error_message=f"Missing predicate lookup for {edge['relation']}")
+                except KeyError:
+                    normalized_predicate = None
 
                 if not normalized_predicate:
-                    raise NormalizationBrokenError(error_message=f"Missing predicate for {edge['relation']}")
+                    edges_failed_due_to_predicates += 1
                 else:
                     edge_count = 0
                     for norm_subject_id in normalized_subject_ids:
@@ -301,8 +302,10 @@ class KGXFileNormalizer:
 
         try:
             self.logger.debug(f'Writing predicate map to file...')
+            predicate_map_info = {'predicate_map': edge_norm_lookup,
+                             'edge_norm_failures': edge_norm_failures}
             with open(self.edge_norm_predicate_map_file_path, "w") as predicate_map_file:
-                json.dump(edge_norm_lookup, predicate_map_file)
+                json.dump(predicate_map_info, predicate_map_file, sort_keys=True, indent=4)
         except IOError as e:
             norm_error_msg = f'Error writing edge predicate map file {self.edge_norm_predicate_map_file_path}'
             raise NormalizationFailedError(error_message=norm_error_msg, actual_error=e.msg)
@@ -311,6 +314,7 @@ class KGXFileNormalizer:
             'edge_norm_version': current_edge_norm_version,
             'source_edges': len(source_edges),
             'edges_failed_due_to_nodes': edges_failed_due_to_nodes,
+            'edges_failed_due_to_predicates': edges_failed_due_to_predicates,
             # these keep track of how many edges merged into another, or split into multiple edges
             # this should be true: source_edges - failures - mergers + splits = edges post norm
             'edge_mergers': edge_mergers,
