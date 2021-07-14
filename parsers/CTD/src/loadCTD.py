@@ -9,8 +9,9 @@ import requests
 from bs4 import BeautifulSoup
 from operator import itemgetter
 from Common.utils import LoggingUtil, GetData
-from Common.kgx_file_writer import KGXFileWriter
-from Common.loader_interface import SourceDataLoader
+from Common.loader_interface import SourceDataLoader, SourceDataFailedError
+from Common.kgxmodel import kgxnode, kgxedge
+from Common.prefixes import CTD, NCBITAXON, MESH
 
 
 ##############
@@ -21,9 +22,6 @@ from Common.loader_interface import SourceDataLoader
 # Desc: Class that loads the CTD data and creates node/edge lists for importing into a Neo4j graph.
 ##############
 class CTDLoader(SourceDataLoader):
-    # the final output lists of nodes and edges
-    final_node_list: list = []
-    final_edge_list: list = []
 
     def __init__(self, test_mode: bool = False):
         """
@@ -34,28 +32,26 @@ class CTDLoader(SourceDataLoader):
         super(SourceDataLoader, self).__init__()
 
         # set global variables
-        self.data_path = os.environ['DATA_SERVICES_STORAGE']
         self.test_mode = test_mode
+
+        self.data_path = os.environ['DATA_SERVICES_STORAGE']
+        self.data_files: list = ['CTD_chemicals_diseases.tsv', 'CTD_exposure_events.tsv']
+
         self.source_id = 'CTD'
         self.source_db = 'Comparative Toxicogenomics Database'
         self.provenance_id = 'infores:ctd'
-
-        self.file_list: list = ['CTD_chemicals_diseases.tsv', 'CTD_exposure_events.tsv']
 
         # this file is from JB
         self.hand_curated_data_file = 'ctd.tar.gz'
         self.hand_curated_file = 'ctd-grouped-pipes.tsv'
 
+        # the final output lists of nodes and edges
+        self.final_node_list: list = []
+        self.final_edge_list: list = []
+        self.previous_node_ids = set()
+
         # create a logger
         self.logger = LoggingUtil.init_logging("Data_services.CTD.CTDLoader", level=logging.INFO, line_format='medium', log_file_path=os.environ['DATA_SERVICES_LOGS'])
-
-    def get_name(self):
-        """
-        returns the name of this class
-
-        :return: str - the name of the class
-        """
-        return self.__class__.__name__
 
     def get_latest_source_version(self) -> str:
         """
@@ -84,85 +80,30 @@ class CTDLoader(SourceDataLoader):
         # return to the caller
         return ret_val
 
-    def get_ctd_data(self):
+    def get_data(self):
         """
-        Gets the CTD data.
+        Gets the CTD data gathered from http://ctdbase.org/reports/
 
         """
         # and get a reference to the data gatherer
         gd: GetData = GetData(self.logger.level)
 
         # get all the files noted above
-        file_count: int = gd.get_ctd_http_files(self.data_path, self.file_list)
+        file_count: int = gd.get_ctd_http_files(self.data_path, self.data_files)
 
         # abort if we didnt get all the files
-        if file_count != len(self.file_list):
+        if file_count != len(self.data_files):
             self.logger.error('CTDLoader - Not all files were retrieved from CTD.')
-            raise Exception('CTDLoader - Not all files were retrieved from CTD')
+            raise SourceDataFailedError('CTDLoader - Not all files were retrieved from CTD')
         # if everything is ok so far get the hand curated file in the right place
         else:
-            tar = tarfile.open(os.path.join(os.path.dirname(__file__), self.hand_curated_data_file))
-            tar.extractall(self.data_path)
-            tar.close()
+            #tar = tarfile.open(os.path.join(os.path.dirname(__file__), self.hand_curated_data_file))
+            #tar.extractall(self.data_path)
+            #tar.close()
 
             # save the file in the list
-            self.file_list.append(self.hand_curated_file)
-
-    def write_to_file(self, nodes_output_file_path: str, edges_output_file_path: str) -> None:
-        """
-        sends the data over to the KGX writer to create the node/edge files
-
-        :param nodes_output_file_path: the path to the node file
-        :param edges_output_file_path: the path to the edge file
-        :return: Nothing
-        """
-        # get a KGX file writer
-        with KGXFileWriter(nodes_output_file_path, edges_output_file_path) as file_writer:
-            # for each node captured
-            for node in self.final_node_list:
-                # write out the node
-                file_writer.write_node(node['id'], node_name=node['name'], node_types=[], node_properties=node['properties'])
-
-            # for each edge captured
-            for edge in self.final_edge_list:
-                # write out the edge data
-                file_writer.write_edge(subject_id=edge['subject'],
-                                       object_id=edge['object'],
-                                       relation=edge['relation'],
-                                       original_knowledge_source=self.provenance_id,
-                                       edge_properties=edge['properties'])
-
-    def load(self, nodes_output_file_path: str, edges_output_file_path: str) -> dict:
-        """
-        loads CTD associated data gathered from http://ctdbase.org/reports/
-
-        :param: nodes_output_file_path - path to node file
-        :param: edges_output_file_path - path to edge file
-        :return: dict of load statistics
-        """
-        self.logger.info(f'CTDLoader - Start of CTD data processing. Fetching source files.')
-
-        # get the CTD data
-        self.get_ctd_data()
-
-        self.logger.info(f'CTDLoader - Parsing source files.')
-
-        # parse the data
-        load_metadata: dict = self.parse_data()
-
-        self.logger.info(f'CTDLoader - Writing source data files.')
-
-        # write the output files
-        self.write_to_file(nodes_output_file_path, edges_output_file_path)
-
-        # remove the intermediate files
-        for file in self.file_list:
-            os.remove(os.path.join(self.data_path, file))
-
-        self.logger.info(f'CTDLoader - Processing complete.')
-
-        # return some details of the parse
-        return load_metadata
+            #self.data_files.append(self.hand_curated_file)
+            return True
 
     def parse_data(self) -> dict:
         """
@@ -253,17 +194,23 @@ class CTDLoader(SourceDataLoader):
                     continue
 
                 # get the edge relation
-                relation = self.normalize_relation(f"CTD:{relation_label}")
+                relation = self.normalize_relation(f"{CTD}:{relation_label}")
 
                 # capitalize the node IDs
                 chemical_id: str = r['chemicalID'].upper()
                 gene_id: str = r['geneID'].upper()
 
                 # save the chemical node
-                node_list.append({'id': chemical_id, 'name': r['chem_label'], 'properties': None})
+                if chemical_id not in self.previous_node_ids:
+                    chem_node = kgxnode(chemical_id, name=r['chem_label'])
+                    node_list.append(chem_node)
+                    self.previous_node_ids.add(chemical_id)
 
                 # save the gene node
-                node_list.append({'id': gene_id, 'name': r['gene_label'], 'properties': {'NCBITAXON': r['taxonID'].split(':')[1]}})
+                if gene_id not in self.previous_node_ids:
+                    gene_node = kgxnode(gene_id, name=r['gene_label'], nodeprops={NCBITAXON: r['taxonID'].split(':')[1]})
+                    node_list.append(gene_node)
+                    self.previous_node_ids.add(gene_id)
 
                 # get the right source/object depending on the relation direction
                 if r['direction'] == '->':
@@ -274,7 +221,12 @@ class CTDLoader(SourceDataLoader):
                     edge_object: str = chemical_id
 
                 # save the edge
-                edge_list.append({'subject': edge_subject, 'object': edge_object, 'relation': relation, 'predicate': '', 'properties': {'publications': pmids}.update(props)})
+                new_edge = kgxedge(edge_subject,
+                                   edge_object,
+                                   relation=relation,
+                                   original_knowledge_source=self.provenance_id,
+                                   edgeprops={'publications': pmids}.update(props))
+                edge_list.append(new_edge)
 
         # return the node/edge lists and the record counters to the caller
         return node_list, edge_list, record_counter, skipped_record_counter
@@ -318,17 +270,23 @@ class CTDLoader(SourceDataLoader):
                     continue
 
                 # get the edge relation
-                relation = self.normalize_relation(f"CTD:{relation_label}")
+                relation = self.normalize_relation(f"{CTD}:{relation_label}")
 
                 # capitalize the node IDs
                 chemical_id: str = r['chemicalID'].upper()
                 gene_id: str = r['geneID'].upper()
 
                 # save the chemical node
-                node_list.append({'id': chemical_id, 'name': r['chem_label'], 'properties': None})
+                if chemical_id not in self.previous_node_ids:
+                    chem_node = kgxnode(chemical_id, name=r['chem_label'])
+                    node_list.append(chem_node)
+                    self.previous_node_ids.add(chemical_id)
 
                 # save the gene node
-                node_list.append({'id': gene_id, 'name': r['gene_label'], 'properties': {'NCBITaxon': r['taxonID'].split(':')[1]}})
+                if gene_id not in self.previous_node_ids:
+                    gene_node = kgxnode(gene_id, name=r['gene_label'], nodeprops={NCBITAXON: r['taxonID'].split(':')[1]})
+                    node_list.append(gene_node)
+                    self.previous_node_ids.add(gene_id)
 
                 # get the right source/object depending on the relation direction
                 if r['direction'] == '->':
@@ -339,7 +297,12 @@ class CTDLoader(SourceDataLoader):
                     edge_object: str = chemical_id
 
                 # save the edge
-                edge_list.append({'subject': edge_subject, 'object': edge_object, 'relation': relation, 'properties': {'publications': pmids}.update(props)})
+                new_edge = kgxedge(edge_subject,
+                                   edge_object,
+                                   relation=relation,
+                                   original_knowledge_source=self.provenance_id,
+                                   edgeprops={'publications': pmids}.update(props))
+                edge_list.append(new_edge)
 
         # return the node/edge lists and the record counters to the caller
         return node_list, edge_list, record_counter, skipped_record_counter
@@ -391,14 +354,27 @@ class CTDLoader(SourceDataLoader):
                     relation: str = self.normalize_relation(relation_label)
 
                 # save the disease node
-                node_list.append({'id': 'MESH:' + r['diseaseid'], 'name': r['diseasename'], 'properties': None})
+                disease_id = f'{MESH}:' + r['diseaseid']
+                if disease_id not in self.previous_node_ids:
+                    disease_node = kgxnode(disease_id, name=r['diseasename'])
+                    node_list.append(disease_node)
+                    self.previous_node_ids.add(disease_id)
 
                 # save the exposure node
-                node_list.append({'id': 'MESH:' + r['exposurestressorid'], 'name': r['exposurestressorname'], 'properties': None})
+                exposure_id = f'{MESH}:' + r['exposurestressorid']
+                if exposure_id not in self.previous_node_ids:
+                    exposure_node = kgxnode(exposure_id, name=r['exposurestressorname'])
+                    node_list.append(exposure_node)
+                    self.previous_node_ids.add(exposure_id)
 
                 # save the edge
-                edge_list.append(
-                    {'subject': 'MESH:' + r['diseaseid'], 'object': 'MESH:' + r['exposurestressorid'], 'relation': 'CTD:' + relation, 'properties': {'publications': [f"PMID:{r['reference']}"]}})
+                relation_curie = f'{CTD}:{relation}'
+                new_edge = kgxedge(disease_id,
+                                   exposure_id,
+                                   relation=relation_curie,
+                                   original_knowledge_source=self.provenance_id,
+                                   edgeprops={'publications': [f"PMID:{r['reference']}"]})
+                edge_list.append(new_edge)
 
         # return the node and edge lists to the caller
         return node_list, edge_list, record_counter, skipped_record_counter
@@ -546,16 +522,24 @@ class CTDLoader(SourceDataLoader):
                     # was this node already added
                     if not disease_node_added:
                         # add the disease node
-                        node_list.append({'id': cur_disease_id.upper(), 'name': cur_disease_name, 'properties': None})
+                        disease_node = kgxnode(cur_disease_id.upper(), name=cur_disease_name)
+                        node_list.append(disease_node)
 
                         # set the flag so we dont duplicate adding this node
                         disease_node_added = True
 
                     # add the chemical node
-                    node_list.append({'id': 'MESH:' + c_id, 'name': chemical_info['name'], 'properties': None})
+                    chemical_id = f'{MESH}:{c_id}'
+                    chemical_node = kgxnode(chemical_id, name=chemical_info['name'])
+                    node_list.append(chemical_node)
 
                     # add the edge
-                    edge_list.append({'subject': cur_disease_id.upper(), 'object': 'MESH:' + c_id, 'relation': relation, 'predicate': '', 'properties': {'publications': publications}})
+                    new_edge = kgxedge(cur_disease_id.upper(),
+                                       chemical_id,
+                                       relation=relation,
+                                       original_knowledge_source=self.provenance_id,
+                                       edgeprops={'publications': publications})
+                    edge_list.append(new_edge)
 
                 # insure we dont overrun the list
                 if record_counter >= record_count:
@@ -590,7 +574,7 @@ class CTDLoader(SourceDataLoader):
         # check for invalid data
         if good_row:
             # get the standard properties
-            props: dict = {'description': r['interaction'], 'NCBITAXON': r['taxonID'].split(':')[1]}
+            props: dict = {'description': r['interaction'], NCBITAXON: r['taxonID'].split(':')[1]}
 
             # get the pubmed ids into a list
             pmids: list = r['PMID'].split('|')
@@ -657,11 +641,11 @@ class CTDLoader(SourceDataLoader):
 
         # if there are no markers but there is evidence
         if marker_count == 0 and therapeutic_count > 0:
-            return f'CTD:{therapeutic_relation_label}', therapeutic_relation_label
+            return f'{CTD}:{therapeutic_relation_label}', therapeutic_relation_label
 
         # if there is no therapeutic evidence but there are markers
         if therapeutic_count == 0 and marker_count > 0:
-            return f'CTD:{marker_relation_label}', marker_relation_label
+            return f'{CTD}:{marker_relation_label}', marker_relation_label
 
         # get the marker flag
         marker = (therapeutic_count == 1 and marker_count > 1) or (marker_count / therapeutic_count > 2)
@@ -671,11 +655,11 @@ class CTDLoader(SourceDataLoader):
 
         # if there are a good number of markers
         if marker:
-            return f'CTD:{marker_relation_label}', marker_relation_label
+            return f'{CTD}:{marker_relation_label}', marker_relation_label
 
         # if there is a good amount of therapeutic evidence
         if therapeutic:
-            return f'CTD:{therapeutic_relation_label}', therapeutic_relation_label
+            return f'{CTD}:{therapeutic_relation_label}', therapeutic_relation_label
 
         # return to caller with the default
         return 'RO:0001001', 'related to'

@@ -8,8 +8,9 @@ import xml.etree.cElementTree as E_Tree
 from bs4 import BeautifulSoup
 from zipfile import ZipFile
 from Common.utils import LoggingUtil, GetData
-from Common.kgx_file_writer import KGXFileWriter
 from Common.loader_interface import SourceDataLoader
+from Common.prefixes import CTD, HMDB, OMIM, UNIPROTKB
+from Common.kgxmodel import kgxnode, kgxedge
 
 
 ##############
@@ -79,31 +80,7 @@ class HMDBLoader(SourceDataLoader):
         # return to the caller
         return ret_val
 
-    def write_to_file(self, nodes_output_file_path: str, edges_output_file_path: str) -> None:
-        """
-        sends the data over to the KGX writer to create the node/edge files
-
-        :param nodes_output_file_path: the path to the node file
-        :param edges_output_file_path: the path to the edge file
-        :return: Nothing
-        """
-        # get a KGX file writer
-        with KGXFileWriter(nodes_output_file_path, edges_output_file_path) as file_writer:
-            # for each node captured
-            for node in self.final_node_list:
-                # write out the node
-                file_writer.write_node(node['id'], node_name=node['name'], node_types=[], node_properties=None)
-
-            # for each edge captured
-            for edge in self.final_edge_list:
-                # write out the edge data
-                file_writer.write_edge(subject_id=edge['subject'],
-                                       object_id=edge['object'],
-                                       relation=edge['relation'],
-                                       original_knowledge_source=self.provenance_id,
-                                       edge_properties=edge['properties'])
-
-    def get_hmdb_data(self) -> int:
+    def get_data(self) -> int:
         """
         Gets the hmdb data.
 
@@ -120,55 +97,15 @@ class HMDBLoader(SourceDataLoader):
         # return the file count to the caller
         return byte_count
 
-    def load(self, nodes_output_file_path: str, edges_output_file_path: str) -> dict:
+    def parse_data(self) -> dict:
         """
-        parses the HMDB data file gathered from https://hmdb.ca/system/downloads/current/hmdb_metabolites.zip
+        Parses the data file for graph nodes/edges
 
-        :param nodes_output_file_path: the path to the node file
-        :param edges_output_file_path: the path to the edge file
-        :return the parsed metadata stats
+        :return: load_metadata: metadata about the parsing
         """
 
-        self.logger.info(f'HMDBloader - Start of HMDB data processing.')
-
-        # get the data to process
-        file_count = self.get_hmdb_data()
-
-        # init the return
-        load_metadata: dict = {}
-
-        # did we get the archive
-        if file_count >= 1:
-            self.logger.debug(f'{self.data_file} archive retrieved. Parsing HMDB data.')
-
-            # parse the data
-            load_metadata = self.parse_data_file(self.data_path, self.data_file)
-
-            self.logger.info(f'HMDBLoader - {self.data_file} Processing complete.')
-
-            # write out the data
-            self.write_to_file(nodes_output_file_path, edges_output_file_path)
-
-            self.logger.info(f'HMDBLoader - Processing complete.')
-        else:
-            self.logger.error(f'Error: Retrieving HMDB archive failed.')
-
-        # remove the intermediate data
-        os.remove(os.path.join(self.data_path, 'hmdb_metabolites.zip'))
-
-        # return the metadata to the caller
-        return load_metadata
-
-    def parse_data_file(self, data_file_path: str, data_file_name: str) -> dict:
-        """
-        Parses the data file for graph nodes/edges and writes them to the KGX csv files.
-
-        :param data_file_path: the path to the HMDB zip file
-        :param data_file_name: the name of the HMDB zip file
-        :return: ret_val: record counts
-        """
         # get the path to the data file
-        infile_path: str = os.path.join(data_file_path, data_file_name)
+        infile_path: str = os.path.join(self.data_path, self.data_file)
 
         # init the record counters
         record_counter: int = 0
@@ -194,7 +131,7 @@ class HMDBLoader(SourceDataLoader):
                     # did we get a good value
                     if metabolite_accession is not None and metabolite_accession.text is not None:
                         # create a valid curie for the metabolite id
-                        metabolite_id = 'HMDB:' + metabolite_accession.text
+                        metabolite_id = f'{HMDB}:' + metabolite_accession.text
 
                         # get the metabolite name element
                         metabolite_name: E_Tree.Element = el.find('name')
@@ -213,7 +150,8 @@ class HMDBLoader(SourceDataLoader):
                             # did we get something created
                             if pathway_success or disease_success or gene_success:
                                 # create a metabolite node and add it to the list
-                                self.final_node_list.append({'id': metabolite_id, 'name': metabolite_name.text.encode('ascii',errors='ignore').decode(encoding="utf-8")})
+                                metabolite_node = kgxnode(metabolite_id, name=metabolite_name.text.encode('ascii',errors='ignore').decode(encoding="utf-8"))
+                                self.final_node_list.append(metabolite_node)
                             else:
                                 # increment the counter
                                 skipped_record_counter += 1
@@ -289,22 +227,22 @@ class HMDBLoader(SourceDataLoader):
                         ret_val = True
 
                         # create the gene id
-                        gene_id = 'UniProtKB:' + protein.text
+                        protein_id = UNIPROTKB + ':' + protein.text
 
                         # what type of protein is this
                         if protein_type.text.startswith('Enzyme'):
                             # create the edge data
-                            props: dict = {'provided_by': 'hmdb.enzyme_to_metabolite'}
-                            subject_id: str = gene_id
+                            props: dict = {}
+                            subject_id: str = protein_id
                             object_id: str = metabolite_id
-                            relation: str = 'CTD:affects_abundance_of'
+                            relation: str = f'{CTD}:affects_abundance_of'
                         # else it must be a transport?
                         else:
                             # create the edge data
-                            props: dict = {'provided_by': 'hmdb.metabolite_to_enzyme'}
+                            props: dict = {}
                             subject_id: str = metabolite_id
-                            object_id: str = gene_id
-                            relation: str = 'CTD:increases_transport_of'
+                            object_id: str = protein_id
+                            relation: str = f'{CTD}:increases_transport_of'
 
                         # get the name element
                         el_name: E_Tree.Element = p.find('name')
@@ -316,10 +254,16 @@ class HMDBLoader(SourceDataLoader):
                             name: str = ''
 
                         # create a node and add it to the list
-                        self.final_node_list.append({'id': object_id, 'name': name})
+                        new_node = kgxnode(protein_id, name=name)
+                        self.final_node_list.append(new_node)
 
                         # create an edge and add it to the list
-                        self.final_edge_list.append({'subject': subject_id, 'relation': relation, 'object': object_id, 'properties': props})
+                        new_edge = kgxedge(subject_id,
+                                           object_id,
+                                           relation=relation,
+                                           original_knowledge_source=self.provenance_id,
+                                           edgeprops=props)
+                        self.final_edge_list.append(new_edge)
                     else:
                         self.logger.debug(f'no protein type for {metabolite_id}')
                 else:
@@ -407,11 +351,19 @@ class HMDBLoader(SourceDataLoader):
                         if len(pmids) > 0:
                             props.update({'publications': pmids})
 
+                        disease_id = f'{OMIM}:{object_id.text}'
+
                         # create a node and add it to the list
-                        self.final_node_list.append({'id': 'OMIM:' + object_id.text, 'name': name})
+                        new_node = kgxnode(disease_id, name=name)
+                        self.final_node_list.append(new_node)
 
                         # create an edge and add it to the list
-                        self.final_edge_list.append({'subject': metabolite_id, 'relation': 'RO:0002610', 'object': 'OMIM:' + object_id.text, 'properties': props})
+                        new_edge = kgxedge(metabolite_id,
+                                           disease_id,
+                                           relation='RO:0002610',
+                                           original_knowledge_source=self.provenance_id,
+                                           edgeprops=props)
+                        self.final_edge_list.append(new_edge)
                 else:
                     self.logger.debug(f'no omim id for {metabolite_id}')
         else:
@@ -468,10 +420,15 @@ class HMDBLoader(SourceDataLoader):
                             name: str = ''
 
                         # create a node and add it to the list
-                        self.final_node_list.append({'id': object_id, 'name': name})
+                        new_node = kgxnode(object_id, name=name)
+                        self.final_node_list.append(new_node)
 
                         # create an edge and add it to the list
-                        self.final_edge_list.append({'subject': metabolite_id, 'relation': 'RO:0000056', 'object': object_id, 'properties': {'provided_by': 'HMDB.metabolite_to_pathway'}})
+                        new_edge = kgxedge(metabolite_id,
+                                           object_id,
+                                           relation='RO:0000056',
+                                           original_knowledge_source=self.provenance_id)
+                        self.final_edge_list.append(new_edge)
                     else:
                         self.logger.debug(f'invalid smpdb for {metabolite_id}')
                 else:
