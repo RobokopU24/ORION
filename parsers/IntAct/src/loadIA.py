@@ -10,7 +10,7 @@ from operator import itemgetter
 from zipfile import ZipFile
 from Common.utils import LoggingUtil, GetData
 from Common.loader_interface import SourceDataLoader, SourceDataFailedError
-from Common.prefixes import NCBITAXON
+from Common.prefixes import NCBITAXON, UNIPROTKB
 from Common.kgxmodel import kgxnode, kgxedge
 
 
