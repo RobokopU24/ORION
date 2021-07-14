@@ -345,7 +345,7 @@ class HMDBLoader(SourceDataLoader):
                                 pmids.append('PMID:' + pmid.text)
 
                         # create the edge property data
-                        props: dict = {'provided_by': 'hmdb.metabolite_to_disease'}
+                        props: dict = {}
 
                         # if we found any pubmed ids add them to the properties (optional)
                         if len(pmids) > 0:
