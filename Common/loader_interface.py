@@ -13,8 +13,7 @@ class SourceDataLoader(metaclass=abc.ABCMeta):
                 callable(subclass.__init__) or
                 NotImplemented)
 
-    @abc.abstractmethod
-    def __init__(self, test_mode: bool):
+    def __init__(self):
         """Initialize with the option to run in testing mode."""
         raise NotImplementedError
 
@@ -31,41 +30,47 @@ class SourceDataLoader(metaclass=abc.ABCMeta):
         """
         self.logger.info(f'{self.get_name()}:Processing beginning')
 
-        # init the return
-        load_metadata: dict = {}
+        # download the data files
+        success = self.get_data()
+        self.logger.debug(f'Source data retrieved, parsing now...')
 
-        # get the human goa data
-        byte_count = self.get_data()
-
-        # did we get all the files
-        if byte_count > 0:
-            # parse the data
-            load_metadata = self.parse_data_file()
-
-            self.logger.debug(f'File parsing complete.')
+        # did we get the files successfully
+        if success:
+            # if so parse the data
+            load_metadata = self.parse_data()
+            self.logger.debug(f'File parsing complete. Writing to file...')
 
             # write the output files
             self.write_to_file(nodes_output_file_path, edges_output_file_path)
-        else:
-            self.logger.error(f'Error: Retrieving file {self.data_file} failed.')
 
-        # remove the temp data files or do any necessary clean up
-        self.clean_up()
+            # remove the temp data files or do any necessary clean up
+            self.clean_up()
+        else:
+            error_message = f'Error: Retrieving files failed.'
+            self.logger.error(error_message)
+            self.clean_up()
+            raise SourceDataFailedError(error_message)
 
         self.logger.info(f'{self.get_name()}:Processing complete')
 
         return load_metadata
 
     def clean_up(self):
-        if isinstance(self.data_file, list):
-            for data_file_name in self.data_file:
-                file_to_remove = os.path.join(self.data_path, data_file_name)
-                if os.path.exists(file_to_remove):
-                    os.remove(file_to_remove)
-        else:
+        try:
+            # some implementations will have one data_file
             file_to_remove = os.path.join(self.data_path, self.data_file)
             if os.path.exists(file_to_remove):
                 os.remove(file_to_remove)
+        except AttributeError:
+            pass
+        try:
+            # and some may have many
+            for data_file_name in self.data_files:
+                file_to_remove = os.path.join(self.data_path, data_file_name)
+                if os.path.exists(file_to_remove):
+                    os.remove(file_to_remove)
+        except AttributeError:
+            pass
 
     def get_name(self):
         """
@@ -74,7 +79,6 @@ class SourceDataLoader(metaclass=abc.ABCMeta):
         :return: str - the name of the class
         """
         return self.__class__.__name__
-
 
     def write_to_file(self, nodes_output_file_path: str, edges_output_file_path: str) -> None:
         """
@@ -89,19 +93,12 @@ class SourceDataLoader(metaclass=abc.ABCMeta):
             # for each node captured
             for node in self.final_node_list:
                 # write out the node
-                file_writer.write_node(node.identifier,
-                                       node_name=node.name,
-                                       node_types=node.categories,
-                                       node_properties=node.properties)
+                file_writer.write_kgx_node(node)
 
             # for each edge captured
             for edge in self.final_edge_list:
                 # write out the edge data
-                file_writer.write_edge(subject_id=edge.subjectid,
-                                       object_id=edge.objectid,
-                                       relation=edge.relation,
-                                       edge_properties=edge.properties)
-
+                file_writer.write_kgx_edge(edge)
 
     def has_sequence_variants(self):
         return False

@@ -4,7 +4,8 @@ import jsonlines
 import logging
 
 from Common.utils import LoggingUtil
-
+from Common.kgxmodel import kgxnode, kgxedge
+from Common.node_types import ORIGINAL_KNOWLEDGE_SOURCE, PRIMARY_KNOWLEDGE_SOURCE, AGGREGATOR_KNOWLEDGE_SOURCES
 
 class KGXFileWriter:
 
@@ -64,6 +65,12 @@ class KGXFileWriter:
         self.nodes_to_write.append(node_object)
         self.check_node_buffer_for_flush()
 
+    def write_kgx_node(self, node: kgxnode):
+        self.write_node(node.identifier,
+                        node_name=node.name,
+                        node_types=node.categories,
+                        node_properties=node.properties)
+
     def write_normalized_node(self, node_json: dict, uniquify: bool = True):
         if uniquify and node_json['id'] in self.written_nodes:
             self.repeat_node_count += 1
@@ -97,6 +104,8 @@ class KGXFileWriter:
                    relation: str,
                    predicate: str = None,
                    original_knowledge_source: str = None,
+                   primary_knowledge_source: str = None,
+                   aggregator_knowledge_sources: list = None,
                    edge_properties: dict = None,
                    edge_id: str = None):
         if predicate:
@@ -114,13 +123,29 @@ class KGXFileWriter:
                            'relation': relation}
 
         if original_knowledge_source is not None:
-            edge_object['biolink:original_knowledge_source'] = original_knowledge_source
+            edge_object[ORIGINAL_KNOWLEDGE_SOURCE] = original_knowledge_source
+
+        if primary_knowledge_source is not None:
+            edge_object[PRIMARY_KNOWLEDGE_SOURCE] = primary_knowledge_source
+
+        if aggregator_knowledge_sources is not None:
+            edge_object[AGGREGATOR_KNOWLEDGE_SOURCES] = aggregator_knowledge_sources
 
         if edge_properties is not None:
             edge_object.update(edge_properties)
 
         self.edges_to_write.append(edge_object)
         self.check_edge_buffer_for_flush()
+
+    def write_kgx_edge(self, edge: kgxedge):
+        self.write_edge(subject_id=edge.subjectid,
+                        object_id=edge.objectid,
+                        relation=edge.relation,
+                        predicate=edge.predicate,
+                        original_knowledge_source=edge.original_knowledge_source,
+                        primary_knowledge_source=edge.primary_knowledge_source,
+                        aggregator_knowledge_sources=edge.aggregator_knowledge_sources,
+                        edge_properties=edge.properties)
 
     def check_edge_buffer_for_flush(self):
         if len(self.edges_to_write) >= self.edges_buffer_size:
