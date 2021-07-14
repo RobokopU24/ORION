@@ -98,12 +98,12 @@ class SourceDataLoadManager:
         # locate and verify the main data directory
         self.data_dir = self.init_data_dir()
 
-        # load the config which sets up information about the data sources
+        # load the sources spec which specifies which data sources to download and parse
         self.sources_without_strict_normalization = []
-        self.load_config()
-        self.logger.info(f'Config loaded. Source list: {self.source_list}')
+        self.load_sources_spec()
+        self.logger.info(f'Sources spec loaded. Source list: {self.source_list}')
 
-        # if there is a subset specified with the command line override the master source list
+        # if there is a subset specified with the command line override the full source list
         if source_subset:
             self.source_list = source_subset
             self.logger.info(f'Active sources: {source_subset}')
@@ -468,26 +468,27 @@ class SourceDataLoadManager:
                 self.logger.info(f"SourceDataLoadManager creating subdirectory for {source_id}... {source_dir_path}")
                 os.mkdir(source_dir_path)
 
-    def load_config(self):
-        # check for a config file name specified by the environment variable
-        # the custom config file must be relative to the top level of the data directory
-        if 'DATA_SERVICES_CONFIG' in os.environ and os.environ['DATA_SERVICES_CONFIG']:
-            config_file_name = os.environ['DATA_SERVICES_CONFIG']
-            config_path = os.path.join(self.data_dir, config_file_name)
+    def load_sources_spec(self):
+        # check for a sources spec file name specified by the environment variable
+        # the custom sources spec file must be relative to the top level of the DATA_SERVICES_STORAGE directory
+        if 'DATA_SERVICES_SOURCES_SPEC' in os.environ and os.environ['DATA_SERVICES_SOURCES_SPEC']:
+            spec_file_name = os.environ['DATA_SERVICES_SOURCES_SPEC']
+            spec_path = os.path.join(self.data_dir, spec_file_name)
+            self.logger.info(f'Sources spec loaded... ({spec_path})')
         else:
             # otherwise use the default one included in the codebase
-            config_path = os.path.dirname(os.path.abspath(__file__)) + '/../default-config.yml'
+            spec_path = os.path.dirname(os.path.abspath(__file__)) + '/../default-sources-spec.yml'
+            self.logger.info(f'Default sources spec loaded... ({spec_path})')
 
-        with open(config_path) as config_file:
-            config = yaml.full_load(config_file)
+        with open(spec_path) as spec_file:
+            sources_spec = yaml.full_load(spec_file)
             self.source_list = []
-            for data_source_config in config['data_sources']:
-                data_source_id = data_source_config['id']
+            for data_source_spec in sources_spec['data_sources']:
+                data_source_id = data_source_spec['id']
                 self.source_list.append(data_source_id)
-                if 'strict_normalization' in data_source_config:
-                    if not data_source_config['strict_normalization']:
+                if 'strict_normalization' in data_source_spec:
+                    if not data_source_spec['strict_normalization']:
                         self.sources_without_strict_normalization.append(data_source_id)
-        self.logger.info(f'Config loaded... ({config_path})')
 
 
 if __name__ == '__main__':
