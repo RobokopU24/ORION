@@ -206,7 +206,6 @@ class KGXFileNormalizer:
         self.logger.debug(f'Parsed edges from {self.source_edges_file_path}...')
 
         self.logger.debug(f'Grabbing current edge norm version')
-        # TODO ensure that this is the current biolink version or an equivalent
         current_edge_norm_version = EdgeNormUtils.get_current_edge_norm_version()
 
         self.logger.debug(f'Normalizing predicates from {self.source_edges_file_path}...')
@@ -214,6 +213,10 @@ class KGXFileNormalizer:
         if edge_norm_failures:
             # this should rarely ever happen with the current edge norm design
             self.logger.error(f'Edge normalization service failed to return results for {edge_norm_failures}')
+            for predicate in edge_norm_failures:
+                # TODO remove this hack once biolink predicate norm questions are resolved
+                if predicate.startswith('biolink:'):
+                    self.edge_normalizer.edge_normalization_lookup[predicate] = predicate
         self.logger.debug(f'Predicate normalization complete. Normalizing all the edges..')
 
         normalized_edge_count = 0
@@ -223,8 +226,6 @@ class KGXFileNormalizer:
 
         node_norm_lookup = self.node_normalizer.node_normalization_lookup
         edge_norm_lookup = self.edge_normalizer.edge_normalization_lookup
-        for predicate in edge_norm_failures:
-            edge_norm_lookup[predicate] = 'biolink:related_to'
 
         for edge in source_edges:
             try:
@@ -244,10 +245,13 @@ class KGXFileNormalizer:
             if not (normalized_subject_ids and normalized_object_ids):
                 edges_failed_due_to_nodes += 1
             else:
-                normalized_predicate = edge_norm_lookup[edge['relation']]
-                if not normalized_predicate:
-                    # this should really never happen
+                try:
+                    normalized_predicate = edge_norm_lookup[edge['relation']]
+                except KeyError as e:
                     raise NormalizationBrokenError(error_message=f"Missing predicate lookup for {edge['relation']}")
+
+                if not normalized_predicate:
+                    raise NormalizationBrokenError(error_message=f"Missing predicate for {edge['relation']}")
                 else:
                     edge_count = 0
                     for norm_subject_id in normalized_subject_ids:
