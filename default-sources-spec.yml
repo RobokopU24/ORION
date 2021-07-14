@@ -31,3 +31,4 @@ data_sources:
 
  # - id: ViralProteome
 
+   - id: DrugCentral
