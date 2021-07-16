@@ -16,7 +16,7 @@ from parsers.CTD.src.loadCTD import CTDLoader
 #from parsers.FooDB.src.loadFDB import FDBLoader
 from parsers.GOA.src.loadGOA import GOALoader
 from parsers.IntAct.src.loadIA import IALoader
-#from parsers.PHAROS.src.loadPHAROS import PHAROSLoader
+from parsers.PHAROS.src.loadPHAROS import PHAROSLoader
 from parsers.UberGraph.src.loadUG import UGLoader
 from parsers.ViralProteome.src.loadVP import VPLoader
 #from parsers.ViralProteome.src.loadUniRef import UniRefSimLoader
@@ -55,6 +55,7 @@ SOURCE_DATA_LOADER_CLASSES = {
     GWAS_CATALOG: GWASCatalogLoader,
     GTEX: GTExLoader,
     DRUG_CENTRAL: DrugCentralLoader,
+    PHAROS: PHAROSLoader,
 
     # in progress
     PANTHER: PLoader
