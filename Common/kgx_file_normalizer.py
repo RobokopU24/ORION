@@ -211,12 +211,7 @@ class KGXFileNormalizer:
         self.logger.debug(f'Normalizing predicates from {self.source_edges_file_path}...')
         edge_norm_failures = self.edge_normalizer.normalize_edge_data(source_edges)
         if edge_norm_failures:
-            # this should rarely ever happen with the current edge norm design
             self.logger.error(f'Edge normalization service failed to return results for {edge_norm_failures}')
-            for predicate in edge_norm_failures:
-                # TODO remove this hack once biolink predicate norm questions are resolved
-                if predicate.startswith('biolink:'):
-                    self.edge_normalizer.edge_normalization_lookup[predicate] = predicate
         self.logger.debug(f'Predicate normalization complete. Normalizing all the edges..')
 
         normalized_edge_count = 0
@@ -303,7 +298,7 @@ class KGXFileNormalizer:
         try:
             self.logger.debug(f'Writing predicate map to file...')
             predicate_map_info = {'predicate_map': edge_norm_lookup,
-                             'edge_norm_failures': edge_norm_failures}
+                                  'edge_norm_failures': edge_norm_failures}
             with open(self.edge_norm_predicate_map_file_path, "w") as predicate_map_file:
                 json.dump(predicate_map_info, predicate_map_file, sort_keys=True, indent=4)
         except IOError as e:
