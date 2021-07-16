@@ -30,26 +30,30 @@ class SourceDataLoader(metaclass=abc.ABCMeta):
         """
         self.logger.info(f'{self.get_name()}:Processing beginning')
 
-        # download the data files
-        success = self.get_data()
-        self.logger.debug(f'Source data retrieved, parsing now...')
+        try:
+            # download the data files
+            success = self.get_data()
+            self.logger.info(f'Source data retrieved, parsing now...')
 
-        # did we get the files successfully
-        if success:
-            # if so parse the data
-            load_metadata = self.parse_data()
-            self.logger.debug(f'File parsing complete. Writing to file...')
+            # did we get the files successfully
+            if success:
+                # if so parse the data
+                load_metadata = self.parse_data()
+                self.logger.info(f'File parsing complete. Writing to file...')
 
-            # write the output files
-            self.write_to_file(nodes_output_file_path, edges_output_file_path)
+                # write the output files
+                self.write_to_file(nodes_output_file_path, edges_output_file_path)
+            else:
+                error_message = f'Error: Retrieving files failed.'
+                self.logger.error(error_message)
+                raise SourceDataFailedError(error_message)
 
+        except Exception:
+            raise
+
+        finally:
             # remove the temp data files or do any necessary clean up
             self.clean_up()
-        else:
-            error_message = f'Error: Retrieving files failed.'
-            self.logger.error(error_message)
-            self.clean_up()
-            raise SourceDataFailedError(error_message)
 
         self.logger.info(f'{self.get_name()}:Processing complete')
 
