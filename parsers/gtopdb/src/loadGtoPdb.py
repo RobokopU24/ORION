@@ -262,6 +262,11 @@ class GtoPdbLoader(SourceDataLoader):
 
                 # do the ligand to gene nodes/edges
                 if r['target_species'].startswith('Human') and r['target_ensembl_gene_id'] != '' and r['target'] != '':  # and r['ligand_id'] in self.ligands
+                    # did we get a good relation
+                    if r['type'].startswith('None'):
+                        continue
+                    else:
+                        relation = 'GAMMA:' + r['type'].lower().replace(' ', '_')
 
                     # create a ligand node
                     ligand_id = f'{GTOPDB}:' + r['ligand_id']
@@ -270,8 +275,6 @@ class GtoPdbLoader(SourceDataLoader):
 
                     # save the ligand node
                     node_list.append(ligand_node)
-
-                    relation = 'GAMMA:' + r['type'].lower().replace(' ', '_')
 
                     # get all the properties
                     props: dict = {'primaryTarget': r['primary_target'].lower().startswith('t'),
