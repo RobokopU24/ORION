@@ -8,8 +8,8 @@ import requests
 
 from bs4 import BeautifulSoup
 from Common.utils import LoggingUtil, GetData
-from Common.kgx_file_writer import KGXFileWriter
 from Common.loader_interface import SourceDataLoader
+from Common.kgxmodel import kgxnode, kgxedge
 from functools import partial
 from typing import NamedTuple
 
@@ -31,9 +31,6 @@ class LabeledID(NamedTuple):
 # Desc: Class that loads/parses the PANTHER data.
 ##############
 class PLoader(SourceDataLoader):
-    # the final output lists of nodes and edges
-    final_node_list: list = []
-    final_edge_list: list = []
 
     def __init__(self, test_mode: bool = False):
         """
@@ -52,6 +49,10 @@ class PLoader(SourceDataLoader):
         self.source_db: str = 'Protein ANalysis THrough Evolutionary Relationships'
         self.provenance_id = 'infores:panther'
 
+        # the final output lists of nodes and edges
+        self.final_node_list: list = []
+        self.final_edge_list: list = []
+
         # the list of columns in the data
         self.sequence_file_columns = ['gene_identifier', 'protein_id', 'gene_name', 'panther_sf_id', 'panther_family_name',
                                       'panther_subfamily_name', 'panther_molecular_func', 'panther_biological_process',
@@ -69,14 +70,6 @@ class PLoader(SourceDataLoader):
 
         # create a logger
         self.logger = LoggingUtil.init_logging("Data_services.Panther.PLoader", level=logging.INFO, line_format='medium', log_file_path=os.environ['DATA_SERVICES_LOGS'])
-
-    def get_name(self):
-        """
-        returns the name of the class
-
-        :return: str - the name of the class
-        """
-        return self.__class__.__name__
 
     def get_latest_source_version(self) -> str:
         """
@@ -115,27 +108,7 @@ class PLoader(SourceDataLoader):
         # return to the caller
         return ret_val
 
-    def write_to_file(self, nodes_output_file_path: str, edges_output_file_path: str) -> None:
-        """
-        sends the data over to the KGX writer to create the node/edge files
-
-        :param nodes_output_file_path: the path to the node file
-        :param edges_output_file_path: the path to the edge file
-        :return: Nothing
-        """
-        # get a KGX file writer
-        with KGXFileWriter(nodes_output_file_path, edges_output_file_path) as file_writer:
-            # for each node captured
-            for node in self.final_node_list:
-                # write out the node
-                file_writer.write_node(node['id'], node_name=node['name'], node_types=[], node_properties=None)
-
-            # for each edge captured
-            for edge in self.final_edge_list:
-                # write out the edge data
-                file_writer.write_edge(subject_id=edge['subject'], object_id=edge['object'], relation=edge['relation'], edge_properties=edge['properties'], original_knowledge_source=self.provenance_id, predicate='')
-
-    def get_panther_data(self) -> int:
+    def get_data(self) -> int:
         """
         Gets the Panther data.
 
@@ -152,44 +125,6 @@ class PLoader(SourceDataLoader):
 
         # return the file count to the caller
         return file_count
-
-    def load(self, nodes_output_file_path: str, edges_output_file_path: str) -> dict:
-        """
-        parses the Panther data file gathered
-
-        :param nodes_output_file_path: the path to the node file
-        :param edges_output_file_path: the path to the edge file
-        :return the parsed metadata stats
-        """
-        self.logger.info(f'Panther - Start of Panther data processing.')
-
-        # get the list of taxons to process
-        file_count = self.get_panther_data()
-
-        # init the return
-        load_metadata: dict = {}
-
-        # get the panther archive
-        if file_count == 1:
-            self.logger.debug(f'Panther - {self.data_file} archive retrieved. Parsing data.')
-
-            # parse the data
-            load_metadata = self.parse_data_file()
-
-            self.logger.info(f'Panther - {self.data_file} Processing complete.')
-
-            # write out the data
-            self.write_to_file(nodes_output_file_path, edges_output_file_path)
-
-            self.logger.info(f'Panther - Processing complete.')
-        else:
-            self.logger.error(f'Panther - Error: Retrieving  archive failed.')
-
-        # remove the intermediate file
-        os.remove(os.path.join(self.data_path, self.data_file))
-
-        # return the metadata to the caller
-        return load_metadata
 
     @staticmethod
     def split_with(input_str, splitter, keys=[], ignore_length_mismatch=False):
@@ -257,7 +192,7 @@ class PLoader(SourceDataLoader):
 
         return self.__gene_family_data__
 
-    def parse_data_file(self) -> dict:
+    def parse_data(self) -> dict:
         """
         Parses the data file for graph nodes/edges and writes them to the KGX csv files.
 
@@ -316,17 +251,24 @@ class PLoader(SourceDataLoader):
             # if we got some sub ids for this family
             if len(sub_id_keys) > 0:
                 # create the gene family node
-                self.final_node_list.append({'id': family.identifier, 'name': family.label, 'properties': None})
+                gene_family_node = kgxnode(family.identifier, name=family.label)
+                self.final_node_list.append(gene_family_node)
 
                 for sub_id in sub_id_keys:
                     # logger.debug(f'GENE _ FAMILY DATA: { self.gene_family_data[fam_id]}')
                     sub_family = self.gene_family_data[fam_id][sub_id]
 
                     # create the gene sub-family node
-                    self.final_node_list.append({'id': f'{family.identifier}:{sub_id}', 'name': sub_family['sub_family_name'], 'properties': None})
+                    g_sub_fam_id = f'{family.identifier}:{sub_id}'
+                    gene_sub_family_node = kgxnode(g_sub_fam_id, name=sub_family['sub_family_name'])
+                    self.final_node_list.append(gene_sub_family_node)
 
                     # create the edge
-                    self.final_edge_list.append({'subject': f'{family.identifier}:{sub_id}', 'relation': 'BFO:0000050', 'object': family.identifier, 'properties': None})
+                    new_edge = kgxedge(subject_id=g_sub_fam_id,
+                                       relation='BFO:0000050',
+                                       object_id=family.identifier,
+                                       original_knowledge_source=self.provenance_id)
+                    self.final_edge_list.append(new_edge)
 
     def get_gene_by_gene_family(self, family):
         # get the data rows for this family
@@ -349,13 +291,18 @@ class PLoader(SourceDataLoader):
                 # get the gene name
                 gene_name = gene_family_data['gene_name'] if gene_family_data['gene_name'] and len(gene_family_data['gene_name']) > 1 else gene_id
 
-                # create the gene sub-family node
-                self.final_node_list.append({'id': gene_id, 'name': gene_name, 'properties': None})
+                # create the gene node
+                gene_node = kgxnode(gene_id, name=gene_name)
+                self.final_node_list.append(gene_node)
 
                 # create the edge
-                self.final_edge_list.append({'subject': gene_id, 'relation': 'BFO:0000050', 'object': family.identifier, 'properties': None})
+                gene_family_edge = kgxedge(subject_id=gene_id,
+                                           relation='BFO:0000050',
+                                           object_id=family.identifier,
+                                           original_knowledge_source=self.provenance_id)
+                self.final_edge_list.append(gene_family_edge)
             else:
-                print('Gene name not found')
+                print('Gene id not found')
 
     def get_biological_process_or_activity_by_gene_family(self, family):
         # get the data rows for this family
@@ -370,11 +317,16 @@ class PLoader(SourceDataLoader):
                     # get the pathway pieces
                     name, id = mole_func.split('#')
 
-                    # create the gene sub-family node
-                    self.final_node_list.append({'id': id, 'name': name, 'properties': None})
+                    # create the node
+                    new_node = kgxnode(id, name=name)
+                    self.final_node_list.append(new_node)
 
                     # create the edge
-                    self.final_edge_list.append({'subject': family.identifier, 'relation': 'BFO:0000056', 'object': id, 'properties': None})
+                    new_edge = kgxedge(subject_id=family.identifier,
+                                       relation='BFO:0000056',
+                                       object_id=id,
+                                       original_knowledge_source=self.provenance_id)
+                    self.final_edge_list.append(new_edge)
 
     def get_cellular_component_by_gene_family(self, family):
         # get the data rows for this family
@@ -390,10 +342,15 @@ class PLoader(SourceDataLoader):
                     name, id = item.split('#')
 
                     # create the gene sub-family node
-                    self.final_node_list.append({'id': id, 'name': name, 'properties': None})
+                    new_node = kgxnode(id, name=name)
+                    self.final_node_list.append(new_node)
 
                     # create the edge
-                    self.final_edge_list.append({'subject': family.identifier, 'relation': 'BFO:0000050', 'object': id, 'properties': None})
+                    new_edge = kgxedge(subject_id=family.identifier,
+                                       relation='BFO:0000050',
+                                       object_id=id,
+                                       original_knowledge_source=self.provenance_id)
+                    self.final_edge_list.append(new_edge)
 
     def get_pathway_by_gene_family(self, family):
         # get the data rows for this family
@@ -410,10 +367,15 @@ class PLoader(SourceDataLoader):
                 pathway_name, pathway_access = pathway[0].split('#')
 
                 # create the gene sub-family node
-                self.final_node_list.append({'id': f'PANTHER.PATHWAY:{pathway_access}', 'name': pathway_name, 'properties': None})
+                new_node = kgxnode(f'PANTHER.PATHWAY:{pathway_access}', name=pathway_name)
+                self.final_node_list.append(new_node)
 
                 # create the edge
-                self.final_edge_list.append({'subject': family.identifier, 'relation': 'BFO:0000054', 'object': f'PANTHER.PATHWAY:{pathway_access}', 'properties': None})
+                new_edge = kgxedge(subject_id=family.identifier,
+                                   relation='BFO:0000054',
+                                   object_id=f'PANTHER.PATHWAY:{pathway_access}',
+                                   original_knowledge_source=self.provenance_id)
+                self.final_edge_list.append(new_edge)
 
     @staticmethod
     def un_curie (text):
