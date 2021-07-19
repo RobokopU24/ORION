@@ -12,8 +12,9 @@ import psycopg2.extras
 from Common.extractor import Extractor
 from Common.loader_interface import SourceDataLoader
 from Common.utils import LoggingUtil, GetData
-from Common.node_types import ORIGINAL_KNOWLEDGE_SOURCE, PRIMARY_KNOWLEDGE_SOURCE, AGGREGATOR_KNOWLEDGE_SOURCE
+from Common.node_types import ORIGINAL_KNOWLEDGE_SOURCE, PRIMARY_KNOWLEDGE_SOURCE, AGGREGATOR_KNOWLEDGE_SOURCES
 from Common import prefixes
+
 
 ##############
 # Class: DrugCentral loader
@@ -35,10 +36,6 @@ class DrugCentralLoader(SourceDataLoader):
         self.data_path = os.environ['DATA_SERVICES_STORAGE']
         self.test_mode = test_mode
 
-        # for tracking counts
-        self.total_nodes: int = 0
-        self.total_edges: int = 0
-
         # the final output lists of nodes and edges
         self.final_node_list: list = []
         self.final_edge_list: list = []
@@ -48,7 +45,7 @@ class DrugCentralLoader(SourceDataLoader):
 
         self.omop_relationmap = {'off-label use': 'RO:0002606' , #is substance that treats
                                  'reduce risk': 'RO:0002606', #is substance that treats
-                                 'contraindication': 'biolink:contraindicated_for', # should be: NCIT:C37933', #contraindication
+                                 'contraindication': 'DrugCentral:0000001', # should be: NCIT:C37933', #contraindication
                                  'symptomatic treatment': 'RO:0002606', #is substance that treats
                                  'indication': 'RO:0002606', #is substance that treats
                                  'diagnosis': 'RO:0002606', #theres only one row like this.
@@ -90,7 +87,7 @@ class DrugCentralLoader(SourceDataLoader):
 
         return byte_count
 
-    def parse_data_file(self):
+    def parse_data(self):
         conn = psycopg2.connect("user='postgres' host='localhost'")
         cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
         extractor = Extractor()
@@ -103,7 +100,7 @@ class DrugCentralLoader(SourceDataLoader):
                               lambda line: self.omop_relationmap[line['relationship_name']],
                               lambda line: {},  # subject props
                               lambda line: {},  # object props
-                              lambda line: {AGGREGATOR_KNOWLEDGE_SOURCE : DrugCentralLoader.provenance_id}  # edge props
+                              lambda line: {AGGREGATOR_KNOWLEDGE_SOURCES : [DrugCentralLoader.provenance_id]}  # edge props
                               )
 
         #adverse events
@@ -117,7 +114,7 @@ class DrugCentralLoader(SourceDataLoader):
                               lambda line: {},  # subject props
                               lambda line: {},  # object props
                               lambda line: { 'FAERS_llr': line['llr'],
-                                             AGGREGATOR_KNOWLEDGE_SOURCE : DrugCentralLoader.provenance_id,
+                                             AGGREGATOR_KNOWLEDGE_SOURCES : [DrugCentralLoader.provenance_id],
                                              ORIGINAL_KNOWLEDGE_SOURCE : 'infores:faers' }  # edge props
                               )
 
@@ -195,7 +192,7 @@ def get_bioactivity_attributes(line):
             papersource=f'{prefixes.PUBMED}:{papersource.split("/")[-1]}'
             edge_props['publications'] = [papersource]
     else:
-        edge_props[AGGREGATOR_KNOWLEDGE_SOURCE] = DrugCentralLoader.provenance_id
+        edge_props[AGGREGATOR_KNOWLEDGE_SOURCES] = [DrugCentralLoader.provenance_id]
         if line['act_source'] == 'IUPHAR':
             edge_props[PRIMARY_KNOWLEDGE_SOURCE] = 'infores:gtopdb'
         elif line['act_source'] == 'KEGG DRUG':

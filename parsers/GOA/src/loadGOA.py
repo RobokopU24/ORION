@@ -79,7 +79,6 @@ class GOALoader(SourceDataLoader):
         # create a logger
         self.logger = LoggingUtil.init_logging("Data_services.GOA.GOALoader", level=logging.INFO, line_format='medium', log_file_path=os.environ['DATA_SERVICES_LOGS'])
 
-
     def get_latest_source_version(self):
         """
         gets the version of the data
@@ -138,12 +137,11 @@ class GOALoader(SourceDataLoader):
         # return the byte count to the caller
         return byte_count
 
-
-    def parse_data_file(self) -> dict:
+    def parse_data(self) -> dict:
         """
         Parses the data file for nodes/edges
 
-        :return: parsing meta data results
+        :return: dict of parsing metadata results
         """
 
         infile_path = os.path.join(self.data_path, self.data_file)

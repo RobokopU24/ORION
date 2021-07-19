@@ -9,8 +9,9 @@ from csv import reader
 from operator import itemgetter
 from zipfile import ZipFile
 from Common.utils import LoggingUtil, GetData
-from Common.kgx_file_writer import KGXFileWriter
-from Common.loader_interface import SourceDataLoader
+from Common.loader_interface import SourceDataLoader, SourceDataFailedError
+from Common.prefixes import NCBITAXON, UNIPROTKB
+from Common.kgxmodel import kgxnode, kgxedge
 
 
 # data column enumerators
@@ -67,12 +68,7 @@ class DataCols(enum.IntEnum):
 # Desc: Class that loads the Intact Virus interaction data and creates KGX files for importing into a Neo4j graph.
 ##############
 class IALoader(SourceDataLoader):
-    # storage for experiment groups to write to file.
-    experiment_grp_list: list = []
 
-    # the final output lists of nodes and edges
-    final_node_list: list = []
-    final_edge_list: list = []
 
     def __init__(self, test_mode: bool = False):
         """
@@ -90,16 +86,15 @@ class IALoader(SourceDataLoader):
         self.source_db: str = 'IntAct Molecular Interaction Database'
         self.provenance_id: str = 'infores:intact'
 
+        # storage for experiment groups to write to file.
+        self.experiment_grp_list: list = []
+
+        # the final output lists of nodes and edges
+        self.final_node_list: list = []
+        self.final_edge_list: list = []
+
         # create a logger
         self.logger = LoggingUtil.init_logging("Data_services.IntAct.IALoader", level=logging.INFO, line_format='medium', log_file_path=os.environ['DATA_SERVICES_LOGS'])
-
-    def get_name(self):
-        """
-        returns the name of the class
-
-        :return: str - the name of the class
-        """
-        return self.__class__.__name__
 
     def get_latest_source_version(self) -> str:
         """
@@ -116,7 +111,7 @@ class IALoader(SourceDataLoader):
         # return to the caller
         return ret_val
 
-    def get_intact_data(self) -> int:
+    def get_data(self) -> int:
         """
         Gets the intact data.
 
@@ -133,30 +128,6 @@ class IALoader(SourceDataLoader):
         # return the file count to the caller
         return file_count
 
-    def write_to_file(self, nodes_output_file_path: str, edges_output_file_path: str) -> None:
-        """
-        sends the data over to the KGX writer to create the node/edge files
-
-        :param nodes_output_file_path: the path to the node file
-        :param edges_output_file_path: the path to the edge file
-        :return: Nothing
-        """
-        # get a KGX file writer
-        with KGXFileWriter(nodes_output_file_path, edges_output_file_path) as file_writer:
-            # for each node captured
-            for node in self.final_node_list:
-                # write out the node
-                file_writer.write_node(node['id'], node_name=node['name'], node_types=node['category'], node_properties=node['properties'])
-
-            # for each edge captured
-            for edge in self.final_edge_list:
-                # write out the edge data
-                file_writer.write_edge(subject_id=edge['subject'],
-                                       object_id=edge['object'],
-                                       relation=edge['relation'],
-                                       original_knowledge_source=self.provenance_id,
-                                       edge_properties=edge['properties'])
-
     def load(self, nodes_output_file_path: str, edges_output_file_path: str):
         """
         Loads/parsers the IntAct data file to produce node/edge KGX files for importation into a graph database.
@@ -168,10 +139,7 @@ class IALoader(SourceDataLoader):
         self.logger.info(f'IALoader - Start of IntAct data processing.')
 
         # get the intact data
-        file_count = self.get_intact_data()
-
-        # init the return
-        load_metadata: dict = {}
+        file_count = self.get_data()
 
         # get the intact archive
         if file_count == 1:
@@ -191,11 +159,12 @@ class IALoader(SourceDataLoader):
             self.write_to_file(nodes_output_file_path, edges_output_file_path)
 
             # remove the intermediate data
-            os.remove(os.path.join(self.data_path, self.data_file))
+            self.clean_up()
 
             self.logger.info(f'IALoader - Processing complete.')
         else:
             self.logger.error(f'Error: Retrieving IntAct archive failed.')
+            raise SourceDataFailedError(f'Error: Retrieving IntAct archive failed.')
 
         # return the metadata results
         return load_metadata
@@ -299,15 +268,15 @@ class IALoader(SourceDataLoader):
                         grp: str = f'{pub_id}|{line[DataCols.ID_interactor_A.value]}|{line[DataCols.ID_interactor_B.value]}'  # |{interactor_id}
 
                         # get the uniprot A ids, alias and taxon
-                        uniprot_a: str = 'UniProtKB:' + self.find_target_val(line[DataCols.ID_interactor_A.value], 'uniprotkb')
+                        uniprot_a: str = f'{UNIPROTKB}:' + self.find_target_val(line[DataCols.ID_interactor_A.value], 'uniprotkb')
                         uniprot_alias_a: str = self.find_target_val(line[DataCols.Alias_interactor_A.value], 'uniprotkb', until='(')
-                        taxon_a: str = 'NCBITaxon:' + self.find_target_val(line[DataCols.Taxid_interactor_A.value], 'taxid', only_num=True, until='(')
+                        taxon_a: str = f'{NCBITAXON}:' + self.find_target_val(line[DataCols.Taxid_interactor_A.value], 'taxid', only_num=True, until='(')
                         taxon_alias_a: str = taxon_a
 
                         # get the uniprot B ids, alias and taxon
-                        uniprot_b: str = 'UniProtKB:' + self.find_target_val(line[DataCols.ID_interactor_B.value], 'uniprotkb')
+                        uniprot_b: str = f'{UNIPROTKB}:' + self.find_target_val(line[DataCols.ID_interactor_B.value], 'uniprotkb')
                         uniprot_alias_b: str = self.find_target_val(line[DataCols.Alias_interactor_B.value], 'uniprotkb', until='(')
-                        taxon_b: str = 'NCBITaxon:' + self.find_target_val(line[DataCols.Taxid_interactor_B.value], 'taxid', only_num=True, until='(')
+                        taxon_b: str = f'{NCBITAXON}:' + self.find_target_val(line[DataCols.Taxid_interactor_B.value], 'taxid', only_num=True, until='(')
                         taxon_alias_b: str = taxon_b
 
                         # get the interaction detection method
@@ -368,16 +337,15 @@ class IALoader(SourceDataLoader):
                 for suffix in ['a', 'b']:
                     # if this is a uniprot gene get the taxon number node property
                     if prefix == 'u_':
-                        properties = {'taxon': 'NCBITaxon' + item['t_' + suffix].split(':')[1]}
+                        properties = {'taxon': NCBITAXON + item['t_' + suffix].split(':')[1]}
                     # else a taxon doesnt get a taxon property
                     else:
                         properties = None
 
-                    self.final_node_list.append({'id': item[prefix + suffix],
-                                                 'name': item[prefix + 'alias_' + suffix],
-                                                 'category': [],  # item[prefix + 'category_' + suffix].split('|')
-                                                 'properties': properties}
-                                                )
+                    new_node = kgxnode(item[prefix + suffix],
+                                       name=item[prefix + 'alias_' + suffix],
+                                       nodeprops=properties)
+                    self.final_node_list.append(new_node)
 
         self.logger.debug("get_node_list() end.")
 
@@ -453,13 +421,26 @@ class IALoader(SourceDataLoader):
                     self.logger.debug(f"Publication ID missing for edge. Source: {grp_list[grp_idx]['u_a']}, Object: {grp_list[grp_idx]['u_b']}")
 
                 # add the interacting node edges
-                self.final_edge_list.append({"predicate": "", "subject": f"{grp_list[grp_idx]['u_a']}", "relation": "RO:0002436", "object": f"{grp_list[grp_idx]['u_b']}",
-                                             "properties": {"publications": f"{grp_list[grp_idx]['pub_id']}", "detection_method": detection_method}})
+                subject_id = f"{grp_list[grp_idx]['u_a']}"
+                object_id = f"{grp_list[grp_idx]['u_b']}"
+                edge_props = {"publications": f"{grp_list[grp_idx]['pub_id']}", "detection_method": detection_method}
+                new_edge = kgxedge(subject_id,
+                                   object_id,
+                                   relation="RO:0002436",
+                                   original_knowledge_source=self.provenance_id,
+                                   edgeprops=edge_props)
+                self.final_edge_list.append(new_edge)
 
                 # for each type
                 for suffix in ['a', 'b']:
                     # add the taxa edges
-                    self.final_edge_list.append({"predicate": "", "subject": f"{grp_list[grp_idx]['u_' + suffix]}", "relation": "RO:0002162", "object": f"{grp_list[grp_idx]['t_' + suffix]}", "properties": {}})
+                    subject_id = f"{grp_list[grp_idx]['u_' + suffix]}"
+                    object_id = f"{grp_list[grp_idx]['t_' + suffix]}"
+                    new_edge = kgxedge(subject_id,
+                                       object_id,
+                                       relation="RO:0002162",
+                                       original_knowledge_source=self.provenance_id)
+                    self.final_edge_list.append(new_edge)
 
                 # goto the next pair
                 grp_idx += 1
