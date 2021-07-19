@@ -515,7 +515,7 @@ class EdgeNormUtils:
             versions = resp.json()
 
             # extract the latest version that isn't "latest"
-            edge_norm_version = versions[-2]
+            edge_norm_version = versions[-3]
             return edge_norm_version
         else:
             # this shouldn't happen, raise an exception
