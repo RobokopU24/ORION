@@ -1,4 +1,5 @@
 from Common.kgxmodel import kgxnode, kgxedge
+from Common.node_types import ORIGINAL_KNOWLEDGE_SOURCE, PRIMARY_KNOWLEDGE_SOURCE, AGGREGATOR_KNOWLEDGE_SOURCES
 
 class Extractor:
     """
@@ -48,9 +49,6 @@ class Extractor:
             try:
                 self.parse_row(row, subject_extractor, object_extractor, predicate_extractor, subject_property_extractor, object_property_extractor, edge_property_extractor)
             except Exception as e:
-                print(e)
-                print(row)
-                exit()
                 self.load_metadata['skipped_record_counter'] += 1
 
     def parse_row(self, row, subject_extractor, object_extractor, predicate_extractor, subject_property_extractor, object_property_extractor, edge_property_extractor):
@@ -64,16 +62,30 @@ class Extractor:
 
         # if we  haven't seen the subject before, add it to nodes
         if subject_id not in self.node_ids:
-            subject_node = kgxnode(subject_id, subjectprops)
+            subject_name = subjectprops.pop('name', None)
+            subject_categories = subjectprops.pop('categories', None)
+            subject_node = kgxnode(subject_id, name=subject_name, categories=subject_categories, nodeprops=subjectprops)
             self.nodes.append(subject_node)
             self.node_ids.add(subject_id)
 
         # if we  haven't seen the subject before, add it to nodes
         if object_id not in self.node_ids:
-            object_node = kgxnode(object_id, objectprops)
+            object_name = objectprops.pop('name', None)
+            object_categories = objectprops.pop('categories', None)
+            object_node = kgxnode(object_id, name=object_name, categories=object_categories, nodeprops=objectprops)
             self.nodes.append(object_node)
             self.node_ids.add(object_id)
 
-        edge = kgxedge(subject_id, object_id, predicate, edgeprops)
+        original_knowledge_source = edgeprops.pop(ORIGINAL_KNOWLEDGE_SOURCE, None)
+        primary_knowledge_source = edgeprops.pop(PRIMARY_KNOWLEDGE_SOURCE, None)
+        aggregator_knowledge_sources = edgeprops.pop(AGGREGATOR_KNOWLEDGE_SOURCES, None)
+        edge = kgxedge(subject_id,
+                       object_id,
+                       relation=predicate,
+                       predicate=predicate,
+                       original_knowledge_source=original_knowledge_source,
+                       primary_knowledge_source=primary_knowledge_source,
+                       aggregator_knowledge_sources=aggregator_knowledge_sources,
+                       edgeprops=edgeprops)
         self.edges.append(edge)
 

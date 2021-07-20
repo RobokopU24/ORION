@@ -7,9 +7,11 @@ import shutil
 
 from bs4 import BeautifulSoup
 from parsers.FooDB.src.FoodSQL import FoodSQL
-from Common.kgx_file_writer import KGXFileWriter
-from Common.loader_interface import SourceDataLoader
+from Common.loader_interface import SourceDataLoader, SourceDataFailedError
 from Common.utils import LoggingUtil, GetData
+from Common.kgxmodel import kgxnode, kgxedge
+from Common.prefixes import NCBITAXON
+from Common.node_types import ORIGINAL_KNOWLEDGE_SOURCE
 
 
 ##############
@@ -20,9 +22,6 @@ from Common.utils import LoggingUtil, GetData
 # Desc: Class that loads the FooDB data and creates KGX files for importing into a Neo4j graph.
 ##############
 class FDBLoader(SourceDataLoader):
-    # the final output lists of nodes and edges
-    final_node_list: list = []
-    final_edge_list: list = []
 
     def __init__(self, test_mode: bool = False):
         """
@@ -38,7 +37,7 @@ class FDBLoader(SourceDataLoader):
         self.source_id = 'FooDB'
         self.source_db = 'Food Database'
         self.provenance_id = 'infores:foodb'
-        self.file_list: list = [
+        self.data_files: list = [
             'Food.csv',
             'Content.csv',
             'Compound.csv',
@@ -47,17 +46,14 @@ class FDBLoader(SourceDataLoader):
         self.archive_name = None
         self.full_url_path = None
         self.tar_dir_name = None
+        self.foodb = None
+
+        # the final output lists of nodes and edges
+        self.final_node_list: list = []
+        self.final_edge_list: list = []
 
         # create a logger
         self.logger = LoggingUtil.init_logging("Data_services.FooDB.FooDBLoader", level=logging.INFO, line_format='medium', log_file_path=os.environ['DATA_SERVICES_LOGS'])
-
-    def get_name(self):
-        """
-        returns the name of the class
-
-        :return: str - the name of the class
-        """
-        return self.__class__.__name__
 
     def get_latest_source_version(self):
         """
@@ -84,12 +80,12 @@ class FDBLoader(SourceDataLoader):
             self.archive_name = self.full_url_path.split('/')[-1]
         else:
             self.logger.error(f'FooDBLoader - Cannot find FooDB archive.')
-            raise Exception('FooDBLoader - Cannot find FooDB archive.')
+            raise SourceDataFailedError('FooDBLoader - Cannot find FooDB archive.')
 
         # return to the caller
         return self.archive_name
 
-    def get_foodb_data(self):
+    def get_data(self):
         """
         Gets the fooDB data.
 
@@ -98,68 +94,23 @@ class FDBLoader(SourceDataLoader):
         gd: GetData = GetData(self.logger.level)
 
         # get all the files noted above
-        file_count, foodb_dir, self.tar_dir_name = gd.get_foodb_files(self.full_url_path, self.data_path, self.archive_name, self.file_list)
+        file_count, foodb_dir, self.tar_dir_name = gd.get_foodb_files(self.full_url_path, self.data_path, self.archive_name, self.data_files)
 
         # abort if we didnt get all the files
-        if file_count != len(self.file_list):
+        if file_count != len(self.data_files):
             self.logger.error('FooDBLoader - Not all files were retrieved from FooDB.')
-            raise Exception('FooDBLoader - Not all files were retrieved from FooDB.')
+            raise SourceDataFailedError('FooDBLoader - Not all files were retrieved from FooDB.')
 
         # get the Food DB sqlite object
-        foodb = FoodSQL(os.path.join(self.data_path, foodb_dir))
+        self.foodb = FoodSQL(os.path.join(self.data_path, foodb_dir))
 
         # create the DB
-        foodb.create_db()
+        self.foodb.create_db()
 
-        # return the path to the extracted data files
-        return foodb
+        # return a success flag
+        return True
 
-    def write_to_file(self, nodes_output_file_path: str, edges_output_file_path: str) -> None:
-        """
-        sends the data over to the KGX writer to create the node/edge files
-
-        :param nodes_output_file_path: the path to the node file
-        :param edges_output_file_path: the path to the edge file
-        :return: Nothing
-        """
-        # get a KGX file writer
-        with KGXFileWriter(nodes_output_file_path, edges_output_file_path) as file_writer:
-            # for each node captured
-            for node in self.final_node_list:
-                # write out the node
-                file_writer.write_node(node['id'], node_name=node['name'].encode('ascii', errors='ignore').decode(encoding="utf-8"), node_types=[], node_properties=node['properties'])
-
-            # for each edge captured
-            for edge in self.final_edge_list:
-                # write out the edge data
-                file_writer.write_edge(subject_id=edge['subject'],
-                                       object_id=edge['object'],
-                                       relation=edge['relation'],
-                                       original_knowledge_source=self.provenance_id,
-                                       edge_properties=edge['properties'])
-
-    def load(self, nodes_output_file_path: str, edges_output_file_path: str):
-        """
-        loads/parses FooDB data files
-
-        :param edges_output_file_path:
-        :param nodes_output_file_path:
-        :return:
-        """
-        self.logger.info(f'FooDBLoader - Start of FooDB data processing. Fetching source files and loading database.')
-
-        # get the foodb data ito a database
-        foodb = self.get_foodb_data()
-
-        self.logger.info(f'FooDBLoader - Parsing data.')
-
-        # parse the data
-        load_metadata = self.parse_data(foodb)
-
-        self.logger.info(f'FooDBLoader - Writing output data files.')
-
-        # write the output files
-        self.write_to_file(nodes_output_file_path, edges_output_file_path)
+    def clean_up(self):
 
         # remove the archive
         if self.archive_name is not None:
@@ -169,10 +120,7 @@ class FDBLoader(SourceDataLoader):
         if self.tar_dir_name is not None:
             shutil.rmtree(os.path.join(self.data_path, self.tar_dir_name))
 
-        # return the metadata results
-        return load_metadata
-
-    def parse_data(self, foodb) -> dict:
+    def parse_data(self) -> dict:
         """
         Parses the food list to create KGX files.
 
@@ -181,7 +129,7 @@ class FDBLoader(SourceDataLoader):
         """
 
         # get the compound rows for the food
-        compound_records, cols = foodb.lookup_food()
+        compound_records, cols = self.foodb.lookup_food()
 
         # flag to indicate that this is the first record
         first = True
@@ -208,8 +156,11 @@ class FDBLoader(SourceDataLoader):
                     food_id = compound_record[cols['food_id']]
 
                     # add the food node
-                    compound_list.append({'id': f'NCBITaxon:{int(compound_record[cols["ncbi_taxonomy_id"]])}', 'name': compound_record[cols['food_name']],
-                                          'properties': {'foodb_id': food_id, 'content_type': 'food', 'nutrient': 'false'}})
+                    compound_id = f'{NCBITAXON}:{int(compound_record[cols["ncbi_taxonomy_id"]])}'
+                    food_name = compound_record[cols['food_name']]
+                    compound_properties = {'foodb_id': food_id, 'content_type': 'food', 'nutrient': 'false'}
+                    compound_node = kgxnode(compound_id, food_name, nodeprops=compound_properties)
+                    compound_list.append(compound_node)
 
                     # set the flag
                     first = False
@@ -224,8 +175,15 @@ class FDBLoader(SourceDataLoader):
 
                     # save all the edges
                     for item in compound_list[1:]:
-                        self.final_edge_list.append({'subject': subject_id, 'predicate': 'biolink:related_to', 'relation': 'RO:0001019', 'object': item['id'],
-                                                     'properties': {'unit': item['properties']['unit'].encode('ascii', errors='ignore').decode(encoding="utf-8"), 'amount': item['properties']['amount']}})
+                        object_id = item['id']
+                        edge_props = {'unit': item['properties']['unit'].encode('ascii', errors='ignore').decode(encoding="utf-8"),
+                                      'amount': item['properties']['amount']}
+                        new_edge = kgxedge(subject_id,
+                                           object_id,
+                                           relation='RO:0001019',
+                                           original_knowledge_source=self.provenance_id,
+                                           edgeprops=edge_props)
+                        self.final_edge_list.append(new_edge)
 
                     # clear the list for this food for the next round
                     compound_list.clear()
@@ -234,8 +192,11 @@ class FDBLoader(SourceDataLoader):
                     food_id = compound_record[cols['food_id']]
 
                     # add the food node
-                    compound_list.append({'id': f'NCBITaxon:{int(compound_record[cols["ncbi_taxonomy_id"]])}', 'name': compound_record[cols['food_name']],
-                                          'properties': {'foodb_id': compound_record[cols['food_id']], 'content_type': 'food'}})
+                    compound_id = f'{NCBITAXON}:{int(compound_record[cols["ncbi_taxonomy_id"]])}'
+                    food_name = compound_record[cols['food_name']]
+                    compound_properties = {'foodb_id': food_id, 'content_type': 'food', 'nutrient': 'false'}
+                    food_node = kgxnode(compound_id, name=food_name, nodeprops=compound_properties)
+                    compound_list.append(food_node)
 
                 # get the equivalent id. this selection is in order of priority
                 if compound_record[cols["inchikey"]] is not None:
@@ -259,8 +220,9 @@ class FDBLoader(SourceDataLoader):
                         amount = ''
 
                     # save the node
-                    compound_list.append({'id': equivalent_id, 'name': compound_record[cols['compound_name']],
-                                          'properties': {'foodb_id': compound_record[cols['food_id']], 'content_type': 'compound', 'unit': f'{units}', 'amount': amount}})
+                    compound_props = {'foodb_id': compound_record[cols['food_id']], 'content_type': 'compound', 'unit': f'{units}', 'amount': amount}
+                    compound_node = kgxnode(equivalent_id, name=compound_record[cols['compound_name']], nodeprops=compound_props)
+                    compound_list.append(compound_node)
                 else:
                     # cant use this record
                     skipped_record_counter += 1
@@ -273,13 +235,17 @@ class FDBLoader(SourceDataLoader):
 
             # save all the collected edges
             for item in compound_list[1:]:
-                self.final_edge_list.append({'subject': subject_id, 'predicate': 'biolink:related_to', 'relation': 'RO:0001019', 'object': item['id'],
-                                             'properties': {'unit': item['properties']['unit'].encode('ascii', errors='ignore').decode(encoding="utf-8"), 'amount': item['properties']['amount']}})
+                new_edge = kgxedge(subject_id=subject_id,
+                                   object_id=item['id'],
+                                   relation='RO:0001019',
+                                   original_knowledge_source=self.provenance_id,
+                                   edgeprops={'unit': item['properties']['unit'].encode('ascii', errors='ignore').decode(encoding="utf-8"), 'amount': item['properties']['amount']})
+                self.final_edge_list.append(new_edge)
 
         self.logger.debug(f'FooDB data parsing and KGX file creation complete.\n')
 
         # close the DB connection
-        foodb.conn.close()
+        self.foodb.conn.close()
 
         # load up the metadata
         load_metadata: dict = {

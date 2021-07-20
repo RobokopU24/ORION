@@ -6,9 +6,11 @@ import logging
 import mysql.connector
 import re
 import random
+import requests
+#import sqlite3
 
-from Common.kgx_file_writer import KGXFileWriter
 from Common.loader_interface import SourceDataLoader
+from Common.kgxmodel import kgxnode, kgxedge
 from Common.utils import LoggingUtil, GetData
 
 
@@ -86,14 +88,6 @@ class PHAROSLoader(SourceDataLoader):
                                 join protein p on da.target_id = p.id
                                 WHERE x.xtype='HGNC'"""
 
-    # for tracking counts
-    total_nodes: int = 0
-    total_edges: int = 0
-
-    # the final output lists of nodes and edges
-    final_node_list: list = []
-    final_edge_list: list = []
-
     def __init__(self, test_mode: bool = False):
         """
         constructor
@@ -104,30 +98,25 @@ class PHAROSLoader(SourceDataLoader):
 
         # set global variables
         self.data_path = os.environ['DATA_SERVICES_STORAGE']
+        self.data_file = 'latest.sql'
         self.test_mode = test_mode
         self.source_id = 'PHAROS'
         self.source_db = 'Druggable Genome initiative database'
         self.provenance_id = 'infores:pharos'
 
+        # for tracking counts
+        self.total_nodes: int = 0
+        self.total_edges: int = 0
+
+        # the final output lists of nodes and edges
+        self.final_node_list: list = []
+        self.final_edge_list: list = []
+
         # create a logger
         self.logger = LoggingUtil.init_logging("Data_services.PHAROSLoader", level=logging.INFO, line_format='medium', log_file_path=os.environ['DATA_SERVICES_LOGS'])
 
-        # get a connection to the PHAROS MySQL DB
-        host = os.environ.get('PHAROS_HOST', '')
-        user = os.environ.get('PHAROS_USER', '')
-        password = os.environ.get('PHAROS_PASSWORD', '')
-        database = os.environ.get('PHAROS_DATABASE', '')
-
-        # connect to the DB
-        self.db = mysql.connector.connect(host=host, user=user, password=password, database=database)
-
-    def get_name(self):
-        """
-        returns the name of this class
-
-        :return: str - the name of the class
-        """
-        return self.__class__.__name__
+        # DB connection, lazy instantiation
+        self.db = None
 
     def get_latest_source_version(self) -> str:
         """
@@ -135,14 +124,13 @@ class PHAROSLoader(SourceDataLoader):
 
         :return: the version of the data
         """
+        url = 'http://juniper.health.unm.edu/tcrd/download/latest.README'
+        response = requests.get(url)
+        version = response.text.splitlines()[0]
+        self.logger.info(version)
+        return version
 
-        # use the DB to get the version
-        version = self.execute_pharos_sql('SELECT data_ver FROM dbinfo')
-
-        # return to the caller
-        return version[0]['data_ver']
-
-    def get_pharos_data(self):
+    def get_data(self):
         """
         Gets the PHAROS (https://pharos.nih.gov/) data from https://juniper.health.unm.edu/tcrd/download/
 
@@ -151,7 +139,7 @@ class PHAROSLoader(SourceDataLoader):
         gd: GetData = GetData(self.logger.level)
 
         # get all the files noted above
-        file_count: int = gd.get_pharos_http_file(self.data_path, 'latest.sql')
+        file_count: int = gd.get_pharos_http_file(self.data_path, self.data_file)
 
         # abort if we didnt get the file
         if file_count != 1:
@@ -160,58 +148,16 @@ class PHAROSLoader(SourceDataLoader):
 
         # TODO load the datafile into the database
 
-        # delete the data file after loading
-        os.remove(os.path.join(self.data_path, 'latest.sql'))
+        #db_path = os.path.join(self.data_path, 'pharos.db')
+        #self.db = sqlite3.connect(db_path)
+        #cur = self.db.cursor()
 
-    def write_to_file(self, nodes_output_file_path: str, edges_output_file_path: str) -> None:
-        """
-        sends the data over to the KGX writer to create the node/edge files
+        #dump_path = os.path.join(self.data_path, 'latest.sql')
+        #with open(dump_path, 'r') as f:
+        #    sql_script = f.read()
+        #    cur.executescript(sql_script)
 
-        :param nodes_output_file_path: the path to the node file
-        :param edges_output_file_path: the path to the edge file
-        :return: Nothing
-        """
-        # get a KGX file writer
-        with KGXFileWriter(nodes_output_file_path, edges_output_file_path) as file_writer:
-            # for each node captured
-            for node in self.final_node_list:
-                # write out the node
-                file_writer.write_node(node['id'], node_name=node['name'], node_types=[], node_properties=node['properties'])
-
-            # for each edge captured
-            for edge in self.final_edge_list:
-                # write out the edge data
-                file_writer.write_edge(subject_id=edge['subject'],
-                                       object_id=edge['object'],
-                                       relation=edge['relation'],
-                                       original_knowledge_source=self.provenance_id,
-                                       edge_properties=edge['properties'])
-
-    def load(self, nodes_output_file_path: str, edges_output_file_path: str):
-        """
-        loads PHAROS associated data gathered from
-
-        :param: nodes_output_file_path - path to node file
-        :param: edges_output_file_path - path to edge file
-        :return:
-        """
-        self.logger.info(f'PHAROSLoader - Start of PHAROS data processing.')
-
-        # TODO: get the pharos data
-        # self.get_pharos_data()
-
-        # parse the data
-        load_metadata = self.parse_data_db()
-
-        # write the data to the file system
-        self.write_to_file(nodes_output_file_path, edges_output_file_path)
-
-        self.logger.info(f'PHAROSLoader - Processing complete.')
-
-        # return the metadata to the caller
-        return load_metadata
-
-    def parse_data_db(self) -> dict:
+    def parse_data(self) -> dict:
         """
         Parses the PHAROS data to create KGX files.
 
@@ -621,6 +567,15 @@ class PHAROSLoader(SourceDataLoader):
         resu = '_'.join(dedash.split())
         return resu
 
+    def init_pharos_db(self):
+
+        # get a connection to the PHAROS MySQL DB
+        host = os.environ.get('PHAROS_HOST', '')
+        user = os.environ.get('PHAROS_USER', '')
+        password = os.environ.get('PHAROS_PASSWORD', '')
+        database = os.environ.get('PHAROS_DATABASE', '')
+        self.db = mysql.connector.connect(host=host, user=user, password=password, database=database)
+
     def execute_pharos_sql(self, sql_query: str) -> dict:
         """
         executes a sql statement
@@ -628,6 +583,9 @@ class PHAROSLoader(SourceDataLoader):
         :param sql_query:
         :return dict of results:
         """
+        if not self.db:
+            self.init_pharos_db()
+
         # get a cursor to the db
         cursor = self.db.cursor(dictionary=True, buffered=True)
 
@@ -670,7 +628,8 @@ class PHAROSLoader(SourceDataLoader):
                             name = ''.join([x if ord(x) < 128 else '?' for x in row[1]["name"]])
 
                             # save the node
-                            self.final_node_list.append({'id': node_1_id, 'name': name, 'properties': None})
+                            new_node = kgxnode(node_1_id, name=name)
+                            self.final_node_list.append(new_node)
                             break
 
                 # did we find the root node
@@ -683,15 +642,21 @@ class PHAROSLoader(SourceDataLoader):
                             name = ''.join([x if ord(x) < 128 else '?' for x in row[1]["name"]])
 
                             # save the node
-                            self.final_node_list.append({'id': row[1]['id'], 'name': name, 'properties': None})
+                            new_node = kgxnode(row[1]['id'], name=name)
+                            self.final_node_list.append(new_node)
 
                             # save the edge
-                            self.final_edge_list.append({"subject": node_1_id, "predicate": row[1]['predicate'], "relation": row[1]['relation'], "object": row[1]['id'], 'properties': {"publications": row[1]['pmids'], "affinity": row[1]['affinity'], "affinity_parameter":  row[1]['affinity_parameter'], 'provenance': row[1]['provenance']}})
+                            edge_props = {"publications": row[1]['pmids'], "affinity": row[1]['affinity'], "affinity_parameter":  row[1]['affinity_parameter']}
+                            new_edge = kgxedge(subject_id=node_1_id,
+                                               relation=row[1]['relation'],
+                                               predicate=row[1]['predicate'],
+                                               object_id=row[1]['id'],
+                                               edgeprops=edge_props,
+                                               primary_knowledge_source=row[1]['provenance'],
+                                               aggregator_knowledge_sources=[self.provenance_id])
+                            self.final_edge_list.append(new_edge)
             else:
                 self.logger.debug(f'node group mismatch. len: {len(rows)}, data: {rows}')
-
-        # de-dupe the node list
-        self.final_node_list = [dict(t) for t in {tuple(d.items()) for d in self.final_node_list}]
 
 
 if __name__ == '__main__':

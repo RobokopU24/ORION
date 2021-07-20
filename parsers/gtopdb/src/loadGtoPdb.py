@@ -7,8 +7,9 @@ import re
 
 from bs4 import BeautifulSoup
 from Common.utils import LoggingUtil, GetData
-from Common.kgx_file_writer import KGXFileWriter
-from Common.loader_interface import SourceDataLoader
+from Common.loader_interface import SourceDataLoader, SourceDataFailedError
+from Common.prefixes import GTOPDB, HGNC, ENSEMBL
+from Common.kgxmodel import kgxnode, kgxedge
 
 
 ##############
@@ -19,9 +20,8 @@ from Common.loader_interface import SourceDataLoader
 # Desc: Class that loads the GtoPdb data and creates node/edge lists for importing into a Neo4j graph.
 ##############
 class GtoPdbLoader(SourceDataLoader):
-    # the final output lists of nodes and edges
-    final_node_list: list = []
-    final_edge_list: list = []
+
+    provenance_id = 'infores:gtopdb'
 
     def __init__(self, test_mode: bool = False):
         """
@@ -33,25 +33,21 @@ class GtoPdbLoader(SourceDataLoader):
 
         # set global variables
         self.data_path: str = os.environ['DATA_SERVICES_STORAGE']
+        self.data_files: list = ['interactions.tsv', 'peptides.tsv', 'GtP_to_HGNC_mapping.tsv', 'ligands.tsv']
+
         self.test_mode: bool = test_mode
         self.source_id: str = 'GtoPdb'
         self.source_db: str = 'Guide to Pharmacology database'
-        self.provenance_id: str = 'infores:gtopdb'
+
         self.gene_map: dict = {}
         self.ligands: list = []
 
-        self.file_list: list = ['interactions.tsv', 'peptides.tsv', 'GtP_to_HGNC_mapping.tsv', 'ligands.tsv']
+        # the final output lists of nodes and edges
+        self.final_node_list: list = []
+        self.final_edge_list: list = []
 
         # create a logger
         self.logger = LoggingUtil.init_logging("Data_services.GtoPdb.GtoPdbLoader", level=logging.INFO, line_format='medium', log_file_path=os.environ['DATA_SERVICES_LOGS'])
-
-    def get_name(self) -> str:
-        """
-        returns the name of this class
-
-        :return: str - the name of the class
-        """
-        return self.__class__.__name__
 
     def get_latest_source_version(self) -> str:
         """
@@ -82,7 +78,7 @@ class GtoPdbLoader(SourceDataLoader):
         # return to the caller
         return ret_val
 
-    def get_gtopdb_data(self):
+    def get_data(self):
         """
         Gets the GtoPdb data files.
 
@@ -91,73 +87,14 @@ class GtoPdbLoader(SourceDataLoader):
         gd: GetData = GetData(self.logger.level)
 
         # get all the files noted above
-        file_count: int = gd.get_gtopdb_http_files(self.data_path, self.file_list)
+        file_count: int = gd.get_gtopdb_http_files(self.data_path, self.data_files)
 
         # abort if we didnt get all the files
-        if file_count != len(self.file_list):
-            raise Exception(f'One or more of the GtoPdb files were not retrieved.')
+        if file_count != len(self.data_files):
+            raise SourceDataFailedError(f'One or more of the GtoPdb files were not retrieved.')
 
-    def write_to_file(self, nodes_output_file_path: str, edges_output_file_path: str) -> None:
-        """
-        sends the data over to the KGX writer to create the node/edge files
-
-        :param nodes_output_file_path: the path to the node file
-        :param edges_output_file_path: the path to the edge file
-        :return: Nothing
-        """
-        # get a KGX file writer
-        with KGXFileWriter(nodes_output_file_path, edges_output_file_path) as file_writer:
-            # for each node captured
-            for node in self.final_node_list:
-                # write out the node
-                file_writer.write_node(node['id'], node_name=node['name'], node_types=[], node_properties=None)
-
-            # for each edge captured
-            for edge in self.final_edge_list:
-                # write out the edge data
-                file_writer.write_edge(subject_id=edge['subject'],
-                                       object_id=edge['object'],
-                                       relation=edge['relation'],
-                                       original_knowledge_source=self.provenance_id,
-                                       edge_properties=edge['properties'])
-
-    def load(self, nodes_output_file_path: str, edges_output_file_path: str) -> dict:
-        """
-        loads GtoPdb associated data gathered from https://www.guidetopharmacology.org/DATA/ligands.tsv
-
-        :param: nodes_output_file_path - path to node file
-        :param: edges_output_file_path - path to edge file
-        :return: dict of load statistics
-        """
-        self.logger.info(f'GtoPdbLoader - Start of GtoPdb data processing. Fetching source files.')
-
-        # get the GtoPDB data
-        self.get_gtopdb_data()
-
-        # get the gene map data
-        self.get_gene_map(os.path.join(self.data_path, 'GtP_to_HGNC_mapping.tsv'))
-
-        # get the list of non-peptide ligands
-        self.get_ligands(os.path.join(self.data_path, 'ligands.tsv'))
-
-        self.logger.info(f'GtoPdbLoader - Parsing source files.')
-
-        # parse the data
-        load_metadata: dict = self.parse_data()
-
-        self.logger.info(f'GtoPdbLoader - Writing source data files.')
-
-        # write the output files
-        self.write_to_file(nodes_output_file_path, edges_output_file_path)
-
-        self.logger.info(f'GtoPdbLoader - Processing complete.')
-
-        # remove the intermediate files
-        for item in self.file_list:
-            os.remove(os.path.join(self.data_path, item))
-
-        # return some details of the parse
-        return load_metadata
+        # otherwise return success
+        return True
 
     def get_gene_map(self, file_path):
         """
@@ -252,7 +189,11 @@ class GtoPdbLoader(SourceDataLoader):
                 # only process human records
                 if r['Species'].upper().find('HUMAN') > -1 and r['Subunit ids'] != '':
                     # (GTOPDB:<ligand_id>, name=<ligand>)
-                    ligand_node: dict = {'id': 'GTOPDB:' + r['Ligand id'], 'name': r['Name'].encode('ascii',errors='ignore').decode(encoding="utf-8")}
+
+                    # create a ligand node
+                    ligand_id = f'{GTOPDB}:' + r['Ligand id']
+                    ligand_name = r['Name'].encode('ascii',errors='ignore').decode(encoding="utf-8")
+                    ligand_node = kgxnode(ligand_id, name=ligand_name)
 
                     # save the ligand node
                     node_list.append(ligand_node)
@@ -266,16 +207,19 @@ class GtoPdbLoader(SourceDataLoader):
                         subunit_name = r['Subunit names'].split('|')
 
                         # create the node
-                        part_node: dict = {'id': 'GTOPDB:' + subunit_id, 'name': subunit_name[idx].encode('ascii',errors='ignore').decode(encoding="utf-8")}
+                        part_node_id = f'{GTOPDB}:{subunit_id}'
+                        part_node_name = subunit_name[idx].encode('ascii',errors='ignore').decode(encoding="utf-8")
+                        part_node = kgxnode(part_node_id, name=part_node_name)
 
-                        props: dict = {'edge_source': 'gtopdb.complex_to_part'}
-                        edge = {'subject': 'GTOPDB:' + r['Ligand id'], 'object': 'GTOPDB:' + subunit_id, 'relation': 'BFO:0000051', 'properties': props}
-
-                        # save the gene node
+                        # save the node
                         node_list.append(part_node)
 
                         # save the edge
-                        edge_list.append(edge)
+                        new_edge = kgxedge(ligand_id,
+                                           part_node_id,
+                                           relation='BFO:0000051',
+                                           original_knowledge_source=GtoPdbLoader.provenance_id)
+                        edge_list.append(new_edge)
                 else:
                     skipped_record_counter += 1
 
@@ -318,45 +262,59 @@ class GtoPdbLoader(SourceDataLoader):
 
                 # do the ligand to gene nodes/edges
                 if r['target_species'].startswith('Human') and r['target_ensembl_gene_id'] != '' and r['target'] != '':  # and r['ligand_id'] in self.ligands
-                    # (GTOPDB:<ligand_id>, name=<ligand>)
-                    ligand_node: dict = {'id': 'GTOPDB:' + r['ligand_id'], 'name': r['ligand'].encode('ascii',errors='ignore').decode(encoding="utf-8")}
+                    # did we get a good relation
+                    if r['type'].startswith('None'):
+                        continue
+                    else:
+                        relation = 'GAMMA:' + r['type'].lower().replace(' ', '_')
+
+                    # create a ligand node
+                    ligand_id = f'{GTOPDB}:' + r['ligand_id']
+                    ligand_name = r['ligand'].encode('ascii',errors='ignore').decode(encoding="utf-8")
+                    ligand_node = kgxnode(ligand_id, name=ligand_name)
 
                     # save the ligand node
                     node_list.append(ligand_node)
 
-                    # (ENSEMBL:<target_ensembl_gene_id>)
+                    # get all the properties
+                    props: dict = {'primaryTarget': r['primary_target'].lower().startswith('t'),
+                                   'affinityParameter': r['affinity_units'],
+                                   'endogenous': r['endogenous'].lower().startswith('t')}
+
+                    # check the affinity and insure it is a float
+                    if r['affinity_median'] != '':
+                        props.update({'affinity': float(r['affinity_median'])})
+
+                    # if there are publications add them in
+                    if r['pubmed_id'] != '':
+                        props.update({'publications': [f'PMID:{x}' for x in r['pubmed_id'].split('|')]})
+
+                    # get the list of gene ids (ENSEMBL ids)
                     genes = r['target_ensembl_gene_id'].split('|')
+
+                    # get the list of gene names
+                    gene_names = r['target_gene_symbol'].split('|')
 
                     # for each gene listed
                     for idx, g in enumerate(genes):
                         # strip off the errant ';'
                         gene_id = g.replace(';', '')
 
-                        # get the list of gene names
-                        gene_name = r['target_gene_symbol'].split('|')
-
                         # create the node
-                        gene_node: dict = {'id': 'ENSEMBL:' + gene_id, 'name': gene_name[idx].encode('ascii',errors='ignore').decode(encoding="utf-8")}
-
-                        # get all the properties
-                        props: dict = {'primaryTarget': r['primary_target'].lower().startswith('t'), 'affinityParameter': r['affinity_units'], 'endogenous': r['endogenous'].lower().startswith('t'), 'edge_source': 'gtopdb.ligand_to_gene'}
-
-                        # check the affinity and insure it is a float
-                        if r['affinity_median'] != '':
-                            props.update({'affinity': float(r['affinity_median'])})
-
-                        # if there are publications add them in
-                        if r['pubmed_id'] != '':
-                            props.update({'publications': [f'PMID:{x}' for x in r['pubmed_id'].split('|')]})
-
-                        # create the edge
-                        edge = {'subject': 'GTOPDB:' + r['ligand_id'], 'object': 'ENSEMBL:' + gene_id, 'relation': 'GAMMA:' + r['type'].lower().replace(' ', '_'), 'properties': props}
-
-                        # save the gene node
+                        gene_id = f'{ENSEMBL}:{gene_id}'
+                        gene_name = gene_names[idx].encode('ascii',errors='ignore').decode(encoding="utf-8")
+                        gene_node = kgxnode(gene_id, gene_name)
                         node_list.append(gene_node)
 
+                        # create the edge
+                        new_edge = kgxedge(ligand_id,
+                                           gene_id,
+                                           relation=relation,
+                                           original_knowledge_source=self.provenance_id,
+                                           edgeprops=props)
+
                         # save the edge
-                        edge_list.append(edge)
+                        edge_list.append(new_edge)
 
                     # do the chem to precursor node/edges if it exists
                     if r['ligand_species'].startswith('Human') and r['ligand_gene_symbol'] != '':
@@ -374,26 +332,30 @@ class GtoPdbLoader(SourceDataLoader):
                             # do we have a lookup value
                             if gene_id is not None:
                                 # get the right value to normalize
-                                gene_id = 'HGNC:' + gene_id
+                                gene_id = f'{HGNC}:' + gene_id
 
                                 # create the nodes
-                                gene_node: dict = {'id': gene_id, 'name': r['ligand_gene_symbol'].encode('ascii',errors='ignore').decode(encoding="utf-8")}
+                                gene_node = kgxnode(gene_id, name=r['ligand_gene_symbol'].encode('ascii',errors='ignore').decode(encoding="utf-8"))
 
-                                # declare the default properties
-                                props: dict = {'edge_source': 'gtopdb.chem_to_precursor'}
+                                # save the gene node
+                                node_list.append(gene_node)
+
+                                # init the properties
+                                props: dict = {}
 
                                 # check the pubmed id and insure they are ints
                                 if r['pubmed_id'] != '':
                                     props.update({'publications': [f'PMID:{x}' for x in r['pubmed_id'].split('|')]})
 
                                 # create the edge
-                                edge = {'subject': gene_id, 'object': 'GTOPDB:' + r['ligand_id'], 'relation': 'RO:0002205', 'properties': props}
-
-                                # save the gene node
-                                node_list.append(gene_node)
+                                new_edge = kgxedge(gene_id,
+                                                   ligand_id,
+                                                   relation='RO:0002205',
+                                                   original_knowledge_source=self.provenance_id,
+                                                   edgeprops=props)
 
                                 # save the edge
-                                edge_list.append(edge)
+                                edge_list.append(new_edge)
                 else:
                     skipped_record_counter += 1
 

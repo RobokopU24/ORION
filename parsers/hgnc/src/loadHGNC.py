@@ -5,8 +5,9 @@ import csv
 import os
 
 from Common.utils import LoggingUtil, GetData
-from Common.kgx_file_writer import KGXFileWriter
 from Common.loader_interface import SourceDataLoader, SourceDataFailedError
+from Common.kgxmodel import kgxnode, kgxedge
+from Common.prefixes import HGNC, HGNC_FAMILY
 
 
 ##############
@@ -17,9 +18,6 @@ from Common.loader_interface import SourceDataLoader, SourceDataFailedError
 # Desc: Class that loads/parses the HGNC data.
 ##############
 class HGNCLoader(SourceDataLoader):
-    # the final output lists of nodes and edges
-    final_node_list: list = []
-    final_edge_list: list = []
 
     def __init__(self, test_mode: bool = False):
         """
@@ -31,11 +29,16 @@ class HGNCLoader(SourceDataLoader):
 
         # set global variables
         self.data_path: str = os.environ['DATA_SERVICES_STORAGE']
-        self.data_file: list = ['hgnc_complete_set.txt', 'hgnc_genes_in_groups.txt']
+        self.complete_set_file_name = 'hgnc_complete_set.txt'
+        self.data_files: list = [self.complete_set_file_name, 'hgnc_genes_in_groups.txt']
         self.test_mode: bool = test_mode
-        self.source_id: str = 'HGNC'
+        self.source_id: str = HGNC
         self.source_db: str = 'HUGO Gene Nomenclature Committee'
         self.provenance_id: str = 'infores:hgnc'
+
+        # the final output lists of nodes and edges
+        self.final_node_list: list = []
+        self.final_edge_list: list = []
 
         # create a logger
         self.logger = LoggingUtil.init_logging("Data_services.HGNC.HGNCLoader", level=logging.INFO, line_format='medium', log_file_path=os.environ['DATA_SERVICES_LOGS'])
@@ -59,36 +62,13 @@ class HGNCLoader(SourceDataLoader):
         # gd = GetData(self.logger.level)
         #
         # get the file dates
-        # ret_val: str = gd.get_ftp_file_date('ftp.ebi.ac.uk', '/pub/databases/genenames/hgnc/tsv/', self.data_file[0])
-        # TODO get info on https://www.genenames.org/cgi-bin/genegroup/download-all/' + self.data_file[1])
+        # ret_val: str = gd.get_ftp_file_date('ftp.ebi.ac.uk', '/pub/databases/genenames/hgnc/tsv/', self.data_files[0])
+        # TODO get info on https://www.genenames.org/cgi-bin/genegroup/download-all/' + self.data_files[1])
 
         # return to the caller
         return datetime.datetime.now().strftime("%m/%d/%Y")
 
-    def write_to_file(self, nodes_output_file_path: str, edges_output_file_path: str) -> None:
-        """
-        sends the data over to the KGX writer to create the node/edge files
-
-        :param nodes_output_file_path: the path to the node file
-        :param edges_output_file_path: the path to the edge file
-        :return: Nothing
-        """
-        # get a KGX file writer
-        with KGXFileWriter(nodes_output_file_path, edges_output_file_path) as file_writer:
-            # for each node captured
-            for node in self.final_node_list:
-                # write out the node
-                file_writer.write_node(node['id'], node_name=node['name'], node_types=[], node_properties=None)
-
-            # for each edge captured
-            for edge in self.final_edge_list:
-                # write out the edge data
-                file_writer.write_edge(subject_id=edge['subject'],
-                                       object_id=edge['object'],
-                                       relation=edge['relation'],
-                                       original_knowledge_source=self.provenance_id,
-                                       edge_properties=edge['properties'])
-    def get_hgnc_data(self) -> int:
+    def get_data(self) -> int:
         """
         Gets the HGNC data from two sources.
 
@@ -101,12 +81,12 @@ class HGNCLoader(SourceDataLoader):
         #   set up test data instead
         # else:
         # get the complete data set
-        file_count: int = gd.pull_via_ftp('ftp.ebi.ac.uk', '/pub/databases/genenames/hgnc/tsv/', [self.data_file[0]], self.data_path)
+        file_count: int = gd.pull_via_ftp('ftp.ebi.ac.uk', '/pub/databases/genenames/hgnc/tsv/', [self.data_files[0]], self.data_path)
 
         # did we get the file
         if file_count > 0:
             # get the gene groups dataset
-            byte_count: int = gd.pull_via_http('https://www.genenames.org/cgi-bin/genegroup/download-all/' + self.data_file[1], self.data_path)
+            byte_count: int = gd.pull_via_http('https://www.genenames.org/cgi-bin/genegroup/download-all/' + self.data_files[1], self.data_path)
 
             # did we get the data
             if byte_count > 0:
@@ -115,59 +95,14 @@ class HGNCLoader(SourceDataLoader):
         # return the file count to the caller
         return file_count
 
-    def load(self, nodes_output_file_path: str, edges_output_file_path: str) -> dict:
-        """
-        parses the HGNC data files
-
-        :param nodes_output_file_path: the path to the node file
-        :param edges_output_file_path: the path to the edge file
-        :return the parsed metadata stats
-        """
-
-        self.logger.info(f'HGNCloader - Start of HGNC data processing.')
-
-        # get the list of taxons to process
-        file_count = self.get_hgnc_data()
-
-        # init the return
-        load_metadata: dict = {}
-
-        # did we get the archives
-        if file_count == 2:
-            self.logger.debug(f'{self.data_file} archive retrieved. Parsing HGNC data.')
-
-            # parse the data
-            load_metadata = self.parse_data_file(self.data_path, self.data_file[0])  # , self.data_file[1]
-
-            self.logger.info(f'HGNCLoader - {self.data_file} Processing complete.')
-
-            # write out the data
-            self.write_to_file(nodes_output_file_path, edges_output_file_path)
-
-            self.logger.info(f'HGNCLoader - Processing complete.')
-        else:
-            error_message = f'Error: Retrieving HGNC archive failed.'
-            self.logger.error(error_message)
-            raise SourceDataFailedError(error_message=error_message)
-
-        # remove intermediate data
-        for item in self.data_file:
-            os.remove(os.path.join(self.data_path, item))
-
-        # return the metadata to the caller
-        return load_metadata
-
-    def parse_data_file(self, data_file_path: str, complete_set_file_name: str) -> dict:
+    def parse_data(self) -> dict:
         """
         Parses the data file for graph nodes/edges and writes them to the KGX csv files.
 
-        :param data_file_path: the path to the HGNC data
-        :param complete_set_file_name: the name of the HGNC complete set file name
-        # :param gene_groups_file_name: the name of the HGNC gene groups file name
-        :return: ret_val: record counts
+        :return: ret_val: metadata about the parsing
         """
         # get the path to the data file
-        infile_path: str = os.path.join(data_file_path, complete_set_file_name)
+        infile_path: str = os.path.join(self.data_path, self.complete_set_file_name)
 
         # init the record counters
         record_counter: int = 0
@@ -201,7 +136,11 @@ class HGNCLoader(SourceDataLoader):
                 # did we get a valid record
                 if len(r['gene_family_id']) > 0:
                     # create the gene node
-                    self.final_node_list.append({'id': r['hgnc_id'], 'name': r['name'], 'properties': {'locus_group': r['locus_group'], 'symbol': r['symbol'], 'location': r['location']}})
+                    gene_id = r['hgnc_id']
+                    gene_name = r['name']
+                    gene_props = {'locus_group': r['locus_group'], 'symbol': r['symbol'], 'location': r['location']}
+                    gene_node = kgxnode(gene_id, name=gene_name, nodeprops=gene_props)
+                    self.final_node_list.append(gene_node)
 
                     # split the gene family ids and create node/edges for each
                     for idx, gene_family_id in enumerate(r['gene_family_id'].split('|')):
@@ -209,10 +148,11 @@ class HGNCLoader(SourceDataLoader):
                         gene_family = r['gene_family'].split('|')
 
                         # save the gene family curie
-                        gene_family_curie = f'HGNC.FAMILY:' + gene_family_id
+                        gene_family_curie = f'{HGNC_FAMILY}:' + gene_family_id
 
                         # create the gene family node
-                        self.final_node_list.append({'id': gene_family_curie, 'name': gene_family[idx]})
+                        gene_family_node = kgxnode(gene_family_curie, name=gene_family[idx])
+                        self.final_node_list.append(gene_family_node)
 
                         # get the baseline properties
                         props = {}
@@ -222,13 +162,17 @@ class HGNCLoader(SourceDataLoader):
                             props.update({'publications': ['PMID:' + v for v in r['pubmed_id'].split('|')]})
 
                         # create the gene to gene family edge
-                        self.final_edge_list.append({'subject': gene_family_curie, 'relation': 'BFO:0000051', 'object': r['hgnc_id'], 'properties': props})
+                        new_edge = kgxedge(gene_family_curie,
+                                           gene_id,
+                                           relation='BFO:0000051',
+                                           edgeprops=props)
+                        self.final_edge_list.append(new_edge)
                 else:
                     skipped_record_counter += 1
 
         # TODO parse the hgnc genes in group file?, gene_groups_file_name: str
 
-        self.logger.debug(f'Parsing XML data file complete.')
+        self.logger.debug(f'Parsing data file complete.')
 
         # load up the metadata
         load_metadata: dict = {

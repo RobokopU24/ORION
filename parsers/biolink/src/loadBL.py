@@ -16,9 +16,6 @@ from Common.loader_interface import SourceDataLoader
 # Desc: Class that loads/parses the biolink model data.
 ##############
 class BLLoader(SourceDataLoader):
-    # the final output lists of nodes and edges
-    final_node_list: list = []
-    final_edge_list: list = []
 
     def __init__(self, test_mode: bool = False):
         """
@@ -36,16 +33,12 @@ class BLLoader(SourceDataLoader):
         self.source_db: str = 'Biolink Model'
         self.provenance_id: str = 'infores:biolink'
 
+        # the final output lists of nodes and edges
+        self.final_node_list: list = []
+        self.final_edge_list: list = []
+
         # create a logger
-        self.logger = LoggingUtil.init_logging("Data_services.HMDB.HMDBLoader", level=logging.INFO, line_format='medium', log_file_path=os.environ['DATA_SERVICES_LOGS'])
-
-    def get_name(self):
-        """
-        returns the name of the class
-
-        :return: str - the name of the class
-        """
-        return self.__class__.__name__
+        self.logger = LoggingUtil.init_logging("Data_services.biolink.BLLoader", level=logging.INFO, line_format='medium', log_file_path=os.environ['DATA_SERVICES_LOGS'])
 
     def get_latest_source_version(self) -> str:
         """
@@ -55,32 +48,7 @@ class BLLoader(SourceDataLoader):
         """
         return datetime.datetime.now().strftime("%m/%d/%Y")
 
-    def write_to_file(self, nodes_output_file_path: str, edges_output_file_path: str) -> None:
-        """
-        sends the data over to the KGX writer to create the node/edge files
-
-        :param nodes_output_file_path: the path to the node file
-        :param edges_output_file_path: the path to the edge file
-        :return: Nothing
-        """
-        # get a KGX file writer
-        with KGXFileWriter(nodes_output_file_path, edges_output_file_path) as file_writer:
-            # for each node captured
-            for node in self.final_node_list:
-                # write out the node
-                file_writer.write_node(node['id'], node_name=node['name'], node_types=[], node_properties=None)
-
-            # for each edge captured
-            for edge in self.final_edge_list:
-                # write out the edge data
-                file_writer.write_edge(subject_id=edge['subject'],
-                                       object_id=edge['object'],
-                                       relation=edge['relation'],
-                                       original_knowledge_source=self.provenance_id,
-                                       edge_properties=edge['properties'],
-                                       predicate='')
-
-    def get_biolink_data(self) -> int:
+    def get_data(self) -> int:
         """
         Gets the biolink data.
 
@@ -88,54 +56,16 @@ class BLLoader(SourceDataLoader):
         # get a reference to the data gathering class
         # gd: GetData = GetData(self.logger.level)
 
-        pass
+        return False
 
-    def load(self, nodes_output_file_path: str, edges_output_file_path: str) -> dict:
+    def parse_data(self) -> dict:
         """
-        parses the biolink data file gathered
+        Parses the data file for graph nodes/edges
 
-        :param nodes_output_file_path: the path to the node file
-        :param edges_output_file_path: the path to the edge file
-        :return the parsed metadata stats
-        """
-
-        self.logger.info(f'BLLoader - Start of biolink model data processing.')
-
-        # get the list of taxons to process
-        file_count = self.get_biolink_data()
-
-        # init the return
-        load_metadata: dict = {}
-
-        # get the intact archive
-        if file_count == 1:
-            self.logger.debug(f'{self.data_file} archive retrieved. Parsing Biolink data.')
-
-            # parse the data
-            load_metadata = self.parse_data_file(self.data_path, self.data_file)
-
-            self.logger.info(f'BLLoader - {self.data_file} Processing complete.')
-
-            # write out the data
-            self.write_to_file(nodes_output_file_path, edges_output_file_path)
-
-            self.logger.info(f'BLLoader - Processing complete.')
-        else:
-            self.logger.error(f'Error: Retrieving BLLoader archive failed.')
-
-        # return the metadata to the caller
-        return load_metadata
-
-    def parse_data_file(self, data_file_path: str, data_file_name: str) -> dict:
-        """
-        Parses the data file for graph nodes/edges and writes them to the KGX csv files.
-
-        :param data_file_path: the path to the HMDB zip file
-        :param data_file_name: the name of the HMDB zip file
-        :return: ret_val: record counts
+        :return: ret_val: load_metadata
         """
         # get the path to the data file
-        infile_path: str = os.path.join(data_file_path, data_file_name)
+        infile_path: str = os.path.join(self.data_path, self.data_file)
 
         # init the record counters
         record_counter: int = 0
