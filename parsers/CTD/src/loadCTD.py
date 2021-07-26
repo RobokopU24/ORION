@@ -42,7 +42,7 @@ class CTDLoader(SourceDataLoader):
         self.provenance_id = 'infores:ctd'
 
         # this file is from JB
-        self.hand_curated_data_file = 'ctd.tar.gz'
+        self.hand_curated_data_file = 'ctd.tar'
         self.hand_curated_file = 'ctd-grouped-pipes.tsv'
 
         # the final output lists of nodes and edges
@@ -97,12 +97,14 @@ class CTDLoader(SourceDataLoader):
             raise SourceDataFailedError('CTDLoader - Not all files were retrieved from CTD')
         # if everything is ok so far get the hand curated file in the right place
         else:
-            #tar = tarfile.open(os.path.join(os.path.dirname(__file__), self.hand_curated_data_file))
-            #tar.extractall(self.data_path)
-            #tar.close()
+            tar = tarfile.open(os.path.join(self.data_path, self.hand_curated_data_file))
+            tar.extractall(self.data_path)
+            tar.close()
 
             # save the file in the list
-            #self.data_files.append(self.hand_curated_file)
+            self.data_files.append(self.hand_curated_file)
+            self.data_files.append(self.hand_curated_data_file)
+
             return True
 
     def parse_data(self) -> dict:
@@ -369,8 +371,8 @@ class CTDLoader(SourceDataLoader):
 
                 # save the edge
                 relation_curie = f'{CTD}:{relation}'
-                new_edge = kgxedge(disease_id,
-                                   exposure_id,
+                new_edge = kgxedge(exposure_id,
+                                   disease_id,
                                    relation=relation_curie,
                                    original_knowledge_source=self.provenance_id,
                                    edgeprops={'publications': [f"PMID:{r['reference']}"]})
@@ -534,8 +536,8 @@ class CTDLoader(SourceDataLoader):
                     node_list.append(chemical_node)
 
                     # add the edge
-                    new_edge = kgxedge(cur_disease_id.upper(),
-                                       chemical_id,
+                    new_edge = kgxedge(chemical_id,
+                                       cur_disease_id.upper(),
                                        relation=relation,
                                        original_knowledge_source=self.provenance_id,
                                        edgeprops={'publications': publications})

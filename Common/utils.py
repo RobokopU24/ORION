@@ -1004,6 +1004,9 @@ class GetData:
             else:
                 self.logger.error(f'Failed to get {data_file}.')
 
+        if file_counter > 0:
+            byte_count: int = self.pull_via_http(f'https://stars.renci.org/var/data_services/ctd.tar.gz', data_dir, True)
+
         # return to the caller
         return file_counter
 
