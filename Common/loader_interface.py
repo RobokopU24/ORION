@@ -62,17 +62,19 @@ class SourceDataLoader(metaclass=abc.ABCMeta):
     def clean_up(self):
         try:
             # some implementations will have one data_file
-            file_to_remove = os.path.join(self.data_path, self.data_file)
-            if os.path.exists(file_to_remove):
-                os.remove(file_to_remove)
+            if self.data_file:
+                file_to_remove = os.path.join(self.data_path, self.data_file)
+                if os.path.exists(file_to_remove):
+                    os.remove(file_to_remove)
         except AttributeError:
             pass
         try:
             # and some may have many
-            for data_file_name in self.data_files:
-                file_to_remove = os.path.join(self.data_path, data_file_name)
-                if os.path.exists(file_to_remove):
-                    os.remove(file_to_remove)
+            if self.data_files:
+                for data_file_name in self.data_files:
+                    file_to_remove = os.path.join(self.data_path, data_file_name)
+                    if os.path.exists(file_to_remove):
+                        os.remove(file_to_remove)
         except AttributeError:
             pass
 
