@@ -15,19 +15,21 @@
 #  Then, no matter what the prefix changed to, it would always be tied to the URL and could always be looked up within
 # data services using a fixed key independent of biolink changes.
 
-
+CTD='CTD'
 DRUGBANK="DrugBank"
 DRUGCENTRAL="DrugCentral"
-UMLS="UMLS"
-MEDDRA='MEDDRA'
-UNIPROTKB='UniProtKB'
-PUBMED='PMID'
-CTD='CTD'
-NCBITAXON='NCBITaxon'
-MESH='MESH'
-GTOPDB='GTOPDB'
+DOID='DOID'
 ENSEMBL='ENSEMBL'
+GTOPDB='GTOPDB'
 HGNC='HGNC'
 HGNC_FAMILY='HGNC.FAMILY'
 HMDB='HMDB'
+MEDDRA='MEDDRA'
+MESH='MESH'
+NCBIGENE='NCBIGene'
+NCBITAXON='NCBITaxon'
 OMIM='OMIM'
+PUBMED='PMID'
+UBERON='UBERON'
+UNIPROTKB='UniProtKB'
+UMLS="UMLS"
