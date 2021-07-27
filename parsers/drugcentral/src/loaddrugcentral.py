@@ -1,10 +1,6 @@
 import os
-import hashlib
 import argparse
-import pandas as pd
 import logging
-import re
-import random
 import psycopg2
 import psycopg2.extras
 
@@ -14,6 +10,7 @@ from Common.loader_interface import SourceDataLoader
 from Common.utils import LoggingUtil, GetData
 from Common.node_types import ORIGINAL_KNOWLEDGE_SOURCE, PRIMARY_KNOWLEDGE_SOURCE, AGGREGATOR_KNOWLEDGE_SOURCES
 from Common import prefixes
+from Common.kgxmodel import kgxnode, kgxedge
 
 
 ##############
@@ -82,8 +79,8 @@ class DrugCentralLoader(SourceDataLoader):
 
         # TODO load the datafile into the database
         # Right now I am using pycharm to run a postgresql docker container, and then
-        # its database tool to run the sql restore that is being pulled from above, o
-        #outside of this.
+        # its database tool to run the sql restore that is being pulled from above,
+        # outside of this.
 
         return byte_count
 
@@ -100,7 +97,7 @@ class DrugCentralLoader(SourceDataLoader):
                               lambda line: self.omop_relationmap[line['relationship_name']],
                               lambda line: {},  # subject props
                               lambda line: {},  # object props
-                              lambda line: {AGGREGATOR_KNOWLEDGE_SOURCES : [DrugCentralLoader.provenance_id]}  # edge props
+                              lambda line: {PRIMARY_KNOWLEDGE_SOURCE: DrugCentralLoader.provenance_id}  # edge props
                               )
 
         #adverse events
@@ -114,11 +111,11 @@ class DrugCentralLoader(SourceDataLoader):
                               lambda line: {},  # subject props
                               lambda line: {},  # object props
                               lambda line: { 'FAERS_llr': line['llr'],
-                                             AGGREGATOR_KNOWLEDGE_SOURCES : [DrugCentralLoader.provenance_id],
-                                             ORIGINAL_KNOWLEDGE_SOURCE : 'infores:faers' }  # edge props
+                                             AGGREGATOR_KNOWLEDGE_SOURCES: [DrugCentralLoader.provenance_id],
+                                             ORIGINAL_KNOWLEDGE_SOURCE: 'infores:faers' }  # edge props
                               )
 
-        #bioactivity.  There are several rows in the main activity table (act_table_full) that include multiple accessions
+        # bioactivity.  There are several rows in the main activity table (act_table_full) that include multiple accessions
         # the joins to td2tc and target_component split these out so that each accession appears once per row.
         # TODO: many of these will represent components, perhaps GO CCs, and it would be good to make a link from chem -> CC
         bioactivity_query='''select a.struct_id as struct_id, a.act_value as act_value, a.act_unit as act_unit, a.act_type as act_type, 
@@ -138,6 +135,32 @@ class DrugCentralLoader(SourceDataLoader):
 
         self.final_node_list = extractor.nodes
         self.final_edge_list = extractor.edges
+
+        # find node properties for previously extracted nodes
+        node_props_by_id = {}
+        # here we want all of the information from the structures table except the following columns
+        unwanted_properties = ["cd_id",
+                               "cas_reg_no",
+                               "name",
+                               "no_formulations",
+                               "molfile",
+                               "stem",
+                               "enhanced_stereo",
+                               "molimg",
+                               "inchi",
+                               "inchikey"]
+        node_props_query = 'select * from structures'
+        cur.execute(node_props_query)
+        rows = cur.fetchall()
+        for row in rows:
+            node_id = f"{prefixes.DRUGCENTRAL}:{row.pop('id')}"
+            if node_id in extractor.node_ids:
+                for prop in unwanted_properties:
+                    del row[prop]
+                node_props_by_id[node_id] = row
+        for node in self.final_node_list:
+            if node.identifier in node_props_by_id:
+                node.properties.update(node_props_by_id[node.identifier])
 
         return extractor.load_metadata
 
@@ -201,6 +224,9 @@ def get_bioactivity_attributes(line):
             edge_props[PRIMARY_KNOWLEDGE_SOURCE] = 'infores:pdsp'
         elif line['act_source'] == 'CHEMBL':
             edge_props[PRIMARY_KNOWLEDGE_SOURCE] = 'infores:chembl'
+        else:
+            edge_props[PRIMARY_KNOWLEDGE_SOURCE] = DrugCentralLoader.provenance_id
+            del edge_props[AGGREGATOR_KNOWLEDGE_SOURCES]
     return edge_props
 
 if __name__ == '__main__':
