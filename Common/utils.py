@@ -1158,7 +1158,7 @@ class GetData:
         """
         splits a file into numerous smaller files.
 
-        : infile_path: the path to the input file
+        :param infile_path: the path to the input file
         :param data_file_path: the path to where the input file is and where the split files go
         :param data_file_name: the name of the input data file
         :param lines_per_file: the number of lines for each split file
@@ -1179,7 +1179,7 @@ class GetData:
         lines: list = []
 
         # open the zip file
-        with ZipFile(os.path.join(infile_path)) as zf:
+        with ZipFile(infile_path) as zf:
             # open the taxon file indexes and the uniref data file
             with TextIOWrapper(zf.open(data_file_name), encoding="utf-8") as fp:
                 while True:
