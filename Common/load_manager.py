@@ -26,6 +26,7 @@ from parsers.hgnc.src.loadHGNC import HGNCLoader
 from parsers.panther.src.loadPanther import PLoader
 from parsers.GTEx.src.loadGTEx import GTExLoader
 from parsers.drugcentral.src.loaddrugcentral import DrugCentralLoader
+from parsers.hetio.src.loadHetio import HetioLoader
 
 GWAS_CATALOG = 'GWASCatalog'
 CTD = 'CTD'
@@ -42,6 +43,7 @@ HGNC = 'HGNC'
 PANTHER = 'PANTHER'
 GTEX = 'GTEx'
 DRUG_CENTRAL = 'DrugCentral'
+HETIO = 'Hetio'
 
 SOURCE_DATA_LOADER_CLASSES = {
     CTD: CTDLoader,
@@ -56,6 +58,7 @@ SOURCE_DATA_LOADER_CLASSES = {
     GTEX: GTExLoader,
     DRUG_CENTRAL: DrugCentralLoader,
     PHAROS: PHAROSLoader,
+    HETIO: HetioLoader,
 
     # in progress
     PANTHER: PLoader
@@ -133,11 +136,12 @@ class SourceDataLoadManager:
         self.supplementation_version = None
 
     def start(self):
-        sources_to_run_in_parallel = [source_id for source_id in self.source_list if source_id not in RESOURCE_HOGS]
-        with Pool() as p:
-            p.map(self.run_pipeline, sources_to_run_in_parallel)
+        #sources_to_run_in_parallel = [source_id for source_id in self.source_list if source_id not in RESOURCE_HOGS]
+        #with Pool() as p:
+        #    p.map(self.run_pipeline, sources_to_run_in_parallel)
+        #sources_to_run_sequentially = [source_id for source_id in self.source_list if source_id in RESOURCE_HOGS]
 
-        sources_to_run_sequentially = [source_id for source_id in self.source_list if source_id in RESOURCE_HOGS]
+        sources_to_run_sequentially = self.source_list
         for source_id in sources_to_run_sequentially:
             self.run_pipeline(source_id)
 
