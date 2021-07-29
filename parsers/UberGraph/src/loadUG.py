@@ -57,12 +57,18 @@ class UGLoader(SourceDataLoader):
         """
         return datetime.datetime.now().strftime("%m/%d/%Y")
 
-    def get_ug_data(self):
+    def get_data(self):
         """
         Gets the uberon graph data.
 
         """
-        pass
+        # get a reference to the data gatherer
+        gd: GetData = GetData(self.logger.level)
+
+        byte_count: int = gd.pull_via_http(f'https://stars.renci.org/var/data_services/properties-nonredundant.zip', self.data_path, False)
+
+        if byte_count > 0:
+            return True
 
     def write_to_file(self, nodes_output_file_path: str, edges_output_file_path: str) -> None:
         """
@@ -98,28 +104,26 @@ class UGLoader(SourceDataLoader):
         """
         self.logger.info(f'UGLoader - Start of UberGraph data processing.')
 
+        self.get_data()
+
         # split the input file names
-        file_names = ['properties-nonredundant.ttl']
+        file_name = 'properties-nonredundant'
 
         # init the record counters
         final_record_count: int = 0
         final_skipped_count: int = 0
 
-        # loop through the data files
-        for file_name in file_names:
-            self.logger.info(f'Parsing UberGraph data file: {file_name}. {self.file_size} records per file + remainder')
+        self.logger.info(f'Parsing UberGraph data file: {file_name}. {self.file_size} records per file + remainder')
 
-            # parse the data
-            split_files, records, skipped = self.parse_data_file(self.data_path, file_name)
-            final_record_count: int = records
-            final_skipped_count: int = skipped
+        # parse the data
+        split_files, final_record_count, final_skipped_count = self.parse_data_file(file_name)
 
-            # remove all the intermediate files
-            for file in split_files:
-                os.remove(file)
+        # remove all the intermediate files
+        for file in split_files:
+            os.remove(file)
 
-            # remove the data file
-            # os.remove(os.path.join(nodes_output_file_path, file_name))
+        # remove the data file
+        os.remove(os.path.join(self.data_path, file_name + '.zip'))
 
         self.write_to_file(nodes_output_file_path, edges_output_file_path)
 
@@ -134,7 +138,7 @@ class UGLoader(SourceDataLoader):
         # return the metadata to the caller
         return load_metadata
 
-    def parse_data_file(self, data_file_path: str, data_file_name: str) -> (list, int, int):
+    def parse_data_file(self, data_file_name: str) -> (list, int, int):
         """
         Parses the data file for graph nodes/edges and writes them out the KGX tsv files.
 
@@ -152,11 +156,8 @@ class UGLoader(SourceDataLoader):
         # init a list for the output data
         triple: list = []
 
-        # set the infile path
-        infile_path = os.path.join(os.path.dirname(__file__), f"{data_file_name.split('.')[0]}.zip")
-
         # split the file into pieces
-        split_files: list = gd.split_file(infile_path, data_file_path, data_file_name, self.file_size)
+        split_files: list = gd.split_file(os.path.join(self.data_path, f'{data_file_name}.zip'), self.data_path, data_file_name + '.ttl', self.file_size)
 
         # parse each file
         for file in split_files:
