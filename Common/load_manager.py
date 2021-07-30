@@ -305,12 +305,14 @@ class SourceDataLoadManager:
 
             nodes_source_file_path = self.get_source_node_file_path(source_id)
             nodes_norm_file_path = self.get_normalized_node_file_path(source_id)
+            node_norm_map_file_path = self.get_node_norm_map_file_path(source_id)
             node_norm_failures_file_path = self.get_node_norm_failures_file_path(source_id)
             edges_source_file_path = self.get_source_edge_file_path(source_id)
             edges_norm_file_path = self.get_normalized_edge_file_path(source_id)
             edge_norm_predicate_map_file_path = self.get_edge_norm_predicate_map_file_path(source_id)
             file_normalizer = KGXFileNormalizer(nodes_source_file_path,
                                                 nodes_norm_file_path,
+                                                node_norm_map_file_path,
                                                 node_norm_failures_file_path,
                                                 edges_source_file_path,
                                                 edges_norm_file_path,
@@ -370,6 +372,7 @@ class SourceDataLoadManager:
                 nodes_file_path = self.get_normalized_node_file_path(source_id)
                 supplemental_node_file_path = self.get_supplemental_node_file_path(source_id)
                 normalized_supp_node_file_path = self.get_normalized_supp_node_file_path(source_id)
+                supp_node_norm_map_file_path = self.get_supp_node_norm_map_file_path(source_id)
                 supp_node_norm_failures_file_path = self.get_supp_node_norm_failures_file_path(source_id)
                 supplemental_edge_file_path = self.get_supplemental_edge_file_path(source_id)
                 normalized_supp_edge_file_path = self.get_normalized_supplemental_edge_file_path(source_id)
@@ -377,7 +380,8 @@ class SourceDataLoadManager:
                 sv_supp = SequenceVariantSupplementation()
                 supplementation_info = sv_supp.find_supplemental_data(nodes_file_path=nodes_file_path,
                                                                       supp_nodes_file_path=supplemental_node_file_path,
-                                                                      normalized_supp_node_file_path=normalized_supp_node_file_path,
+                                                                      supp_nodes_norm_file_path=normalized_supp_node_file_path,
+                                                                      supp_node_norm_map_file_path=supp_node_norm_map_file_path,
                                                                       supp_node_norm_failures_file_path=supp_node_norm_failures_file_path,
                                                                       supp_edges_file_path=supplemental_edge_file_path,
                                                                       normalized_supp_edge_file_path=normalized_supp_edge_file_path,
@@ -418,6 +422,10 @@ class SourceDataLoadManager:
         versioned_file_name = self.get_versioned_file_name(source_id, load_version)
         return os.path.join(self.get_source_dir_path(source_id), f'{versioned_file_name}_norm_nodes.jsonl')
 
+    def get_node_norm_map_file_path(self, source_id: str, load_version: str = 'latest'):
+        versioned_file_name = self.get_versioned_file_name(source_id, load_version)
+        return os.path.join(self.get_source_dir_path(source_id), f'{versioned_file_name}_norm_node_map.json')
+
     def get_node_norm_failures_file_path(self, source_id: str, load_version: str = 'latest'):
         versioned_file_name = self.get_versioned_file_name(source_id, load_version)
         return os.path.join(self.get_source_dir_path(source_id), f'{versioned_file_name}_norm_node_failures.log')
@@ -437,6 +445,10 @@ class SourceDataLoadManager:
     def get_normalized_supp_node_file_path(self, source_id: str, load_version: str = 'latest'):
         versioned_file_name = self.get_versioned_file_name(source_id, load_version)
         return os.path.join(self.get_source_dir_path(source_id), f'{versioned_file_name}_supp_norm_nodes.jsonl')
+
+    def get_supp_node_norm_map_file_path(self, source_id: str, load_version: str = 'latest'):
+        versioned_file_name = self.get_versioned_file_name(source_id, load_version)
+        return os.path.join(self.get_source_dir_path(source_id), f'{versioned_file_name}_supp_norm_node_map.json')
 
     def get_supp_node_norm_failures_file_path(self, source_id: str, load_version: str = 'latest'):
         versioned_file_name = self.get_versioned_file_name(source_id, load_version)

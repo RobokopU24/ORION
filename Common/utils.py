@@ -299,7 +299,8 @@ class NodeNormUtils:
         variant_node_types = sequence_variant_normalizer.get_sequence_variant_node_types()
 
         variant_nodes.clear()
-        for variant_id, variant_norms in sequence_variant_norms.items():
+        for variant_id in variant_ids:
+            variant_norms = sequence_variant_norms.get(variant_id, None)
             if variant_norms:
                 for normalized_info in variant_norms:
                     normalized_node = {
@@ -353,6 +354,16 @@ class NodeNormUtils:
         else:
             # this shouldn't happen, raise an exception
             resp.raise_for_status()
+
+
+class EdgeNormalizationResult:
+    def __init__(self,
+                 identifier: str,
+                 label: str,
+                 inverted: bool = False):
+        self.identifier = identifier
+        self.label = label
+        self.inverted = inverted
 
 
 class EdgeNormUtils:
@@ -480,7 +491,13 @@ class EdgeNormUtils:
             if relation in cached_edge_norms and cached_edge_norms[relation]:
                 if 'identifier' in cached_edge_norms[relation]:
                     # store it in the look up map
-                    self.edge_normalization_lookup[relation] = cached_edge_norms[relation]['identifier']
+                    identifier = cached_edge_norms[relation]['identifier']
+                    label = cached_edge_norms[relation]['label']
+                    if 'inverted' in cached_edge_norms[relation] and cached_edge_norms[relation]['inverted']:
+                        inverted = True
+                    else:
+                        inverted = False
+                    self.edge_normalization_lookup[relation] = EdgeNormalizationResult(identifier, label, inverted)
                     success = True
             if not success:
                 # if no result for whatever reason add it to the fail list
