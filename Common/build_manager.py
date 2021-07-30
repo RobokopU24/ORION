@@ -71,7 +71,7 @@ class GraphBuilder:
         """
         saving this in case we want to merge straight into a graph in the future
         destination_dict = {'output': {'format': 'neo4j',
-                                       'compression': self.neo4j_uri,
+                                       'uri': self.neo4j_uri,
                                        'username': self.neo4j_user,
                                        'password': self.neo4j_password}}
         """
