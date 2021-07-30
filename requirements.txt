@@ -8,5 +8,5 @@ mysql-connector==2.2.9
 jsonlines==2.0.0
 pyyaml==5.4.1
 beautifulsoup4==4.9.3
-kgx==1.1.0
-psycopg2-binary
+kgx==1.3.0
+psycopg2-binary==2.9.1
