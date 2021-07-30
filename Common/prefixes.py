@@ -16,11 +16,13 @@
 # data services using a fixed key independent of biolink changes.
 
 CTD='CTD'
-DRUGBANK="DrugBank"
-DRUGCENTRAL="DrugCentral"
+DBSNP='DBSNP'
+DRUGBANK='DRUGBANK'
+DRUGCENTRAL='DrugCentral'
 DOID='DOID'
 ENSEMBL='ENSEMBL'
 GTOPDB='GTOPDB'
+HETIO='hetio'
 HGNC='HGNC'
 HGNC_FAMILY='HGNC.FAMILY'
 HMDB='HMDB'
@@ -32,4 +34,4 @@ OMIM='OMIM'
 PUBMED='PMID'
 UBERON='UBERON'
 UNIPROTKB='UniProtKB'
-UMLS="UMLS"
+UMLS='UMLS'
