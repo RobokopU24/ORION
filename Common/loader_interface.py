@@ -2,6 +2,7 @@ from Common.kgx_file_writer import KGXFileWriter
 import abc
 import os
 
+
 class SourceDataLoader(metaclass=abc.ABCMeta):
     @classmethod
     def __subclasshook__(cls, subclass):
@@ -28,23 +29,31 @@ class SourceDataLoader(metaclass=abc.ABCMeta):
         :param nodes_output_file_path:
         :return:
         """
-        self.logger.info(f'{self.get_name()}:Processing beginning')
+        source_name = self.get_name()
+        self.logger.info(f'{source_name}: Processing beginning')
 
         try:
-            # download the data files
-            success = self.get_data()
-            self.logger.info(f'Source data retrieved, parsing now...')
+            # download the data files if needed
+            if self.needs_data_download():
+                success = self.get_data()
+                self.logger.info(f'{source_name}: Source data retrieved, parsing now...')
+            else:
+                success = True
+                self.logger.info(f'{source_name}: Source data previously retrieved, parsing now...')
 
             # did we get the files successfully
             if success:
                 # if so parse the data
                 load_metadata = self.parse_data()
-                self.logger.info(f'File parsing complete. Writing to file...')
+                if 'errors' in load_metadata and load_metadata['errors']:
+                    self.logger.error(f'{source_name}: Experienced {len(load_metadata["errors"])} errors while parsing... examples: {load_metadata["errors"][:10]}')
+                    load_metadata['parsing_errors'] = load_metadata.pop(errors)[:10]
+                self.logger.info(f'{source_name}: File parsing complete. Writing to file...')
 
                 # write the output files
                 self.write_to_file(nodes_output_file_path, edges_output_file_path)
             else:
-                error_message = f'Error: Retrieving files failed.'
+                error_message = f'{source_name}: Error - Retrieving files failed.'
                 self.logger.error(error_message)
                 raise SourceDataFailedError(error_message)
 
@@ -53,11 +62,33 @@ class SourceDataLoader(metaclass=abc.ABCMeta):
 
         finally:
             # remove the temp data files or do any necessary clean up
-            self.clean_up()
+            pass
+            #self.clean_up()
 
         self.logger.info(f'{self.get_name()}:Processing complete')
 
         return load_metadata
+
+    def needs_data_download(self):
+        try:
+            # some implementations will have one data_file
+            if self.data_file:
+                downloaded_data = os.path.join(self.data_path, self.data_file)
+                if os.path.exists(downloaded_data):
+                    return False
+                return True
+        except AttributeError:
+            pass
+        try:
+            # and some may have many
+            if self.data_files:
+                for data_file_name in self.data_files:
+                    downloaded_data = os.path.join(self.data_path, data_file_name)
+                    if not os.path.exists(downloaded_data):
+                        return True
+                return False
+        except AttributeError:
+            pass
 
     def clean_up(self):
         try:
