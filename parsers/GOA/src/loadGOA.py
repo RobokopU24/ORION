@@ -40,11 +40,6 @@ class DATACOLS(enum.IntEnum):
 # Desc: Class that loads the UniProtKB GOA data and creates KGX files for importing into a Neo4j graph.
 ##############
 class GOALoader(SourceDataLoader):
-    # the final output lists of nodes and edges
-    final_node_list: list = []
-    final_edge_list: list = []
-
-    node_norm_failures: list = []
 
     def __init__(self, test_mode: bool = False):
         """
@@ -75,6 +70,10 @@ class GOALoader(SourceDataLoader):
  	                       'acts_upstream_of_or_within':'RO:0002264',
  	                       'acts_upstream_of_or_within_positive_effect':'RO:0004032',
  	                       'acts_upstream_of_or_within_negative_effect':'RO:0004033'}
+
+        # the final output lists of nodes and edges
+        self.final_node_list: list = []
+        self.final_edge_list: list = []
 
         # create a logger
         self.logger = LoggingUtil.init_logging("Data_services.GOA.GOALoader", level=logging.INFO, line_format='medium', log_file_path=os.environ['DATA_SERVICES_LOGS'])
