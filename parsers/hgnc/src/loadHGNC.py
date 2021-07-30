@@ -43,14 +43,6 @@ class HGNCLoader(SourceDataLoader):
         # create a logger
         self.logger = LoggingUtil.init_logging("Data_services.HGNC.HGNCLoader", level=logging.INFO, line_format='medium', log_file_path=os.environ['DATA_SERVICES_LOGS'])
 
-    def get_name(self):
-        """
-        returns the name of the class
-
-        :return: str - the name of the class
-        """
-        return self.__class__.__name__
-
     def get_latest_source_version(self) -> str:
         """
         gets the version of the data
