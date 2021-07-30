@@ -104,7 +104,6 @@ class SequenceVariantSupplementation:
                               kgx_nodes_path: str,
                               kgx_edges_path: str):
         supplementation_info = {}
-        edge_props = {'edge_source': 'snpeff', 'source_database': 'SnpEff'}
         gene_biotypes_to_ignore = set()
 
         with open(annotated_vcf_path, 'r') as snpeff_output, \
@@ -123,20 +122,33 @@ class SequenceVariantSupplementation:
                 for info in info_field:
                     if info.startswith('ANN='):
                         annotations_to_write = defaultdict(set)
+                        gene_distances = {}
                         annotations = info[4:].split(',')
                         for annotation in annotations:
                             annotation_info = annotation.split('|')
                             effects = annotation_info[1].split("&")
                             genes = annotation_info[4].split('-')
                             gene_biotype = annotation_info[7]
+                            distance_info = annotation_info[14]
                             if gene_biotype not in gene_biotypes_to_ignore:
                                 for gene in genes:
                                     gene_id = f'ENSEMBL:{gene}'
+                                    gene_distances[gene_id] = distance_info
                                     for effect in effects:
-                                        effect_predicate = f'SNPEFF:{effect}'
+                                        if effect == 'intergenic_region':
+                                            effect_predicate = 'GAMMA:0000102'
+                                        else:
+                                            effect_predicate = f'SNPEFF:{effect}'
                                         annotations_to_write[effect_predicate].add(gene_id)
                         for effect_predicate, gene_ids in annotations_to_write.items():
                             for gene_id in gene_ids:
+                                if gene_distances[gene_id]:
+                                    try:
+                                        edge_props = {'distance_to_feature': int(gene_distances[gene_id])}
+                                    except ValueError:
+                                        edge_props = None
+                                else:
+                                    edge_props = None
                                 output_file_writer.write_node(gene_id, gene_id, [GENE])
                                 output_file_writer.write_edge(variant_id,
                                                               gene_id,
