@@ -5,26 +5,19 @@ services:
       context: .
     environment:
       - DATA_SERVICES_STORAGE=/Data_services_storage
-      - DATA_SERVICES_RESOURCES=/Data_services_resources
       - DATA_SERVICES_GRAPHS=/Data_services_graphs
       - DATA_SERVICES_LOGS=/Data_services_logs
-      # DATA_SERVICES_CONFIG - optional env var - file name for a data config in the storage directory
-      # the default config from the codebase will be used otherwise
-      - DATA_SERVICES_CONFIG
+      # DATA_SERVICES_SOURCES_SPEC - optional env var - file name for a sources spec file in the storage directory
+      # the default sources spec from the codebase will be used otherwise
+      - DATA_SERVICES_SOURCES_SPEC
       # DATA_SERVICES_GRAPH_SPEC - optional env var - file name for a graph spec in the storage directory
       # the default graph spec from the codebase will be used otherwise
       - DATA_SERVICES_GRAPH_SPEC
       # DATA_SERVICES_TEST_MODE - optional env var - to load faster test versions
       - DATA_SERVICES_TEST_MODE
-      - DS_GRAPH_HOST
-      - DS_GRAPH_USER
-      - DS_GRAPH_PASSWORD
-      - DS_GRAPH_HTTP_PORT
-      - DS_GRAPH_BOLT_PORT
     volumes:
       - .:/Data_services
       - "${DATA_SERVICES_STORAGE}:/Data_services_storage"
-      - "${DATA_SERVICES_RESOURCES}:/Data_services_resources"
       - "${DATA_SERVICES_GRAPHS}:/Data_services_graphs"
       - "${DATA_SERVICES_LOGS}:/Data_services_logs"
     networks:
