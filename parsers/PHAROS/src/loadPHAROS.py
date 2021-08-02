@@ -64,14 +64,14 @@ class PHAROSLoader(SourceDataLoader):
                                 FROM xref x
                                 JOIN cmpd_activity ca on x.protein_id = ca.target_id
                                 JOIN protein p on p.id=x.protein_id
-                                WHERE x.xtype='HGNC'"""
+                                WHERE x.xtype='HGNC' and ca.cmpd_name_in_src is not null and ca.cmpd_name_in_src <> 'NA' and ca.cmpd_name_in_src not like 'US%'"""
 
-    CMPD_ACTIVITY_TO_GENE: str = """SELECT DISTINCT x.value, ca.cmpd_id_in_src as drug, p.sym, ca.act_value AS affinity, ca.act_type as affinity_parameter,
+    CMPD_ACTIVITY_TO_GENE: str = """SELECT DISTINCT x.value, ca.cmpd_id_in_src as drug, p.sym, ca.act_value AS affinity, ca.act_type as affinity_parameter, catype AS id_src,
                                 ca.act_type AS pred, ca.pubmed_ids AS pubmed_ids, '' AS dtype
                                 FROM xref x
                                 JOIN cmpd_activity ca on ca.target_id = x.protein_id
                                 JOIN protein p on ca.target_id = p.id
-                                WHERE x.xtype='HGNC'"""
+                                WHERE x.xtype='HGNC' and ca.cmpd_name_in_src is not null and ca.cmpd_name_in_src <> 'NA' and ca.cmpd_name_in_src not like 'US%'"""
 
     GENE_TO_DRUG_ACTIVITY: str = """SELECT DISTINCT x.value, da.drug, da.cmpd_chemblid AS cid, 'ChEMBL' AS id_src, p.sym,
                                 da.act_value AS affinity, da.act_type AS affinity_parameter, da.action_type AS pred, '' AS dtype
@@ -135,6 +135,8 @@ class PHAROSLoader(SourceDataLoader):
         Gets the PHAROS (https://pharos.nih.gov/) data from https://juniper.health.unm.edu/tcrd/download/
 
         """
+        return True
+
         # and get a reference to the data gatherer
         gd: GetData = GetData(self.logger.level)
 
@@ -145,6 +147,8 @@ class PHAROSLoader(SourceDataLoader):
         if file_count != 1:
             self.logger.error(f'PHAROSLoader - The PHAROS data file was not retrieved.')
             raise Exception('PHAROSLoader - The PHAROS data file was not retrieved.')
+        else:
+            return True
 
         # TODO load the datafile into the database
 
@@ -178,11 +182,11 @@ class PHAROSLoader(SourceDataLoader):
         final_record_count += records
         final_skipped_count += skipped
 
-        node_list, records, skipped = self.parse_gene_to_cmpd_activity(node_list)
+        node_list, records, skipped = self.parse_drug_activity_to_gene(node_list)
         final_record_count += records
         final_skipped_count += skipped
 
-        node_list, records, skipped = self.parse_drug_activity_to_gene(node_list)
+        node_list, records, skipped = self.parse_gene_to_cmpd_activity(node_list)
         final_record_count += records
         final_skipped_count += skipped
 
@@ -285,7 +289,7 @@ class PHAROSLoader(SourceDataLoader):
         # get the data
         gene_to_drug_activity: dict = self.execute_pharos_sql(self.GENE_TO_DRUG_ACTIVITY)
 
-        prefixmap = {'ChEMBL': 'CHEMBL.COMPOUND', 'Guide to Pharmacology': 'GTOPDB'}
+        prefixmap = {'ChEMBL': 'CHEMBL.COMPOUND:CHEMBL', 'Guide to Pharmacology': 'GTOPDB:'}
 
         # for each item in the list
         for item in gene_to_drug_activity:
@@ -295,7 +299,7 @@ class PHAROSLoader(SourceDataLoader):
             name = item['drug']
             gene = item['value']
             gene_sym = item['sym']
-            chembl_id = f"{prefixmap[item['id_src']]}:{item['cid'].replace('CHEMBL', '')}"
+            drug_id = f"{prefixmap[item['id_src']]}{item['cid'].replace('CHEMBL', '')}"
             relation, pmids, props, provenance = self.get_edge_props(item)
 
             # if there were affinity properties use them
@@ -307,11 +311,11 @@ class PHAROSLoader(SourceDataLoader):
                 affinity_parameter = ''
 
             # create the group id
-            grp: str = chembl_id + relation + gene + f'{random.random()}'
+            grp: str = drug_id + relation + gene + f'{random.random()}'
             grp = hashlib.md5(grp.encode("utf-8")).hexdigest()
 
             # create the disease node and add it to the node list
-            node_list.append({'grp': grp, 'node_num': 1, 'id': chembl_id, 'name': name, 'category': '', 'equivalent_identifiers': ''})
+            node_list.append({'grp': grp, 'node_num': 1, 'id': drug_id, 'name': name, 'category': '', 'equivalent_identifiers': ''})
 
             # create the gene node and add it to the list
             node_list.append({'grp': grp, 'node_num': 2, 'id': gene, 'name': gene_sym, 'category': '', 'equivalent_identifiers': '', 'predicate': '', 'relation': relation, 'edge_label': '', 'pmids': pmids, 'affinity': affinity, 'affinity_parameter': affinity_parameter, 'provenance': provenance})
@@ -331,7 +335,7 @@ class PHAROSLoader(SourceDataLoader):
         # get the data
         gene_to_cmpd_activity: dict = self.execute_pharos_sql(self.GENE_TO_CMPD_ACTIVITY)
 
-        prefixmap = {'ChEMBL': 'CHEMBL.COMPOUND', 'Guide to Pharmacology': 'GTOPDB'}
+        prefixmap = {'ChEMBL': 'CHEMBL.COMPOUND:CHEMBL', 'Guide to Pharmacology': 'GTOPDB:'}
 
         # for each item in the list
         for item in gene_to_cmpd_activity:
@@ -341,7 +345,7 @@ class PHAROSLoader(SourceDataLoader):
             name = item['drug']
             gene = item['value']
             gene_sym = item['sym']
-            chembl_id = f"{prefixmap[item['id_src']]}:{item['cid'].replace('CHEMBL', '')}"
+            cmpd_id = f"{prefixmap[item['id_src']]}{item['cid'].replace('CHEMBL', '')}"
             relation, pmids, props, provenance = self.get_edge_props(item)
 
             # if there were affinity properties use them
@@ -353,14 +357,14 @@ class PHAROSLoader(SourceDataLoader):
                 affinity_parameter = ''
 
             # create the group id
-            grp: str = chembl_id + relation + gene + f'{random.random()}'
+            grp: str = cmpd_id + relation + gene + f'{random.random()}'
             grp = hashlib.md5(grp.encode("utf-8")).hexdigest()
 
-            # create the disease node and add it to the node list
-            node_list.append({'grp': grp, 'node_num': 1, 'id': chembl_id, 'name': name, 'category': '', 'equivalent_identifiers': ''})
-
             # create the gene node and add it to the list
-            node_list.append({'grp': grp, 'node_num': 2, 'id': gene, 'name': gene_sym, 'category': '', 'equivalent_identifiers': '', 'predicate': '', 'relation': relation, 'edge_label': '', 'pmids': pmids, 'affinity': affinity, 'affinity_parameter': affinity_parameter, 'provenance': provenance})
+            node_list.append({'grp': grp, 'node_num': 1, 'id': gene, 'name': gene_sym, 'category': '', 'equivalent_identifiers': ''})
+
+            # create the compound node and add it to the node list
+            node_list.append({'grp': grp, 'node_num': 2, 'id': cmpd_id, 'name': name, 'category': '', 'equivalent_identifiers': '', 'predicate': '', 'relation': relation, 'edge_label': '', 'pmids': pmids, 'affinity': affinity, 'affinity_parameter': affinity_parameter, 'provenance': provenance})
 
         return node_list, record_counter, skipped_record_counter
 
@@ -391,7 +395,7 @@ class PHAROSLoader(SourceDataLoader):
             name = item['drug']
             gene = item['value']
             gene_sym = item['sym']
-            chembl_id = 'CHEMBL.COMPOUND:' + item['cmpd_chemblid'].replace('CHEMBL', '')
+            chembl_id = 'CHEMBL.COMPOUND:CHEMBL' + item['cmpd_chemblid'].replace('CHEMBL', '')
             relation, pmids, props, provenance = self.get_edge_props(item)
 
             # if there were affinity properties use them
@@ -427,6 +431,8 @@ class PHAROSLoader(SourceDataLoader):
         # get the data
         cmpd_activity_to_gene: dict = self.execute_pharos_sql(self.CMPD_ACTIVITY_TO_GENE)
 
+        prefixmap = {'ChEMBL': 'CHEMBL.COMPOUND:CHEMBL', 'Guide to Pharmacology': 'GTOPDB:'}
+
         # for each item in the list
         for item in cmpd_activity_to_gene:
             # increment the counter
@@ -435,7 +441,8 @@ class PHAROSLoader(SourceDataLoader):
             name = item['drug']
             gene = item['value']
             gene_sym = item['sym']
-            chembl_id = 'CHEMBL.COMPOUND:' + item['drug'].replace('CHEMBL', '')
+            cmpd_id = f"{prefixmap[item['id_src']]}{item['drug'].replace('CHEMBL', '')}"
+
             relation, pmids, props, provenance = self.get_edge_props(item)
 
             # if there were affinity properties use them
@@ -447,11 +454,11 @@ class PHAROSLoader(SourceDataLoader):
                 affinity_parameter = ''
 
             # create the group id
-            grp: str = chembl_id + relation + gene + f'{random.random()}'
+            grp: str = cmpd_id + relation + gene + f'{random.random()}'
             grp = hashlib.md5(grp.encode("utf-8")).hexdigest()
 
             # create the disease node and add it to the node list
-            node_list.append({'grp': grp, 'node_num': 1, 'id': chembl_id, 'name': name, 'category': '', 'equivalent_identifiers': ''})
+            node_list.append({'grp': grp, 'node_num': 1, 'id': cmpd_id, 'name': name, 'category': '', 'equivalent_identifiers': ''})
 
             # create the gene node and add it to the list
             node_list.append({'grp': grp, 'node_num': 2, 'id': gene, 'name': gene_sym, 'category': '', 'equivalent_identifiers': '', 'predicate': '', 'relation': relation, 'edge_label': '', 'pmids': pmids, 'affinity': affinity, 'affinity_parameter': affinity_parameter, 'provenance': provenance})
