@@ -7,7 +7,6 @@ import mysql.connector
 import re
 import random
 import requests
-#import sqlite3
 
 from Common.loader_interface import SourceDataLoader
 from Common.kgxmodel import kgxnode, kgxedge
@@ -24,34 +23,10 @@ from Common.utils import LoggingUtil, GetData
 #       The database (TCRDv6.7.0.sql.gz recent as of 20120/21/9) is ~3.9gb in size.
 ##############
 class PHAROSLoader(SourceDataLoader):
-    # GENE_LIST_SQL: str = "select distinct value from xref where xtype='hgnc' order by 1"
-    # DISEASE_LIST_SQL: str = """select distinct d.did
-    #                         from disease d
-    #                         join xref x on x.protein_id = d.protein_id
-    #                         where
-    #                         x.xtype='hgnc'
-    #                         and d.dtype <> 'Expression Atlas'
-    #                         and (substring(d.did, 1, 4) ='DOID' or substring(d.did, 1, 4) ='MESH') order by 1"""
-    #
-    # DRUG_LIST_SQL: str = """select distinct cmpd_chemblid from drug_activity where SUBSTRING(cmpd_chemblid, 1, 6) = 'CHEMBL'
-    #                         union
-    #                         select distinct cmpd_id_in_src from cmpd_activity where SUBSTRING(cmpd_id_in_src, 1, 6) = 'CHEMBL'
-    #                         order by 1"""
-
     GENE_TO_DISEASE: str = """select distinct x.value, d.did, d.name, p.sym, d.dtype
                                 from disease d 
                                 join xref x on x.protein_id = d.protein_id 
                                 join protein p on p.id=x.protein_id
-                                where x.xtype = 'HGNC' 
-                                and d.dtype <> 'Expression Atlas'
-                                and d.did not like 'NCBIGene%' 
-                                and d.did not like 'AmyCo%'
-                                and d.did not like 'ENSP%'"""
-
-    DISEASE_TO_GENE: str = """select distinct x.value, d.did, d.name, p.sym, d.dtype
-                                from disease d 
-                                join xref x on x.protein_id = d.protein_id 
-                                join protein p on d.protein_id = p.id 
                                 where x.xtype = 'HGNC' 
                                 and d.dtype <> 'Expression Atlas'
                                 and d.did not like 'NCBIGene%' 
@@ -66,13 +41,6 @@ class PHAROSLoader(SourceDataLoader):
                                 JOIN protein p on p.id=x.protein_id
                                 WHERE x.xtype='HGNC' and ca.cmpd_name_in_src is not null and ca.cmpd_name_in_src <> 'NA' and ca.cmpd_name_in_src not like 'US%'"""
 
-    CMPD_ACTIVITY_TO_GENE: str = """SELECT DISTINCT x.value, ca.cmpd_id_in_src as drug, p.sym, ca.act_value AS affinity, ca.act_type as affinity_parameter, catype AS id_src,
-                                ca.act_type AS pred, ca.pubmed_ids AS pubmed_ids, '' AS dtype
-                                FROM xref x
-                                JOIN cmpd_activity ca on ca.target_id = x.protein_id
-                                JOIN protein p on ca.target_id = p.id
-                                WHERE x.xtype='HGNC' and ca.cmpd_name_in_src is not null and ca.cmpd_name_in_src <> 'NA' and ca.cmpd_name_in_src not like 'US%'"""
-
     GENE_TO_DRUG_ACTIVITY: str = """SELECT DISTINCT x.value, da.drug, da.cmpd_chemblid AS cid, 'ChEMBL' AS id_src, p.sym,
                                 da.act_value AS affinity, da.act_type AS affinity_parameter, da.action_type AS pred, '' AS dtype
                                 FROM xref x
@@ -80,13 +48,6 @@ class PHAROSLoader(SourceDataLoader):
                                 JOIN protein p on p.id=x.protein_id
                                 WHERE da.cmpd_chemblid IS NOT NULL
                                 AND x.xtype='HGNC'"""
-
-    DRUG_ACTIVITY_TO_GENE: str = """SELECT DISTINCT x.value, da.cmpd_chemblid, da.drug as drug, p.sym, da.act_value AS affinity,
-                                da.act_type AS affinity_parameter, da.action_type AS pred, '' AS dtype
-                                FROM xref x
-                                JOIN drug_activity da on da.target_id = x.protein_id
-                                join protein p on da.target_id = p.id
-                                WHERE x.xtype='HGNC'"""
 
     def __init__(self, test_mode: bool = False):
         """
@@ -152,15 +113,6 @@ class PHAROSLoader(SourceDataLoader):
 
         # TODO load the datafile into the database
 
-        #db_path = os.path.join(self.data_path, 'pharos.db')
-        #self.db = sqlite3.connect(db_path)
-        #cur = self.db.cursor()
-
-        #dump_path = os.path.join(self.data_path, 'latest.sql')
-        #with open(dump_path, 'r') as f:
-        #    sql_script = f.read()
-        #    cur.executescript(sql_script)
-
     def parse_data(self) -> dict:
         """
         Parses the PHAROS data to create KGX files.
@@ -182,15 +134,7 @@ class PHAROSLoader(SourceDataLoader):
         final_record_count += records
         final_skipped_count += skipped
 
-        node_list, records, skipped = self.parse_drug_activity_to_gene(node_list)
-        final_record_count += records
-        final_skipped_count += skipped
-
         node_list, records, skipped = self.parse_gene_to_cmpd_activity(node_list)
-        final_record_count += records
-        final_skipped_count += skipped
-
-        node_list, records, skipped = self.parse_cmpd_activity_to_gene(node_list)
         final_record_count += records
         final_skipped_count += skipped
 
@@ -365,161 +309,6 @@ class PHAROSLoader(SourceDataLoader):
 
             # create the compound node and add it to the node list
             node_list.append({'grp': grp, 'node_num': 2, 'id': cmpd_id, 'name': name, 'category': '', 'equivalent_identifiers': '', 'predicate': '', 'relation': relation, 'edge_label': '', 'pmids': pmids, 'affinity': affinity, 'affinity_parameter': affinity_parameter, 'provenance': provenance})
-
-        return node_list, record_counter, skipped_record_counter
-
-    def parse_drug_activity_to_gene(self, node_list: list) -> (list, int, int):
-        """
-        gets drug activity to gene records from the pharos DB and creates nodes
-        :param node_list: list, the node list to append this data to
-        :return: list, the node list and record counters
-        """
-        # init the record counters
-        record_counter: int = 0
-        skipped_record_counter: int = 0
-
-        # get the data
-        drug_activity_to_gene: dict = self.execute_pharos_sql(self.DRUG_ACTIVITY_TO_GENE)
-
-        # for each item in the list
-        for item in drug_activity_to_gene:
-            # increment the counter
-            record_counter += 1
-
-            if item['cmpd_chemblid'] is None:
-                # increment the counter
-                skipped_record_counter += 1
-
-                continue
-
-            name = item['drug']
-            gene = item['value']
-            gene_sym = item['sym']
-            chembl_id = 'CHEMBL.COMPOUND:CHEMBL' + item['cmpd_chemblid'].replace('CHEMBL', '')
-            relation, pmids, props, provenance = self.get_edge_props(item)
-
-            # if there were affinity properties use them
-            if len(props) == 2:
-                affinity = props['affinity']
-                affinity_parameter = props['affinity_parameter']
-            else:
-                affinity = 0
-                affinity_parameter = ''
-
-            # create the group id
-            grp: str = chembl_id + relation + gene + f'{random.random()}'
-            grp = hashlib.md5(grp.encode("utf-8")).hexdigest()
-
-            # create the disease node and add it to the node list
-            node_list.append({'grp': grp, 'node_num': 1, 'id': chembl_id, 'name': name, 'category': '', 'equivalent_identifiers': ''})
-
-            # create the gene node and add it to the list
-            node_list.append({'grp': grp, 'node_num': 2, 'id': gene, 'name': gene_sym, 'category': '', 'equivalent_identifiers': '', 'predicate': '', 'relation': relation, 'edge_label': '', 'pmids': pmids, 'affinity': affinity, 'affinity_parameter': affinity_parameter, 'provenance': provenance})
-
-        return node_list, record_counter, skipped_record_counter
-
-    def parse_cmpd_activity_to_gene(self, node_list: list) -> (list, int, int):
-        """
-        gets compound activity to gene records from the pharos DB and creates nodes
-        :param node_list: list, the node list to append this data to
-        :return: list, the node list and record counters
-        """
-        # init the record counters
-        record_counter: int = 0
-        skipped_record_counter: int = 0
-
-        # get the data
-        cmpd_activity_to_gene: dict = self.execute_pharos_sql(self.CMPD_ACTIVITY_TO_GENE)
-
-        prefixmap = {'ChEMBL': 'CHEMBL.COMPOUND:CHEMBL', 'Guide to Pharmacology': 'GTOPDB:'}
-
-        # for each item in the list
-        for item in cmpd_activity_to_gene:
-            # increment the counter
-            record_counter += 1
-
-            name = item['drug']
-            gene = item['value']
-            gene_sym = item['sym']
-            cmpd_id = f"{prefixmap[item['id_src']]}{item['drug'].replace('CHEMBL', '')}"
-
-            relation, pmids, props, provenance = self.get_edge_props(item)
-
-            # if there were affinity properties use them
-            if len(props) == 2:
-                affinity = props['affinity']
-                affinity_parameter = props['affinity_parameter']
-            else:
-                affinity = 0
-                affinity_parameter = ''
-
-            # create the group id
-            grp: str = cmpd_id + relation + gene + f'{random.random()}'
-            grp = hashlib.md5(grp.encode("utf-8")).hexdigest()
-
-            # create the disease node and add it to the node list
-            node_list.append({'grp': grp, 'node_num': 1, 'id': cmpd_id, 'name': name, 'category': '', 'equivalent_identifiers': ''})
-
-            # create the gene node and add it to the list
-            node_list.append({'grp': grp, 'node_num': 2, 'id': gene, 'name': gene_sym, 'category': '', 'equivalent_identifiers': '', 'predicate': '', 'relation': relation, 'edge_label': '', 'pmids': pmids, 'affinity': affinity, 'affinity_parameter': affinity_parameter, 'provenance': provenance})
-
-        # return the node list to the caller
-        return node_list, record_counter, skipped_record_counter
-
-    def parse_disease_to_gene(self, node_list: list) -> (list, int, int):
-        """
-        gets disease to gene records from the pharos DB and creates nodes
-        :param node_list: list, the node list to append this data to
-        :return: list, the node list and record counters
-        """
-        # init the record counters
-        record_counter: int = 0
-        skipped_record_counter: int = 0
-
-        # get the data
-        disease_to_gene: dict = self.execute_pharos_sql(self.DISEASE_TO_GENE)
-
-        # create a regex pattern to find UML nodes
-        pattern = re.compile('^C\d+$')  # pattern for umls local id
-
-        # for each item in the list
-        for item in disease_to_gene:
-            # increment the counter
-            record_counter += 1
-
-            # get the pertinent info from the record
-            gene = item['value']
-            gene_sym = item['sym']
-            did = item['did']
-            name = item['name']
-            provenance = item['dtype']
-
-            # move along, no disease id
-            if did is None:
-                # increment the counter
-                skipped_record_counter += 1
-
-                continue
-            # if this is a UML node, create the curie
-            elif pattern.match(did):
-                did = f"UMLS:{did}"
-            # if this is a orphanet node, create the curie
-            elif did.startswith('Orphanet:'):
-                dparts = did.split(':')
-                did = 'ORPHANET:' + dparts[1]
-
-            if did == gene:
-                self.logger.error(f'similar! {did} == {gene}, {item}')
-
-            # create the group id
-            grp: str = did + 'WD:P2293' + gene + f'{random.random()}'
-            grp = hashlib.md5(grp.encode("utf-8")).hexdigest()
-
-            # create the disease node and add it to the list
-            node_list.append({'grp': grp, 'node_num': 1, 'id': did, 'name': name, 'category': '', 'equivalent_identifiers': ''})
-
-            # create the gene node and add it to the node list
-            node_list.append({'grp': grp, 'node_num': 2, 'id': gene, 'name': gene_sym, 'category': '', 'equivalent_identifiers': '', 'predicate': 'biolink:gene_associated_with_condition', 'relation': 'WD:P2293', 'edge_label': 'gene_involved', 'pmids': [], 'affinity': 0, 'affinity_parameter': '', 'provenance': provenance})
 
         return node_list, record_counter, skipped_record_counter
 
