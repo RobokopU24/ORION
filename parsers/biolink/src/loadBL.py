@@ -96,7 +96,7 @@ class BLLoader(SourceDataLoader):
         nodes_file: str = os.path.join(self.data_path, self.bl_nodes_file_name)
         with open(nodes_file, 'r') as fp:
             extractor.csv_extract(fp,
-                                  lambda line: get_bl_node_id(line),
+                                  lambda line: get_bl_node_id(line, NODESDATACOLS.ID.value),
                                   # extract subject id,
                                   lambda line: None,  # extract object id
                                   lambda line: None,  # predicate extractor
@@ -111,9 +111,8 @@ class BLLoader(SourceDataLoader):
         edges_file: str = os.path.join(self.data_path, self.bl_edges_file_name)
         with open(edges_file, 'r') as fp:
             extractor.csv_extract(fp,
-                                  lambda line: line[EDGESDATACOLS.SUBJECT.value],
-                                  # extract subject id,
-                                  lambda line: line[EDGESDATACOLS.OBJECT.value],  # extract object id
+                                  lambda line: get_bl_node_id(line, EDGESDATACOLS.SUBJECT.value),  # subject id
+                                  lambda line: get_bl_node_id(line, EDGESDATACOLS.OBJECT.value),  # object id
                                   lambda line: get_bl_edge_predicate(line),  # predicate extractor
                                   lambda line: {},  # subject props
                                   lambda line: {},  # object props
@@ -128,16 +127,17 @@ class BLLoader(SourceDataLoader):
         return extractor.load_metadata
 
 
-UNDESIRED_NODE_PREFIXES = {
+UNDESIRED_NODE_PREFIXES = set([
     'MONARCH_BNODE',
-    'http'
-}
+    'http',
+    'https'
+])
 
 
-def get_bl_node_id(line: list):
-    node_id = line[NODESDATACOLS.ID.value]
-    curie = node_id.split(':')[0]
-    if len(curie) == 1 or curie in UNDESIRED_NODE_PREFIXES:
+def get_bl_node_id(line: list, id_index: int):
+    node_id = line[id_index]
+    split_node_id = node_id.split(':')
+    if len(split_node_id) == 1 or split_node_id[0] in UNDESIRED_NODE_PREFIXES:
         return None
     else:
         return node_id
