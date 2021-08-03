@@ -514,10 +514,6 @@ class EdgeNormUtils:
 
     @staticmethod
     def get_current_edge_norm_version():
-
-        # hardcoded while bl and norm transition occurs
-        return '1.8.2'
-
         """
         Retrieves the current production version from the edge normalization service
         """
@@ -531,7 +527,7 @@ class EdgeNormUtils:
             versions = resp.json()
 
             # extract the latest version that isn't "latest"
-            edge_norm_version = versions[-3]
+            edge_norm_version = versions[-2]
             return edge_norm_version
         else:
             # this shouldn't happen, raise an exception
