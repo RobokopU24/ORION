@@ -134,7 +134,9 @@ UNDESIRED_NODE_PREFIXES = {
     'ZFA',
     'ZFIN',
     'BGD',
-    'MONARCH_BNODE'
+    'MONARCH_BNODE',
+    'PomBase',
+    'http'
 }
 
 def get_bl_node_id(line: list):
