@@ -25,9 +25,9 @@ class SourceDataLoader(metaclass=abc.ABCMeta):
 
     def load(self, nodes_output_file_path: str, edges_output_file_path: str):
         """
-        :param edges_output_file_path:
-        :param nodes_output_file_path:
-        :return:
+        :param edges_output_file_path: path to the new nodes output file
+        :param nodes_output_file_path: path to the new edges output file
+        :return: dict of metadata about the loading
         """
         source_name = self.get_name()
         self.logger.info(f'{source_name}: Processing beginning')
@@ -47,7 +47,7 @@ class SourceDataLoader(metaclass=abc.ABCMeta):
                 load_metadata = self.parse_data()
                 if 'errors' in load_metadata and load_metadata['errors']:
                     self.logger.error(f'{source_name}: Experienced {len(load_metadata["errors"])} errors while parsing... examples: {load_metadata["errors"][:10]}')
-                    load_metadata['parsing_errors'] = load_metadata.pop(errors)[:10]
+                    load_metadata['parsing_error_examples'] = load_metadata.pop('errors')[:10]
                 self.logger.info(f'{source_name}: File parsing complete. Writing to file...')
 
                 # write the output files
