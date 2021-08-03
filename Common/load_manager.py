@@ -137,12 +137,14 @@ class SourceDataLoadManager:
         self.supplementation_version = None
 
     def start(self):
-        #sources_to_run_in_parallel = [source_id for source_id in self.source_list if source_id not in RESOURCE_HOGS]
-        #with Pool() as p:
-        #    p.map(self.run_pipeline, sources_to_run_in_parallel)
-        #sources_to_run_sequentially = [source_id for source_id in self.source_list if source_id in RESOURCE_HOGS]
+        sources_to_run_in_parallel = [source_id for source_id in self.source_list if source_id not in RESOURCE_HOGS]
 
-        sources_to_run_sequentially = self.source_list
+        with Pool() as p:
+           p.map(self.run_pipeline, sources_to_run_in_parallel)
+
+        sources_to_run_sequentially = [source_id for source_id in self.source_list if source_id in RESOURCE_HOGS]
+
+        # sources_to_run_sequentially = self.source_list
         for source_id in sources_to_run_sequentially:
             self.run_pipeline(source_id)
 

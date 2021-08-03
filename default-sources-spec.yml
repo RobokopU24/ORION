@@ -12,27 +12,29 @@ data_sources:
 
 #  - id: FooDB # this is on hold, data needs review after latest release of data.
 
-#  - id: GtoPdb
+   - id: GtoPdb
 
 #  - id: GWASCatalog
 #    strict_normalization: false # <--- example for turning strict normalization off, by default it is on
 
-#  - id: HGNC
+   - id: Hetio
 
-#  - id: HMDB
+   - id: HGNC
 
-#  - id: HumanGOA
+   - id: HMDB
 
-#  - id: IntAct
+   - id: HumanGOA
 
-#  - id: PANTHER
+   - id: IntAct
 
-#  - id: PHAROS
+   - id: PANTHER
 
-#  - id: UberGraph
+   - id: PHAROS
 
-#  - id: UniRef
+   - id: UberGraph
 
-#  - id: ViralProteome
+#   - id: UniRef
+
+   - id: ViralProteome
 
 
