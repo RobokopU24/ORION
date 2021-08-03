@@ -57,20 +57,6 @@ class GOALoader(SourceDataLoader):
         self.source_db = 'GeneOntologyAnnotations'
         self.provenance_id = 'infores:goa'
 
-        self.predicates = {'enables':'RO:0002327',
-                           'involved_in':'RO:0002331',
-                           'located_in':'RO:0001025',
-                           'contributes_to':'RO:0002326',
-                           'acts_upstream_of':'RO:0002263',
-                           'part_of':'BFO:0000050',
- 	                       'acts_upstream_of_positive_effect':'RO:0004034',
-                           'is_active_in':'RO:0002432',
- 	                       'acts_upstream_of_negative_effect':'RO:0004035',
-                           'colocalizes_with':'RO:0002325',
- 	                       'acts_upstream_of_or_within':'RO:0002264',
- 	                       'acts_upstream_of_or_within_positive_effect':'RO:0004032',
- 	                       'acts_upstream_of_or_within_negative_effect':'RO:0004033'}
-
         # the final output lists of nodes and edges
         self.final_node_list: list = []
         self.final_edge_list: list = []
@@ -152,7 +138,7 @@ class GOALoader(SourceDataLoader):
                                   lambda line: f'{line[DATACOLS.DB.value]}:{line[DATACOLS.DB_Object_ID.value]}',
                                   # extract subject id,
                                   lambda line: f'{line[DATACOLS.GO_ID.value]}',  # extract object id
-                                  lambda line: self.predicates[line[DATACOLS.Qualifier]],  # predicate extractor
+                                  lambda line: get_goa_predicate(line),  # predicate extractor
                                   lambda line: {},  # subject props
                                   lambda line: {},  # object props
                                   lambda line: {PRIMARY_KNOWLEDGE_SOURCE: self.provenance_id},  # edge props
@@ -161,6 +147,29 @@ class GOALoader(SourceDataLoader):
         self.final_node_list = extractor.nodes
         self.final_edge_list = extractor.edges
         return extractor.load_metadata
+
+
+goa_predicates = {'enables':'RO:0002327',
+                  'involved_in':'RO:0002331',
+                  'located_in':'RO:0001025',
+                  'contributes_to':'RO:0002326',
+                  'acts_upstream_of':'RO:0002263',
+                  'part_of':'BFO:0000050',
+                  'acts_upstream_of_positive_effect':'RO:0004034',
+                  'is_active_in':'RO:0002432',
+                  'acts_upstream_of_negative_effect':'RO:0004035',
+                  'colocalizes_with':'RO:0002325',
+                  'acts_upstream_of_or_within':'RO:0002264',
+                  'acts_upstream_of_or_within_positive_effect':'RO:0004032',
+                  'acts_upstream_of_or_within_negative_effect':'RO:0004033'}
+
+
+def get_goa_predicate(line: list):
+    supplied_qualifier = line[DATACOLS.Qualifier.value]
+    if "|" in supplied_qualifier:
+        return None
+    else:
+        return goa_predicates[supplied_qualifier]
 
 
 if __name__ == '__main__':
