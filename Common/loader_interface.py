@@ -51,7 +51,8 @@ class SourceDataLoader(metaclass=abc.ABCMeta):
                 self.logger.info(f'{source_name}: File parsing complete. Writing to file...')
 
                 # write the output files
-                self.write_to_file(nodes_output_file_path, edges_output_file_path)
+                writing_metadata = self.write_to_file(nodes_output_file_path, edges_output_file_path)
+                load_metadata.update(writing_metadata)
             else:
                 error_message = f'{source_name}: Error - Retrieving files failed.'
                 self.logger.error(error_message)
@@ -74,6 +75,7 @@ class SourceDataLoader(metaclass=abc.ABCMeta):
             # some implementations will have one data_file
             if self.data_file:
                 downloaded_data = os.path.join(self.data_path, self.data_file)
+                # check if the one file already exists - if it does return false, does not need a download
                 if os.path.exists(downloaded_data):
                     return False
                 return True
@@ -82,6 +84,7 @@ class SourceDataLoader(metaclass=abc.ABCMeta):
         try:
             # and some may have many
             if self.data_files:
+                # for many files - if any of them do not exist return True to download them
                 for data_file_name in self.data_files:
                     downloaded_data = os.path.join(self.data_path, data_file_name)
                     if not os.path.exists(downloaded_data):
@@ -123,19 +126,31 @@ class SourceDataLoader(metaclass=abc.ABCMeta):
 
         :param nodes_output_file_path: the path to the node file
         :param edges_output_file_path: the path to the edge file
-        :return: Nothing
+        :return: writing_metadata: a dict with metadata about the file writing process
         """
+        writing_metadata = {}
+
         # get a KGX file writer
-        with KGXFileWriter(nodes_output_file_path, edges_output_file_path) as file_writer:
-            # for each node captured
-            for node in self.final_node_list:
-                # write out the node
-                file_writer.write_kgx_node(node)
+        with KGXFileWriter(nodes_output_file_path,
+                           edges_output_file_path,
+                           ignore_orphan_nodes=True) as file_writer:
+
+            # using ignore_orphan_nodes in the file writer so we have to write the edges first
 
             # for each edge captured
             for edge in self.final_edge_list:
                 # write out the edge data
                 file_writer.write_kgx_edge(edge)
+
+            # for each node captured
+            for node in self.final_node_list:
+                # write out the node
+                file_writer.write_kgx_node(node)
+
+            if file_writer.orphan_node_count > 0:
+                writing_metadata['orphan_nodes_skipped'] = file_writer.orphan_node_count
+
+        return writing_metadata
 
     def has_sequence_variants(self):
         return False
