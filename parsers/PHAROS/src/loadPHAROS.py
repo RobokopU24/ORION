@@ -135,6 +135,8 @@ class PHAROSLoader(SourceDataLoader):
         Gets the PHAROS (https://pharos.nih.gov/) data from https://juniper.health.unm.edu/tcrd/download/
 
         """
+        return True
+
         # and get a reference to the data gatherer
         gd: GetData = GetData(self.logger.level)
 
