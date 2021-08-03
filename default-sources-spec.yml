@@ -4,31 +4,35 @@
 # strict_normalization: boolean - should be set to false when normalization should allow failures to pass
 data_sources:
 
-#   - id: CTD
+   - id: Biolink
+
+   - id: CTD
+
+   - id: DrugCentral
 
 #  - id: FooDB # this is on hold, data needs review after latest release of data.
 
-   - id: GtoPdb
+#  - id: GtoPdb
 
-#   - id: GWASCatalog
-    #strict_normalization: false # <--- example for turning strict normalization off, by default it is on
+#  - id: GWASCatalog
+#    strict_normalization: false # <--- example for turning strict normalization off, by default it is on
 
- # - id: HMDB
+#  - id: HGNC
 
- #  - id: HGNC
+#  - id: HMDB
 
- # - id: HumanGOA
+#  - id: HumanGOA
 
 #  - id: IntAct
 
-#   - id: PANTHER
+#  - id: PANTHER
 
 #  - id: PHAROS
 
- # - id: UberGraph
+#  - id: UberGraph
 
 #  - id: UniRef
 
- # - id: ViralProteome
+#  - id: ViralProteome
 
-   - id: DrugCentral
+

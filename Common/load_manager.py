@@ -27,6 +27,7 @@ from parsers.panther.src.loadPanther import PLoader
 from parsers.GTEx.src.loadGTEx import GTExLoader
 from parsers.drugcentral.src.loaddrugcentral import DrugCentralLoader
 from parsers.hetio.src.loadHetio import HetioLoader
+from parsers.biolink.src.loadBL import BLLoader
 
 GWAS_CATALOG = 'GWASCatalog'
 CTD = 'CTD'
@@ -44,6 +45,7 @@ PANTHER = 'PANTHER'
 GTEX = 'GTEx'
 DRUG_CENTRAL = 'DrugCentral'
 HETIO = 'Hetio'
+BIOLINK = 'Biolink'
 
 SOURCE_DATA_LOADER_CLASSES = {
     CTD: CTDLoader,
@@ -59,18 +61,17 @@ SOURCE_DATA_LOADER_CLASSES = {
     DRUG_CENTRAL: DrugCentralLoader,
     PHAROS: PHAROSLoader,
     HETIO: HetioLoader,
+    BIOLINK: BLLoader,
 
     # in progress
     PANTHER: PLoader
 
     # items to go
-    # biolink,
     # chembio,
     # chemnorm,
     # cord19-scibite,
     # cord19-scigraph,
     # covid-phenotypes,
-    # hetio,
     # kegg,
     # mychem,
     # ontological-hierarchy,
@@ -181,8 +182,9 @@ class SourceDataLoadManager:
                 last_version = source_metadata.get_source_version()
                 if latest_source_version != last_version:
                     self.logger.info(f"Found new source version for {source_id}: {latest_source_version}. "
-                                     f"(current version: {last_version})")
+                                     f"(current version: {last_version}) Archiving previous version..")
                     source_metadata.archive_metadata()
+                    # loader.clean_up()
                     self.new_version_lookup[source_id] = latest_source_version
                     return True
                 else:
@@ -211,10 +213,10 @@ class SourceDataLoadManager:
                 self.logger.info(f"Retrieving source version for {source_id}...")
                 latest_source_version = source_data_loader.get_latest_source_version()
                 self.new_version_lookup[source_id] = latest_source_version
-                self.logger.info(f"Found new source version for {source_id}: {latest_source_version}")
+                self.logger.info(f"Found source version for {source_id}: {latest_source_version}")
 
             # call the loader - retrieve/parse data and write to a kgx file
-            self.logger.info(f"Loading new version of {source_id} ({latest_source_version})...")
+            self.logger.info(f"Loading {source_id} ({latest_source_version})...")
             nodes_output_file_path = self.get_source_node_file_path(source_id)
             edges_output_file_path = self.get_source_edge_file_path(source_id)
             update_metadata = source_data_loader.load(nodes_output_file_path, edges_output_file_path)
