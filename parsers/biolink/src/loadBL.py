@@ -127,17 +127,12 @@ class BLLoader(SourceDataLoader):
         self.final_edge_list = extractor.edges
         return extractor.load_metadata
 
+
 UNDESIRED_NODE_PREFIXES = {
-    'FlyBase',
-    'ZP',
-    'ZFS',
-    'ZFA',
-    'ZFIN',
-    'BGD',
     'MONARCH_BNODE',
-    'PomBase',
     'http'
 }
+
 
 def get_bl_node_id(line: list):
     node_id = line[NODESDATACOLS.ID.value]
@@ -147,10 +142,12 @@ def get_bl_node_id(line: list):
     else:
         return node_id
 
+
 def get_bl_node_properties(line: list):
     categories = line[NODESDATACOLS.CATEGORY.value].split('|')
     name = line[NODESDATACOLS.NAME.value]
     return {'categories': categories, 'name': name}
+
 
 DESIRED_BL_PREDICATES = {
     'biolink:biomarker_for',
@@ -163,6 +160,7 @@ DESIRED_BL_PREDICATES = {
     'biolink:treats'
 }
 
+
 def get_bl_edge_predicate(line: list):
     predicate = line[EDGESDATACOLS.PREDICATE.value]
     if predicate in DESIRED_BL_PREDICATES:
@@ -170,7 +168,9 @@ def get_bl_edge_predicate(line: list):
     else:
         return None
 
+
 if __name__ == '__main__':
+
     # create a command line parser
     ap = argparse.ArgumentParser(description='Load biolink data files and create KGX import files.')
 
