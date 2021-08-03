@@ -74,8 +74,9 @@ class SequenceVariantSupplementation:
                                             source_edges_file_path=supp_edges_file_path,
                                             edges_output_file_path=normalized_supp_edge_file_path,
                                             edge_norm_predicate_map_file_path=supp_edge_norm_predicate_map_file_path,
+                                            edge_subject_pre_normalized=True,
                                             has_sequence_variants=True)
-        supp_normalization_info = file_normalizer.normalize_kgx_files(edge_subject_pre_normalized=True)
+        supp_normalization_info = file_normalizer.normalize_kgx_files()
         supplementation_metadata['normalization_info'] = supp_normalization_info
 
         return supplementation_metadata

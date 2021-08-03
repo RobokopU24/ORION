@@ -40,6 +40,8 @@ class KGXFileNormalizer:
                  source_edges_file_path: str,
                  edges_output_file_path: str,
                  edge_norm_predicate_map_file_path: str,
+                 edge_subject_pre_normalized: bool = False,
+                 edge_object_pre_normalized: bool = False,
                  has_sequence_variants: bool = False,
                  strict_normalization: bool = True):
         self.source_nodes_file_path = source_nodes_file_path
@@ -49,6 +51,11 @@ class KGXFileNormalizer:
         self.source_edges_file_path = source_edges_file_path
         self.edges_output_file_path = edges_output_file_path
         self.edge_norm_predicate_map_file_path = edge_norm_predicate_map_file_path
+        # in some cases we start with normalized nodes on one end of the edge,
+        # these flags indicate we should skip normalizing those IDs
+        # this is important because those IDs are probably missing from the supplied nodes file
+        self.edge_subject_pre_normalized = edge_subject_pre_normalized
+        self.edge_object_pre_normalized = edge_object_pre_normalized
         self.has_sequence_variants = has_sequence_variants
         self.normalization_metadata = {'strict_normalization': strict_normalization}
 
@@ -57,12 +64,9 @@ class KGXFileNormalizer:
         self.node_normalizer = NodeNormUtils(strict_normalization=strict_normalization)
         self.edge_normalizer = EdgeNormUtils()
 
-    def normalize_kgx_files(self,
-                            edge_subject_pre_normalized: bool = False,
-                            edge_object_pre_normalized: bool = False):
-        self.normalization_metadata = {}
+    def normalize_kgx_files(self):
         self.normalize_node_file()
-        self.normalize_edge_file(edge_subject_pre_normalized, edge_object_pre_normalized)
+        self.normalize_edge_file()
         return self.normalization_metadata
 
     # given file paths to the source data node file and an output file,
@@ -139,11 +143,6 @@ class KGXFileNormalizer:
             self.normalization_metadata.update({
                 'variant_nodes_pre_norm': variant_node_count_pre_norm,
                 'variant_node_norm_failures': len(variant_node_norm_failures),
-                # variant nodes could split during normalization - this keeps a record of those
-                'variant_nodes_split': self.node_normalizer.variant_node_splits,
-                # this count represents the number of added nodes due to splits
-                # ie source_variant_node_count - variant_node_norm_failures + variant_nodes_split_count
-                # should equal variant_nodes_post_norm
                 'variant_nodes_split_count': variant_split_count,
                 'variant_nodes_post_norm': variant_node_count_post_norm
             })
@@ -181,15 +180,10 @@ class KGXFileNormalizer:
                 for failed_node_id in variant_node_norm_failures:
                     failed_norm_file.write(f'{failed_node_id}\n')
 
-
-        # self.logger.debug(json.dumps(self.normalization_metadata, indent=4))
-
     # given file paths to the source data edge file and an output file,
     # normalize the predicates/relations and write them to the new file
     # also write a file with the predicates that did not successfully normalize
-    def normalize_edge_file(self,
-                            edge_subject_pre_normalized: bool = False,
-                            edge_object_pre_normalized: bool = False):
+    def normalize_edge_file(self):
 
         # we organize the edges into a dictionary of dictionaries of dictionaries, no really.
         # to merge edges with the same subject object and predicate
@@ -235,11 +229,11 @@ class KGXFileNormalizer:
             normalized_subject_ids = None
             normalized_object_ids = None
             try:
-                if edge_subject_pre_normalized:
+                if self.edge_subject_pre_normalized:
                     normalized_subject_ids = [edge['subject']]
                 else:
                     normalized_subject_ids = node_norm_lookup[edge['subject']]
-                if edge_object_pre_normalized:
+                if self.edge_object_pre_normalized:
                     normalized_object_ids = [edge['object']]
                 else:
                     normalized_object_ids = node_norm_lookup[edge['object']]
@@ -342,7 +336,3 @@ class KGXFileNormalizer:
             'edge_splits': edge_splits,
             'final_normalized_edges': normalized_edge_count
         })
-
-        #self.logger.debug(json.dumps(self.normalization_metadata, indent=4))
-
-
