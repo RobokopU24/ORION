@@ -517,6 +517,9 @@ class EdgeNormUtils:
         """
         Retrieves the current production version from the edge normalization service
         """
+
+        return '2.1.0'
+
         # fetch the edge norm openapi spec
         edge_norm_versions_url = 'https://bl-lookup-sri.renci.org/versions'
         resp: requests.models.Response = requests.get(edge_norm_versions_url)
