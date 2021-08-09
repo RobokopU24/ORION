@@ -119,7 +119,7 @@ class KGXFileNormalizer:
                                 regular_nodes.append(node)
                     else:
                         # otherwise assume all the source nodes are regular nodes and continue
-                        regular_nodes = source_nodes
+                        regular_nodes = nodes_subset
 
                     # send the regular nodes through the normalizer - they will be normalized in place
                     # the number of nodes may change if strict normalization is on
@@ -189,7 +189,7 @@ class KGXFileNormalizer:
             'regular_nodes_post_norm': regular_nodes_post_norm,
             'variant_nodes_pre_norm': variant_nodes_pre_norm,
             'variant_node_norm_failures': len(variant_node_norm_failures),
-            'variant_nodes_split_count': variant_split_count,
+            'variant_nodes_split_count': variant_nodes_split_count,
             'variant_nodes_post_norm': variant_nodes_post_norm
         })
 
