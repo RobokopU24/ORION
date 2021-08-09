@@ -28,13 +28,12 @@ class MetadataManager:
 
     def init_metadata(self):
         self.metadata['source_id'] = self.source_id
-        self.metadata['source_version'] = None
         self.metadata['load_version'] = 1
         self.metadata['previous_load_version'] = None
-        self.metadata['has_sequence_variants'] = False
         self.reset_state_metadata()
 
     def reset_state_metadata(self):
+        self.metadata['source_version'] = None
         self.metadata['update_status'] = self.NOT_STARTED
         self.metadata['update_time'] = ''
         self.metadata['update_info'] = {}
@@ -49,6 +48,8 @@ class MetadataManager:
         self.metadata['supplementation_time'] = ''
         self.metadata['supplementation_info'] = {}
         self.metadata['supplementation_error'] = ''
+        self.metadata['has_sequence_variants'] = False
+        self.save_metadata()
 
     def set_update_status(self, update_status: str):
         self.metadata['update_status'] = update_status
@@ -124,16 +125,19 @@ class MetadataManager:
         self.load_current_metadata()
         return self.metadata['source_version']
 
+    def set_source_version(self, source_version: str):
+        self.metadata['source_version'] = source_version
+        self.save_metadata()
+
     def get_load_version(self):
         self.load_current_metadata()
         return self.metadata['load_version']
 
-    def update_version(self, new_version: str):
-        current_version = self.metadata['source_version']
-        if current_version:
-            self.metadata['previous_load_version'] = self.metadata['load_version']
-            self.metadata['load_version'] += 1
-        self.metadata['source_version'] = new_version
+    def increment_load_version(self):
+        load_version = self.metadata['load_version']
+        if load_version != 0:
+            self.metadata['previous_load_version'] = load_version
+        self.metadata['load_version'] = load_version + 1
         self.save_metadata()
 
     def set_update_info(self, update_info: dict, update_time: str, has_sequence_variants: bool = False):
@@ -172,13 +176,6 @@ class MetadataManager:
     def save_metadata(self):
         with open(self.metadata_file_path, 'w') as meta_json_file:
             json.dump(self.metadata, meta_json_file, indent=4)
-
-    def archive_metadata(self):
-        last_load_version = self.get_load_version()
-        archive_path = os.path.join(self.storage_directory, f'{self.source_id}_{last_load_version}.meta.json')
-        with open(archive_path, 'w') as meta_json_file:
-            json.dump(self.metadata, meta_json_file, indent=4)
-        self.reset_state_metadata()
 
     def get_previous_load_version(self):
         return self.metadata['previous_load_version']
