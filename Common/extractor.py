@@ -26,11 +26,14 @@ class Extractor:
                     subject_property_extractor,
                     object_property_extractor,
                     edge_property_extractor,
-                    comment_character="#",delim='\t'):
+                    comment_character="#", delim='\t', has_header_row=False):
         """Read a csv, perform callbacks to retrieve node and edge info per row.
         Assumes that all of the properties extractable for a node occur on the line with the node identifier"""
-        for line in infile:
+        for i, line in enumerate(infile, start=1):
             if comment_character is not None and line.startswith(comment_character):
+                continue
+
+            if has_header_row and i == 1:
                 continue
 
             self.load_metadata['record_counter'] += 1
@@ -101,14 +104,13 @@ class Extractor:
             original_knowledge_source = edgeprops.pop(ORIGINAL_KNOWLEDGE_SOURCE, None)
             primary_knowledge_source = edgeprops.pop(PRIMARY_KNOWLEDGE_SOURCE, None)
             aggregator_knowledge_sources = edgeprops.pop(AGGREGATOR_KNOWLEDGE_SOURCES, None)
+            relation = edgeprops.pop('relation', predicate)
             edge = kgxedge(subject_id,
                            object_id,
-                           relation=predicate,
+                           relation=relation,
                            predicate=predicate,
                            original_knowledge_source=original_knowledge_source,
                            primary_knowledge_source=primary_knowledge_source,
                            aggregator_knowledge_sources=aggregator_knowledge_sources,
                            edgeprops=edgeprops)
             self.edges.append(edge)
-        else:
-            self.load_metadata['skipped_record_counter'] += 1

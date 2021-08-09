@@ -2,6 +2,7 @@ from Common.kgx_file_writer import KGXFileWriter
 import abc
 import os
 
+
 class SourceDataLoader(metaclass=abc.ABCMeta):
     @classmethod
     def __subclasshook__(cls, subclass):
@@ -24,27 +25,36 @@ class SourceDataLoader(metaclass=abc.ABCMeta):
 
     def load(self, nodes_output_file_path: str, edges_output_file_path: str):
         """
-        :param edges_output_file_path:
-        :param nodes_output_file_path:
-        :return:
+        :param edges_output_file_path: path to the new nodes output file
+        :param nodes_output_file_path: path to the new edges output file
+        :return: dict of metadata about the loading
         """
-        self.logger.info(f'{self.get_name()}:Processing beginning')
+        source_name = self.get_name()
+        self.logger.info(f'{source_name}: Processing beginning')
 
         try:
-            # download the data files
-            success = self.get_data()
-            self.logger.info(f'Source data retrieved, parsing now...')
+            # download the data files if needed
+            if self.needs_data_download():
+                success = self.get_data()
+                self.logger.info(f'{source_name}: Source data retrieved, parsing now...')
+            else:
+                success = True
+                self.logger.info(f'{source_name}: Source data previously retrieved, parsing now...')
 
             # did we get the files successfully
             if success:
                 # if so parse the data
                 load_metadata = self.parse_data()
-                self.logger.info(f'File parsing complete. Writing to file...')
+                if 'errors' in load_metadata and load_metadata['errors']:
+                    self.logger.error(f'{source_name}: Experienced {len(load_metadata["errors"])} errors while parsing... examples: {load_metadata["errors"][:10]}')
+                    load_metadata['parsing_error_examples'] = load_metadata.pop('errors')[:10]
+                self.logger.info(f'{source_name}: File parsing complete. Writing to file...')
 
                 # write the output files
-                self.write_to_file(nodes_output_file_path, edges_output_file_path)
+                writing_metadata = self.write_to_file(nodes_output_file_path, edges_output_file_path)
+                load_metadata.update(writing_metadata)
             else:
-                error_message = f'Error: Retrieving files failed.'
+                error_message = f'{source_name}: Error - Retrieving files failed.'
                 self.logger.error(error_message)
                 raise SourceDataFailedError(error_message)
 
@@ -53,11 +63,35 @@ class SourceDataLoader(metaclass=abc.ABCMeta):
 
         finally:
             # remove the temp data files or do any necessary clean up
-            self.clean_up()
+            pass
+            #self.clean_up()
 
         self.logger.info(f'{self.get_name()}:Processing complete')
 
         return load_metadata
+
+    def needs_data_download(self):
+        try:
+            # some implementations will have one data_file
+            if self.data_file:
+                downloaded_data = os.path.join(self.data_path, self.data_file)
+                # check if the one file already exists - if it does return false, does not need a download
+                if os.path.exists(downloaded_data):
+                    return False
+                return True
+        except AttributeError:
+            pass
+        try:
+            # and some may have many
+            if self.data_files:
+                # for many files - if any of them do not exist return True to download them
+                for data_file_name in self.data_files:
+                    downloaded_data = os.path.join(self.data_path, data_file_name)
+                    if not os.path.exists(downloaded_data):
+                        return True
+                return False
+        except AttributeError:
+            pass
 
     def clean_up(self):
         try:
@@ -92,19 +126,31 @@ class SourceDataLoader(metaclass=abc.ABCMeta):
 
         :param nodes_output_file_path: the path to the node file
         :param edges_output_file_path: the path to the edge file
-        :return: Nothing
+        :return: writing_metadata: a dict with metadata about the file writing process
         """
+        writing_metadata = {}
+
         # get a KGX file writer
-        with KGXFileWriter(nodes_output_file_path, edges_output_file_path) as file_writer:
-            # for each node captured
-            for node in self.final_node_list:
-                # write out the node
-                file_writer.write_kgx_node(node)
+        with KGXFileWriter(nodes_output_file_path,
+                           edges_output_file_path,
+                           ignore_orphan_nodes=True) as file_writer:
+
+            # using ignore_orphan_nodes in the file writer so we have to write the edges first
 
             # for each edge captured
             for edge in self.final_edge_list:
                 # write out the edge data
                 file_writer.write_kgx_edge(edge)
+
+            # for each node captured
+            for node in self.final_node_list:
+                # write out the node
+                file_writer.write_kgx_node(node)
+
+            if file_writer.orphan_node_count > 0:
+                writing_metadata['orphan_nodes_skipped'] = file_writer.orphan_node_count
+
+        return writing_metadata
 
     def has_sequence_variants(self):
         return False

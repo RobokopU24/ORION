@@ -1,6 +1,6 @@
 import os
 import argparse
-from ViralProteome.src.loadUniRef import UniRefSimLoader
+# from parsers.ViralProteome.src.loadUniRef import UniRefSimLoader
 from Common.utils import LoggingUtil, GetData
 from pathlib import Path
 
@@ -13,7 +13,8 @@ if __name__ == '__main__':
     ap = argparse.ArgumentParser(description='Index UniRef data files for faster parsing.')
 
     # command line should be like: python get_uniref_taxon_targets.py -d /projects/stars/Data_services/UniRef_data -f uniref50,uniref90,uniref100
-    ap.add_argument('-d', '--data_dir', required=True, help='The location of the UniRef data files')
+    ap.add_argument('-d', '--in_data_dir', required=True, help='The input location of the UniRef data files')
+    ap.add_argument('-o', '--out_data_dir', required=True, help='The output location of the UniRef data files')
     ap.add_argument('-f', '--UniRef_files', required=True, help='Name(s) of input UniRef files (comma delimited)')
 
     # parse the arguments
@@ -25,7 +26,8 @@ if __name__ == '__main__':
     # uniref_data_dir: str = 'E:/Data_services/UniRef_data'
     # uniref_data_dir = '/projects/stars/Data_services/UniRef_data'
     # uniref_data_dir = '/e/Data_services/UniRef_data'
-    uniref_data_dir = args['data_dir']
+    input_uniref_data_dir = args['in_data_dir']
+    output_uniref_data_dir = args['out_data_dir']
 
     # the files to process
     # in_file_list: list = ['UniRef50']  # , 'UniRef100' UniRef90 UniRef50
@@ -34,12 +36,12 @@ if __name__ == '__main__':
     logger.info('Getting taxon id list.')
 
     # get the list of target taxa
-    target_taxa_set: set = gd.get_ncbi_taxon_id_set(uniref_data_dir, UniRefSimLoader().TYPE_VIRUS)
+    target_taxa_set: set = gd.get_ncbi_taxon_id_set(input_uniref_data_dir, '9')  # UniRefSimLoader().TYPE_VIRUS
 
     logger.info('Creating taxon search file.')
 
     # the path to the file that contains the list of taxa to search for
-    search_file_path = os.path.join(uniref_data_dir, 'taxon_list.txt')
+    search_file_path = os.path.join(input_uniref_data_dir, 'taxon_list.txt')
 
     # write out the list of taxa to search for
     with open(search_file_path, 'w') as wfp:
@@ -56,10 +58,10 @@ if __name__ == '__main__':
         logger.info(f'Working input file: {file}.')
 
         # get the path to the file with taxon indexes
-        index_file_path = os.path.join(uniref_data_dir, f'{file.lower()}_taxon_file_indexes.txt')
+        index_file_path = os.path.join(output_uniref_data_dir, f'{file.lower()}_taxon_file_indexes.txt')
 
         # get the in and out file paths
-        uniref_infile_path: str = os.path.join(uniref_data_dir, f'{file.lower()}.xml')
+        uniref_infile_path: str = os.path.join(input_uniref_data_dir, f'{file.lower()}.xml')
 
         logger.info(f'Executing grep command: grep -F -b -f "{search_file_path}" "{uniref_infile_path}" >> "{index_file_path}"')
 
