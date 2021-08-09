@@ -13,12 +13,27 @@ class KGXFileWriter:
                                       line_format='medium',
                                       level=logging.DEBUG,
                                       log_file_path=os.environ['DATA_SERVICES_LOGS'])
-
-    def __init__(self, nodes_output_file_path: str = None, edges_output_file_path: str = None):
-        self.written_nodes = set()
+    """
+    constructor
+    :param nodes_output_file_path: the file path for the nodes file
+    :param edges_output_file_path: the file path for the edes file
+    :param ignore_orphan_nodes: flag that indicates nodes that are not actually found on edges should not be written
+                                for ignore_orphan_nodes to work you need to write the edges first
+    """
+    def __init__(self,
+                 nodes_output_file_path: str = None,
+                 edges_output_file_path: str = None,
+                 ignore_orphan_nodes: bool = False):
         self.edges_to_write = []
         self.edges_buffer_size = 10000
 
+        # utilized_nodes and orphan_node_count are only used if ignore_orphan_nodes is True
+        self.ignore_orphan_nodes = ignore_orphan_nodes
+        self.orphan_node_count = 0
+        self.utilized_nodes = set()
+
+        # written nodes is a set of node ids used for preventing duplicate node writes
+        self.written_nodes = set()
         self.nodes_to_write = []
         self.nodes_buffer_size = 10000
         self.repeat_node_count = 0
@@ -57,6 +72,11 @@ class KGXFileWriter:
             self.repeat_node_count += 1
             return
 
+        if self.ignore_orphan_nodes:
+            if node_id not in self.utilized_nodes:
+                self.orphan_node_count +=1
+                return
+
         self.written_nodes.add(node_id)
         node_object = {'id': node_id, 'name': node_name, 'category': node_types}
         if node_properties:
@@ -89,12 +109,11 @@ class KGXFileWriter:
             self.__write_nodes_to_file()
 
     def __write_nodes_to_file(self):
-        for node in self.nodes_to_write:
-            try:
-                self.nodes_jsonl_writer.write(node)
-            except Exception as e:
-                self.logger.error(f'KGXFileWriter error: Failed to write json node data: {node}')
-                raise e
+        try:
+            self.nodes_jsonl_writer.write_all(self.nodes_to_write)
+        except jsonlines.InvalidLineError as e:
+            self.logger.error(f'KGXFileWriter: Failed to write json data: {e.line}.')
+            raise e
 
         self.nodes_to_write.clear()
 
@@ -137,6 +156,11 @@ class KGXFileWriter:
         self.edges_to_write.append(edge_object)
         self.check_edge_buffer_for_flush()
 
+        if self.ignore_orphan_nodes:
+            self.utilized_nodes.add(subject_id)
+            self.utilized_nodes.add(object_id)
+
+
     def write_kgx_edge(self, edge: kgxedge):
         self.write_edge(subject_id=edge.subjectid,
                         object_id=edge.objectid,
@@ -152,11 +176,10 @@ class KGXFileWriter:
             self.__write_edges_to_file()
 
     def __write_edges_to_file(self):
-        for edge in self.edges_to_write:
-            try:
-                self.edges_jsonl_writer.write(edge)
-            except Exception as e:
-                self.logger.error(f'KGXFileWriter error: Failed to write json edge data: {edge}')
-                raise e
+        try:
+            self.edges_jsonl_writer.write_all(self.edges_to_write)
+        except jsonlines.InvalidLineError as e:
+            self.logger.error(f'KGXFileWriter: Failed to write json data: {e.line}.')
+            raise e
 
         self.edges_to_write.clear()

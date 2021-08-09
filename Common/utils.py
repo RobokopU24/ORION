@@ -184,7 +184,7 @@ class NodeNormUtils:
                 # self.logger.info(f'Calling node norm service. request size is {len("&curie=".join(data_chunk))} bytes')
 
                 # get the data
-                resp: requests.models.Response = requests.post('https://nodenormalization-sri.renci.org/1.1/get_normalized_nodes', json={'curies': data_chunk})
+                resp: requests.models.Response = requests.post('https://nodenormalization-sri-dev.renci.org/1.1/get_normalized_nodes', json={'curies': data_chunk})
 
                 # did we get a good status code
                 if resp.status_code == 200:
@@ -299,7 +299,8 @@ class NodeNormUtils:
         variant_node_types = sequence_variant_normalizer.get_sequence_variant_node_types()
 
         variant_nodes.clear()
-        for variant_id, variant_norms in sequence_variant_norms.items():
+        for variant_id in variant_ids:
+            variant_norms = sequence_variant_norms.get(variant_id, None)
             if variant_norms:
                 for normalized_info in variant_norms:
                     normalized_node = {
@@ -340,7 +341,7 @@ class NodeNormUtils:
         Retrieves the current production version from the node normalization service
         """
         # fetch the node norm openapi spec
-        node_norm_openapi_url = 'https://nodenormalization-sri.renci.org/1.1/openapi.json'
+        node_norm_openapi_url = 'https://nodenormalization-sri-dev.renci.org/1.1/openapi.json'
         resp: requests.models.Response = requests.get(node_norm_openapi_url)
 
         # did we get a good status code
@@ -353,6 +354,16 @@ class NodeNormUtils:
         else:
             # this shouldn't happen, raise an exception
             resp.raise_for_status()
+
+
+class EdgeNormalizationResult:
+    def __init__(self,
+                 identifier: str,
+                 label: str,
+                 inverted: bool = False):
+        self.identifier = identifier
+        self.label = label
+        self.inverted = inverted
 
 
 class EdgeNormUtils:
@@ -480,7 +491,13 @@ class EdgeNormUtils:
             if relation in cached_edge_norms and cached_edge_norms[relation]:
                 if 'identifier' in cached_edge_norms[relation]:
                     # store it in the look up map
-                    self.edge_normalization_lookup[relation] = cached_edge_norms[relation]['identifier']
+                    identifier = cached_edge_norms[relation]['identifier']
+                    label = cached_edge_norms[relation]['label']
+                    if 'inverted' in cached_edge_norms[relation] and cached_edge_norms[relation]['inverted']:
+                        inverted = True
+                    else:
+                        inverted = False
+                    self.edge_normalization_lookup[relation] = EdgeNormalizationResult(identifier, label, inverted)
                     success = True
             if not success:
                 # if no result for whatever reason add it to the fail list
@@ -497,13 +514,12 @@ class EdgeNormUtils:
 
     @staticmethod
     def get_current_edge_norm_version():
-
-        # hardcoded while bl and norm transition occurs
-        return '1.8.2'
-
         """
         Retrieves the current production version from the edge normalization service
         """
+
+        return '2.1.0'
+
         # fetch the edge norm openapi spec
         edge_norm_versions_url = 'https://bl-lookup-sri.renci.org/versions'
         resp: requests.models.Response = requests.get(edge_norm_versions_url)
@@ -514,7 +530,7 @@ class EdgeNormUtils:
             versions = resp.json()
 
             # extract the latest version that isn't "latest"
-            edge_norm_version = versions[-3]
+            edge_norm_version = versions[-2]
             return edge_norm_version
         else:
             # this shouldn't happen, raise an exception

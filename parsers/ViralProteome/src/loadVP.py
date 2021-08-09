@@ -279,7 +279,7 @@ class VPLoader(SourceDataLoader):
                 data_chunk: list = to_normalize[start_index: end_index]
 
                 # get the data
-                resp: requests.models.Response = requests.post('https://nodenormalization-sri.renci.org/1.1/get_normalized_nodes', json={'curies': data_chunk})
+                resp: requests.models.Response = requests.post('https://nodenormalization-sri-dev.renci.org/1.1/get_normalized_nodes', json={'curies': data_chunk})
 
                 # did we get a good status code
                 if resp.status_code == 200:

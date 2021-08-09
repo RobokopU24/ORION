@@ -41,7 +41,8 @@ class SequenceVariantSupplementation:
     def find_supplemental_data(self,
                                nodes_file_path: str,
                                supp_nodes_file_path: str,
-                               normalized_supp_node_file_path: str,
+                               supp_nodes_norm_file_path: str,
+                               supp_node_norm_map_file_path: str,
                                supp_node_norm_failures_file_path: str,
                                supp_edges_file_path: str,
                                normalized_supp_edge_file_path: str,
@@ -66,14 +67,16 @@ class SequenceVariantSupplementation:
                                                               supp_edges_file_path)
 
         self.logger.debug('Normalizing Supplemental KGX File..')
-        file_normalizer = KGXFileNormalizer(supp_nodes_file_path,
-                                            normalized_supp_node_file_path,
-                                            supp_node_norm_failures_file_path,
-                                            supp_edges_file_path,
-                                            normalized_supp_edge_file_path,
-                                            supp_edge_norm_predicate_map_file_path,
+        file_normalizer = KGXFileNormalizer(source_nodes_file_path=supp_nodes_file_path,
+                                            nodes_output_file_path=supp_nodes_norm_file_path,
+                                            node_norm_map_file_path=supp_node_norm_map_file_path,
+                                            node_norm_failures_file_path=supp_node_norm_failures_file_path,
+                                            source_edges_file_path=supp_edges_file_path,
+                                            edges_output_file_path=normalized_supp_edge_file_path,
+                                            edge_norm_predicate_map_file_path=supp_edge_norm_predicate_map_file_path,
+                                            edge_subject_pre_normalized=True,
                                             has_sequence_variants=True)
-        supp_normalization_info = file_normalizer.normalize_kgx_files(edge_subject_pre_normalized=True)
+        supp_normalization_info = file_normalizer.normalize_kgx_files()
         supplementation_metadata['normalization_info'] = supp_normalization_info
 
         return supplementation_metadata
@@ -102,7 +105,6 @@ class SequenceVariantSupplementation:
                               kgx_nodes_path: str,
                               kgx_edges_path: str):
         supplementation_info = {}
-        edge_props = {'edge_source': 'snpeff', 'source_database': 'SnpEff'}
         gene_biotypes_to_ignore = set()
 
         with open(annotated_vcf_path, 'r') as snpeff_output, \
@@ -121,20 +123,33 @@ class SequenceVariantSupplementation:
                 for info in info_field:
                     if info.startswith('ANN='):
                         annotations_to_write = defaultdict(set)
+                        gene_distances = {}
                         annotations = info[4:].split(',')
                         for annotation in annotations:
                             annotation_info = annotation.split('|')
                             effects = annotation_info[1].split("&")
                             genes = annotation_info[4].split('-')
                             gene_biotype = annotation_info[7]
+                            distance_info = annotation_info[14]
                             if gene_biotype not in gene_biotypes_to_ignore:
                                 for gene in genes:
                                     gene_id = f'ENSEMBL:{gene}'
+                                    gene_distances[gene_id] = distance_info
                                     for effect in effects:
-                                        effect_predicate = f'SNPEFF:{effect}'
+                                        if effect == 'intergenic_region':
+                                            effect_predicate = 'GAMMA:0000102'
+                                        else:
+                                            effect_predicate = f'SNPEFF:{effect}'
                                         annotations_to_write[effect_predicate].add(gene_id)
                         for effect_predicate, gene_ids in annotations_to_write.items():
                             for gene_id in gene_ids:
+                                if gene_distances[gene_id]:
+                                    try:
+                                        edge_props = {'distance_to_feature': int(gene_distances[gene_id])}
+                                    except ValueError:
+                                        edge_props = None
+                                else:
+                                    edge_props = None
                                 output_file_writer.write_node(gene_id, gene_id, [GENE])
                                 output_file_writer.write_edge(variant_id,
                                                               gene_id,

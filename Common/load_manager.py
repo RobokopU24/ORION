@@ -19,7 +19,7 @@ from parsers.IntAct.src.loadIA import IALoader
 from parsers.PHAROS.src.loadPHAROS import PHAROSLoader
 from parsers.UberGraph.src.loadUG import UGLoader
 from parsers.ViralProteome.src.loadVP import VPLoader
-#from parsers.ViralProteome.src.loadUniRef import UniRefSimLoader
+from parsers.ViralProteome.src.loadUniRef import UniRefSimLoader
 from parsers.gtopdb.src.loadGtoPdb import GtoPdbLoader
 from parsers.hmdb.src.loadHMDB import HMDBLoader
 from parsers.hgnc.src.loadHGNC import HGNCLoader
@@ -27,6 +27,7 @@ from parsers.panther.src.loadPanther import PLoader
 from parsers.GTEx.src.loadGTEx import GTExLoader
 from parsers.drugcentral.src.loaddrugcentral import DrugCentralLoader
 from parsers.hetio.src.loadHetio import HetioLoader
+from parsers.biolink.src.loadBL import BLLoader
 
 GWAS_CATALOG = 'GWASCatalog'
 CTD = 'CTD'
@@ -44,6 +45,8 @@ PANTHER = 'PANTHER'
 GTEX = 'GTEx'
 DRUG_CENTRAL = 'DrugCentral'
 HETIO = 'Hetio'
+BIOLINK = 'Biolink'
+UNIREF = 'UniRef'
 
 SOURCE_DATA_LOADER_CLASSES = {
     CTD: CTDLoader,
@@ -59,27 +62,21 @@ SOURCE_DATA_LOADER_CLASSES = {
     DRUG_CENTRAL: DrugCentralLoader,
     PHAROS: PHAROSLoader,
     HETIO: HetioLoader,
-
-    # in progress
-    PANTHER: PLoader
+    BIOLINK: BLLoader,
+    PANTHER: PLoader,
+    UNIREF: UniRefSimLoader
 
     # items to go
-    # biolink,
-    # chembio,
     # chemnorm,
     # cord19-scibite,
     # cord19-scigraph,
     # covid-phenotypes,
-    # hetio,
-    # kegg,
     # mychem,
     # ontological-hierarchy,
     # textminingkp,
 
     # items with issues
-    # PHAROS: PHAROSLoader - normalization issues in load manager. normalization lists are too large to parse.
     # FOODB: FDBLoader - no longer has curies that will normalize
-    # UNIREF: UniRefSimLoader - normalization issues in load manager. normalization lists are too large to parse.
 }
 
 RESOURCE_HOGS = [GTEX, UNIREF]
@@ -136,10 +133,12 @@ class SourceDataLoadManager:
         self.supplementation_version = None
 
     def start(self):
-        #sources_to_run_in_parallel = [source_id for source_id in self.source_list if source_id not in RESOURCE_HOGS]
-        #with Pool() as p:
+        # sources_to_run_in_parallel = [source_id for source_id in self.source_list if source_id not in RESOURCE_HOGS]
+        #
+        # with Pool() as p:
         #    p.map(self.run_pipeline, sources_to_run_in_parallel)
-        #sources_to_run_sequentially = [source_id for source_id in self.source_list if source_id in RESOURCE_HOGS]
+        #
+        # sources_to_run_sequentially = [source_id for source_id in self.source_list if source_id in RESOURCE_HOGS]
 
         sources_to_run_sequentially = self.source_list
         for source_id in sources_to_run_sequentially:
@@ -181,8 +180,9 @@ class SourceDataLoadManager:
                 last_version = source_metadata.get_source_version()
                 if latest_source_version != last_version:
                     self.logger.info(f"Found new source version for {source_id}: {latest_source_version}. "
-                                     f"(current version: {last_version})")
+                                     f"(current version: {last_version}) Archiving previous version..")
                     source_metadata.archive_metadata()
+                    # loader.clean_up()
                     self.new_version_lookup[source_id] = latest_source_version
                     return True
                 else:
@@ -211,10 +211,10 @@ class SourceDataLoadManager:
                 self.logger.info(f"Retrieving source version for {source_id}...")
                 latest_source_version = source_data_loader.get_latest_source_version()
                 self.new_version_lookup[source_id] = latest_source_version
-                self.logger.info(f"Found new source version for {source_id}: {latest_source_version}")
+                self.logger.info(f"Found source version for {source_id}: {latest_source_version}")
 
             # call the loader - retrieve/parse data and write to a kgx file
-            self.logger.info(f"Loading new version of {source_id} ({latest_source_version})...")
+            self.logger.info(f"Loading {source_id} ({latest_source_version})...")
             nodes_output_file_path = self.get_source_node_file_path(source_id)
             edges_output_file_path = self.get_source_edge_file_path(source_id)
             update_metadata = source_data_loader.load(nodes_output_file_path, edges_output_file_path)
@@ -305,12 +305,14 @@ class SourceDataLoadManager:
 
             nodes_source_file_path = self.get_source_node_file_path(source_id)
             nodes_norm_file_path = self.get_normalized_node_file_path(source_id)
+            node_norm_map_file_path = self.get_node_norm_map_file_path(source_id)
             node_norm_failures_file_path = self.get_node_norm_failures_file_path(source_id)
             edges_source_file_path = self.get_source_edge_file_path(source_id)
             edges_norm_file_path = self.get_normalized_edge_file_path(source_id)
             edge_norm_predicate_map_file_path = self.get_edge_norm_predicate_map_file_path(source_id)
             file_normalizer = KGXFileNormalizer(nodes_source_file_path,
                                                 nodes_norm_file_path,
+                                                node_norm_map_file_path,
                                                 node_norm_failures_file_path,
                                                 edges_source_file_path,
                                                 edges_norm_file_path,
@@ -370,6 +372,7 @@ class SourceDataLoadManager:
                 nodes_file_path = self.get_normalized_node_file_path(source_id)
                 supplemental_node_file_path = self.get_supplemental_node_file_path(source_id)
                 normalized_supp_node_file_path = self.get_normalized_supp_node_file_path(source_id)
+                supp_node_norm_map_file_path = self.get_supp_node_norm_map_file_path(source_id)
                 supp_node_norm_failures_file_path = self.get_supp_node_norm_failures_file_path(source_id)
                 supplemental_edge_file_path = self.get_supplemental_edge_file_path(source_id)
                 normalized_supp_edge_file_path = self.get_normalized_supplemental_edge_file_path(source_id)
@@ -377,7 +380,8 @@ class SourceDataLoadManager:
                 sv_supp = SequenceVariantSupplementation()
                 supplementation_info = sv_supp.find_supplemental_data(nodes_file_path=nodes_file_path,
                                                                       supp_nodes_file_path=supplemental_node_file_path,
-                                                                      normalized_supp_node_file_path=normalized_supp_node_file_path,
+                                                                      supp_nodes_norm_file_path=normalized_supp_node_file_path,
+                                                                      supp_node_norm_map_file_path=supp_node_norm_map_file_path,
                                                                       supp_node_norm_failures_file_path=supp_node_norm_failures_file_path,
                                                                       supp_edges_file_path=supplemental_edge_file_path,
                                                                       normalized_supp_edge_file_path=normalized_supp_edge_file_path,
@@ -418,6 +422,10 @@ class SourceDataLoadManager:
         versioned_file_name = self.get_versioned_file_name(source_id, load_version)
         return os.path.join(self.get_source_dir_path(source_id), f'{versioned_file_name}_norm_nodes.jsonl')
 
+    def get_node_norm_map_file_path(self, source_id: str, load_version: str = 'latest'):
+        versioned_file_name = self.get_versioned_file_name(source_id, load_version)
+        return os.path.join(self.get_source_dir_path(source_id), f'{versioned_file_name}_norm_node_map.json')
+
     def get_node_norm_failures_file_path(self, source_id: str, load_version: str = 'latest'):
         versioned_file_name = self.get_versioned_file_name(source_id, load_version)
         return os.path.join(self.get_source_dir_path(source_id), f'{versioned_file_name}_norm_node_failures.log')
@@ -437,6 +445,10 @@ class SourceDataLoadManager:
     def get_normalized_supp_node_file_path(self, source_id: str, load_version: str = 'latest'):
         versioned_file_name = self.get_versioned_file_name(source_id, load_version)
         return os.path.join(self.get_source_dir_path(source_id), f'{versioned_file_name}_supp_norm_nodes.jsonl')
+
+    def get_supp_node_norm_map_file_path(self, source_id: str, load_version: str = 'latest'):
+        versioned_file_name = self.get_versioned_file_name(source_id, load_version)
+        return os.path.join(self.get_source_dir_path(source_id), f'{versioned_file_name}_supp_norm_node_map.json')
 
     def get_supp_node_norm_failures_file_path(self, source_id: str, load_version: str = 'latest'):
         versioned_file_name = self.get_versioned_file_name(source_id, load_version)

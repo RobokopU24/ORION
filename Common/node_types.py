@@ -22,6 +22,7 @@ GROSS_ANATOMICAL_STRUCTURE = 'biolink:GrossAnatomicalStructure'
 GENETIC_CONDITION = 'biolink:GeneticCondition'
 UNSPECIFIED = 'biolink:Unspecified'
 GENE_FAMILY = 'biolink:GeneFamily'
+GENOMIC_ENTITY = 'biolink:GenomicEntity'
 FOOD = 'biolink:Food'
 
 # The root of all biolink_model entities
