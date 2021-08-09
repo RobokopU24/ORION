@@ -8,6 +8,8 @@ data_sources:
 
    - id: CTD
 
+   - id: Cord19
+
    - id: DrugCentral
 
 #  - id: FooDB # this is on hold, data needs review after latest release of data.

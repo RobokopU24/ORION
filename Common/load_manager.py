@@ -13,6 +13,7 @@ from Common.loader_interface import SourceDataBrokenError, SourceDataFailedError
 from Common.supplementation import SequenceVariantSupplementation, SupplementationFailedError
 from parsers.GWASCatalog.src.loadGWASCatalog import GWASCatalogLoader
 from parsers.CTD.src.loadCTD import CTDLoader
+from parsers.cord19.src.loadCord19 import Cord19Loader
 #from parsers.FooDB.src.loadFDB import FDBLoader
 from parsers.GOA.src.loadGOA import GOALoader
 from parsers.IntAct.src.loadIA import IALoader
@@ -31,6 +32,7 @@ from parsers.biolink.src.loadBL import BLLoader
 
 GWAS_CATALOG = 'GWASCatalog'
 CTD = 'CTD'
+CORD19 = 'Cord19'
 FOODB = 'FooDB' # this is on hold, data needs review after latest release of data.
 HUMAN_GOA = 'HumanGOA' # this has normalization issues (needs pre-norm to create edges)
 INTACT = "IntAct"
@@ -50,6 +52,7 @@ UNIREF = 'UniRef'
 
 SOURCE_DATA_LOADER_CLASSES = {
     CTD: CTDLoader,
+    CORD19: Cord19Loader,
     INTACT: IALoader,
     GTOPDB: GtoPdbLoader,
     HUMAN_GOA: GOALoader,
