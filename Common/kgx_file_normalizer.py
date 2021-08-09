@@ -74,6 +74,10 @@ class KGXFileNormalizer:
     # also write a file with the node ids that did not successfully normalize
     def normalize_node_file(self):
 
+        # get the current node normalizer version
+        node_norm_version = NodeNormUtils.get_current_node_norm_version()
+        self.normalization_metadata['regular_node_norm_version'] = node_norm_version
+
         # read all of the source nodes from the provided jsonlines file
         self.logger.debug(f'Normalizing Node File {self.source_nodes_file_path}...')
         try:
@@ -88,90 +92,77 @@ class KGXFileNormalizer:
                              f'{e.line}'
             raise NormalizationFailedError(error_message=norm_error_msg, actual_error=e)
 
-        # if this source has sequence variants segregate them for the different norm services
-        variant_nodes = []
-        regular_nodes = []
-        if self.has_sequence_variants:
-            for node in source_nodes:
-                if SEQUENCE_VARIANT in node['category']:
-                    variant_nodes.append(node)
-                else:
-                    regular_nodes.append(node)
-        else:
-            # otherwise assume all the source nodes are regular nodes and continue
-            regular_nodes = source_nodes
+        regular_nodes_pre_norm = 0
+        regular_nodes_post_norm = 0
+        variant_nodes_pre_norm = 0
+        variant_nodes_split_count = 0
+        variant_nodes_post_norm = 0
 
-        # send the regular nodes through the normalizer - they will be normalized in place
-        # the number of nodes may change if strict normalization is on
-        # because nodes that fail to normalize are removed from the list
-        regular_node_count_pre_norm = len(regular_nodes)
-        if regular_nodes:
-            node_norm_version = NodeNormUtils.get_current_node_norm_version()
-            self.logger.debug(f'Normalizing {regular_node_count_pre_norm} regular nodes...')
-            self.node_normalizer.normalize_node_data(regular_nodes)
-        else:
-            node_norm_version = "N/A"
-            self.logger.debug(f'No regular nodes found for normalization...')
-        regular_node_count_post_norm = len(regular_nodes)
-
-        variant_node_count_pre_norm = len(variant_nodes)
-        if self.has_sequence_variants:
-            self.logger.debug(f'Normalizing {variant_node_count_pre_norm} sequence variant nodes...')
-            self.node_normalizer.normalize_sequence_variants(variant_nodes)
-        variant_node_count_post_norm = len(variant_nodes)
-
-        # grab the list of node IDs that failed
-        regular_node_norm_failures = self.node_normalizer.failed_to_normalize_ids
-        variant_node_norm_failures = self.node_normalizer.failed_to_normalize_variant_ids
-
-        # update the metadata
-        self.normalization_metadata.update({
-            'regular_node_norm_version': node_norm_version,
-            'regular_nodes_pre_norm': regular_node_count_pre_norm,
-            'regular_node_norm_failures': len(regular_node_norm_failures),
-            'regular_nodes_post_norm': regular_node_count_post_norm
-        })
-        if self.has_sequence_variants:
-            # variant_node_splits is a dictionary of key: variant node ID, value: list of normalized variant node IDs
-            # these occur when one variant ID is ambiguous and could normalize to multiple different IDs
-            variant_node_splits = self.node_normalizer.variant_node_splits
-            # this takes the sum of the lengths of the values and subtracts the number of keys
-            # resulting in the number of variants that were added after splitting the original IDs
-            # if this makes absolutely no sense email Evan Morris and he will explain
-            variant_split_count = len([variant for sublist in variant_node_splits.values() for variant in sublist]) \
-                                  - len(variant_node_splits.keys())
-            self.normalization_metadata.update({
-                'variant_nodes_pre_norm': variant_node_count_pre_norm,
-                'variant_node_norm_failures': len(variant_node_norm_failures),
-                'variant_nodes_split_count': variant_split_count,
-                'variant_nodes_post_norm': variant_node_count_post_norm
-            })
-
-        # write all of the normalized nodes
+        self.logger.debug(f'Normalizing {len(source_nodes)} nodes and writing to file...')
         with KGXFileWriter(nodes_output_file_path=self.nodes_output_file_path) as output_file_writer:
-            if regular_nodes:
-                self.logger.debug(f'Writing regular nodes to file...')
-                output_file_writer.write_normalized_nodes(regular_nodes)
-            if variant_nodes:
-                self.logger.debug(f'Writing sequence variant nodes to file...')
-                output_file_writer.write_normalized_nodes(variant_nodes)
 
-            # grab the number of repeat writes from the file writer
-            # assuming the input file contained all unique node IDs,
-            # this is the number of nodes that started with different IDs but normalized to the same ID as another node
-            merged_node_count = output_file_writer.repeat_node_count
+            has_more_nodes = True
+            while has_more_nodes:
+                nodes_subset = source_nodes[:50000]
+                if len(nodes_subset) == 0:
+                    has_more_nodes = False
+                else:
+                    del source_nodes[:50000]
+                    # if this source has sequence variants segregate them for the different norm services
+                    variant_nodes = []
+                    regular_nodes = []
+                    if self.has_sequence_variants:
+                        for node in nodes_subset:
+                            if SEQUENCE_VARIANT in node['category']:
+                                variant_nodes.append(node)
+                            else:
+                                regular_nodes.append(node)
+                    else:
+                        # otherwise assume all the source nodes are regular nodes and continue
+                        regular_nodes = source_nodes
 
-        self.normalization_metadata.update({
-            'all_nodes_post_norm': regular_node_count_post_norm + variant_node_count_post_norm,
-            'merged_nodes_post_norm': merged_node_count,
-            'final_normalized_nodes': regular_node_count_post_norm + variant_node_count_post_norm - merged_node_count
-        })
+                    # send the regular nodes through the normalizer - they will be normalized in place
+                    # the number of nodes may change if strict normalization is on
+                    # because nodes that fail to normalize are removed from the list
+                    regular_nodes_pre_norm += len(regular_nodes)
+                    if regular_nodes:
+                        #self.logger.debug(f'Normalizing {len(regular_nodes)} regular nodes...')
+                        self.node_normalizer.normalize_node_data(regular_nodes)
+                    regular_nodes_post_norm += len(regular_nodes)
+
+                    variant_nodes_pre_norm += len(variant_nodes)
+                    if self.has_sequence_variants:
+                        #self.logger.debug(f'Normalizing {len(variant_nodes)} sequence variant nodes...')
+                        self.node_normalizer.normalize_sequence_variants(variant_nodes)
+                    variant_nodes_post_norm += len(variant_nodes)
+
+                    if self.has_sequence_variants:
+                        # variant_node_splits is a dictionary of key: variant node ID, value: list of normalized variant node IDs
+                        # these occur when one variant ID is ambiguous and could normalize to multiple different IDs
+                        variant_node_splits = self.node_normalizer.variant_node_splits
+                        # this takes the sum of the lengths of the values and subtracts the number of keys
+                        # resulting in the number of variants that were added after splitting the original IDs
+                        # if this makes absolutely no sense email Evan Morris and he will explain
+                        variant_split_count = len(
+                            [variant for sublist in variant_node_splits.values() for variant in sublist]) \
+                                              - len(variant_node_splits.keys())
+                        variant_nodes_split_count += variant_split_count
+
+                    if regular_nodes:
+                        #self.logger.debug(f'Writing regular nodes to file...')
+                        output_file_writer.write_normalized_nodes(regular_nodes)
+                    if variant_nodes:
+                        #self.logger.debug(f'Writing sequence variant nodes to file...')
+                        output_file_writer.write_normalized_nodes(variant_nodes)
 
         self.logger.debug(f'Writing normalization map to file...')
         normalization_map_info = {'normalization_map': self.node_normalizer.node_normalization_lookup}
         with open(self.node_norm_map_file_path, "w") as node_norm_map_file:
             json.dump(normalization_map_info, node_norm_map_file, indent=4)
 
+        # grab the list of node IDs that failed
+        regular_node_norm_failures = self.node_normalizer.failed_to_normalize_ids
+        variant_node_norm_failures = self.node_normalizer.failed_to_normalize_variant_ids
         if regular_node_norm_failures or variant_node_norm_failures:
             self.logger.debug(f'Writing normalization failures to file...')
             with open(self.node_norm_failures_file_path, "w") as failed_norm_file:
@@ -179,6 +170,28 @@ class KGXFileNormalizer:
                     failed_norm_file.write(f'{failed_node_id}\n')
                 for failed_node_id in variant_node_norm_failures:
                     failed_norm_file.write(f'{failed_node_id}\n')
+
+        # grab the number of repeat writes from the file writer
+        # assuming the input file contained all unique node IDs,
+        # this is the number of nodes that started with different IDs but normalized to the same ID as another node
+        merged_node_count = output_file_writer.repeat_node_count
+
+        self.normalization_metadata.update({
+            'all_nodes_post_norm': regular_nodes_post_norm + variant_nodes_post_norm,
+            'merged_nodes_post_norm': merged_node_count,
+            'final_normalized_nodes': regular_nodes_post_norm + variant_nodes_post_norm - merged_node_count
+        })
+
+        # update the metadata
+        self.normalization_metadata.update({
+            'regular_nodes_pre_norm': regular_nodes_pre_norm,
+            'regular_node_norm_failures': len(regular_node_norm_failures),
+            'regular_nodes_post_norm': regular_nodes_post_norm,
+            'variant_nodes_pre_norm': variant_nodes_pre_norm,
+            'variant_node_norm_failures': len(variant_node_norm_failures),
+            'variant_nodes_split_count': variant_split_count,
+            'variant_nodes_post_norm': variant_nodes_post_norm
+        })
 
     # given file paths to the source data edge file and an output file,
     # normalize the predicates/relations and write them to the new file
