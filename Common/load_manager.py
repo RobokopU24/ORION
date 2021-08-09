@@ -19,7 +19,7 @@ from parsers.IntAct.src.loadIA import IALoader
 from parsers.PHAROS.src.loadPHAROS import PHAROSLoader
 from parsers.UberGraph.src.loadUG import UGLoader
 from parsers.ViralProteome.src.loadVP import VPLoader
-#from parsers.ViralProteome.src.loadUniRef import UniRefSimLoader
+from parsers.ViralProteome.src.loadUniRef import UniRefSimLoader
 from parsers.gtopdb.src.loadGtoPdb import GtoPdbLoader
 from parsers.hmdb.src.loadHMDB import HMDBLoader
 from parsers.hgnc.src.loadHGNC import HGNCLoader
@@ -46,6 +46,7 @@ GTEX = 'GTEx'
 DRUG_CENTRAL = 'DrugCentral'
 HETIO = 'Hetio'
 BIOLINK = 'Biolink'
+UNIREF = 'UniRef'
 
 SOURCE_DATA_LOADER_CLASSES = {
     CTD: CTDLoader,
@@ -62,25 +63,20 @@ SOURCE_DATA_LOADER_CLASSES = {
     PHAROS: PHAROSLoader,
     HETIO: HetioLoader,
     BIOLINK: BLLoader,
-
-    # in progress
-    PANTHER: PLoader
+    PANTHER: PLoader,
+    UNIREF: UniRefSimLoader
 
     # items to go
-    # chembio,
     # chemnorm,
     # cord19-scibite,
     # cord19-scigraph,
     # covid-phenotypes,
-    # kegg,
     # mychem,
     # ontological-hierarchy,
     # textminingkp,
 
     # items with issues
-    # PHAROS: PHAROSLoader - normalization issues in load manager. normalization lists are too large to parse.
     # FOODB: FDBLoader - no longer has curies that will normalize
-    # UNIREF: UniRefSimLoader - normalization issues in load manager. normalization lists are too large to parse.
 }
 
 RESOURCE_HOGS = [GTEX, UNIREF]
@@ -137,14 +133,14 @@ class SourceDataLoadManager:
         self.supplementation_version = None
 
     def start(self):
-        sources_to_run_in_parallel = [source_id for source_id in self.source_list if source_id not in RESOURCE_HOGS]
+        # sources_to_run_in_parallel = [source_id for source_id in self.source_list if source_id not in RESOURCE_HOGS]
+        #
+        # with Pool() as p:
+        #    p.map(self.run_pipeline, sources_to_run_in_parallel)
+        #
+        # sources_to_run_sequentially = [source_id for source_id in self.source_list if source_id in RESOURCE_HOGS]
 
-        with Pool() as p:
-           p.map(self.run_pipeline, sources_to_run_in_parallel)
-
-        sources_to_run_sequentially = [source_id for source_id in self.source_list if source_id in RESOURCE_HOGS]
-
-        # sources_to_run_sequentially = self.source_list
+        sources_to_run_sequentially = self.source_list
         for source_id in sources_to_run_sequentially:
             self.run_pipeline(source_id)
 
