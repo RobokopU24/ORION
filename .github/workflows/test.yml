@@ -11,17 +11,21 @@ jobs:
   test:
     name: test
     runs-on: ubuntu-latest
-    env:
-      PYTHONPATH: $GITHUB_WORKSPACE:$GITHUB_WORKSPACE/robokop-genetics
-      ROBOKOP_HOME: $GITHUB_WORKSPACE
-      DATA_SERVICES_LOGS: "tests/logs"
-      DATA_SERVICES_STORAGE: "tests/storage"
     strategy:
       matrix:
         python-version: [3.9]
     steps:
+      - name: create env params
+        run: |
+          echo "PYTHONPATH=$PWD:$PWD/robokop-genetics" >> $GITHUB_ENV
+          echo "ROBOKOP_HOME=$PWD" >> $GITHUB_ENV
+          mkdir -p $PWD/logs
+          mkdir -p $PWD/storage
+          echo "DATA_SERVICES_LOGS=$PWD/logs" >> $GITHUB_ENV
+          echo "DATA_SERVICES_STORAGE=$PWD/storage" >> $GITHUB_ENV
+
       - name: display env params
-        run: echo "$PYTHONPATH, $ROBOKOP_HOME, $DATA_SERVICES_LOGS, $DATA_SERVICES_STORAGE"
+        run: echo "${{env.PYTHONPATH}}, ${{ env.ROBOKOP_HOME }}, ${{ env.DATA_SERVICES_LOGS }}, ${{ env.DATA_SERVICES_STORAGE }}"
 
       - name: Checkout the repository
         uses: actions/checkout@v2
