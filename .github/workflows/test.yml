@@ -44,6 +44,11 @@ jobs:
         run: |
           python -m pytest --cov=Data_services --cov-report=xml tests/
 
+      - name: dir listing
+        run: |
+          ls $PWD
+          ls $PWD/tests
+
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v1
         with:
