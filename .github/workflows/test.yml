@@ -26,10 +26,6 @@ jobs:
           mkdir -p $PWD/tests/storage
           echo "DATA_SERVICES_LOGS=$PWD/tests/logs" >> $GITHUB_ENV
           echo "DATA_SERVICES_STORAGE=$PWD/tests/storage" >> $GITHUB_ENV
-          ls $PWD
-
-      - name: display env params
-        run: echo "${{env.PYTHONPATH}}, ${{ env.ROBOKOP_HOME }}, ${{ env.DATA_SERVICES_LOGS }}, ${{ env.DATA_SERVICES_STORAGE }}"
 
       - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v2
@@ -42,10 +38,4 @@ jobs:
 
       - name: Run pytest
         run: |
-          python -m pytest --cov=. --cov-report=xml tests/
-
-      - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v1
-        with:
-          file: ./coverage.xml
-          env_vars: OS,PYTHON
+          python -m pytest tests/
