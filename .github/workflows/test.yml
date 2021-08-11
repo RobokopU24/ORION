@@ -12,10 +12,10 @@ jobs:
     name: test
     runs-on: ubuntu-latest
     env:
-      - PYTHONPATH: '$PWD:$PWD/robokop-genetics'
-        ROBOKOP_HOME:$PWD
-        DATA_SERVICES_LOGS:$PWD/logs
-        DATA_SERVICES_STORAGE:tests/storage
+      PYTHONPATH: '$PWD:$PWD/robokop-genetics'
+      ROBOKOP_HOME: $PWD
+      DATA_SERVICES_LOGS: $PWD/logs
+      DATA_SERVICES_STORAGE: tests/storage
     strategy:
       matrix:
         python-version: [3.9]
