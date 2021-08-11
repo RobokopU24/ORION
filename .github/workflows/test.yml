@@ -20,9 +20,11 @@ jobs:
       matrix:
         python-version: [3.9]
     steps:
+      - name: display env params
+        run: echo "$PYTHONPATH, $ROBOKOP_HOME, $DATA_SERVICES_LOGS, $DATA_SERVICES_STORAGE"
+
       - name: Checkout the repository
         uses: actions/checkout@v2
-        run: echo "$PYTHONPATH, $ROBOKOP_HOME, $DATA_SERVICES_LOGS, $DATA_SERVICES_STORAGE"
 
       - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v2
