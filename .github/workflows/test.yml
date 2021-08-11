@@ -22,10 +22,10 @@ jobs:
         run: |
           echo "PYTHONPATH=$PWD:$PWD/robokop-genetics" >> $GITHUB_ENV
           echo "ROBOKOP_HOME=$PWD" >> $GITHUB_ENV
-          mkdir -p $PWD/logs
-          mkdir -p $PWD/storage
-          echo "DATA_SERVICES_LOGS=$PWD/logs" >> $GITHUB_ENV
-          echo "DATA_SERVICES_STORAGE=$PWD/storage" >> $GITHUB_ENV
+          mkdir -p $PWD/tests/logs
+          mkdir -p $PWD/tests/storage
+          echo "DATA_SERVICES_LOGS=$PWD/tests/logs" >> $GITHUB_ENV
+          echo "DATA_SERVICES_STORAGE=$PWD/tests/storage" >> $GITHUB_ENV
           ls $PWD
 
       - name: display env params
