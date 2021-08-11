@@ -15,6 +15,9 @@ jobs:
       matrix:
         python-version: [3.9]
     steps:
+      - name: Checkout the repository
+        uses: actions/checkout@v2
+
       - name: create env params
         run: |
           echo "PYTHONPATH=$PWD:$PWD/robokop-genetics" >> $GITHUB_ENV
@@ -27,9 +30,6 @@ jobs:
 
       - name: display env params
         run: echo "${{env.PYTHONPATH}}, ${{ env.ROBOKOP_HOME }}, ${{ env.DATA_SERVICES_LOGS }}, ${{ env.DATA_SERVICES_STORAGE }}"
-
-      - name: Checkout the repository
-        uses: actions/checkout@v2
 
       - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v2
