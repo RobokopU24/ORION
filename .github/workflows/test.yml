@@ -12,9 +12,9 @@ jobs:
     name: test
     runs-on: ubuntu-latest
     env:
-      PYTHONPATH: {{ $PWD }}:{{ $PWD }}/robokop-genetics
-      ROBOKOP_HOME: {{ $PWD }}
-      DATA_SERVICES_LOGS: {{ $PWD }}/logs
+      PYTHONPATH: "$GITHUB_WORKSPACE:$GITHUB_WORKSPACE/robokop-genetics"
+      ROBOKOP_HOME: "$GITHUB_WORKSPACE"
+      DATA_SERVICES_LOGS: "tests/logs"
       DATA_SERVICES_STORAGE: "tests/storage"
     strategy:
       matrix:
@@ -22,6 +22,7 @@ jobs:
     steps:
       - name: Checkout the repository
         uses: actions/checkout@v2
+        run: echo "$PYTHONPATH, $ROBOKOP_HOME, $DATA_SERVICES_LOGS, $DATA_SERVICES_STORAGE"
 
       - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v2
