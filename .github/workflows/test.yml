@@ -12,8 +12,8 @@ jobs:
     name: test
     runs-on: ubuntu-latest
     env:
-      PYTHONPATH: "$GITHUB_WORKSPACE:$GITHUB_WORKSPACE/robokop-genetics"
-      ROBOKOP_HOME: "$GITHUB_WORKSPACE"
+      PYTHONPATH: $GITHUB_WORKSPACE:$GITHUB_WORKSPACE/robokop-genetics
+      ROBOKOP_HOME: $GITHUB_WORKSPACE
       DATA_SERVICES_LOGS: "tests/logs"
       DATA_SERVICES_STORAGE: "tests/storage"
     strategy:
