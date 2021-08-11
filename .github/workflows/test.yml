@@ -1,0 +1,41 @@
+###############
+# test workflow for Data_services
+# powen, 8/11/2021
+###############
+
+name: 'test'
+
+on: [push]
+
+jobs:
+  test:
+    name: test
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: [3.9]
+    steps:
+      - name: Checkout the repository
+        uses: actions/checkout@v2
+
+      - name: create env params
+        run: |
+          echo "PYTHONPATH=$PWD:$PWD/robokop-genetics" >> $GITHUB_ENV
+          echo "ROBOKOP_HOME=$PWD" >> $GITHUB_ENV
+          mkdir -p $PWD/tests/logs
+          mkdir -p $PWD/tests/storage
+          echo "DATA_SERVICES_LOGS=$PWD/tests/logs" >> $GITHUB_ENV
+          echo "DATA_SERVICES_STORAGE=$PWD/tests/storage" >> $GITHUB_ENV
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v2
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install dependencies
+        run: |
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+
+      - name: Run pytest
+        run: |
+          python -m pytest tests/

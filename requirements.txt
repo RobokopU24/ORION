@@ -1,7 +1,7 @@
 pandas==1.2.4
 requests==2.25.1
-pytest==5.3.5
-pytest-cov==2.8.1
+pytest==6.2.4
+pytest-cov==2.12.1
 git+https://github.com/ObesityHub/robokop-genetics.git
 rdflib==5.0.0
 mysql-connector==2.2.9
