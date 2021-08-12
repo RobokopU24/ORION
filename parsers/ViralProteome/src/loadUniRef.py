@@ -77,8 +77,6 @@ class UniRefSimLoader(SourceDataLoader):
                 # write out the node
                 file_writer.write_node(node['id'], node_name=node['name'], node_types=node['category'], node_properties=node['properties'])
 
-            self.final_node_list.clear()
-
             # for each edge captured
             for edge in self.final_edge_list:
                 # write out the edge data
@@ -87,6 +85,8 @@ class UniRefSimLoader(SourceDataLoader):
                                        relation=edge['relation'],
                                        original_knowledge_source=self.provenance_id,
                                        edge_properties=edge['properties'])
+
+            self.final_node_list.clear()
             self.final_edge_list.clear()
 
     def get_uniref_data(self) -> set:
@@ -222,18 +222,19 @@ class UniRefSimLoader(SourceDataLoader):
 
                     self.logger.error(f'Error: Entry node for {line} at line number {record_counter} invalid.')
 
-                # TODO remove after testing
-                # if index_counter > 1000:
-                #     break
+                # TODO: remove after testing
+                if record_counter > 1000:
+                    break
 
         # save any remainders
         if len(node_list) > 0:
             # sort the node list
-            node_list = sorted(node_list, key=lambda x: (x['grp'], x['node_num']))
+            # node_list = sorted(node_list, key=lambda x: (x['grp'], x['node_num']))
 
             # write out what we have
             self.get_edge_list(node_list)
             self.get_node_list(node_list)
+            self.write_to_file_x(self.nodes_output_file_path, self.edges_output_file_path)
 
         self.logger.debug(f'Parsing XML data file complete. {record_counter} taxa processed.')
 
