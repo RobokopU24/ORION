@@ -40,6 +40,8 @@ class UniRefSimLoader(SourceDataLoader):
         self.source_id = 'UniRef'
         self.source_db = 'UniProt UniRef gene similarity data'
         self.provenance_id = 'infores:uniref'
+        self.nodes_output_file_path = ''
+        self.edges_output_file_path = ''
 
         # create a logger
         self.logger = LoggingUtil.init_logging("Data_services.ViralProteome.UniRefSimLoader", level=logging.INFO, line_format='medium', log_file_path=os.environ['DATA_SERVICES_LOGS'])
@@ -60,7 +62,7 @@ class UniRefSimLoader(SourceDataLoader):
         """
         return datetime.datetime.now().strftime("%m/%d/%Y")
 
-    def write_to_file(self, nodes_output_file_path: str, edges_output_file_path: str) -> None:
+    def write_to_file_x(self, nodes_output_file_path: str, edges_output_file_path: str) -> None:
         """
         sends the data over to the KGX writer to create the node/edge files
 
@@ -75,6 +77,8 @@ class UniRefSimLoader(SourceDataLoader):
                 # write out the node
                 file_writer.write_node(node['id'], node_name=node['name'], node_types=node['category'], node_properties=node['properties'])
 
+            self.final_node_list.clear()
+
             # for each edge captured
             for edge in self.final_edge_list:
                 # write out the edge data
@@ -83,6 +87,7 @@ class UniRefSimLoader(SourceDataLoader):
                                        relation=edge['relation'],
                                        original_knowledge_source=self.provenance_id,
                                        edge_properties=edge['properties'])
+            self.final_edge_list.clear()
 
     def get_uniref_data(self) -> set:
         """
@@ -116,11 +121,14 @@ class UniRefSimLoader(SourceDataLoader):
 
         self.logger.info(f'UniRefSimLoader - Start of UniRef data processing.')
 
+        self.nodes_output_file_path = nodes_output_file_path
+        self.edges_output_file_path = edges_output_file_path
+
         # declare the name of the taxon index file
         taxon_index_file = 'taxon_file_indexes.txt'
 
         # declare the list of uniref input file names
-        in_file_names: list = ['UniRef50', 'UniRef90', 'UniRef100']
+        in_file_names: list = ['UniRef50']  # , 'UniRef90', 'UniRef100'
 
         # get the list of taxons to process
         target_taxon_set = self.get_uniref_data()
@@ -146,9 +154,6 @@ class UniRefSimLoader(SourceDataLoader):
             final_skipped_count += skipped
 
             self.logger.info(f'UniRefSimLoader - {f} Processing complete.')
-
-        # write out the data
-        self.write_to_file(nodes_output_file_path, edges_output_file_path)
 
         # load up the metadata
         load_metadata: dict = {
@@ -189,6 +194,12 @@ class UniRefSimLoader(SourceDataLoader):
                 # output a status indicator
                 if record_counter % 500000 == 0:
                     self.logger.debug(f'Completed {record_counter} taxa.')
+                    # write out what we have
+                    self.get_edge_list(node_list)
+                    self.get_node_list(node_list)
+
+                    self.write_to_file_x(self.nodes_output_file_path, self.edges_output_file_path)
+                    node_list.clear()
 
                 # start looking a bit before the location grep found
                 taxon_index = int(line.split(':')[0]) - 150
