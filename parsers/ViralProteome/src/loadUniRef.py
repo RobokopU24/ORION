@@ -42,6 +42,7 @@ class UniRefSimLoader(SourceDataLoader):
         self.provenance_id = 'infores:uniref'
         self.nodes_output_file_path = ''
         self.edges_output_file_path = ''
+        self.file_writer = None
 
         # create a logger
         self.logger = LoggingUtil.init_logging("Data_services.ViralProteome.UniRefSimLoader", level=logging.INFO, line_format='medium', log_file_path=os.environ['DATA_SERVICES_LOGS'])
@@ -62,32 +63,30 @@ class UniRefSimLoader(SourceDataLoader):
         """
         return datetime.datetime.now().strftime("%m/%d/%Y")
 
-    def write_to_file_x(self, nodes_output_file_path: str, edges_output_file_path: str) -> None:
+    def write_to_file_x(self, file_writer) -> None:
         """
         sends the data over to the KGX writer to create the node/edge files
 
-        :param nodes_output_file_path: the path to the node file
-        :param edges_output_file_path: the path to the edge file
+        # :param nodes_output_file_path: the path to the node file
+        # :param edges_output_file_path: the path to the edge file
         :return: Nothing
         """
-        # get a KGX file writer
-        with KGXFileWriter(nodes_output_file_path, edges_output_file_path) as file_writer:
-            # for each node captured
-            for node in self.final_node_list:
-                # write out the node
-                file_writer.write_node(node['id'], node_name=node['name'], node_types=node['category'], node_properties=node['properties'])
+        # for each node captured
+        for node in self.final_node_list:
+            # write out the node
+            file_writer.write_node(node['id'], node_name=node['name'], node_types=node['category'], node_properties=node['properties'])
 
-            # for each edge captured
-            for edge in self.final_edge_list:
-                # write out the edge data
-                file_writer.write_edge(subject_id=edge['subject'],
-                                       object_id=edge['object'],
-                                       relation=edge['relation'],
-                                       original_knowledge_source=self.provenance_id,
-                                       edge_properties=edge['properties'])
+        # for each edge captured
+        for edge in self.final_edge_list:
+            # write out the edge data
+            file_writer.write_edge(subject_id=edge['subject'],
+                                   object_id=edge['object'],
+                                   relation=edge['relation'],
+                                   original_knowledge_source=self.provenance_id,
+                                   edge_properties=edge['properties'])
 
-            self.final_node_list.clear()
-            self.final_edge_list.clear()
+        self.final_node_list.clear()
+        self.final_edge_list.clear()
 
     def get_uniref_data(self) -> set:
         """
@@ -121,9 +120,6 @@ class UniRefSimLoader(SourceDataLoader):
 
         self.logger.info(f'UniRefSimLoader - Start of UniRef data processing.')
 
-        self.nodes_output_file_path = nodes_output_file_path
-        self.edges_output_file_path = edges_output_file_path
-
         # declare the name of the taxon index file
         taxon_index_file = 'taxon_file_indexes.txt'
 
@@ -136,35 +132,36 @@ class UniRefSimLoader(SourceDataLoader):
         final_record_count: int = 0
         final_skipped_count: int = 0
 
-        # for each UniRef file to process
-        for f in in_file_names:
-            self.logger.debug(f'Processing {f}.')
+        with KGXFileWriter(nodes_output_file_path, edges_output_file_path) as file_writer:
+            # for each UniRef file to process
+            for f in in_file_names:
+                self.logger.debug(f'Processing {f}.')
 
-            # add the file extension to the raw data
-            if self.test_mode:
-                full_file = f + '.test.xml'
-            else:
-                full_file = f + '.xml'
+                # add the file extension to the raw data
+                if self.test_mode:
+                    full_file = f + '.test.xml'
+                else:
+                    full_file = f + '.xml'
 
-            # read the file and make the list
-            records, skipped = self.parse_data_file(os.path.join(self.data_path, full_file), os.path.join(self.data_path, f'{f}_{taxon_index_file}'), target_taxon_set)
+                # read the file and make the list
+                records, skipped = self.parse_data_file(file_writer, os.path.join(self.data_path, full_file), os.path.join(self.data_path, f'{f}_{taxon_index_file}'), target_taxon_set)
 
-            # add to the final counts
-            final_record_count += records
-            final_skipped_count += skipped
+                # add to the final counts
+                final_record_count += records
+                final_skipped_count += skipped
 
-            self.logger.info(f'UniRefSimLoader - {f} Processing complete.')
+                self.logger.info(f'UniRefSimLoader - {f} Processing complete.')
 
-        # load up the metadata
-        load_metadata: dict = {
-            'num_source_lines': final_record_count,
-            'unusable_source_lines': final_skipped_count
-        }
+            # load up the metadata
+            load_metadata: dict = {
+                'num_source_lines': final_record_count,
+                'unusable_source_lines': final_skipped_count
+            }
 
         # return the metadata to the caller
         return load_metadata
 
-    def parse_data_file(self, uniref_infile_path: str, index_file_path: str, target_taxa: set) -> (int, int):
+    def parse_data_file(self, file_writer, uniref_infile_path: str, index_file_path: str, target_taxa: set) -> (int, int):
         """
         Parses the data file for graph nodes/edges and writes them to the KGX csv files.
 
@@ -192,13 +189,14 @@ class UniRefSimLoader(SourceDataLoader):
                 record_counter += 1
 
                 # output a status indicator
-                if record_counter % 500000 == 0:
+                if record_counter % 10 == 0:
                     self.logger.debug(f'Completed {record_counter} taxa.')
+
                     # write out what we have
                     self.get_edge_list(node_list)
                     self.get_node_list(node_list)
 
-                    self.write_to_file_x(self.nodes_output_file_path, self.edges_output_file_path)
+                    self.write_to_file_x(file_writer)
                     node_list.clear()
 
                 # start looking a bit before the location grep found
@@ -216,6 +214,8 @@ class UniRefSimLoader(SourceDataLoader):
                     if not good_record:
                         # increment the node counter
                         skipped_record_counter += 1
+
+                        self.logger.error(f'Error: Entry node for {line} at line number {record_counter} was not captured.')
                 else:
                     # increment the node counter
                     skipped_record_counter += 1
@@ -223,7 +223,7 @@ class UniRefSimLoader(SourceDataLoader):
                     self.logger.error(f'Error: Entry node for {line} at line number {record_counter} invalid.')
 
                 # TODO: remove after testing
-                if record_counter > 1000:
+                if record_counter > 10:
                     break
 
         # save any remainders
@@ -234,7 +234,7 @@ class UniRefSimLoader(SourceDataLoader):
             # write out what we have
             self.get_edge_list(node_list)
             self.get_node_list(node_list)
-            self.write_to_file_x(self.nodes_output_file_path, self.edges_output_file_path)
+            self.write_to_file_x(file_writer)
 
         self.logger.debug(f'Parsing XML data file complete. {record_counter} taxa processed.')
 
