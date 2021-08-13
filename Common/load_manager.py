@@ -29,6 +29,7 @@ from parsers.GTEx.src.loadGTEx import GTExLoader
 from parsers.drugcentral.src.loaddrugcentral import DrugCentralLoader
 from parsers.hetio.src.loadHetio import HetioLoader
 from parsers.biolink.src.loadBL import BLLoader
+from parsers.OntologicalHierarchy.src.loadOH import OHLoader
 
 GWAS_CATALOG = 'GWASCatalog'
 CTD = 'CTD'
@@ -49,6 +50,7 @@ DRUG_CENTRAL = 'DrugCentral'
 HETIO = 'Hetio'
 BIOLINK = 'Biolink'
 UNIREF = 'UniRef'
+ONTOLOGICAL_HIERARCHY = 'OntologicalHierarchy'
 
 SOURCE_DATA_LOADER_CLASSES = {
     CTD: CTDLoader,
@@ -67,7 +69,8 @@ SOURCE_DATA_LOADER_CLASSES = {
     HETIO: HetioLoader,
     BIOLINK: BLLoader,
     PANTHER: PLoader,
-    UNIREF: UniRefSimLoader
+    UNIREF: UniRefSimLoader,
+    ONTOLOGICAL_HIERARCHY: OHLoader
 
     # items to go
     # chemnorm,
