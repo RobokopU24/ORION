@@ -2,6 +2,7 @@ import os
 import logging
 import enum
 
+from copy import deepcopy
 from Common.utils import LoggingUtil, GetData
 from Common.loader_interface import SourceDataLoader
 from Common.extractor import Extractor
@@ -36,6 +37,7 @@ class PHENOTYPESDATACOLS(enum.IntEnum):
     PHENOTYPE_NAME = 0
     PHENOTYPE_ID = 1
     PHENOTYPE_HP_NAME = 2
+    PHENOTYPE_NOTE = 3
 
 
 # the data header columns for drug trials:
@@ -64,15 +66,18 @@ class Cord19Loader(SourceDataLoader):
         # call the super
         super(SourceDataLoader, self).__init__()
 
-        self.associated_with_predicate = 'SEMMEDDB:ASSOCIATED_WITH'
+        # NOTE 1: The nodes files are not necessary, unless we decide we want the names from them.
+        # Leaving them set up here just in case we do in the future..
 
         self.scibite_url = 'https://stars.renci.org/var/data_services/cord19/scibite/v6/'
-        self.scibite_nodes_file_name = 'CV19_nodes.txt'
         self.scibite_edges_file_name = 'CV19_edges.txt'
+        # self.scibite_nodes_file_name = 'CV19_nodes.txt'
 
         self.scrigraph_url = 'https://stars.renci.org/var/data_services/cord19/scigraph/v12/'
-        self.scigraph_nodes_file_name = 'normalized.txt'
         self.scigraph_edges_file_name = 'pairs.txt'
+        # self.scigraph_nodes_file_name = 'normalized.txt'
+
+        self.related_to_predicate = 'biolink:correlated_with'
 
         self.covid_node_id = 'MONDO:0100096'
         self.has_phenotype_predicate = 'RO:0002200'
@@ -82,11 +87,13 @@ class Cord19Loader(SourceDataLoader):
         self.drug_bank_trials_url = 'https://raw.githubusercontent.com/TranslatorIIPrototypes/CovidDrugBank/master/'
         self.drug_bank_trials_file_name = 'trials.txt'
 
-        self.data_path: str = os.path.join(os.environ['DATA_SERVICES_STORAGE'], self.source_id)
-        self.data_files: list = [self.scibite_nodes_file_name,
-                                 self.scibite_edges_file_name,
-                                 self.scigraph_nodes_file_name,
+        self.data_path: str = os.path.join(os.environ['DATA_SERVICES_STORAGE'], self.source_id, 'source')
+        if not os.path.exists(self.data_path):
+            os.mkdir(self.data_path)
+        self.data_files: list = [self.scibite_edges_file_name,
+                                 # self.scibite_nodes_file_name,
                                  self.scigraph_edges_file_name,
+                                 # self.scigraph_nodes_file_name,
                                  self.covid_phenotypes_file_name,
                                  self.drug_bank_trials_file_name]
         self.test_mode: bool = test_mode
@@ -113,9 +120,9 @@ class Cord19Loader(SourceDataLoader):
         """
         sources_to_pull = [
             f'{self.covid_phenotypes_url}{self.covid_phenotypes_file_name}',
-            f'{self.scibite_url}{self.scibite_nodes_file_name}',
+            # f'{self.scibite_url}{self.scibite_nodes_file_name}',
             f'{self.scibite_url}{self.scibite_edges_file_name}',
-            f'{self.scrigraph_url}{self.scigraph_nodes_file_name}',
+            # f'{self.scrigraph_url}{self.scigraph_nodes_file_name}',
             f'{self.scrigraph_url}{self.scigraph_edges_file_name}',
             f'{self.drug_bank_trials_url}{self.drug_bank_trials_file_name}'
         ]
@@ -133,8 +140,10 @@ class Cord19Loader(SourceDataLoader):
         """
 
         extractor = Extractor()
-
-        # parse the nodes files
+        """
+        # See NOTE 1 above about nodes files
+        #
+        # parse the scibites nodes files
         for nodes_file_name in [self.scibite_nodes_file_name, self.scigraph_nodes_file_name]:
             nodes_file: str = os.path.join(self.data_path, nodes_file_name)
             with open(nodes_file, 'r') as fp:
@@ -148,14 +157,14 @@ class Cord19Loader(SourceDataLoader):
                                       comment_character=None,
                                       delim='\t',
                                       has_header_row=True)
-
+        """
         # parse the scibites edges file
         edges_file: str = os.path.join(self.data_path, self.scibite_edges_file_name)
         with open(edges_file, 'r') as fp:
             extractor.csv_extract(fp,
                                   lambda line: line[SBEDGESDATACOLS.SUBJECT.value].replace('_', ''),  # subject id
                                   lambda line: line[SBEDGESDATACOLS.OBJECT.value].replace('_', ''),  # object id
-                                  lambda line: self.associated_with_predicate,  # predicate extractor
+                                  lambda line: self.related_to_predicate,  # predicate extractor
                                   lambda line: {},  # subject props
                                   lambda line: {},  # object props
                                   lambda line: {'num_publications': float(line[SBEDGESDATACOLS.EFFECTIVE_PUBS.value]),
@@ -171,12 +180,12 @@ class Cord19Loader(SourceDataLoader):
             extractor.csv_extract(fp,
                                   lambda line: line[SGEDGESDATACOLS.SUBJECT.value],  # subject id
                                   lambda line: line[SGEDGESDATACOLS.OBJECT.value],  # object id
-                                  lambda line:  self.associated_with_predicate,  # predicate extractor
+                                  lambda line:  self.related_to_predicate,  # predicate extractor
                                   lambda line: {},  # subject props
                                   lambda line: {},  # object props
                                   lambda line: {'num_publications': float(line[SGEDGESDATACOLS.EFFECTIVE_PUBS.value]),
                                                 'enrichment_p': float(line[SGEDGESDATACOLS.ENRICHMENT.value]),
-                                                ORIGINAL_KNOWLEDGE_SOURCE: 'infores:cord19'},#edgeprops
+                                                ORIGINAL_KNOWLEDGE_SOURCE: self.provenance_id},#edgeprops
                                   comment_character=None,
                                   delim='\t',
                                   has_header_row=True)
@@ -190,17 +199,20 @@ class Cord19Loader(SourceDataLoader):
                                   lambda line: self.has_phenotype_predicate,  # predicate extractor
                                   lambda line: {},  # subject props
                                   lambda line: {},  # object props
-                                  lambda line: {AGGREGATOR_KNOWLEDGE_SOURCES: ['infores:cord19']},#edgeprops
+                                  lambda line: {'notes': line[PHENOTYPESDATACOLS.PHENOTYPE_NOTE.value],
+                                                ORIGINAL_KNOWLEDGE_SOURCE: self.provenance_id,
+                                                AGGREGATOR_KNOWLEDGE_SOURCES: [self.provenance_id]},#edgeprops
                                   comment_character=None,
                                   delim=',',
                                   has_header_row=True)
 
+        # parse the drug bank trials file
         trials_file: str = os.path.join(self.data_path, self.drug_bank_trials_file_name)
         with open(trials_file, 'r') as fp:
             extractor.csv_extract(fp,
                                   lambda line: line[TRIALSDATACOLS.DRUG_ID.value],  # subject id
                                   lambda line: line[TRIALSDATACOLS.TARGET_ID.value],  # object id
-                                  lambda line: f'ROBOKOVID:{line[TRIALSDATACOLS.PREDICATE.value]}',  # predicate extractor
+                                  lambda line: f'ROBOKOVID:{line[TRIALSDATACOLS.PREDICATE.value]}', # predicate extractor
                                   lambda line: {},  # subject props
                                   lambda line: {},  # object props
                                   lambda line: {'count': line[TRIALSDATACOLS.COUNT.value],
@@ -211,5 +223,29 @@ class Cord19Loader(SourceDataLoader):
 
         self.final_node_list = extractor.nodes
         self.final_edge_list = extractor.edges
+
+        # we want to duplicate all the edges attached to the nodes for covid as a disease and SARS-CoV-2 as a taxon
+        # right now this is:
+        covid_disease_id = 'MONDO:0100096'
+        coronavirus_taxon_id = 'NCBITaxon:2697049'
+        edges_to_add = []
+        for edge in self.final_edge_list:
+            new_edge = None
+            if edge.subjectid == covid_disease_id:
+                new_edge = deepcopy(edge)
+                new_edge.subjectid == coronavirus_taxon_id
+            elif edge.objectid == covid_disease_id:
+                new_edge = deepcopy(edge)
+                new_edge.objectid == coronavirus_taxon_id
+            elif edge.subjectid == coronavirus_taxon_id:
+                new_edge = deepcopy(edge)
+                new_edge.subjectid == covid_disease_id
+            elif edge.objectid == coronavirus_taxon_id:
+                new_edge = deepcopy(edge)
+                new_edge.objectid == covid_disease_id
+
+            if new_edge and new_edge.subjectid != new_edge.objectid:
+                edges_to_add.append(new_edge)
+        self.final_edge_list.extend(edges_to_add)
 
         return extractor.load_metadata

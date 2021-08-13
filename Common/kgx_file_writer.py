@@ -74,10 +74,10 @@ class KGXFileWriter:
 
         if self.ignore_orphan_nodes:
             if node_id not in self.utilized_nodes:
-                self.orphan_node_count +=1
+                self.orphan_node_count += 1
                 return
-
-        self.written_nodes.add(node_id)
+        if uniquify:
+            self.written_nodes.add(node_id)
         node_object = {'id': node_id, 'name': node_name, 'category': node_types}
         if node_properties:
             node_object.update(node_properties)
@@ -96,7 +96,8 @@ class KGXFileWriter:
             self.repeat_node_count += 1
             return
 
-        self.written_nodes.add(node_json['id'])
+        if uniquify:
+            self.written_nodes.add(node_json['id'])
         self.nodes_to_write.append(node_json)
         self.check_node_buffer_for_flush()
 

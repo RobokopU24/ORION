@@ -7,6 +7,7 @@ from Common.utils import LoggingUtil, NodeNormUtils
 from Common.kgx_file_writer import KGXFileWriter
 from Common.loader_interface import SourceDataWithVariantsLoader, SourceDataBrokenError, SourceDataFailedError
 from Common.node_types import SEQUENCE_VARIANT, GENE
+from Common.prefixes import HGVS, UBERON
 
 
 class GTExLoader(SourceDataWithVariantsLoader):
@@ -20,69 +21,69 @@ class GTExLoader(SourceDataWithVariantsLoader):
 
     # tissue name to uberon curies, the tissue names will match gtex file names
     TISSUES = {
-        "Adipose_Subcutaneous": "UBERON:0002190",
-        "Adipose_Visceral_Omentum": "UBERON:0003688",
-        "Adrenal_Gland": "UBERON:0018303",
-        "Artery_Aorta": "UBERON:0004178",
-        "Artery_Coronary": "UBERON:0002111",
-        "Artery_Tibial": "UBERON:0007610",
-        "Brain_Amygdala": "UBERON:0001876",
-        "Brain_Anterior_cingulate_cortex_BA24": "UBERON:0006101",
-        "Brain_Caudate_basal_ganglia": "UBERON:0002420",
-        "Brain_Cerebellar_Hemisphere": "UBERON:0002245",
-        "Brain_Cerebellum": "UBERON:0002037",
-        "Brain_Cortex": "UBERON:0001851",
-        "Brain_Frontal_Cortex_BA9": "UBERON:0013540",
-        "Brain_Hippocampus": "UBERON:0002310",
-        "Brain_Hypothalamus": "UBERON:0001898",
-        "Brain_Nucleus_accumbens_basal_ganglia": "UBERON:0001882",
-        "Brain_Putamen_basal_ganglia": "UBERON:0001874",
-        "Brain_Spinal_cord_cervical_c-1": "UBERON:0002726",
-        "Brain_Substantia_nigra": "UBERON:0002038",
-        "Breast_Mammary_Tissue": "UBERON:0001911",
-        "Cells_Cultured_fibroblasts": "UBERON:0015764",
-        "Cells_EBV-transformed_lymphocytes": "UBERON:0001744",
-        "Colon_Sigmoid": "UBERON:0001159",
-        "Colon_Transverse": "UBERON:0001157",
-        "Esophagus_Gastroesophageal_Junction": "UBERON:0007650",
-        "Esophagus_Mucosa": "UBERON:0002469",
-        "Esophagus_Muscularis": "UBERON:0004648",
-        "Heart_Atrial_Appendage": "UBERON:0006618",
-        "Heart_Left_Ventricle": "UBERON:0002084",
-        "Kidney_Cortex": "UBERON:0001225",
-        "Liver": "UBERON:0002107",
-        "Lung": "UBERON:0002048",
-        "Minor_Salivary_Gland": "UBERON:0001830",
-        "Muscle_Skeletal": "UBERON:0001134",
-        "Nerve_Tibial": "UBERON:0001323",
-        "Ovary": "UBERON:0000992",
-        "Pancreas": "UBERON:0001264",
-        "Pituitary": "UBERON:0000007",
-        "Prostate": "UBERON:0002367",
-        "Skin_Not_Sun_Exposed_Suprapubic": "UBERON:0036149",
-        "Skin_Sun_Exposed_Lower_leg": "UBERON:0004264",
-        "Small_Intestine_Terminal_Ileum": "UBERON:0002116",
-        "Spleen": "UBERON:0002106",
-        "Stomach": "UBERON:0000945",
-        "Testis": "UBERON:0000473",
-        "Thyroid": "UBERON:0002046",
-        "Uterus": "UBERON:0000995",
-        "Vagina": "UBERON:0000996",
-        "Whole_Blood": "UBERON:0000178"}
+        "Adipose_Subcutaneous": f"{UBERON}:0002190",
+        "Adipose_Visceral_Omentum": f"{UBERON}:0003688",
+        "Adrenal_Gland": f"{UBERON}:0018303",
+        "Artery_Aorta": f"{UBERON}:0004178",
+        "Artery_Coronary": f"{UBERON}:0002111",
+        "Artery_Tibial": f"{UBERON}:0007610",
+        "Brain_Amygdala": f"{UBERON}:0001876",
+        "Brain_Anterior_cingulate_cortex_BA24": f"{UBERON}:0006101",
+        "Brain_Caudate_basal_ganglia": f"{UBERON}:0002420",
+        "Brain_Cerebellar_Hemisphere": f"{UBERON}:0002245",
+        "Brain_Cerebellum": f"{UBERON}:0002037",
+        "Brain_Cortex": f"{UBERON}:0001851",
+        "Brain_Frontal_Cortex_BA9": f"{UBERON}:0013540",
+        "Brain_Hippocampus": f"{UBERON}:0002310",
+        "Brain_Hypothalamus": f"{UBERON}:0001898",
+        "Brain_Nucleus_accumbens_basal_ganglia": f"{UBERON}:0001882",
+        "Brain_Putamen_basal_ganglia": f"{UBERON}:0001874",
+        "Brain_Spinal_cord_cervical_c-1": f"{UBERON}:0002726",
+        "Brain_Substantia_nigra": f"{UBERON}:0002038",
+        "Breast_Mammary_Tissue": f"{UBERON}:0001911",
+        "Cells_Cultured_fibroblasts": f"{UBERON}:0015764",
+        "Cells_EBV-transformed_lymphocytes": f"{UBERON}:0001744",
+        "Colon_Sigmoid": f"{UBERON}:0001159",
+        "Colon_Transverse": f"{UBERON}:0001157",
+        "Esophagus_Gastroesophageal_Junction": f"{UBERON}:0007650",
+        "Esophagus_Mucosa": f"{UBERON}:0002469",
+        "Esophagus_Muscularis": f"{UBERON}:0004648",
+        "Heart_Atrial_Appendage": f"{UBERON}:0006618",
+        "Heart_Left_Ventricle": f"{UBERON}:0002084",
+        "Kidney_Cortex": f"{UBERON}:0001225",
+        "Liver": f"{UBERON}:0002107",
+        "Lung": f"{UBERON}:0002048",
+        "Minor_Salivary_Gland": f"{UBERON}:0001830",
+        "Muscle_Skeletal": f"{UBERON}:0001134",
+        "Nerve_Tibial": f"{UBERON}:0001323",
+        "Ovary": f"{UBERON}:0000992",
+        "Pancreas": f"{UBERON}:0001264",
+        "Pituitary": f"{UBERON}:0000007",
+        "Prostate": f"{UBERON}:0002367",
+        "Skin_Not_Sun_Exposed_Suprapubic": f"{UBERON}:0036149",
+        "Skin_Sun_Exposed_Lower_leg": f"{UBERON}:0004264",
+        "Small_Intestine_Terminal_Ileum": f"{UBERON}:0002116",
+        "Spleen": f"{UBERON}:0002106",
+        "Stomach": f"{UBERON}:0000945",
+        "Testis": f"{UBERON}:0000473",
+        "Thyroid": f"{UBERON}:0002046",
+        "Uterus": f"{UBERON}:0000995",
+        "Vagina": f"{UBERON}:0000996",
+        "Whole_Blood": f"{UBERON}:0000178"}
 
     TEST_TISSUES = {
-        "Muscle_Skeletal": "UBERON:0001134",
-        "Colon_Transverse": "UBERON:0001157",
-        "Nerve_Tibial": "UBERON:0001323",
-        "Brain_Cortex": "UBERON:0001851",
-        "Adipose_Subcutaneous": "UBERON:0002190",
-        "Adipose_Visceral_Omentum": "UBERON:0003688",
-        "Artery_Aorta": "UBERON:0004178",
-        "Skin_Sun_Exposed_Lower_leg": "UBERON:0004264",
-        "Brain_Anterior_cingulate_cortex_BA24": "UBERON:0006101",
-        "Cells_Cultured_fibroblasts": "UBERON:0015764",
-        "Adrenal_Gland": "UBERON:0018303",
-        "Skin_Not_Sun_Exposed_Suprapubic": "UBERON:0036149"
+        "Muscle_Skeletal": f"{UBERON}:0001134",
+        "Colon_Transverse": f"{UBERON}:0001157",
+        "Nerve_Tibial": f"{UBERON}:0001323",
+        "Brain_Cortex": f"{UBERON}:0001851",
+        "Adipose_Subcutaneous": f"{UBERON}:0002190",
+        "Adipose_Visceral_Omentum": f"{UBERON}:0003688",
+        "Artery_Aorta": f"{UBERON}:0004178",
+        "Skin_Sun_Exposed_Lower_leg": f"{UBERON}:0004264",
+        "Brain_Anterior_cingulate_cortex_BA24": f"{UBERON}:0006101",
+        "Cells_Cultured_fibroblasts": f"{UBERON}:0015764",
+        "Adrenal_Gland": f"{UBERON}:0018303",
+        "Skin_Not_Sun_Exposed_Suprapubic": f"{UBERON}:0036149"
     }
 
     # look up for reference chromosomes for HGVS conversion
@@ -162,35 +163,46 @@ class GTExLoader(SourceDataWithVariantsLoader):
             if not self.test_mode:
                 self.fetch_and_save_tar(sqtl_url, sqtl_tar_download_path)
 
-            with KGXFileWriter(nodes_output_file_path=nodes_output_file_path) as kgx_file_writer:
+            with KGXFileWriter(nodes_output_file_path=nodes_output_file_path,
+                               edges_output_file_path=edges_output_file_path) as kgx_file_writer:
 
-                self.logger.debug('Parsing eqtl and sqtl data and writing nodes...')
+                self.logger.debug('Parsing eqtl data and writing nodes...')
                 for gtex_relationship in self.parse_file_and_yield_relationships(eqtl_tar_download_path):
                     # unpack the gtex_relationship tuple
                     anatomy_id, gtex_variant, gtex_gene, p_value, slope = gtex_relationship
                     # process and write the nodes
                     variant_id = self.process_variant(gtex_variant, kgx_file_writer)
-                    gene_id = self.process_gene(gtex_gene, kgx_file_writer)
-                    # create the edge (stored in self.edge_list)
-                    self.create_edge(anatomy_id, variant_id, gene_id, p_value, slope)
+                    if variant_id:
+                        gene_id = self.process_gene(gtex_gene, kgx_file_writer)
+                        # create the edge (stored in self.edge_list)
+                        self.create_edge(anatomy_id, variant_id, gene_id, p_value, slope)
 
+                self.logger.debug('Merging eqtl edges and writing them...')
+                self.logger.debug('Merging and writing edges...')
+                # coalesce the edges that share subject/relation/object, turning relevant properties into arrays
+                # write them to file
+                self.coalesce_and_write_edges(kgx_file_writer)
+                self.edge_list.clear()
+
+                self.logger.debug('Parsing sqtl data and writing nodes...')
                 for gtex_relationship in self.parse_file_and_yield_relationships(sqtl_tar_download_path,
                                                                                  is_sqtl=True):
                     # unpack the gtex_relationship tuple
                     anatomy_id, gtex_variant, gtex_gene, p_value, slope = gtex_relationship
                     # process and write the nodes
                     variant_id = self.process_variant(gtex_variant, kgx_file_writer)
-                    gene_id = self.process_gene(gtex_gene, kgx_file_writer)
-                    # create the edge (stored in self.edge_list)
-                    self.create_edge(anatomy_id, variant_id, gene_id, p_value, slope, is_sqtl=True)
+                    if variant_id:
+                        gene_id = self.process_gene(gtex_gene, kgx_file_writer)
+                        # create the edge (stored in self.edge_list)
+                        self.create_edge(anatomy_id, variant_id, gene_id, p_value, slope, is_sqtl=True)
 
-            # using two different file writers here so that the nodes flush and write before the edges
-            # this should help with max memory usage and related issues
-            with KGXFileWriter(edges_output_file_path=edges_output_file_path) as kgx_file_writer:
-                self.logger.debug('Merging and writing edges...')
+                self.logger.debug('Merging sqtl edges and writing them...')
                 # coalesce the edges that share subject/relation/object, turning relevant properties into arrays
                 # write them to file
                 self.coalesce_and_write_edges(kgx_file_writer)
+                self.edge_list.clear()
+
+
 
             self.logger.debug(f'GTEx parsing and KGX file creation complete.')
 
@@ -220,23 +232,24 @@ class GTExLoader(SourceDataWithVariantsLoader):
             hgvs: str = self.convert_gtex_variant_to_hgvs(gtex_variant_id)
             if hgvs:
                 # store the hgvs value and write the node to the kgx file
-                variant_id = f'HGVS:{hgvs}'
+                variant_id = f'{HGVS}:{hgvs}'
                 self.gtex_variant_to_hgvs_lookup[gtex_variant_id] = variant_id
                 kgx_file_writer.write_node(variant_id,
                                            node_name=hgvs,
-                                           node_types=self.variant_node_types)
+                                           node_types=self.variant_node_types,
+                                           uniquify=False)
             else:
-                self.logger.error(
-                    f'GTEx had a variant that we could not convert to HGVS: {gtex_variant_id}')
+                variant_id = None
                 self.variants_that_failed_hgvs_conversion.add(gtex_variant_id)
-                return None
+            self.gtex_variant_to_hgvs_lookup[gtex_variant_id] = variant_id
+
         else:
             # if so just grab the variant id generated previously
             variant_id = self.gtex_variant_to_hgvs_lookup[gtex_variant_id]
 
         return variant_id
 
-    # given a gene id from the gtex data (already in curie form)
+    # given a gene id from the gtex data (already converted to curie form)
     # write it to file if it hasn't been done already
     def process_gene(self,
                      gtex_gene_id,
@@ -246,7 +259,8 @@ class GTExLoader(SourceDataWithVariantsLoader):
             # write the node to the kgx file
             kgx_file_writer.write_node(gtex_gene_id,
                                        node_name=gtex_gene_id.split(':')[1],
-                                       node_types=self.gene_node_types)
+                                       node_types=self.gene_node_types,
+                                       uniquify=False)
             self.written_genes.add(gtex_gene_id)
         return gtex_gene_id
 
@@ -268,8 +282,8 @@ class GTExLoader(SourceDataWithVariantsLoader):
              "object": gene_id,
              "relation": relation,
              "expressed_in": anatomy_id,
-             "p_value": p_value,
-             "slope": slope})
+             "p_value": float(p_value),
+             "slope": float(slope)})
 
     def parse_file_and_yield_relationships(self,
                                            full_tar_path: str,
@@ -381,10 +395,9 @@ class GTExLoader(SourceDataWithVariantsLoader):
             if cur_group_key != start_group_key:
 
                 # merge the properties of the previous edge group into arrays
-                edge_properties = {'expressed_in': '[' + ','.join(anatomy_ids) + ']',
-                                   'p_value': '[' + ','.join(p_values) + ']',
-                                   'slope': '[' + ','.join(slopes) + ']',
-                                    }
+                edge_properties = {'expressed_in': anatomy_ids,
+                                   'p_value': p_values,
+                                   'slope': slopes}
 
                 # write out the coalesced edge for the previous group
                 kgx_file_writer.write_edge(subject_id=cur_record["subject"],
@@ -410,10 +423,9 @@ class GTExLoader(SourceDataWithVariantsLoader):
         # save anything that is left
         if len(anatomy_ids) > 0:
             # merge the properties of the previous edge group into arrays
-            edge_properties = {'expressed_in': '[' + ','.join(anatomy_ids) + ']',
-                               'p_value': '[' + ','.join(p_values) + ']',
-                               'slope': '[' + ','.join(slopes) + ']',
-                               }
+            edge_properties = {'expressed_in': anatomy_ids,
+                               'p_value': p_values,
+                               'slope': slopes}
 
             # write out the coalesced edge for the previous group
             kgx_file_writer.write_edge(subject_id=cur_record["subject"],

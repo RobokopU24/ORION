@@ -176,22 +176,26 @@ class KGXFileNormalizer:
         # this is the number of nodes that started with different IDs but normalized to the same ID as another node
         merged_node_count = output_file_writer.repeat_node_count
 
+        # update the metadata
+        self.normalization_metadata.update({
+            'regular_nodes_pre_norm': regular_nodes_pre_norm,
+            'regular_node_norm_failures': len(regular_node_norm_failures),
+            'regular_nodes_post_norm': regular_nodes_post_norm,
+        })
+        if self.has_sequence_variants:
+            self.normalization_metadata.update({
+                'variant_nodes_pre_norm': variant_nodes_pre_norm,
+                'variant_node_norm_failures': len(variant_node_norm_failures),
+                'variant_nodes_split_count': variant_nodes_split_count,
+                'variant_nodes_post_norm': variant_nodes_post_norm
+            })
         self.normalization_metadata.update({
             'all_nodes_post_norm': regular_nodes_post_norm + variant_nodes_post_norm,
             'merged_nodes_post_norm': merged_node_count,
             'final_normalized_nodes': regular_nodes_post_norm + variant_nodes_post_norm - merged_node_count
         })
 
-        # update the metadata
-        self.normalization_metadata.update({
-            'regular_nodes_pre_norm': regular_nodes_pre_norm,
-            'regular_node_norm_failures': len(regular_node_norm_failures),
-            'regular_nodes_post_norm': regular_nodes_post_norm,
-            'variant_nodes_pre_norm': variant_nodes_pre_norm,
-            'variant_node_norm_failures': len(variant_node_norm_failures),
-            'variant_nodes_split_count': variant_nodes_split_count,
-            'variant_nodes_post_norm': variant_nodes_post_norm
-        })
+
 
     # given file paths to the source data edge file and an output file,
     # normalize the predicates/relations and write them to the new file
@@ -229,6 +233,7 @@ class KGXFileNormalizer:
             self.logger.error(f'Edge normalization service failed to return results for {edge_norm_failures}')
         self.logger.debug(f'Predicate normalization complete. Normalizing all the edges..')
 
+        number_of_source_edges = len(source_edges)
         normalized_edge_count = 0
         edge_mergers = 0
         edge_splits = 0
@@ -238,76 +243,83 @@ class KGXFileNormalizer:
         node_norm_lookup = self.node_normalizer.node_normalization_lookup
         edge_norm_lookup = self.edge_normalizer.edge_normalization_lookup
 
-        for edge in source_edges:
-            normalized_subject_ids = None
-            normalized_object_ids = None
-            try:
-                if self.edge_subject_pre_normalized:
-                    normalized_subject_ids = [edge['subject']]
-                else:
-                    normalized_subject_ids = node_norm_lookup[edge['subject']]
-                if self.edge_object_pre_normalized:
-                    normalized_object_ids = [edge['object']]
-                else:
-                    normalized_object_ids = node_norm_lookup[edge['object']]
-            except KeyError:
-                self.logger.error("One of the node IDs from the edge file was missing from the normalizer look up, "
-                                  "it's probably not in the node file.")
-            if not (normalized_subject_ids and normalized_object_ids):
-                edges_failed_due_to_nodes += 1
+        has_more_edges = True
+        while has_more_edges:
+            edges_subset = source_edges[:50000]
+            if len(edges_subset) == 0:
+                has_more_edges = False
             else:
-                try:
-                    edge_norm_result: EdgeNormalizationResult = edge_norm_lookup[edge['relation']]
-                except KeyError:
-                    edge_norm_result = None
+                del source_edges[:50000]
+                for edge in edges_subset:
+                    normalized_subject_ids = None
+                    normalized_object_ids = None
+                    try:
+                        if self.edge_subject_pre_normalized:
+                            normalized_subject_ids = [edge['subject']]
+                        else:
+                            normalized_subject_ids = node_norm_lookup[edge['subject']]
+                        if self.edge_object_pre_normalized:
+                            normalized_object_ids = [edge['object']]
+                        else:
+                            normalized_object_ids = node_norm_lookup[edge['object']]
+                    except KeyError:
+                        self.logger.error("One of the node IDs from the edge file was missing from the normalizer look up, "
+                                          "it's probably not in the node file.")
+                    if not (normalized_subject_ids and normalized_object_ids):
+                        edges_failed_due_to_nodes += 1
+                    else:
+                        try:
+                            edge_norm_result: EdgeNormalizationResult = edge_norm_lookup[edge['relation']]
+                        except KeyError:
+                            edge_norm_result = None
 
-                if not edge_norm_result:
-                    edges_failed_due_to_predicates += 1
-                else:
-                    edge_count = 0
-                    for norm_subject_id in normalized_subject_ids:
-                        for norm_object_id in normalized_object_ids:
-                            edge_count += 1
-                            # extract the normalization info
-                            normalized_predicate = edge_norm_result.identifier
-                            edge_inverted_by_normalization = edge_norm_result.inverted
-                            # edge_label = edge_norm_result.label # right now label is not used
+                        if not edge_norm_result:
+                            edges_failed_due_to_predicates += 1
+                        else:
+                            edge_count = 0
+                            for norm_subject_id in normalized_subject_ids:
+                                for norm_object_id in normalized_object_ids:
+                                    edge_count += 1
+                                    # extract the normalization info
+                                    normalized_predicate = edge_norm_result.identifier
+                                    edge_inverted_by_normalization = edge_norm_result.inverted
+                                    # edge_label = edge_norm_result.label # right now label is not used
 
-                            # create a new edge with the normalized values
-                            # start with the original edge to preserve other properties
-                            normalized_edge = edge.copy()
-                            normalized_edge['predicate'] = normalized_predicate
+                                    # create a new edge with the normalized values
+                                    # start with the original edge to preserve other properties
+                                    normalized_edge = edge.copy()
+                                    normalized_edge['predicate'] = normalized_predicate
 
-                            # if normalization switched the direction of the predicate, swap the nodes
-                            if edge_inverted_by_normalization:
-                                normalized_edge['object'] = norm_subject_id
-                                normalized_edge['subject'] = norm_object_id
-                                norm_subject_id = normalized_edge['subject']
-                                norm_object_id = normalized_edge['object']
-                            else:
-                                normalized_edge['subject'] = norm_subject_id
-                                normalized_edge['object'] = norm_object_id
-
-                            # merge with existing similar edges and/or queue up for writing later
-                            if ((norm_subject_id in merged_edges) and
-                                    (norm_object_id in merged_edges[norm_subject_id]) and
-                                    (normalized_predicate in merged_edges[norm_subject_id][norm_object_id])):
-                                previous_edge = merged_edges[norm_subject_id][norm_object_id][normalized_predicate]
-                                edge_mergers += 1
-                                for key, value in normalized_edge.items():
-                                    # TODO - make sure this is the behavior we want -
-                                    # for properties that are lists append the values
-                                    # otherwise overwrite them
-                                    if key in previous_edge and isinstance(value, list):
-                                        previous_edge[key].extend(value)
+                                    # if normalization switched the direction of the predicate, swap the nodes
+                                    if edge_inverted_by_normalization:
+                                        normalized_edge['object'] = norm_subject_id
+                                        normalized_edge['subject'] = norm_object_id
+                                        norm_subject_id = normalized_edge['subject']
+                                        norm_object_id = normalized_edge['object']
                                     else:
-                                        previous_edge[key] = value
-                            else:
-                                merged_edges[norm_subject_id][norm_object_id][normalized_predicate] = normalized_edge
-                    # this counter tracks the number of new edges created from each individual edge in the original file
-                    # this could happen due to rare cases of normalization splits where one node normalizes to many
-                    if edge_count > 1:
-                        edge_splits += edge_count - 1
+                                        normalized_edge['subject'] = norm_subject_id
+                                        normalized_edge['object'] = norm_object_id
+
+                                    # merge with existing similar edges and/or queue up for writing later
+                                    if ((norm_subject_id in merged_edges) and
+                                            (norm_object_id in merged_edges[norm_subject_id]) and
+                                            (normalized_predicate in merged_edges[norm_subject_id][norm_object_id])):
+                                        previous_edge = merged_edges[norm_subject_id][norm_object_id][normalized_predicate]
+                                        edge_mergers += 1
+                                        for key, value in normalized_edge.items():
+                                            # TODO - make sure this is the behavior we want -
+                                            # for properties that are lists append the values
+                                            # otherwise overwrite them
+                                            if key in previous_edge and isinstance(value, list):
+                                                previous_edge[key].extend(value)
+                                            else:
+                                                previous_edge[key] = value
+                                    else:
+                                        merged_edges[norm_subject_id][norm_object_id][normalized_predicate] = normalized_edge
+                            # this counter tracks the number of new edges created from each individual edge in the original file
+                            # this could happen due to rare cases of normalization splits where one node normalizes to many
+                            if edge_count > 1:
+                                edge_splits += edge_count - 1
 
         try:
             self.logger.debug(f'Writing normalized edges to file...')
@@ -340,7 +352,7 @@ class KGXFileNormalizer:
 
         self.normalization_metadata.update({
             'edge_norm_version': current_edge_norm_version,
-            'source_edges': len(source_edges),
+            'source_edges': number_of_source_edges,
             'edges_failed_due_to_nodes': edges_failed_due_to_nodes,
             'edges_failed_due_to_predicates': edges_failed_due_to_predicates,
             # these keep track of how many edges merged into another, or split into multiple edges
