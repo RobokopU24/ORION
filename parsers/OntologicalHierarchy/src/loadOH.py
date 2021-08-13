@@ -6,9 +6,9 @@ import time
 
 from rdflib import Graph
 from Common.utils import LoggingUtil, GetData
-from Common.kgx_file_writer import KGXFileWriter
 from Common.loader_interface import SourceDataLoader
-
+from Common.kgxmodel import kgxnode, kgxedge
+from Common.prefixes import HGNC
 
 ##############
 # Class: Ontological-Hierarchy loader
@@ -18,7 +18,6 @@ from Common.loader_interface import SourceDataLoader
 # Desc: Class that loads/parses the Ontological-Hierarchy data.
 ##############
 class OHLoader(SourceDataLoader):
-
 
     def __init__(self, test_mode: bool = False):
         """
@@ -32,14 +31,15 @@ class OHLoader(SourceDataLoader):
         self.data_path: str = os.environ['DATA_SERVICES_STORAGE']
         self.data_file: str = 'properties-redundant.zip'
         self.test_mode: bool = test_mode
-        self.source_id: str = 'UberGraph'
+        self.source_id: str = 'OntologicalHierarchy'
         self.source_db: str = 'properties-redundant.ttl'
         self.provenance_id: str = 'infores:ontological-hierarchy'
+        self.subclass_predicate = 'biolink:subclass_of'
 
         # the final output lists of nodes and edges
         self.final_node_list: list = []
         self.final_edge_list: list = []
-        self.file_size = 200000
+        self.file_size = 500000
 
         # create a logger
         self.logger = LoggingUtil.init_logging("Data_services.Ontological-Hierarchy.OHLoader", level=logging.INFO, line_format='medium', log_file_path=os.environ['DATA_SERVICES_LOGS'])
@@ -69,30 +69,6 @@ class OHLoader(SourceDataLoader):
         if byte_count > 0:
             return True
 
-    def write_to_file(self, nodes_output_file_path: str, edges_output_file_path: str) -> None:
-        """
-        sends the data over to the KGX writer to create the node/edge files
-
-        :param nodes_output_file_path: the path to the node file
-        :param edges_output_file_path: the path to the edge file
-        :return: Nothing
-        """
-        # get a KGX file writer
-        with KGXFileWriter(nodes_output_file_path, edges_output_file_path) as file_writer:
-            # for each node captured
-            for node in self.final_node_list:
-                # write out the node
-                file_writer.write_node(node['id'], node_name=node['name'], node_types=[], node_properties=node['properties'])
-
-            # for each edge captured
-            for edge in self.final_edge_list:
-                # write out the edge data
-                file_writer.write_edge(subject_id=edge['subject'],
-                                       object_id=edge['object'],
-                                       relation=edge['relation'],
-                                       original_knowledge_source=self.provenance_id,
-                                       edge_properties=edge['properties'])
-
     def load(self, nodes_output_file_path: str, edges_output_file_path: str):
         """
         Loads/parsers the UberGraph data file to produce node/edge KGX files for importation into a graph database.
@@ -101,14 +77,14 @@ class OHLoader(SourceDataLoader):
         :param: edges_output_file_path - path to edge file
         :return: None
         """
-        self.logger.info(f'UGLoader - Start of UberGraph Ontological hierarchy data processing.')
+        self.logger.info(f'OHLoader - Start of UberGraph Ontological hierarchy data processing.')
 
         self.get_data()
 
         # split the input file names
         file_name = self.data_file
 
-        self.logger.info(f'Parsing UberGraph data file: {file_name}. {self.file_size} records per file + remainder')
+        self.logger.info(f'Parsing OntologicalHierarchy data file: {file_name}. {self.file_size} records per file + remainder')
 
         # parse the data
         split_files, final_record_count, final_skipped_count, final_skipped_non_subclass = \
@@ -163,9 +139,11 @@ class OHLoader(SourceDataLoader):
         # test mode
         if self.test_mode:
             # use the first few files
-            split_files = split_files[0:2]
+            files_to_parse = split_files[0:2]
+        else:
+            files_to_parse = split_files
 
-        for file in split_files:
+        for file in files_to_parse:
             self.logger.info(f'Working file: {file}')
 
             # get a time stamp
@@ -196,7 +174,7 @@ class OHLoader(SourceDataLoader):
 
                         # HGNC must be handled differently that the others
                         if qname[1].find('hgnc') > 0:
-                            val = "HGNC:" + qname[2]
+                            val = f"{HGNC}:" + qname[2]
                         # if string is all lower it is not a curie
                         elif not qname[2].islower():
                             # replace the underscores to create a curie
@@ -212,15 +190,15 @@ class OHLoader(SourceDataLoader):
 
                 # make sure we have all 3 entries
                 if len(triple) == 3:
-                    # create the nodes
                     # Filter only subclass edges
-
                     if triple[1] == 'subClassOf':
-                        self.final_node_list.append({'id': triple[0], 'name': triple[0], 'properties': None})
-                        self.final_edge_list.append(
-                            {'subject': triple[0], 'predicate': triple[1], 'relation': triple[1], 'object': triple[2],
-                             'properties': {}})
-                        self.final_node_list.append({'id': triple[2], 'name': triple[2], 'properties': None})
+                        # create the nodes and edges
+                        self.final_node_list.append(kgxnode(triple[0], name=triple[0]))
+                        self.final_node_list.append(kgxnode(triple[2], name=triple[2]))
+                        self.final_edge_list.append(kgxedge(subject_id=triple[0],
+                                                            object_id=triple[2],
+                                                            relation=self.subclass_predicate,
+                                                            predicate=self.subclass_predicate))
                     else:
                         skipped_non_subclass_record_counter += 1
                 else:
