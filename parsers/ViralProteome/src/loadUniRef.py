@@ -189,7 +189,7 @@ class UniRefSimLoader(SourceDataLoader):
                 record_counter += 1
 
                 # output a status indicator
-                if record_counter % 10 == 0:
+                if record_counter % 10000 == 0:
                     self.logger.debug(f'Completed {record_counter} taxa.')
 
                     # write out what we have
