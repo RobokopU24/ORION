@@ -124,7 +124,7 @@ class UniRefSimLoader(SourceDataLoader):
         taxon_index_file = 'taxon_file_indexes.txt'
 
         # declare the list of uniref input file names
-        in_file_names: list = ['UniRef50-100m']  # , 'UniRef90', 'UniRef100'
+        in_file_names: list = ['UniRef50']  # , 'UniRef90', 'UniRef100'
 
         # get the list of taxons to process
         target_taxon_set = self.get_uniref_data()
