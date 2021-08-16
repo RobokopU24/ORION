@@ -124,7 +124,7 @@ class UniRefSimLoader(SourceDataLoader):
         taxon_index_file = 'taxon_file_indexes.txt'
 
         # declare the list of uniref input file names
-        in_file_names: list = ['UniRef50']  # , 'UniRef90', 'UniRef100'
+        in_file_names: list = ['UniRef50-100m']  # , 'UniRef90', 'UniRef100'
 
         # get the list of taxons to process
         target_taxon_set = self.get_uniref_data()
@@ -215,16 +215,16 @@ class UniRefSimLoader(SourceDataLoader):
                         # increment the node counter
                         skipped_record_counter += 1
 
-                        self.logger.error(f'Error: Entry node for {line} at line number {record_counter} was not captured.')
+                        self.logger.debug(f'Error: Entry node for {line} at line number {record_counter} was not captured.')
                 else:
                     # increment the node counter
                     skipped_record_counter += 1
 
-                    self.logger.error(f'Error: Entry node for {line} at line number {record_counter} invalid.')
+                    self.logger.debug(f'Error: Entry node for {line} at line number {record_counter} invalid.')
 
                 # TODO: remove after testing
-                if record_counter > 10:
-                    break
+                # if record_counter > 10:
+                #    break
 
         # save any remainders
         if len(node_list) > 0:
@@ -323,38 +323,21 @@ class UniRefSimLoader(SourceDataLoader):
 
         # declare some default categories for genes and taxons
         default_taxon_category: str = 'biolink:OrganismTaxon|biolink:OntologyClass|biolink:NamedThing'
-        default_gene_category: str = ''  # 'biolink:Gene|biolink:GeneOrGeneProduct|biolink:MacromolecularMachine|biolink:GenomicEntity|biolink:MolecularEntity|biolink:BiologicalEntity|biolink:NamedThing'
 
         # loop through the child elements of the entry
         for entry_child in root:
             """
-            Entry XML elements: UniRef node "UniRef###_accession" (gene_family) and "common taxon ID" (creates 1 node pair)
-            Ex. (node number type 0, 1): UniRef100_Q6GZX4, NCBITaxon:10493
-
             Representative member XML elements: "UniProtKB accession" (gene) and "NCBI taxonomy" (creates 1 node pair)
-            Ex. (node number type 2):  UniProt:Q6GZX4, NCBITaxon:654924
+            Ex. (node number type 0): UniProt:Q6GZX4, NCBITaxon:654924
 
             Member XML elements: "UniProtKB accession" (gene) and "NCBI taxonomy" (creates N node pairs)
-            Ex. (node number type 3+):  UniProt:A0A0F6NZX8, NCBITaxon:10493...
+            Ex. (node number type 1+): UniProt:A0A0F6NZX8, NCBITaxon:10493...
             """
 
             try:
                 if entry_child.attrib['type'] == 'common taxon ID':
                     # we found a virus to capture
                     virus_capture = True
-
-                    # save nodes for UniRef ID (UniRef###_accession) and UniRef taxon nodes (common taxon ID) for the entry
-                    tmp_node_list.append({'grp': grp, 'node_num': node_counter, 'id': entry_name, 'name': entry_name, 'category': default_gene_category, 'similarity_bin': similarity_bin})
-
-                    # get the taxon id
-                    taxon_id = 'NCBITaxon:' + entry_child.attrib['value']
-
-                    # save the taxon node
-                    tmp_node_list.append({'grp': grp, 'node_num': node_counter + 1, 'id': taxon_id, 'name': 'NCBITaxon:' + entry_child.attrib['value'],
-                                          'category': default_taxon_category, 'similarity_bin': similarity_bin})
-
-                    # increment the node counter
-                    node_counter += 2
             except KeyError:
                 pass
 
@@ -373,7 +356,7 @@ class UniRefSimLoader(SourceDataLoader):
                         # init the uniprot accession first found flag
                         found_uniprot_access: bool = False
 
-                        # loop through the member properties
+                        # loop through the reference member properties
                         for db_ref_prop in member:
                             # get the needed DB reference properties for the similar member
                             if db_ref_prop.tag == 'property' and db_ref_prop.attrib['type'] in {'UniProtKB accession', 'source organism', 'NCBI taxonomy', 'protein name'}:
@@ -397,7 +380,7 @@ class UniRefSimLoader(SourceDataLoader):
 
                                 # add the member Uniprot KB accession node
                                 tmp_node_list.append({'grp': grp, 'node_num': node_counter, 'id': uniprot, 'name': protein_name,
-                                                      'category': default_gene_category, 'equivalent_identifiers': uniprot, 'similarity_bin': similarity_bin})
+                                                      'category': '', 'equivalent_identifiers': uniprot, 'similarity_bin': similarity_bin})
 
                                 # add the member NCBI taxon node
                                 tmp_node_list.append({'grp': grp, 'node_num': node_counter, 'id': ncbi_taxon, 'name': source_organ,
@@ -409,17 +392,11 @@ class UniRefSimLoader(SourceDataLoader):
                         except KeyError:
                             pass
 
-            # did we get at least 3 node pairs (entry node pair, rep member node pair, at least 1 cluster member pair)
-            if len(tmp_node_list) >= 6:
-                good_record = True
-                node_list.extend(tmp_node_list)
-            # else:
-            #     logger.debug(f'\nEntry {entry_element} disqualified.\n')
+        # did we get at 1 representative node set (uniprot -> taxon)
+        if len(tmp_node_list) >= 2:
+            good_record = True
+            node_list.extend(tmp_node_list)
 
-            # if not virus_capture:
-            #     logger.debug(f'{grp} not captured.')
-
-        # return to the caller
         return good_record
 
     def get_node_list(self, node_list):
@@ -428,7 +405,6 @@ class UniRefSimLoader(SourceDataLoader):
 
         :return:
         """
-
         self.logger.debug(f'Loading data frame with {len(node_list)} nodes.')
 
         # create a data frame with the node list
@@ -442,7 +418,7 @@ class UniRefSimLoader(SourceDataLoader):
 
         # write out the unique nodes
         for item in new_df.iterrows():
-            # get the properties for the node. ncbitaxons geet a taxon property
+            # get the properties for the node. ncbi taxons get a taxon property
             if item[1]['id'].startswith('NCBITaxon'):
                 props = {'similarity_bin': item[1]['similarity_bin'], 'taxon': item[1]['id']}
             else:
@@ -461,73 +437,47 @@ class UniRefSimLoader(SourceDataLoader):
         self.logger.debug(f'Creating edges for {len(node_list)} nodes.')
 
         # init group detection
-        cur_group_name: str = ''
-        first: bool = True
         node_idx: int = 0
+        cur_group_name = node_list[node_idx]['grp']
 
         # save the node list count to avoid grabbing it over and over
         node_count: int = len(node_list)
 
         # iterate through node groups and create the edge records.
         while node_idx < node_count:
-            # logger.debug(f'Working index: {node_idx}')
+            self.logger.debug(f'Working index: {node_idx}')
 
-            # if its the first time in prime the pump
-            if first:
-                cur_group_name = node_list[node_idx]['grp']
-                first = False
-
-            # init variables for each group
-            similarity_bin: str = ''
-            gene_family_node_id: str = ''
+            # init the representative member node (aka entry id)
             rep_member_node_id: str = ''
 
             # for each entry member in the group
             while node_list[node_idx]['grp'] == cur_group_name:
                 """
-                Entry nodes UniRef ID (UniRef###_accession) and UniRef taxon nodes (common taxon ID)
-                Ex. (node number 0 and 1): (gene_family UniRef100_Q6GZX4)-[in_taxon]-(NCBITaxon:10493)
-
-                For all member node pairs (representative or cluster) where node number N starts at 2...
-                    Member ID (UniProtKB accession) and UniRef ID (UniRef###_accession)
-                    Ex. (node number N and 0): (gene UniProt:A0A0F6NZX8)-[part of]-(UniRef100_Q6GZX4)
+                For all member node pairs (representative or cluster) where node number N starts at 1...
                     Member ID (UniProtKB accession) and taxon ID (NCBI taxonomy)
-                    Ex. (node number N+1 and 1): (gene UniProt:A0A0F6NZX8)-[in_taxon]-(NCBITaxon:10493)
+                    Ex. (node number N+1 and 0): (gene UniProt:A0A0F6NZX8)-[in_taxon]-(NCBITaxon:10493)
 
                 (Optional) Combination Member ID (UniProtKB accession) to Member ID (UniProtKB accession)
                 Ex. (node number X and Y): (gene UniProt:Q6GZX4)-[SO:similar_to]-(gene UniProt:A0A0F6NZX8)            
                 """
 
-                props = {'similarity_bin': similarity_bin}
-
-                # get the UniRef entry ID and similarity bin
+                # if this is the first node capture the representative id (same as the xml entry id)
                 if node_list[node_idx]['node_num'] == 0:
-                    gene_family_node_id = node_list[node_idx]['id']
-                    similarity_bin = node_list[node_idx]['similarity_bin']
-                    # set the default properties
-                # get the UniRef entry common taxon ID and create the UniRef ID to taxon edge
-                elif node_list[node_idx]['node_num'] == 1 and gene_family_node_id != '':
-                    self.final_edge_list.append({"predicate": "", "subject": f"{gene_family_node_id}", "relation": "RO:0002162", "object": f"{node_list[node_idx]['id']}", 'properties': props})
-                # get the member node edges
-                elif similarity_bin != '' and gene_family_node_id != '':
-                    self.final_edge_list.append({"subject": node_list[node_idx]['id'], "relation": "BFO:0000050", "object": gene_family_node_id, 'properties': props})
-                    self.final_edge_list.append({"subject": node_list[node_idx]['id'], "relation": "RO:0002162", "object": node_list[node_idx + 1]['id'], 'properties': props})
+                    rep_member_node_id = node_list[node_idx]['id']
 
-                    # this node is the representative UniProtKB ID node
-                    if node_list[node_idx]['node_num'] == 2:
-                        rep_member_node_id: str = node_list[node_idx]['id']
+                # the similarity bin is the same for all child xml elements of this entry
+                props = {'similarity_bin': node_list[node_idx]['similarity_bin']}
 
-                    # add the spoke edge if it isn't a reflection of itself
-                    if rep_member_node_id != node_list[node_idx]['id']:
-                        self.final_edge_list.append({"subject": rep_member_node_id, "relation": "RO:HOM0000000", "object": node_list[node_idx]['id'], 'properties': props})
+                # add the spoke edge if it isn't a reflection of itself
+                if rep_member_node_id != node_list[node_idx]['id']:
+                    # this node represents the UniProt id
+                    self.final_edge_list.append({"subject": rep_member_node_id, "relation": "RO:HOM0000000", "object": node_list[node_idx]['id'], 'properties': props})
 
-                    # increment the node counter pairing
-                    node_idx += 1
-                else:
-                    self.logger.error('Missing data elements similarity_bin or gene_family_node_id')
+                # this node represents the taxon id
+                self.final_edge_list.append({"subject": node_list[node_idx]['id'], "relation": "RO:0002162", "object": node_list[node_idx + 1]['id'], 'properties': props})
 
-                # increment the node counter
-                node_idx += 1
+                # increment the node counter pairing index
+                node_idx += 2
 
                 # insure we dont overrun the list
                 if node_idx >= node_count:
