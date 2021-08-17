@@ -3,7 +3,8 @@ import json
 import jsonlines
 import logging
 from collections import defaultdict
-from Common.node_types import SEQUENCE_VARIANT
+from copy import deepcopy
+from Common.node_types import SEQUENCE_VARIANT, ORIGINAL_KNOWLEDGE_SOURCE, PRIMARY_KNOWLEDGE_SOURCE, AGGREGATOR_KNOWLEDGE_SOURCES
 from Common.utils import LoggingUtil
 from Common.utils import NodeNormUtils, EdgeNormUtils, EdgeNormalizationResult
 from Common.kgx_file_writer import KGXFileWriter
@@ -20,6 +21,8 @@ class NormalizationFailedError(Exception):
         self.error_message = error_message
         self.actual_error = actual_error
 
+
+EDGE_PROPERTIES_THAT_SHOULD_BE_SETS = {AGGREGATOR_KNOWLEDGE_SOURCES}
 
 #
 # This piece takes KGX-like files and normalizes the nodes and edges for biolink compliance.
@@ -202,10 +205,10 @@ class KGXFileNormalizer:
     # also write a file with the predicates that did not successfully normalize
     def normalize_edge_file(self):
 
-        # we organize the edges into a dictionary of dictionaries of dictionaries, no really.
-        # to merge edges with the same subject object and predicate
-        # merged_edges[subject_id][object_id][predicate] = edge
-        merged_edges = defaultdict(lambda: defaultdict(dict))
+        # We organize the edges into a dictionary of dictionaries of dictionaries of dictionaries, no really,
+        # to merge edges with the same subject, object, predicate, and knowledge source.
+        # merged_edges[subject_id][object_id][predicate][knowledge_source] = edge
+        merged_edges = defaultdict(lambda: defaultdict(lambda: defaultdict(dict)))
 
         try:
             self.logger.debug(f'Normalizing edge file {self.source_edges_file_path}...')
@@ -287,7 +290,7 @@ class KGXFileNormalizer:
 
                                     # create a new edge with the normalized values
                                     # start with the original edge to preserve other properties
-                                    normalized_edge = edge.copy()
+                                    normalized_edge = deepcopy(edge)
                                     normalized_edge['predicate'] = normalized_predicate
 
                                     # if normalization switched the direction of the predicate, swap the nodes
@@ -300,11 +303,14 @@ class KGXFileNormalizer:
                                         normalized_edge['subject'] = norm_subject_id
                                         normalized_edge['object'] = norm_object_id
 
+                                    knowledge_source_key = f'{normalized_edge.get(ORIGINAL_KNOWLEDGE_SOURCE, "")}_{normalized_edge.get(PRIMARY_KNOWLEDGE_SOURCE, "")}'
+
                                     # merge with existing similar edges and/or queue up for writing later
                                     if ((norm_subject_id in merged_edges) and
                                             (norm_object_id in merged_edges[norm_subject_id]) and
-                                            (normalized_predicate in merged_edges[norm_subject_id][norm_object_id])):
-                                        previous_edge = merged_edges[norm_subject_id][norm_object_id][normalized_predicate]
+                                            (normalized_predicate in merged_edges[norm_subject_id][norm_object_id]) and
+                                            (knowledge_source_key in merged_edges[norm_subject_id][norm_object_id][normalized_predicate])):
+                                        previous_edge = merged_edges[norm_subject_id][norm_object_id][normalized_predicate][knowledge_source_key]
                                         edge_mergers += 1
                                         for key, value in normalized_edge.items():
                                             # TODO - make sure this is the behavior we want -
@@ -312,10 +318,12 @@ class KGXFileNormalizer:
                                             # otherwise overwrite them
                                             if key in previous_edge and isinstance(value, list):
                                                 previous_edge[key].extend(value)
+                                                if key in EDGE_PROPERTIES_THAT_SHOULD_BE_SETS:
+                                                    previous_edge[key] = list(set(value))
                                             else:
                                                 previous_edge[key] = value
                                     else:
-                                        merged_edges[norm_subject_id][norm_object_id][normalized_predicate] = normalized_edge
+                                        merged_edges[norm_subject_id][norm_object_id][normalized_predicate][knowledge_source_key] = normalized_edge
                             # this counter tracks the number of new edges created from each individual edge in the original file
                             # this could happen due to rare cases of normalization splits where one node normalizes to many
                             if edge_count > 1:
@@ -326,13 +334,14 @@ class KGXFileNormalizer:
             with KGXFileWriter(edges_output_file_path=self.edges_output_file_path) as output_file_writer:
                 for subject_id, object_dict in merged_edges.items():
                         for object_id, predicate_dict in object_dict.items():
-                            for predicate, edge in predicate_dict.items():
-                                normalized_edge_count += 1
-                                output_file_writer.write_edge(subject_id=subject_id,
-                                                              object_id=object_id,
-                                                              relation=edge['relation'],
-                                                              predicate=predicate,
-                                                              edge_properties=edge)
+                            for predicate, knowledge_source_dict in predicate_dict.items():
+                                for knowledge_source_key, edge in knowledge_source_dict.items():
+                                    normalized_edge_count += 1
+                                    output_file_writer.write_edge(subject_id=subject_id,
+                                                                  object_id=object_id,
+                                                                  relation=edge['relation'],
+                                                                  predicate=predicate,
+                                                                  edge_properties=edge)
         except IOError as e:
             norm_error_msg = f'Error writing edges file {self.edges_output_file_path}'
             raise NormalizationFailedError(error_message=norm_error_msg, actual_error=e.msg)
