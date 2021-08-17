@@ -67,8 +67,8 @@ class UniRefSimLoader(SourceDataLoader):
         """
         sends the data over to the KGX writer to create the node/edge files
 
-        # :param nodes_output_file_path: the path to the node file
-        # :param edges_output_file_path: the path to the edge file
+        :param nodes_output_file_path: the path to the node file
+        :param edges_output_file_path: the path to the edge file
         :return: Nothing
         """
         # for each node captured
@@ -124,7 +124,7 @@ class UniRefSimLoader(SourceDataLoader):
         taxon_index_file = 'taxon_file_indexes.txt'
 
         # declare the list of uniref input file names
-        in_file_names: list = ['UniRef50']  # , 'UniRef90', 'UniRef100'
+        in_file_names: list = ['UniRef50', 'UniRef90', 'UniRef100']
 
         # get the list of taxons to process
         target_taxon_set = self.get_uniref_data()
@@ -509,7 +509,7 @@ if __name__ == '__main__':
     UniRef_data_dir: str = args['data_dir']
 
     # create the file list
-    # file_list: list = ['uniref50']  # 'uniref100', 'uniref90', 'uniref50'
+    file_list: list = ['UniRef50', 'UniRef90', 'UniRef100']
     file_list: list = args['UniRef_files'].split(',')
 
     # get a reference to the processor
