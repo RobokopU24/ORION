@@ -58,10 +58,10 @@ if __name__ == '__main__':
         logger.info(f'Working input file: {file}.')
 
         # get the path to the file with taxon indexes
-        index_file_path = os.path.join(output_uniref_data_dir, f'{file.lower()}_taxon_file_indexes.txt')
+        index_file_path = os.path.join(output_uniref_data_dir, f'{file}_taxon_file_indexes.txt')
 
         # get the in and out file paths
-        uniref_infile_path: str = os.path.join(input_uniref_data_dir, f'{file.lower()}.xml')
+        uniref_infile_path: str = os.path.join(input_uniref_data_dir, f'{file}.xml')
 
         logger.info(f'Executing grep command: grep -F -b -f "{search_file_path}" "{uniref_infile_path}" >> "{index_file_path}"')
 

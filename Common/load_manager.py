@@ -3,8 +3,10 @@ import os
 import argparse
 import yaml
 import datetime
+import shutil
+import json
 
-from multiprocessing import Pool
+# from multiprocessing import Pool
 
 from Common.utils import LoggingUtil, NodeNormUtils, EdgeNormUtils, GetDataPullError
 from Common.kgx_file_normalizer import KGXFileNormalizer, NormalizationBrokenError, NormalizationFailedError
@@ -92,7 +94,8 @@ class SourceDataLoadManager:
 
     def __init__(self,
                  test_mode: bool = False,
-                 source_subset: list = None):
+                 source_subset: list = None,
+                 fresh_start_mode: bool = False):
 
         self.logger = LoggingUtil.init_logging("Data_services.Common.SourceDataLoadManager",
                                                line_format='medium',
@@ -101,6 +104,10 @@ class SourceDataLoadManager:
         self.test_mode = test_mode
         if test_mode:
             self.logger.info(f'SourceDataLoadManager running in test mode...')
+
+        self.fresh_start_mode = fresh_start_mode
+        if fresh_start_mode:
+            self.logger.info(f'SourceDataLoadManager running in fresh start mode... previous state is ignored.')
 
         # locate and verify the main data directory
         self.data_dir = self.init_data_dir()
@@ -168,6 +175,8 @@ class SourceDataLoadManager:
     def load_previous_metadata(self):
         for source_id in self.source_list:
             self.metadata[source_id] = Metadata(source_id, self.get_source_dir_path(source_id))
+            if self.fresh_start_mode:
+                self.metadata[source_id].reset_state_metadata()
 
     def update_needed(self, source_id: str):
         source_metadata = self.metadata[source_id]
@@ -187,7 +196,9 @@ class SourceDataLoadManager:
                 if latest_source_version != last_version:
                     self.logger.info(f"Found new source version for {source_id}: {latest_source_version}. "
                                      f"(current version: {last_version}) Archiving previous version..")
-                    source_metadata.archive_metadata()
+                    self.archive_previous_load(source_metadata)
+                    source_metadata.reset_state_metadata()
+                    source_metadata.increment_load_version()
                     # loader.clean_up()
                     self.new_version_lookup[source_id] = latest_source_version
                     return True
@@ -210,7 +221,7 @@ class SourceDataLoadManager:
             # create an instance of the appropriate loader using the source_data_loader_classes lookup map
             source_data_loader = SOURCE_DATA_LOADER_CLASSES[source_id](test_mode=self.test_mode)
 
-            # update the version and load information
+            # update the version
             if source_id in self.new_version_lookup:
                 latest_source_version = self.new_version_lookup[source_id]
             else:
@@ -218,6 +229,7 @@ class SourceDataLoadManager:
                 latest_source_version = source_data_loader.get_latest_source_version()
                 self.new_version_lookup[source_id] = latest_source_version
                 self.logger.info(f"Found source version for {source_id}: {latest_source_version}")
+            source_metadata.set_source_version(latest_source_version)
 
             # call the loader - retrieve/parse data and write to a kgx file
             self.logger.info(f"Loading {source_id} ({latest_source_version})...")
@@ -227,7 +239,6 @@ class SourceDataLoadManager:
 
             # update the associated metadata
             self.logger.info(f"Load finished. Updating {source_id} metadata...")
-            source_metadata.update_version(latest_source_version)
             has_sequence_variants = source_data_loader.has_sequence_variants()
             current_time = datetime.datetime.now().strftime('%m-%d-%y %H:%M:%S')
             source_metadata.set_update_info(update_metadata,
@@ -475,6 +486,21 @@ class SourceDataLoadManager:
     def get_source_dir_path(self, source_id: str):
         return os.path.join(self.data_dir, source_id)
 
+    def archive_previous_load(self, source_metadata: Metadata):
+        source_id = source_metadata.source_id
+        versioned_file_name = self.get_versioned_file_name(source_id)
+        archive_metadata_path = os.path.join(self.get_source_dir_path(source_id), f'{versioned_file_name}_archive.meta.json')
+        with open(archive_metadata_path, 'w') as meta_json_file:
+            json.dump(source_metadata.metadata, meta_json_file, indent=4)
+
+        source_storage_dir = self.get_source_dir_path(source_id)
+        archive_dir = os.path.join(source_storage_dir, versioned_file_name + "/")
+        os.mkdir(archive_dir)
+        all_files = os.listdir(source_storage_dir)
+        for file in all_files:
+            if file.startswith(versioned_file_name + '_') and not os.path.isdir(file):
+                shutil.move(os.path.join(source_storage_dir, file), os.path.join(archive_dir, file))
+
     def init_data_dir(self):
         # use the storage directory specified by the environment variable DATA_SERVICES_STORAGE
         if os.path.isdir(os.environ["DATA_SERVICES_STORAGE"]):
@@ -518,6 +544,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="Transform data sources into KGX files.")
     parser.add_argument('-ds', '--data_source', default='all', help=f'Select a single data source to process from the following: {SOURCE_DATA_LOADER_CLASSES.keys()}')
     parser.add_argument('-t', '--test_mode', action='store_true', help='Test mode will load a small sample version of the data.')
+    parser.add_argument('-f', '--fresh_start', action='store_true', help='Fresh start mode will ignore previous states and start fresh.')
     args = parser.parse_args()
 
     data_source = args.data_source
@@ -528,6 +555,8 @@ if __name__ == '__main__':
 
     loader_test_mode = args.test_mode or test_mode_from_env
 
+    fresh_start_mode = args.fresh_start
+
     if data_source == "all":
         load_manager = SourceDataLoadManager(test_mode=loader_test_mode)
         load_manager.start()
@@ -535,5 +564,7 @@ if __name__ == '__main__':
         if data_source not in SOURCE_DATA_LOADER_CLASSES.keys():
             print(f'Data source not valid. Aborting. (Invalid source: {data_source})')
         else:
-            load_manager = SourceDataLoadManager(source_subset=[data_source], test_mode=loader_test_mode)
+            load_manager = SourceDataLoadManager(source_subset=[data_source],
+                                                 test_mode=loader_test_mode,
+                                                 fresh_start_mode=fresh_start_mode)
             load_manager.start()
