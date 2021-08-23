@@ -252,7 +252,7 @@ class PHAROSLoader(SourceDataLoader):
                 affinity_parameter = props['affinity_parameter']
             else:
                 affinity = 0
-                affinity_parameter = ''
+                affinity_parameter = None
 
             # create the group id
             grp: str = drug_id + relation + gene + f'{random.random()}'
@@ -298,7 +298,7 @@ class PHAROSLoader(SourceDataLoader):
                 affinity_parameter = props['affinity_parameter']
             else:
                 affinity = 0
-                affinity_parameter = ''
+                affinity_parameter = None
 
             # create the group id
             grp: str = cmpd_id + relation + gene + f'{random.random()}'
@@ -329,11 +329,11 @@ class PHAROSLoader(SourceDataLoader):
         relation: str = f'GAMMA:{rel}'
 
         # if there was provenance data save it
-        if result['dtype'] is not None:
-            provenance: str = result['dtype']
+        if result['dtype'] is not None and len(result['dtype']) > 0:
+            provenance = result['dtype']
         else:
             # set the defaults
-            provenance: str = ''
+            provenance = None
 
         # if there were any pubmed ids save them
         if 'pubmed_ids' in result and result['pubmed_ids'] is not None:
@@ -364,7 +364,6 @@ class PHAROSLoader(SourceDataLoader):
         return resu
 
     def init_pharos_db(self):
-
         # get a connection to the PHAROS MySQL DB
         host = os.environ.get('PHAROS_HOST', '')
         user = os.environ.get('PHAROS_USER', '')
