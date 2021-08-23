@@ -20,17 +20,29 @@ graphs:
   - graph_id: Baseline
     merge_strategy: per_data_set
     sources:
-      - source_id:  Biolink
+      - source_id: Biolink
         load_version: 1
-      - source_id:  OntologicalHierarchy
+      - source_id: OntologicalHierarchy
         load_version: 1
-#      - source_id:  DrugCentral
-#      - source_id:  GtoPdb
-#      - source_id:  Hetio
-#      - source_id:  HGNC
-#      - source_id:  HumanGOA
-#      - source_id:  IntAct
-#      - source_id:  PANTHER
-#      - source_id:  PHAROS
-#      - source_id:  UberonGraph
-#      - source_id:  OntologicalHierarchy
+      - source_id:  DrugCentral
+        load_version: 1
+      - source_id:  GtoPdb
+        load_version: 1
+      - source_id:  Hetio
+        load_version: 1
+      - source_id:  HGNC
+        load_version: 1
+      - source_id:  HumanGOA
+        load_version: 1
+      - source_id:  IntAct
+        load_version: 1
+      - source_id:  PANTHER
+        load_version: 1
+      - source_id:  PHAROS
+        load_version: 1
+      - source_id:  UberGraph
+        load_version: 1
+      - source_id: CTD
+        load_version: 1
+      - source_id: HMDB
+        load_version: 1
