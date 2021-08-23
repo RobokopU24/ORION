@@ -16,3 +16,21 @@ graphs:
     sources:
       - source_id: GTEx
         #load_version: latest
+
+  - graph_id: Baseline
+    merge_strategy: per_data_set
+    sources:
+      - source_id:  Biolink
+        load_version: 1
+      - source_id:  OntologicalHierarchy
+        load_version: 1
+#      - source_id:  DrugCentral
+#      - source_id:  GtoPdb
+#      - source_id:  Hetio
+#      - source_id:  HGNC
+#      - source_id:  HumanGOA
+#      - source_id:  IntAct
+#      - source_id:  PANTHER
+#      - source_id:  PHAROS
+#      - source_id:  UberonGraph
+#      - source_id:  OntologicalHierarchy

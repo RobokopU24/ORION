@@ -39,4 +39,5 @@ data_sources:
 
 #   - id: ViralProteome
 
+   - id: OntologicalHierarchy
 
