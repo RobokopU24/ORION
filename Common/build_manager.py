@@ -171,7 +171,8 @@ class GraphBuilder:
                     matched_edges = self.merge_redis(items=edges,
                                                      id_functor=edge_id_compute,
                                                      merge_functor=merge_functor,
-                                                     redis_key_prefix=EDGE_KEY_PREFIX)
+                                                     redis_key_prefix=EDGE_KEY_PREFIX,
+                                                     re_adjust_id=True)
 
                     self.logger.info(f"Matched {matched_edges} edges from redis for data set {data_source_name}. "
                                      f"Datasets processed thus far : {data_sets_processed}")
