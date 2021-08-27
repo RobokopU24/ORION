@@ -620,7 +620,9 @@ class GetData:
                 # grab the parsed date
                 ret_val = dp.parse(date_val[1])
         except Exception as e:
-            self.logger.error(f'Error getting modification date for ftp file: {ftp_site} {ftp_dir} {ftp_file}.')
+            error_message = f'Error getting modification date for ftp file: {ftp_site}{ftp_dir}{ftp_file}. {e}'
+            self.logger.error(error_message)
+            raise GetDataPullError(error_message)
 
         return str(ret_val)
 
