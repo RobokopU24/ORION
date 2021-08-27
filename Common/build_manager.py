@@ -305,7 +305,7 @@ class GraphBuilder:
                 graph_version=graph_spec.graph_version,
                 graph_output_format=graph_spec.graph_output_format,
                 graph_output_file=graph_spec.graph_output_file,
-                data_dir=self.data_manager.data_dir
+                data_dir=self.graphs_dir
             )
         else:
             self.build_graph_custom(
@@ -314,7 +314,7 @@ class GraphBuilder:
                 graph_version=graph_spec.graph_version,
                 graph_output_format=graph_spec.graph_output_format,
                 graph_output_file=graph_spec.graph_output_file,
-                data_dir=self.data_manager.data_dir
+                data_dir=self.graphs_dir
             )
 
     def load_graph_specs(self):
