@@ -15,9 +15,9 @@ services:
       - DATA_SERVICES_GRAPH_SPEC
       # DATA_SERVICES_TEST_MODE - optional env var - to load faster test versions
       - DATA_SERVICES_TEST_MODE
-      - REDIS_HOST=redis
-      - REDIS_PORT=6379
-      - REDIS_PASSWORD=''
+      - "DATA_SERVICES_REDIS_HOST=${DATA_SERVICES_REDIS_HOST}"
+      - "DATA_SERVICES_REDIS_PORT=${DATA_SERVICES_REDIS_PORT}"
+      - "DATA_SERVICES_REDIS_PASSWORD=${DATA_SERVICES_REDIS_PASSWORD}"
     volumes:
       - .:/Data_services
       - "${DATA_SERVICES_STORAGE}:/Data_services_storage"
@@ -27,8 +27,11 @@ services:
       - ds_network
   redis:
     image: redis
+    command: "redis-server --requirepass ${DATA_SERVICES_REDIS_PASSWORD}"
     ports:
-      - 6379:6379
+      - "${DATA_SERVICES_REDIS_PORT}:${DATA_SERVICES_REDIS_PORT}"
+    networks:
+      - ds_network
 
 networks:
   ds_network:
