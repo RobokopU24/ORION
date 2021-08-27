@@ -161,12 +161,6 @@ class SourceDataWithVariantsLoader(SourceDataLoader):
     def __init__(self, test_mode: bool):
         raise NotImplementedError
 
-    def get_latest_source_version(self):
-        raise NotImplementedError
-
-    def load(self, nodes_output_file_path: str, edges_output_file_path: str):
-        raise NotImplementedError
-
     def has_sequence_variants(self):
         return True
 
