@@ -11,4 +11,4 @@ COPY . /Data_services/.
 
 ENV PYTHONPATH "${PYTHONPATH}:/Data_services"
 
-CMD ["python", "/Data_services/Common/load_manager.py"]
+CMD ["python", "/Data_services/Common/run_all.py"]

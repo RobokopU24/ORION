@@ -15,3 +15,7 @@ export DATA_SERVICES_GRAPH_SPEC=graph-spec.yml
 
 mkdir -p $PWD/../Data_services_storage/logs
 export DATA_SERVICES_LOGS=$PWD/../Data_services_storage/logs
+
+export DATA_SERVICES_REDIS_HOST=redis
+export DATA_SERVICES_REDIS_PORT=6379
+export DATA_SERVICES_REDIS_PASSWORD=InsecureDevelopmentPassword
