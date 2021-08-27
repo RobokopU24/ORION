@@ -1,275 +1,339 @@
 import argparse
+import logging
 import os
 import re
-import sys
-import json
-import time
-import Common.node_types as node_types
-from collections import defaultdict
-from ftplib import FTP, all_errors as ftp_errors
-from Common.utils import LoggingUtil
-from Common.kgx_file_writer import KGXFileWriter
+import enum
+
+from sys import float_info
+from Common.utils import LoggingUtil, GetData
 from Common.loader_interface import SourceDataWithVariantsLoader, SourceDataBrokenError, SourceDataFailedError
+from Common.kgxmodel import kgxnode, kgxedge
+from Common.node_types import SEQUENCE_VARIANT, DISEASE_OR_PHENOTYPIC_FEATURE, PUBLICATIONS
+from Common.prefixes import DBSNP, EFO, ORPHANET, HP, NCIT, MONDO, GO
 
 
+# the data header columns are:
+class DATACOLS(enum.IntEnum):
+    PUBMEDID = 1
+    CHR_ID = 11
+    CHR_POS = 12
+    RISK_ALLELE = 20
+    SNPS = 21
+    MERGED = 22
+    SNP_ID_CURRENT = 23
+    RISK_ALLELE_FREQUENCY = 26
+    P_VALUE = 27
+    TRAIT_URIS = 35
+
+
+##############
+# Class: GWASCatalog Loader
+#
+##############
 class GWASCatalogLoader(SourceDataWithVariantsLoader):
 
-    logger = LoggingUtil.init_logging("Data_services.GWASCatalog.GWASCatalogLoader",
-                                      line_format='medium',
-                                      log_file_path=os.environ['DATA_SERVICES_LOGS'])
+    source_id = 'GWASCatalog'
+    provenance_id = 'infores:gwas-catalog'
 
     def __init__(self, test_mode: bool = False):
-        self.source_id = 'GWASCatalog'
-        self.provenance_id = 'infores:gwas-catalog'
-        self.query_url = f'ftp.ebi.ac.uk/pub/databases/gwas/releases/latest/' \
-                         f'gwas-catalog-associations_ontology-annotated.tsv'
-        self.variant_to_pheno_cache = defaultdict(lambda: defaultdict(list))
-        self.test_mode = test_mode
-
-    def load(self, nodes_output_file_path: str, edges_output_file_path: str):
-        self.logger.info(f'GWASCatalog: Fetching source files..')
-        gwas_catalog_data = self.get_gwas_catalog()
-        self.logger.info(f'GWASCatalog: Parsing source files..')
-        load_metadata = self.parse_gwas_catalog_data(gwas_catalog=gwas_catalog_data)
-        if nodes_output_file_path and edges_output_file_path:
-            self.logger.info(f'GWASCatalog: Writing source data file..')
-            self.write_to_file(nodes_output_file_path, edges_output_file_path)
-        return load_metadata
-
-    def get_latest_source_version(self):
-        return self.get_gwas_catalog(fetch_only_update_date=True)
-
-    def get_gwas_catalog(self, fetch_only_update_date: bool=False, retries: int=0):
         """
-        Get the gwas file
-        :return: Array of lines in the `gwas-catalog-associations_ontology-annotated.tsv` file
+        constructor
+        :param test_mode - sets the run into test mode
         """
-        ftpsite = 'ftp.ebi.ac.uk'
-        ftpdir = '/pub/databases/gwas/releases/latest'
-        ftpfile = 'gwas-catalog-associations_ontology-annotated.tsv'
-        try:
-            ftp = FTP(ftpsite)
-            ftp.login()
-            ftp.cwd(ftpdir)
-            if fetch_only_update_date:
-                mdtm_response = ftp.sendcmd(f'MDTM {ftpfile}')
-                # response example '213 20201008152711' where 20201008152711 is the timestamp, we'll use that as the version
-                return mdtm_response[4:]
-            else:
-                gwas_catalog = []
-                ftp.retrlines(f'RETR {ftpfile}', gwas_catalog.append)
-                ftp.quit()
-                if self.test_mode:
-                    return gwas_catalog[:50]
-                else:
-                    return gwas_catalog
-        except ftp_errors as e:
-            self.logger.error(f'GWAS Catalog ftp error ({e}) on retry {retries}')
-            if retries == 2:
-                raise SourceDataFailedError(repr(e))
-            else:
-                time.sleep(1)
-                return self.get_gwas_catalog(fetch_only_update_date, retries+1)
+        self.test_mode: bool = test_mode
 
-    def parse_gwas_catalog_data(self, gwas_catalog):
+        self.data_path: str = os.path.join(os.environ['DATA_SERVICES_STORAGE'], self.source_id)
+        self.data_file: str = 'gwas-catalog-associations_ontology-annotated.tsv'
 
-        try:
-            # get column headers
-            file_headers = gwas_catalog[0].split('\t')
-            pub_med_index = file_headers.index('PUBMEDID')
-            p_value_index = file_headers.index('P-VALUE')
-            snps_index = file_headers.index('SNPS')
-            #risk_allele_index = file_headers.index('STRONGEST SNP-RISK ALLELE')
-            trait_ids_index = file_headers.index('MAPPED_TRAIT_URI')
-        except (IndexError, ValueError) as e:
-            self.logger.error(f'GWAS Catalog failed to find required headers ({e})')
-            raise SourceDataBrokenError(f'GWAS Catalog failed to find required headers ({e})')
+        self.ftp_site = 'ftp.ebi.ac.uk'
+        self.ftp_dir = '/pub/databases/gwas/releases/latest'
 
-        total_lines = len(gwas_catalog) - 1
-        snp_pattern = re.compile(r'[^;x\s]+')
-        trait_uri_pattern = re.compile(r'[^,\s]+')
+        self.unrecognized_variants = set()
+        self.unrecognized_traits = set()
 
-        all_traits = set()
-        unsupported_variants = set()
-        unsupported_traits = set()
+        self.variant_regex_pattern = re.compile(r'[^,;x\s]+')
+        self.trait_regex_pattern = re.compile(r'[^,\s]+')
+
+        # the final output lists of nodes and edges
+        self.final_node_list: list = []
+        self.final_edge_list: list = []
+
+        # create a logger
+        self.logger = LoggingUtil.init_logging("Data_services.GWASCatalog.GWASCatalogLoader", level=logging.INFO, line_format='medium', log_file_path=os.environ['DATA_SERVICES_LOGS'])
+
+    def get_latest_source_version(self) -> str:
+        """
+        Determines the latest version of the data.
+
+        In this case we use the last modified date for the file on the ftp server.
+
+        :return: the data version
+        """
+        data_puller = GetData()
+        data_file_date = data_puller.get_ftp_file_date(self.ftp_site, self.ftp_dir, self.data_file)
+        return data_file_date
+
+    def get_data(self) -> int:
+        """
+        Retrieves the GWASCatalog data.
+
+        """
+        # get a reference to the data gathering class
+        gd: GetData = GetData(self.logger.level)
+
+        # TODO test data set
+        # if self.test_mode:
+        #   set up test data instead
+        # else:
+        # get the complete data set
+        file_count: int = gd.pull_via_ftp(self.ftp_site, self.ftp_dir, [self.data_file], self.data_path)
+
+        # return whether file retrieval was a success or not
+        if file_count > 0:
+            return True
+        else:
+            return False
+
+    def parse_data(self) -> dict:
+        """
+        Parses the data file for graph nodes/edges.
+
+        The extractor pattern used by other parsers doesn't work well for gwas catalog due to
+        multiple edges potentially coming from each row. We implement everything here instead.
+
+        :return: ret_val: metadata about the parsing
+        """
+
+        has_phenotype_predicate = 'RO:0002200'
+
+        # init the metadata
         load_metadata = {
-            'num_source_lines': total_lines,
-            'unusable_source_lines': 0,
-            'corrupted_source_lines': 0,
-            'single_snp_associations': 0,
-            'multi_snp_associations': 0,
-            'haplotype_associations': 0,
-            'total_variants': 0,
+            'record_counter': 0,
+            'skipped_record_counter': 0,
+            'skipped_due_to_variants': 0,
+            'skipped_due_to_traits': 0,
+            'single_variant_associations': 0,
+            'multi_variant_associations': 0,
             'single_trait_associations': 0,
             'multi_trait_associations': 0,
-            'total_traits': 0
+            'errors': []
         }
 
-        for current_line, line in enumerate(gwas_catalog[1:], start=1):
+        # open the data file that was downloaded and iterate through it
+        data_path = os.path.join(self.data_path, self.data_file)
+        with open(data_path, 'r') as fp:
+            for i, row in enumerate(fp, start=1):
+                row = row[:-1].split('\t')
 
-            # extract relevant fields from the line
-            line = line.split('\t')
-            try:
-                # get pubmed id
-                pubmed_id = line[pub_med_index]
+                # expecting header row
+                if i == 1:
+                    continue
 
-                # get p-value
-                p_value_string = line[p_value_index]
+                # the total row count
+                load_metadata['record_counter'] += 1
 
-                # get all traits
-                trait_uri_string = line[trait_ids_index]
-
-                # get all sequence variants
-                snps_string = line[snps_index]
-
-                # get the risk allele string
-                #risk_allele_string = line[risk_allele_index]
-
-            except IndexError as e:
-                load_metadata['corrupted_source_lines'] += 1
-                self.logger.warning(f'GWASCatalog corrupted line (#{current_line}: {e} - {line}')
-                continue
-
-            # convert the p value to a float
-            try:
-                p_value = float(p_value_string)
-                if p_value == 0:
-                    p_value = sys.float_info.min
-            except ValueError:
-                load_metadata['corrupted_source_lines'] += 1
-                self.logger.warning(f'GWASCatalog bad p value (#{current_line}: {p_value_string}')
-                continue
-
-            # record some metadata about how many of each snp field type there were
-            if ('*' in snps_string) or (',' in snps_string):
-                load_metadata['unusable_source_lines'] += 1
-                unsupported_variants.add(snps_string)
-                continue
-            if 'x' in snps_string:
-                load_metadata['haplotype_associations'] += 1
-            elif ';' in snps_string:
-                load_metadata['multi_snp_associations'] += 1
-
-            # parse the variants field
-            # this regex splits the field on any of these characters or whitespace ,;x*
-            snps = snp_pattern.findall(snps_string)
-
-            if len(snps) == 1:
-                load_metadata['single_snp_associations'] += 1
-
-            # convert the snps to CURIE ids
-            snp_ids = []
-            for snp in snps:
-                if snp.startswith('rs'):
-                    snp_ids.append(f'DBSNP:{snp}')
-                else:
-                    unsupported_variants.add(snp)
-
-            # parse and store risk alleles
-            #risk_alleles = []
-            #risk_alleles = snp_pattern.findall(risk_allele_string)
-            #for risk_allele in risk_alleles:
-            #    if risk_allele.startswith('rs'):
-            #        actual_allele = risk_allele.split('-')[1]
-            #        risk_alleles.append(actual_allele)
-
-            # parse the traits field and convert them to CURIE ids
-            trait_ids = []
-            trait_uris = trait_uri_pattern.findall(trait_uri_string)
-
-            # record some metadata about how many of each trait field type there were
-            if len(trait_uris) > 1:
-                load_metadata['multi_trait_associations'] += 1
-            else:
-                load_metadata['single_trait_associations'] += 1
-
-            # convert the traits to CURIE ids
-            for trait_uri in trait_uris:
                 try:
-                    # trait_uris are full URLs that end with a CURIE
-                    trait_id = trait_uri.rsplit('/', 1)[1]
-                    # curie show up like EFO_123, Orphanet_123, HP_123
-                    curie_trait_id = None
-                    if trait_id.startswith('EFO'):
-                        curie_trait_id = f'EFO:{trait_id[4:]}'
-                    elif trait_id.startswith('Orp'):
-                        curie_trait_id = f'ORPHANET:{trait_id[9:]}'
-                    elif trait_id.startswith('HP'):
-                        curie_trait_id = f'HP:{trait_id[3:]}'
-                    elif trait_id.startswith('NCIT'):
-                        curie_trait_id = f'NCIT:{trait_id[5:]}'
-                    elif trait_id.startswith('MONDO'):
-                        curie_trait_id = f'MONDO:{trait_id[6:]}'
-                    elif trait_id.startswith('GO'):
-                        curie_trait_id = f'GO:{trait_id[3:]}'
-                    else:
-                        unsupported_traits.add(trait_id)
+                    variant_ids = self.get_variants_from_row(row=row, load_metadata=load_metadata)
+                    if not variant_ids:
+                        load_metadata['skipped_record_counter'] += 1
+                        load_metadata['skipped_due_to_variants'] += 1
+                        continue
 
-                    if curie_trait_id:
-                        all_traits.add(curie_trait_id)
-                        trait_ids.append(curie_trait_id)
+                    trait_ids = self.get_traits_from_row(row=row, load_metadata=load_metadata)
+                    if not trait_ids:
+                        load_metadata['skipped_record_counter'] += 1
+                        load_metadata['skipped_due_to_traits'] += 1
+                        continue
 
-                except IndexError:
-                    self.logger.warning(f'Trait uri error:({trait_uri}) not splittable by /')
-                    unsupported_traits.add(trait_uri)
+                    # get pubmed id
+                    pubmed_id = row[DATACOLS.PUBMEDID.value]
+                    edge_props = {PUBLICATIONS: [f'PMID:{pubmed_id}']}
 
-            # if valid trait(s) and snp(s), save the associations in memory
-            if not (trait_ids and snp_ids):
-                load_metadata['unusable_source_lines'] += 1
-                self.logger.debug(f'GWASCatalog line missing valid snps and/or traits: line #{current_line} - {line}')
-            else:
-                for snp_id in snp_ids:
+                    # get p-value
+                    p_value_string = row[DATACOLS.P_VALUE.value]
+
+                    # convert the p value to a float
+                    try:
+                        p_value = float(p_value_string)
+                        if p_value == 0:
+                            p_value = float_info.min
+                        edge_props['p_value'] = [p_value]
+                    except ValueError:
+                        load_metadata['errors'].append(f'Bad p value (line #{i}: {p_value_string}')
+
+                    for variant_id in variant_ids:
+                        self.final_node_list.append(kgxnode(identifier=variant_id, categories=[SEQUENCE_VARIANT]))
+
                     for trait_id in trait_ids:
-                        self.variant_to_pheno_cache[snp_id][trait_id].append({'p_value': p_value,
-                                                                              'pubmed_id': f'PMID:{pubmed_id}'})
+                        self.final_node_list.append(kgxnode(identifier=trait_id,
+                                                            categories=[DISEASE_OR_PHENOTYPIC_FEATURE]))
 
-            if current_line % 10000 == 0:
-                percent_complete = (current_line / total_lines) * 100
-                self.logger.info(f'GWASCatalog progress: {int(percent_complete)}%')
+                    for variant_id in variant_ids:
+                        for trait_id in trait_ids:
+                            new_edge = kgxedge(subject_id=variant_id,
+                                               object_id=trait_id,
+                                               predicate=has_phenotype_predicate,
+                                               relation=has_phenotype_predicate,
+                                               primary_knowledge_source=self.provenance_id,
+                                               edgeprops=edge_props)
+                            self.final_edge_list.append(new_edge)
+                except Exception as e:
+                    load_metadata['errors'].append(e.__str__())
+                    load_metadata['skipped_record_counter'] += 1
 
-        load_metadata['total_variants'] = len(self.variant_to_pheno_cache)
-        load_metadata['total_traits'] = len(all_traits)
-        load_metadata['unsupported_variants_count'] = len(unsupported_variants)
-        load_metadata['unsupported_traits_count'] = len(unsupported_traits)
+        load_metadata['unrecognized_variants_count'] = len(self.unrecognized_variants)
+        load_metadata['unrecognized_traits_count'] = len(self.unrecognized_traits)
+        if self.unrecognized_variants:
+            self.logger.info(f'Unrecognized Variants ({len(self.unrecognized_variants)}): {self.unrecognized_variants}')
+        if self.unrecognized_traits:
+            self.logger.info(f'Unrecognized Traits ({len(self.unrecognized_traits)}): {self.unrecognized_traits}')
 
-        self.logger.info(f'GWASCatalog load results (out of {total_lines} lines of data):')
-        self.logger.info(f'GWASCatalog unsupported variants: {repr(unsupported_variants)}')
-        self.logger.info(f'GWASCatalog unsupported traits: {repr(unsupported_traits)}')
-        #self.logger.info(json.dumps(load_metadata, indent=4))
+        # return to the caller
         return load_metadata
 
-    def write_to_file(self, nodes_output_file_path: str, edges_output_file_path: str):
+    """
+    Extract variant IDs from the provided data from one row of the gwas catalog.
 
-        relation = f'RO:0002200'
-        with KGXFileWriter(nodes_output_file_path, edges_output_file_path) as file_writer:
-            for variant_id, trait_dict in self.variant_to_pheno_cache.items():
-                file_writer.write_node(variant_id, node_name='', node_types=[node_types.SEQUENCE_VARIANT])
-                for trait_id, association_info in trait_dict.items():
-                    file_writer.write_node(trait_id, node_name='', node_types=[node_types.DISEASE_OR_PHENOTYPIC_FEATURE])
-                    for association in association_info:
-                        edge_properties = {'p_value': [association["p_value"]],
-                                           'pubmed_id': [association["pubmed_id"]],
-                                           }
-                        file_writer.write_edge(subject_id=variant_id,
-                                               object_id=trait_id,
-                                               relation=relation,
-                                               original_knowledge_source=self.provenance_id,
-                                               edge_properties=edge_properties)
+    row parameter should be an already split list of entries from one line of the data.
+    
+    load_metadata is passed along to be updated while parsing.
+
+    :return: a list of variant identifier curies 
+    """
+    def get_variants_from_row(self,
+                              row: list,
+                              load_metadata: dict):
+
+        # grab the entry for SNPS
+        variant_data = row[DATACOLS.SNPS.value]
+
+        # HLA nomenclature rows aren't supported
+        if '*' in variant_data:
+            return None
+
+        variant_ids = []
+
+        # parse the variants field
+        # the regex splits the field on these characters (,;x) or whitespace
+        variants = self.variant_regex_pattern.findall(variant_data)
+
+        # for single variant associations
+        if len(variants) == 1:
+            load_metadata['single_variant_associations'] += 1
+        else:
+            load_metadata['multi_variant_associations'] += 1
+
+        # otherwise we try to find all the valid rsids
+        if row[DATACOLS.MERGED.value] == '1':
+            new_rsid = row[DATACOLS.SNP_ID_CURRENT.value]
+            if new_rsid:
+                new_rsid_curie = f'{DBSNP}:rs{new_rsid}'
+                variant_ids.append(new_rsid_curie)
+
+        risk_allele_lookup = self.parse_risk_allele_info(row)
+        for variant in variants:
+            if variant.startswith('rs'):
+                if variant in risk_allele_lookup and risk_allele_lookup[variant] != '?':
+                    variant_id = f'{DBSNP}:{variant}-{risk_allele_lookup[variant]}'
+                else:
+                    variant_id = f'{DBSNP}:{variant}'
+                variant_ids.append(variant_id)
+            else:
+                self.unrecognized_variants.add(variant)
+
+        return variant_ids
+
+    """
+    Given a row from the gwas catalog parse the "STRONGEST SNP - RISK ALLELE" entry.
+    
+    Return a dictionary lookup of what should be a variant ID key to an allele sequence value.
+    
+    example: rs10851473-G --> { 'rs10851473': 'G' } 
+    """
+    def parse_risk_allele_info(self, row: list):
+        risk_allele_data = row[DATACOLS.RISK_ALLELE.value]
+        risk_alleles = self.variant_regex_pattern.findall(risk_allele_data)
+        risk_allele_lookup = {}
+        for allele in risk_alleles:
+            split_allele = allele.split('-')
+            if len(split_allele) == 1:
+                continue
+            else:
+                risk_allele_lookup[split_allele[0]] = split_allele[1]
+        return risk_allele_lookup
+
+    """
+    Extract trait/phenotype IDs from the provided data from one row of the gwas catalog.
+
+    row parameter should be an already split list of entries from one line of the data.
+
+    load_metadata is passed along to be updated while parsing.
+
+    :return: a list of trait/phenotype identifier curies 
+    """
+    def get_traits_from_row(self,
+                            row: list,
+                            load_metadata: dict):
+
+        trait_ids = []
+
+        trait_data = row[DATACOLS.TRAIT_URIS.value]
+
+        # extract a list of traits from the data entry with a regular expression
+        trait_uris = self.trait_regex_pattern.findall(trait_data)
+
+        # record some metadata about how many of each trait field type there were
+        if len(trait_uris) > 1:
+            load_metadata['multi_trait_associations'] += 1
+        else:
+            load_metadata['single_trait_associations'] += 1
+
+        # convert the traits to CURIE ids
+        for trait_uri in trait_uris:
+            try:
+                # trait_uris are full URLs that end with a CURIE
+                trait_id = trait_uri.rsplit('/', 1)[1]
+                # curie show up like EFO_123, Orphanet_123, HP_123
+                curie_trait_id = None
+                if trait_id.startswith('EFO'):
+                    curie_trait_id = f'{EFO}:{trait_id[4:]}'
+                elif trait_id.startswith('Orp'):
+                    curie_trait_id = f'{ORPHANET}:{trait_id[9:]}'
+                elif trait_id.startswith('HP'):
+                    curie_trait_id = f'{HP}:{trait_id[3:]}'
+                elif trait_id.startswith('NCIT'):
+                    curie_trait_id = f'{NCIT}:{trait_id[5:]}'
+                elif trait_id.startswith('MONDO'):
+                    curie_trait_id = f'{MONDO}:{trait_id[6:]}'
+                elif trait_id.startswith('GO'):
+                    curie_trait_id = f'{GO}:{trait_id[3:]}'
+                else:
+                    self.unrecognized_traits.add(trait_id)
+
+                if curie_trait_id:
+                    trait_ids.append(curie_trait_id)
+
+            except IndexError:
+                self.logger.warning(f'Trait uri error:({trait_uri}) not splittable by /')
+                self.unrecognized_traits.add(trait_uri)
+
+        return trait_ids
 
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description="Retrieve, parse, and convert GWAS Catalog data to KGX files.")
-    parser.add_argument('-t', '--test_mode', action='store_true', default=False)
-    #parser.add_argument('--no_cache', action='store_true')
-    #parser.add_argument('--data_dir', default='.')
-    args = parser.parse_args()
+    # create a command line parser
+    ap = argparse.ArgumentParser(description='Load GWASCatalog data files and create KGX files.')
 
-    #loader = GWASCatalogLoader(test_mode=args.test_mode, use_cache=not args.no_cache)
+    ap.add_argument('-r', '--data_dir', required=True, help='The location of the GWASCatalog data file')
 
-    if 'DATA_SERVICES_STORAGE' in os.environ:
-        data_storage_dir = os.environ["DATA_SERVICES_STORAGE"]
+    # parse the arguments
+    args = vars(ap.parse_args())
 
-    loader = GWASCatalogLoader()
-    loader.load(test_mode=args.test_mode)
+    # this is the base directory for data files and the resultant KGX files.
+    data_dir: str = args['data_dir']
 
+    # get a reference to the processor
+    GWASCatLoader = GWASCatalogLoader()
 
+    # load the data files and create KGX output
+    GWASCatLoader.load(f"{data_dir}/nodes", f"{data_dir}/edges")
