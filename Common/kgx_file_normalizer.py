@@ -24,6 +24,7 @@ class NormalizationFailedError(Exception):
 
 EDGE_PROPERTIES_THAT_SHOULD_BE_SETS = {AGGREGATOR_KNOWLEDGE_SOURCES}
 
+
 #
 # This piece takes KGX-like files and normalizes the nodes and edges for biolink compliance.
 # It then writes all of the normalized nodes and edges to new files.
@@ -171,8 +172,8 @@ class KGXFileNormalizer:
             with open(self.node_norm_failures_file_path, "w") as failed_norm_file:
                 for failed_node_id in regular_node_norm_failures:
                     failed_norm_file.write(f'{failed_node_id}\n')
-                for failed_node_id in variant_node_norm_failures:
-                    failed_norm_file.write(f'{failed_node_id}\n')
+                for failed_node_id, error_message in variant_node_norm_failures.items():
+                    failed_norm_file.write(f'{failed_node_id}\t{error_message}\n')
 
         # grab the number of repeat writes from the file writer
         # assuming the input file contained all unique node IDs,
@@ -265,9 +266,9 @@ class KGXFileNormalizer:
                             normalized_object_ids = [edge['object']]
                         else:
                             normalized_object_ids = node_norm_lookup[edge['object']]
-                    except KeyError:
-                        self.logger.error("One of the node IDs from the edge file was missing from the normalizer look up, "
-                                          "it's probably not in the node file.")
+                    except KeyError as e:
+                        self.logger.error(f"One of the node IDs from the edge file was missing from the normalizer look up, "
+                                          f"it's probably not in the node file. ({e})")
                     if not (normalized_subject_ids and normalized_object_ids):
                         edges_failed_due_to_nodes += 1
                     else:

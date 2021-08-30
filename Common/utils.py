@@ -126,7 +126,7 @@ class NodeNormUtils:
         # storage for regular nodes that failed to normalize
         self.failed_to_normalize_ids = set()
         # storage for variant nodes that failed to normalize
-        self.failed_to_normalize_variant_ids = set()
+        self.failed_to_normalize_variant_ids = {}
         # flag that determines whether nodes that failed to normalize should be included or thrown out
         self.strict_normalization = strict_normalization
         # storage for variant nodes that split into multiple new nodes in normalization
@@ -294,44 +294,50 @@ class NodeNormUtils:
     def normalize_sequence_variants(self, variant_nodes: list):
 
         sequence_variant_normalizer = GeneticsNormalizer(use_cache=False)
-        variant_ids = [node['id'] for node in variant_nodes]
-        sequence_variant_norms = sequence_variant_normalizer.normalize_variants(variant_ids)
         variant_node_types = sequence_variant_normalizer.get_sequence_variant_node_types()
 
+        variant_ids = [node['id'] for node in variant_nodes]
         variant_nodes.clear()
-        for variant_id in variant_ids:
-            variant_norms = sequence_variant_norms.get(variant_id, None)
-            if variant_norms:
-                for normalized_info in variant_norms:
+
+        sequence_variant_norms = sequence_variant_normalizer.normalize_variants(variant_ids)
+        for variant_id, normalization_response in sequence_variant_norms.items():
+            for normalization_info in normalization_response:
+                # if the normalization info contains an ID it was a success
+                if 'id' in normalization_info:
                     normalized_node = {
-                        'id': normalized_info["id"],
-                        'name':  normalized_info["name"],
+                        'id': normalization_info["id"],
+                        'name': normalization_info["name"],
                         # as long as sequence variant types are all the same we can skip this assignment
                         # 'category': normalized_info["type"],
                         'category': variant_node_types,
-                        'equivalent_identifiers': normalized_info['equivalent_identifiers']
+                        'equivalent_identifiers': normalization_info["equivalent_identifiers"]
                     }
                     variant_nodes.append(normalized_node)
-                if len(variant_norms) > 1:
-                    split_ids = [node['id'] for node in variant_norms]
-                    self.variant_node_splits[variant_id] = split_ids
-                    self.node_normalization_lookup[variant_id] = split_ids
+                    # assume we don't have a split and store the id for look up
+                    self.node_normalization_lookup[variant_id] = [normalization_info["id"]]
                 else:
-                    self.node_normalization_lookup[variant_id] = [variant_norms[0]['id']]
-            else:
-                self.failed_to_normalize_variant_ids.add(variant_id)
-                self.node_normalization_lookup[variant_id] = None
-                if not self.strict_normalization:
-                    self.node_normalization_lookup[variant_id] = variant_id
-                    # TODO for now we dont preserve other properties on variant nodes that didnt normalize
-                    # the splitting makes that complicated and doesnt seem worth it until we have a good use case
-                    fake_normalized_node = {
-                        'id': variant_id,
-                        'name': variant_id,
-                        'category': variant_node_types,
-                        'equivalent_identifiers': []
-                    }
-                    variant_nodes.append(fake_normalized_node)
+                    # otherwise an error occurred
+                    error_for_logs = f'{normalization_info["error_type"]}: {normalization_info["error_message"]}'
+                    self.failed_to_normalize_variant_ids[variant_id] = error_for_logs
+                    if self.strict_normalization:
+                        self.node_normalization_lookup[variant_id] = None
+                    else:
+                        self.node_normalization_lookup[variant_id] = [variant_id]
+                        # TODO for now we dont preserve other properties on variant nodes that didnt normalize
+                        # the splitting makes that complicated and doesnt seem worth it until we have a good use case
+                        fake_normalized_node = {
+                            'id': variant_id,
+                            'name': variant_id,
+                            'category': variant_node_types,
+                            'equivalent_identifiers': []
+                        }
+                        variant_nodes.append(fake_normalized_node)
+            if len(normalization_response) > 1:
+                # if we have more than one response here assume its a split variant and no errors
+                split_ids = [node['id'] for node in normalization_response]
+                self.variant_node_splits[variant_id] = split_ids
+                # this will overwrite the previous single IDs stored
+                self.node_normalization_lookup[variant_id] = split_ids
 
         return variant_nodes
 

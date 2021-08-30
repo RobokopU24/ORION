@@ -25,6 +25,8 @@ def test_variant_norm():
     assert len(node_normalizer.variant_node_splits) == 1
 
     assert not node_normalizer.node_normalization_lookup['BOGUS:rs999999999999']
+    assert 'BOGUS:rs999999999999' in node_normalizer.failed_to_normalize_variant_ids
+    assert node_normalizer.failed_to_normalize_variant_ids['BOGUS:rs999999999999']
 
     assert node_normalizer.node_normalization_lookup['HGVS:NC_000011.10:g.68032291C>G'] == ['CAID:CA6146346']
 
