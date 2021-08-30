@@ -19,6 +19,9 @@ from Common.prefixes import HGNC, HGNC_FAMILY
 ##############
 class HGNCLoader(SourceDataLoader):
 
+    source_id: str = HGNC
+    provenance_id: str = 'infores:hgnc'
+
     def __init__(self, test_mode: bool = False):
         """
         constructor
@@ -28,13 +31,14 @@ class HGNCLoader(SourceDataLoader):
         super(SourceDataLoader, self).__init__()
 
         # set global variables
-        self.data_path: str = os.environ['DATA_SERVICES_STORAGE']
+        self.data_path: str = os.path.join(os.environ['DATA_SERVICES_STORAGE'], self.source_id)
         self.complete_set_file_name = 'hgnc_complete_set.txt'
         self.data_files: list = [self.complete_set_file_name, 'hgnc_genes_in_groups.txt']
         self.test_mode: bool = test_mode
-        self.source_id: str = HGNC
         self.source_db: str = 'HUGO Gene Nomenclature Committee'
-        self.provenance_id: str = 'infores:hgnc'
+
+        self.ftp_site = 'ftp.ebi.ac.uk'
+        self.ftp_dir = '/pub/databases/genenames/hgnc/tsv/'
 
         # the final output lists of nodes and edges
         self.final_node_list: list = []
@@ -49,16 +53,10 @@ class HGNCLoader(SourceDataLoader):
 
         :return: the data version
         """
-        # this does not work as the files seem to change daily.
-        # get the util object
-        # gd = GetData(self.logger.level)
-        #
-        # get the file dates
-        # ret_val: str = gd.get_ftp_file_date('ftp.ebi.ac.uk', '/pub/databases/genenames/hgnc/tsv/', self.data_files[0])
-        # TODO get info on https://www.genenames.org/cgi-bin/genegroup/download-all/' + self.data_files[1])
 
-        # return to the caller
-        return datetime.datetime.now().strftime("%m/%d/%Y")
+        data_puller = GetData()
+        data_file_date = data_puller.get_ftp_file_date(self.ftp_site, self.ftp_dir, self.data_files[0])
+        return data_file_date
 
     def get_data(self) -> int:
         """
@@ -73,7 +71,7 @@ class HGNCLoader(SourceDataLoader):
         #   set up test data instead
         # else:
         # get the complete data set
-        file_count: int = gd.pull_via_ftp('ftp.ebi.ac.uk', '/pub/databases/genenames/hgnc/tsv/', [self.data_files[0]], self.data_path)
+        file_count: int = gd.pull_via_ftp(self.ftp_site, self.ftp_dir, [self.data_files[0]], self.data_path)
 
         # did we get the file
         if file_count > 0:
