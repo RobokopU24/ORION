@@ -1,6 +1,6 @@
 import pytest
-from Common.utils import NodeNormUtils, EdgeNormUtils
-from Common.node_types import ROOT_ENTITY, SEQUENCE_VARIANT
+from Common.utils import NodeNormUtils, EdgeNormUtils, EdgeNormalizationResult
+from Common.node_types import ROOT_ENTITY, SEQUENCE_VARIANT, FALLBACK_EDGE_PREDICATE
 
 
 def test_variant_norm():
@@ -51,3 +51,24 @@ def test_variant_norm():
                     if SEQUENCE_VARIANT in node['category']:
                         it_worked = True
     assert it_worked
+
+
+def test_edge_normalization():
+
+    edge_list = [{'relation': 'SEMMEDDB:CAUSES'},
+                 {'relation': 'RO:0000052'},
+                 {'relation': 'RO:0002200'},
+                 {'relation': 'BADPREFIX:123456'}]
+    edge_normalizer = EdgeNormUtils()
+    edge_normalizer.normalize_edge_data(edge_list)
+
+    edge_norm_result: EdgeNormalizationResult = edge_normalizer.edge_normalization_lookup['SEMMEDDB:CAUSES']
+    assert edge_norm_result.identifier == 'biolink:causes'
+    assert edge_norm_result.label == 'causes'
+    assert edge_norm_result.inverted is False
+
+    edge_norm_result: EdgeNormalizationResult = edge_normalizer.edge_normalization_lookup['RO:0002200']
+    assert edge_norm_result.identifier == 'biolink:has_phenotype'
+
+    edge_norm_result: EdgeNormalizationResult = edge_normalizer.edge_normalization_lookup['BADPREFIX:123456']
+    assert edge_norm_result.identifier == FALLBACK_EDGE_PREDICATE

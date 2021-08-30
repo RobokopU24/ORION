@@ -19,7 +19,7 @@ from datetime import datetime
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
 from robokop_genetics.genetics_normalization import GeneticsNormalizer
-from Common.node_types import ROOT_ENTITY
+from Common.node_types import ROOT_ENTITY, FALLBACK_EDGE_PREDICATE, FALLBACK_EDGE_PREDICATE_LABEL
 
 
 class LoggingUtil(object):
@@ -470,8 +470,11 @@ class EdgeNormUtils:
 
                     # merge this list with what we have gotten so far
                     cached_edge_norms.update(**rvs)
+                elif resp.status_code == 404:
+                    # this should never happen but if it does fail gracefully so we use the fallback predicate
+                    pass
                 else:
-                    # the error that is trapped here means that the entire list of edges didnt get normalized.
+                    # this is a real error with the edge normalizer so we bail
                     error_message = f'Edge norm response code: {resp.status_code}'
                     self.logger.error(error_message)
                     resp.raise_for_status()
@@ -500,6 +503,9 @@ class EdgeNormUtils:
                     self.edge_normalization_lookup[relation] = EdgeNormalizationResult(identifier, label, inverted)
                     success = True
             if not success:
+                # this should not happen but if it does use the fallback predicate
+                self.edge_normalization_lookup[relation] = EdgeNormalizationResult(FALLBACK_EDGE_PREDICATE,
+                                                                                   FALLBACK_EDGE_PREDICATE_LABEL)
                 # if no result for whatever reason add it to the fail list
                 failed_to_normalize.append(relation)
 

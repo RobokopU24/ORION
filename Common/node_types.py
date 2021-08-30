@@ -54,6 +54,8 @@ node_types = [
     FOOD
 ]
 
+FALLBACK_EDGE_PREDICATE = 'biolink:related_to'
+FALLBACK_EDGE_PREDICATE_LABEL = 'related to'
 
 # A collection of biolink property variable names.
 
