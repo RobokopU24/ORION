@@ -116,6 +116,7 @@ class GWASCatalogLoader(SourceDataWithVariantsLoader):
             'multi_variant_associations': 0,
             'single_trait_associations': 0,
             'multi_trait_associations': 0,
+            'merged_id_provided': 0,
             'errors': []
         }
 
@@ -128,6 +129,9 @@ class GWASCatalogLoader(SourceDataWithVariantsLoader):
                 # expecting header row
                 if i == 1:
                     continue
+
+                if self.test_mode and i == 22:
+                    break
 
                 # the total row count
                 load_metadata['record_counter'] += 1
@@ -224,22 +228,26 @@ class GWASCatalogLoader(SourceDataWithVariantsLoader):
             load_metadata['multi_variant_associations'] += 1
 
         # otherwise we try to find all the valid rsids
+        # if there is a merged (latest version) RSID we just use that
+        new_rsid = None
         if row[DATACOLS.MERGED.value] == '1':
             new_rsid = row[DATACOLS.SNP_ID_CURRENT.value]
             if new_rsid:
+                load_metadata['merged_id_provided'] += 1
                 new_rsid_curie = f'{DBSNP}:rs{new_rsid}'
                 variant_ids.append(new_rsid_curie)
-
-        risk_allele_lookup = self.parse_risk_allele_info(row)
-        for variant in variants:
-            if variant.startswith('rs'):
-                if variant in risk_allele_lookup and risk_allele_lookup[variant] != '?':
-                    variant_id = f'{DBSNP}:{variant}-{risk_allele_lookup[variant]}'
+        if not new_rsid:
+            # otherwise try to use parsed values from the snp fields, using risk alleles when possible
+            risk_allele_lookup = self.parse_risk_allele_info(row)
+            for variant in variants:
+                if variant.startswith('rs'):
+                    if variant in risk_allele_lookup and risk_allele_lookup[variant] != '?':
+                        variant_id = f'{DBSNP}:{variant}-{risk_allele_lookup[variant]}'
+                    else:
+                        variant_id = f'{DBSNP}:{variant}'
+                    variant_ids.append(variant_id)
                 else:
-                    variant_id = f'{DBSNP}:{variant}'
-                variant_ids.append(variant_id)
-            else:
-                self.unrecognized_variants.add(variant)
+                    self.unrecognized_variants.add(variant)
 
         return variant_ids
 
