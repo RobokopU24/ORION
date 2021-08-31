@@ -204,7 +204,7 @@ class PHAROSLoader(SourceDataLoader):
                 did = 'ORPHANET:' + dparts[1]
 
             # create the group id
-            grp: str = gene + 'WD:P2293' + did + f'{random.random()}'
+            grp: str = gene + 'WIKIDATA_PROPERTY:P2293' + did + f'{random.random()}'
             grp = hashlib.md5(grp.encode("utf-8")).hexdigest()
 
             # if the drug id is a gene ignore it
@@ -215,7 +215,7 @@ class PHAROSLoader(SourceDataLoader):
                 node_list.append({'grp': grp, 'node_num': 1, 'id': gene, 'name': gene_sym, 'category': '', 'equivalent_identifiers': ''})
 
                 # create the disease node and add it to the list
-                node_list.append({'grp': grp, 'node_num': 2, 'id': did, 'name': name, 'category': '', 'equivalent_identifiers': '', 'predicate': 'biolink:gene_associated_with_condition', 'relation': 'WD:P2293', 'edge_label': 'gene_associated_with_condition', 'pmids': [], 'affinity': 0, 'affinity_parameter': '', 'provenance': provenance})
+                node_list.append({'grp': grp, 'node_num': 2, 'id': did, 'name': name, 'category': '', 'equivalent_identifiers': '', 'predicate': 'biolink:gene_associated_with_condition', 'relation': 'WIKIDATA_PROPERTY:P2293', 'edge_label': 'gene_associated_with_condition', 'pmids': [], 'affinity': 0, 'affinity_parameter': '', 'provenance': provenance})
 
         # return the node list to the caller
         return node_list, record_counter, skipped_record_counter
@@ -321,7 +321,14 @@ class PHAROSLoader(SourceDataLoader):
         """
         # if there was a predicate make it look pretty
         if result['pred'] is not None and len(result['pred']) > 1:
-            rel: str = self.snakify(result['pred']).lower()
+            pred: str = result['pred'].lower()
+
+            if pred.startswith('antisense inhibitor'):
+                rel: str = 'inhibitor'
+            elif pred.startswith('binding agent'):
+                rel: str = 'interacts_with'
+            else:
+                rel: str = self.snakify(pred)
         else:
             rel: str = 'interacts_with'
 
