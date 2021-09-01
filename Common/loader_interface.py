@@ -66,6 +66,8 @@ class SourceDataLoader(metaclass=abc.ABCMeta):
             pass
             #self.clean_up()
 
+        load_metadata['source_edges'] = len(self.final_edge_list)
+
         self.logger.info(f'{self.get_name()}:Processing complete')
 
         return load_metadata
