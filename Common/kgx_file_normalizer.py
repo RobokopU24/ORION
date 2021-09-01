@@ -4,7 +4,8 @@ import jsonlines
 import logging
 from collections import defaultdict
 from copy import deepcopy
-from Common.node_types import SEQUENCE_VARIANT, ORIGINAL_KNOWLEDGE_SOURCE, PRIMARY_KNOWLEDGE_SOURCE, AGGREGATOR_KNOWLEDGE_SOURCES
+from Common.node_types import SEQUENCE_VARIANT, ORIGINAL_KNOWLEDGE_SOURCE, PRIMARY_KNOWLEDGE_SOURCE, \
+    AGGREGATOR_KNOWLEDGE_SOURCES, PUBLICATIONS
 from Common.utils import LoggingUtil
 from Common.utils import NodeNormUtils, EdgeNormUtils, EdgeNormalizationResult
 from Common.kgx_file_writer import KGXFileWriter
@@ -22,7 +23,7 @@ class NormalizationFailedError(Exception):
         self.actual_error = actual_error
 
 
-EDGE_PROPERTIES_THAT_SHOULD_BE_SETS = {AGGREGATOR_KNOWLEDGE_SOURCES}
+EDGE_PROPERTIES_THAT_SHOULD_BE_SETS = {AGGREGATOR_KNOWLEDGE_SOURCES, PUBLICATIONS}
 
 
 #
@@ -304,7 +305,8 @@ class KGXFileNormalizer:
                                         normalized_edge['subject'] = norm_subject_id
                                         normalized_edge['object'] = norm_object_id
 
-                                    knowledge_source_key = f'{normalized_edge.get(ORIGINAL_KNOWLEDGE_SOURCE, "")}_{normalized_edge.get(PRIMARY_KNOWLEDGE_SOURCE, "")}'
+                                    knowledge_source_key = f'{normalized_edge.get(ORIGINAL_KNOWLEDGE_SOURCE, "")}_' \
+                                                           f'{normalized_edge.get(PRIMARY_KNOWLEDGE_SOURCE, "")}'
 
                                     # merge with existing similar edges and/or queue up for writing later
                                     if ((norm_subject_id in merged_edges) and
