@@ -202,6 +202,8 @@ class PHAROSLoader(SourceDataLoader):
             elif did.startswith('Orphanet:'):
                 dparts = did.split(':')
                 did = 'ORPHANET:' + dparts[1]
+            elif did.startswith('MIM'):
+                did = 'O' + did
 
             # create the group id
             grp: str = gene + 'WIKIDATA_PROPERTY:P2293' + did + f'{random.random()}'
