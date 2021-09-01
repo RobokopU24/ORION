@@ -177,7 +177,11 @@ hetio_abbrev_to_curie_lookup = {
     'DpS': 'RO:0002200',  # disease presents symptom (has phenotype)
     'DlA': 'RO:0004026',  # disease localizes in anatomy (disease has location)
     'DrD': 'SO:similar_to',  # disease resembles disease
-    'CrC': 'SO:similar_to'  # compound resembles compound
+    'CrC': 'SO:similar_to',  # compound resembles compound
+    'GcG': 'RO:0002610',    # mapping covaries to correlated with
+    'GpCC': 'RO:0002007',   # mapping participant cellular component to has_part/part_of
+    'GpMF': 'RO:0002007',   # mapping Molecular Function to has_part/part_of
+    'GpBP': 'RO:0002007'    # mapping Biological Process to has_part/part_of
 }
 
 
