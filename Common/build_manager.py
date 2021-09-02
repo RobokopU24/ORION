@@ -280,11 +280,12 @@ class GraphBuilder:
             source_metadata = self.data_manager.metadata[source_id]
             if source_metadata.is_ready_to_build():
                 file_paths = list()
-                file_paths.append(self.data_manager.get_normalized_node_file_path(source_id, source_load_version))
-                file_paths.append(self.data_manager.get_normalized_edge_file_path(source_id, source_load_version))
                 if source_metadata.has_supplemental_data():
                     file_paths.append(self.data_manager.get_normalized_supp_node_file_path(source_id, source_load_version))
                     file_paths.append(self.data_manager.get_normalized_supplemental_edge_file_path(source_id, source_load_version))
+                else:
+                    file_paths.append(self.data_manager.get_normalized_node_file_path(source_id, source_load_version))
+                    file_paths.append(self.data_manager.get_normalized_edge_file_path(source_id, source_load_version))
                 source_dict[source.source_id] = {'input': {'name': source_id,
                                                            'format': 'jsonl',
                                                            'filename': file_paths}}
