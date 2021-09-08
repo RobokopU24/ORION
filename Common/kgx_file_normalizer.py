@@ -5,7 +5,7 @@ import logging
 from collections import defaultdict
 from copy import deepcopy
 from Common.node_types import SEQUENCE_VARIANT, ORIGINAL_KNOWLEDGE_SOURCE, PRIMARY_KNOWLEDGE_SOURCE, \
-    AGGREGATOR_KNOWLEDGE_SOURCES, PUBLICATIONS
+    AGGREGATOR_KNOWLEDGE_SOURCES, PUBLICATIONS, OBJECT_ID, SUBJECT_ID, RELATION, PREDICATE
 from Common.utils import LoggingUtil
 from Common.utils import NodeNormUtils, EdgeNormUtils, EdgeNormalizationResult
 from Common.kgx_file_writer import KGXFileWriter
@@ -72,6 +72,8 @@ class KGXFileNormalizer:
     def normalize_kgx_files(self):
         self.normalize_node_file()
         self.normalize_edge_file()
+        orphan_nodes_removed = remove_orphan_nodes(self.nodes_output_file_path, self.edges_output_file_path)
+        self.normalization_metadata['orphan_nodes_removed'] = orphan_nodes_removed
         return self.normalization_metadata
 
     # given file paths to the source data node file and an output file,
@@ -260,13 +262,13 @@ class KGXFileNormalizer:
                     normalized_object_ids = None
                     try:
                         if self.edge_subject_pre_normalized:
-                            normalized_subject_ids = [edge['subject']]
+                            normalized_subject_ids = [edge[SUBJECT_ID]]
                         else:
-                            normalized_subject_ids = node_norm_lookup[edge['subject']]
+                            normalized_subject_ids = node_norm_lookup[edge[SUBJECT_ID]]
                         if self.edge_object_pre_normalized:
-                            normalized_object_ids = [edge['object']]
+                            normalized_object_ids = [edge[OBJECT_ID]]
                         else:
-                            normalized_object_ids = node_norm_lookup[edge['object']]
+                            normalized_object_ids = node_norm_lookup[edge[OBJECT_ID]]
                     except KeyError as e:
                         self.logger.error(f"One of the node IDs from the edge file was missing from the normalizer look up, "
                                           f"it's probably not in the node file. ({e})")
@@ -274,7 +276,7 @@ class KGXFileNormalizer:
                         edges_failed_due_to_nodes += 1
                     else:
                         try:
-                            edge_norm_result: EdgeNormalizationResult = edge_norm_lookup[edge['relation']]
+                            edge_norm_result: EdgeNormalizationResult = edge_norm_lookup[edge[RELATION]]
                         except KeyError:
                             edge_norm_result = None
 
@@ -293,17 +295,17 @@ class KGXFileNormalizer:
                                     # create a new edge with the normalized values
                                     # start with the original edge to preserve other properties
                                     normalized_edge = deepcopy(edge)
-                                    normalized_edge['predicate'] = normalized_predicate
+                                    normalized_edge[PREDICATE] = normalized_predicate
 
                                     # if normalization switched the direction of the predicate, swap the nodes
                                     if edge_inverted_by_normalization:
-                                        normalized_edge['object'] = norm_subject_id
-                                        normalized_edge['subject'] = norm_object_id
-                                        norm_subject_id = normalized_edge['subject']
-                                        norm_object_id = normalized_edge['object']
+                                        normalized_edge[OBJECT_ID] = norm_subject_id
+                                        normalized_edge[SUBJECT_ID] = norm_object_id
+                                        norm_subject_id = normalized_edge[SUBJECT_ID]
+                                        norm_object_id = normalized_edge[OBJECT_ID]
                                     else:
-                                        normalized_edge['subject'] = norm_subject_id
-                                        normalized_edge['object'] = norm_object_id
+                                        normalized_edge[SUBJECT_ID] = norm_subject_id
+                                        normalized_edge[OBJECT_ID] = norm_object_id
 
                                     knowledge_source_key = f'{normalized_edge.get(ORIGINAL_KNOWLEDGE_SOURCE, "")}_' \
                                                            f'{normalized_edge.get(PRIMARY_KNOWLEDGE_SOURCE, "")}'
@@ -342,7 +344,7 @@ class KGXFileNormalizer:
                                     normalized_edge_count += 1
                                     output_file_writer.write_edge(subject_id=subject_id,
                                                                   object_id=object_id,
-                                                                  relation=edge['relation'],
+                                                                  relation=edge[RELATION],
                                                                   predicate=predicate,
                                                                   edge_properties=edge)
         except IOError as e:
@@ -373,3 +375,32 @@ class KGXFileNormalizer:
             'edge_splits': edge_splits,
             'final_normalized_edges': normalized_edge_count
         })
+
+
+"""
+Given a nodes file and an edges file, remove all of the nodes from the nodes file that aren't attached to edges.
+"""
+def remove_orphan_nodes(nodes_file_path: str, edges_file_path: str):
+    utilized_nodes = set()
+    with open(edges_file_path) as edges_source:
+        edge_reader = jsonlines.Reader(edges_source)
+        for edge in edge_reader:
+            utilized_nodes.add(edge[OBJECT_ID])
+            utilized_nodes.add(edge[SUBJECT_ID])
+
+    orphan_nodes_removed = 0
+    temp_nodes_file_name = f'{nodes_file_path}.temp'
+    os.rename(nodes_file_path, temp_nodes_file_name)
+    with open(temp_nodes_file_name) as nodes_source:
+        nodes_reader = jsonlines.Reader(nodes_source)
+        with KGXFileWriter(nodes_output_file_path=nodes_file_path) as kgx_file_writer:
+            for node in nodes_reader:
+                if node['id'] in utilized_nodes:
+                    kgx_file_writer.write_normalized_node(node)
+                else:
+                    orphan_nodes_removed += 1
+    os.remove(temp_nodes_file_name)
+    return orphan_nodes_removed
+
+
+
