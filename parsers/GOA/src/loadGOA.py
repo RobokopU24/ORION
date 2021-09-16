@@ -52,6 +52,7 @@ class GOALoader(SourceDataLoader):
         # set global variables
         self.data_path = os.environ['DATA_SERVICES_STORAGE']
         self.data_file = 'goa_human.gaf.gz'
+        self.plant_data_file = 'goa_uniprot_plant.gaf'
         self.test_mode = test_mode
         self.source_id = 'GeneOntologyAnnotations'
         self.source_db = 'GeneOntologyAnnotations'
@@ -122,18 +123,22 @@ class GOALoader(SourceDataLoader):
         # return the byte count to the caller
         return byte_count
 
-    def parse_data(self) -> dict:
+    def parse_data(self, *organism_type) -> dict:
         """
         Parses the data file for nodes/edges
 
         :return: dict of parsing metadata results
         """
 
-        infile_path = os.path.join(self.data_path, self.data_file)
+        for organism in organism_type:
+            if organism == 'plant':
+                infile_path = os.path.join(self.data_path, self.plant_data_file)
+            elif organism == 'human':
+                infile_path = os.path.join(self.data_path, self.data_file)
 
         extractor = Extractor( )
 
-        with gzip.open(infile_path, 'r') as zf:
+        with (gzip.open if infile_path.endswith(".gz") else open)(infile_path) as zf:
             extractor.csv_extract(TextIOWrapper(zf, "utf-8"),
                                   lambda line: f'{line[DATACOLS.DB.value]}:{line[DATACOLS.DB_Object_ID.value]}',
                                   # extract subject id,
@@ -174,7 +179,7 @@ def get_goa_predicate(line: list):
 
 if __name__ == '__main__':
     # create a command line parser
-    ap = argparse.ArgumentParser(description='Load human GOA files and create KGX import files.')
+    ap = argparse.ArgumentParser(description='Load plant or human GOA files and create KGX import files.')
 
     # command line should be like: python loadGOA.py -p /projects/stars/Data_services/UniProtKB_data -g goa_human.gaf.gz -m json
     ap.add_argument('-p', '--data_dir', required=True, help='The location of the data files')
