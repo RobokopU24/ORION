@@ -5,7 +5,8 @@ import logging
 
 from Common.utils import LoggingUtil
 from Common.kgxmodel import kgxnode, kgxedge
-from Common.node_types import ORIGINAL_KNOWLEDGE_SOURCE, PRIMARY_KNOWLEDGE_SOURCE, AGGREGATOR_KNOWLEDGE_SOURCES
+from Common.node_types import ORIGINAL_KNOWLEDGE_SOURCE, PRIMARY_KNOWLEDGE_SOURCE, AGGREGATOR_KNOWLEDGE_SOURCES, \
+    SUBJECT_ID, OBJECT_ID, PREDICATE, RELATION
 
 class KGXFileWriter:
 
@@ -17,20 +18,12 @@ class KGXFileWriter:
     constructor
     :param nodes_output_file_path: the file path for the nodes file
     :param edges_output_file_path: the file path for the edes file
-    :param ignore_orphan_nodes: flag that indicates nodes that are not actually found on edges should not be written
-                                for ignore_orphan_nodes to work you need to write the edges first
     """
     def __init__(self,
                  nodes_output_file_path: str = None,
-                 edges_output_file_path: str = None,
-                 ignore_orphan_nodes: bool = False):
+                 edges_output_file_path: str = None):
         self.edges_to_write = []
         self.edges_buffer_size = 10000
-
-        # utilized_nodes and orphan_node_count are only used if ignore_orphan_nodes is True
-        self.ignore_orphan_nodes = ignore_orphan_nodes
-        self.orphan_node_count = 0
-        self.utilized_nodes = set()
 
         # written nodes is a set of node ids used for preventing duplicate node writes
         self.written_nodes = set()
@@ -68,16 +61,12 @@ class KGXFileWriter:
             self.edges_output_file_handler.close()
 
     def write_node(self, node_id: str, node_name: str, node_types: list, node_properties: dict = None, uniquify: bool = True):
-        if uniquify and node_id in self.written_nodes:
-            self.repeat_node_count += 1
-            return
-
-        if self.ignore_orphan_nodes:
-            if node_id not in self.utilized_nodes:
-                self.orphan_node_count += 1
-                return
         if uniquify:
+            if node_id in self.written_nodes:
+                self.repeat_node_count += 1
+                return
             self.written_nodes.add(node_id)
+
         node_object = {'id': node_id, 'name': node_name, 'category': node_types}
         if node_properties:
             node_object.update(node_properties)
@@ -92,12 +81,12 @@ class KGXFileWriter:
                         node_properties=node.properties)
 
     def write_normalized_node(self, node_json: dict, uniquify: bool = True):
-        if uniquify and node_json['id'] in self.written_nodes:
-            self.repeat_node_count += 1
-            return
-
         if uniquify:
+            if node_json['id'] in self.written_nodes:
+                self.repeat_node_count += 1
+                return
             self.written_nodes.add(node_json['id'])
+
         self.nodes_to_write.append(node_json)
         self.check_node_buffer_for_flush()
 
@@ -133,14 +122,14 @@ class KGXFileWriter:
                 composite_id = f'{object_id}{predicate}{subject_id}'
                 edge_id = hashlib.md5(composite_id.encode("utf-8")).hexdigest()
             edge_object = {'id': edge_id,
-                           'subject': subject_id,
-                           'predicate': predicate,
-                           'object': object_id,
-                           'relation': relation}
+                           SUBJECT_ID: subject_id,
+                           PREDICATE: predicate,
+                           OBJECT_ID: object_id,
+                           RELATION: relation}
         else:
-            edge_object = {'subject': subject_id,
-                           'object': object_id,
-                           'relation': relation}
+            edge_object = {SUBJECT_ID: subject_id,
+                           OBJECT_ID: object_id,
+                           RELATION: relation}
 
         if original_knowledge_source is not None:
             edge_object[ORIGINAL_KNOWLEDGE_SOURCE] = original_knowledge_source
@@ -156,11 +145,6 @@ class KGXFileWriter:
 
         self.edges_to_write.append(edge_object)
         self.check_edge_buffer_for_flush()
-
-        if self.ignore_orphan_nodes:
-            self.utilized_nodes.add(subject_id)
-            self.utilized_nodes.add(object_id)
-
 
     def write_kgx_edge(self, edge: kgxedge):
         self.write_edge(subject_id=edge.subjectid,

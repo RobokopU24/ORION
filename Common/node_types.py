@@ -1,3 +1,4 @@
+# A collection of constants for biolink variable names and types
 NAMED_THING = 'biolink:NamedThing'
 BIOLOGICAL_ENTITY = 'biolink:BiologicalEntity'
 DISEASE_OR_PHENOTYPIC_FEATURE = 'biolink:DiseaseOrPhenotypicFeature'
@@ -54,10 +55,14 @@ node_types = [
     FOOD
 ]
 
+# The following are used by edges:
+SUBJECT_ID = 'subject'
+OBJECT_ID = 'object'
+PREDICATE = 'predicate'
+RELATION = 'relation'
+
 FALLBACK_EDGE_PREDICATE = 'biolink:related_to'
 FALLBACK_EDGE_PREDICATE_LABEL = 'related to'
-
-# A collection of biolink property variable names.
 
 ORIGINAL_KNOWLEDGE_SOURCE = 'biolink:original_knowledge_source'
 PRIMARY_KNOWLEDGE_SOURCE = 'biolink:primary_knowledge_source'

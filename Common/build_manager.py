@@ -8,6 +8,7 @@ from kgx.utils.kgx_utils import prepare_data_dict as kgx_dict_merge
 from Common.utils import LoggingUtil
 from Common.load_manager import SourceDataLoadManager
 from Common.kgx_file_writer import KGXFileWriter
+from Common.node_types import ORIGINAL_KNOWLEDGE_SOURCE, PRIMARY_KNOWLEDGE_SOURCE
 import jsonlines, json, hashlib
 import redis
 
@@ -111,6 +112,7 @@ class GraphBuilder:
         NODE_KEY_PREFIX='node-'
         EDGE_KEY_PREFIX='edge-'
 
+        # fun part Merging
         for data_source_name, spec in source_dict.items():
 
             format = spec['input']['format']
@@ -118,66 +120,58 @@ class GraphBuilder:
             self.logger.info(f"Processing {data_source_name}")
 
             if format == 'jsonl':
-                assert len(files) == 2, f"Error Expected jsonl formatted files to come in pairs, " \
-                                         f"Dataset {data_source_name} resolved to {files}."
-                try:
-                    nodes_file = [file_name for file_name in files if "nodes" in file_name][0]
-                    edges_file = [file_name for file_name in files if "edges" in file_name][0]
-                except IndexError:
-                    raise ValueError(f"Could not detect edges and/or nodes file from {files} "
-                                     f"for Dataset {data_source_name}")
 
-                # fun part Merging
+                for file_name in files:
+                    if "nodes" in file_name:
+                        # merging nodes
+                        with jsonlines.open(file_name) as nodes:
+                            # this is our merge condition
+                            id_functor = lambda n: n['id']
+                            # this is how we want to merge
+                            merge_functor = kgx_dict_merge
+                            matched_nodes = self.merge_redis(
+                                nodes,
+                                id_functor=id_functor,
+                                merge_functor=merge_functor,
+                                redis_key_prefix=NODE_KEY_PREFIX
+                            )
+                            self.logger.info(f"Matched {matched_nodes} nodes from redis for data set {data_source_name}. "
+                                             f"Datasets processed thus far : {data_sets_processed}")
 
-                # merging nodes
+                    elif "edges" in file_name:
+                        # merge edges
+                        with jsonlines.open(file_name) as edges:
 
-                with jsonlines.open(nodes_file) as nodes:
-                    # this is our merge condition
-                    id_functor = lambda n: n['id']
-                    # this is how we want to merge
-                    merge_functor = kgx_dict_merge
-                    matched_nodes = self.merge_redis(
-                        nodes,
-                        id_functor=id_functor,
-                        merge_functor=merge_functor,
-                        redis_key_prefix=NODE_KEY_PREFIX
-                    )
-                    self.logger.info(f"Matched {matched_nodes} nodes from redis for data set {data_source_name}. "
-                                     f"Datasets processed thus far : {data_sets_processed}")
+                            # if we want certain datasets to be merged we just need to control how this id is generated
+                            #  eg say we wanted to merge biolink and ctd edges . we can  if biolink in mergergable sets
+                            # we just need to adjust how we compute that salt str(set('biolink', 'ctd')) etc ... would
+                            # have that effect
 
+                            edge_id_compute = lambda edge: hashlib.md5(
+                                str(edge['subject'] +
+                                edge['predicate'] +
+                                edge['object'] +
+                                f'{edge.get(ORIGINAL_KNOWLEDGE_SOURCE, "")}{edge.get(PRIMARY_KNOWLEDGE_SOURCE, "")}'
+                                    if f'{edge.get(ORIGINAL_KNOWLEDGE_SOURCE, "")}{edge.get(PRIMARY_KNOWLEDGE_SOURCE, "")}'
+                                    else data_source_name).encode('utf-8')
+                            ).hexdigest()
 
-                # merge edges
+                            # for now we practically don't merge on edges.
+                            merge_functor = lambda edge_1, edge_2: edge_2
 
-                with jsonlines.open(edges_file) as edges:
-                    counter = 0
-                    edges_from_file = {}
-                    matched_edges = 0
-                    # if we want certain datasets to be merged we just need to control how this id is generated
-                    #  eg say we wanted to merge biolink and ctd edges . we can  if biolink in mergergable sets
-                    # we just need to adjust how we compute that salt str(set('biolink', 'ctd')) etc ... would
-                    # have that effect
+                            matched_edges = self.merge_redis(items=edges,
+                                                             id_functor=edge_id_compute,
+                                                             merge_functor=merge_functor,
+                                                             redis_key_prefix=EDGE_KEY_PREFIX,
+                                                             re_adjust_id=True)
 
-                    edge_id_uniqueness_salt = data_source_name
-                    edge_id_compute = lambda edge: hashlib.md5(
-                        str(edge['subject'] +
-                        edge['predicate'] +
-                        edge['object'] +
-                        edge_id_uniqueness_salt).encode('utf-8')
-                    ).hexdigest()
+                            self.logger.info(f"Matched {matched_edges} edges from redis for data set {data_source_name}. "
+                                             f"Datasets processed thus far : {data_sets_processed}")
+                    else:
+                        raise ValueError(f"Did not recognize file {file_name} for merging "
+                                         f"from data source {data_source_name}.")
 
-                    # for now we practically don't merge on edges.
-                    merge_functor = lambda edge_1, edge_2: edge_2
-
-                    matched_edges = self.merge_redis(items=edges,
-                                                     id_functor=edge_id_compute,
-                                                     merge_functor=merge_functor,
-                                                     redis_key_prefix=EDGE_KEY_PREFIX,
-                                                     re_adjust_id=True)
-
-                    self.logger.info(f"Matched {matched_edges} edges from redis for data set {data_source_name}. "
-                                     f"Datasets processed thus far : {data_sets_processed}")
                 data_sets_processed.add(data_source_name)
-
 
         # create output dir
         output_dir = os.path.join(data_dir, graph_id)
