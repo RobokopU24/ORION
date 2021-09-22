@@ -113,9 +113,9 @@ class SequenceVariantSupplementation:
             for line in snpeff_output:
                 if line.startswith("#") or not line:
                     if 'SnpEffVersion' in line:
-                        supplementation_info['SnpEffVersion'] = line.split("=")[1]
+                        supplementation_info['SnpEffVersion'] = line.split("=")[1].strip()
                     if 'SnpEffCmd' in line:
-                        supplementation_info['SnpEffCmd'] = line.split("=")[1]
+                        supplementation_info['SnpEffCmd'] = line.split("=")[1].strip()
                     continue
                 vcf_line_split = line.split('\t')
                 variant_id = vcf_line_split[2]
@@ -184,23 +184,27 @@ class SequenceVariantSupplementation:
                             robo_key = curie.split(':', 1)[1]
                             robo_params = robo_key.split('|')
 
-                            current_variant_line = "\t".join([robo_params[1],
-                                                              robo_params[2],
+                            chromosome = robo_params[1]
+                            position = int(robo_params[2])
+                            ref_allele = robo_params[4]
+                            alt_allele = robo_params[5]
+
+                            if not ref_allele:
+                                ref_allele = f'N'
+                                alt_allele = f'N{alt_allele}'
+                            elif not alt_allele:
+                                ref_allele = f'N{ref_allele}'
+                                alt_allele = f'N'
+                            else:
+                                position += 1
+
+                            current_variant_line = "\t".join([chromosome,
+                                                              str(position),
                                                               node['id'],
-                                                              robo_params[4],
-                                                              robo_params[5],
+                                                              ref_allele,
+                                                              alt_allele,
                                                               '',
                                                               'PASS',
                                                               ''])
                             vcf_file.write(f'{current_variant_line}\n')
                             break
-
-
-
-
-
-
-
-
-
-
