@@ -17,7 +17,7 @@ from parsers.GWASCatalog.src.loadGWASCatalog import GWASCatalogLoader
 from parsers.CTD.src.loadCTD import CTDLoader
 from parsers.cord19.src.loadCord19 import Cord19Loader
 # from parsers.FooDB.src.loadFDB import FDBLoader
-from parsers.GOA.src.loadGOA import GOALoader
+from parsers.GOA.src.loadGOA import PlantGOALoader, HumanGOALoader
 from parsers.IntAct.src.loadIA import IALoader
 from parsers.PHAROS.src.loadPHAROS import PHAROSLoader
 from parsers.UberGraph.src.loadUG import UGLoader
@@ -37,6 +37,7 @@ GWAS_CATALOG = 'GWASCatalog'
 CTD = 'CTD'
 CORD19 = 'Cord19'
 HUMAN_GOA = 'HumanGOA'
+PLANT_GOA = 'PlantGOA'
 INTACT = 'IntAct'
 PHAROS = 'PHAROS'
 UBERGRAPH = 'UberGraph'
@@ -60,7 +61,8 @@ SOURCE_DATA_LOADER_CLASSES = {
     CORD19: Cord19Loader,
     INTACT: IALoader,
     GTOPDB: GtoPdbLoader,
-    HUMAN_GOA: GOALoader,
+    HUMAN_GOA: HumanGOALoader,
+    PLANT_GOA: PlantGOALoader,
     HGNC: HGNCLoader,
     UBERGRAPH: UGLoader,
     VP: VPLoader,
