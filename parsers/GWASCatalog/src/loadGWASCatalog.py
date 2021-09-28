@@ -5,6 +5,7 @@ import re
 import enum
 
 from sys import float_info
+from collections import defaultdict
 from Common.utils import LoggingUtil, GetData
 from Common.loader_interface import SourceDataWithVariantsLoader, SourceDataBrokenError, SourceDataFailedError
 from Common.kgxmodel import kgxnode, kgxedge
@@ -116,7 +117,8 @@ class GWASCatalogLoader(SourceDataWithVariantsLoader):
             'multi_variant_associations': 0,
             'single_trait_associations': 0,
             'multi_trait_associations': 0,
-            'merged_id_provided': 0,
+            'newer_id_provided': 0,
+            'merged_edges': 0,
             'errors': []
         }
 
@@ -161,7 +163,7 @@ class GWASCatalogLoader(SourceDataWithVariantsLoader):
                         p_value = float(p_value_string)
                         if p_value == 0:
                             p_value = float_info.min
-                        edge_props['p_value'] = [p_value]
+                        edge_props['p_value'] = p_value
                     except ValueError:
                         load_metadata['errors'].append(f'Bad p value (line #{i}: {p_value_string}')
 
@@ -191,6 +193,8 @@ class GWASCatalogLoader(SourceDataWithVariantsLoader):
             self.logger.info(f'Unrecognized Variants ({len(self.unrecognized_variants)}): {self.unrecognized_variants}')
         if self.unrecognized_traits:
             self.logger.info(f'Unrecognized Traits ({len(self.unrecognized_traits)}): {self.unrecognized_traits}')
+
+        load_metadata['merged_edges'] = self.custom_merge_edges()
 
         # return to the caller
         return load_metadata
@@ -233,7 +237,7 @@ class GWASCatalogLoader(SourceDataWithVariantsLoader):
         if row[DATACOLS.MERGED.value] == '1':
             new_rsid = row[DATACOLS.SNP_ID_CURRENT.value]
             if new_rsid:
-                load_metadata['merged_id_provided'] += 1
+                load_metadata['newer_id_provided'] += 1
                 new_rsid_curie = f'{DBSNP}:rs{new_rsid}'
                 variant_ids.append(new_rsid_curie)
         if not new_rsid:
@@ -327,6 +331,37 @@ class GWASCatalogLoader(SourceDataWithVariantsLoader):
 
         return trait_ids
 
+    def custom_merge_edges(self):
+        mergers = 0
+        merged_edges = defaultdict(lambda: defaultdict(dict))
+        for edge in self.final_edge_list:
+            subject_id = edge.subjectid
+            object_id = edge.objectid
+            predicate = edge.predicate
+            if ((subject_id in merged_edges) and
+                    (object_id in merged_edges[subject_id]) and
+                    (predicate in merged_edges[subject_id][object_id])):
+                mergers += 1
+                previous_edge = merged_edges[subject_id][object_id][predicate]
+                for key, value in edge.properties.items():
+                    if key in previous_edge.properties and isinstance(value, list):
+                        previous_edge.properties[key].extend(value)
+                        if key == PUBLICATIONS:
+                            previous_edge.properties[key] = list(set(value))
+                    elif key in previous_edge.properties and key == "p_value":
+                        previous_value = previous_edge.properties[key]
+                        previous_edge.properties[key] = min(value, previous_value)
+                    else:
+                        previous_edge.properties[key] = value
+            else:
+                merged_edges[subject_id][object_id][predicate] = edge
+
+        self.final_edge_list.clear()
+        for subject_id, object_dict in merged_edges.items():
+            for object_id, predicate_dict in object_dict.items():
+                for predicate, edge in predicate_dict.items():
+                    self.final_edge_list.append(edge)
+        return mergers
 
 if __name__ == '__main__':
     # create a command line parser

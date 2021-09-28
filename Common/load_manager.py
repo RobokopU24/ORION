@@ -16,8 +16,8 @@ from Common.supplementation import SequenceVariantSupplementation, Supplementati
 from parsers.GWASCatalog.src.loadGWASCatalog import GWASCatalogLoader
 from parsers.CTD.src.loadCTD import CTDLoader
 from parsers.cord19.src.loadCord19 import Cord19Loader
-#from parsers.FooDB.src.loadFDB import FDBLoader
-from parsers.GOA.src.loadGOA import GOALoader
+# from parsers.FooDB.src.loadFDB import FDBLoader
+from parsers.GOA.src.loadGOA import PlantGOALoader, HumanGOALoader
 from parsers.IntAct.src.loadIA import IALoader
 from parsers.PHAROS.src.loadPHAROS import PHAROSLoader
 from parsers.UberGraph.src.loadUG import UGLoader
@@ -36,12 +36,12 @@ from parsers.OntologicalHierarchy.src.loadOH import OHLoader
 GWAS_CATALOG = 'GWASCatalog'
 CTD = 'CTD'
 CORD19 = 'Cord19'
-FOODB = 'FooDB' # this is on hold, data needs review after latest release of data.
-HUMAN_GOA = 'HumanGOA' # this has normalization issues (needs pre-norm to create edges)
-INTACT = "IntAct"
+HUMAN_GOA = 'HumanGOA'
+PLANT_GOA = 'PlantGOA'
+INTACT = 'IntAct'
 PHAROS = 'PHAROS'
 UBERGRAPH = 'UberGraph'
-UNIREF = "UniRef"
+UNIREF = 'UniRef'
 VP = 'ViralProteome'
 GTOPDB = 'GtoPdb'
 HMDB = 'HMDB'
@@ -53,13 +53,16 @@ HETIO = 'Hetio'
 BIOLINK = 'Biolink'
 UNIREF = 'UniRef'
 ONTOLOGICAL_HIERARCHY = 'OntologicalHierarchy'
+# FOODB = 'FooDB' # this is on hold, data needs review after latest release of data.
+
 
 SOURCE_DATA_LOADER_CLASSES = {
     CTD: CTDLoader,
     CORD19: Cord19Loader,
     INTACT: IALoader,
     GTOPDB: GtoPdbLoader,
-    HUMAN_GOA: GOALoader,
+    HUMAN_GOA: HumanGOALoader,
+    PLANT_GOA: PlantGOALoader,
     HGNC: HGNCLoader,
     UBERGRAPH: UGLoader,
     VP: VPLoader,
@@ -75,13 +78,7 @@ SOURCE_DATA_LOADER_CLASSES = {
     ONTOLOGICAL_HIERARCHY: OHLoader
 
     # items to go
-    # chemnorm,
-    # cord19-scibite,
-    # cord19-scigraph,
-    # covid-phenotypes,
-    # mychem,
-    # ontological-hierarchy,
-    # textminingkp,
+    # textminingkp
 
     # items with issues
     # FOODB: FDBLoader - no longer has curies that will normalize
@@ -562,7 +559,8 @@ if __name__ == '__main__':
         load_manager.start()
     else:
         if data_source not in SOURCE_DATA_LOADER_CLASSES.keys():
-            print(f'Data source not valid. Aborting. (Invalid source: {data_source})')
+            print(f'Data source ({data_source}) not valid. Aborting. '
+                  f'(Valid sources: {list(SOURCE_DATA_LOADER_CLASSES.keys())})')
         else:
             load_manager = SourceDataLoadManager(source_subset=[data_source],
                                                  test_mode=loader_test_mode,

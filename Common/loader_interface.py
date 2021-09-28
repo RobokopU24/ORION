@@ -1,4 +1,5 @@
 from Common.kgx_file_writer import KGXFileWriter
+from Common.kgx_file_normalizer import remove_orphan_nodes
 import abc
 import os
 
@@ -66,6 +67,8 @@ class SourceDataLoader(metaclass=abc.ABCMeta):
             pass
             #self.clean_up()
 
+        load_metadata['source_edges'] = len(self.final_edge_list)
+
         self.logger.info(f'{self.get_name()}:Processing complete')
 
         return load_metadata
@@ -132,10 +135,7 @@ class SourceDataLoader(metaclass=abc.ABCMeta):
 
         # get a KGX file writer
         with KGXFileWriter(nodes_output_file_path,
-                           edges_output_file_path,
-                           ignore_orphan_nodes=True) as file_writer:
-
-            # using ignore_orphan_nodes in the file writer so we have to write the edges first
+                           edges_output_file_path) as file_writer:
 
             # for each edge captured
             for edge in self.final_edge_list:
@@ -147,8 +147,8 @@ class SourceDataLoader(metaclass=abc.ABCMeta):
                 # write out the node
                 file_writer.write_kgx_node(node)
 
-            if file_writer.orphan_node_count > 0:
-                writing_metadata['orphan_nodes_skipped'] = file_writer.orphan_node_count
+        orphan_nodes_removed = remove_orphan_nodes(nodes_output_file_path, edges_output_file_path)
+        writing_metadata['orphan_nodes_removed'] = orphan_nodes_removed
 
         return writing_metadata
 

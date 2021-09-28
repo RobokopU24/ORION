@@ -41,29 +41,23 @@ class DATACOLS(enum.IntEnum):
 ##############
 class GOALoader(SourceDataLoader):
 
+    provenance_id = 'infores:goa'
+
     def __init__(self, test_mode: bool = False):
         """
         constructor
         :param test_mode - sets the run into test mode
         """
-        # call the super
-        super(SourceDataLoader, self).__init__()
-
         # set global variables
         self.data_path = os.environ['DATA_SERVICES_STORAGE']
-        self.data_file = 'goa_human.gaf.gz'
-        self.plant_data_file = 'goa_uniprot_plant.gaf'
         self.test_mode = test_mode
-        self.source_id = 'GeneOntologyAnnotations'
-        self.source_db = 'GeneOntologyAnnotations'
-        self.provenance_id = 'infores:goa'
 
         # the final output lists of nodes and edges
         self.final_node_list: list = []
         self.final_edge_list: list = []
 
         # create a logger
-        self.logger = LoggingUtil.init_logging("Data_services.GOA.GOALoader", level=logging.INFO, line_format='medium', log_file_path=os.environ['DATA_SERVICES_LOGS'])
+        self.logger = LoggingUtil.init_logging(f"Data_services.{self.source_id}Loader", level=logging.INFO, line_format='medium', log_file_path=os.environ['DATA_SERVICES_LOGS'])
 
     def get_latest_source_version(self):
         """
@@ -113,28 +107,25 @@ class GOALoader(SourceDataLoader):
         # and get a reference to the data gatherer
         gd: GetData = GetData(self.logger.level)
 
-        # do the real thing if we arent in debug mode
+        # do the real thing if we arent in test mode
         if not self.test_mode:
             # get the GOA data file
-            byte_count: int = gd.get_goa_http_file(self.data_path, self.data_file)
+            byte_count: int = gd.pull_via_http(self.data_url + self.data_file, self.data_path)
         else:
-            byte_count: int = 1
+            # TODO create test data for GOA
+            byte_count: int = 0
 
         # return the byte count to the caller
         return byte_count
 
-    def parse_data(self, *organism_type) -> dict:
+    def parse_data(self) -> dict:
         """
         Parses the data file for nodes/edges
 
         :return: dict of parsing metadata results
         """
 
-        for organism in organism_type:
-            if organism == 'plant':
-                infile_path = os.path.join(self.data_path, self.plant_data_file)
-            elif organism == 'human':
-                infile_path = os.path.join(self.data_path, self.data_file)
+        infile_path = os.path.join(self.data_path, self.data_file)
 
         extractor = Extractor( )
 
@@ -177,12 +168,38 @@ def get_goa_predicate(line: list):
         return goa_predicates[supplied_qualifier]
 
 
+class HumanGOALoader(GOALoader):
+
+    source_id = 'HumanGOA'
+
+    def __init__(self, test_mode: bool = False):
+        super().__init__(test_mode)
+        self.data_file = 'goa_human.gaf.gz'
+        self.data_url = 'http://current.geneontology.org/annotations/'
+
+
+class PlantGOALoader(GOALoader):
+
+    source_id = 'PlantGOA'
+
+    def __init__(self, test_mode: bool = False):
+        super().__init__(test_mode)
+        self.data_file = 'goa_uniprot_plant.gaf'
+        #override url if needed
+        self.data_url = 'http://current.geneontology.org/annotations/'
+
+    # override functions if needed
+    # def get_data(self):
+    #   get plant stuff
+    # def parse_data(self):
+    #   parse plant stuff
+
 if __name__ == '__main__':
     # create a command line parser
     ap = argparse.ArgumentParser(description='Load plant or human GOA files and create KGX import files.')
 
-    # command line should be like: python loadGOA.py -p /projects/stars/Data_services/UniProtKB_data -g goa_human.gaf.gz -m json
-    ap.add_argument('-p', '--data_dir', required=True, help='The location of the data files')
+    # command line should be like: python loadGOA.py -p goa_storage_path
+    ap.add_argument('-p', '--data_dir', required=True, help='The location to save the KGX files')
 
     # parse the arguments
     args = vars(ap.parse_args())
@@ -190,8 +207,8 @@ if __name__ == '__main__':
     # get the params
     data_dir = args['data_dir']
 
-    # get a reference to the processor
-    goa = GOALoader(False)
+    # TODO - very low priority - add an argument for specifying Human vs Plant and use the appropriate loader class
+    goa = PlantGOALoader(False)
 
     # load the data files and create KGX output
     goa.load(f"{data_dir}/nodes", f"{data_dir}/edges")
