@@ -45,6 +45,10 @@ class GraphBuilder:
         with open(graph_spec_path) as graph_spec_file:
             graph_spec_yaml = yaml.full_load(graph_spec_file)
             graph_specs = []
+            if not graph_spec_yaml['graphs']:
+                self.logger.warning(f'Warning: No graphs were found in the graph spec.')
+                return graph_specs
+
             for graph_yaml in graph_spec_yaml['graphs']:
                 graph_id = graph_yaml['graph_id']
                 graph_sources = []
