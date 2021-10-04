@@ -19,6 +19,40 @@ class Extractor:
         self.load_metadata = { 'record_counter': 0, 'skipped_record_counter': 0, 'errors': []}
         self.errors = []
 
+    def csv_filter_extract(self, infile,
+                           filter_file,
+                           filter_field,
+                           subject_extractor,
+                           object_extractor,
+                           predicate_extractor,
+                           subject_property_extractor,
+                           object_property_extractor,
+                           edge_property_extractor,
+                           comment_character="#", delim='\t', has_header_row=False):
+        """Read a csv, perform callbacks to retrieve node and edge info per row.
+        Assumes that all of the properties extractable for a node occur on the line with the node identifier"""
+        for i, line in enumerate(infile, start=1):
+            if comment_character is not None and line.startswith(comment_character):
+                continue
+
+            if has_header_row and i == 1:
+                continue
+
+            word_list = line[:-1].split()
+            if(len(word_list) < 20):
+                continue
+
+            if(word_list[filter_field] not in filter_file.read()):
+                continue
+
+            self.load_metadata['record_counter'] += 1
+            try:
+                x = line[:-1].split(delim)
+                self.parse_row(x, subject_extractor, object_extractor, predicate_extractor, subject_property_extractor, object_property_extractor, edge_property_extractor)
+            except Exception as e:
+                self.load_metadata['errors'].append(e.__str__())
+                self.load_metadata['skipped_record_counter'] += 1
+
     def csv_extract(self, infile,
                     subject_extractor,
                     object_extractor,

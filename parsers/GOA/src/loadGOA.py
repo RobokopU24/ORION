@@ -90,7 +90,7 @@ class GOALoader(SourceDataLoader):
                 for line in lines:
                     # is this the line we are looking for
                     if line.startswith(search_text):
-                        # save teh date
+                        # save the date
                         ret_val = line.split(search_text)[1].strip()
 
             # remove the file
@@ -101,7 +101,7 @@ class GOALoader(SourceDataLoader):
 
     def get_data(self) -> (int):
         """
-        Gets the human goa data.
+        Gets goa data.
 
         """
         # and get a reference to the data gatherer
@@ -184,15 +184,45 @@ class PlantGOALoader(GOALoader):
 
     def __init__(self, test_mode: bool = False):
         super().__init__(test_mode)
-        self.data_file = 'goa_uniprot_plant.gaf'
-        #override url if needed
         self.data_url = 'http://current.geneontology.org/annotations/'
+        self.data_file = 'goa_uniprot_all.gaf.gz'
+        self.plant_taxa_file = 'plant_taxa.txt'
+
+        self.goa_path = os.path.join(self.data_path, self.data_file)
+        self.plant_taxa_path = os.path.join(self.data_path, self.plant_taxa_file)
 
     # override functions if needed
     # def get_data(self):
     #   get plant stuff
-    # def parse_data(self):
-    #   parse plant stuff
+
+    def parse_data(self) -> dict:
+        """
+        Parses the data file for nodes/edges
+
+        :return: dict of parsing metadata results
+        """
+
+        extractor = Extractor( )
+        TAXA_FIELD = 17
+
+        test_file = "/Users/shalkishrivastava/renci/Computational_Agriculture/goa_uniprot_test.gaf"
+
+        with (gzip.open if self.goa_path.endswith(".gz") else open)(self.goa_path) as goa_file, open(self.plant_taxa_path) as plant_taxa:
+            extractor.csv_filter_extract(TextIOWrapper(goa_file, "utf-8"),
+                                         plant_taxa,
+                                         TAXA_FIELD,
+                                          lambda line: f'{line[DATACOLS.DB.value]}:{line[DATACOLS.DB_Object_ID.value]}',
+                                          # extract subject id,
+                                          lambda line: f'{line[DATACOLS.GO_ID.value]}',  # extract object id
+                                          lambda line: get_goa_predicate(line),  # predicate extractor
+                                          lambda line: {},  # subject props
+                                          lambda line: {},  # object props
+                                          lambda line: {PRIMARY_KNOWLEDGE_SOURCE: self.provenance_id},  # edge props
+                                          comment_character = "!", delim = '\t' )
+        # return to the caller
+        self.final_node_list = extractor.nodes
+        self.final_edge_list = extractor.edges
+        return extractor.load_metadata
 
 if __name__ == '__main__':
     # create a command line parser
