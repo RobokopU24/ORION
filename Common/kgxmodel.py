@@ -1,3 +1,4 @@
+from dataclasses import dataclass
 from Common.node_types import NAMED_THING
 
 class kgxnode:
@@ -32,3 +33,19 @@ class kgxedge:
             self.properties = edgeprops
         else:
             self.properties = {}
+
+@dataclass
+class GraphSpec:
+    graph_id: str
+    graph_version: str
+    graph_output_dir: str
+    sources: list
+    graph_output_format: str = "jsonl"
+
+
+@dataclass
+class GraphSource:
+    source_id: str
+    load_version: str
+    file_paths: list = None
+    merge_strategy: str = "all"
