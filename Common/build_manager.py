@@ -56,7 +56,7 @@ class GraphBuilder:
                     source_id = source['source_id']
                     if source_id not in self.data_manager.metadata:
                         self.logger.info(
-                            f'Could not build graph {graph_spec.graph_id} because {source_id} is not active.')
+                            f'Could not build graph {graph_id} because {source_id} is not active.')
                         graph_sources = None
                         break
 
@@ -65,7 +65,7 @@ class GraphBuilder:
                     source_metadata = self.data_manager.metadata[source_id]
                     if not source_metadata.is_ready_to_build():
                         self.logger.info(
-                            f'Could not build graph {graph_spec.graph_id} because {source_id} is not stable.')
+                            f'Could not build graph {graph_id} because {source_id} is not stable.')
                         graph_sources = None
                         break
                     else:
