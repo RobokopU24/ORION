@@ -57,14 +57,20 @@ graphs:
       - source_id: Cord19
       - source_id: ViralProteome
 
+  - graph_id: PANTHER_Automat
+    sources:
+      - source_id: PANTHER
+      - source_id: OntologicalHierarchy
+        merge_strategy: connected_edge_subset
+
   - graph_id: GWASCatalog_Automat
     sources:
-    - source_id: GWASCatalog
-    - source_id: OntologicalHierarchy
-      merge_strategy: connected_edge_subset
+      - source_id: GWASCatalog
+      - source_id: OntologicalHierarchy
+        merge_strategy: connected_edge_subset
 
   - graph_id: GTEx_Automat
     sources:
-    - source_id: GTEx
-    - source_id: OntologicalHierarchy
-      merge_strategy: connected_edge_subset
+      - source_id: GTEx
+      - source_id: OntologicalHierarchy
+        merge_strategy: connected_edge_subset
