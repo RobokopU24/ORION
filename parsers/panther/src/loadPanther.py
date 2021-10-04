@@ -45,7 +45,7 @@ class PLoader(SourceDataLoader):
         super(SourceDataLoader, self).__init__()
 
         # set global variables
-        self.data_path: str = os.path.join(os.environ['DATA_SERVICES_STORAGE'], self.source_id, 'source')
+        self.data_path: str = os.path.join(os.environ['DATA_SERVICES_STORAGE'], self.source_id)
         self.data_file: str = 'PTHR~_human'
         self.data_version: str = ''
         self.test_mode: bool = test_mode
