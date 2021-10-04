@@ -194,7 +194,7 @@ class SourceDataLoadManager:
                     self.archive_previous_load(source_metadata)
                     source_metadata.reset_state_metadata()
                     source_metadata.increment_load_version()
-                    # loader.clean_up()
+                    loader.clean_up()
                     self.new_version_lookup[source_id] = latest_source_version
                     return True
                 else:
