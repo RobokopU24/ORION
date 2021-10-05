@@ -12,7 +12,7 @@ data_sources:
 
    - id: DrugCentral
 
-   - id: FooDB # this is on hold, data needs review after latest release of data.
+#   - id: FooDB - this is on hold, data needs review after latest release of data.
 
    - id: GtoPdb
 
