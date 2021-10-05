@@ -19,6 +19,8 @@ data_sources:
    - id: GWASCatalog
 #    strict_normalization: false # <--- example for turning strict normalization off, by default it is on
 
+   - id: GTEx
+
    - id: Hetio
 
    - id: HGNC
