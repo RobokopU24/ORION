@@ -27,7 +27,7 @@ services:
       - ds_network
   redis:
     image: redis
-    command: "redis-server --requirepass ${DATA_SERVICES_REDIS_PASSWORD}"
+    command: 'redis-server --requirepass ${DATA_SERVICES_REDIS_PASSWORD} --save "" --appendonly no'
     ports:
       - "${DATA_SERVICES_REDIS_PORT}:${DATA_SERVICES_REDIS_PORT}"
     networks:
