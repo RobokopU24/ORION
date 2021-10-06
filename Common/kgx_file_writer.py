@@ -23,12 +23,12 @@ class KGXFileWriter:
                  nodes_output_file_path: str = None,
                  edges_output_file_path: str = None):
         self.edges_to_write = []
-        self.edges_buffer_size = 10000
+        self.edges_buffer_size = 20000
 
         # written nodes is a set of node ids used for preventing duplicate node writes
         self.written_nodes = set()
         self.nodes_to_write = []
-        self.nodes_buffer_size = 10000
+        self.nodes_buffer_size = 20000
         self.repeat_node_count = 0
 
         self.nodes_output_file_handler = None
@@ -90,7 +90,7 @@ class KGXFileWriter:
         self.nodes_to_write.append(node_json)
         self.check_node_buffer_for_flush()
 
-    def write_normalized_nodes(self, nodes: list, uniquify: bool = True):
+    def write_normalized_nodes(self, nodes: iter, uniquify: bool = True):
         for node in nodes:
             self.write_normalized_node(node, uniquify)
 
@@ -155,6 +155,11 @@ class KGXFileWriter:
                         primary_knowledge_source=edge.primary_knowledge_source,
                         aggregator_knowledge_sources=edge.aggregator_knowledge_sources,
                         edge_properties=edge.properties)
+
+    def write_normalized_edges(self, edges: iter):
+        for edge in edges:
+            self.edges_to_write.append(edge)
+            self.check_edge_buffer_for_flush()
 
     def check_edge_buffer_for_flush(self):
         if len(self.edges_to_write) >= self.edges_buffer_size:
