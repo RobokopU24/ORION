@@ -396,7 +396,7 @@ def remove_orphan_nodes(nodes_file_path: str, edges_file_path: str):
         with KGXFileWriter(nodes_output_file_path=nodes_file_path) as kgx_file_writer:
             for node in nodes_reader:
                 if node['id'] in utilized_nodes:
-                    kgx_file_writer.write_normalized_node(node)
+                    kgx_file_writer.write_normalized_node(node, uniquify=False)
                 else:
                     orphan_nodes_removed += 1
     os.remove(temp_nodes_file_name)
