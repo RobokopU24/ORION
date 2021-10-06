@@ -29,9 +29,9 @@ class GraphBuilder:
         self.logger.info(f'Building graph {graph_spec.graph_id}..')
         source_merger = KGXFileMerger()
         source_merger.merge(graph_spec)
-
         # if we wanted to use KGX
         # source_merger.merge_using_kgx(graph_spec)
+        self.logger.info(f'Building graph {graph_spec.graph_id} complete!')
 
     def load_graph_specs(self):
         if 'DATA_SERVICES_GRAPH_SPEC' in os.environ:
@@ -61,7 +61,7 @@ class GraphBuilder:
                         break
 
                     load_version = source['load_version'] if 'load_version' in source else 'latest'
-                    merge_strategy = source['merge_strategy'] if 'merge_strategy' in source else 'all'
+                    merge_strategy = source['merge_strategy'] if 'merge_strategy' in source else 'default'
                     source_metadata = self.data_manager.metadata[source_id]
                     if not source_metadata.is_ready_to_build():
                         self.logger.info(
