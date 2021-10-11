@@ -2,6 +2,7 @@ import redis
 import os
 import jsonlines
 import orjson
+import xxhash
 import hashlib
 from Common.utils import LoggingUtil
 from kgx.utils.kgx_utils import prepare_data_dict as kgx_dict_merge
@@ -9,6 +10,10 @@ from Common.kgxmodel import GraphSpec, GraphSource
 from Common.node_types import ORIGINAL_KNOWLEDGE_SOURCE, PRIMARY_KNOWLEDGE_SOURCE, SUBJECT_ID, OBJECT_ID, PREDICATE
 # from kgx.cli.cli_utils import merge as kgx_merge
 # from Common.kgx_file_writer import KGXFileWriter
+import line_profiler
+import atexit
+profile = line_profiler.LineProfiler()
+atexit.register(profile.print_stats)
 
 
 def quick_json_dumps(item):
@@ -118,6 +123,13 @@ class KGXFileMerger:
         processed_sources = []
         for graph_source in graph_sources:
             self.logger.info(f"Processing {graph_source.source_id}. Sources processed thus far : {processed_sources}")
+
+            edge_id_compute = lambda edge: hashlib.md5(
+                str(f'{edge[SUBJECT_ID]}{edge[PREDICATE]}{edge[OBJECT_ID]}' +
+                    f'{edge.get(ORIGINAL_KNOWLEDGE_SOURCE, "")}{edge.get(PRIMARY_KNOWLEDGE_SOURCE, "")}'
+                    if ((ORIGINAL_KNOWLEDGE_SOURCE in edge) or (PRIMARY_KNOWLEDGE_SOURCE in edge))
+                    else graph_source.source_id).encode('utf-8')).hexdigest()
+
             for file_path in graph_source.file_paths:
                 if "nodes" in file_path:
                     # merging nodes
@@ -137,20 +149,6 @@ class KGXFileMerger:
                     # merge edges
                     with jsonlines.open(file_path) as edges:
 
-                        # if we want certain datasets to be merged we just need to control how this id is generated
-                        #  eg say we wanted to merge biolink and ctd edges . we can  if biolink in mergergable sets
-                        # we just need to adjust how we compute that salt str(set('biolink', 'ctd')) etc ... would
-                        # have that effect
-
-                        edge_id_compute = lambda edge: hashlib.md5(
-                            str(edge[SUBJECT_ID] +
-                                edge[PREDICATE] +
-                                edge[OBJECT_ID] +
-                                f'{edge.get(ORIGINAL_KNOWLEDGE_SOURCE, "")}{edge.get(PRIMARY_KNOWLEDGE_SOURCE, "")}'
-                                if ((ORIGINAL_KNOWLEDGE_SOURCE in edge) or (PRIMARY_KNOWLEDGE_SOURCE in edge))
-                                else graph_source.source_id).encode('utf-8')
-                        ).hexdigest()
-
                         # for now we practically don't merge on edges.
                         merge_functor = lambda edge_1, edge_2: edge_2
 
@@ -165,20 +163,24 @@ class KGXFileMerger:
                     raise ValueError(f"Did not recognize file {file_path} for merging "
                                      f"from data source {graph_source.source_id}.")
             processed_sources.append(graph_source.source_id)
+
         self.__write_redis_back_to_file(f'{node_key_prefix}*', nodes_out_file)
         self.__write_redis_back_to_file(f'{edge_key_prefix}*', edges_out_file)
+        self.redis_con.flushdb()
         return processed_sources
 
+    @profile
     def __merge_redis(self, items: iter, id_functor, merge_functor, re_adjust_id=False, redis_key_prefix=""):
         counter = 0
         flush_interval = 100_000
         items_from_data_set = {}
         matched_items = 0
         for item in items:
+            new_item_id = id_functor(item)
             if re_adjust_id:
-                item['id'] = id_functor(item)
+                item['id'] = new_item_id
             # we can scan redis for {redis_key_prefix}* and write those to output jsonl file.
-            items_from_data_set[f'{redis_key_prefix}{id_functor(item)}'] = item
+            items_from_data_set[f'{redis_key_prefix}{new_item_id}'] = item
 
             counter += 1
             if counter % flush_interval == 0:
@@ -204,21 +206,24 @@ class KGXFileMerger:
         self.__write_items_to_redis(items_from_data_set)
         return matched_items
 
-    def __read_items_from_redis(self, ids, return_json_objects=True):
+    def __read_items_from_redis(self, ids, return_values_for_writing=False):
         chunk_size = 10_000  # batch for pipeline
-        response = {}
+        dict_response = {}
+        values_response = []
         chunked_ids = [ids[start: start + chunk_size] for start in range(0, len(ids), chunk_size)]
         for ids in chunked_ids:
             result = self.redis_con.mget(ids)
-            for i, res in zip(ids, result):
-                if res:
-                    if return_json_objects:
-                        # if return_json_objects desired parse the response with loads
-                        response.update({i: quick_json_loads(res)})
-                    else:
-                        # otherwise return the response straight from redis (bytes as of now)
-                        response.update({i: res})
-        return response
+            if return_values_for_writing:
+                values_response.extend(result)
+            else:
+                for i, res in zip(ids, result):
+                    if res:
+                        dict_response[i] = quick_json_loads(res)
+
+        if return_values_for_writing:
+            return values_response
+        else:
+            return dict_response
 
     def __write_items_to_redis(self, items):
         chunk_size = 10_000  # batch for redis beyond this cap it might not be optimal, according to redis docs
@@ -229,17 +234,7 @@ class KGXFileMerger:
             items_to_write = {key: quick_json_dumps(items[key]) for key in keys}
             self.redis_con.mset(items_to_write)
 
-    def __delete_keys(self, items):
-        # deletes keys
-        chunk_size = 10_000
-        pipeline = self.redis_con.pipeline()
-        all_keys = list(items)
-        chunked_keys = [all_keys[start: start + chunk_size] for start in range(0, len(all_keys), chunk_size)]
-        for keys in chunked_keys:
-            for key in keys:
-                pipeline.delete(key)
-            pipeline.execute()
-
+    @profile
     def __write_redis_back_to_file(self, redis_key_pattern, output_file_name):
         with open(output_file_name, 'w') as stream:
             self.logger.debug(f'Grabbing {redis_key_pattern} from redis...')
@@ -251,10 +246,9 @@ class KGXFileMerger:
                 # to avoid parsing the json into an object for no reason use return_json_objects=False
                 # but then items will be a dictionary of {key: bytes_object}
                 # so we need to decode the bytes before we write to file
-                items = self.__read_items_from_redis(chunk, return_json_objects=False)
-                items = [f'{items[x].decode("utf-8") }\n' for x in items]
+                items = self.__read_items_from_redis(chunk, return_values_for_writing=True)
+                items = [f'{item.decode("utf-8") }\n' for item in items]
                 stream.writelines(items)
-                self.__delete_keys(chunk)
                 self.logger.debug(f"wrote : {len(items)}")
             self.logger.debug(f"Done writing {redis_key_pattern}")
 
