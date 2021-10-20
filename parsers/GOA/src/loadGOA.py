@@ -185,15 +185,11 @@ class PlantGOALoader(GOALoader):
     def __init__(self, test_mode: bool = False):
         super().__init__(test_mode)
         self.data_url = 'http://current.geneontology.org/annotations/'
-        self.data_file = 'goa_uniprot_all.gaf.gz'
+        self.data_file = 'goa_uniprot_test.gaf.gz' # 'goa_uniprot_all.gaf.gz' #
         self.plant_taxa_file = 'plant_taxa.txt'
 
-        self.goa_path = os.path.join(self.data_path, self.data_file)
         self.plant_taxa_path = os.path.join(self.data_path, self.plant_taxa_file)
 
-    # override functions if needed
-    # def get_data(self):
-    #   get plant stuff
 
     def parse_data(self) -> dict:
         """
@@ -202,15 +198,19 @@ class PlantGOALoader(GOALoader):
         :return: dict of parsing metadata results
         """
 
+        infile_path = os.path.join(self.data_path, self.data_file)
+
         extractor = Extractor( )
-        TAXA_FIELD = 17
 
-        test_file = "/Users/shalkishrivastava/renci/Computational_Agriculture/goa_uniprot_test.gaf"
+        with open(self.plant_taxa_path) as plant_taxa:
+            plant_taxa_set = set()
+            for line in plant_taxa:
+                plant_taxa_set.add(line.strip())
 
-        with (gzip.open if self.goa_path.endswith(".gz") else open)(self.goa_path) as goa_file, open(self.plant_taxa_path) as plant_taxa:
-            extractor.csv_filter_extract(TextIOWrapper(goa_file, "utf-8"),
-                                         plant_taxa,
-                                         TAXA_FIELD,
+
+
+        with (gzip.open if infile_path.endswith(".gz") else open)(infile_path) as goa_file:
+            extractor.csv_extract(TextIOWrapper(goa_file, "utf-8"),
                                           lambda line: f'{line[DATACOLS.DB.value]}:{line[DATACOLS.DB_Object_ID.value]}',
                                           # extract subject id,
                                           lambda line: f'{line[DATACOLS.GO_ID.value]}',  # extract object id
@@ -218,8 +218,9 @@ class PlantGOALoader(GOALoader):
                                           lambda line: {},  # subject props
                                           lambda line: {},  # object props
                                           lambda line: {PRIMARY_KNOWLEDGE_SOURCE: self.provenance_id},  # edge props
+                                          plant_taxa_set,
+                                          DATACOLS.Taxon_Interacting_taxon.value,
                                           comment_character = "!", delim = '\t' )
-        # return to the caller
         self.final_node_list = extractor.nodes
         self.final_edge_list = extractor.edges
         return extractor.load_metadata
