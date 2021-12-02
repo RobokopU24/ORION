@@ -41,8 +41,6 @@ class Extractor:
 
             if filter_field != -1:
                 word_list = line[:-1].split(delim)
-                # if(len(word_list) < 14):
-                #     continue
                 if(word_list[filter_field] not in filter_set):
                     continue
 
@@ -86,26 +84,17 @@ class Extractor:
                 return
 
     def parse_row(self, row, subject_extractor, object_extractor, predicate_extractor, subject_property_extractor, object_property_extractor, edge_property_extractor):
-        # print("\n test 5" , "\n")
-        # print(row)
         # pull the information out of the edge
         subject_id = subject_extractor(row)
-        # print("\n test 51 " + subject_id + "\n")
         object_id = object_extractor(row)
-        # print("\n test 52 " + object_id + "\n")
         predicate = predicate_extractor(row)
-        # print("\n test 53 " + predicate + "\n")
         subjectprops = subject_property_extractor(row)
-        # print("\n test 54 ... \n" )
         objectprops = object_property_extractor(row)
-        # print("\n test 55 ... \n" )
         edgeprops = edge_property_extractor(row)
 
-        # print("\n test 56 ... \n" )
 
         # if we  haven't seen the subject before, add it to nodes
         if subject_id and subject_id not in self.node_ids:
-            # print("\n test 57 \n" )
             subject_name = subjectprops.pop('name', None)
             subject_categories = subjectprops.pop('categories', None)
             subject_node = kgxnode(subject_id, name=subject_name, categories=subject_categories, nodeprops=subjectprops)
@@ -114,7 +103,6 @@ class Extractor:
 
         # if we  haven't seen the object before, add it to nodes
         if object_id and object_id not in self.node_ids:
-            # print("\n test 58 \n" )
             object_name = objectprops.pop('name', None)
             object_categories = objectprops.pop('categories', None)
             object_node = kgxnode(object_id, name=object_name, categories=object_categories, nodeprops=objectprops)
@@ -122,7 +110,6 @@ class Extractor:
             self.node_ids.add(object_id)
 
         if subject_id and object_id and predicate:
-            # print("\n test 59 \n" )
             original_knowledge_source = edgeprops.pop(ORIGINAL_KNOWLEDGE_SOURCE, None)
             primary_knowledge_source = edgeprops.pop(PRIMARY_KNOWLEDGE_SOURCE, None)
             aggregator_knowledge_sources = edgeprops.pop(AGGREGATOR_KNOWLEDGE_SOURCES, None)
@@ -136,4 +123,3 @@ class Extractor:
                            aggregator_knowledge_sources=aggregator_knowledge_sources,
                            edgeprops=edgeprops)
             self.edges.append(edge)
-            # print("\n test 60 \n" )
