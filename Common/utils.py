@@ -1045,22 +1045,6 @@ class GetData:
         # return the list to the caller
         return ret_val
 
-    def get_goa_http_file(self, data_dir: str, data_file: str):
-        """
-        gets the GOA file via HTTP.
-
-        :param data_dir: the location where the data should be saved
-        :param data_file: the name of the file to get
-        :return int: the number of bytes read
-        """
-        self.logger.debug(f'Start of GOA file retrieval.')
-
-        # get the rest of the files
-        byte_count: int = self.pull_via_http(f'http://current.geneontology.org/annotations/{data_file}', data_dir)
-
-        # return to the caller
-        return byte_count
-
     def get_ctd_http_files(self, data_dir: str, file_list: list) -> int:
         """
         gets the CTD file via HTTP.

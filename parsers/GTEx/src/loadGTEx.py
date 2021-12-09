@@ -8,13 +8,10 @@ from Common.kgx_file_writer import KGXFileWriter
 from Common.loader_interface import SourceDataWithVariantsLoader, SourceDataBrokenError, SourceDataFailedError
 from Common.node_types import SEQUENCE_VARIANT, GENE
 from Common.prefixes import HGVS, UBERON
+from Common.hgvs_utils import convert_variant_to_hgvs
 
 
 class GTExLoader(SourceDataWithVariantsLoader):
-    # create a logger
-    logger = LoggingUtil.init_logging("Data_services.GTEx.GTExLoader",
-                                      line_format='medium',
-                                      log_file_path=os.environ['DATA_SERVICES_LOGS'])
 
     # this probably won't change very often - just hard code it for now
     GTEX_VERSION = 8
@@ -86,32 +83,16 @@ class GTExLoader(SourceDataWithVariantsLoader):
         "Skin_Not_Sun_Exposed_Suprapubic": f"{UBERON}:0036149"
     }
 
-    # look up for reference chromosomes for HGVS conversion
-    REFERENCE_CHROMOSOME_LOOKUP: dict = {
-        'b37': {
-            'p1': {
-                1: 'NC_000001.10', 2: 'NC_000002.11', 3: 'NC_000003.11', 4: 'NC_000004.11', 5: 'NC_000005.9',
-                6: 'NC_000006.11', 7: 'NC_000007.13', 8: 'NC_000008.10', 9: 'NC_000009.11', 10: 'NC_000010.10',
-                11: 'NC_000011.9', 12: 'NC_000012.11', 13: 'NC_000013.10', 14: 'NC_000014.8', 15: 'NC_000015.9',
-                16: 'NC_000016.9', 17: 'NC_000017.10', 18: 'NC_000018.9', 19: 'NC_000019.9', 20: 'NC_000020.10',
-                21: 'NC_000021.8', 22: 'NC_000022.10', 23: 'NC_000023.10', 24: 'NC_000024.9'
-            }
-        },
-        'b38': {
-            'p1': {
-                1: 'NC_000001.11', 2: 'NC_000002.12', 3: 'NC_000003.12', 4: 'NC_000004.12', 5: 'NC_000005.10',
-                6: 'NC_000006.12', 7: 'NC_000007.14', 8: 'NC_000008.11', 9: 'NC_000009.12', 10: 'NC_000010.11',
-                11: 'NC_000011.10', 12: 'NC_000012.12', 13: 'NC_000013.11', 14: 'NC_000014.9', 15: 'NC_000015.10',
-                16: 'NC_000016.10', 17: 'NC_000017.11', 18: 'NC_000018.10', 19: 'NC_000019.10', 20: 'NC_000020.11',
-                21: 'NC_000021.9', 22: 'NC_000022.11', 23: 'NC_000023.11', 24: 'NC_000024.10'
-            }
-        }
-    }
+    source_id = 'GTEx'
+    provenance_id = 'infores:gtex'
 
-    def __init__(self, test_mode: bool = False):
-        self.source_id = 'GTEx'
-        self.provenance_id = 'infores:gtex'
-        self.test_mode = test_mode
+    def __init__(self, test_mode: bool = False, source_data_dir: str = None):
+        """
+        :param test_mode - sets the run into test mode
+        :param source_data_dir - the specific storage directory to save files in
+        """
+        super().__init__(test_mode=test_mode, source_data_dir=source_data_dir)
+
         if self.test_mode:
             self.logger.info(f"Loading GTEx in test mode. Only expecting a subset of tissues.")
             self.anatomy_id_lookup = GTExLoader.TEST_TISSUES
@@ -140,7 +121,7 @@ class GTExLoader(SourceDataWithVariantsLoader):
 
         self.normalize_anatomy_ids()
 
-        workspace_directory = os.path.join(os.environ["DATA_SERVICES_STORAGE"], self.source_id, "")
+        workspace_directory = self.data_path
 
         # define the urls for the raw data archives and the location to download them to
         gtex_version = self.GTEX_VERSION
@@ -202,8 +183,6 @@ class GTExLoader(SourceDataWithVariantsLoader):
                 self.coalesce_and_write_edges(kgx_file_writer)
                 self.edge_list.clear()
 
-
-
             self.logger.debug(f'GTEx parsing and KGX file creation complete.')
 
         except Exception as e:
@@ -214,11 +193,10 @@ class GTExLoader(SourceDataWithVariantsLoader):
 
         finally:
             # remove all the intermediate (tar) files
-            if not self.test_mode:
-                if os.path.isfile(eqtl_tar_download_path):
-                    os.remove(eqtl_tar_download_path)
-                if os.path.isfile(sqtl_tar_download_path):
-                    os.remove(sqtl_tar_download_path)
+            if os.path.isfile(eqtl_tar_download_path):
+                os.remove(eqtl_tar_download_path)
+            if os.path.isfile(sqtl_tar_download_path):
+                os.remove(sqtl_tar_download_path)
 
     # given a gtex variant check to see if it has been encountered already
     # if so return the previously generated hgvs curie
@@ -229,7 +207,21 @@ class GTExLoader(SourceDataWithVariantsLoader):
         # we might have gotten the variant from another file already
         if gtex_variant_id not in self.gtex_variant_to_hgvs_lookup:
             # if not convert it to an HGVS value
-            hgvs: str = self.convert_gtex_variant_to_hgvs(gtex_variant_id)
+            # for gtex variant ids the format is: chr1_1413898_T_C_b38
+            # split the string into it's components (3: removes "chr" from the start)
+            variant_data = gtex_variant_id[3:].split('_')
+            chromosome = variant_data[0]
+            position = int(variant_data[1])
+            ref_allele = variant_data[2]
+            alt_allele = variant_data[3]
+            reference_genome = variant_data[4]
+            reference_patch = 'p1'
+            hgvs: str = convert_variant_to_hgvs(chromosome,
+                                                position,
+                                                ref_allele,
+                                                alt_allele,
+                                                reference_genome,
+                                                reference_patch)
             if hgvs:
                 # store the hgvs value and write the node to the kgx file
                 variant_id = f'{HGVS}:{hgvs}'
@@ -467,97 +459,6 @@ class GTExLoader(SourceDataWithVariantsLoader):
 
                 # write out the data to the output file
                 tar_file.write(data)
-
-    #############
-    # convert_gtex_variant_to_hgvs - parses the GTEx variant ID and converts it to an HGVS expression
-    #
-    # param gtex_variant_id: str - the gtex variant id, the format is: chr1_1413898_T_C_b38
-    # returns: str the HGVS value
-    #############
-    def convert_gtex_variant_to_hgvs(self, gtex_variant_id: str):
-        try:
-            # split the string into it's components (3: removes "chr" from the start)
-            variant_id = gtex_variant_id[3:].split('_')
-
-            # get position indexes into the data element
-            reference_patch = 'p1'
-            position = int(variant_id[1])
-            ref_allele = variant_id[2]
-            alt_allele = variant_id[3]
-            reference_genome = variant_id[4]
-            chromosome = variant_id[0]
-
-            # X or Y to integer values for proper indexing
-            if chromosome == 'X':
-                chromosome = 23
-            elif chromosome == 'Y':
-                chromosome = 24
-            else:
-                chromosome = int(variant_id[0])
-
-            # get the HGVS chromosome label
-            ref_chromosome = self.REFERENCE_CHROMOSOME_LOOKUP[reference_genome][reference_patch][chromosome]
-        except KeyError:
-            return ''
-
-        # get the length of the reference allele
-        len_ref = len(ref_allele)
-
-        # is there an alt allele
-        if alt_allele == '.':
-            # deletions
-            if len_ref == 1:
-                variation = f'{position}del'
-            else:
-                variation = f'{position}_{position + len_ref - 1}del'
-
-        elif alt_allele.startswith('<'):
-            # we know about these but don't support them yet
-            return ''
-
-        else:
-            # get the length of the alternate allele
-            len_alt = len(alt_allele)
-
-            # if this is a SNP
-            if (len_ref == 1) and (len_alt == 1):
-                # simple layout of ref/alt SNP
-                variation = f'{position}{ref_allele}>{alt_allele}'
-            # if the alternate allele is larger than the reference is an insert
-            elif (len_alt > len_ref) and alt_allele.startswith(ref_allele):
-                # get the length of the insertion
-                diff = len_alt - len_ref
-
-                # get the position offset
-                offset = len_alt - diff
-
-                # layout the insert
-                variation = f'{position + offset - 1}_{position + offset}ins{alt_allele[offset:]}'
-            # if the reference is larger than the deletion it is a deletion
-            elif (len_ref > len_alt) and ref_allele.startswith(alt_allele):
-                # get the length of the deletion
-                diff = len_ref - len_alt
-
-                # get the position offset
-                offset = len_ref - diff
-
-                # if the diff is only 1 BP
-                if diff == 1:
-                    # layout the SNP deletion
-                    variation = f'{position + offset}del'
-                # else this is more that a single BP deletion
-                else:
-                    # layout the deletion
-                    variation = f'{position + offset}_{position + offset + diff - 1}del'
-            # we do not support this allele
-            else:
-                return ''
-
-        # layout the final HGVS expression in curie format
-        hgvs: str = f'{ref_chromosome}:g.{variation}'
-
-        # return the expression to the caller
-        return hgvs
 
 
 # TODO use argparse to specify output location
