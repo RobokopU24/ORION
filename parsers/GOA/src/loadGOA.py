@@ -50,9 +50,6 @@ class GOALoader(SourceDataLoader):
         """
         super().__init__(test_mode=test_mode, source_data_dir=source_data_dir)
 
-        # set global variables
-        self.data_file = 'goa_human.gaf.gz'
-
     def get_latest_source_version(self):
         """
         gets the version of the data
