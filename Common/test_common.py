@@ -7,6 +7,8 @@ from rdflib import Graph
 from Common.utils import GetData, EdgeNormUtils, NodeNormUtils
 
 
+# TODO Move these into the real tests dir, make them work
+
 def test_get_uniprot_virus_date_stamp():
     gd = GetData()
 
