@@ -17,29 +17,18 @@ from Common.loader_interface import SourceDataLoader
 ##############
 class TMKPLoader(SourceDataLoader):
 
+    source_id: str = 'textminingkp'
+    provenance_id: str = 'infores:textminingkp'
 
-    def __init__(self, test_mode: bool = False):
+    def __init__(self, test_mode: bool = False, source_data_dir: str = None):
         """
-        constructor
         :param test_mode - sets the run into test mode
+        :param source_data_dir - the specific storage directory to save files in
         """
-        # call the super
-        super(SourceDataLoader, self).__init__()
+        super().__init__(test_mode=test_mode, source_data_dir=source_data_dir)
 
-        # set global variables
-        self.data_path: str = os.environ['DATA_SERVICES_STORAGE']
         self.data_file: str = ''
-        self.test_mode: bool = test_mode
-        self.source_id: str = ''
         self.source_db: str = 'Text Mining KP'
-        self.provenance_id: str = 'infores:textminingkp'
-
-        # the final output lists of nodes and edges
-        self.final_node_list: list = []
-        self.final_edge_list: list = []
-
-        # create a logger
-        self.logger = LoggingUtil.init_logging("Data_services.textminingkp.KPLoader", level=logging.INFO, line_format='medium', log_file_path=os.environ['DATA_SERVICES_LOGS'])
 
     def get_latest_source_version(self) -> str:
         """

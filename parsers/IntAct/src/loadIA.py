@@ -69,32 +69,21 @@ class DataCols(enum.IntEnum):
 ##############
 class IALoader(SourceDataLoader):
 
+    source_id: str = 'IntAct'
+    provenance_id: str = 'infores:intact'
 
-    def __init__(self, test_mode: bool = False):
+    def __init__(self, test_mode: bool = False, source_data_dir: str = None):
         """
-        constructor
         :param test_mode - sets the run into test mode
+        :param source_data_dir - the specific storage directory to save files in
         """
-        # call the super
-        super(SourceDataLoader, self).__init__()
+        super().__init__(test_mode=test_mode, source_data_dir=source_data_dir)
 
-        # set global variables
-        self.data_path: str = os.environ['DATA_SERVICES_STORAGE']
         self.data_file: str = 'intact.zip'
-        self.test_mode: bool = test_mode
-        self.source_id: str = 'IntAct'
         self.source_db: str = 'IntAct Molecular Interaction Database'
-        self.provenance_id: str = 'infores:intact'
 
         # storage for experiment groups to write to file.
         self.experiment_grp_list: list = []
-
-        # the final output lists of nodes and edges
-        self.final_node_list: list = []
-        self.final_edge_list: list = []
-
-        # create a logger
-        self.logger = LoggingUtil.init_logging("Data_services.IntAct.IALoader", level=logging.INFO, line_format='medium', log_file_path=os.environ['DATA_SERVICES_LOGS'])
 
     def get_latest_source_version(self) -> str:
         """
@@ -128,48 +117,7 @@ class IALoader(SourceDataLoader):
         # return the file count to the caller
         return file_count
 
-    def load(self, nodes_output_file_path: str, edges_output_file_path: str):
-        """
-        Loads/parsers the IntAct data file to produce node/edge KGX files for importation into a graph database.
-
-        :param edges_output_file_path:
-        :param nodes_output_file_path:
-        :return: None
-        """
-        self.logger.info(f'IALoader - Start of IntAct data processing.')
-
-        # get the intact data
-        file_count = self.get_data()
-
-        # get the intact archive
-        if file_count == 1:
-            self.logger.debug(f'{self.data_file} archive retrieved. Parsing IntAct data.')
-
-            # parse the data
-            load_metadata = self.parse_data_file(self.data_path, self.data_file)
-
-            # write out the data
-            if len(self.experiment_grp_list) > 0:
-                self.get_node_list()
-                self.get_edge_list()
-
-            self.logger.info(f'IALoader - Writing source data files.')
-
-            # write the output files
-            self.write_to_file(nodes_output_file_path, edges_output_file_path)
-
-            # remove the intermediate data
-            self.clean_up()
-
-            self.logger.info(f'IALoader - Processing complete.')
-        else:
-            self.logger.error(f'Error: Retrieving IntAct archive failed.')
-            raise SourceDataFailedError(f'Error: Retrieving IntAct archive failed.')
-
-        # return the metadata results
-        return load_metadata
-
-    def parse_data_file(self, data_file_path: str, data_file_name: str) -> dict:
+    def parse_data(self, data_file_path: str, data_file_name: str) -> dict:
         """
         Parses the data file for graph nodes/edges and writes them out the KGX tsv files.
 
@@ -308,6 +256,10 @@ class IALoader(SourceDataLoader):
                     else:
                         # increment the counter
                         skipped_record_counter += 1
+
+        # transform nodes and edges into kgx model lists
+        self.get_node_list()
+        self.get_edge_list()
 
         self.logger.debug(f'Processing completed. {interaction_counter} total interactions processed.')
 

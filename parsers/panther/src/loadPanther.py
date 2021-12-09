@@ -36,23 +36,15 @@ class PLoader(SourceDataLoader):
     source_db: str = 'Protein ANalysis THrough Evolutionary Relationships'
     provenance_id: str = 'infores:panther'
 
-    def __init__(self, test_mode: bool = False):
+    def __init__(self, test_mode: bool = False, source_data_dir: str = None):
         """
-        constructor
         :param test_mode - sets the run into test mode
+        :param source_data_dir - the specific storage directory to save files in
         """
-        # call the super
-        super(SourceDataLoader, self).__init__()
+        super().__init__(test_mode=test_mode, source_data_dir=source_data_dir)
 
-        # set global variables
-        self.data_path: str = os.path.join(os.environ['DATA_SERVICES_STORAGE'], self.source_id)
         self.data_file: str = 'PTHR~_human'
         self.data_version: str = ''
-        self.test_mode: bool = test_mode
-
-        # the final output lists of nodes and edges
-        self.final_node_list: list = []
-        self.final_edge_list: list = []
 
         # the list of columns in the data
         self.sequence_file_columns = ['gene_identifier', 'protein_id', 'gene_name', 'panther_sf_id', 'panther_family_name',

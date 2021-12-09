@@ -58,13 +58,12 @@ class Cord19Loader(SourceDataLoader):
     source_id: str = 'Cord19'
     provenance_id: str = 'infores:cord19'
 
-    def __init__(self, test_mode: bool = False):
+    def __init__(self, test_mode: bool = False, source_data_dir: str = None):
         """
-        constructor
         :param test_mode - sets the run into test mode
+        :param source_data_dir - the specific storage directory to save files in
         """
-        # call the super
-        super(SourceDataLoader, self).__init__()
+        super().__init__(test_mode=test_mode, source_data_dir=source_data_dir)
 
         # NOTE 1: The nodes files are not necessary, unless we decide we want the names from them.
         # Leaving them set up here just in case we do in the future..
@@ -87,23 +86,12 @@ class Cord19Loader(SourceDataLoader):
         self.drug_bank_trials_url = 'https://raw.githubusercontent.com/TranslatorIIPrototypes/CovidDrugBank/master/'
         self.drug_bank_trials_file_name = 'trials.txt'
 
-        self.data_path: str = os.path.join(os.environ['DATA_SERVICES_STORAGE'], self.source_id, 'source')
-        if not os.path.exists(self.data_path):
-            os.mkdir(self.data_path)
         self.data_files: list = [self.scibite_edges_file_name,
                                  # self.scibite_nodes_file_name,
                                  self.scigraph_edges_file_name,
                                  # self.scigraph_nodes_file_name,
                                  self.covid_phenotypes_file_name,
                                  self.drug_bank_trials_file_name]
-        self.test_mode: bool = test_mode
-
-        # the final output lists of nodes and edges
-        self.final_node_list: list = []
-        self.final_edge_list: list = []
-
-        # create a logger
-        self.logger = LoggingUtil.init_logging("Data_services.cord19.Cord19Loader", level=logging.INFO, line_format='medium', log_file_path=os.environ['DATA_SERVICES_LOGS'])
 
     def get_latest_source_version(self) -> str:
         """

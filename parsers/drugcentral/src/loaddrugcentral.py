@@ -23,22 +23,12 @@ class DrugCentralLoader(SourceDataLoader):
     source_db = 'DrugCentral'
     provenance_id = 'infores:drugcentral'
 
-    def __init__(self, test_mode: bool = False):
+    def __init__(self, test_mode: bool = False, source_data_dir: str = None):
         """
-        constructor
         :param test_mode - sets the run into test mode
+        :param source_data_dir - the specific storage directory to save files in
         """
-        # call the super
-        super(SourceDataLoader, self).__init__()
-        self.data_path = os.environ['DATA_SERVICES_STORAGE']
-        self.test_mode = test_mode
-
-        # the final output lists of nodes and edges
-        self.final_node_list: list = []
-        self.final_edge_list: list = []
-
-        # create a logger
-        self.logger = LoggingUtil.init_logging("Data_services.DrugCentralLoader", level=logging.INFO, line_format='medium', log_file_path=os.environ['DATA_SERVICES_LOGS'])
+        super().__init__(test_mode=test_mode, source_data_dir=source_data_dir)
 
         self.omop_relationmap = {'off-label use': 'RO:0002606' , #is substance that treats
                                  'reduce risk': 'RO:0002606', #is substance that treats

@@ -23,23 +23,19 @@ from Common.prefixes import CTD, NCBITAXON, MESH
 ##############
 class CTDLoader(SourceDataLoader):
 
-    def __init__(self, test_mode: bool = False):
+    source_id = 'CTD'
+    provenance_id = 'infores:ctd'
+
+    def __init__(self, test_mode: bool = False, source_data_dir: str = None):
         """
-        constructor
         :param test_mode - sets the run into test mode
+        :param source_data_dir - the specific storage directory to save files in
         """
-        # call the super
-        super(SourceDataLoader, self).__init__()
+        super().__init__(test_mode=test_mode, source_data_dir=source_data_dir)
 
-        # set global variables
-        self.test_mode = test_mode
-
-        self.data_path = os.environ['DATA_SERVICES_STORAGE']
         self.data_files: list = ['CTD_chemicals_diseases.tsv', 'CTD_exposure_events.tsv']
 
-        self.source_id = 'CTD'
         self.source_db = 'Comparative Toxicogenomics Database'
-        self.provenance_id = 'infores:ctd'
 
         # this file is from JB
         self.hand_curated_data_file = 'ctd.tar'

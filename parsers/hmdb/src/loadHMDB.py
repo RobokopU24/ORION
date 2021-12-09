@@ -21,25 +21,20 @@ from Common.kgxmodel import kgxnode, kgxedge
 # Desc: Class that loads/parses the HMDB data.
 ##############
 class HMDBLoader(SourceDataLoader):
-    # the final output lists of nodes and edges
-    final_node_list: list = []
-    final_edge_list: list = []
 
-    def __init__(self, test_mode: bool = False):
+    source_id: str = 'HMDB'
+    provenance_id: str = 'infores:hmdb'
+
+    def __init__(self, test_mode: bool = False, source_data_dir: str = None):
         """
-        constructor
         :param test_mode - sets the run into test mode
+        :param source_data_dir - the specific storage directory to save files in
         """
-        # call the super
-        super(SourceDataLoader, self).__init__()
+        super().__init__(test_mode=test_mode, source_data_dir=source_data_dir)
 
         # set global variables
-        self.data_path: str = os.environ['DATA_SERVICES_STORAGE']
         self.data_file: str = 'hmdb_metabolites.zip'
-        self.test_mode: bool = test_mode
-        self.source_id: str = 'HMDB'
         self.source_db: str = 'Human Metabolome Database'
-        self.provenance_id: str = 'infores:hmdb'
 
         # create a logger
         self.logger = LoggingUtil.init_logging("Data_services.HMDB.HMDBLoader", level=logging.INFO, line_format='medium', log_file_path=os.environ['DATA_SERVICES_LOGS'])

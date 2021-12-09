@@ -49,32 +49,18 @@ class PHAROSLoader(SourceDataLoader):
                                 WHERE da.cmpd_chemblid IS NOT NULL
                                 AND x.xtype='HGNC'"""
 
-    def __init__(self, test_mode: bool = False):
+    source_id = 'PHAROS'
+    provenance_id = 'infores:pharos'
+
+    def __init__(self, test_mode: bool = False, source_data_dir: str = None):
         """
-        constructor
         :param test_mode - sets the run into test mode
+        :param source_data_dir - the specific storage directory to save files in
         """
-        # call the super
-        super(SourceDataLoader, self).__init__()
+        super().__init__(test_mode=test_mode, source_data_dir=source_data_dir)
 
-        # set global variables
-        self.data_path = os.environ['DATA_SERVICES_STORAGE']
         self.data_file = 'latest.sql'
-        self.test_mode = test_mode
-        self.source_id = 'PHAROS'
         self.source_db = 'Druggable Genome initiative database'
-        self.provenance_id = 'infores:pharos'
-
-        # for tracking counts
-        self.total_nodes: int = 0
-        self.total_edges: int = 0
-
-        # the final output lists of nodes and edges
-        self.final_node_list: list = []
-        self.final_edge_list: list = []
-
-        # create a logger
-        self.logger = LoggingUtil.init_logging("Data_services.PHAROSLoader", level=logging.INFO, line_format='medium', log_file_path=os.environ['DATA_SERVICES_LOGS'])
 
         # DB connection, lazy instantiation
         self.db = None

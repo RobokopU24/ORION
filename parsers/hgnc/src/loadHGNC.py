@@ -22,16 +22,13 @@ class HGNCLoader(SourceDataLoader):
     source_id: str = HGNC
     provenance_id: str = 'infores:hgnc'
 
-    def __init__(self, test_mode: bool = False):
+    def __init__(self, test_mode: bool = False, source_data_dir: str = None):
         """
-        constructor
         :param test_mode - sets the run into test mode
+        :param source_data_dir - the specific storage directory to save files in
         """
-        # call the super
-        super(SourceDataLoader, self).__init__()
+        super().__init__(test_mode=test_mode, source_data_dir=source_data_dir)
 
-        # set global variables
-        self.data_path: str = os.path.join(os.environ['DATA_SERVICES_STORAGE'], self.source_id)
         self.complete_set_file_name = 'hgnc_complete_set.txt'
         self.data_files: list = [self.complete_set_file_name, 'hgnc_genes_in_groups.txt']
         self.test_mode: bool = test_mode
@@ -39,13 +36,6 @@ class HGNCLoader(SourceDataLoader):
 
         self.ftp_site = 'ftp.ebi.ac.uk'
         self.ftp_dir = '/pub/databases/genenames/hgnc/tsv/'
-
-        # the final output lists of nodes and edges
-        self.final_node_list: list = []
-        self.final_edge_list: list = []
-
-        # create a logger
-        self.logger = LoggingUtil.init_logging("Data_services.HGNC.HGNCLoader", level=logging.INFO, line_format='medium', log_file_path=os.environ['DATA_SERVICES_LOGS'])
 
     def get_latest_source_version(self) -> str:
         """

@@ -21,33 +21,22 @@ from Common.kgxmodel import kgxnode, kgxedge
 ##############
 class GtoPdbLoader(SourceDataLoader):
 
+    source_id: str = 'GtoPdb'
     provenance_id = 'infores:gtopdb'
 
-    def __init__(self, test_mode: bool = False):
+    def __init__(self, test_mode: bool = False, source_data_dir: str = None):
         """
-        constructor
         :param test_mode - sets the run into test mode
+        :param source_data_dir - the specific storage directory to save files in
         """
-        # call the super
-        super(SourceDataLoader, self).__init__()
+        super().__init__(test_mode=test_mode, source_data_dir=source_data_dir)
 
-        # set global variables
-        self.data_path: str = os.environ['DATA_SERVICES_STORAGE']
         self.data_files: list = ['interactions.tsv', 'peptides.tsv', 'GtP_to_HGNC_mapping.tsv', 'ligands.tsv']
 
-        self.test_mode: bool = test_mode
-        self.source_id: str = 'GtoPdb'
         self.source_db: str = 'Guide to Pharmacology database'
 
         self.gene_map: dict = {}
         self.ligands: list = []
-
-        # the final output lists of nodes and edges
-        self.final_node_list: list = []
-        self.final_edge_list: list = []
-
-        # create a logger
-        self.logger = LoggingUtil.init_logging("Data_services.GtoPdb.GtoPdbLoader", level=logging.INFO, line_format='medium', log_file_path=os.environ['DATA_SERVICES_LOGS'])
 
     def get_latest_source_version(self) -> str:
         """
@@ -55,9 +44,6 @@ class GtoPdbLoader(SourceDataLoader):
 
         :return:
         """
-
-        # init the return
-        ret_val: str = 'Not found'
 
         # load the web page for CTD
         html_page: requests.Response = requests.get('https://www.guidetopharmacology.org/download.jsp')
@@ -73,10 +59,14 @@ class GtoPdbLoader(SourceDataLoader):
 
         # did we find version data
         if len(b_tag) > 0:
-            ret_val = b_tag.text[len(search_text)-1:]
-
-        # return to the caller
-        return ret_val
+            # we expect the html to contain the string 'Downloads are from the XXX version.'
+            # this should extract the XXX portion
+            html_value = b_tag.text
+            html_value = html_value[len(search_text) - 1:] # remove the 'Downloads are from the' part
+            source_version = html_value.split(' version')[0] # remove the ' version.' part
+            return source_version
+        else:
+            raise SourceDataFailedError('Failed to parse guidetopharmacology html for the latest source version.')
 
     def get_data(self):
         """

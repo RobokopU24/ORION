@@ -10,6 +10,7 @@ from Common.loader_interface import SourceDataLoader
 from Common.kgxmodel import kgxnode, kgxedge
 from Common.prefixes import HGNC
 
+
 ##############
 # Class: Ontological-Hierarchy loader
 #
@@ -19,38 +20,34 @@ from Common.prefixes import HGNC
 ##############
 class OHLoader(SourceDataLoader):
 
-    def __init__(self, test_mode: bool = False):
+    source_id: str = 'OntologicalHierarchy'
+    provenance_id: str = 'infores:ontological-hierarchy'
+
+    def __init__(self, test_mode: bool = False, source_data_dir: str = None):
         """
-        constructor
         :param test_mode - sets the run into test mode
+        :param source_data_dir - the specific storage directory to save files in
         """
-        # call the super
-        super(SourceDataLoader, self).__init__()
+        super().__init__(test_mode=test_mode, source_data_dir=source_data_dir)
 
         # set global variables
-        self.data_path: str = os.environ['DATA_SERVICES_STORAGE']
+        self.data_url: str = 'https://stars.renci.org/var/data_services/'
         self.data_file: str = 'properties-redundant.zip'
-        self.test_mode: bool = test_mode
-        self.source_id: str = 'OntologicalHierarchy'
         self.source_db: str = 'properties-redundant.ttl'
-        self.provenance_id: str = 'infores:ontological-hierarchy'
         self.subclass_predicate = 'biolink:subclass_of'
 
-        # the final output lists of nodes and edges
-        self.final_node_list: list = []
-        self.final_edge_list: list = []
         self.file_size = 500000
-
-        # create a logger
-        self.logger = LoggingUtil.init_logging("Data_services.Ontological-Hierarchy.OHLoader", level=logging.INFO, line_format='medium', log_file_path=os.environ['DATA_SERVICES_LOGS'])
 
     def get_latest_source_version(self) -> str:
         """
-        gets the version of the data
+        gets the latest available version of the data
 
         :return:
         """
-        return datetime.datetime.now().strftime("%m/%d/%Y")
+        file_url = f'{self.data_url}{self.data_file}'
+        gd = GetData(self.logger.level)
+        latest_source_version = gd.get_http_file_modified_date(file_url)
+        return latest_source_version
 
     def get_data(self) -> int:
         """
@@ -63,7 +60,7 @@ class OHLoader(SourceDataLoader):
         # get a reference to the data gatherer
         gd: GetData = GetData(self.logger.level)
 
-        byte_count: int = gd.pull_via_http(f'https://stars.renci.org/var/data_services/{self.data_file}',
+        byte_count: int = gd.pull_via_http(f'{self.data_url}{self.data_file}',
                                            self.data_path, False)
 
         if byte_count > 0:

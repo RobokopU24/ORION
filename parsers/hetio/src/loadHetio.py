@@ -15,25 +15,18 @@ class HetioLoader(SourceDataLoader):
     source_id: str = 'Hetio'
     provenance_id: str = 'infores:hetio'
 
-    def __init__(self, test_mode: bool = False):
+    def __init__(self, test_mode: bool = False, source_data_dir: str = None):
         """
-        constructor
         :param test_mode - sets the run into test mode
+        :param source_data_dir - the specific storage directory to save files in
         """
-        # call the super
-        super(SourceDataLoader, self).__init__()
+        super().__init__(test_mode=test_mode, source_data_dir=source_data_dir)
 
         # set global variables
         self.hetnet_archive_file = 'hetionet-v1.0.json.bz2'
         self.hetnet_json_file = 'hetionet-v1.0.json'
         self.hetio_retrieval_script_path = os.path.dirname(os.path.abspath(__file__))
-        self.data_path: str = os.path.join(os.environ['DATA_SERVICES_STORAGE'], self.source_id)
         self.data_file: str = self.hetnet_json_file
-        self.test_mode: bool = test_mode
-
-        # the final output lists of nodes and edges
-        self.final_node_list: list = []
-        self.final_edge_list: list = []
 
         # look up table for CURIE prefixes
         self.node_type_to_curie_lookup = {
@@ -43,9 +36,6 @@ class HetioLoader(SourceDataLoader):
             'Disease': DOID,
             'Symptom': MESH
         }
-
-        # create a logger
-        self.logger = LoggingUtil.init_logging("Data_services.Hetio.HetioLoader", level=logging.INFO, line_format='medium', log_file_path=os.environ['DATA_SERVICES_LOGS'])
 
     def get_latest_source_version(self) -> str:
         return '1.0'
@@ -176,12 +166,12 @@ hetio_abbrev_to_curie_lookup = {
     'CbG': 'RO:0002436',  # compound binds to gene product (used molecularly interacts with)
     'DpS': 'RO:0002200',  # disease presents symptom (has phenotype)
     'DlA': 'RO:0004026',  # disease localizes in anatomy (disease has location)
-    'DrD': 'SO:similar_to',  # disease resembles disease
-    'CrC': 'SO:similar_to',  # compound resembles compound
-    'GcG': 'RO:0002610',    # mapping covaries to correlated with
-    'GpCC': 'RO:0002007',   # mapping participant cellular component to has_part/part_of
-    'GpMF': 'RO:0002007',   # mapping Molecular Function to has_part/part_of
-    'GpBP': 'RO:0002007'    # mapping Biological Process to has_part/part_of
+    'DrD': 'SO:similar_to',  # disease resembles disease - similar_to
+    'CrC': 'SO:similar_to',  # compound resembles compound - similar_to
+    'GcG': 'RO:0002610',    # gene covaries gene - correlated with
+    'GpCC': 'RO:0002007',   # gene participates cellular component - has_part/part_of
+    'GpMF': 'RO:0002007',   # gene participates Molecular Function - has_part/part_of
+    'GpBP': 'RO:0002007'    # gene participates Biological Process - has_part/part_of
 }
 
 
