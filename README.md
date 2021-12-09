@@ -61,10 +61,16 @@ graphs:
       - source_id: HGNC
 ```
 
-Run the build manager to build graphs from your Graph Spec.
-```
-python Common/build_manager.py
-or
-python Common/build_manager.py -g Example_Graph
-```
+Run the build manager to build graphs from your Graph Spec. 
 
+Use docker compose to create and run the necessary containers. 
+By default the Dockerfile invokes Common/build_manager.py with no arguments,
+which will build every graph in your Graph Spec.
+```
+docker-compose up
+```
+If you want to specify an individual graph you can override that default entrypoint with a graph id from your Spec.
+```
+docker-compose run -d redis
+docker-compose run -d data_services python Data_services/Common/build_manager.py -g HGNC_Automat
+```
