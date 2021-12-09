@@ -4,7 +4,12 @@ graphs:
   - graph_id: Baseline
     sources:
       - source_id: Biolink
-        #load_version: 1
+        # optional parameters you can use to specify using previously built versions
+        # source_version:
+        # parsing_version:
+        # node_normalization_version:
+        # edge_normalization_version:
+        # strict_normalization:
       - source_id: OntologicalHierarchy
       - source_id: DrugCentral
       - source_id: GtoPdb
@@ -20,57 +25,18 @@ graphs:
 
   - graph_id: Genetics
     sources:
-      - source_id: Biolink
-        # load_version: 1
-      - source_id: OntologicalHierarchy
-      - source_id: DrugCentral
-      - source_id: GtoPdb
-      - source_id: Hetio
-      - source_id: HGNC
-      - source_id: HumanGOA
-      - source_id: IntAct
-      - source_id: PANTHER
-      - source_id: PHAROS
-      - source_id: UberGraph
-      - source_id: CTD
-      - source_id: HMDB
+      - subgraph_id: Baseline
       - source_id: GWASCatalog
       - source_id: GTEx
 
   - graph_id: Covid
     sources:
-      - source_id: Biolink
-      - source_id: OntologicalHierarchy
-      - source_id: DrugCentral
-      - source_id: GtoPdb
-      - source_id: Hetio
-      - source_id: HGNC
-      - source_id: HumanGOA
-      - source_id: IntAct
-      - source_id: PANTHER
-      - source_id: PHAROS
-      - source_id: UberGraph
-      - source_id: CTD
-      - source_id: HMDB
-      - source_id: GWASCatalog
-      - source_id: GTEx
+      - subgraph_id: Genetics
       - source_id: Cord19
       - source_id: ViralProteome
 
-  - graph_id: PANTHER_Automat
+  - graph_id: HGNC_Automat
     sources:
-      - source_id: PANTHER
-      - source_id: OntologicalHierarchy
-        merge_strategy: connected_edge_subset
-
-  - graph_id: GWASCatalog_Automat
-    sources:
-      - source_id: GWASCatalog
-      - source_id: OntologicalHierarchy
-        merge_strategy: connected_edge_subset
-
-  - graph_id: GTEx_Automat
-    sources:
-      - source_id: GTEx
+      - source_id: HGNC
       - source_id: OntologicalHierarchy
         merge_strategy: connected_edge_subset
