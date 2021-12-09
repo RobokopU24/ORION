@@ -21,12 +21,13 @@ class SupplementationFailedError(Exception):
 
 class SequenceVariantSupplementation:
 
+    SUPPLEMENTATION_VERSION = "1.0"
+
     def __init__(self):
 
         self.logger = LoggingUtil.init_logging("Data_services.Common.SequenceVariantSupplementation",
                                                line_format='medium',
                                                log_file_path=environ['DATA_SERVICES_LOGS'])
-
         workspace_dir = environ["DATA_SERVICES_STORAGE"]
 
         # if the snpEff dir exists, assume we already downloaded it
@@ -46,7 +47,9 @@ class SequenceVariantSupplementation:
                                supp_node_norm_failures_file_path: str,
                                supp_edges_file_path: str,
                                normalized_supp_edge_file_path: str,
-                               supp_edge_norm_predicate_map_file_path: str):
+                               supp_edge_norm_predicate_map_file_path: str,
+                               node_normalization_version: str = 'latest',
+                               edge_normalization_version: str = 'latest'):
 
         self.logger.debug('Parsing nodes file..')
         source_nodes = self.parse_nodes_file(nodes_file_path)
@@ -74,10 +77,12 @@ class SequenceVariantSupplementation:
                                             source_edges_file_path=supp_edges_file_path,
                                             edges_output_file_path=normalized_supp_edge_file_path,
                                             edge_norm_predicate_map_file_path=supp_edge_norm_predicate_map_file_path,
+                                            node_normalization_version=node_normalization_version,
+                                            edge_normalization_version=edge_normalization_version,
                                             edge_subject_pre_normalized=True,
                                             has_sequence_variants=True)
         supp_normalization_info = file_normalizer.normalize_kgx_files()
-        supplementation_metadata['normalization_info'] = supp_normalization_info
+        supplementation_metadata['supplementation_normalization_info'] = supp_normalization_info
 
         return supplementation_metadata
 
