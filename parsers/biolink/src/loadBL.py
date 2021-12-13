@@ -3,7 +3,7 @@ import argparse
 import enum
 import requests
 
-from Common.utils import LoggingUtil, GetData
+from Common.utils import LoggingUtil, GetData, GetDataPullError
 from Common.loader_interface import SourceDataLoader, SourceDataBrokenError
 from Common.extractor import Extractor
 from Common.node_types import node_types, AGGREGATOR_KNOWLEDGE_SOURCES
@@ -47,6 +47,7 @@ class BLLoader(SourceDataLoader):
         self.bl_edges_file_name = 'sri-reference-kg_edges.tsv'
         self.bl_nodes_file_name = 'sri-reference-kg_nodes.tsv'
         self.data_files: list = [self.bl_edges_file_name, self.bl_nodes_file_name]
+        self.data_url = 'https://archive.monarchinitiative.org/202103/kgx/'
 
     def get_latest_source_version(self) -> str:
         """
@@ -54,9 +55,12 @@ class BLLoader(SourceDataLoader):
 
         :return:
         """
-        bl_edges_url = f'https://archive.monarchinitiative.org/latest/kgx/{self.bl_edges_file_name}'
-        req = requests.head(bl_edges_url)
-        modified_time = req.headers['last-modified']
+        bl_edges_url = f'{self.data_url}{self.bl_edges_file_name}'
+        try:
+            req = requests.head(bl_edges_url)
+            modified_time = req.headers['last-modified']
+        except Exception as e:
+            raise GetDataPullError(e)
         return modified_time
 
     def get_data(self) -> int:
@@ -65,7 +69,7 @@ class BLLoader(SourceDataLoader):
 
         """
         for file_name in self.data_files:
-            bl_data_url = f'https://archive.monarchinitiative.org/latest/kgx/{file_name}'
+            bl_data_url = f'{self.data_url}{file_name}'
             data_puller = GetData()
             data_puller.pull_via_http(bl_data_url, self.data_path)
 
