@@ -36,7 +36,7 @@ class TMKPLoader(SourceDataLoader):
 
         :return:
         """
-        return datetime.datetime.now().strftime("%m/%Y")
+        return datetime.datetime.now().strftime("%m_%Y")
 
     def get_data(self) -> int:
         """

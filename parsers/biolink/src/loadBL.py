@@ -2,6 +2,7 @@ import os
 import argparse
 import enum
 import requests
+from dateutil import parser
 
 from Common.utils import LoggingUtil, GetData, GetDataPullError
 from Common.loader_interface import SourceDataLoader, SourceDataBrokenError
@@ -59,9 +60,9 @@ class BLLoader(SourceDataLoader):
         try:
             req = requests.head(bl_edges_url)
             modified_time = req.headers['last-modified']
+            return parser.parse(modified_time).strftime("%m_%d_%Y")
         except Exception as e:
             raise GetDataPullError(e)
-        return modified_time
 
     def get_data(self) -> int:
         """

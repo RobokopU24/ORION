@@ -46,7 +46,7 @@ class UniRefSimLoader(SourceDataLoader):
 
         :return:
         """
-        return datetime.datetime.now().strftime("%m/%Y")
+        return datetime.datetime.now().strftime("%m_%Y")
 
     def write_to_file_x(self, file_writer) -> None:
         """
