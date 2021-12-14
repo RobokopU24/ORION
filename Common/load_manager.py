@@ -129,11 +129,11 @@ class SourceDataManager:
 
         if not self.run_fetch_stage(source_id, source_version):
             self.logger.warning(f"Pipeline for {source_id} aborted during fetch stage.")
-            return
+            return False
 
         if not self.run_parsing_stage(source_id, source_version, parsing_version=parsing_version):
             self.logger.warning(f"Pipeline for {source_id} aborted during parsing stage.")
-            return
+            return False
 
         if not self.run_normalization_stage(source_id,
                                             source_version,
@@ -142,7 +142,7 @@ class SourceDataManager:
                                             edge_normalization_version=edge_normalization_version,
                                             strict_normalization=strict_normalization):
             self.logger.warning(f"Pipeline for {source_id} aborted during normalization stage.")
-            return
+            return False
 
         if not self.run_supplementation_stage(source_id,
                                               source_version,
@@ -152,7 +152,9 @@ class SourceDataManager:
                                               strict_normalization=strict_normalization,
                                               supplementation_version=supplementation_version):
             self.logger.warning(f"Pipeline for {source_id} supplementation stage not successful.")
-            return
+            return False
+
+        return True
 
     def run_fetch_stage(self, source_id: str, source_version: str):
         if source_version == 'latest':
