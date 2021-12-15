@@ -43,8 +43,8 @@ class PLoader(SourceDataLoader):
         """
         super().__init__(test_mode=test_mode, source_data_dir=source_data_dir)
 
-        self.data_file: str = 'PTHR~_human'
-        self.data_version: str = ''
+        self.data_file: str = None
+        self.data_version: str = None
 
         # the list of columns in the data
         self.sequence_file_columns = ['gene_identifier', 'protein_id', 'gene_name', 'panther_sf_id', 'panther_family_name',
@@ -97,7 +97,8 @@ class PLoader(SourceDataLoader):
             self.data_version = ret_val
 
             # make the data file name correct
-            self.data_file = self.data_file.replace('~', ret_val)
+            self.data_file = f'PTHR{self.data_version}_human'
+
         # return to the caller
         return ret_val
 
@@ -109,10 +110,14 @@ class PLoader(SourceDataLoader):
         # get a reference to the data gathering class
         gd: GetData = GetData(self.logger.level)
 
+        # this is necessary because the data_file and url depend on the version number
+        if not self.data_version:
+            latest_version = self.get_latest_source_version()
+
         # do the real thing if we arent in debug mode
         if not self.test_mode:
             # get the complete data set
-            file_count: int = gd.pull_via_ftp('ftp.pantherdb.org', f'/sequence_classifications/{self.data_version}/PANTHER_Sequence_Classification_files/', [self.data_file], self.data_path)
+            file_count: int = gd.pull_via_ftp('ftp.pantherdb.org', f'/sequence_classifications/{latest_version}/PANTHER_Sequence_Classification_files/', [self.data_file], self.data_path)
         else:
             file_count: int = 1
 
@@ -193,6 +198,11 @@ class PLoader(SourceDataLoader):
 
         :return: ret_val: record counts
         """
+
+        # this is necessary because the data_file depends on the version number
+        if not self.data_file:
+            self.get_latest_source_version()
+
         # init the record counters
         record_counter: int = 0
         skipped_record_counter: int = 0
