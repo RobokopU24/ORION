@@ -55,8 +55,9 @@ class UGLoader(SourceDataLoader):
         byte_count: int = gd.pull_via_http(f'https://stars.renci.org/var/data_services/properties-nonredundant.zip', self.data_path, False)
 
         # unzip the archive and split the file into pieces of size file_size
-        file_size = 200000
-        self.split_file_paths: list = gd.split_file(self.data_file, self.data_path, self.data_archive_file, file_size)
+        file_size = 250000
+        split_file_name_root = 'ug_split_file'
+        self.split_file_paths: list = gd.split_file(self.data_file, self.data_path, split_file_name_root, file_size)
 
         if byte_count > 0:
             return True
