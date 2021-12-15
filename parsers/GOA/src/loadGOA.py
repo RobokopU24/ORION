@@ -98,13 +98,8 @@ class GOALoader(SourceDataLoader):
         # and get a reference to the data gatherer
         gd: GetData = GetData(self.logger.level)
 
-        # do the real thing if we arent in test mode
-        if not self.test_mode:
-            # get the GOA data file
-            byte_count: int = gd.pull_via_http(self.data_url + self.data_file, self.data_path)
-        else:
-            # TODO create test data for GOA
-            byte_count: int = 0
+        # get the GOA data file
+        byte_count: int = gd.pull_via_http(self.data_url + self.data_file, self.data_path)
 
         # return the byte count to the caller
         return byte_count
@@ -163,8 +158,8 @@ class HumanGOALoader(GOALoader):
 
     source_id = 'HumanGOA'
 
-    def __init__(self, test_mode: bool = False):
-        super().__init__(test_mode)
+    def __init__(self, test_mode: bool = False, source_data_dir: str = None):
+        super().__init__(test_mode=test_mode, source_data_dir=source_data_dir)
         self.data_file = 'goa_human.gaf.gz'
         self.data_url = 'http://current.geneontology.org/annotations/'
 
@@ -173,8 +168,8 @@ class PlantGOALoader(GOALoader):
 
     source_id = 'PlantGOA'
 
-    def __init__(self, test_mode: bool = False):
-        super().__init__(test_mode)
+    def __init__(self, test_mode: bool = False, source_data_dir: str = None):
+        super().__init__(test_mode=test_mode, source_data_dir=source_data_dir)
         self.data_url = 'http://current.geneontology.org/annotations/'
         self.data_file = 'goa_uniprot_test.gaf.gz' # 'goa_uniprot_all.gaf.gz' #
         self.plant_taxa_file = 'plant_taxa.txt'
