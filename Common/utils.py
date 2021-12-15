@@ -672,14 +672,14 @@ class GetData:
 
             # did we get something
             if len(date_val) > 0:
-                # grab the parsed date
-                ret_val = dp.parse(date_val[1])
+                # return the parsed date
+                return dp.parse(date_val[1]).strftime('%-m_%-d_%Y')
         except Exception as e:
             error_message = f'Error getting modification date for ftp file: {ftp_site}{ftp_dir}{ftp_file}. {e}'
             self.logger.error(error_message)
             raise GetDataPullError(error_message)
 
-        return ret_val.strftime('%m-%d-%y')
+        return ret_val
 
     def pull_via_ftp(self, ftp_site: str, ftp_dir: str, ftp_files: list, data_file_path: str) -> int:
         """
@@ -746,9 +746,9 @@ class GetData:
         try:
             r = requests.head(file_url)
             url_time = r.headers['last-modified']
-            return url_time
+            return dp.parse(url_time).strftime("%-m_%-d_%Y")
         except Exception as e:
-            error_message = f'Error getting modification date for http file: {file_url}. {e}'
+            error_message = f'Error getting modification date for http file: {file_url}. {repr(e)}-{e}'
             self.logger.error(error_message)
             raise GetDataPullError(error_message)
 

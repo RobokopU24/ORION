@@ -2,7 +2,6 @@ import os
 import argparse
 import enum
 import requests
-from dateutil import parser
 
 from Common.utils import LoggingUtil, GetData, GetDataPullError
 from Common.loader_interface import SourceDataLoader, SourceDataBrokenError
@@ -57,12 +56,9 @@ class BLLoader(SourceDataLoader):
         :return:
         """
         bl_edges_url = f'{self.data_url}{self.bl_edges_file_name}'
-        try:
-            req = requests.head(bl_edges_url)
-            modified_time = req.headers['last-modified']
-            return parser.parse(modified_time).strftime("%m_%d_%Y")
-        except Exception as e:
-            raise GetDataPullError(e)
+        gd = GetData(self.logger.level)
+        latest_source_version = gd.get_http_file_modified_date(bl_edges_url)
+        return latest_source_version
 
     def get_data(self) -> int:
         """

@@ -206,6 +206,10 @@ class SourceDataManager:
                 # no great place to write an error in metadata because metadata is specific to source versions
                 # source_metadata.set_version_checking_error(failed_error.error_message)
                 return None
+        except Exception as e:
+            self.logger.error(
+                f"Error while checking for latest source version for {source_id}: {repr(e)}-{str(e)}")
+            return None
 
     def fetch_source(self, source_id: str, retries: int=0):
         self.logger.info(f'Fetching source {source_id}...')
@@ -231,6 +235,10 @@ class SourceDataManager:
                 source_metadata.set_fetch_error(failed_error.error_message)
                 source_metadata.set_fetch_status(SourceMetadata.FAILED)
                 return False
+        except Exception as e:
+            source_metadata.set_fetch_error(f'{repr(e)}-{str(e)}')
+            source_metadata.set_fetch_status(SourceMetadata.FAILED)
+            return False
 
     def run_parsing_stage(self, source_id: str, source_version: str, parsing_version: str):
         if source_version == 'latest':
@@ -320,7 +328,7 @@ class SourceDataManager:
         except Exception as e:
             source_metadata.update_parsing_info(parsing_version,
                                                 parsing_status=SourceMetadata.FAILED,
-                                                parsing_error=repr(e),
+                                                parsing_error=f'{repr(e)}-{str(e)}',
                                                 parsing_time=current_time)
             raise e
 
@@ -583,7 +591,8 @@ class SourceDataManager:
                                                             normalization_version,
                                                             supplementation_version,
                                                             supplementation_status=SourceMetadata.STABLE,
-                                                            supplementation_time=current_time)
+                                                            supplementation_time=current_time,
+                                                            supplementation_info=supplementation_info)
             return True
         except SupplementationFailedError as failed_error:
             error_message = f"{source_id} SupplementationFailedError: " \
