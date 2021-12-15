@@ -326,10 +326,10 @@ class SourceDataManager:
                                                     parsing_time=current_time)
             return False
         except Exception as e:
-            source_metadata.update_parsing_info(parsing_version,
-                                                parsing_status=SourceMetadata.FAILED,
-                                                parsing_error=f'{repr(e)}-{str(e)}',
-                                                parsing_time=current_time)
+            source_metadata.update_parsing_metadata(parsing_version,
+                                                    parsing_status=SourceMetadata.FAILED,
+                                                    parsing_error=f'{repr(e)}-{str(e)}',
+                                                    parsing_time=current_time)
             raise e
 
     def get_latest_parsing_version(self, source_id: str):
