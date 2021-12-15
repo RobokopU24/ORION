@@ -587,6 +587,8 @@ class SourceDataManager:
                                                                       supp_edge_norm_predicate_map_file_path=supp_edge_norm_predicate_map_file_path,
                                                                       node_normalization_version=node_normalization_version,
                                                                       edge_normalization_version=edge_normalization_version)
+            else:
+                supplementation_info = None
             source_metadata.update_supplementation_metadata(parsing_version,
                                                             normalization_version,
                                                             supplementation_version,
