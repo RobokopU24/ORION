@@ -1221,11 +1221,11 @@ class GetData:
         return ret_val
 
     @staticmethod
-    def split_file(infile_path, data_file_path: str, data_file_name: str, lines_per_file: int = 150000) -> list:
+    def split_file(archive_path, data_file_path: str, data_file_name: str, lines_per_file: int = 150000) -> list:
         """
         splits a file into numerous smaller files.
 
-        :param infile_path: the path to the input file
+        :param archive_path: the path to the zipped archive file
         :param data_file_path: the path to where the input file is and where the split files go
         :param data_file_name: the name of the input data file
         :param lines_per_file: the number of lines for each split file
@@ -1246,7 +1246,7 @@ class GetData:
         lines: list = []
 
         # open the zip file
-        with ZipFile(infile_path) as zf:
+        with ZipFile(archive_path) as zf:
             # open the taxon file indexes and the uniref data file
             with TextIOWrapper(zf.open(data_file_name), encoding="utf-8") as fp:
                 while True:

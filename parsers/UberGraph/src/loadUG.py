@@ -33,8 +33,7 @@ class UGLoader(SourceDataLoader):
         # this will be dynamically populated after extracting and splitting the data files
         self.split_file_paths = []
         # this is the name of the archive file the source files will come from
-        self.data_file = 'properties-nonredundant.ttl'
-        self.source_db = 'properties-nonredundant.ttl'
+        self.data_file = 'properties-nonredundant.zip'
 
     def get_latest_source_version(self):
         """
@@ -52,12 +51,13 @@ class UGLoader(SourceDataLoader):
         # get a reference to the data gatherer
         gd: GetData = GetData(self.logger.level)
 
-        byte_count: int = gd.pull_via_http(f'https://stars.renci.org/var/data_services/properties-nonredundant.zip', self.data_path, False)
+        byte_count: int = gd.pull_via_http(f'https://stars.renci.org/var/data_services/{self.data_file}',
+                                           self.data_path, False)
 
         # unzip the archive and split the file into pieces of size file_size
         file_size = 250000
-        split_file_name_root = 'ug_split_file'
-        self.split_file_paths: list = gd.split_file(self.data_file, self.data_path, split_file_name_root, file_size)
+        data_file_inside_archive = 'properties-nonredundant.ttl'
+        self.split_file_paths: list = gd.split_file(self.data_file, self.data_path, data_file_inside_archive, file_size)
 
         if byte_count > 0:
             return True
