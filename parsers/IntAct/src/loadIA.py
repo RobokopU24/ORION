@@ -117,7 +117,7 @@ class IALoader(SourceDataLoader):
         # return the file count to the caller
         return file_count
 
-    def parse_data(self, data_file_path: str, data_file_name: str) -> dict:
+    def parse_data(self) -> dict:
         """
         Parses the data file for graph nodes/edges and writes them out the KGX tsv files.
 
@@ -126,7 +126,7 @@ class IALoader(SourceDataLoader):
         :return: the parsed meta data results
         """
         # get the path to the data file
-        infile_path: str = os.path.join(data_file_path, data_file_name)
+        infile_path = os.path.join(self.data_path, self.data_file)
 
         # init the record counters
         record_counter: int = 0
