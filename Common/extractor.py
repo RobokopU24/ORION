@@ -1,3 +1,4 @@
+import csv
 from Common.kgxmodel import kgxnode, kgxedge
 from Common.node_types import ORIGINAL_KNOWLEDGE_SOURCE, PRIMARY_KNOWLEDGE_SOURCE, AGGREGATOR_KNOWLEDGE_SOURCES
 
@@ -19,6 +20,16 @@ class Extractor:
         self.load_metadata = { 'record_counter': 0, 'skipped_record_counter': 0, 'errors': []}
         self.errors = []
 
+    """
+    A simplified interface for CSV extract which only extracts nodes from a file.
+    """
+    def node_csv_extract(self, infile,
+                    subject_extractor,
+                    subject_property_extractor,
+                    comment_character="#", delim='\t', has_header_row=False):
+        self.csv_extractor(infile,subject_extractor, None, None, subject_property_extractor,
+                           None, None, comment_character, delim, has_header_row)
+
     def csv_extract(self, infile,
                     subject_extractor,
                     object_extractor,
@@ -30,6 +41,7 @@ class Extractor:
         """Read a csv, perform callbacks to retrieve node and edge info per row.
         Assumes that all of the properties extractable for a node occur on the line with the node identifier"""
         for i, line in enumerate(infile, start=1):
+        
             if comment_character is not None and line.startswith(comment_character):
                 continue
 
@@ -38,7 +50,13 @@ class Extractor:
 
             self.load_metadata['record_counter'] += 1
             try:
-                x = line[:-1].split(delim)
+                #CSV Reader expects a list of rows as input and outputs a list of strings. We process one rwo at a time, so we pass "line" in a s list and take the 
+                # first result.
+                reader = csv.reader([line],delimiter = delim)
+                split_row = list(reader)[0]
+
+                x = split_row
+                #x = line[:-1].split(delim)
                 self.parse_row(x, subject_extractor, object_extractor, predicate_extractor, subject_property_extractor, object_property_extractor, edge_property_extractor)
             except Exception as e:
                 self.load_metadata['errors'].append(e.__str__())

@@ -16,6 +16,8 @@ from Common.supplementation import SequenceVariantSupplementation, Supplementati
 from parsers.GWASCatalog.src.loadGWASCatalog import GWASCatalogLoader
 from parsers.CTD.src.loadCTD import CTDLoader
 from parsers.cord19.src.loadCord19 import Cord19Loader
+from parsers.scent.src.loadScent import ScentLoader
+
 # from parsers.FooDB.src.loadFDB import FDBLoader
 from parsers.GOA.src.loadGOA import GOALoader
 from parsers.IntAct.src.loadIA import IALoader
@@ -51,6 +53,7 @@ DRUG_CENTRAL = 'DrugCentral'
 HETIO = 'Hetio'
 BIOLINK = 'Biolink'
 UNIREF = 'UniRef'
+SCENT = 'Scent'
 ONTOLOGICAL_HIERARCHY = 'OntologicalHierarchy'
 # FOODB = 'FooDB' # this is on hold, data needs review after latest release of data.
 
@@ -73,8 +76,8 @@ SOURCE_DATA_LOADER_CLASSES = {
     BIOLINK: BLLoader,
     PANTHER: PLoader,
     UNIREF: UniRefSimLoader,
-    ONTOLOGICAL_HIERARCHY: OHLoader
-
+    ONTOLOGICAL_HIERARCHY: OHLoader,
+    SCENT: ScentLoader
     # items to go
     # textminingkp
 
@@ -108,7 +111,7 @@ class SourceDataLoadManager:
         self.data_dir = self.init_data_dir()
 
         # load the sources spec which specifies which data sources to download and parse
-        self.sources_without_strict_normalization = []
+        self.sources_without_strict_normalization = ["Scent"]
         self.load_sources_spec()
         self.logger.info(f'Sources spec loaded. Source list: {self.source_list}')
 
@@ -275,6 +278,8 @@ class SourceDataLoadManager:
     def normalization_needed(self, source_id: str):
         # we only proceed with normalization if the latest source data update is stable
         source_metadata = self.metadata[source_id]
+        print(source_metadata.metadata)
+        print('metadata')
         if source_metadata.get_update_status() == Metadata.STABLE:
             normalization_status = source_metadata.get_normalization_status()
             if normalization_status == Metadata.NOT_STARTED or \
@@ -310,6 +315,8 @@ class SourceDataLoadManager:
         self.logger.debug(f"Normalizing source data for {source_id}...")
         source_metadata = self.metadata[source_id]
         source_metadata.set_normalization_status(Metadata.IN_PROGRESS)
+        print("SOURCE ID")
+        print(source_id)
         try:
             strict_normalization = False if source_id in self.sources_without_strict_normalization else True
 
