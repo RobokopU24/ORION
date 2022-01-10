@@ -208,7 +208,8 @@ class GraphBuilder:
                                              supplementation_version=graph_source.supplementation_version):
                 self.logger.info(
                     f'Attempting to build graph {graph_id}, dependency {source_id} is not ready. Building now...')
-                success = self.source_data_manager.run_pipeline(source_id)
+                success = self.source_data_manager.run_pipeline(source_id,
+                                                                strict_normalization=strict_normalization)
                 if not success:
                     self.logger.info(
                         f'Attempting to build graph {graph_id}, building dependency {source_id} failed. Aborting...')
