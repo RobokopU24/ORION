@@ -50,14 +50,12 @@ class Extractor:
 
             self.load_metadata['record_counter'] += 1
             try:
-                #CSV Reader expects a list of rows as input and outputs a list of strings. We process one rwo at a time, so we pass "line" in a s list and take the 
-                # first result.
-                reader = csv.reader([line],delimiter = delim)
+                # TODO we should pass the whole file iterator to csv reader, just need to handle comments and headers
+                # CSV Reader expects a list of rows as input and outputs a list of strings.
+                # We process one at a time, so we pass "line" in as a list and take the first result.
+                reader = csv.reader([line], delimiter=delim)
                 split_row = list(reader)[0]
-
-                x = split_row
-                #x = line[:-1].split(delim)
-                self.parse_row(x, subject_extractor, object_extractor, predicate_extractor, subject_property_extractor, object_property_extractor, edge_property_extractor)
+                self.parse_row(split_row, subject_extractor, object_extractor, predicate_extractor, subject_property_extractor, object_property_extractor, edge_property_extractor)
             except Exception as e:
                 self.load_metadata['errors'].append(e.__str__())
                 self.load_metadata['skipped_record_counter'] += 1
