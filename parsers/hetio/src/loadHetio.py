@@ -1,10 +1,10 @@
 import os
 import subprocess
-import logging
 import json
 import argparse
+import bz2
 
-from Common.utils import LoggingUtil, GetDataPullError
+from Common.utils import GetDataPullError
 from Common.loader_interface import SourceDataLoader
 from Common.extractor import Extractor
 from Common.prefixes import NCBIGENE, DRUGBANK, UBERON, DOID, MESH, UMLS
@@ -23,10 +23,8 @@ class HetioLoader(SourceDataLoader):
         super().__init__(test_mode=test_mode, source_data_dir=source_data_dir)
 
         # set global variables
-        self.hetnet_archive_file = 'hetionet-v1.0.json.bz2'
-        self.hetnet_json_file = 'hetionet-v1.0.json'
         self.hetio_retrieval_script_path = os.path.dirname(os.path.abspath(__file__))
-        self.data_file: str = self.hetnet_json_file
+        self.data_file: str = 'hetionet-v1.0.json.bz2'
 
         # look up table for CURIE prefixes
         self.node_type_to_curie_lookup = {
@@ -71,10 +69,12 @@ class HetioLoader(SourceDataLoader):
         extractor = Extractor()
 
         hetnet_file_path = os.path.join(self.data_path, self.data_file)
-        with open(hetnet_file_path, "r") as hetnet_json_file:
+        with bz2.open(hetnet_file_path, "r") as hetnet_json_file:
             hetnet_json = json.load(hetnet_json_file)
 
             """
+            # For now we actually don't need the nodes - the node ids from the edges are enough
+            
             # grab the relevant part of the json for nodes
             nodes_array = hetnet_json['nodes']
 
@@ -98,7 +98,7 @@ class HetioLoader(SourceDataLoader):
             kind_to_abbrev_lookup = hetnet_json['kind_to_abbrev']
 
             # grab the relevant part of the json for edges
-            edges_array = hetnet_json['edges']
+            edges_array = hetnet_json['edges'] if not self.test_mode else hetnet_json['edges'][:1000]
 
             extractor.json_extract(edges_array, # subject
                                    lambda edge: get_curie_from_hetio_node(edge['source_id'][1], edge['source_id'][0]),
