@@ -13,6 +13,8 @@ from Common.supplementation import SequenceVariantSupplementation, Supplementati
 from parsers.GWASCatalog.src.loadGWASCatalog import GWASCatalogLoader
 from parsers.CTD.src.loadCTD import CTDLoader
 from parsers.cord19.src.loadCord19 import Cord19Loader
+from parsers.scent.src.loadScent import ScentLoader
+
 # from parsers.FooDB.src.loadFDB import FDBLoader
 from parsers.GOA.src.loadGOA import PlantGOALoader, HumanGOALoader
 from parsers.IntAct.src.loadIA import IALoader
@@ -48,6 +50,7 @@ DRUG_CENTRAL = 'DrugCentral'
 HETIO = 'Hetio'
 BIOLINK = 'Biolink'
 UNIREF = 'UniRef'
+SCENT = 'Scent'
 ONTOLOGICAL_HIERARCHY = 'OntologicalHierarchy'
 # FOODB = 'FooDB' # this is on hold, data needs review after latest release of data.
 
@@ -71,8 +74,8 @@ SOURCE_DATA_LOADER_CLASSES = {
     BIOLINK: BLLoader,
     PANTHER: PLoader,
     UNIREF: UniRefSimLoader,
-    ONTOLOGICAL_HIERARCHY: OHLoader
-
+    ONTOLOGICAL_HIERARCHY: OHLoader,
+    SCENT: ScentLoader
     # items to go
     # textminingkp
 

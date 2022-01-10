@@ -244,7 +244,13 @@ class NodeNormUtils:
                 current_node = node_list[node_idx]
                 normalized_id = cached_node_norms[current_node_id]['id']['identifier']
                 current_node['id'] = normalized_id
-                current_node['category'] = cached_node_norms[current_node_id]['type']
+                categories = cached_node_norms[current_node_id]['type']
+                #If we are not in strict normalization, use categories provided by user in addition to 
+                if(not self.strict_normalization):
+                    categories.extend(node_list[node_idx].get('category',[]))
+                    categories = list(set(categories))
+                
+                current_node['category'] = categories
                 current_node['equivalent_identifiers'] = list(item['identifier'] for item in cached_node_norms[current_node_id]['equivalent_identifiers'])
                 # set the name as the label if it exists
                 if 'label' in cached_node_norms[current_node_id]['id']:
@@ -261,7 +267,9 @@ class NodeNormUtils:
                     self.node_normalization_lookup[current_node_id] = None
                 else:
                     #  if strict normalization is off we set a default node type
-                    node_list[node_idx]['category'] = [ROOT_ENTITY]
+                    #We respect the user labels if we are in non-strict mode. 
+                    #Have a list of ROOT_ENTITY and all user provided categories.
+                    node_list[node_idx]['category'] = list(set([ROOT_ENTITY] + node_list[node_idx].get('category',[])))
                     if not node_list[node_idx]['name']:
                         node_list[node_idx]['name'] = node_list[node_idx]['id']
                     # if strict normalization is off set its previous id in the normalization map
