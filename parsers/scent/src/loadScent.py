@@ -46,18 +46,15 @@ class SOREDGECOSDIST(enum.IntEnum):
 class ScentLoader(SourceDataLoader):
 
     source_id: str = 'Scent'
-    provenance_id: str = 'infores:cord19'
+    provenance_id: str = 'infores:Scent'
 
-    def __init__(self, test_mode: bool = False):
+    def __init__(self, test_mode: bool = False, source_data_dir: str = None):
         """
         constructor
         :param test_mode - sets the run into test mode
         """
         # call the super
-        super(SourceDataLoader, self).__init__()
-
-        # NOTE 1: The nodes files are not necessary, unless we decide we want the names from them.
-        # Leaving them set up here just in case we do in the future..
+        super().__init__(test_mode=test_mode, source_data_dir=source_data_dir)
 
         self.cos_dist_threshold = 0.7
         self.scent_data_url = 'https://stars.renci.org/var/data_services/scent_data/'
@@ -67,21 +64,16 @@ class ScentLoader(SourceDataLoader):
         self.sor_vsd_human_edges_file_name = "sor_dataset_mmod_sor_dataset_vsd_edges.csv"
         self.sor_vsd_cos_dist_edges_file_name = "sor_dataset_mmod_primary_ifa_vsd_cos_dist_weighted_edges.csv"
         self.sor_list_file_name = "sor_dataset_robokop_id_list.txt"
-        
 
-#primary_ifa_vsd_list.txt  sor_dataset_human_generated_vsd_list.txt  sor_dataset_mmod_sor_dataset_vsd_edges.csv  sor_dataset_robokop_id_list.txt
+        self.data_files = [
+            self.ifa_vsd_file_name,
+            self.human_vsd_list_file_name,
+            self.sor_vsd_human_edges_file_name,
+            self.sor_vsd_cos_dist_edges_file_name,
+            self.sor_list_file_name
+        ]
 
-        self.data_path: str = os.path.join(os.environ['DATA_SERVICES_STORAGE'], self.source_id, 'source')
-        if not os.path.exists(self.data_path):
-            os.mkdir(self.data_path)
-        self.test_mode: bool = test_mode
-
-        # the final output lists of nodes and edges
-        self.final_node_list: list = []
-        self.final_edge_list: list = []
-
-        # create a logger
-        self.logger = LoggingUtil.init_logging("Data_services.cord19.Cord19Loader", level=logging.INFO, line_format='medium', log_file_path=os.environ['DATA_SERVICES_LOGS'])
+        #primary_ifa_vsd_list.txt  sor_dataset_human_generated_vsd_list.txt  sor_dataset_mmod_sor_dataset_vsd_edges.csv  sor_dataset_robokop_id_list.txt
 
     def get_latest_source_version(self) -> str:
         """
@@ -89,41 +81,19 @@ class ScentLoader(SourceDataLoader):
 
         :return:
         """
-        return 'scent_v1_scigraph_v12'
+        return 'scent_v1'
 
     def get_data(self) -> int:
         """
         Gets the scent data.
 
         """
-        sources_to_pull = [
-            f'{self.covid_phenotypes_url}{self.covid_phenotypes_file_name}'#,
-            # f'{self.scibite_url}{self.scibite_nodes_file_name}',
-        #    f'{self.scibite_url}{self.scibite_edges_file_name}',
-            # f'{self.scrigraph_url}{self.scigraph_nodes_file_name}',
-        #    f'{self.scrigraph_url}{self.scigraph_edges_file_name}',
-        #    f'{self.drug_bank_trials_url}{self.drug_bank_trials_file_name}'
-        ]
-        #data_puller = GetData()
-        #for source_url in sources_to_pull:
-        #    data_puller.pull_via_http(source_url, self.data_path)
-
-        sources_to_pull = [self.ifa_vsd_file_name, 
-        self.human_vsd_list_file_name,
-        self.sor_vsd_human_edges_file_name,
-        self.sor_vsd_cos_dist_edges_file_name,
-        self.sor_list_file_name]
-
         data_puller = GetData()
-        for source in sources_to_pull:
+        for source in self.data_files:
             source_url = f"{self.scent_data_url}{source}"
-            print(source_url)
             data_puller.pull_via_http(source_url, self.data_path)
-#        for source in sources_to_copy:
-#            os.popen(f"cp /home/dkorn/SCENT_KOP/SCENT_DATA/{source} {self.data_path}")
-        
-        return True
 
+        return True
 
     def parse_data(self) -> dict:
         """
@@ -200,7 +170,6 @@ class ScentLoader(SourceDataLoader):
                if(float(line.split(',')[SOREDGECOSDIST.DISTANCE.value])>self.cos_dist_threshold): yield line
 
                  
-        print(len(extractor.edges)) 
         sor_vsd_cos_dist_edges_file: str = os.path.join(self.data_path, self.sor_vsd_cos_dist_edges_file_name)
         with open(sor_vsd_cos_dist_edges_file, 'r') as fp:
             extractor.csv_extract(cos_dist_filter(fp),
@@ -213,20 +182,8 @@ class ScentLoader(SourceDataLoader):
                                   comment_character=None,
                                   delim=',',
                                   has_header_row=True)
-        print(len(extractor.edges)) 
 
         self.final_node_list = extractor.nodes
         self.final_edge_list = extractor.edges
-
-        print("Nodes")
-        
-        #import time
-        #for n in self.final_node_list[::1]:
-        #    print(n.categories)
-        #    print(n.name)
-        #    print(n.identifier)
-        #    time.sleep(0.1)
-        print("Edges")
-        #print(self.final_edge_list)
         return extractor.load_metadata
 
