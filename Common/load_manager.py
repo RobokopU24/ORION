@@ -800,6 +800,10 @@ if __name__ == '__main__':
     parser.add_argument('-f', '--fresh_start_mode',
                         action='store_true',
                         help='Fresh start mode will ignore previous states and overwrite previous data.')
+    parser.add_argument('-l', '--lenient_normalization',
+                        action='store_true',
+                        help='Lenient normalization mode will allow nodes that do not normalize to persist '
+                             'in the finalized kgx files.')
     args = parser.parse_args()
 
     if 'DATA_SERVICES_TEST_MODE' in os.environ:
@@ -808,7 +812,7 @@ if __name__ == '__main__':
         test_mode_from_env = False
 
     loader_test_mode = args.test_mode or test_mode_from_env
-
+    loader_strict_normalization = (not args.lenient_normalization)
     load_manager = SourceDataManager(test_mode=loader_test_mode,
                                      fresh_start_mode=args.fresh_start_mode)
     for data_source in args.data_source:
@@ -816,4 +820,4 @@ if __name__ == '__main__':
             print(f'Data source {data_source} is not valid. '
                   f'Valid sources: {", ".join(sorted(SOURCE_DATA_LOADER_CLASSES.keys()))}')
         else:
-            load_manager.run_pipeline(data_source)
+            load_manager.run_pipeline(data_source, strict_normalization=loader_strict_normalization)
