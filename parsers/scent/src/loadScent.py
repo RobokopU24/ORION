@@ -56,7 +56,7 @@ class ScentLoader(SourceDataLoader):
         # call the super
         super().__init__(test_mode=test_mode, source_data_dir=source_data_dir)
 
-        self.cos_dist_threshold = 0.7
+        self.cos_dist_threshold = 1.0
         self.scent_data_url = 'https://stars.renci.org/var/data_services/scent_data/'
 
         self.ifa_vsd_file_name = "primary_ifa_vsd_list.txt"
@@ -167,7 +167,7 @@ class ScentLoader(SourceDataLoader):
             #Header
             yield next(infile)
             for line in infile:
-               if(float(line.split(',')[SOREDGECOSDIST.DISTANCE.value])>self.cos_dist_threshold): yield line
+               if(float(line.split(',')[SOREDGECOSDIST.DISTANCE.value])<=self.cos_dist_threshold): yield line
 
                  
         sor_vsd_cos_dist_edges_file: str = os.path.join(self.data_path, self.sor_vsd_cos_dist_edges_file_name)
