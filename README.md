@@ -51,7 +51,7 @@ DATA_SERVICES_REDIS_HOST, DATA_SERVICES_REDIS_PORT, DATA_SERVICES_REDIS_PASSWORD
 ```
 
 To build a graph alter the graph-spec.yml file in your DATA_SERVICES_GRAPHS directory. 
-The name of this file can be specified using DATA_SERVICES_GRAPH_SPEC.
+The name of this file can be specified using the environment variable DATA_SERVICES_GRAPH_SPEC.
 It will look something like this:
 ```
 graphs:
@@ -71,6 +71,14 @@ docker-compose up
 ```
 If you want to specify an individual graph you can override that default entrypoint with a graph id from your Spec.
 ```
-docker-compose run -d redis
-docker-compose run -d data_services python Data_services/Common/build_manager.py -g HGNC_Automat
+docker-compose start redis
+docker-compose run --rm data_services python Data_services/Common/build_manager.py -g Example_Graph_ID
+```
+To create KGX files for a single data source, you can use:
+```
+docker-compose run --rm data_services python Data_services/Common/load_manager.py Example_Source
+```
+To see available arguments and a list of supported data sources:
+```
+python Data_services/Common/load_manager.py -h
 ```
