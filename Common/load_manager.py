@@ -224,7 +224,10 @@ class SourceDataManager:
         try:
             loader = SOURCE_DATA_LOADER_CLASSES[source_id](test_mode=self.test_mode,
                                                            source_data_dir=source_version_path)
-            loader.get_data()
+            if loader.needs_data_download():
+                loader.get_data()
+            else:
+                self.logger.info(f'Source data was already retrieved for {source_id}..')
             source_metadata.set_fetch_status(SourceMetadata.STABLE)
             return True
         except GetDataPullError as failed_error:
