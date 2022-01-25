@@ -178,7 +178,7 @@ class ScentLoader(SourceDataLoader):
                                   lambda line: line[SOREDGECOSDIST.PREDICATE.value],  # predicate extractor
                                   lambda line: {'categories': ['odorant','biolink:ChemicalEntity']},  # subject props
                                   lambda line: {'categories': ['verbal_scent_descriptor'],"name":line[SOREDGECOSDIST.VERBAL_SCENT.value]},  # object props
-                                  lambda line: {'cosine_distance':line[SOREDGECOSDIST.DISTANCE.value]}, #edgeprops
+                                  lambda line: {'cosine_distance':float(line[SOREDGECOSDIST.DISTANCE.value])}, #edgeprops
                                   comment_character=None,
                                   delim=',',
                                   has_header_row=True)
