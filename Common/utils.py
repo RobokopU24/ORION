@@ -212,8 +212,14 @@ class NodeNormUtils:
                     # convert json to dict
                     rvs: dict = resp.json()
 
-                    # merge this list with what we have gotten so far
-                    cached_node_norms.update(**rvs)
+                    if rvs:
+                        # merge this list with what we have gotten so far
+                        cached_node_norms.update(**rvs)
+                    else:
+                        # this is a quick fix for the API returning empty dict instead of nulls when
+                        # none of the curies normalize
+                        empty_responses = {curie: None for curie in data_chunk}
+                        cached_node_norms.update(empty_responses)
                 else:
                     # the error that is trapped here means that the entire list of nodes didnt get normalized.
                     error_message = f'Node norm response code: {resp.status_code}'
@@ -245,8 +251,8 @@ class NodeNormUtils:
                 normalized_id = cached_node_norms[current_node_id]['id']['identifier']
                 current_node['id'] = normalized_id
                 categories = cached_node_norms[current_node_id]['type']
-                #If we are not in strict normalization, use categories provided by user in addition to 
-                if(not self.strict_normalization):
+                # If we are not in strict normalization, use categories provided by user in addition to
+                if not self.strict_normalization:
                     categories.extend(node_list[node_idx].get('category',[]))
                     categories = list(set(categories))
                 
