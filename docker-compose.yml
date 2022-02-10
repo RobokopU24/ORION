@@ -23,8 +23,10 @@ services:
       - "${DATA_SERVICES_STORAGE}:/Data_services_storage"
       - "${DATA_SERVICES_GRAPHS}:/Data_services_graphs"
       - "${DATA_SERVICES_LOGS}:/Data_services_logs"
+      - /var/run/docker.sock:/var/run/docker.sock
     networks:
       - ds_network
+
   redis:
     image: redis
     command: 'redis-server --requirepass ${DATA_SERVICES_REDIS_PASSWORD} --save "" --appendonly no'
