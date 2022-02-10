@@ -378,7 +378,7 @@ class IALoader(SourceDataLoader):
                 edge_props = {"publications": f"{grp_list[grp_idx]['pub_id']}", "detection_method": detection_method}
                 new_edge = kgxedge(subject_id,
                                    object_id,
-                                   relation="RO:0002436",
+                                   predicate="RO:0002436",
                                    original_knowledge_source=self.provenance_id,
                                    edgeprops=edge_props)
                 self.final_edge_list.append(new_edge)
@@ -390,7 +390,7 @@ class IALoader(SourceDataLoader):
                     object_id = f"{grp_list[grp_idx]['t_' + suffix]}"
                     new_edge = kgxedge(subject_id,
                                        object_id,
-                                       relation="RO:0002162",
+                                       predicate="RO:0002162",
                                        original_knowledge_source=self.provenance_id)
                     self.final_edge_list.append(new_edge)
 

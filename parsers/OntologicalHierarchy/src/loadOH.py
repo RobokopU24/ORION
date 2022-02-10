@@ -194,7 +194,6 @@ class OHLoader(SourceDataLoader):
                         self.final_node_list.append(kgxnode(triple[2], name=triple[2]))
                         self.final_edge_list.append(kgxedge(subject_id=triple[0],
                                                             object_id=triple[2],
-                                                            relation=self.subclass_predicate,
                                                             predicate=self.subclass_predicate))
                     else:
                         skipped_non_subclass_record_counter += 1

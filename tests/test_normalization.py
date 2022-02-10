@@ -56,10 +56,10 @@ def test_variant_norm():
 
 def test_edge_normalization():
 
-    edge_list = [{'relation': 'SEMMEDDB:CAUSES'},
-                 {'relation': 'RO:0000052'},
-                 {'relation': 'RO:0002200'},
-                 {'relation': 'BADPREFIX:123456'}]
+    edge_list = [{'predicate': 'SEMMEDDB:CAUSES'},
+                 {'predicate': 'RO:0000052'},
+                 {'predicate': 'RO:0002200'},
+                 {'predicate': 'BADPREFIX:123456'}]
     edge_normalizer = EdgeNormUtils()
     edge_normalizer.normalize_edge_data(edge_list)
 

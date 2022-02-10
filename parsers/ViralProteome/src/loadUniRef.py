@@ -66,7 +66,7 @@ class UniRefSimLoader(SourceDataLoader):
             # write out the edge data
             file_writer.write_edge(subject_id=edge['subject'],
                                    object_id=edge['object'],
-                                   relation=edge['relation'],
+                                   predicate=edge['predicate'],
                                    original_knowledge_source=self.provenance_id,
                                    edge_properties=edge['properties'])
 
@@ -456,10 +456,10 @@ class UniRefSimLoader(SourceDataLoader):
                 # add the spoke edge if it isn't a reflection of itself
                 if rep_member_node_id != node_list[node_idx]['id']:
                     # this node represents the UniProt id
-                    self.final_edge_list.append({"subject": rep_member_node_id, "relation": "RO:HOM0000000", "object": node_list[node_idx]['id'], 'properties': props})
+                    self.final_edge_list.append({"subject": rep_member_node_id, "predicate": "RO:HOM0000000", "object": node_list[node_idx]['id'], 'properties': props})
 
                 # this node represents the taxon id
-                self.final_edge_list.append({"subject": node_list[node_idx]['id'], "relation": "RO:0002162", "object": node_list[node_idx + 1]['id'], 'properties': props})
+                self.final_edge_list.append({"subject": node_list[node_idx]['id'], "predicate": "RO:0002162", "object": node_list[node_idx + 1]['id'], 'properties': props})
 
                 # increment the node counter pairing index
                 node_idx += 2

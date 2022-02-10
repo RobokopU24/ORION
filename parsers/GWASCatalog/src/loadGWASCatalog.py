@@ -171,7 +171,6 @@ class GWASCatalogLoader(SourceDataWithVariantsLoader):
                             new_edge = kgxedge(subject_id=variant_id,
                                                object_id=trait_id,
                                                predicate=has_phenotype_predicate,
-                                               relation=has_phenotype_predicate,
                                                primary_knowledge_source=self.provenance_id,
                                                edgeprops=edge_props)
                             self.final_edge_list.append(new_edge)

@@ -184,14 +184,14 @@ class HMDBLoader(SourceDataLoader):
             "provided_by": "hmdb.metabolite_to_enzyme",
             "subject": "CHEBI:16040", (chemical compound, ie. metabolite)
             "object": "NCBIGene:29974", (protein, ie. gene)
-            "relation": "RO:0002434",
+            "predicate": "RO:0002434",
             "publications": []
 
           - enzyme to metabolite
             "provided_by": "hmdb.enzyme_to_metabolite",
             "subject": "CHEBI:84764", (chemical compound, ie. metabolite)
             "object": "NCBIGene:53947", (protein, ie. gene)
-            "relation": "RO:0002434",
+            "predicate": "RO:0002434",
             "publications": []
 
         :param el: the root of this xml fragment
@@ -230,14 +230,14 @@ class HMDBLoader(SourceDataLoader):
                             props: dict = {}
                             subject_id: str = protein_id
                             object_id: str = metabolite_id
-                            relation: str = f'{CTD}:affects_abundance_of'
+                            predicate: str = f'{CTD}:affects_abundance_of'
                         # else it must be a transport?
                         else:
                             # create the edge data
                             props: dict = {}
                             subject_id: str = metabolite_id
                             object_id: str = protein_id
-                            relation: str = f'{CTD}:increases_transport_of'
+                            predicate: str = f'{CTD}:increases_transport_of'
 
                         # get the name element
                         el_name: E_Tree.Element = p.find('name')
@@ -255,7 +255,7 @@ class HMDBLoader(SourceDataLoader):
                         # create an edge and add it to the list
                         new_edge = kgxedge(subject_id,
                                            object_id,
-                                           relation=relation,
+                                           predicate=predicate,
                                            original_knowledge_source=self.provenance_id,
                                            edgeprops=props)
                         self.final_edge_list.append(new_edge)
@@ -280,14 +280,14 @@ class HMDBLoader(SourceDataLoader):
               "provided_by": "hmdb.metabolite_to_disease",
               "subject": "CHEBI:16742", (chemical compound, ie. the metabolite)
               "object": "UMLS:C4324375", (disease, ie. the OMIM value)
-              "relation": "SEMMEDDB:ASSOCIATED_WITH",
+              "predicate": "SEMMEDDB:ASSOCIATED_WITH",
               "publications": []
 
          - disease_to_hmdb.metabolite
               "provided_by": "hmdb.disease_to_metabolite",
               "subject": "CHEBI:16742", (chemical compound, ie. the metabolite)
               "object": "MONDO:0005335", (disease, ie. the OMIM value)
-              "relation": "SEMMEDDB:ASSOCIATED_WITH",
+              "predicate": "SEMMEDDB:ASSOCIATED_WITH",
               "publications": []
 
         :param el: the root of this xml fragment
@@ -355,7 +355,7 @@ class HMDBLoader(SourceDataLoader):
                         # create an edge and add it to the list
                         new_edge = kgxedge(metabolite_id,
                                            disease_id,
-                                           relation='RO:0002610',
+                                           predicate='RO:0002610',
                                            original_knowledge_source=self.provenance_id,
                                            edgeprops=props)
                         self.final_edge_list.append(new_edge)
@@ -375,7 +375,7 @@ class HMDBLoader(SourceDataLoader):
               "provided_by": "hmdb.metabolite_to_pathway",
               "subject": "CHEBI:80603", (chemical compound, ie. the metabolite)
               "object": "SMPDB:SMP0000627", (SMP pathway)
-              "relation": "RO:0000056",
+              "predicate": "RO:0000056",
               "publications": []
 
         :param el: the root of this xml fragment
@@ -421,7 +421,7 @@ class HMDBLoader(SourceDataLoader):
                         # create an edge and add it to the list
                         new_edge = kgxedge(metabolite_id,
                                            object_id,
-                                           relation='RO:0000056',
+                                           predicate='RO:0000056',
                                            original_knowledge_source=self.provenance_id)
                         self.final_edge_list.append(new_edge)
                     else:

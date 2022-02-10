@@ -132,7 +132,7 @@ class UGLoader(SourceDataLoader):
                     self.final_node_list.append(node_1)
                     new_edge = kgxedge(subject_id=triple[0],
                                        object_id=triple[2],
-                                       relation=triple[1],
+                                       predicate=triple[1],
                                        original_knowledge_source=self.provenance_id)
                     self.final_edge_list.append(new_edge)
                     node_2 = kgxnode(triple[2], name=triple[2])

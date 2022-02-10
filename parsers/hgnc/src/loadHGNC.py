@@ -144,7 +144,7 @@ class HGNCLoader(SourceDataLoader):
                         # create the gene to gene family edge
                         new_edge = kgxedge(gene_family_curie,
                                            gene_id,
-                                           relation='BFO:0000051',
+                                           predicate='BFO:0000051',
                                            original_knowledge_source=self.provenance_id,
                                            edgeprops=props)
                         self.final_edge_list.append(new_edge)

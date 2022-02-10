@@ -183,7 +183,7 @@ class CTDLoader(SourceDataLoader):
                 record_counter += 1
 
                 # validate the info
-                good_row, relation_label, props, pmids = self.check_expanded_gene_chemical_row(r)
+                good_row, predicate_label, props, pmids = self.check_expanded_gene_chemical_row(r)
 
                 # skip if not all the data was there
                 if not good_row:
@@ -191,8 +191,8 @@ class CTDLoader(SourceDataLoader):
                     skipped_record_counter += 1
                     continue
 
-                # get the edge relation
-                relation = self.normalize_relation(f"{CTD}:{relation_label}")
+                # get the edge predicate
+                predicate = self.normalize_predicate(f"{CTD}:{predicate_label}")
 
                 # capitalize the node IDs
                 chemical_id: str = r['chemicalID'].upper()
@@ -210,7 +210,7 @@ class CTDLoader(SourceDataLoader):
                     node_list.append(gene_node)
                     self.previous_node_ids.add(gene_id)
 
-                # get the right source/object depending on the relation direction
+                # get the right source/object depending on the predicate direction
                 if r['direction'] == '->':
                     edge_subject: str = chemical_id
                     edge_object: str = gene_id
@@ -221,7 +221,7 @@ class CTDLoader(SourceDataLoader):
                 # save the edge
                 new_edge = kgxedge(edge_subject,
                                    edge_object,
-                                   relation=relation,
+                                   predicate=predicate,
                                    original_knowledge_source=self.provenance_id,
                                    edgeprops={'publications': pmids}.update(props))
                 edge_list.append(new_edge)
@@ -259,7 +259,7 @@ class CTDLoader(SourceDataLoader):
                 record_counter += 1
 
                 # validate the info
-                good_row, relation_label, props, pmids = self.check_expanded_gene_chemical_row(r)
+                good_row, predicate_label, props, pmids = self.check_expanded_gene_chemical_row(r)
 
                 # skip if not all the data was there
                 if not good_row:
@@ -267,8 +267,8 @@ class CTDLoader(SourceDataLoader):
                     skipped_record_counter += 1
                     continue
 
-                # get the edge relation
-                relation = self.normalize_relation(f"{CTD}:{relation_label}")
+                # get the edge predicate
+                predicate = self.normalize_predicate(f"{CTD}:{predicate_label}")
 
                 # capitalize the node IDs
                 chemical_id: str = r['chemicalID'].upper()
@@ -286,7 +286,7 @@ class CTDLoader(SourceDataLoader):
                     node_list.append(gene_node)
                     self.previous_node_ids.add(gene_id)
 
-                # get the right source/object depending on the relation direction
+                # get the right source/object depending on the predicate direction
                 if r['direction'] == '->':
                     edge_subject: str = chemical_id
                     edge_object: str = gene_id
@@ -297,7 +297,7 @@ class CTDLoader(SourceDataLoader):
                 # save the edge
                 new_edge = kgxedge(edge_subject,
                                    edge_object,
-                                   relation=relation,
+                                   predicate=predicate,
                                    original_knowledge_source=self.provenance_id,
                                    edgeprops={'publications': pmids}.update(props))
                 edge_list.append(new_edge)
@@ -341,15 +341,15 @@ class CTDLoader(SourceDataLoader):
                 record_counter += 1
 
                 # get the relation data
-                relation_label: str = r['outcomerelationship']
+                predicate_label: str = r['outcomerelationship']
 
                 # if this has no correlation skip it
-                if relation_label == 'no correlation' or len(r['diseaseid']) == 0 or len(relation_label) == 0:
+                if predicate_label == 'no correlation' or len(r['diseaseid']) == 0 or len(predicate_label) == 0:
                     # increment the skipped record counter
                     skipped_record_counter += 1
                     continue
                 else:
-                    relation: str = self.normalize_relation(relation_label)
+                    predicate: str = self.normalize_predicate(predicate_label)
 
                 # save the disease node
                 disease_id = f'{MESH}:' + r['diseaseid']
@@ -366,10 +366,10 @@ class CTDLoader(SourceDataLoader):
                     self.previous_node_ids.add(exposure_id)
 
                 # save the edge
-                relation_curie = f'{CTD}:{relation}'
+                predicate = f'{CTD}:{predicate}'
                 new_edge = kgxedge(exposure_id,
                                    disease_id,
-                                   relation=relation_curie,
+                                   predicate=predicate,
                                    original_knowledge_source=self.provenance_id,
                                    edgeprops={'publications': [f"PMID:{r['reference']}"]})
                 edge_list.append(new_edge)
@@ -495,27 +495,27 @@ class CTDLoader(SourceDataLoader):
                             # save the reference
                             marker_refs += evidence['refs']
 
-                    # get the relation and label
-                    relation, relation_label = self.get_chemical_label_id(treats_count, marker_count)
+                    # get the predicate and label
+                    predicate, predicate_label = self.get_chemical_label_id(treats_count, marker_count)
 
-                    # was there a valid relation
-                    if relation is None:
+                    # was there a valid predicate
+                    if predicate is None:
                         # increment the skipped record counter
                         skipped_record_counter += 1
                         continue
 
-                    # organize/prioritize the references by relation
-                    if relation == 'RO:0001001':
+                    # organize/prioritize the references by predicate
+                    if predicate == 'RO:0001001':
                         publications = treats_refs + marker_refs
 
-                    if 'marker' in relation:
+                    if 'marker' in predicate:
                         publications = marker_refs
 
-                    if 'therapeutic' in relation:
+                    if 'therapeutic' in predicate:
                         publications = treats_refs
 
-                    # normalize relation
-                    relation: str = self.normalize_relation(relation)
+                    # normalize predicate
+                    predicate: str = self.normalize_predicate(predicate)
 
                     # was this node already added
                     if not disease_node_added:
@@ -534,7 +534,7 @@ class CTDLoader(SourceDataLoader):
                     # add the edge
                     new_edge = kgxedge(chemical_id,
                                        cur_disease_id.upper(),
-                                       relation=relation,
+                                       predicate=predicate,
                                        original_knowledge_source=self.provenance_id,
                                        edgeprops={'publications': publications})
                     edge_list.append(new_edge)
@@ -561,7 +561,7 @@ class CTDLoader(SourceDataLoader):
         good_row: bool = True
         props: dict = {}
         pmids: list = []
-        relation_label: str = ''
+        predicate_label: str = ''
 
         # loop through data and search for "?" which indicates incomplete data
         for item in r:
@@ -577,13 +577,13 @@ class CTDLoader(SourceDataLoader):
             # get the pubmed ids into a list
             pmids: list = r['PMID'].split('|')
 
-            # set the relation label. might get overwritten in edge norm
-            relation_label: str = r['interaction']
+            # set the predicate label. might get overwritten in edge norm
+            predicate_label: str = r['interaction']
 
             # less then 3 publications
             if len(pmids) < 3:
-                # if the relation label in this list it is not usable
-                if relation_label in ['affects expression of', 'increases expression of',
+                # if the predicate label in this list it is not usable
+                if predicate_label in ['affects expression of', 'increases expression of',
                                       'decreases expression of', 'affects methylation of',
                                       'increases methylation of', 'decreases methylation of',
                                       'affects molecular modification of',
@@ -594,8 +594,8 @@ class CTDLoader(SourceDataLoader):
 
             # less than 2 publications
             if len(pmids) < 2:
-                # if the relation label in this list it is not usable
-                if relation_label in ['affects splicing of', 'increases splicing of', 'decreases splicing of']:
+                # if the predicate label in this list it is not usable
+                if predicate_label in ['affects splicing of', 'increases splicing of', 'decreases splicing of']:
                     # mark the row unusable
                     good_row = False
 
@@ -603,32 +603,32 @@ class CTDLoader(SourceDataLoader):
             pmids: list = [p.upper() for p in pmids]
 
         # return to the caller
-        return good_row, relation_label, props, pmids
+        return good_row, predicate_label, props, pmids
 
     @staticmethod
-    def normalize_relation(relation):
+    def normalize_predicate(predicate):
         """
-        Removes ^ / and ` ` from the relation id
+        Removes ^ / and ` ` from the predicate id
 
-        :param relation:
+        :param predicate:
         :return:
         """
         # the capture regex
         regex = '\/|\ |\^'
 
-        # clean up the relation
-        return re.sub(regex, '_', relation)
+        # clean up the predicate
+        return re.sub(regex, '_', predicate)
 
     @staticmethod
-    def get_chemical_label_id(therapeutic_count: int, marker_count: int, marker_relation_label: str = 'marker_mechanism', therapeutic_relation_label: str = 'therapeutic') -> (str, str):
+    def get_chemical_label_id(therapeutic_count: int, marker_count: int, marker_predicate_label: str = 'marker_mechanism', therapeutic_predicate_label: str = 'therapeutic') -> (str, str):
         """
         This function applies rules to determine which edge to prefer in cases
-        where conflicting edges are returned for a chemical disease relation ship.
+        where conflicting edges are returned for a chemical disease relationship.
 
         :param therapeutic_count:
         :param marker_count:
-        :param marker_relation_label:
-        :param therapeutic_relation_label:
+        :param marker_predicate_label:
+        :param therapeutic_predicate_label:
         :return:
         """
 
@@ -639,11 +639,11 @@ class CTDLoader(SourceDataLoader):
 
         # if there are no markers but there is evidence
         if marker_count == 0 and therapeutic_count > 0:
-            return f'{CTD}:{therapeutic_relation_label}', therapeutic_relation_label
+            return f'{CTD}:{therapeutic_predicate_label}', therapeutic_predicate_label
 
         # if there is no therapeutic evidence but there are markers
         if therapeutic_count == 0 and marker_count > 0:
-            return f'{CTD}:{marker_relation_label}', marker_relation_label
+            return f'{CTD}:{marker_predicate_label}', marker_predicate_label
 
         # get the marker flag
         marker = (therapeutic_count == 1 and marker_count > 1) or (marker_count / therapeutic_count > 2)
@@ -653,11 +653,11 @@ class CTDLoader(SourceDataLoader):
 
         # if there are a good number of markers
         if marker:
-            return f'{CTD}:{marker_relation_label}', marker_relation_label
+            return f'{CTD}:{marker_predicate_label}', marker_predicate_label
 
         # if there is a good amount of therapeutic evidence
         if therapeutic:
-            return f'{CTD}:{therapeutic_relation_label}', therapeutic_relation_label
+            return f'{CTD}:{therapeutic_predicate_label}', therapeutic_predicate_label
 
         # return to caller with the default
         return 'RO:0001001', 'related to'

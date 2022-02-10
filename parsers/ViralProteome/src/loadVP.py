@@ -119,7 +119,7 @@ class VPLoader(SourceDataLoader):
                 # write out the edge data
                 file_writer.write_edge(subject_id=edge['subject'],
                                        object_id=edge['object'],
-                                       relation=edge['relation'],
+                                       predicate=edge['predicate'],
                                        original_knowledge_source=self.provenance_id,
                                        edge_properties=edge['properties'])
 
@@ -241,7 +241,7 @@ class VPLoader(SourceDataLoader):
             if node_1_id != '' and node_2_id != '':
                 # create the KGX edge data for nodes 1 and 2
                 """ An edge from the gene to the organism_taxon with relation "in_taxon" """
-                edge_list.append({"subject": f"{node_1_id}", "predicate": "biolink:in_taxon", "relation": "RO:0002162", "object": f"{node_2_id}", 'properties': {}})
+                edge_list.append({"subject": f"{node_1_id}", "predicate": "RO:0002162", "object": f"{node_2_id}", 'properties': {}})
             else:
                 self.logger.warning(f'Warning: Missing 1 or more node IDs. Node type 1: {node_1_id}, Node type 2: {node_2_id}')
 
@@ -255,25 +255,24 @@ class VPLoader(SourceDataLoader):
 
                 # init node 1 to node 3 edge details
                 predicate: str = ''
-                relation: str = ''
                 src_node_id: str = ''
                 obj_node_id: str = ''
                 valid_type = True
 
                 # find the predicate and edge relationships
                 if node_3_type.find('MolecularActivity') > -1:
-                    predicate = 'biolink:enabled_by'
-                    relation = 'RO:0002333'
+                    # predicate = 'biolink:enabled_by'
+                    predicate = 'RO:0002333'
                     src_node_id = node_3_id
                     obj_node_id = node_1_id
                 elif node_3_type.find('BiologicalProcess') > -1:
-                    predicate = 'biolink:actively_involved_in'
-                    relation = 'RO:0002331'
+                    # predicate = 'biolink:actively_involved_in'
+                    predicate = 'RO:0002331'
                     src_node_id = node_1_id
                     obj_node_id = node_3_id
                 elif node_3_type.find('CellularComponent') > -1:
-                    predicate = 'biolink:has_part'
-                    relation = 'RO:0001019'
+                    # predicate = 'biolink:has_part'
+                    predicate = 'RO:0001019'
                     src_node_id = node_3_id
                     obj_node_id = node_1_id
                 else:
@@ -286,7 +285,7 @@ class VPLoader(SourceDataLoader):
                     self.logger.debug(f'Warning: Missing 1 or more node IDs. Node type 1: {node_1_id}, Node type 3: {node_3_id}')
                 else:
                     # create the KGX edge data for nodes 1 and 3
-                    edge_list.append({'id': '', 'subject': src_node_id, 'predicate': predicate, 'relation': relation, "object": obj_node_id, 'properties': {}})
+                    edge_list.append({'id': '', 'subject': src_node_id, 'predicate': predicate, "object": obj_node_id, 'properties': {}})
 
         self.logger.debug(f'{len(edge_list)} edges identified.')
 

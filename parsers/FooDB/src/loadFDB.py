@@ -161,7 +161,7 @@ class FDBLoader(SourceDataLoader):
                                       'amount': item['properties']['amount']}
                         new_edge = kgxedge(subject_id,
                                            object_id,
-                                           relation='RO:0001019',
+                                           predicate='RO:0001019',
                                            original_knowledge_source=self.provenance_id,
                                            edgeprops=edge_props)
                         self.final_edge_list.append(new_edge)
@@ -218,7 +218,7 @@ class FDBLoader(SourceDataLoader):
             for item in compound_list[1:]:
                 new_edge = kgxedge(subject_id=subject_id,
                                    object_id=item['id'],
-                                   relation='RO:0001019',
+                                   predicate='RO:0001019',
                                    original_knowledge_source=self.provenance_id,
                                    edgeprops={'unit': item['properties']['unit'].encode('ascii', errors='ignore').decode(encoding="utf-8"), 'amount': item['properties']['amount']})
                 self.final_edge_list.append(new_edge)

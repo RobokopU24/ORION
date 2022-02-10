@@ -129,7 +129,7 @@ class PHAROSLoader(SourceDataLoader):
             self.logger.debug('Creating nodes and edges.')
 
             # create a data frame with the node list
-            df: pd.DataFrame = pd.DataFrame(node_list, columns=['grp', 'node_num', 'id', 'name', 'category', 'equivalent_identifiers', 'predicate', 'relation', 'edge_label', 'pmids', 'affinity', 'affinity_parameter', 'provenance'])
+            df: pd.DataFrame = pd.DataFrame(node_list, columns=['grp', 'node_num', 'id', 'name', 'category', 'equivalent_identifiers', 'predicate', 'edge_label', 'pmids', 'affinity', 'affinity_parameter', 'provenance'])
 
             # get the list of unique nodes and edges
             self.get_nodes_and_edges(df)
@@ -203,7 +203,7 @@ class PHAROSLoader(SourceDataLoader):
                 node_list.append({'grp': grp, 'node_num': 1, 'id': gene, 'name': gene_sym, 'category': '', 'equivalent_identifiers': ''})
 
                 # create the disease node and add it to the list
-                node_list.append({'grp': grp, 'node_num': 2, 'id': did, 'name': name, 'category': '', 'equivalent_identifiers': '', 'predicate': 'biolink:gene_associated_with_condition', 'relation': 'WIKIDATA_PROPERTY:P2293', 'edge_label': 'gene_associated_with_condition', 'pmids': [], 'affinity': 0, 'affinity_parameter': '', 'provenance': provenance})
+                node_list.append({'grp': grp, 'node_num': 2, 'id': did, 'name': name, 'category': '', 'equivalent_identifiers': '', 'predicate': 'WIKIDATA_PROPERTY:P2293', 'edge_label': 'gene_associated_with_condition', 'pmids': [], 'affinity': 0, 'affinity_parameter': '', 'provenance': provenance})
 
         # return the node list to the caller
         return node_list, record_counter, skipped_record_counter
@@ -232,7 +232,7 @@ class PHAROSLoader(SourceDataLoader):
             gene = item['value']
             gene_sym = item['sym']
             drug_id = f"{prefixmap[item['id_src']]}{item['cid'].replace('CHEMBL', '')}"
-            relation, pmids, props, provenance = self.get_edge_props(item)
+            predicate, pmids, props, provenance = self.get_edge_props(item)
 
             # if there were affinity properties use them
             if len(props) == 2:
@@ -243,14 +243,14 @@ class PHAROSLoader(SourceDataLoader):
                 affinity_parameter = None
 
             # create the group id
-            grp: str = drug_id + relation + gene + f'{random.random()}'
+            grp: str = drug_id + predicate + gene + f'{random.random()}'
             grp = hashlib.md5(grp.encode("utf-8")).hexdigest()
 
             # create the disease node and add it to the node list
             node_list.append({'grp': grp, 'node_num': 1, 'id': drug_id, 'name': name, 'category': '', 'equivalent_identifiers': ''})
 
             # create the gene node and add it to the list
-            node_list.append({'grp': grp, 'node_num': 2, 'id': gene, 'name': gene_sym, 'category': '', 'equivalent_identifiers': '', 'predicate': '', 'relation': relation, 'edge_label': '', 'pmids': pmids, 'affinity': affinity, 'affinity_parameter': affinity_parameter, 'provenance': provenance})
+            node_list.append({'grp': grp, 'node_num': 2, 'id': gene, 'name': gene_sym, 'category': '', 'equivalent_identifiers': '', 'predicate': predicate, 'edge_label': '', 'pmids': pmids, 'affinity': affinity, 'affinity_parameter': affinity_parameter, 'provenance': provenance})
 
         return node_list, record_counter, skipped_record_counter
 
@@ -278,7 +278,7 @@ class PHAROSLoader(SourceDataLoader):
             gene = item['value']
             gene_sym = item['sym']
             cmpd_id = f"{prefixmap[item['id_src']]}{item['cid'].replace('CHEMBL', '')}"
-            relation, pmids, props, provenance = self.get_edge_props(item)
+            predicate, pmids, props, provenance = self.get_edge_props(item)
 
             # if there were affinity properties use them
             if len(props) == 2:
@@ -289,14 +289,14 @@ class PHAROSLoader(SourceDataLoader):
                 affinity_parameter = None
 
             # create the group id
-            grp: str = cmpd_id + relation + gene + f'{random.random()}'
+            grp: str = cmpd_id + predicate + gene + f'{random.random()}'
             grp = hashlib.md5(grp.encode("utf-8")).hexdigest()
 
             # create the gene node and add it to the list
             node_list.append({'grp': grp, 'node_num': 1, 'id': gene, 'name': gene_sym, 'category': '', 'equivalent_identifiers': ''})
 
             # create the compound node and add it to the node list
-            node_list.append({'grp': grp, 'node_num': 2, 'id': cmpd_id, 'name': name, 'category': '', 'equivalent_identifiers': '', 'predicate': '', 'relation': relation, 'edge_label': '', 'pmids': pmids, 'affinity': affinity, 'affinity_parameter': affinity_parameter, 'provenance': provenance})
+            node_list.append({'grp': grp, 'node_num': 2, 'id': cmpd_id, 'name': name, 'category': '', 'equivalent_identifiers': '', 'predicate': predicate, 'edge_label': '', 'pmids': pmids, 'affinity': affinity, 'affinity_parameter': affinity_parameter, 'provenance': provenance})
 
         return node_list, record_counter, skipped_record_counter
 
@@ -305,7 +305,7 @@ class PHAROSLoader(SourceDataLoader):
         gets the edge properties from the node results
 
         :param result:
-        :return str: relation, list: pmids, dict: props, str: provenance:
+        :return str: predicate, list: pmids, dict: props, str: provenance:
         """
         # if there was a predicate make it look pretty
         if result['pred'] is not None and len(result['pred']) > 1:
@@ -320,8 +320,8 @@ class PHAROSLoader(SourceDataLoader):
         else:
             rel: str = 'interacts_with'
 
-        # save the relation
-        relation: str = f'GAMMA:{rel}'
+        # save the predicate
+        predicate: str = f'GAMMA:{rel}'
 
         # if there was provenance data save it
         if result['dtype'] is not None and len(result['dtype']) > 0:
@@ -349,7 +349,7 @@ class PHAROSLoader(SourceDataLoader):
             props['affinity_parameter'] = ''
 
         # return to the caller
-        return relation, pmids, props, provenance
+        return predicate, pmids, props, provenance
 
     @staticmethod
     def snakify(text):
@@ -438,7 +438,6 @@ class PHAROSLoader(SourceDataLoader):
                             # save the edge
                             edge_props = {"publications": row[1]['pmids'], "affinity": row[1]['affinity'], "affinity_parameter":  row[1]['affinity_parameter']}
                             new_edge = kgxedge(subject_id=node_1_id,
-                                               relation=row[1]['relation'],
                                                predicate=row[1]['predicate'],
                                                object_id=row[1]['id'],
                                                edgeprops=edge_props,

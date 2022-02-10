@@ -160,7 +160,7 @@ class GTExLoader(SourceDataWithVariantsLoader):
 
                 self.logger.debug('Merging eqtl edges and writing them...')
                 self.logger.debug('Merging and writing edges...')
-                # coalesce the edges that share subject/relation/object, turning relevant properties into arrays
+                # coalesce the edges that share subject/predicate/object, turning relevant properties into arrays
                 # write them to file
                 self.coalesce_and_write_edges(kgx_file_writer)
                 self.edge_list.clear()
@@ -178,7 +178,7 @@ class GTExLoader(SourceDataWithVariantsLoader):
                         self.create_edge(anatomy_id, variant_id, gene_id, p_value, slope, is_sqtl=True)
 
                 self.logger.debug('Merging sqtl edges and writing them...')
-                # coalesce the edges that share subject/relation/object, turning relevant properties into arrays
+                # coalesce the edges that share subject/predicate/object, turning relevant properties into arrays
                 # write them to file
                 self.coalesce_and_write_edges(kgx_file_writer)
                 self.edge_list.clear()
@@ -264,15 +264,15 @@ class GTExLoader(SourceDataWithVariantsLoader):
                     slope: str,
                     is_sqtl: bool = False):
         if is_sqtl:
-            relation = "CTD:affects_splicing_of"
+            predicate = "CTD:affects_splicing_of"
         elif float(slope) > 0:
-            relation = "CTD:increases_expression_of"
+            predicate = "CTD:increases_expression_of"
         else:
-            relation = "CTD:decreases_expression_of"
+            predicate = "CTD:decreases_expression_of"
         self.edge_list.append(
             {"subject": variant_id,
              "object": gene_id,
-             "relation": relation,
+             "predicate": predicate,
              "expressed_in": anatomy_id,
              "p_value": float(p_value),
              "slope": float(slope)})
@@ -362,7 +362,7 @@ class GTExLoader(SourceDataWithVariantsLoader):
         :return: Nothing
         """
         # sort the list of dicts
-        self.edge_list = sorted(self.edge_list, key=lambda i: (i['subject'], i['object'], i['relation']))
+        self.edge_list = sorted(self.edge_list, key=lambda i: (i['subject'], i['object'], i['predicate']))
 
         # create a list for the anatomy_ids, p-values and slope
         anatomy_ids: list = []
@@ -373,7 +373,7 @@ class GTExLoader(SourceDataWithVariantsLoader):
         item: dict = self.edge_list[0]
 
         # create boundary group keys. the key will be the subject - edge label - object
-        start_group_key: str = item["subject"] + item["relation"] + item["object"]
+        start_group_key: str = item["subject"] + item["predicate"] + item["object"]
 
         # prime the loop with the first record
         cur_record: dict = item
@@ -381,7 +381,7 @@ class GTExLoader(SourceDataWithVariantsLoader):
         # loop through the edge data
         for item in self.edge_list:
             # get the current group key
-            cur_group_key: str = item["subject"] + item["relation"] + item["object"]
+            cur_group_key: str = item["subject"] + item["predicate"] + item["object"]
 
             # did we encounter a new grouping
             if cur_group_key != start_group_key:
@@ -394,7 +394,7 @@ class GTExLoader(SourceDataWithVariantsLoader):
                 # write out the coalesced edge for the previous group
                 kgx_file_writer.write_edge(subject_id=cur_record["subject"],
                                            object_id=cur_record["object"],
-                                           relation=cur_record["relation"],
+                                           predicate=cur_record["predicate"],
                                            original_knowledge_source=self.provenance_id,
                                            edge_properties=edge_properties)
 
@@ -422,7 +422,7 @@ class GTExLoader(SourceDataWithVariantsLoader):
             # write out the coalesced edge for the previous group
             kgx_file_writer.write_edge(subject_id=cur_record["subject"],
                                        object_id=cur_record["object"],
-                                       relation=cur_record["relation"],
+                                       predicate=cur_record["predicate"],
                                        original_knowledge_source=self.provenance_id,
                                        edge_properties=edge_properties)
 

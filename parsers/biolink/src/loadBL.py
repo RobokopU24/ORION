@@ -105,8 +105,7 @@ class BLLoader(SourceDataLoader):
                                   lambda line: get_bl_edge_predicate(line),  # predicate extractor
                                   lambda line: {},  # subject props
                                   lambda line: {},  # object props
-                                  lambda line: {'relation': line[EDGESDATACOLS.RELATION.value].split('|')[0],
-                                                AGGREGATOR_KNOWLEDGE_SOURCES: ['infores:sri-reference-kg']},#edgeprops
+                                  lambda line: {AGGREGATOR_KNOWLEDGE_SOURCES: ['infores:sri-reference-kg']},#edgeprops
                                   comment_character=None,
                                   delim='\t',
                                   has_header_row=True)

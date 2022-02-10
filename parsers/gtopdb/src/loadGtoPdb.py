@@ -1,12 +1,11 @@
 import os
 import csv
 import argparse
-import logging
 import requests
 import re
 
 from bs4 import BeautifulSoup
-from Common.utils import LoggingUtil, GetData
+from Common.utils import GetData
 from Common.loader_interface import SourceDataLoader, SourceDataFailedError
 from Common.prefixes import GTOPDB, HGNC, ENSEMBL
 from Common.kgxmodel import kgxnode, kgxedge
@@ -207,7 +206,7 @@ class GtoPdbLoader(SourceDataLoader):
                         # save the edge
                         new_edge = kgxedge(ligand_id,
                                            part_node_id,
-                                           relation='BFO:0000051',
+                                           predicate='BFO:0000051',
                                            original_knowledge_source=GtoPdbLoader.provenance_id)
                         edge_list.append(new_edge)
                 else:
@@ -252,11 +251,11 @@ class GtoPdbLoader(SourceDataLoader):
 
                 # do the ligand to gene nodes/edges
                 if r['target_species'].startswith('Human') and r['target_ensembl_gene_id'] != '' and r['target'] != '':  # and r['ligand_id'] in self.ligands
-                    # did we get a good relation
+                    # did we get a good predicate
                     if r['type'].startswith('None'):
                         continue
                     else:
-                        relation = 'GAMMA:' + r['type'].lower().replace(' ', '_')
+                        predicate = 'GAMMA:' + r['type'].lower().replace(' ', '_')
 
                     # create a ligand node
                     ligand_id = f'{GTOPDB}:' + r['ligand_id']
@@ -299,7 +298,7 @@ class GtoPdbLoader(SourceDataLoader):
                         # create the edge
                         new_edge = kgxedge(ligand_id,
                                            gene_id,
-                                           relation=relation,
+                                           predicate=predicate,
                                            original_knowledge_source=self.provenance_id,
                                            edgeprops=props)
 
@@ -340,7 +339,7 @@ class GtoPdbLoader(SourceDataLoader):
                                 # create the edge
                                 new_edge = kgxedge(gene_id,
                                                    ligand_id,
-                                                   relation='RO:0002205',
+                                                   predicate='RO:0002205',
                                                    original_knowledge_source=self.provenance_id,
                                                    edgeprops=props)
 
