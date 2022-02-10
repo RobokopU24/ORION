@@ -1234,13 +1234,13 @@ class GetData:
         return ret_val
 
     @staticmethod
-    def split_file(archive_path, data_file_path: str, data_file_name: str, lines_per_file: int = 150000) -> list:
+    def split_file(archive_file_path: str, output_dir: str, data_file_name: str, lines_per_file: int = 500000) -> list:
         """
         splits a file into numerous smaller files.
 
-        :param archive_path: the path to the zipped archive file
-        :param data_file_path: the path to where the input file is and where the split files go
-        :param data_file_name: the name of the input data file
+        :param archive_file_path: the path to the zipped archive file
+        :param output_dir: the path where the split files go
+        :param data_file_name: the name of the data file inside of the archive
         :param lines_per_file: the number of lines for each split file
         :return: a list of file names that were created
         """
@@ -1259,7 +1259,7 @@ class GetData:
         lines: list = []
 
         # open the zip file
-        with ZipFile(archive_path) as zf:
+        with ZipFile(archive_file_path) as zf:
             # open the taxon file indexes and the uniref data file
             with TextIOWrapper(zf.open(data_file_name), encoding="utf-8") as fp:
                 while True:
@@ -1277,7 +1277,7 @@ class GetData:
                     if line_counter >= lines_per_file:
                         # loop through the lines
                         # create the output file
-                        file_name = os.path.join(data_file_path, file_prefix + str(file_counter))
+                        file_name = os.path.join(output_dir, file_prefix + str(file_counter))
 
                         # add the file name to the output list
                         ret_val.append(file_name)
@@ -1296,17 +1296,19 @@ class GetData:
                         # clear out for the next cycle
                         lines.clear()
 
-        # output any not yet written
-        # create the output file
-        file_name = os.path.join(data_file_path, file_prefix + str(file_counter))
+        # write any remaining lines to the last split file
+        if lines:
 
-        # add the file name to the output list
-        ret_val.append(file_name)
+            # create the output file
+            file_name = os.path.join(output_dir, file_prefix + str(file_counter))
 
-        # open the file
-        with open(file_name, 'w') as of:
-            # write the lines
-            of.write('\n'.join(lines))
+            # add the file name to the output list
+            ret_val.append(file_name)
+
+            # open the file
+            with open(file_name, 'w') as of:
+                # write the lines
+                of.write('\n'.join(lines))
 
         # return the file name list
         return ret_val

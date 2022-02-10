@@ -53,12 +53,6 @@ class UGLoader(SourceDataLoader):
 
         byte_count: int = gd.pull_via_http(f'https://stars.renci.org/var/data_services/{self.data_file}',
                                            self.data_path, False)
-
-        # unzip the archive and split the file into pieces of size file_size
-        file_size = 250000
-        data_file_inside_archive = 'properties-nonredundant.ttl'
-        self.split_file_paths: list = gd.split_file(self.data_file, self.data_path, data_file_inside_archive, file_size)
-
         if byte_count > 0:
             return True
         else:
@@ -69,6 +63,11 @@ class UGLoader(SourceDataLoader):
         Parses the data file for graph nodes/edges.
         """
 
+        # unzip the archive and split the file into pieces of size file_size
+        gd: GetData = GetData(self.logger.level)
+        split_file_paths: list = gd.split_file(archive_file_path=os.path.join(self.data_path, f'{self.data_file}'),
+                                               output_dir=self.data_path,
+                                               data_file_name=self.data_file.replace('.zip', '.ttl'))
         # init the record counters
         record_counter: int = 0
         skipped_record_counter: int = 0
@@ -80,7 +79,7 @@ class UGLoader(SourceDataLoader):
         gd: GetData = GetData(self.logger.level)
 
         # parse each file
-        for file in self.split_file_paths:
+        for file in split_file_paths:
             self.logger.info(f'Working file: {file}')
 
             # get a time stamp
@@ -143,6 +142,11 @@ class UGLoader(SourceDataLoader):
 
             self.logger.debug(f'Loading complete for file {file.split(".")[2]} of {len(self.split_file_paths)} in {round(time.time() - tm_start, 0)} seconds.')
 
+        # remove all the intermediate files
+        for file in split_file_paths:
+            if os.path.exists(file):
+                os.remove(file)
+
         load_metadata: dict = {
             'num_source_lines': record_counter,
             'unusable_source_lines': skipped_record_counter
@@ -150,14 +154,6 @@ class UGLoader(SourceDataLoader):
 
         # return to the caller
         return load_metadata
-
-    def clean_up(self):
-        # these split files are generated during parsing and don't fit the normal mold, custom clean up here
-        if self.split_file_paths:
-            for file_to_remove in self.split_file_paths:
-                if os.path.exists(file_to_remove):
-                    os.remove(file_to_remove)
-        super().clean_up()
 
 
 if __name__ == '__main__':
