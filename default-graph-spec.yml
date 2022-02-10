@@ -2,14 +2,20 @@
 graphs:
 
   - graph_id: Baseline
+    # optional parameters to be applied to the entire graph - see README for more info
+    # node_normalization_version: latest
+    # edge_normalization_version: latest
+    # conflation: False (whether or not to conflate node types like Genes and Proteins)
     sources:
       - source_id: Biolink
-        # optional parameters you can use to specify using previously built versions
-        # source_version:
-        # parsing_version:
-        # node_normalization_version:
-        # edge_normalization_version:
-        # strict_normalization:
+        # optional parameters for each data source - see README for more info
+        # source_version: latest (the version of the source data)
+        # parsing_version: latest (the version of the parser used to parse the data)
+        # node_normalization_version: latest
+        # edge_normalization_version: latest
+        # conflation: False
+        # strict_normalization: True (whether or not data should be discarded when it can not be normalized)
+        # merge_strategy: default (used to specify alternative merge strategies)
       - source_id: OntologicalHierarchy
       - source_id: DrugCentral
       - source_id: GtoPdb
@@ -24,14 +30,17 @@ graphs:
       - source_id: HMDB
 
   - graph_id: Genetics
+    subgraphs:
+      - graph_id: Baseline
     sources:
-      - subgraph_id: Baseline
       - source_id: GWASCatalog
       - source_id: GTEx
+        strict_normalization: False
 
   - graph_id: Covid
+    subgraphs:
+      - graph_id: Genetics
     sources:
-      - subgraph_id: Genetics
       - source_id: Cord19
       - source_id: ViralProteome
 
