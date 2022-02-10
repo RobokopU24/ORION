@@ -72,13 +72,13 @@ docker-compose up
 If you want to specify an individual graph you can override that default entrypoint with a graph id from your Spec.
 ```
 docker-compose start redis
-docker-compose run --rm data_services python Data_services/Common/build_manager.py -g Example_Graph_ID
+docker-compose run --rm data_services python /Data_services/Common/build_manager.py -g Example_Graph_ID
 ```
 To create KGX files for a single data source, you can use:
 ```
-docker-compose run --rm data_services python Data_services/Common/load_manager.py Example_Source
+docker-compose run --rm data_services python /Data_services/Common/load_manager.py Example_Source
 ```
 To see available arguments and a list of supported data sources:
 ```
-python Data_services/Common/load_manager.py -h
+python /Data_services/Common/load_manager.py -h
 ```
