@@ -29,7 +29,7 @@ class GraphDBTools:
         # self.graph_uri = f'neo4j://{self.graph_db_container_name}:{self.graph_http_port}'
         self.graph_db_password = graph_db_password
 
-        self.grab_db_container = None
+        self.graph_db_container = None
 
     def init_graph_db_container(self):
         docker_client = docker.from_env()
@@ -57,13 +57,13 @@ class GraphDBTools:
             self.graph_bolt_port: self.graph_bolt_port
         }
         print(f'Creating Neo4j docker container named {self.graph_db_container_name}...')
-        self.grab_db_container = docker_client.containers.run("neo4j:4.3",
-                                                              name=self.graph_db_container_name,
-                                                              environment=environment,
-                                                              ports=ports,
-                                                              # network='data_services_network',
-                                                              auto_remove=True,
-                                                              detach=True)
+        self.graph_db_container = docker_client.containers.run("neo4j:4.3",
+                                                               name=self.graph_db_container_name,
+                                                               environment=environment,
+                                                               ports=ports,
+                                                               # network='data_services_network',
+                                                               auto_remove=True,
+                                                               detach=True)
 
     def wait_for_container_initialization(self):
         try:
@@ -82,7 +82,7 @@ class GraphDBTools:
                    edges_input_file: str,
                    input_file_format: str = 'jsonl'):
 
-        if not self.grab_db_container:
+        if not self.graph_db_container:
             self.init_graph_db_container()
         self.wait_for_container_initialization()
 
@@ -102,7 +102,7 @@ class GraphDBTools:
         }
         # use KGX to load the files into neo4j
         print(f'Loading data from {nodes_input_file} and {edges_input_file} into {self.graph_db_container_name}...')
-        t = Transformer()
+        t = Transformer(stream=True)
         t.transform(input_args, output_args)
 
 
