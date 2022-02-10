@@ -2,6 +2,7 @@
 import os
 import json
 
+from Common.kgxmodel import NormalizationScheme
 
 class Metadata:
 
@@ -169,9 +170,7 @@ class SourceMetadata(Metadata):
     def update_normalization_metadata(self,
                                       parsing_version: str,
                                       normalization_version: str,
-                                      node_normalization_version: str = None,
-                                      edge_normalization_version: str = None,
-                                      strict_normalization: bool = None,
+                                      normalization_scheme: NormalizationScheme = None,
                                       normalization_status: str = None,
                                       normalization_info: dict = None,
                                       normalization_time: str = None,
@@ -190,12 +189,11 @@ class SourceMetadata(Metadata):
             normalization_dict['normalization_status'] = normalization_status
         if normalization_info:
             normalization_dict['normalization_info'] = normalization_info
-        if node_normalization_version:
-            normalization_dict['node_normalization_version'] = node_normalization_version
-        if edge_normalization_version:
-            normalization_dict['edge_normalization_version'] = edge_normalization_version
-        if strict_normalization:
-            normalization_dict['strict_normalization'] = strict_normalization
+        if normalization_scheme:
+            normalization_dict['node_normalization_version'] = normalization_scheme.node_normalization_version
+            normalization_dict['edge_normalization_version'] = normalization_scheme.edge_normalization_version
+            normalization_dict['strict_normalization'] = normalization_scheme.strict
+            normalization_dict['conflation'] = normalization_scheme.conflation
         if normalization_time:
             normalization_dict['normalization_time'] = normalization_time
         if normalization_error:

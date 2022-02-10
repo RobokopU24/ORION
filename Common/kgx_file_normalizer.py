@@ -6,10 +6,11 @@ from itertools import islice
 from collections import defaultdict
 from xxhash import xxh64_hexdigest
 from Common.node_types import SEQUENCE_VARIANT, ORIGINAL_KNOWLEDGE_SOURCE, PRIMARY_KNOWLEDGE_SOURCE, \
-    AGGREGATOR_KNOWLEDGE_SOURCES, PUBLICATIONS, OBJECT_ID, SUBJECT_ID, RELATION, PREDICATE
+    AGGREGATOR_KNOWLEDGE_SOURCES, PUBLICATIONS, OBJECT_ID, SUBJECT_ID, PREDICATE
 from Common.utils import LoggingUtil
 from Common.utils import NodeNormUtils, EdgeNormUtils, EdgeNormalizationResult
 from Common.kgx_file_writer import KGXFileWriter
+from Common.kgxmodel import NormalizationScheme
 
 
 class NormalizationBrokenError(Exception):
@@ -38,6 +39,7 @@ EDGE_PROPERTIES_THAT_SHOULD_BE_SETS = {AGGREGATOR_KNOWLEDGE_SOURCES, PUBLICATION
 NODE_NORMALIZATION_BATCH_SIZE = 100000
 EDGE_NORMALIZATION_BATCH_SIZE = 100000
 
+
 #
 # This piece takes KGX-like files and normalizes the nodes and edges for biolink compliance.
 # It then writes all of the normalized nodes and edges to new files.
@@ -57,15 +59,14 @@ class KGXFileNormalizer:
                  source_edges_file_path: str,
                  edges_output_file_path: str,
                  edge_norm_predicate_map_file_path: str,
+                 normalization_scheme: NormalizationScheme = None,
                  edge_subject_pre_normalized: bool = False,
                  edge_object_pre_normalized: bool = False,
                  has_sequence_variants: bool = False,
                  sequence_variants_pre_normalized: bool = False,
-                 node_normalization_version: str = 'latest',
-                 edge_normalization_version: str = 'latest',
-                 conflate_node_types: bool = False,
-                 predicates_pre_normalized: bool = False,
-                 strict_normalization: bool = True):
+                 predicates_pre_normalized: bool = False):
+        if not normalization_scheme:
+            normalization_scheme = NormalizationScheme()
         self.source_nodes_file_path = source_nodes_file_path
         self.nodes_output_file_path = nodes_output_file_path
         self.node_norm_map_file_path = node_norm_map_file_path
@@ -81,16 +82,16 @@ class KGXFileNormalizer:
         self.predicates_pre_normalized = predicates_pre_normalized
         self.has_sequence_variants = has_sequence_variants
         self.sequence_variants_pre_normalized = sequence_variants_pre_normalized
-        self.normalization_metadata = {'strict_normalization': strict_normalization,
+        self.normalization_metadata = {'strict_normalization': normalization_scheme.strict,
                                        'sequence_variants_pre_normalized': sequence_variants_pre_normalized}
 
         # instances of the normalization service wrappers
         # strict normalization flag tells normalizer to throw away any nodes that don't normalize
         try:
-            self.node_normalizer = NodeNormUtils(node_normalization_version=node_normalization_version,
-                                                 strict_normalization=strict_normalization,
-                                                 conflate_node_types=conflate_node_types)
-            self.edge_normalizer = EdgeNormUtils(edge_normalization_version=edge_normalization_version)
+            self.node_normalizer = NodeNormUtils(node_normalization_version=normalization_scheme.node_normalization_version,
+                                                 strict_normalization=normalization_scheme.strict,
+                                                 conflate_node_types=normalization_scheme.conflation)
+            self.edge_normalizer = EdgeNormUtils(edge_normalization_version=normalization_scheme.edge_normalization_version)
         except Exception as e:
             raise NormalizationFailedError(e)
 
@@ -104,7 +105,6 @@ class KGXFileNormalizer:
     # given file paths to the source data node file and an output file,
     # normalize the nodes and write them to the new file
     # also write a file with the node ids that did not successfully normalize
-    # if the conflation only flag is on - use conflation in the normalizer and ignore sequence variant nodes
     def normalize_node_file(self):
 
         # get the current node normalizer version
@@ -228,7 +228,7 @@ class KGXFileNormalizer:
         })
 
     # given file paths to the source data edge file and an output file,
-    # normalize the predicates/relations and write them to the new file
+    # normalize the predicates and write them to the new file
     # also write a file with the predicates that did not successfully normalize
     def normalize_edge_file(self):
 
@@ -281,13 +281,13 @@ class KGXFileNormalizer:
                         else:
                             if not self.predicates_pre_normalized:
                                 try:
-                                    edge_norm_result: EdgeNormalizationResult = edge_norm_lookup[edge[RELATION]]
+                                    edge_norm_result: EdgeNormalizationResult = edge_norm_lookup[edge[PREDICATE]]
                                     # extract the normalization info
                                     normalized_predicate = edge_norm_result.identifier
                                     edge_inverted_by_normalization = edge_norm_result.inverted
                                     # edge_label = edge_norm_result.label # right now label is not used
                                 except KeyError:
-                                    norm_error_msg = f'Edge norm lookup failure - missing {edge[RELATION]}!'
+                                    norm_error_msg = f'Edge norm lookup failure - missing {edge[PREDICATE]}!'
                                     self.logger.error(norm_error_msg)
                                     raise NormalizationFailedError(norm_error_msg)
                             else:
@@ -342,9 +342,9 @@ class KGXFileNormalizer:
                                 edge_splits += edge_count - 1
                     self.logger.info(f'Processed {number_of_source_edges} edges so far...')
 
-        except IOError as e:
-            norm_error_msg = f'Error reading edges file {self.source_edges_file_path}'
-            raise NormalizationFailedError(error_message=norm_error_msg, actual_error=e.msg)
+        except OSError as e:
+            norm_error_msg = f'Error normalizing edges file {self.source_edges_file_path}'
+            raise NormalizationFailedError(error_message=norm_error_msg, actual_error=e)
 
         try:
             self.logger.debug(f'Writing normalized edges to file...')
@@ -353,13 +353,12 @@ class KGXFileNormalizer:
                     normalized_edge_count += 1
                     output_file_writer.write_edge(subject_id=edge[SUBJECT_ID],
                                                   object_id=edge[OBJECT_ID],
-                                                  relation=edge[RELATION],
                                                   predicate=edge[PREDICATE],
                                                   edge_properties=edge,
                                                   edge_id=edge['id'])
-        except IOError as e:
+        except OSError as e:
             norm_error_msg = f'Error writing edges file {self.edges_output_file_path}'
-            raise NormalizationFailedError(error_message=norm_error_msg, actual_error=e.msg)
+            raise NormalizationFailedError(error_message=norm_error_msg, actual_error=e)
 
         try:
             self.logger.debug(f'Writing predicate map to file...')
@@ -370,9 +369,9 @@ class KGXFileNormalizer:
                                   'predicate_norm_failures': list(edge_norm_failures)}
             with open(self.edge_norm_predicate_map_file_path, "w") as predicate_map_file:
                 json.dump(predicate_map_info, predicate_map_file, sort_keys=True, indent=4)
-        except IOError as e:
+        except OSError as e:
             norm_error_msg = f'Error writing edge predicate map file {self.edge_norm_predicate_map_file_path}'
-            raise NormalizationFailedError(error_message=norm_error_msg, actual_error=e.msg)
+            raise NormalizationFailedError(error_message=norm_error_msg, actual_error=e)
 
         self.normalization_metadata.update({
             'edge_norm_version': self.edge_normalizer.edge_norm_version,

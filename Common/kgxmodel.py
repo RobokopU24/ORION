@@ -19,14 +19,12 @@ class kgxedge:
                  subject_id,
                  object_id,
                  predicate=None,
-                 relation=None,
                  original_knowledge_source=None,
                  primary_knowledge_source=None,
                  aggregator_knowledge_sources=None,
                  edgeprops=None):
         self.subjectid = subject_id
         self.objectid = object_id
-        self.relation = relation
         self.predicate = predicate
         self.original_knowledge_source = original_knowledge_source
         self.primary_knowledge_source = primary_knowledge_source
@@ -37,42 +35,78 @@ class kgxedge:
             self.properties = {}
 
 
-KNOWLEDGE_SOURCE = "knowledge_source"
-SUBGRAPH = "sub_graph"
+@dataclass
+class NormalizationScheme:
+    node_normalization_version: str = 'latest'
+    edge_normalization_version: str = 'latest'
+    strict: bool = True
+    conflation: bool = False
+
+    def get_composite_normalization_version(self):
+        composite_normalization_version = f'{self.node_normalization_version}_' \
+                                f'{self.edge_normalization_version}'
+        if self.conflation:
+            composite_normalization_version += '_conflated'
+        if self.strict:
+            composite_normalization_version += '_strict'
+        return composite_normalization_version
+
+    def get_metadata_representation(self):
+        return {'node_normalization_version': self.node_normalization_version,
+                'edge_normalization_version': self.edge_normalization_version,
+                'conflation': self.conflation,
+                'strict': self.strict}
+
 
 @dataclass
 class GraphSpec:
     graph_id: str
     graph_version: str
     graph_output_format: str
-    sources: list
+    sources: list = None
+    subgraphs: list = None
 
     def get_metadata_representation(self):
         return {
             'graph_id': self.graph_id,
             'graph_version': self.graph_version,
             'graph_output_format': self.graph_output_format,
-            'sources': [{'source_id': source.source_id,
-                         'source_type': source.source_type,
-                         'source_version': source.source_version,
-                         'parsing_version': source.parsing_version,
-                         'node_normalization_version': source.node_normalization_version,
-                         'edge_normalization_version': source.edge_normalization_version,
-                         'strict_normalization': source.strict_normalization,
-                         'merge_strategy': source.merge_strategy} for source in self.sources]
+            'subgraphs': [subgraph.get_metadata_representation() for subgraph in self.subgraphs] if self.subgraphs else [],
+            'sources': [source.get_metadata_representation() for source in self.sources] if self.sources else []
         }
 
 
+@dataclass
+class SubGraphSpec:
+    graph_id: str
+    graph_version: str
+    merge_strategy: str = 'default'
+    graph_metadata: dict = None
+    file_paths: list = None
+
+    def get_metadata_representation(self):
+        return {'graph_id': self.graph_id,
+                'graph_version': self.graph_version,
+                'merge_strategy:': self.merge_strategy,
+                'graph_metadata': self.graph_metadata}
+
 
 @dataclass
-class GraphSource:
+class SourceDataSpec:
     source_id: str
-    source_type: str
     source_version: str
-    parsing_version: str = 'latest'
-    node_normalization_version: str = 'latest'
-    edge_normalization_version: str = 'latest'
-    strict_normalization: bool = True
+    normalization_scheme: NormalizationScheme
+    parsing_version: str = None
+    supplementation_version: str = None
     merge_strategy: str = 'default'
     file_paths: list = None
+
+    def get_metadata_representation(self):
+        return {'source_id': self.source_id,
+                'source_version': self.source_version,
+                'parsing_version': self.parsing_version,
+                'supplementation_version': self.supplementation_version,
+                'normalization_scheme': self.normalization_scheme.get_metadata_representation(),
+                'merge_strategy': self.merge_strategy}
+
 

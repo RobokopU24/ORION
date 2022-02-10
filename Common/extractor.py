@@ -130,9 +130,10 @@ class Extractor:
             primary_knowledge_source = edgeprops.pop(PRIMARY_KNOWLEDGE_SOURCE, None)
             aggregator_knowledge_sources = edgeprops.pop(AGGREGATOR_KNOWLEDGE_SOURCES, None)
             relation = edgeprops.pop('relation', predicate)
+            if relation and relation != predicate:
+                predicate = relation
             edge = kgxedge(subject_id,
                            object_id,
-                           relation=relation,
                            predicate=predicate,
                            original_knowledge_source=original_knowledge_source,
                            primary_knowledge_source=primary_knowledge_source,

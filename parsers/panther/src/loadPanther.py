@@ -269,7 +269,7 @@ class PLoader(SourceDataLoader):
 
                     # create the edge
                     new_edge = kgxedge(subject_id=g_sub_fam_id,
-                                       relation='BFO:0000050',
+                                       predicate='BFO:0000050',
                                        object_id=family.identifier,
                                        original_knowledge_source=self.provenance_id)
                     self.final_edge_list.append(new_edge)
@@ -294,7 +294,7 @@ class PLoader(SourceDataLoader):
 
                 # create the edge
                 gene_family_edge = kgxedge(subject_id=gene_id,
-                                           relation='BFO:0000050',
+                                           predicate='BFO:0000050',
                                            object_id=family.identifier,
                                            original_knowledge_source=self.provenance_id)
                 self.final_edge_list.append(gene_family_edge)
@@ -318,7 +318,7 @@ class PLoader(SourceDataLoader):
 
                     # create the gene_family-biological_process_or_activity edge
                     new_edge = kgxedge(subject_id=family.identifier,
-                                       relation='RO:0002331',
+                                       predicate='RO:0002331',
                                        object_id=bio_p_id,
                                        original_knowledge_source=self.provenance_id)
                     self.final_edge_list.append(new_edge)
@@ -342,7 +342,7 @@ class PLoader(SourceDataLoader):
 
                     # create the gene_family-molecular function edge
                     new_edge = kgxedge(subject_id=family.identifier,
-                                       relation='RO:0002327',
+                                       predicate='RO:0002327',
                                        object_id=mole_func_id,
                                        original_knowledge_source=self.provenance_id)
                     self.final_edge_list.append(new_edge)
@@ -366,7 +366,7 @@ class PLoader(SourceDataLoader):
 
                     # create the gene_family-cellular_component edge
                     new_edge = kgxedge(subject_id=family.identifier,
-                                       relation='RO:0001025',
+                                       predicate='RO:0001025',
                                        object_id=cellular_component_id,
                                        original_knowledge_source=self.provenance_id)
                     self.final_edge_list.append(new_edge)
@@ -392,7 +392,7 @@ class PLoader(SourceDataLoader):
 
                 # create the gene_family-pathway edge
                 new_edge = kgxedge(subject_id=panther_pathway_id,
-                                   relation='RO:0000057',
+                                   predicate='RO:0000057',
                                    object_id=family.identifier,
                                    original_knowledge_source=self.provenance_id)
                 self.final_edge_list.append(new_edge)

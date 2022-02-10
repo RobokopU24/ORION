@@ -18,7 +18,7 @@ from datetime import datetime
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
 from robokop_genetics.genetics_normalization import GeneticsNormalizer
-from Common.node_types import ROOT_ENTITY, FALLBACK_EDGE_PREDICATE, FALLBACK_EDGE_PREDICATE_LABEL
+from Common.node_types import ROOT_ENTITY, FALLBACK_EDGE_PREDICATE, FALLBACK_EDGE_PREDICATE_LABEL, PREDICATE
 
 class LoggingUtil(object):
     """
@@ -419,7 +419,6 @@ class EdgeNormUtils:
     changed during the normalization:
 
         predicate: the name of the predicate
-        relation: the biolink label curie
         edge_label: label of the predicate
 
     """
@@ -474,7 +473,7 @@ class EdgeNormUtils:
         # save the edge list count to avoid grabbing it over and over
         edge_count: int = len(edge_list)
 
-        # init a set to hold edge relations that have not yet been normed
+        # init a set to hold edge predicates that have not yet been normed
         tmp_normalize: set = set()
         # iterate through node groups and get only the taxa records.
 
@@ -482,10 +481,10 @@ class EdgeNormUtils:
 
         while edge_idx < edge_count:
             # check to see if this one needs normalization data from the website
-            if not edge_list[edge_idx]['relation'] in cached_edge_norms:
-                tmp_normalize.add(edge_list[edge_idx]['relation'])
+            if not edge_list[edge_idx][PREDICATE] in cached_edge_norms:
+                tmp_normalize.add(edge_list[edge_idx][PREDICATE])
             else:
-                self.logger.debug(f"Cache hit: {edge_list[edge_idx]['relation']}")
+                self.logger.debug(f"Cache hit: {edge_list[edge_idx][PREDICATE]}")
 
             # increment to the next node array element
             edge_idx += 1
@@ -544,27 +543,27 @@ class EdgeNormUtils:
         # storage for items that failed to normalize
         failed_to_normalize: list = list()
 
-        # walk through the unique relations and extract the normalized predicate for the lookup map
-        for relation in to_normalize:
+        # walk through the unique predicates and extract the normalized predicate for the lookup map
+        for predicate in to_normalize:
             success = False
             # did the service return a value
-            if relation in cached_edge_norms and cached_edge_norms[relation]:
-                if 'identifier' in cached_edge_norms[relation]:
+            if predicate in cached_edge_norms and cached_edge_norms[predicate]:
+                if 'identifier' in cached_edge_norms[predicate]:
                     # store it in the look up map
-                    identifier = cached_edge_norms[relation]['identifier']
-                    label = cached_edge_norms[relation]['label']
-                    if 'inverted' in cached_edge_norms[relation] and cached_edge_norms[relation]['inverted']:
+                    identifier = cached_edge_norms[predicate]['identifier']
+                    label = cached_edge_norms[predicate]['label']
+                    if 'inverted' in cached_edge_norms[predicate] and cached_edge_norms[predicate]['inverted']:
                         inverted = True
                     else:
                         inverted = False
-                    self.edge_normalization_lookup[relation] = EdgeNormalizationResult(identifier, label, inverted)
+                    self.edge_normalization_lookup[predicate] = EdgeNormalizationResult(identifier, label, inverted)
                     success = True
             if not success:
                 # this should not happen but if it does use the fallback predicate
-                self.edge_normalization_lookup[relation] = EdgeNormalizationResult(FALLBACK_EDGE_PREDICATE,
+                self.edge_normalization_lookup[predicate] = EdgeNormalizationResult(FALLBACK_EDGE_PREDICATE,
                                                                                    FALLBACK_EDGE_PREDICATE_LABEL)
                 # if no result for whatever reason add it to the fail list
-                failed_to_normalize.append(relation)
+                failed_to_normalize.append(predicate)
 
         # if something failed to normalize output it
         if failed_to_normalize:

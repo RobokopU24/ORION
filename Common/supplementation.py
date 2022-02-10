@@ -2,7 +2,7 @@ import subprocess
 import jsonlines
 import json
 from subprocess import SubprocessError
-from os import path, mkdir, environ
+from os import path, environ
 from io import BytesIO
 from urllib.request import urlopen
 from zipfile import ZipFile
@@ -11,6 +11,7 @@ from Common.node_types import SEQUENCE_VARIANT, GENE
 from Common.utils import LoggingUtil
 from Common.kgx_file_writer import KGXFileWriter
 from Common.kgx_file_normalizer import KGXFileNormalizer
+from Common.kgxmodel import NormalizationScheme
 
 
 class SupplementationFailedError(Exception):
@@ -48,8 +49,7 @@ class SequenceVariantSupplementation:
                                supp_edges_file_path: str,
                                normalized_supp_edge_file_path: str,
                                supp_edge_norm_predicate_map_file_path: str,
-                               node_normalization_version: str = 'latest',
-                               edge_normalization_version: str = 'latest'):
+                               normalization_scheme: NormalizationScheme):
 
         self.logger.debug('Parsing nodes file..')
         source_nodes = self.parse_nodes_file(nodes_file_path)
@@ -77,8 +77,7 @@ class SequenceVariantSupplementation:
                                             source_edges_file_path=supp_edges_file_path,
                                             edges_output_file_path=normalized_supp_edge_file_path,
                                             edge_norm_predicate_map_file_path=supp_edge_norm_predicate_map_file_path,
-                                            node_normalization_version=node_normalization_version,
-                                            edge_normalization_version=edge_normalization_version,
+                                            normalization_scheme=normalization_scheme,
                                             edge_subject_pre_normalized=True,
                                             has_sequence_variants=True)
         supp_normalization_info = file_normalizer.normalize_kgx_files()

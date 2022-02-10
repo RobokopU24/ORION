@@ -7,10 +7,11 @@ from xxhash import xxh64_hexdigest
 from collections import defaultdict
 from Common.utils import LoggingUtil
 from Common.load_manager import SourceDataManager
-from Common.kgx_file_merger import KGXFileMerger
-from Common.kgxmodel import GraphSource, GraphSpec, KNOWLEDGE_SOURCE, SUBGRAPH
+from Common.kgx_file_merger import KGXFileMerger, RedisKGXFileMerger
+from Common.kgxmodel import GraphSpec, SourceDataSpec, SubGraphSpec, NormalizationScheme
 from Common.metadata import Metadata, GraphMetadata, SourceMetadata
 from Common.supplementation import SequenceVariantSupplementation
+
 
 class GraphBuilder:
 
@@ -21,10 +22,8 @@ class GraphBuilder:
                                                log_file_path=os.environ['DATA_SERVICES_LOGS'])
 
         self.graphs_dir = self.init_graphs_dir()  # path to the graphs output directory
+        self.graph_specs = self.load_graph_specs()  # list of graphs to build (GraphSpec objects)
         self.source_data_manager = SourceDataManager()  # access to the data sources and their metadata
-        self.graph_metadata = defaultdict(lambda: dict())
-        self.current_graph_versions = {}
-        self.graph_specs = self.load_graph_specs()  # list of GraphSpec
 
     def build_all_graphs(self):
         for graph_spec in self.graph_specs:
@@ -32,17 +31,13 @@ class GraphBuilder:
 
     def build_graph(self, graph_spec: GraphSpec):
 
-        graph_id = graph_spec.graph_id
-
-        success_w_dependencies = self.build_dependencies(graph_spec)
-        if not success_w_dependencies:
-            self.logger.warning(f'Aborting graph {graph_id}, loading dependencies failed.')
+        if not self.build_dependencies(graph_spec):
+            self.logger.warning(f'Aborting graph {graph_spec.graph_id}, building dependencies failed.')
             return
 
+        graph_id = graph_spec.graph_id
         graph_version = self.generate_graph_version(graph_spec)
-        self.current_graph_versions[graph_id] = graph_version
         graph_metadata = self.get_graph_metadata(graph_id, graph_version)
-        self.graph_metadata[graph_id][graph_version] = graph_metadata
 
         # check the status for previous builds of this version
         build_status = graph_metadata.get_build_status()
@@ -74,6 +69,12 @@ class GraphBuilder:
         merge_metadata = source_merger.merge(graph_spec,
                                              nodes_output_file_path=nodes_output_path,
                                              edges_output_file_path=edges_output_path)
+
+        redis_source_merger = RedisKGXFileMerger()
+        merge_metadata2 = redis_source_merger.merge(graph_spec,
+                                                    nodes_output_file_path=nodes_output_path + "_redis",
+                                                    edges_output_file_path=edges_output_path + "_redis")
+
         if "merge_error" in merge_metadata:
             current_time = datetime.datetime.now().strftime('%m-%d-%y %H:%M:%S')
             graph_metadata.set_build_error(merge_metadata["merge_error"], current_time)
@@ -85,144 +86,181 @@ class GraphBuilder:
             graph_metadata.set_build_status(Metadata.STABLE)
             self.logger.info(f'Building graph {graph_id} complete!')
 
-    def load_graph_specs(self):
-
-        if 'DATA_SERVICES_GRAPH_SPEC' in os.environ:
-            graph_spec_file = os.environ['DATA_SERVICES_GRAPH_SPEC']
-            graph_spec_path = os.path.join(self.graphs_dir, graph_spec_file)
-            self.logger.info(f'Loading custom graph spec - {graph_spec_file}')
-        else:
-            graph_spec_path = os.path.dirname(os.path.abspath(__file__)) + '/../default-graph-spec.yml'
-            self.logger.info(f'Loading default graph spec..')
-
-        with open(graph_spec_path) as graph_spec_file:
-            graph_spec_yaml = yaml.full_load(graph_spec_file)
-            graph_specs = []
-            if not graph_spec_yaml['graphs']:
-                self.logger.error(f'Error: No graphs were found in the graph spec.')
-                return graph_specs
-
-            for graph_yaml in graph_spec_yaml['graphs']:
-                graph_id = graph_yaml['graph_id']
-                graph_sources = []
-                for source in graph_yaml['sources']:
-                    graph_sources.append(self.parse_source(source))
-
-                if not graph_sources:
-                    self.logger.error(f'Error: No sources were provided for graph: {graph_id}.')
-                    continue
-
-                graph_output_format = graph_yaml['output_format'] if 'output_format' in graph_yaml else 'jsonl'
-                current_graph_spec = GraphSpec(graph_id=graph_id,
-                                               graph_version=None,  # the version is will be generated later
-                                               graph_output_format=graph_output_format,
-                                               sources=graph_sources)
-                graph_specs.append(current_graph_spec)
-
-        return graph_specs
-
-    def parse_source(self, source: dict):
-
-        if 'source_id' in source:
-            source_id = source['source_id']
-            source_type = KNOWLEDGE_SOURCE
-        elif 'subgraph_id' in source:
-            source_id = source['subgraph_id']
-            source_type = SUBGRAPH
-        else:
-            raise Exception(f'Error parsing Graph Spec source: {source}')
-
-        source_version = source['version'] if 'version' in source else 'latest'
-        node_normalization_version = source['node_normalization_version'] if 'node_normalization_version' in source else 'latest'
-        edge_normalization_version = source['edge_normalization_version'] if 'edge_normalization_version' in source else 'latest'
-        strict_normalization = source['strict_normalization'] if 'strict_normalization' in source else True
-        parsing_version = source['parsing_version'] if 'parsing_version' in source else 'latest'
-        merge_strategy = source['merge_strategy'] if 'merge_strategy' in source else 'default'
-        graph_source = GraphSource(source_id=source_id,
-                                   source_type=source_type,
-                                   source_version=source_version,
-                                   parsing_version=parsing_version,
-                                   node_normalization_version=node_normalization_version,
-                                   edge_normalization_version=edge_normalization_version,
-                                   strict_normalization=strict_normalization,
-                                   merge_strategy=merge_strategy)
-        return graph_source
+            # create a symlink for accessing 'latest'
+            # latest_graph_dir = self.get_graph_dir_path(graph_id, 'latest')
+            # os.remove(latest_graph_dir)
+            # os.symlink(graph_output_dir, latest_graph_dir, target_is_directory=True)
 
     def build_dependencies(self, graph_spec: GraphSpec):
 
         graph_id = graph_spec.graph_id
+        for subgraph_source in graph_spec.subgraphs:
+            subgraph_id = subgraph_source.graph_id
+            subgraph_version = subgraph_source.graph_version
+            if self.check_for_existing_graph_dir(subgraph_id, subgraph_version):
+                # load previous metadata
+                graph_metadata = self.get_graph_metadata(subgraph_id, subgraph_version)
 
-        for subgraph_source in [graph_source for graph_source in graph_spec.sources
-                                if graph_source.source_type == SUBGRAPH]:
-            subgraph_id = subgraph_source.source_id
-            if subgraph_source.source_version == 'latest':
-                if subgraph_id in self.current_graph_versions:
-                    subgraph_version = self.current_graph_versions[subgraph_id]
-                    subgraph_source.source_version = subgraph_version
-                else:
-                    self.logger.warning(f'Attempting to build graph {graph_id} failed, sub graph {subgraph_id} failed or was not previously defined.')
-                    return False
+                # grab the graph version from the metadata - this is necessary to replace 'latest' with a real one
+                subgraph_version = graph_metadata.get_graph_version()
+                subgraph_source.graph_version = subgraph_version
             else:
-                subgraph_version = subgraph_source.source_version
-                if self.check_for_existing_build(subgraph_id, subgraph_version):
-                    # load previous metadata
-                    graph_metadata = self.get_graph_metadata(subgraph_id, subgraph_version)
-                    self.graph_metadata[subgraph_id][subgraph_version] = graph_metadata
-                else:
-                    self.logger.warning(f'Attempting to build graph {graph_id} failed, sub graph {subgraph_id} previous version {subgraph_version} not found.')
-                    return False
-
-            if self.graph_metadata[subgraph_id][subgraph_version].get_build_status() == Metadata.STABLE:
-                # we found the sub graph and it's stable - update the GraphSource in preparation for building the graph
-                subgraph_output_dir = self.get_graph_dir_path(subgraph_id, subgraph_version)
-                nodes_output_path = self.get_graph_nodes_file_path(subgraph_output_dir)
-                edges_output_path = self.get_graph_edges_file_path(subgraph_output_dir)
-                subgraph_source.file_paths = [nodes_output_path, edges_output_path]
-            else:
-                self.logger.warning(
-                    f'Attempting to build graph {graph_id} failed, sub graph {subgraph_id} version {sub_graph_source.source_version} is not stable.')
+                self.logger.warning(f'Attempting to build graph {graph_id} failed, '
+                                    f'subgraph {subgraph_id} version {subgraph_version} not found.')
                 return False
 
-        for graph_source in [graph_source for graph_source in graph_spec.sources
-                             if graph_source.source_type == KNOWLEDGE_SOURCE]:
-            source_id = graph_source.source_id
-            strict_normalization = graph_source.strict_normalization
+            if graph_metadata.get_build_status() == Metadata.STABLE:
+                # we found the sub graph and it's stable - update the GraphSource in preparation for building the graph
+                subgraph_dir = self.get_graph_dir_path(subgraph_id, subgraph_version)
+                subgraph_nodes_path = self.get_graph_nodes_file_path(subgraph_dir)
+                subgraph_edges_path = self.get_graph_edges_file_path(subgraph_dir)
+                subgraph_source.file_paths = [subgraph_nodes_path, subgraph_edges_path]
+            else:
+                self.logger.warning(
+                    f'Attempting to build graph {graph_id} failed, sub graph {subgraph_id} version {subgraph_version} is not stable.')
+                return False
 
-            if graph_source.source_version == 'latest':
-                graph_source.source_version = self.source_data_manager.get_latest_source_version(source_id)
-            if graph_source.parsing_version == 'latest':
-                graph_source.parsing_version = self.source_data_manager.get_latest_parsing_version(source_id)
-            if graph_source.node_normalization_version == 'latest':
-                graph_source.node_normalization_version = self.source_data_manager.get_latest_node_normalization_version()
-            if graph_source.edge_normalization_version == 'latest':
-                graph_source.edge_normalization_version = self.source_data_manager.get_latest_edge_normalization_version()
-            graph_source.supplementation_version = SequenceVariantSupplementation.SUPPLEMENTATION_VERSION
+        for data_source in graph_spec.sources:
+            source_id = data_source.source_id
 
-            normalization_version = self.source_data_manager.generate_normalization_version(graph_source.node_normalization_version,
-                                                                                            graph_source.edge_normalization_version,
-                                                                                            strict_normalization)
+            if data_source.source_version == 'latest':
+                data_source.source_version = self.source_data_manager.get_latest_source_version(source_id)
+            if data_source.parsing_version == 'latest':
+                data_source.parsing_version = self.source_data_manager.get_latest_parsing_version(source_id)
+
+            normalization_scheme = data_source.normalization_scheme
+            if normalization_scheme.node_normalization_version == 'latest':
+                normalization_scheme.node_normalization_version = self.source_data_manager.get_latest_node_normalization_version()
+            if normalization_scheme.edge_normalization_version == 'latest':
+                normalization_scheme.edge_normalization_version = self.source_data_manager.get_latest_edge_normalization_version()
+
+            data_source.supplementation_version = SequenceVariantSupplementation.SUPPLEMENTATION_VERSION
+
             source_metadata: SourceMetadata = self.source_data_manager.get_source_metadata(source_id,
-                                                                                           graph_source.source_version)
-            if not source_metadata.is_stable(parsing_version=graph_source.parsing_version,
-                                             normalization_version=normalization_version,
-                                             supplementation_version=graph_source.supplementation_version):
+                                                                                           data_source.source_version)
+            if not source_metadata.is_stable(parsing_version=data_source.parsing_version,
+                                             normalization_version=data_source.normalization_scheme.get_composite_normalization_version(),
+                                             supplementation_version=data_source.supplementation_version):
                 self.logger.info(
                     f'Attempting to build graph {graph_id}, dependency {source_id} is not ready. Building now...')
                 success = self.source_data_manager.run_pipeline(source_id,
-                                                                strict_normalization=strict_normalization)
+                                                                source_version=data_source.source_version,
+                                                                parsing_version=data_source.parsing_version,
+                                                                normalization_scheme=data_source.normalization_scheme,
+                                                                supplementation_version=data_source.supplementation_version)
                 if not success:
                     self.logger.info(
-                        f'Attempting to build graph {graph_id}, building dependency {source_id} failed. Aborting...')
+                        f'Attempting to build graph {graph_id}, building dependency {source_id} failed. ...')
                     return False
 
-            finalized_file_paths = self.source_data_manager.get_final_file_paths(source_id,
-                                                                                 graph_source.source_version,
-                                                                                 graph_source.parsing_version,
-                                                                                 normalization_version,
-                                                                                 graph_source.supplementation_version)
-            graph_source.file_paths = finalized_file_paths
-
+            data_source.file_paths = self.source_data_manager.get_final_file_paths(source_id,
+                                                                                   data_source.source_version,
+                                                                                   data_source.parsing_version,
+                                                                                   data_source.normalization_scheme.get_composite_normalization_version(),
+                                                                                   data_source.supplementation_version)
         return True
+
+    def load_graph_specs(self):
+        if 'DATA_SERVICES_GRAPH_SPEC' in os.environ:
+            graph_spec_file = os.environ['DATA_SERVICES_GRAPH_SPEC']
+            graph_spec_path = os.path.join(self.graphs_dir, graph_spec_file)
+            if os.path.exists(graph_spec_path):
+                self.logger.info(f'Loading graph spec: {graph_spec_file}')
+                with open(graph_spec_path) as graph_spec_file:
+                    graph_spec_yaml = yaml.full_load(graph_spec_file)
+                    return self.parse_graph_spec(graph_spec_yaml)
+            else:
+                raise Exception(f'Configuration Error - Graph Spec could not be found: {graph_spec_file}')
+        else:
+            raise Exception(f'Configuration Error - No Graph Spec was configured. Set the environment variable '
+                            f'DATA_SERVICES_GRAPH_SPEC to a valid Graph Spec file in your Graphs directory. '
+                            f'See the README for more info.')
+
+    def parse_graph_spec(self, graph_spec_yaml):
+        graph_specs = []
+        try:
+            for graph_yaml in graph_spec_yaml['graphs']:
+                graph_id = graph_yaml['graph_id']
+
+                # parse the list of data sources
+                data_sources = [self.parse_data_source_spec(data_source) for data_source in graph_yaml['sources']] \
+                    if 'sources' in graph_yaml else []
+
+                # parse the list of subgraphs
+                subgraph_sources = [self.parse_subgraph_spec(subgraph) for subgraph in graph_yaml['subgraphs']] \
+                    if 'subgraphs' in graph_yaml else []
+
+                if not data_sources and not subgraph_sources:
+                    self.logger.error(f'Error: No sources were provided for graph: {graph_id}.')
+                    continue
+
+                # take any normalization scheme parameters specified at the graph level
+                graph_wide_node_norm_version = graph_yaml['node_normalization_version'] \
+                    if 'node_normalization_version' in graph_yaml else None
+                graph_wide_edge_norm_version = graph_yaml['edge_normalization_version'] \
+                    if 'edge_normalization_version' in graph_yaml else None
+                graph_wide_conflation = graph_yaml['conflation'] \
+                    if 'conflation' in graph_yaml else None
+                graph_wide_strict_norm = graph_yaml['strict_normalization'] \
+                    if 'strict_normalization' in graph_yaml else None
+
+                # apply them to all of the data sources, this will overwrite anything defined at the source level
+                for data_source in data_sources:
+                    if graph_wide_node_norm_version is not None:
+                        data_source.normalization_scheme.node_normalization_version = graph_wide_node_norm_version
+                    if graph_wide_edge_norm_version is not None:
+                        data_source.normalization_scheme.edge_normalization_version = graph_wide_edge_norm_version
+                    if graph_wide_conflation is not None:
+                        data_source.normalization_scheme.conflation = graph_wide_conflation
+                    if graph_wide_strict_norm is not None:
+                        data_source.normalization_scheme.strict = graph_wide_strict_norm
+
+                # we don't support other output formats yet
+                # graph_output_format = graph_yaml['output_format'] if 'output_format' in graph_yaml else 'jsonl'
+                graph_output_format = 'jsonl'
+                current_graph_spec = GraphSpec(graph_id=graph_id,
+                                               graph_version=None,
+                                               graph_output_format=graph_output_format,
+                                               subgraphs=subgraph_sources,
+                                               sources=data_sources)
+                graph_specs.append(current_graph_spec)
+        except KeyError as e:
+            self.logger.error(f'Error parsing Graph Spec, formatting error or missing information: {e}')
+
+        return graph_specs
+
+    def parse_subgraph_spec(self, subgraph_yml):
+        graph_id = subgraph_yml['graph_id']
+        graph_version = subgraph_yml['graph_version'] if 'graph_version' in subgraph_yml else 'latest'
+        merge_strategy = subgraph_yml['merge_strategy'] if 'merge_strategy' in subgraph_yml else 'default'
+        subgraph_source = SubGraphSpec(graph_id=graph_id,
+                                       graph_version=graph_version,
+                                       merge_strategy=merge_strategy)
+        return subgraph_source
+
+    def parse_data_source_spec(self, source_yml):
+        source_id = source_yml['source_id']
+        source_version = source_yml['source_version'] if 'source_version' in source_yml else 'latest'
+        parsing_version = source_yml['parsing_version'] if 'parsing_version' in source_yml else 'latest'
+        merge_strategy = source_yml['merge_strategy'] if 'merge_strategy' in source_yml else 'default'
+        node_normalization_version = source_yml['node_normalization_version'] \
+            if 'node_normalization_version' in source_yml else 'latest'
+        edge_normalization_version = source_yml['edge_normalization_version'] \
+            if 'edge_normalization_version' in source_yml else 'latest'
+        strict_normalization = source_yml['strict_normalization'] \
+            if 'strict_normalization' in source_yml else True
+        conflation = source_yml['conflation'] \
+            if 'conflation' in source_yml else False
+        normalization_scheme = NormalizationScheme(node_normalization_version=node_normalization_version,
+                                                   edge_normalization_version=edge_normalization_version,
+                                                   strict=strict_normalization,
+                                                   conflation=conflation)
+        graph_source = SourceDataSpec(source_id=source_id,
+                                      source_version=source_version,
+                                      normalization_scheme=normalization_scheme,
+                                      parsing_version=parsing_version,
+                                      merge_strategy=merge_strategy)
+        return graph_source
 
     def get_graph_spec(self, graph_id: str):
         for graph_spec in self.graph_specs:
@@ -239,7 +277,7 @@ class GraphBuilder:
     def get_graph_edges_file_path(self, graph_output_dir: str):
         return os.path.join(graph_output_dir, f'edges.jsonl')
 
-    def check_for_existing_build(self, graph_id: str, graph_version: str):
+    def check_for_existing_graph_dir(self, graph_id: str, graph_version: str):
         graph_output_dir = self.get_graph_dir_path(graph_id, graph_version)
         if not os.path.isdir(graph_output_dir):
             return False
