@@ -14,7 +14,7 @@ from Common.hgvs_utils import convert_variant_to_hgvs
 class GTExLoader(SourceDataWithVariantsLoader):
 
     # this probably won't change very often - just hard code it for now
-    GTEX_VERSION = 8
+    GTEX_VERSION = "8"
 
     # tissue name to uberon curies, the tissue names will match gtex file names
     TISSUES = {
