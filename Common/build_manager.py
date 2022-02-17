@@ -20,6 +20,7 @@ class GraphBuilder:
                                                line_format='medium',
                                                log_file_path=os.environ['DATA_SERVICES_LOGS'])
 
+        self.current_graph_versions = {}
         self.graphs_dir = self.init_graphs_dir()  # path to the graphs output directory
         self.graph_specs = self.load_graph_specs()  # list of graphs to build (GraphSpec objects)
         self.source_data_manager = SourceDataManager()  # access to the data sources and their metadata
@@ -30,12 +31,14 @@ class GraphBuilder:
 
     def build_graph(self, graph_spec: GraphSpec):
 
+        graph_id = graph_spec.graph_id
+        graph_version = self.generate_graph_version(graph_spec)
+        self.current_graph_versions[graph_id] = graph_version
+
         if not self.build_dependencies(graph_spec):
             self.logger.warning(f'Aborting graph {graph_spec.graph_id}, building dependencies failed.')
             return
 
-        graph_id = graph_spec.graph_id
-        graph_version = self.generate_graph_version(graph_spec)
         graph_metadata = self.get_graph_metadata(graph_id, graph_version)
 
         # check the status for previous builds of this version
@@ -91,6 +94,8 @@ class GraphBuilder:
         for subgraph_source in graph_spec.subgraphs:
             subgraph_id = subgraph_source.graph_id
             subgraph_version = subgraph_source.graph_version
+            if subgraph_version == 'current':
+                subgraph_version = self.current_graph_versions[subgraph_id]
             if self.check_for_existing_graph_dir(subgraph_id, subgraph_version):
                 # load previous metadata
                 graph_metadata = self.get_graph_metadata(subgraph_id, subgraph_version)
@@ -225,7 +230,7 @@ class GraphBuilder:
 
     def parse_subgraph_spec(self, subgraph_yml):
         graph_id = subgraph_yml['graph_id']
-        graph_version = subgraph_yml['graph_version'] if 'graph_version' in subgraph_yml else 'latest'
+        graph_version = subgraph_yml['graph_version'] if 'graph_version' in subgraph_yml else 'current'
         merge_strategy = subgraph_yml['merge_strategy'] if 'merge_strategy' in subgraph_yml else 'default'
         subgraph_source = SubGraphSpec(graph_id=graph_id,
                                        graph_version=graph_version,
