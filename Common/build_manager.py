@@ -4,10 +4,9 @@ import yaml
 import argparse
 import datetime
 from xxhash import xxh64_hexdigest
-from collections import defaultdict
 from Common.utils import LoggingUtil
 from Common.load_manager import SourceDataManager
-from Common.kgx_file_merger import KGXFileMerger, RedisKGXFileMerger
+from Common.kgx_file_merger import KGXFileMerger
 from Common.kgxmodel import GraphSpec, SourceDataSpec, SubGraphSpec, NormalizationScheme
 from Common.metadata import Metadata, GraphMetadata, SourceMetadata
 from Common.supplementation import SequenceVariantSupplementation
@@ -69,11 +68,6 @@ class GraphBuilder:
         merge_metadata = source_merger.merge(graph_spec,
                                              nodes_output_file_path=nodes_output_path,
                                              edges_output_file_path=edges_output_path)
-
-        redis_source_merger = RedisKGXFileMerger()
-        merge_metadata2 = redis_source_merger.merge(graph_spec,
-                                                    nodes_output_file_path=nodes_output_path + "_redis",
-                                                    edges_output_file_path=edges_output_path + "_redis")
 
         if "merge_error" in merge_metadata:
             current_time = datetime.datetime.now().strftime('%m-%d-%y %H:%M:%S')

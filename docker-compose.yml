@@ -9,23 +9,12 @@ services:
       - DATA_SERVICES_GRAPH_SPEC
       - DATA_SERVICES_LOGS=/Data_services_logs
       - "HOST_STORAGE_DIR=${DATA_SERVICES_STORAGE}"
-      - "DATA_SERVICES_REDIS_HOST=${DATA_SERVICES_REDIS_HOST}"
-      - "DATA_SERVICES_REDIS_PORT=${DATA_SERVICES_REDIS_PORT}"
-      - "DATA_SERVICES_REDIS_PASSWORD=${DATA_SERVICES_REDIS_PASSWORD}"
     volumes:
       - .:/Data_services
       - "${DATA_SERVICES_STORAGE}:/Data_services_storage"
       - "${DATA_SERVICES_GRAPHS}:/Data_services_graphs"
       - "${DATA_SERVICES_LOGS}:/Data_services_logs"
       - /var/run/docker.sock:/var/run/docker.sock
-    networks:
-      - ds_network
-
-  redis:
-    image: redis
-    command: 'redis-server --requirepass ${DATA_SERVICES_REDIS_PASSWORD} --save "" --appendonly no'
-    ports:
-      - "${DATA_SERVICES_REDIS_PORT}:${DATA_SERVICES_REDIS_PORT}"
     networks:
       - ds_network
 
