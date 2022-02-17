@@ -46,30 +46,19 @@ class VPLoader(SourceDataLoader):
     TYPE_BACTERIA: str = '0'
     TYPE_VIRUS: str = '9'
 
-    # the final output lists of nodes and edges
-    final_node_list: list = []
-    final_edge_list: list = []
+    source_id = 'Viral proteome'
+    provenance_id = 'infores:uniref-viral-proteins'
 
-    node_norm_failures: list = []
-
-    def __init__(self, test_mode: bool = False):
+    def __init__(self, test_mode: bool = False, source_data_dir: str = None):
         """
-        constructor
         :param test_mode - sets the run into test mode
+        :param source_data_dir - the specific storage directory to save files in
         """
-        # call the super
-        super(SourceDataLoader, self).__init__()
+        super().__init__(test_mode=test_mode, source_data_dir=source_data_dir)
 
         # set global variables
-        self.data_path = os.environ['DATA_SERVICES_STORAGE']
-        self.test_mode = test_mode
-        self.source_id = 'Viral proteome'
         self.source_db = 'GOA viral proteomes'
-        self.provenance_id = 'infores:uniref-viral-proteins'
         self.goa_data_dir = self.data_path + '/Virus_GOA_files/'
-
-        # create a logger
-        self.logger = LoggingUtil.init_logging("Data_services.ViralProteome.VPLoader", level=logging.INFO, line_format='medium', log_file_path=os.environ['DATA_SERVICES_LOGS'])
 
         # get the util object
         self.gd = GetData(self.logger.level)
@@ -79,14 +68,6 @@ class VPLoader(SourceDataLoader):
 
         # get the viral proteome file list
         self.file_list: list = self.gd.get_uniprot_virus_file_list(self.data_path, target_taxa_set)
-
-    def get_name(self):
-        """
-        returns the name of this class
-
-        :return: str - the name of the class
-        """
-        return self.__class__.__name__
 
     def get_latest_source_version(self):
         """
@@ -138,7 +119,7 @@ class VPLoader(SourceDataLoader):
                 # write out the edge data
                 file_writer.write_edge(subject_id=edge['subject'],
                                        object_id=edge['object'],
-                                       relation=edge['relation'],
+                                       predicate=edge['predicate'],
                                        original_knowledge_source=self.provenance_id,
                                        edge_properties=edge['properties'])
 
@@ -185,7 +166,7 @@ class VPLoader(SourceDataLoader):
             self.final_node_list = [dict(t) for t in {tuple(d.items()) for d in self.final_node_list}]
 
             # normalize the group of entries on the data frame.
-            self.final_node_list = self.normalize_node_data(self.final_node_list)
+            # self.final_node_list = self.normalize_node_data(self.final_node_list)
 
             self.logger.debug(f'{len(self.final_node_list)} nodes found')
 
@@ -218,115 +199,6 @@ class VPLoader(SourceDataLoader):
 
         # return the metadata to the caller
         return load_metadata
-
-    def normalize_node_data(self, node_list: list) -> list:
-        """
-        This method calls the NodeNormalization web service to get the normalized identifier and name of the chemical substance node.
-        the data comes in as a grouped data frame and we will normalize the node_2 and node_3 groups.
-
-        :param node_list: data frame with items to normalize
-        :return: the data frame passed in with updated node data
-        """
-
-        # storage for cached node normalizations
-        cached_node_norms: dict = {}
-
-        # loop through the list and only save the NCBI taxa nodes
-        node_idx: int = 0
-
-        # save the node list count to avoid grabbing it over and over
-        node_count: int = len(node_list)
-
-        # init a list to identify taxa that has not been node normed
-        tmp_normalize: set = set()
-
-        # iterate through the data and get the keys to normalize
-        while node_idx < node_count:
-            # check to see if this one needs normalization data from the website
-            if node_list[node_idx]['node_num'] in [2, 3]:
-                if not node_list[node_idx]['id'] in cached_node_norms:
-                    tmp_normalize.add(node_list[node_idx]['id'])
-
-            node_idx += 1
-
-        # convert the set to a list so we can iterate through it
-        to_normalize: list = list(tmp_normalize)
-
-        # define the chuck size
-        chunk_size: int = 5000
-
-        # init the indexes
-        start_index: int = 0
-
-        # get the last index of the list
-        last_index: int = len(to_normalize)
-
-        self.logger.debug(f'{last_index} unique nodes will be normalized.')
-
-        # grab chunks of the data frame
-        while True:
-            if start_index < last_index:
-                # define the end index of the slice
-                end_index: int = start_index + chunk_size
-
-                # force the end index to be the last index to insure no overflow
-                if end_index >= last_index:
-                    end_index = last_index
-
-                self.logger.debug(f'Working block indexes {start_index} to {end_index} of {last_index}.')
-
-                # collect a slice of records from the data frame
-                data_chunk: list = to_normalize[start_index: end_index]
-
-                # get the data
-                resp: requests.models.Response = requests.post('https://nodenormalization-sri-dev.renci.org/1.1/get_normalized_nodes', json={'curies': data_chunk})
-
-                # did we get a good status code
-                if resp.status_code == 200:
-                    # convert to json
-                    rvs: dict = resp.json()
-
-                    # merge this list with what we have gotten so far
-                    merged = {**cached_node_norms, **rvs}
-
-                    # save the merged list
-                    cached_node_norms = merged
-                else:
-                    # the 404 error that is trapped here means that the entire list of nodes didnt get normalized.
-                    self.logger.debug(f'response code: {resp.status_code}')
-
-                    # since they all failed to normalize add to the list so we dont try them again
-                    for item in data_chunk:
-                        cached_node_norms.update({item: None})
-
-                # move on down the list
-                start_index += chunk_size
-            else:
-                break
-
-        # reset the node index
-        node_idx = 0
-
-        # for each row in the slice add the new id and name
-        # iterate through node groups and get only the taxa records.
-        while node_idx < node_count:
-            # is this something that has been normalized
-            if node_list[node_idx]['node_num'] in [2, 3]:
-                # save the target data element
-                rv = node_list[node_idx]
-
-                # did we find a normalized value
-                if cached_node_norms[rv['id']] is not None:
-                    if 'type' in cached_node_norms[rv['id']]:
-                        node_list[node_idx]['category'] = '|'.join(cached_node_norms[rv['id']]['type'])
-                else:
-                    self.node_norm_failures.append(rv['id'])
-
-            # go to the next index
-            node_idx += 1
-
-        # return the updated list to the caller
-        return node_list
 
     def get_edge_list(self, df) -> list:
         """
@@ -369,7 +241,7 @@ class VPLoader(SourceDataLoader):
             if node_1_id != '' and node_2_id != '':
                 # create the KGX edge data for nodes 1 and 2
                 """ An edge from the gene to the organism_taxon with relation "in_taxon" """
-                edge_list.append({"subject": f"{node_1_id}", "predicate": "biolink:in_taxon", "relation": "RO:0002162", "object": f"{node_2_id}", 'properties': {}})
+                edge_list.append({"subject": f"{node_1_id}", "predicate": "RO:0002162", "object": f"{node_2_id}", 'properties': {}})
             else:
                 self.logger.warning(f'Warning: Missing 1 or more node IDs. Node type 1: {node_1_id}, Node type 2: {node_2_id}')
 
@@ -383,25 +255,24 @@ class VPLoader(SourceDataLoader):
 
                 # init node 1 to node 3 edge details
                 predicate: str = ''
-                relation: str = ''
                 src_node_id: str = ''
                 obj_node_id: str = ''
                 valid_type = True
 
                 # find the predicate and edge relationships
                 if node_3_type.find('MolecularActivity') > -1:
-                    predicate = 'biolink:enabled_by'
-                    relation = 'RO:0002333'
+                    # predicate = 'biolink:enabled_by'
+                    predicate = 'RO:0002333'
                     src_node_id = node_3_id
                     obj_node_id = node_1_id
                 elif node_3_type.find('BiologicalProcess') > -1:
-                    predicate = 'biolink:actively_involved_in'
-                    relation = 'RO:0002331'
+                    # predicate = 'biolink:actively_involved_in'
+                    predicate = 'RO:0002331'
                     src_node_id = node_1_id
                     obj_node_id = node_3_id
                 elif node_3_type.find('CellularComponent') > -1:
-                    predicate = 'biolink:has_part'
-                    relation = 'RO:0001019'
+                    # predicate = 'biolink:has_part'
+                    predicate = 'RO:0001019'
                     src_node_id = node_3_id
                     obj_node_id = node_1_id
                 else:
@@ -414,7 +285,7 @@ class VPLoader(SourceDataLoader):
                     self.logger.debug(f'Warning: Missing 1 or more node IDs. Node type 1: {node_1_id}, Node type 3: {node_3_id}')
                 else:
                     # create the KGX edge data for nodes 1 and 3
-                    edge_list.append({'id': '', 'subject': src_node_id, 'predicate': predicate, 'relation': relation, "object": obj_node_id, 'properties': {}})
+                    edge_list.append({'id': '', 'subject': src_node_id, 'predicate': predicate, "object": obj_node_id, 'properties': {}})
 
         self.logger.debug(f'{len(edge_list)} edges identified.')
 

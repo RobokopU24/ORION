@@ -1,4 +1,3 @@
-import hashlib
 import os
 import jsonlines
 import logging
@@ -6,7 +5,7 @@ import logging
 from Common.utils import LoggingUtil
 from Common.kgxmodel import kgxnode, kgxedge
 from Common.node_types import ORIGINAL_KNOWLEDGE_SOURCE, PRIMARY_KNOWLEDGE_SOURCE, AGGREGATOR_KNOWLEDGE_SOURCES, \
-    SUBJECT_ID, OBJECT_ID, PREDICATE, RELATION
+    SUBJECT_ID, OBJECT_ID, PREDICATE
 
 class KGXFileWriter:
 
@@ -23,12 +22,12 @@ class KGXFileWriter:
                  nodes_output_file_path: str = None,
                  edges_output_file_path: str = None):
         self.edges_to_write = []
-        self.edges_buffer_size = 10000
+        self.edges_buffer_size = 20000
 
         # written nodes is a set of node ids used for preventing duplicate node writes
         self.written_nodes = set()
         self.nodes_to_write = []
-        self.nodes_buffer_size = 10000
+        self.nodes_buffer_size = 20000
         self.repeat_node_count = 0
 
         self.nodes_output_file_handler = None
@@ -90,7 +89,7 @@ class KGXFileWriter:
         self.nodes_to_write.append(node_json)
         self.check_node_buffer_for_flush()
 
-    def write_normalized_nodes(self, nodes: list, uniquify: bool = True):
+    def write_normalized_nodes(self, nodes: iter, uniquify: bool = True):
         for node in nodes:
             self.write_normalized_node(node, uniquify)
 
@@ -110,26 +109,21 @@ class KGXFileWriter:
     def write_edge(self,
                    subject_id: str,
                    object_id: str,
-                   relation: str,
                    predicate: str = None,
                    original_knowledge_source: str = None,
                    primary_knowledge_source: str = None,
                    aggregator_knowledge_sources: list = None,
                    edge_properties: dict = None,
                    edge_id: str = None):
-        if predicate:
-            if edge_id is None:
-                composite_id = f'{object_id}{predicate}{subject_id}'
-                edge_id = hashlib.md5(composite_id.encode("utf-8")).hexdigest()
+        if edge_id:
             edge_object = {'id': edge_id,
                            SUBJECT_ID: subject_id,
                            PREDICATE: predicate,
-                           OBJECT_ID: object_id,
-                           RELATION: relation}
+                           OBJECT_ID: object_id}
         else:
             edge_object = {SUBJECT_ID: subject_id,
-                           OBJECT_ID: object_id,
-                           RELATION: relation}
+                           PREDICATE: predicate,
+                           OBJECT_ID: object_id}
 
         if original_knowledge_source is not None:
             edge_object[ORIGINAL_KNOWLEDGE_SOURCE] = original_knowledge_source
@@ -149,12 +143,16 @@ class KGXFileWriter:
     def write_kgx_edge(self, edge: kgxedge):
         self.write_edge(subject_id=edge.subjectid,
                         object_id=edge.objectid,
-                        relation=edge.relation,
                         predicate=edge.predicate,
                         original_knowledge_source=edge.original_knowledge_source,
                         primary_knowledge_source=edge.primary_knowledge_source,
                         aggregator_knowledge_sources=edge.aggregator_knowledge_sources,
                         edge_properties=edge.properties)
+
+    def write_normalized_edges(self, edges: iter):
+        for edge in edges:
+            self.edges_to_write.append(edge)
+            self.check_edge_buffer_for_flush()
 
     def check_edge_buffer_for_flush(self):
         if len(self.edges_to_write) >= self.edges_buffer_size:

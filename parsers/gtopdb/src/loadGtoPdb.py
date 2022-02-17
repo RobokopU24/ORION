@@ -1,12 +1,11 @@
 import os
 import csv
 import argparse
-import logging
 import requests
 import re
 
 from bs4 import BeautifulSoup
-from Common.utils import LoggingUtil, GetData
+from Common.utils import GetData
 from Common.loader_interface import SourceDataLoader, SourceDataFailedError
 from Common.prefixes import GTOPDB, HGNC, ENSEMBL
 from Common.kgxmodel import kgxnode, kgxedge
@@ -21,33 +20,22 @@ from Common.kgxmodel import kgxnode, kgxedge
 ##############
 class GtoPdbLoader(SourceDataLoader):
 
+    source_id: str = 'GtoPdb'
     provenance_id = 'infores:gtopdb'
 
-    def __init__(self, test_mode: bool = False):
+    def __init__(self, test_mode: bool = False, source_data_dir: str = None):
         """
-        constructor
         :param test_mode - sets the run into test mode
+        :param source_data_dir - the specific storage directory to save files in
         """
-        # call the super
-        super(SourceDataLoader, self).__init__()
+        super().__init__(test_mode=test_mode, source_data_dir=source_data_dir)
 
-        # set global variables
-        self.data_path: str = os.environ['DATA_SERVICES_STORAGE']
         self.data_files: list = ['interactions.tsv', 'peptides.tsv', 'GtP_to_HGNC_mapping.tsv', 'ligands.tsv']
 
-        self.test_mode: bool = test_mode
-        self.source_id: str = 'GtoPdb'
         self.source_db: str = 'Guide to Pharmacology database'
 
         self.gene_map: dict = {}
         self.ligands: list = []
-
-        # the final output lists of nodes and edges
-        self.final_node_list: list = []
-        self.final_edge_list: list = []
-
-        # create a logger
-        self.logger = LoggingUtil.init_logging("Data_services.GtoPdb.GtoPdbLoader", level=logging.INFO, line_format='medium', log_file_path=os.environ['DATA_SERVICES_LOGS'])
 
     def get_latest_source_version(self) -> str:
         """
@@ -55,9 +43,6 @@ class GtoPdbLoader(SourceDataLoader):
 
         :return:
         """
-
-        # init the return
-        ret_val: str = 'Not found'
 
         # load the web page for CTD
         html_page: requests.Response = requests.get('https://www.guidetopharmacology.org/download.jsp')
@@ -73,10 +58,14 @@ class GtoPdbLoader(SourceDataLoader):
 
         # did we find version data
         if len(b_tag) > 0:
-            ret_val = b_tag.text[len(search_text)-1:]
-
-        # return to the caller
-        return ret_val
+            # we expect the html to contain the string 'Downloads are from the XXX version.'
+            # this should extract the XXX portion
+            html_value = b_tag.text
+            html_value = html_value[len(search_text) - 1:] # remove the 'Downloads are from the' part
+            source_version = html_value.split(' version')[0] # remove the ' version.' part
+            return source_version
+        else:
+            raise SourceDataFailedError('Failed to parse guidetopharmacology html for the latest source version.')
 
     def get_data(self):
         """
@@ -217,7 +206,7 @@ class GtoPdbLoader(SourceDataLoader):
                         # save the edge
                         new_edge = kgxedge(ligand_id,
                                            part_node_id,
-                                           relation='BFO:0000051',
+                                           predicate='BFO:0000051',
                                            original_knowledge_source=GtoPdbLoader.provenance_id)
                         edge_list.append(new_edge)
                 else:
@@ -262,11 +251,11 @@ class GtoPdbLoader(SourceDataLoader):
 
                 # do the ligand to gene nodes/edges
                 if r['target_species'].startswith('Human') and r['target_ensembl_gene_id'] != '' and r['target'] != '':  # and r['ligand_id'] in self.ligands
-                    # did we get a good relation
+                    # did we get a good predicate
                     if r['type'].startswith('None'):
                         continue
                     else:
-                        relation = 'GAMMA:' + r['type'].lower().replace(' ', '_')
+                        predicate = 'GAMMA:' + r['type'].lower().replace(' ', '_')
 
                     # create a ligand node
                     ligand_id = f'{GTOPDB}:' + r['ligand_id']
@@ -309,7 +298,7 @@ class GtoPdbLoader(SourceDataLoader):
                         # create the edge
                         new_edge = kgxedge(ligand_id,
                                            gene_id,
-                                           relation=relation,
+                                           predicate=predicate,
                                            original_knowledge_source=self.provenance_id,
                                            edgeprops=props)
 
@@ -350,7 +339,7 @@ class GtoPdbLoader(SourceDataLoader):
                                 # create the edge
                                 new_edge = kgxedge(gene_id,
                                                    ligand_id,
-                                                   relation='RO:0002205',
+                                                   predicate='RO:0002205',
                                                    original_knowledge_source=self.provenance_id,
                                                    edgeprops=props)
 

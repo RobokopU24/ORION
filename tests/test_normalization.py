@@ -20,8 +20,7 @@ def test_variant_norm():
 
     node_normalizer = NodeNormUtils(strict_normalization=True)
     node_normalizer.normalize_sequence_variants(variant_nodes)
-
-    assert len(variant_nodes) == 9
+    assert len(variant_nodes) >= 10
     assert len(node_normalizer.variant_node_splits) == 1
 
     assert not node_normalizer.node_normalization_lookup['BOGUS:rs999999999999']
@@ -42,7 +41,7 @@ def test_variant_norm():
     node_normalizer = NodeNormUtils(strict_normalization=False)
     node_normalizer.normalize_sequence_variants(variant_nodes_2)
 
-    assert len(variant_nodes_2) == 11
+    assert len(variant_nodes_2) >= 12
 
     it_worked = False
     for node in variant_nodes_2:
@@ -57,10 +56,10 @@ def test_variant_norm():
 
 def test_edge_normalization():
 
-    edge_list = [{'relation': 'SEMMEDDB:CAUSES'},
-                 {'relation': 'RO:0000052'},
-                 {'relation': 'RO:0002200'},
-                 {'relation': 'BADPREFIX:123456'}]
+    edge_list = [{'predicate': 'SEMMEDDB:CAUSES'},
+                 {'predicate': 'RO:0000052'},
+                 {'predicate': 'RO:0002200'},
+                 {'predicate': 'BADPREFIX:123456'}]
     edge_normalizer = EdgeNormUtils()
     edge_normalizer.normalize_edge_data(edge_list)
 

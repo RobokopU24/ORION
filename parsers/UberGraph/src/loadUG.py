@@ -6,8 +6,9 @@ import time
 
 from rdflib import Graph
 from Common.utils import LoggingUtil, GetData
-from Common.kgx_file_writer import KGXFileWriter
 from Common.loader_interface import SourceDataLoader
+from Common.prefixes import HGNC
+from Common.kgxmodel import kgxnode, kgxedge
 
 
 ##############
@@ -18,36 +19,21 @@ from Common.loader_interface import SourceDataLoader
 # Desc: Class that loads the UberGraph data and creates KGX files for importing into a Neo4j graph.
 ##############
 class UGLoader(SourceDataLoader):
-    # the final output lists of nodes and edges
-    final_node_list: list = []
-    final_edge_list: list = []
 
-    def __init__(self, test_mode: bool = False):
+    source_id = 'UberGraph'
+    provenance_id = 'infores:ubergraph'
+
+    def __init__(self, test_mode: bool = False, source_data_dir: str = None):
         """
-        constructor
         :param test_mode - sets the run into test mode
+        :param source_data_dir - the specific storage directory to save files in
         """
-        # call the super
-        super(SourceDataLoader, self).__init__()
+        super().__init__(test_mode=test_mode, source_data_dir=source_data_dir)
 
-        # set global variables
-        self.data_path = os.environ['DATA_SERVICES_STORAGE']
-        self.test_mode = test_mode
-        self.source_id = 'UberGraph'
-        self.source_db = 'properties-nonredundant.ttl'
-        self.provenance_id = 'infores:ubergraph'
-        self.file_size = 200000
-
-        # create a logger
-        self.logger = LoggingUtil.init_logging("Data_services.UberGraph.UGLoader", level=logging.INFO, line_format='medium', log_file_path=os.environ['DATA_SERVICES_LOGS'])
-
-    def get_name(self):
-        """
-        returns the name of this class
-
-        :return: str - the name of the class
-        """
-        return self.__class__.__name__
+        # this will be dynamically populated after extracting and splitting the data files
+        self.split_file_paths = []
+        # this is the name of the archive file the source files will come from
+        self.data_file = 'properties-nonredundant.zip'
 
     def get_latest_source_version(self):
         """
@@ -55,7 +41,7 @@ class UGLoader(SourceDataLoader):
 
         :return:
         """
-        return datetime.datetime.now().strftime("%m/%d/%Y")
+        return datetime.datetime.now().strftime("%m_%Y")
 
     def get_data(self):
         """
@@ -65,102 +51,35 @@ class UGLoader(SourceDataLoader):
         # get a reference to the data gatherer
         gd: GetData = GetData(self.logger.level)
 
-        byte_count: int = gd.pull_via_http(f'https://stars.renci.org/var/data_services/properties-nonredundant.zip', self.data_path, False)
-
+        byte_count: int = gd.pull_via_http(f'https://stars.renci.org/var/data_services/{self.data_file}',
+                                           self.data_path, False)
         if byte_count > 0:
             return True
+        else:
+            return False
 
-    def write_to_file(self, nodes_output_file_path: str, edges_output_file_path: str) -> None:
+    def parse_data(self):
         """
-        sends the data over to the KGX writer to create the node/edge files
-
-        :param nodes_output_file_path: the path to the node file
-        :param edges_output_file_path: the path to the edge file
-        :return: Nothing
+        Parses the data file for graph nodes/edges.
         """
-        # get a KGX file writer
-        with KGXFileWriter(nodes_output_file_path, edges_output_file_path) as file_writer:
-            # for each node captured
-            for node in self.final_node_list:
-                # write out the node
-                file_writer.write_node(node['id'], node_name=node['name'], node_types=[], node_properties=node['properties'])
 
-            # for each edge captured
-            for edge in self.final_edge_list:
-                # write out the edge data
-                file_writer.write_edge(subject_id=edge['subject'],
-                                       object_id=edge['object'],
-                                       relation=edge['relation'],
-                                       original_knowledge_source=self.provenance_id,
-                                       edge_properties=edge['properties'])
-
-    def load(self, nodes_output_file_path: str, edges_output_file_path: str):
-        """
-        Loads/parsers the UberGraph data file to produce node/edge KGX files for importation into a graph database.
-
-        :param: nodes_output_file_path - path to node file
-        :param: edges_output_file_path - path to edge file
-        :return: None
-        """
-        self.logger.info(f'UGLoader - Start of UberGraph data processing.')
-
-        self.get_data()
-
-        # split the input file names
-        file_name = 'properties-nonredundant'
-
-        # init the record counters
-        final_record_count: int = 0
-        final_skipped_count: int = 0
-
-        self.logger.info(f'Parsing UberGraph data file: {file_name}. {self.file_size} records per file + remainder')
-
-        # parse the data
-        split_files, final_record_count, final_skipped_count = self.parse_data_file(file_name)
-
-        # remove all the intermediate files
-        for file in split_files:
-            os.remove(file)
-
-        # remove the data file
-        os.remove(os.path.join(self.data_path, file_name + '.zip'))
-
-        self.write_to_file(nodes_output_file_path, edges_output_file_path)
-
-        self.logger.info(f'UGLoader - Processing complete.')
-
-        # load up the metadata
-        load_metadata: dict = {
-            'num_source_lines': final_record_count,
-            'unusable_source_lines': final_skipped_count
-        }
-
-        # return the metadata to the caller
-        return load_metadata
-
-    def parse_data_file(self, data_file_name: str) -> (list, int, int):
-        """
-        Parses the data file for graph nodes/edges and writes them out the KGX tsv files.
-
-        :param data_file_path: the path to the UberGraph data file
-        :param data_file_name: the name of the UberGraph file
-        :return: split_files: the temporary files created of the input file and the parsed metadata
-        """
+        # unzip the archive and split the file into pieces of size file_size
+        gd: GetData = GetData(self.logger.level)
+        split_file_paths: list = gd.split_file(archive_file_path=os.path.join(self.data_path, f'{self.data_file}'),
+                                               output_dir=self.data_path,
+                                               data_file_name=self.data_file.replace('.zip', '.ttl'))
         # init the record counters
         record_counter: int = 0
         skipped_record_counter: int = 0
 
-        # get a reference to the data handler object
-        gd: GetData = GetData(self.logger.level)
-
         # init a list for the output data
         triple: list = []
 
-        # split the file into pieces
-        split_files: list = gd.split_file(os.path.join(self.data_path, f'{data_file_name}.zip'), self.data_path, data_file_name + '.ttl', self.file_size)
+        # get a reference to the data handler object
+        gd: GetData = GetData(self.logger.level)
 
         # parse each file
-        for file in split_files:
+        for file in split_file_paths:
             self.logger.info(f'Working file: {file}')
 
             # get a time stamp
@@ -191,7 +110,7 @@ class UGLoader(SourceDataLoader):
 
                         # HGNC must be handled differently that the others
                         if qname[1].find('hgnc') > 0:
-                            val = "HGNC:" + qname[2]
+                            val = f"{HGNC}:" + qname[2]
                         # if string is all lower it is not a curie
                         elif not qname[2].islower():
                             # replace the underscores to create a curie
@@ -208,16 +127,33 @@ class UGLoader(SourceDataLoader):
                 # make sure we have all 3 entries
                 if len(triple) == 3:
                     # create the nodes
-                    self.final_node_list.append({'id': triple[0], 'name': triple[0], 'properties': None})
-                    self.final_edge_list.append({'subject': triple[0], 'predicate': triple[1], 'relation': triple[1], 'object': triple[2], 'properties': {}})
-                    self.final_node_list.append({'id': triple[2], 'name': triple[2], 'properties': None})
+                    node_1 = kgxnode(triple[0], name=triple[0])
+                    self.final_node_list.append(node_1)
+                    new_edge = kgxedge(subject_id=triple[0],
+                                       object_id=triple[2],
+                                       predicate=triple[1],
+                                       original_knowledge_source=self.provenance_id)
+                    self.final_edge_list.append(new_edge)
+                    node_2 = kgxnode(triple[2], name=triple[2])
+                    self.final_node_list.append(node_2)
+                    record_counter += 1
                 else:
                     skipped_record_counter += 1
 
-            self.logger.debug(f'Loading complete for file {file.split(".")[2]} of {len(split_files)} in {round(time.time() - tm_start, 0)} seconds.')
+            self.logger.debug(f'Loading complete for file {file.split(".")[2]} of {len(self.split_file_paths)} in {round(time.time() - tm_start, 0)} seconds.')
 
-        # return the split file names so they can be removed if desired
-        return split_files, record_counter, skipped_record_counter
+        # remove all the intermediate files
+        for file in split_file_paths:
+            if os.path.exists(file):
+                os.remove(file)
+
+        load_metadata: dict = {
+            'num_source_lines': record_counter,
+            'unusable_source_lines': skipped_record_counter
+        }
+
+        # return to the caller
+        return load_metadata
 
 
 if __name__ == '__main__':

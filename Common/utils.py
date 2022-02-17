@@ -4,7 +4,6 @@ import tarfile
 import csv
 import gzip
 import requests
-import yaml
 import pandas as pd
 from dateutil import parser as dp
 
@@ -19,8 +18,7 @@ from datetime import datetime
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
 from robokop_genetics.genetics_normalization import GeneticsNormalizer
-from Common.node_types import ROOT_ENTITY, FALLBACK_EDGE_PREDICATE, FALLBACK_EDGE_PREDICATE_LABEL
-
+from Common.node_types import ROOT_ENTITY, FALLBACK_EDGE_PREDICATE, FALLBACK_EDGE_PREDICATE_LABEL, PREDICATE
 
 class LoggingUtil(object):
     """
@@ -116,23 +114,43 @@ class NodeNormUtils:
         equivalent_identifiers: the list of synonymous ids
     """
 
-    def __init__(self, log_level=logging.INFO, strict_normalization: bool = True):
+    DEFAULT_NODE_NORMALIZATION_ENDPOINT = 'https://nodenormalization-sri.renci.org/1.2/'
+
+    def __init__(self,
+                 log_level=logging.INFO,
+                 node_normalization_version: str = 'latest',
+                 strict_normalization: bool = True,
+                 conflate_node_types: bool = False):
         """
         constructor
         :param log_level - overrides default log level
+        :param node_normalization_version - not implemented yet
         """
         # create a logger
-        self.logger = LoggingUtil.init_logging("Data_services.Common.NodeNormUtils", level=log_level, line_format='medium', log_file_path=os.environ['DATA_SERVICES_LOGS'])
+        self.logger = LoggingUtil.init_logging("Data_services.Common.NodeNormUtils",
+                                               level=log_level,
+                                               line_format='medium',
+                                               log_file_path=os.environ['DATA_SERVICES_LOGS'])
         # storage for regular nodes that failed to normalize
         self.failed_to_normalize_ids = set()
         # storage for variant nodes that failed to normalize
         self.failed_to_normalize_variant_ids = {}
         # flag that determines whether nodes that failed to normalize should be included or thrown out
         self.strict_normalization = strict_normalization
+        # whether the normalizer should conflate node types (ie combine genes and proteins)
+        self.conflate_node_types = conflate_node_types
         # storage for variant nodes that split into multiple new nodes in normalization
         self.variant_node_splits = {}
         # normalization map for future look up of all normalized node IDs
         self.node_normalization_lookup = {}
+
+        if 'NODE_NORMALIZATION_ENDPOINT' in os.environ:
+            self.node_norm_endpoint = os.environ['NODE_NORMALIZATION_ENDPOINT']
+        else:
+            self.node_norm_endpoint = self.DEFAULT_NODE_NORMALIZATION_ENDPOINT
+
+        self.sequence_variant_normalizer = None
+        self.variant_node_types = None
 
     def normalize_node_data(self, node_list: list, block_size: int = 5000) -> list:
         """
@@ -141,6 +159,7 @@ class NodeNormUtils:
 
         :param node_list: A list with items to normalize
         :param block_size: the number of curies in the request
+
         :return:
         """
 
@@ -184,15 +203,23 @@ class NodeNormUtils:
                 # self.logger.info(f'Calling node norm service. request size is {len("&curie=".join(data_chunk))} bytes')
 
                 # get the data
-                resp: requests.models.Response = requests.post('https://nodenormalization-sri-dev.renci.org/1.1/get_normalized_nodes', json={'curies': data_chunk})
+                resp: requests.models.Response = requests.post(f'{self.node_norm_endpoint}get_normalized_nodes',
+                                                               json={'curies': data_chunk,
+                                                                     'conflate': self.conflate_node_types})
 
                 # did we get a good status code
                 if resp.status_code == 200:
                     # convert json to dict
                     rvs: dict = resp.json()
 
-                    # merge this list with what we have gotten so far
-                    cached_node_norms.update(**rvs)
+                    if rvs:
+                        # merge this list with what we have gotten so far
+                        cached_node_norms.update(**rvs)
+                    else:
+                        # this is a quick fix for the API returning empty dict instead of nulls when
+                        # none of the curies normalize
+                        empty_responses = {curie: None for curie in data_chunk}
+                        cached_node_norms.update(empty_responses)
                 else:
                     # the error that is trapped here means that the entire list of nodes didnt get normalized.
                     error_message = f'Node norm response code: {resp.status_code}'
@@ -223,7 +250,13 @@ class NodeNormUtils:
                 current_node = node_list[node_idx]
                 normalized_id = cached_node_norms[current_node_id]['id']['identifier']
                 current_node['id'] = normalized_id
-                current_node['category'] = cached_node_norms[current_node_id]['type']
+                categories = cached_node_norms[current_node_id]['type']
+                # If we are not in strict normalization, use categories provided by user in addition to
+                if not self.strict_normalization:
+                    categories.extend(node_list[node_idx].get('category',[]))
+                    categories = list(set(categories))
+                
+                current_node['category'] = categories
                 current_node['equivalent_identifiers'] = list(item['identifier'] for item in cached_node_norms[current_node_id]['equivalent_identifiers'])
                 # set the name as the label if it exists
                 if 'label' in cached_node_norms[current_node_id]['id']:
@@ -240,7 +273,9 @@ class NodeNormUtils:
                     self.node_normalization_lookup[current_node_id] = None
                 else:
                     #  if strict normalization is off we set a default node type
-                    node_list[node_idx]['category'] = [ROOT_ENTITY]
+                    #We respect the user labels if we are in non-strict mode. 
+                    #Have a list of ROOT_ENTITY and all user provided categories.
+                    node_list[node_idx]['category'] = list(set([ROOT_ENTITY] + node_list[node_idx].get('category',[])))
                     if not node_list[node_idx]['name']:
                         node_list[node_idx]['name'] = node_list[node_idx]['id']
                     # if strict normalization is off set its previous id in the normalization map
@@ -293,13 +328,18 @@ class NodeNormUtils:
 
     def normalize_sequence_variants(self, variant_nodes: list):
 
-        sequence_variant_normalizer = GeneticsNormalizer(use_cache=False)
-        variant_node_types = sequence_variant_normalizer.get_sequence_variant_node_types()
+        if not variant_nodes:
+            return
+
+        if not self.sequence_variant_normalizer:
+            self.sequence_variant_normalizer = GeneticsNormalizer(use_cache=False)
+            self.variant_node_types = self.sequence_variant_normalizer.get_sequence_variant_node_types()
+        variant_node_types = self.variant_node_types
 
         variant_ids = [node['id'] for node in variant_nodes]
         variant_nodes.clear()
 
-        sequence_variant_norms = sequence_variant_normalizer.normalize_variants(variant_ids)
+        sequence_variant_norms = self.sequence_variant_normalizer.normalize_variants(variant_ids)
         for variant_id, normalization_response in sequence_variant_norms.items():
             for normalization_info in normalization_response:
                 # if the normalization info contains an ID it was a success
@@ -341,13 +381,12 @@ class NodeNormUtils:
 
         return variant_nodes
 
-    @staticmethod
-    def get_current_node_norm_version():
+    def get_current_node_norm_version(self):
         """
         Retrieves the current production version from the node normalization service
         """
         # fetch the node norm openapi spec
-        node_norm_openapi_url = 'https://nodenormalization-sri-dev.renci.org/1.1/openapi.json'
+        node_norm_openapi_url = f'{self.node_norm_endpoint}openapi.json'
         resp: requests.models.Response = requests.get(node_norm_openapi_url)
 
         # did we get a good status code
@@ -380,11 +419,15 @@ class EdgeNormUtils:
     changed during the normalization:
 
         predicate: the name of the predicate
-        relation: the biolink label curie
         edge_label: label of the predicate
 
     """
-    def __init__(self, log_level=logging.INFO):
+
+    DEFAULT_EDGE_NORM_ENDPOINT = f'https://bl-lookup-sri.renci.org/'
+
+    def __init__(self,
+                 edge_normalization_version: str = 'latest',
+                 log_level=logging.INFO):
         """
         constructor
         :param log_level - overrides default log level
@@ -393,10 +436,24 @@ class EdgeNormUtils:
         self.logger = LoggingUtil.init_logging("Data_services.Common.EdgeNormUtils", level=log_level, line_format='medium', log_file_path=os.environ['DATA_SERVICES_LOGS'])
         # normalization map for future look up of all normalized predicates
         self.edge_normalization_lookup = {}
+        self.cached_edge_norms = {}
+
+        if 'EDGE_NORMALIZATION_ENDPOINT' in os.environ:
+            self.edge_norm_endpoint = os.environ['EDGE_NORMALIZATION_ENDPOINT']
+        else:
+            self.edge_norm_endpoint = self.DEFAULT_EDGE_NORM_ENDPOINT
+
+        if edge_normalization_version != 'latest':
+            if self.check_bl_version_valid(edge_normalization_version):
+                self.edge_norm_version = edge_normalization_version
+            else:
+                raise requests.exceptions.HTTPError(f'Edge norm version {edge_normalization_version} '
+                                                    f'is not supported by endpoint {self.edge_norm_endpoint}.')
+        else:
+            self.edge_norm_version = self.get_current_edge_norm_version()
 
     def normalize_edge_data(self,
                             edge_list: list,
-                            cached_edge_norms: dict = None,
                             block_size: int = 2500) -> list:
         """
         This method calls the EdgeNormalization web service to get the normalized identifier and labels.
@@ -410,28 +467,24 @@ class EdgeNormUtils:
 
         self.logger.debug(f'Start of normalize_edge_data. items: {len(edge_list)}')
 
-        edge_norm_version = self.get_current_edge_norm_version()
-
-        # init the cache list if it wasn't passed in
-        if cached_edge_norms is None:
-            cached_edge_norms: dict = {}
-
         # init the edge index counter
         edge_idx: int = 0
 
         # save the edge list count to avoid grabbing it over and over
         edge_count: int = len(edge_list)
 
-        # init a set to hold edge relations that have not yet been normed
+        # init a set to hold edge predicates that have not yet been normed
         tmp_normalize: set = set()
         # iterate through node groups and get only the taxa records.
 
+        cached_edge_norms = self.cached_edge_norms
+
         while edge_idx < edge_count:
             # check to see if this one needs normalization data from the website
-            if not edge_list[edge_idx]['relation'] in cached_edge_norms:
-                tmp_normalize.add(edge_list[edge_idx]['relation'])
+            if not edge_list[edge_idx][PREDICATE] in cached_edge_norms:
+                tmp_normalize.add(edge_list[edge_idx][PREDICATE])
             else:
-                self.logger.debug(f"Cache hit: {edge_list[edge_idx]['relation']}")
+                self.logger.debug(f"Cache hit: {edge_list[edge_idx][PREDICATE]}")
 
             # increment to the next node array element
             edge_idx += 1
@@ -457,17 +510,14 @@ class EdgeNormUtils:
                 if end_index >= last_index:
                     end_index = last_index
 
-                #self.logger.debug(f'Working block {start_index} to {end_index}.')
-
                 # collect a slice of records from the data frame
                 data_chunk: list = to_normalize[start_index: end_index]
 
                 #self.logger.debug(f'Calling edge norm service. request size is {len("&predicate=".join(data_chunk))} bytes')
 
                 # get the data
-                resp: requests.models.Response = requests.get(f'https://bl-lookup-sri.renci.org/resolve_predicate?version={edge_norm_version}&predicate=' + '&predicate='.join(data_chunk))
-
-                #self.logger.debug(f'End calling edge norm service.')
+                resp: requests.models.Response = requests.get(f'{self.edge_norm_endpoint}resolve_predicate?'
+                                                              f'version={self.edge_norm_version}&predicate=' + '&predicate='.join(data_chunk))
 
                 # did we get a good status code
                 if resp.status_code == 200:
@@ -493,27 +543,27 @@ class EdgeNormUtils:
         # storage for items that failed to normalize
         failed_to_normalize: list = list()
 
-        # walk through the unique relations and extract the normalized predicate for the lookup map
-        for relation in to_normalize:
+        # walk through the unique predicates and extract the normalized predicate for the lookup map
+        for predicate in to_normalize:
             success = False
             # did the service return a value
-            if relation in cached_edge_norms and cached_edge_norms[relation]:
-                if 'identifier' in cached_edge_norms[relation]:
+            if predicate in cached_edge_norms and cached_edge_norms[predicate]:
+                if 'identifier' in cached_edge_norms[predicate]:
                     # store it in the look up map
-                    identifier = cached_edge_norms[relation]['identifier']
-                    label = cached_edge_norms[relation]['label']
-                    if 'inverted' in cached_edge_norms[relation] and cached_edge_norms[relation]['inverted']:
+                    identifier = cached_edge_norms[predicate]['identifier']
+                    label = cached_edge_norms[predicate]['label']
+                    if 'inverted' in cached_edge_norms[predicate] and cached_edge_norms[predicate]['inverted']:
                         inverted = True
                     else:
                         inverted = False
-                    self.edge_normalization_lookup[relation] = EdgeNormalizationResult(identifier, label, inverted)
+                    self.edge_normalization_lookup[predicate] = EdgeNormalizationResult(identifier, label, inverted)
                     success = True
             if not success:
                 # this should not happen but if it does use the fallback predicate
-                self.edge_normalization_lookup[relation] = EdgeNormalizationResult(FALLBACK_EDGE_PREDICATE,
+                self.edge_normalization_lookup[predicate] = EdgeNormalizationResult(FALLBACK_EDGE_PREDICATE,
                                                                                    FALLBACK_EDGE_PREDICATE_LABEL)
                 # if no result for whatever reason add it to the fail list
-                failed_to_normalize.append(relation)
+                failed_to_normalize.append(predicate)
 
         # if something failed to normalize output it
         if failed_to_normalize:
@@ -524,26 +574,32 @@ class EdgeNormUtils:
         # return the failed list to the caller
         return failed_to_normalize
 
-    @staticmethod
-    def get_current_edge_norm_version():
+    def get_current_edge_norm_version(self):
         """
         Retrieves the current production version from the edge normalization service
         """
+        versions = self.get_available_versions()
+        return versions[0]
 
-        return '2.1.0'
+    def check_bl_version_valid(self, bl_version: str):
+        """
+        Checks if the requested version is supported by the API
+        """
+        if bl_version in self.get_available_versions():
+            return True
+        else:
+            return False
 
+    def get_available_versions(self):
         # fetch the edge norm openapi spec
-        edge_norm_versions_url = 'https://bl-lookup-sri.renci.org/versions'
+        edge_norm_versions_url = f'{self.edge_norm_endpoint}versions'
         resp: requests.models.Response = requests.get(edge_norm_versions_url)
 
         # did we get a good status code
         if resp.status_code == 200:
             # parse json
             versions = resp.json()
-
-            # extract the latest version that isn't "latest"
-            edge_norm_version = versions[-2]
-            return edge_norm_version
+            return versions  # array of versions
         else:
             # this shouldn't happen, raise an exception
             resp.raise_for_status()
@@ -629,14 +685,14 @@ class GetData:
 
             # did we get something
             if len(date_val) > 0:
-                # grab the parsed date
-                ret_val = dp.parse(date_val[1])
+                # return the parsed date
+                return dp.parse(date_val[1]).strftime('%-m_%-d_%Y')
         except Exception as e:
             error_message = f'Error getting modification date for ftp file: {ftp_site}{ftp_dir}{ftp_file}. {e}'
             self.logger.error(error_message)
             raise GetDataPullError(error_message)
 
-        return str(ret_val)
+        return ret_val
 
     def pull_via_ftp(self, ftp_site: str, ftp_dir: str, ftp_files: list, data_file_path: str) -> int:
         """
@@ -698,6 +754,16 @@ class GetData:
 
         # return pass/fail to the caller
         return file_counter
+
+    def get_http_file_modified_date(self, file_url: str):
+        try:
+            r = requests.head(file_url)
+            url_time = r.headers['last-modified']
+            return dp.parse(url_time).strftime("%-m_%-d_%Y")
+        except Exception as e:
+            error_message = f'Error getting modification date for http file: {file_url}. {repr(e)}-{e}'
+            self.logger.error(error_message)
+            raise GetDataPullError(error_message)
 
     def pull_via_http(self, url: str, data_dir: str, is_gzip=False) -> int:
         """
@@ -992,22 +1058,6 @@ class GetData:
         # return the list to the caller
         return ret_val
 
-    def get_goa_http_file(self, data_dir: str, data_file: str):
-        """
-        gets the GOA file via HTTP.
-
-        :param data_dir: the location where the data should be saved
-        :param data_file: the name of the file to get
-        :return int: the number of bytes read
-        """
-        self.logger.debug(f'Start of GOA file retrieval.')
-
-        # get the rest of the files
-        byte_count: int = self.pull_via_http(f'http://current.geneontology.org/annotations/{data_file}', data_dir)
-
-        # return to the caller
-        return byte_count
-
     def get_ctd_http_files(self, data_dir: str, file_list: list) -> int:
         """
         gets the CTD file via HTTP.
@@ -1036,34 +1086,6 @@ class GetData:
 
         if file_counter > 0:
             byte_count: int = self.pull_via_http(f'https://stars.renci.org/var/data_services/ctd.tar.gz', data_dir, True)
-
-        # return to the caller
-        return file_counter
-
-    def get_pharos_http_file(self, data_dir: str, data_file: str) -> int:
-        """
-        gets the PHAROS file via HTTP.
-
-        :param data_dir: the location where the data should be saved
-        :param data_file: the file to get
-        :return int: the number of files retrieved
-        """
-        self.logger.debug(f'Start of PHAROS retrieval.')
-
-        # unit a file counter
-        file_counter: int = 0
-
-        if os.path.isfile(os.path.join(data_dir, data_file)):
-            byte_count = 1
-        else:
-            # get the rest of the files
-            byte_count: int = self.pull_via_http(f'http://juniper.health.unm.edu/tcrd/download/{data_file}.gz', data_dir, True)
-
-        # did re get some good file data
-        if byte_count > 0:
-            file_counter += 1
-        else:
-            self.logger.error(f'Failed to get {data_file}.')
 
         # return to the caller
         return file_counter
@@ -1184,13 +1206,13 @@ class GetData:
         return ret_val
 
     @staticmethod
-    def split_file(infile_path, data_file_path: str, data_file_name: str, lines_per_file: int = 150000) -> list:
+    def split_file(archive_file_path: str, output_dir: str, data_file_name: str, lines_per_file: int = 500000) -> list:
         """
         splits a file into numerous smaller files.
 
-        :param infile_path: the path to the input file
-        :param data_file_path: the path to where the input file is and where the split files go
-        :param data_file_name: the name of the input data file
+        :param archive_file_path: the path to the zipped archive file
+        :param output_dir: the path where the split files go
+        :param data_file_name: the name of the data file inside of the archive
         :param lines_per_file: the number of lines for each split file
         :return: a list of file names that were created
         """
@@ -1209,7 +1231,7 @@ class GetData:
         lines: list = []
 
         # open the zip file
-        with ZipFile(infile_path) as zf:
+        with ZipFile(archive_file_path) as zf:
             # open the taxon file indexes and the uniref data file
             with TextIOWrapper(zf.open(data_file_name), encoding="utf-8") as fp:
                 while True:
@@ -1227,7 +1249,7 @@ class GetData:
                     if line_counter >= lines_per_file:
                         # loop through the lines
                         # create the output file
-                        file_name = os.path.join(data_file_path, file_prefix + str(file_counter))
+                        file_name = os.path.join(output_dir, file_prefix + str(file_counter))
 
                         # add the file name to the output list
                         ret_val.append(file_name)
@@ -1246,17 +1268,19 @@ class GetData:
                         # clear out for the next cycle
                         lines.clear()
 
-        # output any not yet written
-        # create the output file
-        file_name = os.path.join(data_file_path, file_prefix + str(file_counter))
+        # write any remaining lines to the last split file
+        if lines:
 
-        # add the file name to the output list
-        ret_val.append(file_name)
+            # create the output file
+            file_name = os.path.join(output_dir, file_prefix + str(file_counter))
 
-        # open the file
-        with open(file_name, 'w') as of:
-            # write the lines
-            of.write('\n'.join(lines))
+            # add the file name to the output list
+            ret_val.append(file_name)
+
+            # open the file
+            with open(file_name, 'w') as of:
+                # write the lines
+                of.write('\n'.join(lines))
 
         # return the file name list
         return ret_val

@@ -21,39 +21,24 @@ class UniRefSimLoader(SourceDataLoader):
     # UniProtKB viral organism column type for nodes.dmp
     TYPE_VIRUS: str = '9'
 
-    # the final output lists of nodes and edges
-    final_node_list: list = []
-    final_edge_list: list = []
+    source_id = 'UniRef'
+    provenance_id = 'infores:uniref'
 
-    def __init__(self, test_mode: bool = False):
+    def __init__(self, test_mode: bool = False, source_data_dir: str = None):
         """
-        constructor
         :param test_mode - sets the run into test mode
+        :param source_data_dir - the specific storage directory to save files in
         """
-        # call the super
-        super(SourceDataLoader, self).__init__()
+        super().__init__(test_mode=test_mode, source_data_dir=source_data_dir)
 
         # set global variables
-        self.data_path = os.environ['DATA_SERVICES_STORAGE']
         self.data_file = 'Uniref50/90/100.xml'
-        self.test_mode = test_mode
-        self.source_id = 'UniRef'
         self.source_db = 'UniProt UniRef gene similarity data'
-        self.provenance_id = 'infores:uniref'
         self.nodes_output_file_path = ''
         self.edges_output_file_path = ''
         self.file_writer = None
-
-        # create a logger
-        self.logger = LoggingUtil.init_logging("Data_services.ViralProteome.UniRefSimLoader", level=logging.INFO, line_format='medium', log_file_path=os.environ['DATA_SERVICES_LOGS'])
-
-    def get_name(self):
-        """
-        returns the name of the class
-
-        :return: str - the name of the class
-        """
-        return self.__class__.__name__
+        self.final_edge_list = []
+        self.final_node_list = []
 
     def get_latest_source_version(self):
         """
@@ -61,7 +46,7 @@ class UniRefSimLoader(SourceDataLoader):
 
         :return:
         """
-        return datetime.datetime.now().strftime("%m/%d/%Y")
+        return datetime.datetime.now().strftime("%m_%Y")
 
     def write_to_file_x(self, file_writer) -> None:
         """
@@ -81,7 +66,7 @@ class UniRefSimLoader(SourceDataLoader):
             # write out the edge data
             file_writer.write_edge(subject_id=edge['subject'],
                                    object_id=edge['object'],
-                                   relation=edge['relation'],
+                                   predicate=edge['predicate'],
                                    original_knowledge_source=self.provenance_id,
                                    edge_properties=edge['properties'])
 
@@ -471,10 +456,10 @@ class UniRefSimLoader(SourceDataLoader):
                 # add the spoke edge if it isn't a reflection of itself
                 if rep_member_node_id != node_list[node_idx]['id']:
                     # this node represents the UniProt id
-                    self.final_edge_list.append({"subject": rep_member_node_id, "relation": "RO:HOM0000000", "object": node_list[node_idx]['id'], 'properties': props})
+                    self.final_edge_list.append({"subject": rep_member_node_id, "predicate": "RO:HOM0000000", "object": node_list[node_idx]['id'], 'properties': props})
 
                 # this node represents the taxon id
-                self.final_edge_list.append({"subject": node_list[node_idx]['id'], "relation": "RO:0002162", "object": node_list[node_idx + 1]['id'], 'properties': props})
+                self.final_edge_list.append({"subject": node_list[node_idx]['id'], "predicate": "RO:0002162", "object": node_list[node_idx + 1]['id'], 'properties': props})
 
                 # increment the node counter pairing index
                 node_idx += 2

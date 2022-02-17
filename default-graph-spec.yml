@@ -1,120 +1,51 @@
 # Default graph spec
 graphs:
-  - graph_id: Big_Graph_1
-    sources:
-      - source_id: GWASCatalog
-        #load_version: 1
-      - source_id: GtoPdb
-      - source_id: GTEx
-
-  - graph_id: GWASCatalog_Automat
-    sources:
-      - source_id: GWASCatalog
-        #load_version: latest
-
-  - graph_id: GTEx_Automat
-    sources:
-      - source_id: GTEx
-        #load_version: latest
 
   - graph_id: Baseline
-    merge_strategy: per_data_set
+    # optional parameters to be applied to the entire graph - see README for more info
+    # node_normalization_version: latest
+    # edge_normalization_version: latest
+    # conflation: False (whether or not to conflate node types like Genes and Proteins)
     sources:
       - source_id: Biolink
-        load_version: 1
+        # optional parameters for each data source - see README for more info
+        # source_version: latest (the version of the source data)
+        # parsing_version: latest (the version of the parser used to parse the data)
+        # node_normalization_version: latest
+        # edge_normalization_version: latest
+        # conflation: False
+        # strict_normalization: True (whether or not data should be discarded when it can not be normalized)
+        # merge_strategy: default (used to specify alternative merge strategies)
       - source_id: OntologicalHierarchy
-        load_version: 1
-      - source_id:  DrugCentral
-        load_version: 1
-      - source_id:  GtoPdb
-        load_version: 1
-      - source_id:  Hetio
-        load_version: 1
-      - source_id:  HGNC
-        load_version: 1
-      - source_id:  HumanGOA
-        load_version: 1
-      - source_id:  IntAct
-        load_version: 1
-      - source_id:  PANTHER
-        load_version: 1
-      - source_id:  PHAROS
-        load_version: 1
-      - source_id:  UberGraph
-        load_version: 1
+      - source_id: DrugCentral
+      - source_id: GtoPdb
+      - source_id: Hetio
+      - source_id: HGNC
+      - source_id: HumanGOA
+      - source_id: IntAct
+      - source_id: PANTHER
+      - source_id: PHAROS
+      - source_id: UberGraph
       - source_id: CTD
-        load_version: 1
       - source_id: HMDB
-        load_version: 1
 
   - graph_id: Genetics
-    merge_strategy: per_data_set
+    subgraphs:
+      - graph_id: Baseline
     sources:
-      - source_id: Biolink
-        load_version: 1
-      - source_id: OntologicalHierarchy
-        load_version: 1
-      - source_id: DrugCentral
-        load_version: 1
-      - source_id: GtoPdb
-        load_version: 1
-      - source_id: Hetio
-        load_version: 1
-      - source_id: HGNC
-        load_version: 1
-      - source_id: HumanGOA
-        load_version: 1
-      - source_id: IntAct
-        load_version: 1
-      - source_id: PANTHER
-        load_version: 1
-      - source_id: PHAROS
-        load_version: 1
-      - source_id: UberGraph
-        load_version: 1
-      - source_id: CTD
-        load_version: 1
-      - source_id: HMDB
-        load_version: 1
       - source_id: GWASCatalog
-        load_version: 1
       - source_id: GTEx
-        load_version: 1
+        strict_normalization: False
 
   - graph_id: Covid
-    merge_strategy: per_data_set
+    subgraphs:
+      - graph_id: Genetics
     sources:
-      - source_id: Biolink
-        load_version: 1
-      - source_id: OntologicalHierarchy
-        load_version: 1
-      - source_id: DrugCentral
-        load_version: 1
-      - source_id: GtoPdb
-        load_version: 1
-      - source_id: Hetio
-        load_version: 1
-      - source_id: HGNC
-        load_version: 1
-      - source_id: HumanGOA
-        load_version: 1
-      - source_id: IntAct
-        load_version: 1
-      - source_id: PANTHER
-        load_version: 1
-      - source_id: PHAROS
-        load_version: 1
-      - source_id: UberGraph
-        load_version: 1
-      - source_id: CTD
-        load_version: 1
-      - source_id: HMDB
-        load_version: 1
-      - source_id: GWASCatalog
-        load_version: 1
-      - source_id: GTEx
-        load_version: 1
       - source_id: Cord19
-        load_version: 1
       - source_id: ViralProteome
-        load_version: 1
+
+  - graph_id: HGNC_Automat
+    sources:
+      - source_id: HGNC
+      - source_id: OntologicalHierarchy
+        merge_strategy: connected_edge_subset

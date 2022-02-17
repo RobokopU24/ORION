@@ -1,11 +1,9 @@
 import os
 import argparse
-import logging
-import datetime
 import enum
 import requests
 
-from Common.utils import LoggingUtil, GetData
+from Common.utils import LoggingUtil, GetData, GetDataPullError
 from Common.loader_interface import SourceDataLoader, SourceDataBrokenError
 from Common.extractor import Extractor
 from Common.node_types import node_types, AGGREGATOR_KNOWLEDGE_SOURCES
@@ -39,26 +37,17 @@ class BLLoader(SourceDataLoader):
     source_id: str = 'Biolink'
     provenance_id: str = 'infores:biolink'
 
-    def __init__(self, test_mode: bool = False):
+    def __init__(self, test_mode: bool = False, source_data_dir: str = None):
         """
-        constructor
         :param test_mode - sets the run into test mode
+        :param source_data_dir - the specific storage directory to save files in
         """
-        # call the super
-        super(SourceDataLoader, self).__init__()
+        super().__init__(test_mode=test_mode, source_data_dir=source_data_dir)
 
         self.bl_edges_file_name = 'sri-reference-kg_edges.tsv'
         self.bl_nodes_file_name = 'sri-reference-kg_nodes.tsv'
-        self.data_path: str = os.path.join(os.environ['DATA_SERVICES_STORAGE'], self.source_id)
         self.data_files: list = [self.bl_edges_file_name, self.bl_nodes_file_name]
-        self.test_mode: bool = test_mode
-
-        # the final output lists of nodes and edges
-        self.final_node_list: list = []
-        self.final_edge_list: list = []
-
-        # create a logger
-        self.logger = LoggingUtil.init_logging("Data_services.biolink.BLLoader", level=logging.INFO, line_format='medium', log_file_path=os.environ['DATA_SERVICES_LOGS'])
+        self.data_url = 'https://archive.monarchinitiative.org/202103/kgx/'
 
     def get_latest_source_version(self) -> str:
         """
@@ -66,10 +55,10 @@ class BLLoader(SourceDataLoader):
 
         :return:
         """
-        bl_edges_url = f'https://archive.monarchinitiative.org/latest/kgx/{self.bl_edges_file_name}'
-        req = requests.head(bl_edges_url)
-        modified_time = req.headers['last-modified']
-        return modified_time
+        bl_edges_url = f'{self.data_url}{self.bl_edges_file_name}'
+        gd = GetData(self.logger.level)
+        latest_source_version = gd.get_http_file_modified_date(bl_edges_url)
+        return latest_source_version
 
     def get_data(self) -> int:
         """
@@ -77,7 +66,7 @@ class BLLoader(SourceDataLoader):
 
         """
         for file_name in self.data_files:
-            bl_data_url = f'https://archive.monarchinitiative.org/latest/kgx/{file_name}'
+            bl_data_url = f'{self.data_url}{file_name}'
             data_puller = GetData()
             data_puller.pull_via_http(bl_data_url, self.data_path)
 
@@ -116,8 +105,7 @@ class BLLoader(SourceDataLoader):
                                   lambda line: get_bl_edge_predicate(line),  # predicate extractor
                                   lambda line: {},  # subject props
                                   lambda line: {},  # object props
-                                  lambda line: {'relation': line[EDGESDATACOLS.RELATION.value].split('|')[0],
-                                                AGGREGATOR_KNOWLEDGE_SOURCES: ['infores:sri-reference-kg']},#edgeprops
+                                  lambda line: {AGGREGATOR_KNOWLEDGE_SOURCES: ['infores:sri-reference-kg']},#edgeprops
                                   comment_character=None,
                                   delim='\t',
                                   has_header_row=True)
@@ -127,11 +115,11 @@ class BLLoader(SourceDataLoader):
         return extractor.load_metadata
 
 
-UNDESIRED_NODE_PREFIXES = set([
+UNDESIRED_NODE_PREFIXES = {
     'MONARCH_BNODE',
     'http',
     'https'
-])
+}
 
 
 def get_bl_node_id(line: list, id_index: int):
@@ -163,10 +151,7 @@ DESIRED_BL_PREDICATES = {
 
 def get_bl_edge_predicate(line: list):
     predicate = line[EDGESDATACOLS.PREDICATE.value]
-    if predicate in DESIRED_BL_PREDICATES:
-        return predicate
-    else:
-        return None
+    return predicate if predicate in DESIRED_BL_PREDICATES else None
 
 
 if __name__ == '__main__':

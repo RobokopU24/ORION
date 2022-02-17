@@ -23,20 +23,18 @@ from Common.node_types import ORIGINAL_KNOWLEDGE_SOURCE
 ##############
 class FDBLoader(SourceDataLoader):
 
-    def __init__(self, test_mode: bool = False):
+    source_id = 'FooDB'
+    provenance_id = 'infores:foodb'
+
+    def __init__(self, test_mode: bool = False, source_data_dir: str = None):
         """
-        constructor
         :param test_mode - sets the run into test mode
+        :param source_data_dir - the specific storage directory to save files in
         """
-        # call the super
-        super(SourceDataLoader, self).__init__()
+        super().__init__(test_mode=test_mode, source_data_dir=source_data_dir)
 
         # set global variables
-        self.data_path = os.environ['DATA_SERVICES_STORAGE']
-        self.test_mode = test_mode
-        self.source_id = 'FooDB'
         self.source_db = 'Food Database'
-        self.provenance_id = 'infores:foodb'
         self.data_files: list = [
             'Food.csv',
             'Content.csv',
@@ -47,13 +45,6 @@ class FDBLoader(SourceDataLoader):
         self.full_url_path = None
         self.tar_dir_name = None
         self.foodb = None
-
-        # the final output lists of nodes and edges
-        self.final_node_list: list = []
-        self.final_edge_list: list = []
-
-        # create a logger
-        self.logger = LoggingUtil.init_logging("Data_services.FooDB.FooDBLoader", level=logging.INFO, line_format='medium', log_file_path=os.environ['DATA_SERVICES_LOGS'])
 
     def get_latest_source_version(self):
         """
@@ -109,16 +100,6 @@ class FDBLoader(SourceDataLoader):
 
         # return a success flag
         return True
-
-    def clean_up(self):
-
-        # remove the archive
-        if self.archive_name is not None:
-            os.remove(os.path.join(self.data_path, self.archive_name))
-
-        # remove the intermediate files and the DB
-        if self.tar_dir_name is not None:
-            shutil.rmtree(os.path.join(self.data_path, self.tar_dir_name))
 
     def parse_data(self) -> dict:
         """
@@ -180,7 +161,7 @@ class FDBLoader(SourceDataLoader):
                                       'amount': item['properties']['amount']}
                         new_edge = kgxedge(subject_id,
                                            object_id,
-                                           relation='RO:0001019',
+                                           predicate='RO:0001019',
                                            original_knowledge_source=self.provenance_id,
                                            edgeprops=edge_props)
                         self.final_edge_list.append(new_edge)
@@ -237,7 +218,7 @@ class FDBLoader(SourceDataLoader):
             for item in compound_list[1:]:
                 new_edge = kgxedge(subject_id=subject_id,
                                    object_id=item['id'],
-                                   relation='RO:0001019',
+                                   predicate='RO:0001019',
                                    original_knowledge_source=self.provenance_id,
                                    edgeprops={'unit': item['properties']['unit'].encode('ascii', errors='ignore').decode(encoding="utf-8"), 'amount': item['properties']['amount']})
                 self.final_edge_list.append(new_edge)

@@ -2,30 +2,15 @@
 import os
 import yaml
 import argparse
-from dataclasses import dataclass
-from kgx.cli.cli_utils import merge as kgx_merge
-from kgx.utils.kgx_utils import prepare_data_dict as kgx_dict_merge
+import datetime
+from xxhash import xxh64_hexdigest
+from collections import defaultdict
 from Common.utils import LoggingUtil
-from Common.load_manager import SourceDataLoadManager
-from Common.kgx_file_writer import KGXFileWriter
-from Common.node_types import ORIGINAL_KNOWLEDGE_SOURCE, PRIMARY_KNOWLEDGE_SOURCE
-import jsonlines, json, hashlib
-import redis
-
-@dataclass
-class GraphSpec:
-    graph_id: str
-    graph_version: str
-    graph_output_format: str
-    graph_output_file: str
-    sources: list
-    merger: str = "custom"
-
-
-@dataclass
-class GraphSource:
-    source_id: str
-    load_version: str
+from Common.load_manager import SourceDataManager
+from Common.kgx_file_merger import KGXFileMerger, RedisKGXFileMerger
+from Common.kgxmodel import GraphSpec, SourceDataSpec, SubGraphSpec, NormalizationScheme
+from Common.metadata import Metadata, GraphMetadata, SourceMetadata
+from Common.supplementation import SequenceVariantSupplementation
 
 
 class GraphBuilder:
@@ -36,310 +21,246 @@ class GraphBuilder:
                                                line_format='medium',
                                                log_file_path=os.environ['DATA_SERVICES_LOGS'])
 
-        self.data_manager = SourceDataLoadManager()
-
-        self.graphs_dir = self.init_graphs_dir()
-
-        self.graph_specs = self.load_graph_specs()
-        self.redis_con = None
-        try:
-            self.redis_con = redis.Redis(
-                host=os.environ['DATA_SERVICES_REDIS_HOST'],
-                port=os.environ['DATA_SERVICES_REDIS_PORT'],
-                password=os.environ['DATA_SERVICES_REDIS_PASSWORD']
-            )
-        except Exception as e:
-            self.logger.warning("Creating redis connection failed with error {e}; " \
-                                "Some merging types will not work")
+        self.graphs_dir = self.init_graphs_dir()  # path to the graphs output directory
+        self.graph_specs = self.load_graph_specs()  # list of graphs to build (GraphSpec objects)
+        self.source_data_manager = SourceDataManager()  # access to the data sources and their metadata
 
     def build_all_graphs(self):
         for graph_spec in self.graph_specs:
             self.build_graph(graph_spec)
 
-    def build_graph_kgx(self, source_dict: dict, graph_id: str, graph_version: str, graph_output_format: str, graph_output_file: str, data_dir: str):
-        """
-        saving this in case we want to merge straight into a graph in the future
-        destination_dict = {'output': {'format': 'neo4j',
-                                       'uri': self.neo4j_uri,
-                                       'username': self.neo4j_user,
-                                       'password': self.neo4j_password}}
-        """
-
-        destination_dict = {'output': {'format': graph_output_format,
-                                       'filename': [graph_output_file]}}
-
-        operations_dict = [{'name': 'kgx.graph_operations.summarize_graph.generate_graph_stats',
-                            'args': {'graph_name': graph_id,
-                                     'filename': f'{os.path.join(self.graphs_dir, graph_output_file)}.yaml'}}]
-
-        merged_graph = {'name': graph_id,
-                        'source': source_dict,
-                        'operations': operations_dict,
-                        'destination': destination_dict}
-
-        configuration_dict = {
-            "output_directory": self.graphs_dir,
-            "checkpoint": False,
-            "prefix_map": None,
-            "predicate_mappings": None,
-            "property_types": None,
-            "reverse_prefix_map": None,
-            "reverse_predicate_mappings": None,
-        }
-
-        kgx_merge_config = {'configuration': configuration_dict,
-                            'merged_graph': merged_graph}
-
-        kgx_merge_config_filename = f'{graph_id}_{graph_version}_merge_kgx_config.yml'
-        kgx_merge_config_filepath = os.path.join(self.graphs_dir, kgx_merge_config_filename)
-        with open(kgx_merge_config_filepath, 'w') as merge_cfg_file:
-            yaml.dump(kgx_merge_config, merge_cfg_file)
-        kgx_merge(kgx_merge_config_filepath)
-        os.remove(kgx_merge_config_filepath)
-
-    def build_graph_custom(self, source_dict: dict, graph_id: str, graph_version: str, graph_output_format: str, graph_output_file: str, data_dir: str):
-
-        self.redis_con: redis.Redis
-
-        assert self.redis_con, "Error Merger needs redis connection"
-
-        # Test redis connection
-
-        self.redis_con.ping()
-
-        data_sets_processed = set()
-
-        NODE_KEY_PREFIX='node-'
-        EDGE_KEY_PREFIX='edge-'
-
-        # fun part Merging
-        for data_source_name, spec in source_dict.items():
-
-            format = spec['input']['format']
-            files = spec['input']['filename']
-            self.logger.info(f"Processing {data_source_name}")
-
-            if format == 'jsonl':
-
-                for file_name in files:
-                    if "nodes" in file_name:
-                        # merging nodes
-                        with jsonlines.open(file_name) as nodes:
-                            # this is our merge condition
-                            id_functor = lambda n: n['id']
-                            # this is how we want to merge
-                            merge_functor = kgx_dict_merge
-                            matched_nodes = self.merge_redis(
-                                nodes,
-                                id_functor=id_functor,
-                                merge_functor=merge_functor,
-                                redis_key_prefix=NODE_KEY_PREFIX
-                            )
-                            self.logger.info(f"Matched {matched_nodes} nodes from redis for data set {data_source_name}. "
-                                             f"Datasets processed thus far : {data_sets_processed}")
-
-                    elif "edges" in file_name:
-                        # merge edges
-                        with jsonlines.open(file_name) as edges:
-
-                            # if we want certain datasets to be merged we just need to control how this id is generated
-                            #  eg say we wanted to merge biolink and ctd edges . we can  if biolink in mergergable sets
-                            # we just need to adjust how we compute that salt str(set('biolink', 'ctd')) etc ... would
-                            # have that effect
-
-                            edge_id_compute = lambda edge: hashlib.md5(
-                                str(edge['subject'] +
-                                edge['predicate'] +
-                                edge['object'] +
-                                f'{edge.get(ORIGINAL_KNOWLEDGE_SOURCE, "")}{edge.get(PRIMARY_KNOWLEDGE_SOURCE, "")}'
-                                    if f'{edge.get(ORIGINAL_KNOWLEDGE_SOURCE, "")}{edge.get(PRIMARY_KNOWLEDGE_SOURCE, "")}'
-                                    else data_source_name).encode('utf-8')
-                            ).hexdigest()
-
-                            # for now we practically don't merge on edges.
-                            merge_functor = lambda edge_1, edge_2: edge_2
-
-                            matched_edges = self.merge_redis(items=edges,
-                                                             id_functor=edge_id_compute,
-                                                             merge_functor=merge_functor,
-                                                             redis_key_prefix=EDGE_KEY_PREFIX,
-                                                             re_adjust_id=True)
-
-                            self.logger.info(f"Matched {matched_edges} edges from redis for data set {data_source_name}. "
-                                             f"Datasets processed thus far : {data_sets_processed}")
-                    else:
-                        raise ValueError(f"Did not recognize file {file_name} for merging "
-                                         f"from data source {data_source_name}.")
-
-                data_sets_processed.add(data_source_name)
-
-        # create output dir
-        output_dir = os.path.join(data_dir, graph_id)
-        os.makedirs(output_dir, exist_ok=True)
-
-        self.write_redis_back_to_file(f'{NODE_KEY_PREFIX}*', os.path.join(output_dir, 'nodes.jsonl'))
-        self.write_redis_back_to_file(f'{EDGE_KEY_PREFIX}*', os.path.join(output_dir, 'edges.jsonl'))
-
-    def merge_redis(self, items: iter, id_functor, merge_functor, re_adjust_id=False, redis_key_prefix=""):
-        counter = 0
-        flush_interval = 100_000
-        items_from_data_set = {}
-        matched_items = 0
-        for item in items:
-            if re_adjust_id:
-                item['id'] = id_functor(item)
-            # we can scan redis for {redis_key_prefix}* and write those to output jsonl file.
-            items_from_data_set[f'{redis_key_prefix}{id_functor(item)}'] = item
-
-            counter += 1
-            if counter % flush_interval == 0:
-                matched_items += self.merge_redis_single_batch(items_from_data_set, merge_functor)
-                # reset after flush
-                items_from_data_set = {}
-        # flush out remaining
-        if len(items_from_data_set):
-            matched_items += self.merge_redis_single_batch(items_from_data_set, merge_functor)
-        return matched_items
-
-    def merge_redis_single_batch(self, items_from_data_set, merge_functor):
-        matched_items = 0
-        items_from_redis = self.read_items_from_redis(list(items_from_data_set.keys()))
-        matched_items += len(items_from_redis)
-        # merge them together on id using kgx merger
-        for item_id in items_from_redis:
-            items_from_data_set[item_id] = merge_functor(
-                items_from_redis[item_id],
-                items_from_data_set[item_id]
-            )
-            # write all nodes for this batch to redis
-        self.write_items_to_redis(items_from_data_set)
-        return matched_items
-
-    def read_items_from_redis(self, ids):
-        chunk_size = 10_000  # batch for pipeline
-        pipeline = self.redis_con.pipeline()
-        response = {}
-        chunked_ids = [ids[start: start + chunk_size] for start in range(0, len(ids), chunk_size)]
-        for ids in chunked_ids:
-            for i in ids:
-                pipeline.get(i)
-            result = pipeline.execute()
-            for i, res in zip(ids, result):
-                if res:
-                    response.update({i: json.loads(res)})
-        return response
-
-    def write_items_to_redis(self, items):
-        chunk_size = 10_000  # batch for redis beyond this cap it might not be optimal, according to redis docs
-        pipeline = self.redis_con.pipeline()
-        all_keys = list(items.keys())
-        chunked_keys = [all_keys[start: start + chunk_size] for start in
-                        range(0, len(all_keys), chunk_size)]
-        for keys in chunked_keys:
-            for key in keys:
-                pipeline.set(key, json.dumps(items[key]))
-            pipeline.execute()
-
-    def delete_keys(self, items):
-        # deletes keys
-        chunk_size = 10_000
-        pipeline = self.redis_con.pipeline()
-        all_keys = list(items)
-        chunked_keys = [all_keys[start: start + chunk_size] for start in range(0, len(all_keys), chunk_size)]
-        for keys in chunked_keys:
-            for key in keys:
-                pipeline.delete(key)
-            pipeline.execute()
-
-    def write_redis_back_to_file(self, redis_key_pattern, output_file_name):
-        with open(output_file_name, 'w') as stream:
-            self.logger.info(f'Grabbing {redis_key_pattern} from redis,...')
-            keys = self.redis_con.keys(redis_key_pattern)
-            self.logger.info(f'found {len(keys)} items in redis...')
-            chunk_size = 500_000
-            chunked_keys = [keys[start: start + chunk_size] for start in range(0, len(keys), chunk_size) ]
-            for chunk in chunked_keys:
-                items = self.read_items_from_redis(chunk)
-                self.delete_keys(chunk)
-                items = [json.dumps(items[x]) + '\n' for x in items]
-                stream.writelines(items)
-                self.logger.info(f"wrote : {len(items)}")
-            self.logger.info(f"Done writing {redis_key_pattern}")
-
     def build_graph(self, graph_spec: GraphSpec):
 
-        self.logger.info(f'Building graph {graph_spec.graph_id}..')
+        if not self.build_dependencies(graph_spec):
+            self.logger.warning(f'Aborting graph {graph_spec.graph_id}, building dependencies failed.')
+            return
 
-        source_dict = {}
-        for source in graph_spec.sources:
-            source_id = source.source_id
-            source_load_version = source.load_version
-            if source_id not in self.data_manager.metadata:
-                self.logger.info(f'Could not build graph {graph_spec.graph_id} because {source_id} is not active.')
-                return
-            source_metadata = self.data_manager.metadata[source_id]
-            if source_metadata.is_ready_to_build():
-                file_paths = list()
-                file_paths.append(self.data_manager.get_normalized_node_file_path(source_id, source_load_version))
-                file_paths.append(self.data_manager.get_normalized_edge_file_path(source_id, source_load_version))
-                if source_metadata.has_supplemental_data():
-                    file_paths.append(self.data_manager.get_normalized_supp_node_file_path(source_id, source_load_version))
-                    file_paths.append(self.data_manager.get_normalized_supplemental_edge_file_path(source_id, source_load_version))
-                source_dict[source.source_id] = {'input': {'name': source_id,
-                                                           'format': 'jsonl',
-                                                           'filename': file_paths}}
-            else:
-                self.logger.info(f'Could not build graph {graph_spec.graph_id} because {source_id} is not stable.')
-                return
+        graph_id = graph_spec.graph_id
+        graph_version = self.generate_graph_version(graph_spec)
+        graph_metadata = self.get_graph_metadata(graph_id, graph_version)
 
-        if graph_spec.merger == 'KGX':
-            self.build_graph_kgx(
-                source_dict=source_dict,
-                graph_id=graph_spec.graph_id,
-                graph_version=graph_spec.graph_version,
-                graph_output_format=graph_spec.graph_output_format,
-                graph_output_file=graph_spec.graph_output_file,
-                data_dir=self.graphs_dir
-            )
+        # check the status for previous builds of this version
+        build_status = graph_metadata.get_build_status()
+        if build_status == Metadata.IN_PROGRESS:
+            self.logger.info(f'Graph {graph_id} version {graph_version} is already in progress. Skipping..')
+            return
+
+        if build_status == Metadata.BROKEN or build_status == Metadata.FAILED:
+            self.logger.info(f'Graph {graph_id} version {graph_version} previously failed to build. Skipping..')
+            return
+
+        if build_status == Metadata.STABLE:
+            self.logger.info(f'Graph {graph_id} version {graph_version} was already built.')
+            return
+
+        # if we get here we need to build the graph
+        self.logger.info(f'Building graph {graph_id} version {graph_version}')
+        graph_metadata.set_build_status(Metadata.IN_PROGRESS)
+        graph_metadata.set_graph_version(graph_version)
+        graph_metadata.set_graph_spec(graph_spec.get_metadata_representation())
+
+        # determine output file paths
+        graph_output_dir = self.get_graph_dir_path(graph_id, graph_version)
+        nodes_output_path = self.get_graph_nodes_file_path(graph_output_dir)
+        edges_output_path = self.get_graph_edges_file_path(graph_output_dir)
+
+        # merge the sources and write the finalized graph kgx files
+        source_merger = KGXFileMerger()
+        merge_metadata = source_merger.merge(graph_spec,
+                                             nodes_output_file_path=nodes_output_path,
+                                             edges_output_file_path=edges_output_path)
+
+        redis_source_merger = RedisKGXFileMerger()
+        merge_metadata2 = redis_source_merger.merge(graph_spec,
+                                                    nodes_output_file_path=nodes_output_path + "_redis",
+                                                    edges_output_file_path=edges_output_path + "_redis")
+
+        if "merge_error" in merge_metadata:
+            current_time = datetime.datetime.now().strftime('%m-%d-%y %H:%M:%S')
+            graph_metadata.set_build_error(merge_metadata["merge_error"], current_time)
+            graph_metadata.set_build_status(Metadata.FAILED)
+            self.logger.info(f'Error building graph {graph_id}.')
         else:
-            self.build_graph_custom(
-                source_dict=source_dict,
-                graph_id=graph_spec.graph_id,
-                graph_version=graph_spec.graph_version,
-                graph_output_format=graph_spec.graph_output_format,
-                graph_output_file=graph_spec.graph_output_file,
-                data_dir=self.graphs_dir
-            )
+            current_time = datetime.datetime.now().strftime('%m-%d-%y %H:%M:%S')
+            graph_metadata.set_build_info(merge_metadata, current_time)
+            graph_metadata.set_build_status(Metadata.STABLE)
+            self.logger.info(f'Building graph {graph_id} complete!')
+
+            # create a symlink for accessing 'latest'
+            # latest_graph_dir = self.get_graph_dir_path(graph_id, 'latest')
+            # os.remove(latest_graph_dir)
+            # os.symlink(graph_output_dir, latest_graph_dir, target_is_directory=True)
+
+    def build_dependencies(self, graph_spec: GraphSpec):
+
+        graph_id = graph_spec.graph_id
+        for subgraph_source in graph_spec.subgraphs:
+            subgraph_id = subgraph_source.graph_id
+            subgraph_version = subgraph_source.graph_version
+            if self.check_for_existing_graph_dir(subgraph_id, subgraph_version):
+                # load previous metadata
+                graph_metadata = self.get_graph_metadata(subgraph_id, subgraph_version)
+
+                # grab the graph version from the metadata - this is necessary to replace 'latest' with a real one
+                subgraph_version = graph_metadata.get_graph_version()
+                subgraph_source.graph_version = subgraph_version
+            else:
+                self.logger.warning(f'Attempting to build graph {graph_id} failed, '
+                                    f'subgraph {subgraph_id} version {subgraph_version} not found.')
+                return False
+
+            if graph_metadata.get_build_status() == Metadata.STABLE:
+                # we found the sub graph and it's stable - update the GraphSource in preparation for building the graph
+                subgraph_dir = self.get_graph_dir_path(subgraph_id, subgraph_version)
+                subgraph_nodes_path = self.get_graph_nodes_file_path(subgraph_dir)
+                subgraph_edges_path = self.get_graph_edges_file_path(subgraph_dir)
+                subgraph_source.file_paths = [subgraph_nodes_path, subgraph_edges_path]
+            else:
+                self.logger.warning(
+                    f'Attempting to build graph {graph_id} failed, sub graph {subgraph_id} version {subgraph_version} is not stable.')
+                return False
+
+        for data_source in graph_spec.sources:
+            source_id = data_source.source_id
+
+            if data_source.source_version == 'latest':
+                data_source.source_version = self.source_data_manager.get_latest_source_version(source_id)
+            if data_source.parsing_version == 'latest':
+                data_source.parsing_version = self.source_data_manager.get_latest_parsing_version(source_id)
+
+            normalization_scheme = data_source.normalization_scheme
+            if normalization_scheme.node_normalization_version == 'latest':
+                normalization_scheme.node_normalization_version = self.source_data_manager.get_latest_node_normalization_version()
+            if normalization_scheme.edge_normalization_version == 'latest':
+                normalization_scheme.edge_normalization_version = self.source_data_manager.get_latest_edge_normalization_version()
+
+            data_source.supplementation_version = SequenceVariantSupplementation.SUPPLEMENTATION_VERSION
+
+            source_metadata: SourceMetadata = self.source_data_manager.get_source_metadata(source_id,
+                                                                                           data_source.source_version)
+            if not source_metadata.is_stable(parsing_version=data_source.parsing_version,
+                                             normalization_version=data_source.normalization_scheme.get_composite_normalization_version(),
+                                             supplementation_version=data_source.supplementation_version):
+                self.logger.info(
+                    f'Attempting to build graph {graph_id}, dependency {source_id} is not ready. Building now...')
+                success = self.source_data_manager.run_pipeline(source_id,
+                                                                source_version=data_source.source_version,
+                                                                parsing_version=data_source.parsing_version,
+                                                                normalization_scheme=data_source.normalization_scheme,
+                                                                supplementation_version=data_source.supplementation_version)
+                if not success:
+                    self.logger.info(
+                        f'Attempting to build graph {graph_id}, building dependency {source_id} failed. ...')
+                    return False
+
+            data_source.file_paths = self.source_data_manager.get_final_file_paths(source_id,
+                                                                                   data_source.source_version,
+                                                                                   data_source.parsing_version,
+                                                                                   data_source.normalization_scheme.get_composite_normalization_version(),
+                                                                                   data_source.supplementation_version)
+        return True
 
     def load_graph_specs(self):
         if 'DATA_SERVICES_GRAPH_SPEC' in os.environ:
             graph_spec_file = os.environ['DATA_SERVICES_GRAPH_SPEC']
             graph_spec_path = os.path.join(self.graphs_dir, graph_spec_file)
-            self.logger.info(f'Loaded custom graph spec at {graph_spec_file}.')
+            if os.path.exists(graph_spec_path):
+                self.logger.info(f'Loading graph spec: {graph_spec_file}')
+                with open(graph_spec_path) as graph_spec_file:
+                    graph_spec_yaml = yaml.full_load(graph_spec_file)
+                    return self.parse_graph_spec(graph_spec_yaml)
+            else:
+                raise Exception(f'Configuration Error - Graph Spec could not be found: {graph_spec_file}')
         else:
-            graph_spec_path = os.path.dirname(os.path.abspath(__file__)) + '/../default-graph-spec.yml'
-            self.logger.debug(f'Loaded default graph spec.')
+            raise Exception(f'Configuration Error - No Graph Spec was configured. Set the environment variable '
+                            f'DATA_SERVICES_GRAPH_SPEC to a valid Graph Spec file in your Graphs directory. '
+                            f'See the README for more info.')
 
-        with open(graph_spec_path) as graph_spec_file:
-            graph_spec_yaml = yaml.full_load(graph_spec_file)
-            graph_specs = []
+    def parse_graph_spec(self, graph_spec_yaml):
+        graph_specs = []
+        try:
             for graph_yaml in graph_spec_yaml['graphs']:
                 graph_id = graph_yaml['graph_id']
-                graph_sources = []
-                for source in graph_yaml['sources']:
-                    load_version = source['load_version'] if 'load_version' in source else 'latest'
-                    graph_sources.append(GraphSource(source_id=source['source_id'], load_version=load_version))
-                    self.logger.info(f'Adding source {source["source_id"]}')
-                graph_output_format = graph_yaml['output_format'] if 'output_format' in graph_yaml else 'jsonl'
-                graph_output_file = graph_yaml['output_file_name'] if 'output_file_name' in graph_yaml else graph_id
+
+                # parse the list of data sources
+                data_sources = [self.parse_data_source_spec(data_source) for data_source in graph_yaml['sources']] \
+                    if 'sources' in graph_yaml else []
+
+                # parse the list of subgraphs
+                subgraph_sources = [self.parse_subgraph_spec(subgraph) for subgraph in graph_yaml['subgraphs']] \
+                    if 'subgraphs' in graph_yaml else []
+
+                if not data_sources and not subgraph_sources:
+                    self.logger.error(f'Error: No sources were provided for graph: {graph_id}.')
+                    continue
+
+                # take any normalization scheme parameters specified at the graph level
+                graph_wide_node_norm_version = graph_yaml['node_normalization_version'] \
+                    if 'node_normalization_version' in graph_yaml else None
+                graph_wide_edge_norm_version = graph_yaml['edge_normalization_version'] \
+                    if 'edge_normalization_version' in graph_yaml else None
+                graph_wide_conflation = graph_yaml['conflation'] \
+                    if 'conflation' in graph_yaml else None
+                graph_wide_strict_norm = graph_yaml['strict_normalization'] \
+                    if 'strict_normalization' in graph_yaml else None
+
+                # apply them to all of the data sources, this will overwrite anything defined at the source level
+                for data_source in data_sources:
+                    if graph_wide_node_norm_version is not None:
+                        data_source.normalization_scheme.node_normalization_version = graph_wide_node_norm_version
+                    if graph_wide_edge_norm_version is not None:
+                        data_source.normalization_scheme.edge_normalization_version = graph_wide_edge_norm_version
+                    if graph_wide_conflation is not None:
+                        data_source.normalization_scheme.conflation = graph_wide_conflation
+                    if graph_wide_strict_norm is not None:
+                        data_source.normalization_scheme.strict = graph_wide_strict_norm
+
+                # we don't support other output formats yet
+                # graph_output_format = graph_yaml['output_format'] if 'output_format' in graph_yaml else 'jsonl'
+                graph_output_format = 'jsonl'
                 current_graph_spec = GraphSpec(graph_id=graph_id,
-                                               graph_version=1,
+                                               graph_version=None,
                                                graph_output_format=graph_output_format,
-                                               graph_output_file=graph_output_file,
-                                               sources=graph_sources)
+                                               subgraphs=subgraph_sources,
+                                               sources=data_sources)
                 graph_specs.append(current_graph_spec)
-            self.logger.debug(f'Loaded {len(graph_specs)} graph specs ..')
+        except KeyError as e:
+            self.logger.error(f'Error parsing Graph Spec, formatting error or missing information: {e}')
+
         return graph_specs
+
+    def parse_subgraph_spec(self, subgraph_yml):
+        graph_id = subgraph_yml['graph_id']
+        graph_version = subgraph_yml['graph_version'] if 'graph_version' in subgraph_yml else 'latest'
+        merge_strategy = subgraph_yml['merge_strategy'] if 'merge_strategy' in subgraph_yml else 'default'
+        subgraph_source = SubGraphSpec(graph_id=graph_id,
+                                       graph_version=graph_version,
+                                       merge_strategy=merge_strategy)
+        return subgraph_source
+
+    def parse_data_source_spec(self, source_yml):
+        source_id = source_yml['source_id']
+        source_version = source_yml['source_version'] if 'source_version' in source_yml else 'latest'
+        parsing_version = source_yml['parsing_version'] if 'parsing_version' in source_yml else 'latest'
+        merge_strategy = source_yml['merge_strategy'] if 'merge_strategy' in source_yml else 'default'
+        node_normalization_version = source_yml['node_normalization_version'] \
+            if 'node_normalization_version' in source_yml else 'latest'
+        edge_normalization_version = source_yml['edge_normalization_version'] \
+            if 'edge_normalization_version' in source_yml else 'latest'
+        strict_normalization = source_yml['strict_normalization'] \
+            if 'strict_normalization' in source_yml else True
+        conflation = source_yml['conflation'] \
+            if 'conflation' in source_yml else False
+        normalization_scheme = NormalizationScheme(node_normalization_version=node_normalization_version,
+                                                   edge_normalization_version=edge_normalization_version,
+                                                   strict=strict_normalization,
+                                                   conflation=conflation)
+        graph_source = SourceDataSpec(source_id=source_id,
+                                      source_version=source_version,
+                                      normalization_scheme=normalization_scheme,
+                                      parsing_version=parsing_version,
+                                      merge_strategy=merge_strategy)
+        return graph_source
 
     def get_graph_spec(self, graph_id: str):
         for graph_spec in self.graph_specs:
@@ -347,16 +268,48 @@ class GraphBuilder:
                 return graph_spec
         return None
 
-    def init_graphs_dir(self):
-        # use the storage directory specified by the environment variable DATA_SERVICES_STORAGE
-        # create or verify graph directory is at the top level of the storage directory
+    def get_graph_dir_path(self, graph_id: str, graph_version: str):
+        return os.path.join(self.graphs_dir, graph_id, graph_version)
+
+    def get_graph_nodes_file_path(self, graph_output_dir: str):
+        return os.path.join(graph_output_dir, f'nodes.jsonl')
+
+    def get_graph_edges_file_path(self, graph_output_dir: str):
+        return os.path.join(graph_output_dir, f'edges.jsonl')
+
+    def check_for_existing_graph_dir(self, graph_id: str, graph_version: str):
+        graph_output_dir = self.get_graph_dir_path(graph_id, graph_version)
+        if not os.path.isdir(graph_output_dir):
+            return False
+        return True
+
+    def get_graph_metadata(self, graph_id: str, graph_version: str):
+        # make sure the output directory exists (where we check for existing GraphMetadata)
+        graph_output_dir = self.get_graph_dir_path(graph_id, graph_version)
+        if not os.path.isdir(graph_output_dir):
+            os.makedirs(graph_output_dir)
+
+        # load existing or create new metadata file
+        return GraphMetadata(graph_id, graph_output_dir)
+
+    @staticmethod
+    def generate_graph_version(graph_spec: GraphSpec):
+        graph_version_string = ''.join(
+            [f'{graph_source.source_id}{graph_source.source_version}{graph_source.merge_strategy}'
+             for graph_source in graph_spec.sources])
+        graph_version = xxh64_hexdigest(graph_version_string)
+        return graph_version
+
+    @staticmethod
+    def init_graphs_dir():
+        # use the directory specified by the environment variable DATA_SERVICES_GRAPHS
         if 'DATA_SERVICES_GRAPHS' in os.environ and os.path.isdir(os.environ['DATA_SERVICES_GRAPHS']):
             return os.environ['DATA_SERVICES_GRAPHS']
         else:
             # if graph dir is invalid or not specified back out
             raise IOError(
                 'GraphBuilder graphs directory not found. '
-                'Specify the graphs directory with environment variable DATA_SERVICES_GRAPHS.')
+                'Specify a valid directory with environment variable DATA_SERVICES_GRAPHS.')
 
 
 if __name__ == '__main__':
@@ -371,6 +324,8 @@ if __name__ == '__main__':
         graph_builder.build_all_graphs()
     else:
         spec = graph_builder.get_graph_spec(graph_id_arg)
-        if not spec:
+        if spec:
+            graph_builder.build_graph(spec)
+        else:
             print(f'Invalid graph id requested: {graph_id_arg}')
-        graph_builder.build_graph(spec)
+

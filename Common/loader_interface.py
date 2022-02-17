@@ -1,27 +1,43 @@
+import logging
+import os
 from Common.kgx_file_writer import KGXFileWriter
 from Common.kgx_file_normalizer import remove_orphan_nodes
-import abc
-import os
+from Common.utils import LoggingUtil
 
 
-class SourceDataLoader(metaclass=abc.ABCMeta):
-    @classmethod
-    def __subclasshook__(cls, subclass):
-        return (hasattr(subclass, 'load') and
-                callable(subclass.load) and
-                hasattr(subclass, 'get_latest_source_version') and
-                callable(subclass.get_latest_source_version) and
-                hasattr(subclass, '__init__') and
-                callable(subclass.__init__) or
-                NotImplemented)
+class SourceDataLoader:
 
-    def __init__(self):
+    def __init__(self, test_mode: bool = False, source_data_dir: str = None):
         """Initialize with the option to run in testing mode."""
-        raise NotImplementedError
+        self.test_mode: bool = test_mode
 
-    @abc.abstractmethod
+        if source_data_dir:
+            self.data_path = os.path.join(source_data_dir, "source")
+            if not os.path.exists(self.data_path):
+                os.mkdir(self.data_path)
+        else:
+            self.data_path = os.environ["DATA_SERVICES_STORAGE"]
+
+        # the final output lists of nodes and edges
+        self.final_node_list: list = []
+        self.final_edge_list: list = []
+
+        # create a logger
+        self.logger = LoggingUtil.init_logging(f"Data_services.parsers.{self.get_name()}",
+                                               level=logging.INFO,
+                                               line_format='medium',
+                                               log_file_path=os.environ['DATA_SERVICES_LOGS'])
+
     def get_latest_source_version(self):
         """Determine and return the latest source version ie. a unique identifier associated with the latest version."""
+        raise NotImplementedError
+
+    def get_data(self):
+        """Download the source data"""
+        raise NotImplementedError
+
+    def parse_data(self):
+        """Parse the downloaded data into kgx files"""
         raise NotImplementedError
 
     def load(self, nodes_output_file_path: str, edges_output_file_path: str):
@@ -36,14 +52,13 @@ class SourceDataLoader(metaclass=abc.ABCMeta):
         try:
             # download the data files if needed
             if self.needs_data_download():
-                success = self.get_data()
-                self.logger.info(f'{source_name}: Source data retrieved, parsing now...')
+                source_data_downloaded = False
             else:
-                success = True
-                self.logger.info(f'{source_name}: Source data previously retrieved, parsing now...')
+                source_data_downloaded = True
+                self.logger.debug(f'{source_name}: Source data previously retrieved, parsing now...')
 
             # did we get the files successfully
-            if success:
+            if source_data_downloaded:
                 # if so parse the data
                 load_metadata = self.parse_data()
                 if 'errors' in load_metadata and load_metadata['errors']:
@@ -64,8 +79,7 @@ class SourceDataLoader(metaclass=abc.ABCMeta):
 
         finally:
             # remove the temp data files or do any necessary clean up
-            pass
-            #self.clean_up()
+            self.clean_up()
 
         load_metadata['source_edges'] = len(self.final_edge_list)
 
@@ -97,6 +111,10 @@ class SourceDataLoader(metaclass=abc.ABCMeta):
             pass
 
     def clean_up(self):
+        # as of now we decided to not remove source data after parsing
+        # this function could still be overridden by parsers to remove temporary files or workspace clutter
+        pass
+        """
         try:
             # some implementations will have one data_file
             if self.data_file:
@@ -114,6 +132,7 @@ class SourceDataLoader(metaclass=abc.ABCMeta):
                         os.remove(file_to_remove)
         except AttributeError:
             pass
+        """
 
     def get_name(self):
         """
@@ -156,10 +175,8 @@ class SourceDataLoader(metaclass=abc.ABCMeta):
         return False
 
 
-class SourceDataWithVariantsLoader(SourceDataLoader):
 
-    def __init__(self, test_mode: bool):
-        raise NotImplementedError
+class SourceDataWithVariantsLoader(SourceDataLoader):
 
     def has_sequence_variants(self):
         return True

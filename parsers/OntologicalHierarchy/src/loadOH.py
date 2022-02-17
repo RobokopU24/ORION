@@ -10,6 +10,7 @@ from Common.loader_interface import SourceDataLoader
 from Common.kgxmodel import kgxnode, kgxedge
 from Common.prefixes import HGNC
 
+
 ##############
 # Class: Ontological-Hierarchy loader
 #
@@ -19,38 +20,32 @@ from Common.prefixes import HGNC
 ##############
 class OHLoader(SourceDataLoader):
 
-    def __init__(self, test_mode: bool = False):
+    source_id: str = 'OntologicalHierarchy'
+    provenance_id: str = 'infores:ontological-hierarchy'
+
+    def __init__(self, test_mode: bool = False, source_data_dir: str = None):
         """
-        constructor
         :param test_mode - sets the run into test mode
+        :param source_data_dir - the specific storage directory to save files in
         """
-        # call the super
-        super(SourceDataLoader, self).__init__()
+        super().__init__(test_mode=test_mode, source_data_dir=source_data_dir)
 
         # set global variables
-        self.data_path: str = os.environ['DATA_SERVICES_STORAGE']
+        self.data_url: str = 'https://stars.renci.org/var/data_services/'
         self.data_file: str = 'properties-redundant.zip'
-        self.test_mode: bool = test_mode
-        self.source_id: str = 'OntologicalHierarchy'
         self.source_db: str = 'properties-redundant.ttl'
-        self.provenance_id: str = 'infores:ontological-hierarchy'
         self.subclass_predicate = 'biolink:subclass_of'
-
-        # the final output lists of nodes and edges
-        self.final_node_list: list = []
-        self.final_edge_list: list = []
-        self.file_size = 500000
-
-        # create a logger
-        self.logger = LoggingUtil.init_logging("Data_services.Ontological-Hierarchy.OHLoader", level=logging.INFO, line_format='medium', log_file_path=os.environ['DATA_SERVICES_LOGS'])
 
     def get_latest_source_version(self) -> str:
         """
-        gets the version of the data
+        gets the latest available version of the data
 
         :return:
         """
-        return datetime.datetime.now().strftime("%m/%d/%Y")
+        file_url = f'{self.data_url}{self.data_file}'
+        gd = GetData(self.logger.level)
+        latest_source_version = gd.get_http_file_modified_date(file_url)
+        return latest_source_version
 
     def get_data(self) -> int:
         """
@@ -63,62 +58,17 @@ class OHLoader(SourceDataLoader):
         # get a reference to the data gatherer
         gd: GetData = GetData(self.logger.level)
 
-        byte_count: int = gd.pull_via_http(f'https://stars.renci.org/var/data_services/{self.data_file}',
+        byte_count: int = gd.pull_via_http(f'{self.data_url}{self.data_file}',
                                            self.data_path, False)
 
         if byte_count > 0:
             return True
 
-    def load(self, nodes_output_file_path: str, edges_output_file_path: str):
+    def parse_data(self):
         """
-        Loads/parsers the UberGraph data file to produce node/edge KGX files for importation into a graph database.
-
-        :param: nodes_output_file_path - path to node file
-        :param: edges_output_file_path - path to edge file
-        :return: None
+        Parses the data file for graph nodes/edges
         """
-        self.logger.info(f'OHLoader - Start of UberGraph Ontological hierarchy data processing.')
 
-        self.get_data()
-
-        # split the input file names
-        file_name = self.data_file
-
-        self.logger.info(f'Parsing OntologicalHierarchy data file: {file_name}. {self.file_size} records per file + remainder')
-
-        # parse the data
-        split_files, final_record_count, final_skipped_count, final_skipped_non_subclass = \
-            self.parse_data_file(file_name)
-
-        # remove all the intermediate files
-        for file in split_files:
-            os.remove(file)
-
-        # remove the data file
-        os.remove(os.path.join(self.data_path, file_name ))
-
-        self.write_to_file(nodes_output_file_path, edges_output_file_path)
-
-        self.logger.info(f'OntologicalHierarchy loader - Processing complete.')
-
-        # load up the metadata
-        load_metadata: dict = {
-            'num_source_lines': final_record_count,
-            'unusable_source_lines': final_skipped_count,
-            'non_subclass_source_lines': final_skipped_non_subclass
-        }
-
-        # return the metadata to the caller
-        return load_metadata
-
-    def parse_data_file(self, data_file_name: str) -> (list, int, int):
-        """
-        Parses the data file for graph nodes/edges and writes them out the KGX tsv files.
-
-        :param data_file_path: the path to the UberGraph data file
-        :param data_file_name: the name of the UberGraph file
-        :return: split_files: the temporary files created of the input file and the parsed metadata
-        """
         # init the record counters
         record_counter: int = 0
         skipped_record_counter: int = 0
@@ -131,10 +81,9 @@ class OHLoader(SourceDataLoader):
         triple: list = []
 
         # split the file into pieces
-        split_files: list = gd.split_file(os.path.join(self.data_path, f'{data_file_name}'), self.data_path,
-                                          data_file_name.replace('.zip', '.ttl'), self.file_size)
-
-        # parse each file
+        split_files: list = gd.split_file(archive_file_path=os.path.join(self.data_path, f'{self.data_file}'),
+                                          output_dir=self.data_path,
+                                          data_file_name=self.data_file.replace('.zip', '.ttl'))
 
         # test mode
         if self.test_mode:
@@ -197,7 +146,6 @@ class OHLoader(SourceDataLoader):
                         self.final_node_list.append(kgxnode(triple[2], name=triple[2]))
                         self.final_edge_list.append(kgxedge(subject_id=triple[0],
                                                             object_id=triple[2],
-                                                            relation=self.subclass_predicate,
                                                             predicate=self.subclass_predicate))
                     else:
                         skipped_non_subclass_record_counter += 1
@@ -207,8 +155,19 @@ class OHLoader(SourceDataLoader):
             self.logger.debug(
                 f'Loading complete for file {file.split(".")[2]} of {len(split_files)} in {round(time.time() - tm_start, 0)} seconds.')
 
+        # remove all the intermediate files
+        for file in split_files:
+            os.remove(file)
+
+        # load up the metadata
+        load_metadata: dict = {
+            'num_source_lines': record_counter,
+            'unusable_source_lines': skipped_record_counter,
+            'non_subclass_source_lines': skipped_non_subclass_record_counter
+            }
+
         # return the split file names so they can be removed if desired
-        return split_files, record_counter, skipped_record_counter, skipped_non_subclass_record_counter
+        return load_metadata
 
 
 if __name__ == '__main__':

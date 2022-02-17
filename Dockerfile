@@ -12,10 +12,10 @@ ENV USER=ds_user
 
 COPY ./requirements.txt /Data_services/requirements.txt
 
-RUN pip install -r /Data_services/requirements.txt
+RUN pip install -r /Data_services/requirements.txt --use-deprecated=legacy-resolver
 
 COPY . /Data_services/.
 
-ENV PYTHONPATH "${PYTHONPATH}:/Data_services"
+ENV PYTHONPATH "/Data_services"
 
-CMD ["python", "/Data_services/Common/run_all.py"]
+CMD ["python", "/Data_services/Common/build_manager.py"]

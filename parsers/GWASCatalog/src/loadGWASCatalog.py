@@ -36,14 +36,13 @@ class GWASCatalogLoader(SourceDataWithVariantsLoader):
     source_id = 'GWASCatalog'
     provenance_id = 'infores:gwas-catalog'
 
-    def __init__(self, test_mode: bool = False):
+    def __init__(self, test_mode: bool = False, source_data_dir: str = None):
         """
-        constructor
         :param test_mode - sets the run into test mode
+        :param source_data_dir - the specific storage directory to save files in
         """
-        self.test_mode: bool = test_mode
+        super().__init__(test_mode=test_mode, source_data_dir=source_data_dir)
 
-        self.data_path: str = os.path.join(os.environ['DATA_SERVICES_STORAGE'], self.source_id)
         self.data_file: str = 'gwas-catalog-associations_ontology-annotated.tsv'
 
         self.ftp_site = 'ftp.ebi.ac.uk'
@@ -54,13 +53,6 @@ class GWASCatalogLoader(SourceDataWithVariantsLoader):
 
         self.variant_regex_pattern = re.compile(r'[^,;x\s]+')
         self.trait_regex_pattern = re.compile(r'[^,\s]+')
-
-        # the final output lists of nodes and edges
-        self.final_node_list: list = []
-        self.final_edge_list: list = []
-
-        # create a logger
-        self.logger = LoggingUtil.init_logging("Data_services.GWASCatalog.GWASCatalogLoader", level=logging.INFO, line_format='medium', log_file_path=os.environ['DATA_SERVICES_LOGS'])
 
     def get_latest_source_version(self) -> str:
         """
@@ -179,7 +171,6 @@ class GWASCatalogLoader(SourceDataWithVariantsLoader):
                             new_edge = kgxedge(subject_id=variant_id,
                                                object_id=trait_id,
                                                predicate=has_phenotype_predicate,
-                                               relation=has_phenotype_predicate,
                                                primary_knowledge_source=self.provenance_id,
                                                edgeprops=edge_props)
                             self.final_edge_list.append(new_edge)

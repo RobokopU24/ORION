@@ -2,27 +2,18 @@ import os
 import hashlib
 import argparse
 import pandas as pd
-import logging
-import mysql.connector
 import re
 import random
 import requests
 
 from Common.loader_interface import SourceDataLoader
 from Common.kgxmodel import kgxnode, kgxedge
-from Common.utils import LoggingUtil, GetData
+from Common.utils import GetData
+from Common.containers import MariaDBContainer
 
 
-##############
-# Class: FooDB loader
-#
-# By: Phil Owen
-# Date: 8/11/2020
-# Desc: Class that loads the PHAROS data and creates KGX files for importing into a Neo4j graph.
-#       Note that this parser uses a MySQL database that should be started prior to launching the parse.
-#       The database (TCRDv6.7.0.sql.gz recent as of 20120/21/9) is ~3.9gb in size.
-##############
 class PHAROSLoader(SourceDataLoader):
+
     GENE_TO_DISEASE: str = """select distinct x.value, d.did, d.name, p.sym, d.dtype
                                 from disease d 
                                 join xref x on x.protein_id = d.protein_id 
@@ -49,35 +40,21 @@ class PHAROSLoader(SourceDataLoader):
                                 WHERE da.cmpd_chemblid IS NOT NULL
                                 AND x.xtype='HGNC'"""
 
-    def __init__(self, test_mode: bool = False):
+    source_id = 'PHAROS'
+    provenance_id = 'infores:pharos'
+
+    def __init__(self, test_mode: bool = False, source_data_dir: str = None):
         """
-        constructor
         :param test_mode - sets the run into test mode
+        :param source_data_dir - the specific storage directory to save files in
         """
-        # call the super
-        super(SourceDataLoader, self).__init__()
+        super().__init__(test_mode=test_mode, source_data_dir=source_data_dir)
 
-        # set global variables
-        self.data_path = os.environ['DATA_SERVICES_STORAGE']
-        self.data_file = 'latest.sql'
-        self.test_mode = test_mode
-        self.source_id = 'PHAROS'
-        self.source_db = 'Druggable Genome initiative database'
-        self.provenance_id = 'infores:pharos'
-
-        # for tracking counts
-        self.total_nodes: int = 0
-        self.total_edges: int = 0
-
-        # the final output lists of nodes and edges
-        self.final_node_list: list = []
-        self.final_edge_list: list = []
-
-        # create a logger
-        self.logger = LoggingUtil.init_logging("Data_services.PHAROSLoader", level=logging.INFO, line_format='medium', log_file_path=os.environ['DATA_SERVICES_LOGS'])
-
-        # DB connection, lazy instantiation
-        self.db = None
+        self.data_file = 'latest.sql.gz'
+        self.data_url = 'http://juniper.health.unm.edu/tcrd/download/'
+        self.source_db = 'Target Central Resource Database'
+        self.pharos_db_name = 'tcrd'
+        self.pharos_db_container = None
 
     def get_latest_source_version(self) -> str:
         """
@@ -85,33 +62,19 @@ class PHAROSLoader(SourceDataLoader):
 
         :return: the version of the data
         """
+        return "v6_12_4"
         url = 'http://juniper.health.unm.edu/tcrd/download/latest.README'
         response = requests.get(url)
-        version = response.text.splitlines()[0]
-        self.logger.info(version)
+        first_line = response.text.splitlines()[0]
+        version = first_line.split()[1].replace('.', '_')
         return version
 
     def get_data(self):
-        """
-        Gets the PHAROS (https://pharos.nih.gov/) data from https://juniper.health.unm.edu/tcrd/download/
-
-        """
-        return True
-
-        # and get a reference to the data gatherer
         gd: GetData = GetData(self.logger.level)
-
-        # get all the files noted above
-        file_count: int = gd.get_pharos_http_file(self.data_path, self.data_file)
-
-        # abort if we didnt get the file
-        if file_count != 1:
-            self.logger.error(f'PHAROSLoader - The PHAROS data file was not retrieved.')
-            raise Exception('PHAROSLoader - The PHAROS data file was not retrieved.')
-        else:
-            return True
-
-        # TODO load the datafile into the database
+        byte_count: int = gd.pull_via_http(f'{self.data_url}{self.data_file}',
+                                           self.data_path)
+        if not byte_count:
+            return False
 
     def parse_data(self) -> dict:
         """
@@ -119,6 +82,22 @@ class PHAROSLoader(SourceDataLoader):
 
         :return: parsed meta data results
         """
+
+        mariadb_version = 'latest'
+        db_container_name = self.source_id + "_" + self.get_latest_source_version()
+        db_container = MariaDBContainer(container_name=db_container_name,
+                                        mariadb_version=mariadb_version,
+                                        database_name=self.pharos_db_name,
+                                        logger=self.logger)
+        db_container.run()  # run() should automatically lock until the DB container is up and ready
+        db_dump_path = os.path.join(self.data_path, self.data_file)
+        db_container.load_db_dump(db_dump_path)
+
+        # db_container.move_files_to_container([db_dump_path])
+        # db_container.load_db_dump(self.data_file)
+
+        self.pharos_db_container = db_container
+
         # storage for the node list
         node_list: list = []
 
@@ -143,7 +122,7 @@ class PHAROSLoader(SourceDataLoader):
             self.logger.debug('Creating nodes and edges.')
 
             # create a data frame with the node list
-            df: pd.DataFrame = pd.DataFrame(node_list, columns=['grp', 'node_num', 'id', 'name', 'category', 'equivalent_identifiers', 'predicate', 'relation', 'edge_label', 'pmids', 'affinity', 'affinity_parameter', 'provenance'])
+            df: pd.DataFrame = pd.DataFrame(node_list, columns=['grp', 'node_num', 'id', 'name', 'category', 'equivalent_identifiers', 'predicate', 'edge_label', 'pmids', 'affinity', 'affinity_parameter', 'provenance'])
 
             # get the list of unique nodes and edges
             self.get_nodes_and_edges(df)
@@ -193,7 +172,6 @@ class PHAROSLoader(SourceDataLoader):
             if did is None:
                 # increment the counter
                 skipped_record_counter += 1
-
                 continue
             # if this is a UML node, create the curie
             elif pattern.match(did):
@@ -217,7 +195,7 @@ class PHAROSLoader(SourceDataLoader):
                 node_list.append({'grp': grp, 'node_num': 1, 'id': gene, 'name': gene_sym, 'category': '', 'equivalent_identifiers': ''})
 
                 # create the disease node and add it to the list
-                node_list.append({'grp': grp, 'node_num': 2, 'id': did, 'name': name, 'category': '', 'equivalent_identifiers': '', 'predicate': 'biolink:gene_associated_with_condition', 'relation': 'WIKIDATA_PROPERTY:P2293', 'edge_label': 'gene_associated_with_condition', 'pmids': [], 'affinity': 0, 'affinity_parameter': '', 'provenance': provenance})
+                node_list.append({'grp': grp, 'node_num': 2, 'id': did, 'name': name, 'category': '', 'equivalent_identifiers': '', 'predicate': 'WIKIDATA_PROPERTY:P2293', 'edge_label': 'gene_associated_with_condition', 'pmids': [], 'affinity': 0, 'affinity_parameter': '', 'provenance': provenance})
 
         # return the node list to the caller
         return node_list, record_counter, skipped_record_counter
@@ -246,7 +224,7 @@ class PHAROSLoader(SourceDataLoader):
             gene = item['value']
             gene_sym = item['sym']
             drug_id = f"{prefixmap[item['id_src']]}{item['cid'].replace('CHEMBL', '')}"
-            relation, pmids, props, provenance = self.get_edge_props(item)
+            predicate, pmids, props, provenance = self.get_edge_props(item)
 
             # if there were affinity properties use them
             if len(props) == 2:
@@ -257,14 +235,14 @@ class PHAROSLoader(SourceDataLoader):
                 affinity_parameter = None
 
             # create the group id
-            grp: str = drug_id + relation + gene + f'{random.random()}'
+            grp: str = drug_id + predicate + gene + f'{random.random()}'
             grp = hashlib.md5(grp.encode("utf-8")).hexdigest()
 
             # create the disease node and add it to the node list
             node_list.append({'grp': grp, 'node_num': 1, 'id': drug_id, 'name': name, 'category': '', 'equivalent_identifiers': ''})
 
             # create the gene node and add it to the list
-            node_list.append({'grp': grp, 'node_num': 2, 'id': gene, 'name': gene_sym, 'category': '', 'equivalent_identifiers': '', 'predicate': '', 'relation': relation, 'edge_label': '', 'pmids': pmids, 'affinity': affinity, 'affinity_parameter': affinity_parameter, 'provenance': provenance})
+            node_list.append({'grp': grp, 'node_num': 2, 'id': gene, 'name': gene_sym, 'category': '', 'equivalent_identifiers': '', 'predicate': predicate, 'edge_label': '', 'pmids': pmids, 'affinity': affinity, 'affinity_parameter': affinity_parameter, 'provenance': provenance})
 
         return node_list, record_counter, skipped_record_counter
 
@@ -292,7 +270,7 @@ class PHAROSLoader(SourceDataLoader):
             gene = item['value']
             gene_sym = item['sym']
             cmpd_id = f"{prefixmap[item['id_src']]}{item['cid'].replace('CHEMBL', '')}"
-            relation, pmids, props, provenance = self.get_edge_props(item)
+            predicate, pmids, props, provenance = self.get_edge_props(item)
 
             # if there were affinity properties use them
             if len(props) == 2:
@@ -303,14 +281,14 @@ class PHAROSLoader(SourceDataLoader):
                 affinity_parameter = None
 
             # create the group id
-            grp: str = cmpd_id + relation + gene + f'{random.random()}'
+            grp: str = cmpd_id + predicate + gene + f'{random.random()}'
             grp = hashlib.md5(grp.encode("utf-8")).hexdigest()
 
             # create the gene node and add it to the list
             node_list.append({'grp': grp, 'node_num': 1, 'id': gene, 'name': gene_sym, 'category': '', 'equivalent_identifiers': ''})
 
             # create the compound node and add it to the node list
-            node_list.append({'grp': grp, 'node_num': 2, 'id': cmpd_id, 'name': name, 'category': '', 'equivalent_identifiers': '', 'predicate': '', 'relation': relation, 'edge_label': '', 'pmids': pmids, 'affinity': affinity, 'affinity_parameter': affinity_parameter, 'provenance': provenance})
+            node_list.append({'grp': grp, 'node_num': 2, 'id': cmpd_id, 'name': name, 'category': '', 'equivalent_identifiers': '', 'predicate': predicate, 'edge_label': '', 'pmids': pmids, 'affinity': affinity, 'affinity_parameter': affinity_parameter, 'provenance': provenance})
 
         return node_list, record_counter, skipped_record_counter
 
@@ -319,7 +297,7 @@ class PHAROSLoader(SourceDataLoader):
         gets the edge properties from the node results
 
         :param result:
-        :return str: relation, list: pmids, dict: props, str: provenance:
+        :return str: predicate, list: pmids, dict: props, str: provenance:
         """
         # if there was a predicate make it look pretty
         if result['pred'] is not None and len(result['pred']) > 1:
@@ -334,8 +312,8 @@ class PHAROSLoader(SourceDataLoader):
         else:
             rel: str = 'interacts_with'
 
-        # save the relation
-        relation: str = f'GAMMA:{rel}'
+        # save the predicate
+        predicate: str = f'GAMMA:{rel}'
 
         # if there was provenance data save it
         if result['dtype'] is not None and len(result['dtype']) > 0:
@@ -363,7 +341,7 @@ class PHAROSLoader(SourceDataLoader):
             props['affinity_parameter'] = ''
 
         # return to the caller
-        return relation, pmids, props, provenance
+        return predicate, pmids, props, provenance
 
     @staticmethod
     def snakify(text):
@@ -372,14 +350,6 @@ class PHAROSLoader(SourceDataLoader):
         resu = '_'.join(dedash.split())
         return resu
 
-    def init_pharos_db(self):
-        # get a connection to the PHAROS MySQL DB
-        host = os.environ.get('PHAROS_HOST', '')
-        user = os.environ.get('PHAROS_USER', '')
-        password = os.environ.get('PHAROS_PASSWORD', '')
-        database = os.environ.get('PHAROS_DATABASE', '')
-        self.db = mysql.connector.connect(host=host, user=user, password=password, database=database)
-
     def execute_pharos_sql(self, sql_query: str) -> dict:
         """
         executes a sql statement
@@ -387,11 +357,8 @@ class PHAROSLoader(SourceDataLoader):
         :param sql_query:
         :return dict of results:
         """
-        if not self.db:
-            self.init_pharos_db()
-
         # get a cursor to the db
-        cursor = self.db.cursor(dictionary=True, buffered=True)
+        cursor = self.pharos_db_container.get_db_connection().cursor()
 
         # execute the sql
         cursor.execute(sql_query)
@@ -452,7 +419,6 @@ class PHAROSLoader(SourceDataLoader):
                             # save the edge
                             edge_props = {"publications": row[1]['pmids'], "affinity": row[1]['affinity'], "affinity_parameter":  row[1]['affinity_parameter']}
                             new_edge = kgxedge(subject_id=node_1_id,
-                                               relation=row[1]['relation'],
                                                predicate=row[1]['predicate'],
                                                object_id=row[1]['id'],
                                                edgeprops=edge_props,

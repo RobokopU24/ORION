@@ -1,23 +1,23 @@
 
 import os
 import argparse
-import yaml
 import datetime
-import shutil
-import json
-
+from collections import defaultdict
 # from multiprocessing import Pool
 
 from Common.utils import LoggingUtil, NodeNormUtils, EdgeNormUtils, GetDataPullError
 from Common.kgx_file_normalizer import KGXFileNormalizer, NormalizationBrokenError, NormalizationFailedError
-from Common.metadata_manager import MetadataManager as Metadata
+from Common.kgxmodel import NormalizationScheme
+from Common.metadata import SourceMetadata
 from Common.loader_interface import SourceDataBrokenError, SourceDataFailedError
 from Common.supplementation import SequenceVariantSupplementation, SupplementationFailedError
 from parsers.GWASCatalog.src.loadGWASCatalog import GWASCatalogLoader
 from parsers.CTD.src.loadCTD import CTDLoader
 from parsers.cord19.src.loadCord19 import Cord19Loader
+from parsers.scent.src.loadScent import ScentLoader
+
 # from parsers.FooDB.src.loadFDB import FDBLoader
-from parsers.GOA.src.loadGOA import GOALoader
+from parsers.GOA.src.loadGOA import PlantGOALoader, HumanGOALoader
 from parsers.IntAct.src.loadIA import IALoader
 from parsers.PHAROS.src.loadPHAROS import PHAROSLoader
 from parsers.UberGraph.src.loadUG import UGLoader
@@ -37,10 +37,10 @@ GWAS_CATALOG = 'GWASCatalog'
 CTD = 'CTD'
 CORD19 = 'Cord19'
 HUMAN_GOA = 'HumanGOA'
+PLANT_GOA = 'PlantGOA'
 INTACT = 'IntAct'
 PHAROS = 'PHAROS'
 UBERGRAPH = 'UberGraph'
-UNIREF = 'UniRef'
 VP = 'ViralProteome'
 GTOPDB = 'GtoPdb'
 HMDB = 'HMDB'
@@ -51,6 +51,7 @@ DRUG_CENTRAL = 'DrugCentral'
 HETIO = 'Hetio'
 BIOLINK = 'Biolink'
 UNIREF = 'UniRef'
+SCENT = 'Scent'
 ONTOLOGICAL_HIERARCHY = 'OntologicalHierarchy'
 # FOODB = 'FooDB' # this is on hold, data needs review after latest release of data.
 
@@ -60,7 +61,8 @@ SOURCE_DATA_LOADER_CLASSES = {
     CORD19: Cord19Loader,
     INTACT: IALoader,
     GTOPDB: GtoPdbLoader,
-    HUMAN_GOA: GOALoader,
+    HUMAN_GOA: HumanGOALoader,
+    PLANT_GOA: PlantGOALoader,
     HGNC: HGNCLoader,
     UBERGRAPH: UGLoader,
     VP: VPLoader,
@@ -73,8 +75,8 @@ SOURCE_DATA_LOADER_CLASSES = {
     BIOLINK: BLLoader,
     PANTHER: PLoader,
     UNIREF: UniRefSimLoader,
-    ONTOLOGICAL_HIERARCHY: OHLoader
-
+    ONTOLOGICAL_HIERARCHY: OHLoader,
+    SCENT: ScentLoader
     # items to go
     # textminingkp
 
@@ -85,243 +87,325 @@ SOURCE_DATA_LOADER_CLASSES = {
 RESOURCE_HOGS = [GTEX, UNIREF]
 
 
-class SourceDataLoadManager:
+class SourceDataManager:
 
     def __init__(self,
                  test_mode: bool = False,
-                 source_subset: list = None,
                  fresh_start_mode: bool = False):
 
-        self.logger = LoggingUtil.init_logging("Data_services.Common.SourceDataLoadManager",
+        self.logger = LoggingUtil.init_logging("Data_services.Common.SourceDataManager",
                                                line_format='medium',
                                                log_file_path=os.environ['DATA_SERVICES_LOGS'])
 
         self.test_mode = test_mode
         if test_mode:
-            self.logger.info(f'SourceDataLoadManager running in test mode...')
+            self.logger.info(f'SourceDataManager running in test mode... test data sets will be used when possible.')
 
         self.fresh_start_mode = fresh_start_mode
         if fresh_start_mode:
-            self.logger.info(f'SourceDataLoadManager running in fresh start mode... previous state is ignored.')
+            self.logger.info(f'SourceDataManager running in fresh start mode... previous state and files ignored.')
 
-        # locate and verify the main data directory
-        self.data_dir = self.init_data_dir()
+        # locate and verify the main storage directory
+        self.storage_dir = self.init_storage_dir()
 
-        # load the sources spec which specifies which data sources to download and parse
-        self.sources_without_strict_normalization = []
-        self.load_sources_spec()
-        self.logger.info(f'Sources spec loaded. Source list: {self.source_list}')
+        # dict of source_id -> latest source version (to prevent double lookups)
+        self.latest_source_version_lookup = {}
+        self.latest_parsing_version_lookup = {}
+        # placeholders for lazy loading
+        self.latest_node_normalization_version = None
+        self.latest_edge_normalization_version = None
+        self.latest_supplementation_version = None
 
-        # if there is a subset specified with the command line override the full source list
-        if source_subset:
-            self.source_list = source_subset
-            self.logger.info(f'Active sources: {source_subset}')
-        else:
-            self.logger.info(f'Active sources: All')
+        # nested dict of source_id -> source_version -> SourceMetadata
+        self.source_metadata = defaultdict(dict)
 
-        invalid_sources = [source for source in self.source_list if source not in SOURCE_DATA_LOADER_CLASSES.keys()]
-        if invalid_sources:
-            self.logger.error(f'Sources ({invalid_sources}) are not valid - no loader class set up. Ignoring them.')
-            self.source_list = [source for source in self.source_list if source not in invalid_sources]
+    def run_pipeline(self,
+                     source_id: str,
+                     source_version: str='latest',
+                     parsing_version: str='latest',
+                     normalization_scheme: NormalizationScheme = None,
+                     supplementation_version: str='latest'):
 
-        # set up the individual subdirectories for each data source
-        self.init_source_dirs()
+        self.logger.info(f"Running pipeline on {source_id}...")
+        self.init_source_output_dir(source_id)
 
-        # dict of data_source_id -> MetadataManager object
-        self.metadata = {}
+        if not normalization_scheme:
+            self.logger.debug(f"No normalization scheme provided, using defaults/latest...")
+            normalization_scheme = NormalizationScheme()
 
-        # dict of data_source_id -> latest source version (to prevent double lookups)
-        self.new_version_lookup = {}
-
-        # load any existing metadata found in storage data dir
-        self.load_previous_metadata()
-
-        # placeholders for lazy instantiation
-        self.normalization_version = None
-        self.supplementation_version = None
-
-    def start(self):
-        # sources_to_run_in_parallel = [source_id for source_id in self.source_list if source_id not in RESOURCE_HOGS]
-        #
-        # with Pool() as p:
-        #    p.map(self.run_pipeline, sources_to_run_in_parallel)
-        #
-        # sources_to_run_sequentially = [source_id for source_id in self.source_list if source_id in RESOURCE_HOGS]
-
-        sources_to_run_sequentially = self.source_list
-        for source_id in sources_to_run_sequentially:
-            self.run_pipeline(source_id)
-
-    def run_pipeline(self, source_id: str):
-        self.logger.debug(f"Checking for work to do on source {source_id}...")
-        if self.update_needed(source_id):
-            self.logger.debug(f"Updating source {source_id}...")
-            self.update_source(source_id)
-            self.logger.debug(f"Updating source {source_id} complete...")
-        if self.normalization_needed(source_id):
-            self.logger.debug(f"Normalizing source {source_id}...")
-            self.normalize_source(source_id)
-            self.logger.debug(f"Normalizing source {source_id} complete...")
-        if self.supplementation_needed(source_id):
-            self.logger.debug(f"Supplementing source {source_id}...")
-            self.supplement_source(source_id)
-            self.logger.debug(f"Supplementing source {source_id} complete...")
-
-    def load_previous_metadata(self):
-        for source_id in self.source_list:
-            self.metadata[source_id] = Metadata(source_id, self.get_source_dir_path(source_id))
-            if self.fresh_start_mode:
-                self.metadata[source_id].reset_state_metadata()
-
-    def update_needed(self, source_id: str):
-        source_metadata = self.metadata[source_id]
-        update_status = source_metadata.get_update_status()
-        if update_status == Metadata.NOT_STARTED:
-            return True
-        elif update_status == Metadata.IN_PROGRESS:
+        if not self.run_fetch_stage(source_id, source_version):
+            self.logger.warning(f"Pipeline for {source_id} aborted during fetch stage.")
             return False
-        elif update_status == Metadata.BROKEN or update_status == Metadata.FAILED:
+
+        if not self.run_parsing_stage(source_id, source_version, parsing_version=parsing_version):
+            self.logger.warning(f"Pipeline for {source_id} aborted during parsing stage.")
             return False
-        else:
-            try:
-                loader = SOURCE_DATA_LOADER_CLASSES[source_id]()
-                self.logger.debug(f"Retrieving latest source version for {source_id}...")
-                latest_source_version = loader.get_latest_source_version()
-                last_version = source_metadata.get_source_version()
-                if latest_source_version != last_version:
-                    self.logger.info(f"Found new source version for {source_id}: {latest_source_version}. "
-                                     f"(current version: {last_version}) Archiving previous version..")
-                    self.archive_previous_load(source_metadata)
-                    source_metadata.reset_state_metadata()
-                    source_metadata.increment_load_version()
-                    loader.clean_up()
-                    self.new_version_lookup[source_id] = latest_source_version
-                    return True
-                else:
-                    self.logger.debug(f"Source version for {source_id} is up to date ({latest_source_version})")
-                    return False
-            except SourceDataFailedError as failed_error:
-                # TODO report these by email or something automated
-                self.logger.info(
-                    f"Error while checking for updated version for {source_id}: {failed_error.error_message}")
-                source_metadata.set_version_update_error(failed_error.error_message)
-                source_metadata.set_version_update_status(Metadata.FAILED)
+
+        if not self.run_normalization_stage(source_id,
+                                            source_version,
+                                            parsing_version=parsing_version,
+                                            normalization_scheme=normalization_scheme):
+            self.logger.warning(f"Pipeline for {source_id} aborted during normalization stage.")
+            return False
+
+        if not self.run_supplementation_stage(source_id,
+                                              source_version,
+                                              parsing_version=parsing_version,
+                                              supplementation_version=supplementation_version,
+                                              normalization_scheme=normalization_scheme):
+            self.logger.warning(f"Pipeline for {source_id} supplementation stage not successful.")
+            return False
+
+        return True
+
+    def run_fetch_stage(self, source_id: str, source_version: str):
+        if source_version == 'latest':
+            source_version = self.get_latest_source_version(source_id)
+            if not source_version:
+                self.logger.error(f"Error running pipeline for {source_id} - could not determine latest version.")
                 return False
 
-    def update_source(self, source_id: str, retries: int = 0):
-        source_metadata = self.metadata[source_id]
-        source_metadata.set_update_status(Metadata.IN_PROGRESS)
-        self.logger.debug(f"Updating source data for {source_id}...")
-        try:
-            # create an instance of the appropriate loader using the source_data_loader_classes lookup map
-            source_data_loader = SOURCE_DATA_LOADER_CLASSES[source_id](test_mode=self.test_mode)
+        fetch_status = self.get_source_metadata(source_id, source_version).get_fetch_status()
+        if fetch_status == SourceMetadata.STABLE:
+            return True
+        elif fetch_status == SourceMetadata.IN_PROGRESS:
+            self.logger.info(f"Fetch stage for {source_id} is already in progress.")
+            return False
+        elif fetch_status == SourceMetadata.BROKEN or fetch_status == SourceMetadata.FAILED:
+            # TODO consider retry logic here
+            self.logger.info(f"Fetch stage for {source_id} previously: {fetch_status}")
+            return False
+        else:
+            self.logger.info(f"Fetching source data for {source_id} (version: {source_version})...")
+            return self.fetch_source(source_id, source_version=source_version)
 
-            # update the version
-            if source_id in self.new_version_lookup:
-                latest_source_version = self.new_version_lookup[source_id]
+    def get_latest_source_version(self, source_id: str, retries: int=0):
+        if source_id in self.latest_source_version_lookup:
+            return self.latest_source_version_lookup[source_id]
+
+        loader = SOURCE_DATA_LOADER_CLASSES[source_id](test_mode=self.test_mode)
+        self.logger.debug(f"Retrieving latest source version for {source_id}...")
+        try:
+            latest_source_version = loader.get_latest_source_version()
+            self.logger.debug(f"Found latest source version for {source_id}: {latest_source_version}")
+            self.latest_source_version_lookup[source_id] = latest_source_version
+            return latest_source_version
+        except GetDataPullError as failed_error:
+            self.logger.error(
+                f"Error while checking for latest source version for {source_id}: {failed_error.error_message}")
+            if retries < 2:
+                return self.get_latest_source_version(source_id, retries=retries+1)
             else:
-                self.logger.info(f"Retrieving source version for {source_id}...")
-                latest_source_version = source_data_loader.get_latest_source_version()
-                self.new_version_lookup[source_id] = latest_source_version
-                self.logger.info(f"Found source version for {source_id}: {latest_source_version}")
-            source_metadata.set_source_version(latest_source_version)
+                # TODO what should we do here?
+                # no great place to write an error in metadata because metadata is specific to source versions
+                # source_metadata.set_version_checking_error(failed_error.error_message)
+                return None
+        except Exception as e:
+            self.logger.error(
+                f"Error while checking for latest source version for {source_id}: {repr(e)}-{str(e)}")
+            return None
+
+    def fetch_source(self, source_id: str, source_version: str='latest', retries: int=0):
+
+        self.logger.info(f'Fetching source {source_id}...')
+        if source_version == 'latest':
+            source_version = self.get_latest_source_version(source_id)
+
+        source_version_path = self.get_source_version_path(source_id, source_version)
+        os.makedirs(source_version_path, exist_ok=True)
+        source_metadata = self.get_source_metadata(source_id, source_version)
+        source_metadata.set_fetch_status(SourceMetadata.IN_PROGRESS)
+        try:
+            loader = SOURCE_DATA_LOADER_CLASSES[source_id](test_mode=self.test_mode,
+                                                           source_data_dir=source_version_path)
+            if loader.needs_data_download():
+                if source_version != self.get_latest_source_version(source_id):
+                    unsupported_error_message = f"Fetching source data {source_id} (version: {source_version}) failed - " \
+                                                f"fetching old source versions not supported."
+                    self.logger.error(unsupported_error_message)
+                    source_metadata.set_fetch_error(unsupported_error_message)
+                    source_metadata.set_fetch_status(SourceMetadata.FAILED)
+                    return False
+
+                self.logger.info(f'Retrieving source data for {source_id} (version: {source_version})..')
+                loader.get_data()
+            else:
+                self.logger.info(f'Source data was already retrieved for {source_id}..')
+            source_metadata.set_fetch_status(SourceMetadata.STABLE)
+            return True
+
+        except GetDataPullError as failed_error:
+            self.logger.info(
+                f"Error while fetching source data for {source_id} (version: {source_version}): "
+                f"{failed_error.error_message}")
+            if retries < 2:
+                self.logger.error(f"Retrying fetching for {source_id}.. (retry {retries + 1})")
+                self.fetch_source(source_id, retries=retries+1)
+            else:
+                source_metadata.set_fetch_error(failed_error.error_message)
+                source_metadata.set_fetch_status(SourceMetadata.FAILED)
+                return False
+        except Exception as e:
+            self.logger.info(
+                f"Error while fetching source data for {source_id} (version: {source_version}): "
+                f"{repr(e)}-{str(e)}")
+            source_metadata.set_fetch_error(f"{repr(e)}-{str(e)}")
+            source_metadata.set_fetch_status(SourceMetadata.FAILED)
+            return False
+
+    def run_parsing_stage(self, source_id: str, source_version: str, parsing_version: str):
+
+        if source_version == 'latest':
+            source_version = self.get_latest_source_version(source_id)
+        if parsing_version == 'latest':
+            parsing_version = self.get_latest_parsing_version(source_id)
+
+        source_metadata = self.get_source_metadata(source_id, source_version)
+        parsing_status = source_metadata.get_parsing_status(parsing_version)
+        if parsing_status == SourceMetadata.STABLE:
+            return True
+        elif parsing_status == SourceMetadata.IN_PROGRESS:
+            self.logger.info(f"Parsing stage for {source_id} is already in progress.")
+            return False
+        elif parsing_status == SourceMetadata.BROKEN or parsing_status == SourceMetadata.FAILED:
+            self.logger.info(f"Parsing stage for {source_id} previously: {parsing_status}")
+            # TODO consider retry logic here
+            return False
+        else:
+            self.logger.info(f"Parsing source {source_id} (source_version: {source_version}, "
+                             f"parsing_version: {parsing_version})...")
+            return self.parse_source(source_id, source_version, parsing_version)
+
+    def parse_source(self, source_id: str, source_version: str, parsing_version: str):
+
+        # we currently don't support any parser version but the latest, just bail
+        if parsing_version != self.get_latest_parsing_version(source_id):
+            self.logger.error(f'Parser version {parsing_version} unavailable for {source_id}.')
+            return False
+
+        self.logger.info(f'Parsing source {source_id}...')
+        current_time = datetime.datetime.now().strftime('%m-%d-%y %H:%M:%S')
+        source_metadata = self.get_source_metadata(source_id, source_version)
+        source_metadata.update_parsing_metadata(parsing_version,
+                                                parsing_source_version=source_version,
+                                                parsing_status=SourceMetadata.IN_PROGRESS)
+        try:
+            # init the parsing output directory
+            source_data_dir = self.get_source_version_path(source_id, source_version)
+            versioned_parsing_dir = self.get_versioned_parsing_directory(source_id, source_version, parsing_version)
+            os.makedirs(versioned_parsing_dir, exist_ok=True)
+            # create an instance of the appropriate loader using the source_data_loader_classes lookup map
+            source_data_loader = SOURCE_DATA_LOADER_CLASSES[source_id](test_mode=self.test_mode,
+                                                                       source_data_dir=source_data_dir)
 
             # call the loader - retrieve/parse data and write to a kgx file
-            self.logger.info(f"Loading {source_id} ({latest_source_version})...")
-            nodes_output_file_path = self.get_source_node_file_path(source_id)
-            edges_output_file_path = self.get_source_edge_file_path(source_id)
-            update_metadata = source_data_loader.load(nodes_output_file_path, edges_output_file_path)
+            nodes_output_file_path = self.get_source_node_file_path(source_id, source_version, parsing_version)
+            edges_output_file_path = self.get_source_edge_file_path(source_id, source_version, parsing_version)
+            parsing_info = source_data_loader.load(nodes_output_file_path, edges_output_file_path)
 
             # update the associated metadata
-            self.logger.info(f"Load finished. Updating {source_id} metadata...")
             has_sequence_variants = source_data_loader.has_sequence_variants()
-            current_time = datetime.datetime.now().strftime('%m-%d-%y %H:%M:%S')
-            source_metadata.set_update_info(update_metadata,
-                                            update_time=current_time,
-                                            has_sequence_variants=has_sequence_variants)
-            source_metadata.set_update_status(Metadata.STABLE)
-            source_metadata.set_normalization_status(Metadata.WAITING_ON_DEPENDENCY)
-            source_metadata.set_supplementation_status(Metadata.WAITING_ON_DEPENDENCY)
-            self.logger.info(f"Updating {source_id} complete.")
+            source_metadata.update_parsing_metadata(parsing_version,
+                                                    parsing_source_version=source_version,
+                                                    parsing_status=SourceMetadata.STABLE,
+                                                    parsing_info=parsing_info,
+                                                    parsing_time=current_time,
+                                                    has_sequence_variants=has_sequence_variants)
+            return True
 
         except SourceDataBrokenError as broken_error:
-            # TODO report these by email or something automated
-            self.logger.error(f"SourceDataBrokenError while updating {source_id}: {broken_error.error_message}")
-            source_metadata.set_update_error(broken_error.error_message)
-            source_metadata.set_update_status(Metadata.BROKEN)
-
+            self.logger.error(f"SourceDataBrokenError while parsing {source_id}: {broken_error.error_message}")
+            source_metadata.update_parsing_metadata(parsing_version,
+                                                    parsing_status=SourceMetadata.BROKEN,
+                                                    parsing_error=broken_error.error_message,
+                                                    parsing_time=current_time)
+            return False
         except SourceDataFailedError as failed_error:
-            self.logger.error(f"SourceDataFailedError while updating {source_id}: {failed_error.error_message}")
-            source_metadata.set_update_error(f'{failed_error.error_message}')
-            source_metadata.set_update_status(Metadata.FAILED)
-
-        except GetDataPullError as data_pull_error:
-            self.logger.error(f"GetDataPullError while updating {source_id}: {data_pull_error.error_message}")
-            # allow two retries for this type of error
-            if retries < 2:
-                self.logger.error(f"Retrying update for {source_id}.. (retry {retries + 1})")
-                self.update_source(source_id, retries + 1)
-            else:
-                # after that set FAILED state and bail
-                source_metadata.set_update_error(f'{data_pull_error.error_message}')
-                source_metadata.set_update_status(Metadata.FAILED)
-
+            self.logger.error(f"SourceDataFailedError while parsing {source_id}: {failed_error.error_message}")
+            source_metadata.update_parsing_metadata(parsing_version,
+                                                    parsing_status=SourceMetadata.FAILED,
+                                                    parsing_error=failed_error.error_message,
+                                                    parsing_time=current_time)
+            return False
         except Exception as e:
-            # TODO report these by email or something automated
-            source_metadata.set_update_error(repr(e))
-            source_metadata.set_update_status(Metadata.FAILED)
+            source_metadata.update_parsing_metadata(parsing_version,
+                                                    parsing_status=SourceMetadata.FAILED,
+                                                    parsing_error=f'{repr(e)}-{str(e)}',
+                                                    parsing_time=current_time)
             raise e
 
-    def normalization_needed(self, source_id: str):
-        # we only proceed with normalization if the latest source data update is stable
-        source_metadata = self.metadata[source_id]
-        if source_metadata.get_update_status() == Metadata.STABLE:
-            normalization_status = source_metadata.get_normalization_status()
-            if normalization_status == Metadata.NOT_STARTED or \
-                    normalization_status == Metadata.WAITING_ON_DEPENDENCY:
-                return True
-            elif normalization_status == Metadata.STABLE:
-                if self.normalization_version is None:
-                    self.normalization_version = self.get_current_normalization_version()
-                current_source_norm_version = source_metadata.get_normalization_version()
-                if self.normalization_version != current_source_norm_version:
-                    self.logger.info(f'Normalization version ({current_source_norm_version})'
-                                     f' is out of date. New version: {self.normalization_version}.')
-                    return True
-                return False
-            elif normalization_status == Metadata.FAILED or \
-                    normalization_status == Metadata.BROKEN:
-                return False
-            elif normalization_status == Metadata.IN_PROGRESS:
-                return False
-            else:
-                self.logger.warning(f'Normalization Status {normalization_status} not recognized..')
-                return False
+    def get_latest_parsing_version(self, source_id: str):
+        if source_id in self.latest_parsing_version_lookup:
+            return self.latest_parsing_version_lookup[source_id]
 
-    def get_current_normalization_version(self):
-        node_normalizer = NodeNormUtils()
-        node_norm_version = node_normalizer.get_current_node_norm_version()
-        edge_normalizer = EdgeNormUtils()
-        edge_norm_version = edge_normalizer.get_current_edge_norm_version()
-        current_normalization_version = f'{node_norm_version}__{edge_norm_version}'
-        return current_normalization_version
+        # TODO each parser should return it's own parsing version like:
+        # source_data_loader = SOURCE_DATA_LOADER_CLASSES[source_id]()
+        # parsing_version = source_data_loader.get_latest_parsing_version()
+        parsing_version = "1.0"
+        self.latest_parsing_version_lookup[source_id] = parsing_version
+        return parsing_version
 
-    def normalize_source(self, source_id: str):
-        self.logger.debug(f"Normalizing source data for {source_id}...")
-        source_metadata = self.metadata[source_id]
-        source_metadata.set_normalization_status(Metadata.IN_PROGRESS)
+    def run_normalization_stage(self,
+                                source_id: str,
+                                source_version: str,
+                                parsing_version: str,
+                                normalization_scheme: NormalizationScheme):
+
+        if source_version == 'latest':
+            source_version = self.get_latest_source_version(source_id)
+        if parsing_version == 'latest':
+            parsing_version = self.get_latest_parsing_version(source_id)
+        if normalization_scheme.node_normalization_version == 'latest':
+            normalization_scheme.node_normalization_version = self.get_latest_node_normalization_version()
+        if normalization_scheme.edge_normalization_version == 'latest':
+            normalization_scheme.edge_normalization_version = self.get_latest_edge_normalization_version()
+
+        composite_normalization_version = normalization_scheme.get_composite_normalization_version()
+        source_metadata = self.get_source_metadata(source_id, source_version)
+        normalization_status = source_metadata.get_normalization_status(parsing_version,
+                                                                        composite_normalization_version)
+        if normalization_status == SourceMetadata.STABLE:
+            return True
+        elif normalization_status == SourceMetadata.IN_PROGRESS:
+            self.logger.info(f"Normalization stage for {source_id} is already in progress.")
+            return False
+        elif normalization_status == SourceMetadata.BROKEN or normalization_status == SourceMetadata.FAILED:
+            self.logger.info(f"Normalization stage for {source_id} previously: {normalization_status}")
+            # TODO consider retry logic here
+            return False
+        else:
+            return self.normalize_source(source_id,
+                                         source_version,
+                                         parsing_version,
+                                         normalization_scheme=normalization_scheme)
+
+    def normalize_source(self,
+                         source_id: str,
+                         source_version: str,
+                         parsing_version: str,
+                         normalization_scheme: NormalizationScheme):
+        self.logger.info(f"Normalizing {source_id}...")
+        composite_normalization_version = normalization_scheme.get_composite_normalization_version()
+        versioned_normalization_dir = self.get_versioned_normalization_directory(source_id,
+                                                                                 source_version,
+                                                                                 parsing_version,
+                                                                                 composite_normalization_version)
+        os.makedirs(versioned_normalization_dir, exist_ok=True)
+        source_metadata = self.get_source_metadata(source_id, source_version)
+        source_metadata.update_normalization_metadata(parsing_version,
+                                                      composite_normalization_version,
+                                                      normalization_scheme=normalization_scheme,
+                                                      normalization_status=SourceMetadata.IN_PROGRESS)
         try:
-            strict_normalization = False if source_id in self.sources_without_strict_normalization else True
-
-            has_sequence_variants = source_metadata.has_sequence_variants()
-
-            nodes_source_file_path = self.get_source_node_file_path(source_id)
-            nodes_norm_file_path = self.get_normalized_node_file_path(source_id)
-            node_norm_map_file_path = self.get_node_norm_map_file_path(source_id)
-            node_norm_failures_file_path = self.get_node_norm_failures_file_path(source_id)
-            edges_source_file_path = self.get_source_edge_file_path(source_id)
-            edges_norm_file_path = self.get_normalized_edge_file_path(source_id)
-            edge_norm_predicate_map_file_path = self.get_edge_norm_predicate_map_file_path(source_id)
+            current_time = datetime.datetime.now().strftime('%m-%d-%y %H:%M:%S')
+            has_sequence_variants = source_metadata.has_sequence_variants(parsing_version)
+            nodes_source_file_path = self.get_source_node_file_path(source_id, source_version, parsing_version)
+            nodes_norm_file_path = self.get_normalized_node_file_path(source_id, source_version, parsing_version, composite_normalization_version)
+            node_norm_map_file_path = self.get_node_norm_map_file_path(source_id, source_version, parsing_version, composite_normalization_version)
+            node_norm_failures_file_path = self.get_node_norm_failures_file_path(source_id, source_version, parsing_version, composite_normalization_version)
+            edges_source_file_path = self.get_source_edge_file_path(source_id, source_version, parsing_version)
+            edges_norm_file_path = self.get_normalized_edge_file_path(source_id, source_version, parsing_version, composite_normalization_version)
+            edge_norm_predicate_map_file_path = self.get_edge_norm_predicate_map_file_path(source_id, source_version, parsing_version, composite_normalization_version)
             file_normalizer = KGXFileNormalizer(nodes_source_file_path,
                                                 nodes_norm_file_path,
                                                 node_norm_map_file_path,
@@ -330,65 +414,135 @@ class SourceDataLoadManager:
                                                 edges_norm_file_path,
                                                 edge_norm_predicate_map_file_path,
                                                 has_sequence_variants=has_sequence_variants,
-                                                strict_normalization=strict_normalization)
+                                                normalization_scheme=normalization_scheme)
             normalization_info = file_normalizer.normalize_kgx_files()
 
             # update the associated metadata
-            current_time = datetime.datetime.now().strftime('%m-%d-%y %H:%M:%S')
-            source_metadata.set_normalization_info(normalization_info, normalization_time=current_time)
-            if not self.normalization_version:
-                self.normalization_version = self.get_current_normalization_version()
-            source_metadata.set_normalization_version(self.normalization_version)
-            source_metadata.set_normalization_status(Metadata.STABLE)
-            source_metadata.set_supplementation_status(Metadata.WAITING_ON_DEPENDENCY)
-
+            source_metadata.update_normalization_metadata(parsing_version,
+                                                          composite_normalization_version,
+                                                          normalization_time=current_time,
+                                                          normalization_status=SourceMetadata.STABLE,
+                                                          normalization_info=normalization_info)
+            return True
         except NormalizationBrokenError as broken_error:
             error_message = f"{source_id} NormalizationBrokenError: {broken_error.error_message} - {broken_error.actual_error}"
             self.logger.error(error_message)
-            source_metadata.set_normalization_error(error_message)
-            source_metadata.set_normalization_status(Metadata.BROKEN)
+            source_metadata.update_normalization_metadata(parsing_version,
+                                                          composite_normalization_version,
+                                                          normalization_status=SourceMetadata.BROKEN,
+                                                          normalization_error=error_message,
+                                                          normalization_time=current_time)
+            return False
         except NormalizationFailedError as failed_error:
             error_message = f"{source_id} NormalizationFailedError: {failed_error.error_message} - {failed_error.actual_error}"
             self.logger.error(error_message)
-            source_metadata.set_normalization_error(error_message)
-            source_metadata.set_normalization_status(Metadata.FAILED)
+            source_metadata.update_normalization_metadata(parsing_version,
+                                                          composite_normalization_version,
+                                                          normalization_status=SourceMetadata.FAILED,
+                                                          normalization_error=error_message,
+                                                          normalization_time=current_time)
+            return False
         except Exception as e:
             self.logger.error(f"Error while normalizing {source_id}: {repr(e)}")
-            source_metadata.set_normalization_error(repr(e))
-            source_metadata.set_normalization_status(Metadata.FAILED)
-            raise e
+            source_metadata.update_normalization_metadata(parsing_version,
+                                                          composite_normalization_version,
+                                                          normalization_status=SourceMetadata.FAILED,
+                                                          normalization_error=repr(e),
+                                                          normalization_time=current_time)
+            return False
 
-    def supplementation_needed(self, source_id: str):
-        if self.metadata[source_id].get_normalization_status() == Metadata.STABLE:
-            supplementation_status = self.metadata[source_id].get_supplementation_status()
-            if supplementation_status == Metadata.NOT_STARTED or \
-                    supplementation_status == Metadata.WAITING_ON_DEPENDENCY:
-                return True
-            elif supplementation_status == Metadata.FAILED or supplementation_status == Metadata.BROKEN:
-                return False
-            elif supplementation_status == Metadata.STABLE:
-                return False
-            elif supplementation_status == Metadata.IN_PROGRESS:
-                return False
-            else:
-                self.logger.warning(f'Supplementation Status {supplementation_status} not recognized..')
-                return False
+    def get_latest_node_normalization_version(self):
+        if self.latest_node_normalization_version is not None:
+            return self.latest_node_normalization_version
+        node_normalizer = NodeNormUtils()
+        node_norm_version = node_normalizer.get_current_node_norm_version()
+        self.latest_node_normalization_version = node_norm_version
+        return node_norm_version
 
-    def supplement_source(self, source_id: str):
-        self.logger.debug(f"Supplementing source {source_id}...")
-        source_metadata = self.metadata[source_id]
-        source_metadata.set_supplementation_status(Metadata.IN_PROGRESS)
+    def get_latest_edge_normalization_version(self):
+        if self.latest_edge_normalization_version is not None:
+            return self.latest_edge_normalization_version
+        edge_normalizer = EdgeNormUtils()
+        edge_norm_version = edge_normalizer.get_current_edge_norm_version()
+        self.latest_edge_normalization_version = edge_norm_version
+        return edge_norm_version
+
+    def run_supplementation_stage(self,
+                                  source_id: str,
+                                  source_version: str,
+                                  parsing_version: str,
+                                  supplementation_version: str,
+                                  normalization_scheme: NormalizationScheme):
+
+        if source_version == 'latest':
+            source_version = self.get_latest_source_version(source_id)
+        if parsing_version == 'latest':
+            parsing_version = self.get_latest_parsing_version(source_id)
+        if normalization_scheme.node_normalization_version == 'latest':
+            normalization_scheme.node_normalization_version = self.get_latest_node_normalization_version()
+        if normalization_scheme.edge_normalization_version == 'latest':
+            normalization_scheme.edge_normalization_version = self.get_latest_edge_normalization_version()
+        if supplementation_version == 'latest':
+            supplementation_version = SequenceVariantSupplementation.SUPPLEMENTATION_VERSION
+        elif supplementation_version != SequenceVariantSupplementation.SUPPLEMENTATION_VERSION:
+            self.logger.warning(f"Supplementation version {supplementation_version} is not supported.")
+            return False
+
+        composite_normalization_version = normalization_scheme.get_composite_normalization_version()
+        source_metadata = self.get_source_metadata(source_id, source_version)
+        supplementation_status = source_metadata.get_supplementation_status(parsing_version,
+                                                                            composite_normalization_version,
+                                                                            supplementation_version)
+        if supplementation_status == SourceMetadata.STABLE:
+            return True
+        elif supplementation_status == SourceMetadata.FAILED or supplementation_status == SourceMetadata.BROKEN:
+            self.logger.info(f"Supplementation stage for {source_id} previously failed or was broken.")
+            # TODO consider retry logic here
+            return False
+        elif supplementation_status == SourceMetadata.IN_PROGRESS:
+            self.logger.info(f"Supplementation stage for {source_id} is already in progress.")
+            return False
+        else:
+            return self.supplement_source(source_id,
+                                          source_version,
+                                          parsing_version,
+                                          supplementation_version,
+                                          normalization_scheme=normalization_scheme)
+
+    def supplement_source(self,
+                          source_id: str,
+                          source_version: str,
+                          parsing_version: str,
+                          supplementation_version: str,
+                          normalization_scheme: NormalizationScheme):
+        self.logger.info(f"Supplementing source {source_id}...")
+        composite_normalization_version = normalization_scheme.get_composite_normalization_version()
+        current_time = datetime.datetime.now().strftime('%m-%d-%y %H:%M:%S')
+        versioned_supplementation_dir = self.get_versioned_supplementation_directory(source_id,
+                                                                                     source_version,
+                                                                                     parsing_version,
+                                                                                     composite_normalization_version,
+                                                                                     supplementation_version)
         try:
-            supplementation_info = {}
-            if source_metadata.has_sequence_variants():
-                nodes_file_path = self.get_normalized_node_file_path(source_id)
-                supplemental_node_file_path = self.get_supplemental_node_file_path(source_id)
-                normalized_supp_node_file_path = self.get_normalized_supp_node_file_path(source_id)
-                supp_node_norm_map_file_path = self.get_supp_node_norm_map_file_path(source_id)
-                supp_node_norm_failures_file_path = self.get_supp_node_norm_failures_file_path(source_id)
-                supplemental_edge_file_path = self.get_supplemental_edge_file_path(source_id)
-                normalized_supp_edge_file_path = self.get_normalized_supplemental_edge_file_path(source_id)
-                supp_edge_norm_predicate_map_file_path = self.get_supp_edge_norm_predicate_map_file_path(source_id)
+
+            source_metadata = self.get_source_metadata(source_id, source_version)
+
+            source_metadata.update_supplementation_metadata(parsing_version,
+                                                            composite_normalization_version,
+                                                            supplementation_version,
+                                                            supplementation_status=SourceMetadata.IN_PROGRESS)
+            if source_metadata.has_sequence_variants(parsing_version):
+
+                os.makedirs(versioned_supplementation_dir, exist_ok=True)
+
+                nodes_file_path = self.get_normalized_node_file_path(source_id, source_version, parsing_version, composite_normalization_version)
+                supplemental_node_file_path = self.get_supplemental_node_file_path(source_id, source_version, parsing_version, composite_normalization_version, supplementation_version)
+                normalized_supp_node_file_path = self.get_normalized_supp_node_file_path(source_id, source_version, parsing_version, composite_normalization_version, supplementation_version)
+                supp_node_norm_map_file_path = self.get_supp_node_norm_map_file_path(source_id, source_version, parsing_version, composite_normalization_version, supplementation_version)
+                supp_node_norm_failures_file_path = self.get_supp_node_norm_failures_file_path(source_id, source_version, parsing_version, composite_normalization_version, supplementation_version)
+                supplemental_edge_file_path = self.get_supplemental_edge_file_path(source_id, source_version, parsing_version, composite_normalization_version, supplementation_version)
+                normalized_supp_edge_file_path = self.get_normalized_supplemental_edge_file_path(source_id, source_version, parsing_version, composite_normalization_version, supplementation_version)
+                supp_edge_norm_predicate_map_file_path = self.get_supp_edge_norm_predicate_map_file_path(source_id, source_version, parsing_version, composite_normalization_version, supplementation_version)
                 sv_supp = SequenceVariantSupplementation()
                 supplementation_info = sv_supp.find_supplemental_data(nodes_file_path=nodes_file_path,
                                                                       supp_nodes_file_path=supplemental_node_file_path,
@@ -397,170 +551,237 @@ class SourceDataLoadManager:
                                                                       supp_node_norm_failures_file_path=supp_node_norm_failures_file_path,
                                                                       supp_edges_file_path=supplemental_edge_file_path,
                                                                       normalized_supp_edge_file_path=normalized_supp_edge_file_path,
-                                                                      supp_edge_norm_predicate_map_file_path=supp_edge_norm_predicate_map_file_path)
-            current_time = datetime.datetime.now().strftime('%m-%d-%y %H:%M:%S')
-            source_metadata.set_supplementation_info(supplementation_info, supplementation_time=current_time)
-            source_metadata.set_supplementation_status(Metadata.STABLE)
+                                                                      supp_edge_norm_predicate_map_file_path=supp_edge_norm_predicate_map_file_path,
+                                                                      normalization_scheme=normalization_scheme)
+            else:
+                supplementation_info = None
+            source_metadata.update_supplementation_metadata(parsing_version,
+                                                            composite_normalization_version,
+                                                            supplementation_version,
+                                                            supplementation_status=SourceMetadata.STABLE,
+                                                            supplementation_time=current_time,
+                                                            supplementation_info=supplementation_info)
+            return True
         except SupplementationFailedError as failed_error:
-            # TODO report these by email or something automated
             error_message = f"{source_id} SupplementationFailedError: " \
                             f"{failed_error.error_message} - {failed_error.actual_error}"
             self.logger.error(error_message)
-            source_metadata.set_supplementation_error(error_message)
-            source_metadata.set_supplementation_status(Metadata.FAILED)
+            source_metadata.update_supplementation_metadata(parsing_version,
+                                                            composite_normalization_version,
+                                                            supplementation_version,
+                                                            supplementation_status=SourceMetadata.FAILED,
+                                                            supplementation_error=error_message,
+                                                            supplementation_time=current_time)
+            return False
+
         except Exception as e:
             self.logger.error(f"{source_id} Error while supplementing: {repr(e)}")
-            # TODO report these by email or something automated
-            source_metadata.set_supplementation_error(repr(e))
-            source_metadata.set_supplementation_status(Metadata.FAILED)
-            raise e
+            source_metadata.update_supplementation_metadata(parsing_version,
+                                                            composite_normalization_version,
+                                                            supplementation_version,
+                                                            supplementation_status=SourceMetadata.FAILED,
+                                                            supplementation_error=repr(e),
+                                                            supplementation_time=current_time)
+            return False
 
-    def get_versioned_file_name(self, source_id: str, load_version: str = 'latest'):
-        if load_version == 'latest':
-            latest_version = self.metadata[source_id].get_load_version()
-            return f'{source_id}_{latest_version}'
+    def get_source_metadata(self, source_id: str, source_version: str = 'latest'):
+        if source_id not in self.source_metadata or source_version not in self.source_metadata[source_id]:
+            source_metadata = SourceMetadata(source_id,
+                                             source_version,
+                                             self.get_source_version_path(source_id, source_version))
+            self.source_metadata[source_id][source_version] = source_metadata
         else:
-            return f'{source_id}_{load_version}'
+            source_metadata = self.source_metadata[source_id][source_version]
+        return source_metadata
 
-    def get_source_node_file_path(self, source_id: str, load_version: str = 'latest'):
-        versioned_file_name = self.get_versioned_file_name(source_id, load_version)
-        return os.path.join(self.get_source_dir_path(source_id), f'{versioned_file_name}_source_nodes.jsonl')
+    def get_versioned_parsing_directory(self, source_id: str, source_version: str, parsing_version: str):
+        versioned_parsing_directory = f'parsed_{parsing_version}/'
+        return os.path.join(self.get_source_version_path(source_id, source_version),
+                            versioned_parsing_directory)
 
-    def get_source_edge_file_path(self, source_id: str, load_version: str = 'latest'):
-        versioned_file_name = self.get_versioned_file_name(source_id, load_version)
-        return os.path.join(self.get_source_dir_path(source_id), f'{versioned_file_name}_source_edges.jsonl')
+    def get_source_node_file_path(self, source_id: str, source_version: str, parsing_version: str):
+        file_name = f'source_nodes.jsonl'
+        return os.path.join(self.get_versioned_parsing_directory(source_id, source_version, parsing_version), file_name)
 
-    def get_normalized_node_file_path(self, source_id: str, load_version: str = 'latest'):
-        versioned_file_name = self.get_versioned_file_name(source_id, load_version)
-        return os.path.join(self.get_source_dir_path(source_id), f'{versioned_file_name}_norm_nodes.jsonl')
+    def get_source_edge_file_path(self, source_id: str, source_version: str, parsing_version: str):
+        file_name = f'source_edges.jsonl'
+        return os.path.join(self.get_versioned_parsing_directory(source_id, source_version, parsing_version), file_name)
 
-    def get_node_norm_map_file_path(self, source_id: str, load_version: str = 'latest'):
-        versioned_file_name = self.get_versioned_file_name(source_id, load_version)
-        return os.path.join(self.get_source_dir_path(source_id), f'{versioned_file_name}_norm_node_map.json')
+    def get_versioned_normalization_directory(self, source_id: str, source_version: str, parsing_version: str, normalization_version: str):
+        versioned_norm_dir = f'normalized_{normalization_version}/'
+        return os.path.join(self.get_versioned_parsing_directory(source_id, source_version, parsing_version), versioned_norm_dir)
 
-    def get_node_norm_failures_file_path(self, source_id: str, load_version: str = 'latest'):
-        versioned_file_name = self.get_versioned_file_name(source_id, load_version)
-        return os.path.join(self.get_source_dir_path(source_id), f'{versioned_file_name}_norm_node_failures.log')
+    def get_normalized_node_file_path(self, source_id: str, source_version: str, parsing_version: str, normalization_version: str):
+        return os.path.join(self.get_versioned_normalization_directory(source_id,
+                                                                       source_version,
+                                                                       parsing_version,
+                                                                       normalization_version), f'normalized_nodes.jsonl')
 
-    def get_normalized_edge_file_path(self, source_id: str, load_version: str = 'latest'):
-        versioned_file_name = self.get_versioned_file_name(source_id, load_version)
-        return os.path.join(self.get_source_dir_path(source_id), f'{versioned_file_name}_norm_edges.jsonl')
+    def get_node_norm_map_file_path(self, source_id: str, source_version: str, parsing_version: str, normalization_version: str):
+        return os.path.join(self.get_versioned_normalization_directory(source_id,
+                                                                       source_version,
+                                                                       parsing_version,
+                                                                       normalization_version), f'norm_node_map.json')
 
-    def get_edge_norm_predicate_map_file_path(self, source_id: str, load_version: str = 'latest'):
-        versioned_file_name = self.get_versioned_file_name(source_id, load_version)
-        return os.path.join(self.get_source_dir_path(source_id), f'{versioned_file_name}_norm_predicate_map.json')
+    def get_node_norm_failures_file_path(self, source_id: str, source_version: str, parsing_version: str, normalization_version: str):
+        return os.path.join(self.get_versioned_normalization_directory(source_id,
+                                                                       source_version,
+                                                                       parsing_version,
+                                                                       normalization_version), f'norm_node_failures.log')
 
-    def get_supplemental_node_file_path(self, source_id: str, load_version: str = 'latest'):
-        versioned_file_name = self.get_versioned_file_name(source_id, load_version)
-        return os.path.join(self.get_source_dir_path(source_id), f'{versioned_file_name}_supp_nodes.jsonl')
+    def get_normalized_edge_file_path(self, source_id: str, source_version: str, parsing_version: str, normalization_version: str):
+        return os.path.join(self.get_versioned_normalization_directory(source_id,
+                                                                       source_version,
+                                                                       parsing_version,
+                                                                       normalization_version), f'normalized_edges.jsonl')
 
-    def get_normalized_supp_node_file_path(self, source_id: str, load_version: str = 'latest'):
-        versioned_file_name = self.get_versioned_file_name(source_id, load_version)
-        return os.path.join(self.get_source_dir_path(source_id), f'{versioned_file_name}_supp_norm_nodes.jsonl')
+    def get_edge_norm_predicate_map_file_path(self, source_id: str, source_version: str, parsing_version: str, normalization_version: str):
+        return os.path.join(self.get_versioned_normalization_directory(source_id,
+                                                                       source_version,
+                                                                       parsing_version,
+                                                                       normalization_version), f'norm_predicate_map.json')
 
-    def get_supp_node_norm_map_file_path(self, source_id: str, load_version: str = 'latest'):
-        versioned_file_name = self.get_versioned_file_name(source_id, load_version)
-        return os.path.join(self.get_source_dir_path(source_id), f'{versioned_file_name}_supp_norm_node_map.json')
+    def get_versioned_supplementation_directory(self,
+                                                source_id: str,
+                                                source_version: str,
+                                                parsing_version: str,
+                                                normalization_version: str,
+                                                supplementation_version: str):
+        versioned_dir = f'supplemental_{supplementation_version}/'
+        return os.path.join(self.get_versioned_normalization_directory(source_id,
+                                                                       source_version,
+                                                                       parsing_version,
+                                                                       normalization_version), versioned_dir)
 
-    def get_supp_node_norm_failures_file_path(self, source_id: str, load_version: str = 'latest'):
-        versioned_file_name = self.get_versioned_file_name(source_id, load_version)
-        return os.path.join(self.get_source_dir_path(source_id), f'{versioned_file_name}_supp_norm_nodes_failures.log')
+    def get_supplemental_node_file_path(self, source_id: str, source_version: str, parsing_version: str,
+                                        normalization_version: str, supplementation_version: str):
+        return os.path.join(self.get_versioned_supplementation_directory(source_id,
+                                                                         source_version,
+                                                                         parsing_version,
+                                                                         normalization_version,
+                                                                         supplementation_version), f'supp_nodes.jsonl')
 
-    def get_supplemental_edge_file_path(self, source_id: str, load_version: str = 'latest'):
-        versioned_file_name = self.get_versioned_file_name(source_id, load_version)
-        return os.path.join(self.get_source_dir_path(source_id), f'{versioned_file_name}_supp_edges.jsonl')
+    def get_normalized_supp_node_file_path(self, source_id: str, source_version: str, parsing_version: str,
+                                           normalization_version: str, supplementation_version: str):
+        return os.path.join(self.get_versioned_supplementation_directory(source_id,
+                                                                         source_version,
+                                                                         parsing_version,
+                                                                         normalization_version,
+                                                                         supplementation_version), f'supp_norm_nodes.jsonl')
 
-    def get_normalized_supplemental_edge_file_path(self, source_id: str, load_version: str = 'latest'):
-        versioned_file_name = self.get_versioned_file_name(source_id, load_version)
-        return os.path.join(self.get_source_dir_path(source_id), f'{versioned_file_name}_supp_norm_edges.jsonl')
+    def get_supp_node_norm_map_file_path(self, source_id: str, source_version: str, parsing_version: str,
+                                         normalization_version: str, supplementation_version: str):
+        return os.path.join(self.get_versioned_supplementation_directory(source_id,
+                                                                         source_version,
+                                                                         parsing_version,
+                                                                         normalization_version,
+                                                                         supplementation_version), f'supp_norm_node_map.json')
 
-    def get_supp_edge_norm_predicate_map_file_path(self, source_id: str, load_version: str = 'latest'):
-        versioned_file_name = self.get_versioned_file_name(source_id, load_version)
-        return os.path.join(self.get_source_dir_path(source_id), f'{versioned_file_name}_supp_norm_predicate_map.json')
+    def get_supp_node_norm_failures_file_path(self, source_id: str, source_version: str, parsing_version: str,
+                                              normalization_version: str, supplementation_version: str):
+        return os.path.join(self.get_versioned_supplementation_directory(source_id,
+                                                                         source_version,
+                                                                         parsing_version,
+                                                                         normalization_version,
+                                                                         supplementation_version), f'supp_norm_nodes_failures.log')
 
-    def get_source_dir_path(self, source_id: str):
-        return os.path.join(self.data_dir, source_id)
+    def get_supplemental_edge_file_path(self, source_id: str, source_version: str, parsing_version: str,
+                                        normalization_version: str, supplementation_version: str):
+        return os.path.join(self.get_versioned_supplementation_directory(source_id,
+                                                                         source_version,
+                                                                         parsing_version,
+                                                                         normalization_version,
+                                                                         supplementation_version), f'supp_edges.jsonl')
 
-    def archive_previous_load(self, source_metadata: Metadata):
-        source_id = source_metadata.source_id
-        versioned_file_name = self.get_versioned_file_name(source_id)
-        archive_metadata_path = os.path.join(self.get_source_dir_path(source_id), f'{versioned_file_name}_archive.meta.json')
-        with open(archive_metadata_path, 'w') as meta_json_file:
-            json.dump(source_metadata.metadata, meta_json_file, indent=4)
+    def get_normalized_supplemental_edge_file_path(self, source_id: str, source_version: str, parsing_version: str,
+                                                   normalization_version: str, supplementation_version: str):
+        return os.path.join(self.get_versioned_supplementation_directory(source_id,
+                                                                         source_version,
+                                                                         parsing_version,
+                                                                         normalization_version,
+                                                                         supplementation_version), f'supp_norm_edges.jsonl')
 
-        source_storage_dir = self.get_source_dir_path(source_id)
-        archive_dir = os.path.join(source_storage_dir, versioned_file_name + "/")
-        os.mkdir(archive_dir)
-        all_files = os.listdir(source_storage_dir)
-        for file in all_files:
-            if file.startswith(versioned_file_name + '_') and not os.path.isdir(file):
-                shutil.move(os.path.join(source_storage_dir, file), os.path.join(archive_dir, file))
+    def get_supp_edge_norm_predicate_map_file_path(self, source_id: str, source_version: str, parsing_version: str,
+                                                   normalization_version: str, supplementation_version: str):
+        return os.path.join(self.get_versioned_supplementation_directory(source_id,
+                                                                         source_version,
+                                                                         parsing_version,
+                                                                         normalization_version,
+                                                                         supplementation_version), f'supp_norm_predicate_map.json')
 
-    def init_data_dir(self):
+    def get_final_file_paths(self, source_id: str, source_version: str, parsing_version: str,
+                             normalization_version: str, supplementation_version: str):
+        file_paths = list()
+        file_paths.append(
+            self.get_normalized_node_file_path(source_id, source_version, parsing_version, normalization_version))
+        file_paths.append(
+            self.get_normalized_edge_file_path(source_id, source_version, parsing_version, normalization_version))
+        if self.get_source_metadata(source_id, source_version).has_supplemental_data(parsing_version,
+                                                                                     normalization_version,
+                                                                                     supplementation_version):
+            file_paths.append(self.get_normalized_supp_node_file_path(source_id,
+                                                                      source_version,
+                                                                      parsing_version,
+                                                                      normalization_version,
+                                                                      supplementation_version))
+            file_paths.append(
+                self.get_normalized_supplemental_edge_file_path(source_id,
+                                                                source_version,
+                                                                parsing_version,
+                                                                normalization_version,
+                                                                supplementation_version))
+        return file_paths
+
+    def get_source_version_path(self, source_id: str, source_version: str):
+        return os.path.join(self.storage_dir, source_id, source_version)
+
+    def init_storage_dir(self):
         # use the storage directory specified by the environment variable DATA_SERVICES_STORAGE
+        # check to make sure it's set and valid, otherwise fail
+        if "DATA_SERVICES_STORAGE" not in os.environ:
+            raise Exception(f'You must use the environment variable DATA_SERVICES_STORAGE '
+                            f'to specify a storage directory.')
         if os.path.isdir(os.environ["DATA_SERVICES_STORAGE"]):
             return os.environ["DATA_SERVICES_STORAGE"]
         else:
-            # if it isn't a valid dir back out
             raise IOError(f'Storage directory not valid: {os.environ["DATA_SERVICES_STORAGE"]}')
 
-    def init_source_dirs(self):
-        # for each source on the source_list make sure they have subdirectories set up
-        for source_id in self.source_list:
-            source_dir_path = self.get_source_dir_path(source_id)
-            if not os.path.isdir(source_dir_path):
-                self.logger.info(f"SourceDataLoadManager creating subdirectory for {source_id}... {source_dir_path}")
-                os.mkdir(source_dir_path)
-
-    def load_sources_spec(self):
-        # check for a sources spec file name specified by the environment variable
-        # the custom sources spec file must be relative to the top level of the DATA_SERVICES_STORAGE directory
-        if 'DATA_SERVICES_SOURCES_SPEC' in os.environ and os.environ['DATA_SERVICES_SOURCES_SPEC']:
-            spec_file_name = os.environ['DATA_SERVICES_SOURCES_SPEC']
-            spec_path = os.path.join(self.data_dir, spec_file_name)
-            self.logger.info(f'Sources spec loaded... ({spec_path})')
-        else:
-            # otherwise use the default one included in the codebase
-            spec_path = os.path.dirname(os.path.abspath(__file__)) + '/../default-sources-spec.yml'
-            self.logger.info(f'Default sources spec loaded... ({spec_path})')
-
-        with open(spec_path) as spec_file:
-            sources_spec = yaml.full_load(spec_file)
-            self.source_list = []
-            for data_source_spec in sources_spec['data_sources']:
-                data_source_id = data_source_spec['id']
-                self.source_list.append(data_source_id)
-                if 'strict_normalization' in data_source_spec:
-                    if not data_source_spec['strict_normalization']:
-                        self.sources_without_strict_normalization.append(data_source_id)
+    def init_source_output_dir(self, source_id: str):
+        source_dir_path = os.path.join(self.storage_dir, source_id)
+        os.makedirs(source_dir_path, exist_ok=True)
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="Transform data sources into KGX files.")
-    parser.add_argument('-ds', '--data_source', default='all', help=f'Select a single data source to process from the following: {SOURCE_DATA_LOADER_CLASSES.keys()}')
-    parser.add_argument('-t', '--test_mode', action='store_true', help='Test mode will load a small sample version of the data.')
-    parser.add_argument('-f', '--fresh_start', action='store_true', help='Fresh start mode will ignore previous states and start fresh.')
+    parser.add_argument('data_source',
+                        nargs="+",
+                        help=f'Select one or more data sources to process from the following: '
+                             f'{", ".join(sorted(SOURCE_DATA_LOADER_CLASSES.keys()))}')
+    parser.add_argument('-t', '--test_mode',
+                        action='store_true',
+                        help='Test mode will process a small sample version of the data.')
+    parser.add_argument('-f', '--fresh_start_mode',
+                        action='store_true',
+                        help='Fresh start mode will ignore previous states and overwrite previous data.')
+    parser.add_argument('-l', '--lenient_normalization',
+                        action='store_true',
+                        help='Lenient normalization mode will allow nodes that do not normalize to persist '
+                             'in the finalized kgx files.')
     args = parser.parse_args()
 
-    data_source = args.data_source
     if 'DATA_SERVICES_TEST_MODE' in os.environ:
         test_mode_from_env = os.environ['DATA_SERVICES_TEST_MODE']
     else:
         test_mode_from_env = False
 
     loader_test_mode = args.test_mode or test_mode_from_env
-
-    fresh_start_mode = args.fresh_start
-
-    if data_source == "all":
-        load_manager = SourceDataLoadManager(test_mode=loader_test_mode)
-        load_manager.start()
-    else:
+    loader_strict_normalization = (not args.lenient_normalization)
+    load_manager = SourceDataManager(test_mode=loader_test_mode,
+                                     fresh_start_mode=args.fresh_start_mode)
+    for data_source in args.data_source:
         if data_source not in SOURCE_DATA_LOADER_CLASSES.keys():
-            print(f'Data source ({data_source}) not valid. Aborting. '
-                  f'(Valid sources: {list(SOURCE_DATA_LOADER_CLASSES.keys())})')
+            print(f'Data source {data_source} is not valid. '
+                  f'Valid sources: {", ".join(sorted(SOURCE_DATA_LOADER_CLASSES.keys()))}')
         else:
-            load_manager = SourceDataLoadManager(source_subset=[data_source],
-                                                 test_mode=loader_test_mode,
-                                                 fresh_start_mode=fresh_start_mode)
-            load_manager.start()
+            cmd_line_normalization_scheme = NormalizationScheme(strict=loader_strict_normalization)
+            load_manager.run_pipeline(data_source, normalization_scheme=cmd_line_normalization_scheme)

@@ -32,26 +32,20 @@ class LabeledID(NamedTuple):
 ##############
 class PLoader(SourceDataLoader):
 
-    def __init__(self, test_mode: bool = False):
+    source_id: str = 'PANTHER'
+    source_db: str = 'Protein ANalysis THrough Evolutionary Relationships'
+    provenance_id: str = 'infores:panther'
+
+    def __init__(self, test_mode: bool = False, source_data_dir: str = None):
         """
-        constructor
         :param test_mode - sets the run into test mode
+        :param source_data_dir - the specific storage directory to save files in
         """
-        # call the super
-        super(SourceDataLoader, self).__init__()
+        super().__init__(test_mode=test_mode, source_data_dir=source_data_dir)
 
-        # set global variables
-        self.data_path: str = os.environ['DATA_SERVICES_STORAGE']
-        self.data_file: str = 'PTHR~_human'
-        self.data_version: str = ''
-        self.test_mode: bool = test_mode
-        self.source_id: str = 'PANTHER'
-        self.source_db: str = 'Protein ANalysis THrough Evolutionary Relationships'
-        self.provenance_id = 'infores:panther'
-
-        # the final output lists of nodes and edges
-        self.final_node_list: list = []
-        self.final_edge_list: list = []
+        self.data_file: str = None  # data file name changes based on version, will be set below
+        self.data_version: str = None
+        self.get_latest_source_version()
 
         # the list of columns in the data
         self.sequence_file_columns = ['gene_identifier', 'protein_id', 'gene_name', 'panther_sf_id', 'panther_family_name',
@@ -72,11 +66,10 @@ class PLoader(SourceDataLoader):
         self.logger = LoggingUtil.init_logging("Data_services.Panther.PLoader", level=logging.INFO, line_format='medium', log_file_path=os.environ['DATA_SERVICES_LOGS'])
 
     def get_latest_source_version(self) -> str:
-        """
-        gets the version of the data
 
-        :return:
-        """
+        if self.data_version:
+            return self.data_version
+
         # init the return
         ret_val: str = 'Not found'
 
@@ -104,7 +97,8 @@ class PLoader(SourceDataLoader):
             self.data_version = ret_val
 
             # make the data file name correct
-            self.data_file = self.data_file.replace('~', ret_val)
+            self.data_file = f'PTHR{self.data_version}_human'
+
         # return to the caller
         return ret_val
 
@@ -200,6 +194,7 @@ class PLoader(SourceDataLoader):
 
         :return: ret_val: record counts
         """
+
         # init the record counters
         record_counter: int = 0
         skipped_record_counter: int = 0
@@ -226,6 +221,7 @@ class PLoader(SourceDataLoader):
             self.get_gene_by_gene_family(family)
             self.get_cellular_component_by_gene_family(family)
             self.get_pathway_by_gene_family(family)
+            self.get_molecular_function_by_gene_family(family)
             self.get_biological_process_or_activity_by_gene_family(family)
 
         self.logger.debug(f'Parsing data file complete.')
@@ -265,7 +261,7 @@ class PLoader(SourceDataLoader):
 
                     # create the edge
                     new_edge = kgxedge(subject_id=g_sub_fam_id,
-                                       relation='BFO:0000050',
+                                       predicate='BFO:0000050',
                                        object_id=family.identifier,
                                        original_knowledge_source=self.provenance_id)
                     self.final_edge_list.append(new_edge)
@@ -276,15 +272,8 @@ class PLoader(SourceDataLoader):
 
         # look at all the family records and get the gene nodes
         for gene_family_data in rows:
-            # get the gene data into a list
-            gene_data = gene_family_data['gene_identifier']
-            gene_data = gene_data.split('|')
 
-            # find a good gene id
-            for item in gene_data:
-                if item.find('=') > 0 and item.find('_HUMAN') == -1 and item.find('Gene') == -1:
-                    gene_id = item.replace('=', ':').upper()
-                    break
+            gene_id = self.get_gene_id_from_row(gene_family_data)
 
             # if the gene id was found
             if gene_id is not None:
@@ -297,12 +286,10 @@ class PLoader(SourceDataLoader):
 
                 # create the edge
                 gene_family_edge = kgxedge(subject_id=gene_id,
-                                           relation='BFO:0000050',
+                                           predicate='BFO:0000050',
                                            object_id=family.identifier,
                                            original_knowledge_source=self.provenance_id)
                 self.final_edge_list.append(gene_family_edge)
-            else:
-                print('Gene id not found')
 
     def get_biological_process_or_activity_by_gene_family(self, family):
         # get the data rows for this family
@@ -310,21 +297,45 @@ class PLoader(SourceDataLoader):
 
         # look at all the family records
         for gene_family_data in rows:
-            # for each family record get the cellular component nodes
+            # for each family record get the biological process nodes
+            for bio_process in gene_family_data['panther_biological_process'].split(';'):
+                # was there a molecular function
+                if len(bio_process) > 0:
+                    # get the pathway pieces
+                    name, bio_p_id = bio_process.split('#')
+
+                    # create the node
+                    new_node = kgxnode(bio_p_id, name=name)
+                    self.final_node_list.append(new_node)
+
+                    # create the gene_family-biological_process_or_activity edge
+                    new_edge = kgxedge(subject_id=family.identifier,
+                                       predicate='RO:0002331',
+                                       object_id=bio_p_id,
+                                       original_knowledge_source=self.provenance_id)
+                    self.final_edge_list.append(new_edge)
+
+    def get_molecular_function_by_gene_family(self, family):
+        # get the data rows for this family
+        rows = self.get_rows_using_curie(family.identifier)
+
+        # look at all the family records
+        for gene_family_data in rows:
+            # for each family record get the molecular functions
             for mole_func in gene_family_data['panther_molecular_func'].split(';'):
                 # was there a molecular function
                 if len(mole_func) > 0:
-                    # get the pathway pieces
-                    name, id = mole_func.split('#')
+                    # get the molecular function pieces
+                    name, mole_func_id = mole_func.split('#')
 
                     # create the node
-                    new_node = kgxnode(id, name=name)
+                    new_node = kgxnode(mole_func_id, name=name)
                     self.final_node_list.append(new_node)
 
-                    # create the edge
+                    # create the gene_family-molecular function edge
                     new_edge = kgxedge(subject_id=family.identifier,
-                                       relation='BFO:0000056',
-                                       object_id=id,
+                                       predicate='RO:0002327',
+                                       object_id=mole_func_id,
                                        original_knowledge_source=self.provenance_id)
                     self.final_edge_list.append(new_edge)
 
@@ -339,16 +350,16 @@ class PLoader(SourceDataLoader):
                 # was there a cellular component
                 if len(item) > 0:
                     # get the pieces
-                    name, id = item.split('#')
+                    name, cellular_component_id = item.split('#')
 
                     # create the gene sub-family node
-                    new_node = kgxnode(id, name=name)
+                    new_node = kgxnode(cellular_component_id, name=name)
                     self.final_node_list.append(new_node)
 
-                    # create the edge
+                    # create the gene_family-cellular_component edge
                     new_edge = kgxedge(subject_id=family.identifier,
-                                       relation='BFO:0000050',
-                                       object_id=id,
+                                       predicate='RO:0001025',
+                                       object_id=cellular_component_id,
                                        original_knowledge_source=self.provenance_id)
                     self.final_edge_list.append(new_edge)
 
@@ -366,16 +377,27 @@ class PLoader(SourceDataLoader):
                 # get the pathway pieces
                 pathway_name, pathway_access = pathway[0].split('#')
 
-                # create the gene sub-family node
-                new_node = kgxnode(f'PANTHER.PATHWAY:{pathway_access}', name=pathway_name)
+                # create the pathway node
+                panther_pathway_id = f'PANTHER.PATHWAY:{pathway_access}'
+                new_node = kgxnode(panther_pathway_id, name=pathway_name)
                 self.final_node_list.append(new_node)
 
-                # create the edge
-                new_edge = kgxedge(subject_id=family.identifier,
-                                   relation='BFO:0000054',
-                                   object_id=f'PANTHER.PATHWAY:{pathway_access}',
+                # create the gene_family-pathway edge
+                new_edge = kgxedge(subject_id=panther_pathway_id,
+                                   predicate='RO:0000057',
+                                   object_id=family.identifier,
                                    original_knowledge_source=self.provenance_id)
                 self.final_edge_list.append(new_edge)
+
+    def get_gene_id_from_row(self, row):
+        gene_data = row['gene_identifier']
+        gene_data = gene_data.split('|')
+        gene_field = gene_data[1]
+        # these are not useful IDs
+        if "Gene" not in gene_field:
+            gene_id = gene_field.replace('=', ':').upper()
+            return gene_id
+        return None
 
     @staticmethod
     def un_curie (text):

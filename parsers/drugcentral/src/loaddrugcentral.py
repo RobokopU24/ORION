@@ -1,44 +1,33 @@
-import os
 import argparse
-import logging
+import docker
+import time
 import psycopg2
 import psycopg2.extras
-
+import gzip
+import os
+import tempfile
+import tarfile
 
 from Common.extractor import Extractor
-from Common.loader_interface import SourceDataLoader
-from Common.utils import LoggingUtil, GetData
+from Common.loader_interface import SourceDataLoader, SourceDataFailedError
+from Common.utils import GetData
 from Common.node_types import ORIGINAL_KNOWLEDGE_SOURCE, PRIMARY_KNOWLEDGE_SOURCE, AGGREGATOR_KNOWLEDGE_SOURCES
 from Common import prefixes
-from Common.kgxmodel import kgxnode, kgxedge
+from Common.containers import PostgresContainer
 
 
-##############
-# Class: DrugCentral loader
-#
-##############
 class DrugCentralLoader(SourceDataLoader):
 
     source_id = 'DrugCentral'
     source_db = 'DrugCentral'
     provenance_id = 'infores:drugcentral'
 
-    def __init__(self, test_mode: bool = False):
+    def __init__(self, test_mode: bool = False, source_data_dir: str = None):
         """
-        constructor
         :param test_mode - sets the run into test mode
+        :param source_data_dir - the specific storage directory to save files in
         """
-        # call the super
-        super(SourceDataLoader, self).__init__()
-        self.data_path = os.environ['DATA_SERVICES_STORAGE']
-        self.test_mode = test_mode
-
-        # the final output lists of nodes and edges
-        self.final_node_list: list = []
-        self.final_edge_list: list = []
-
-        # create a logger
-        self.logger = LoggingUtil.init_logging("Data_services.DrugCentralLoader", level=logging.INFO, line_format='medium', log_file_path=os.environ['DATA_SERVICES_LOGS'])
+        super().__init__(test_mode=test_mode, source_data_dir=source_data_dir)
 
         self.omop_relationmap = {'off-label use': 'RO:0002606' , #is substance that treats
                                  'reduce risk': 'RO:0002606', #is substance that treats
@@ -48,6 +37,12 @@ class DrugCentralLoader(SourceDataLoader):
                                  'diagnosis': 'RO:0002606', #theres only one row like this.
                                  }
         self.bioactivity_query='select struct_id, target_id, accession, act_value, act_unit, act_type, act_source, act_source_url, action_type from act_table_full ;'
+        self.db_docker_container = None
+
+        self.data_url = 'http://unmtid-shinyapps.net/download/'
+        self.data_file = 'drugcentral.dump.010_05_2021.sql.gz'
+
+        self.docker_client = None
 
     def get_latest_source_version(self) -> str:
         """
@@ -56,40 +51,35 @@ class DrugCentralLoader(SourceDataLoader):
         :return: the version of the data
         """
 
-        # use the DB to get the version
-        #version = self.execute_pharos_sql('SELECT data_ver FROM dbinfo')
-
-        # return to the caller
-        #return version[0]['data_ver']
-        #TODO get dynamically
-        return '20200918' #sept 18, 2020
+        # TODO get dynamically
+        return '10_05_2021'
 
     def get_data(self):
-        """
-        Pulls the sql file for drugcentral
-
-        """
-        # and get a reference to the data gatherer
         gd: GetData = GetData(self.logger.level)
-
-        # get all the files noted above
-        #normally we'd run this, but i already have it so, I'm going to skip it for now
-        #byte_count: int = gd.pull_via_http('http://unmtid-shinyapps.net/download/drugcentral-pgdump_20200918.sql.gz', self.data_path, is_gzip=True)
-        byte_count=1
-
-        # TODO load the datafile into the database
-        # Right now I am using pycharm to run a postgresql docker container, and then
-        # its database tool to run the sql restore that is being pulled from above,
-        # outside of this.
-
-        return byte_count
+        byte_count: int = gd.pull_via_http(f'{self.data_url}{self.data_file}',
+                                           self.data_path)
+        if not byte_count:
+            return False
 
     def parse_data(self):
-        conn = psycopg2.connect("user='postgres' host='localhost'")
-        cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+
+        postgres_version = self.determine_postgres_version()
+        db_container_name = self.source_id + "_" + self.get_latest_source_version()
+        db_container = PostgresContainer(container_name=db_container_name,
+                                         postgres_version=postgres_version,
+                                         logger=self.logger)
+        db_container.run()
+        db_dump_path = os.path.join(self.data_path, self.data_file)
+        db_container.load_db_dump(db_dump_path)
+
+        # db_container.move_files_to_container([db_dump_path])
+        # db_container.load_db_dump(self.data_file)
+
+        self.logger.info(f'Parsing data...')
+        cur = db_container.get_db_connection().cursor(cursor_factory=psycopg2.extras.RealDictCursor)
         extractor = Extractor()
 
-        #chemical/phenotypes
+        # chemical/phenotypes
         chemical_phenotype_query='select struct_id, relationship_name, umls_cui from public.omop_relationship where umls_cui is not null'
         extractor.sql_extract(cur,chemical_phenotype_query,
                               lambda line: f'{prefixes.DRUGCENTRAL}:{line["struct_id"]}',
@@ -100,9 +90,7 @@ class DrugCentralLoader(SourceDataLoader):
                               lambda line: {PRIMARY_KNOWLEDGE_SOURCE: DrugCentralLoader.provenance_id}  # edge props
                               )
 
-        #adverse events
-        #TODO: the original source of this data is not drugcentral, but faers.  So we need to have the ability to have
-        # longer provenance chain, it should be aggregate_source: drugcentral, original_source: faers  (or wahtever)
+        # adverse events
         faers_query = 'SELECT struct_id, meddra_code, llr FROM public.faers WHERE llr > llr_threshold and drug_ae > 25'
         extractor.sql_extract(cur, faers_query,
                               lambda line: f'{prefixes.DRUGCENTRAL}:{line["struct_id"]}',
@@ -163,6 +151,101 @@ class DrugCentralLoader(SourceDataLoader):
                 node.properties.update(node_props_by_id[node.identifier])
 
         return extractor.load_metadata
+
+    def determine_postgres_version(self):
+        path_to_dump = os.path.join(self.data_path, self.data_file)
+        with gzip.open(path_to_dump, 'rt') as file_reader:
+            for line in file_reader:
+                possible_version_line = line.split("database version ")
+                if len(possible_version_line) > 1:
+                    postgres_version = possible_version_line[1].strip()
+                    return postgres_version
+        # uh oh
+        self.logger.error(f'Postgres version could not be determined from the SQL dump. '
+                          f'Defaulting to last known version: 10.11')
+        return "10.11"
+"""
+    def init_db_container(self, postgres_version: str):
+
+        self.logger.info(f'Initializing Postgres.. connecting to docker..')
+        self.docker_client = docker.from_env(timeout=150)
+        self.logger.info(f'Initializing Postgres.. checking for old container..')
+        docker_container_name = self.get_db_docker_container_name()
+        docker_container = self.get_db_docker_container_object()
+        if docker_container:
+            self.logger.info(f'Found previous container {docker_container_name}.')
+            docker_container.remove(force=True)
+            self.logger.info(f'Removed previous container {docker_container_name}.')
+
+        self.logger.info(f'Creating Postgres docker container named {docker_container_name}')
+        self.db_docker_container = self.docker_client.containers.run(f"postgres:{postgres_version}",
+                                                                     name=docker_container_name,
+                                                                     network='data_services_network',
+                                                                     ports={'5432/tcp': 5432},
+                                                                     # would love to do this but it does not work on Mac
+                                                                     # volumes=[f'{self.data_path}:/DrugCentral'],
+                                                                     auto_remove=True,
+                                                                     detach=True)
+        self.logger.info(f'Postgres docker container {docker_container_name} created...')
+
+    def get_db_docker_container_name(self):
+        return self.source_id + "_" + self.get_latest_source_version()
+
+    def get_db_docker_container_object(self):
+        try:
+            return self.docker_client.containers.get(self.get_db_docker_container_name())
+        except docker.errors.NotFound as e:
+            return None
+            
+    def get_db_connection(self):
+        return psycopg2.connect(user='postgres', host=self.get_db_docker_container_name(), port=5432)
+
+   
+    def wait_for_db_container(self, retries: int=0):
+        try:
+            db_conn = self.get_db_connection()
+            cur = db_conn.cursor()
+            cur.execute("SELECT 1")
+            self.logger.info(f'Postgres container successfully initialized.')
+
+        except Exception as e:
+            if retries == 5:
+                raise SourceDataFailedError(f'Could not successfully initialize or connect to postgres DB: {repr(e)}{e}')
+            else:
+                self.logger.info(f'Waiting for Postgres container to finish initialization... retry: {retries}')
+                time.sleep(15)
+                self.wait_for_db_container(retries+1)
+
+    def load_data_into_postgres(self):
+        try:
+            self.logger.info(f'Restoring database dump...')
+            path_to_dump = os.path.join(self.data_path, self.data_file)
+            db_container = self.get_db_docker_container_object()
+            with self.convert_to_tar(path_to_dump) as archive_to_move:
+                db_container.put_archive('/', archive_to_move)
+
+            self.logger.info(f'Copied DB dump to container... Restoring with psql...')
+            db_container.exec_run(f"/bin/bash -c 'gunzip -c /{self.data_file} | psql -U postgres postgres'",
+                                  stdout=True,
+                                  stderr=True)
+            self.logger.info(f'Database dump restored...')
+        except Exception as e:
+            raise e
+
+    def remove_db_container(self):
+        db_container = self.get_db_docker_container_object()
+        if db_container:
+            db_container.remove(force=True)
+
+    def convert_to_tar(self, path):
+        f = tempfile.NamedTemporaryFile()
+        t = tarfile.open(mode='w', fileobj=f)
+        abs_path = os.path.abspath(path)
+        t.add(abs_path, arcname=os.path.basename(path), recursive=False)
+        t.close()
+        f.seek(0)
+        return f
+"""
 
 def get_bioactivity_predicate(line):
     action_type_mappings={
