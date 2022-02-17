@@ -2,27 +2,18 @@ import os
 import hashlib
 import argparse
 import pandas as pd
-import logging
-import mysql.connector
 import re
 import random
 import requests
 
 from Common.loader_interface import SourceDataLoader
 from Common.kgxmodel import kgxnode, kgxedge
-from Common.utils import LoggingUtil, GetData
+from Common.utils import GetData
+from Common.containers import MariaDBContainer
 
 
-##############
-# Class: FooDB loader
-#
-# By: Phil Owen
-# Date: 8/11/2020
-# Desc: Class that loads the PHAROS data and creates KGX files for importing into a Neo4j graph.
-#       Note that this parser uses a MySQL database that should be started prior to launching the parse.
-#       The database (TCRDv6.7.0.sql.gz recent as of 20120/21/9) is ~3.9gb in size.
-##############
 class PHAROSLoader(SourceDataLoader):
+
     GENE_TO_DISEASE: str = """select distinct x.value, d.did, d.name, p.sym, d.dtype
                                 from disease d 
                                 join xref x on x.protein_id = d.protein_id 
@@ -59,11 +50,11 @@ class PHAROSLoader(SourceDataLoader):
         """
         super().__init__(test_mode=test_mode, source_data_dir=source_data_dir)
 
-        self.data_file = 'latest.sql'
-        self.source_db = 'Druggable Genome initiative database'
-
-        # DB connection, lazy instantiation
-        self.db = None
+        self.data_file = 'latest.sql.gz'
+        self.data_url = 'http://juniper.health.unm.edu/tcrd/download/'
+        self.source_db = 'Target Central Resource Database'
+        self.pharos_db_name = 'tcrd'
+        self.pharos_db_container = None
 
     def get_latest_source_version(self) -> str:
         """
@@ -71,33 +62,19 @@ class PHAROSLoader(SourceDataLoader):
 
         :return: the version of the data
         """
+        return "v6_12_4"
         url = 'http://juniper.health.unm.edu/tcrd/download/latest.README'
         response = requests.get(url)
-        version = response.text.splitlines()[0]
-        self.logger.info(version)
+        first_line = response.text.splitlines()[0]
+        version = first_line.split()[1].replace('.', '_')
         return version
 
     def get_data(self):
-        """
-        Gets the PHAROS (https://pharos.nih.gov/) data from https://juniper.health.unm.edu/tcrd/download/
-
-        """
-        return True
-
-        # and get a reference to the data gatherer
         gd: GetData = GetData(self.logger.level)
-
-        # get all the files noted above
-        file_count: int = gd.get_pharos_http_file(self.data_path, self.data_file)
-
-        # abort if we didnt get the file
-        if file_count != 1:
-            self.logger.error(f'PHAROSLoader - The PHAROS data file was not retrieved.')
-            raise Exception('PHAROSLoader - The PHAROS data file was not retrieved.')
-        else:
-            return True
-
-        # TODO load the datafile into the database
+        byte_count: int = gd.pull_via_http(f'{self.data_url}{self.data_file}',
+                                           self.data_path)
+        if not byte_count:
+            return False
 
     def parse_data(self) -> dict:
         """
@@ -105,6 +82,22 @@ class PHAROSLoader(SourceDataLoader):
 
         :return: parsed meta data results
         """
+
+        mariadb_version = 'latest'
+        db_container_name = self.source_id + "_" + self.get_latest_source_version()
+        db_container = MariaDBContainer(container_name=db_container_name,
+                                        mariadb_version=mariadb_version,
+                                        database_name=self.pharos_db_name,
+                                        logger=self.logger)
+        db_container.run()  # run() should automatically lock until the DB container is up and ready
+        db_dump_path = os.path.join(self.data_path, self.data_file)
+        db_container.load_db_dump(db_dump_path)
+
+        # db_container.move_files_to_container([db_dump_path])
+        # db_container.load_db_dump(self.data_file)
+
+        self.pharos_db_container = db_container
+
         # storage for the node list
         node_list: list = []
 
@@ -179,7 +172,6 @@ class PHAROSLoader(SourceDataLoader):
             if did is None:
                 # increment the counter
                 skipped_record_counter += 1
-
                 continue
             # if this is a UML node, create the curie
             elif pattern.match(did):
@@ -358,14 +350,6 @@ class PHAROSLoader(SourceDataLoader):
         resu = '_'.join(dedash.split())
         return resu
 
-    def init_pharos_db(self):
-        # get a connection to the PHAROS MySQL DB
-        host = os.environ.get('PHAROS_HOST', '')
-        user = os.environ.get('PHAROS_USER', '')
-        password = os.environ.get('PHAROS_PASSWORD', '')
-        database = os.environ.get('PHAROS_DATABASE', '')
-        self.db = mysql.connector.connect(host=host, user=user, password=password, database=database)
-
     def execute_pharos_sql(self, sql_query: str) -> dict:
         """
         executes a sql statement
@@ -373,11 +357,8 @@ class PHAROSLoader(SourceDataLoader):
         :param sql_query:
         :return dict of results:
         """
-        if not self.db:
-            self.init_pharos_db()
-
         # get a cursor to the db
-        cursor = self.db.cursor(dictionary=True, buffered=True)
+        cursor = self.pharos_db_container.get_db_connection().cursor()
 
         # execute the sql
         cursor.execute(sql_query)

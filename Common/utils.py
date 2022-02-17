@@ -1090,34 +1090,6 @@ class GetData:
         # return to the caller
         return file_counter
 
-    def get_pharos_http_file(self, data_dir: str, data_file: str) -> int:
-        """
-        gets the PHAROS file via HTTP.
-
-        :param data_dir: the location where the data should be saved
-        :param data_file: the file to get
-        :return int: the number of files retrieved
-        """
-        self.logger.debug(f'Start of PHAROS retrieval.')
-
-        # unit a file counter
-        file_counter: int = 0
-
-        if os.path.isfile(os.path.join(data_dir, data_file)):
-            byte_count = 1
-        else:
-            # get the rest of the files
-            byte_count: int = self.pull_via_http(f'http://juniper.health.unm.edu/tcrd/download/{data_file}.gz', data_dir, True)
-
-        # did re get some good file data
-        if byte_count > 0:
-            file_counter += 1
-        else:
-            self.logger.error(f'Failed to get {data_file}.')
-
-        # return to the caller
-        return file_counter
-
     def get_gtopdb_http_files(self, data_dir: str, file_list: list) -> int:
         """
         gets the gtopdb files via HTTP.
