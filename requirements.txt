@@ -13,7 +13,7 @@ orjson==3.6.4
 xxhash==2.0.2
 kgx==1.5.5
 docker==5.0.3
-mariadb==1.0.9
+mysql-connector-python==8.0.28
 # line-profiler==3.4.0
 # on hold for neo4j_tools.py when kgx supports neo4j:4+
 # neo4j==4.3.0

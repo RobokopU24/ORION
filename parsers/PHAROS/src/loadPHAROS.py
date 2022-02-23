@@ -9,7 +9,7 @@ import requests
 from Common.loader_interface import SourceDataLoader
 from Common.kgxmodel import kgxnode, kgxedge
 from Common.utils import GetData
-from Common.containers import MariaDBContainer
+from Common.containers import MySQLContainer
 
 
 class PHAROSLoader(SourceDataLoader):
@@ -83,12 +83,12 @@ class PHAROSLoader(SourceDataLoader):
         :return: parsed meta data results
         """
 
-        mariadb_version = 'latest'
+        mysql_version = 'latest'
         db_container_name = self.source_id + "_" + self.get_latest_source_version()
-        db_container = MariaDBContainer(container_name=db_container_name,
-                                        mariadb_version=mariadb_version,
-                                        database_name=self.pharos_db_name,
-                                        logger=self.logger)
+        db_container = MySQLContainer(container_name=db_container_name,
+                                      mysql_version=mysql_version,
+                                      database_name=self.pharos_db_name,
+                                      logger=self.logger)
         db_container.run()  # run() should automatically lock until the DB container is up and ready
         db_dump_path = os.path.join(self.data_path, self.data_file)
         db_container.load_db_dump(db_dump_path)
@@ -357,14 +357,18 @@ class PHAROSLoader(SourceDataLoader):
         :param sql_query:
         :return dict of results:
         """
+        db_connection = self.pharos_db_container.get_db_connection()
         # get a cursor to the db
-        cursor = self.pharos_db_container.get_db_connection().cursor()
+        cursor = db_connection.cursor()
 
         # execute the sql
         cursor.execute(sql_query)
 
         # get all the records
         ret_val: dict = cursor.fetchall()
+
+        cursor.close()
+        db_connection.close()
 
         # return to the caller
         return ret_val
