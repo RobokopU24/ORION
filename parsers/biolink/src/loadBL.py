@@ -1,12 +1,11 @@
 import os
 import argparse
 import enum
-import requests
 
-from Common.utils import LoggingUtil, GetData, GetDataPullError
-from Common.loader_interface import SourceDataLoader, SourceDataBrokenError
+from Common.utils import GetData
+from Common.loader_interface import SourceDataLoader
 from Common.extractor import Extractor
-from Common.node_types import node_types, AGGREGATOR_KNOWLEDGE_SOURCES
+from Common.node_types import AGGREGATOR_KNOWLEDGE_SOURCES
 
 
 # the data header columns for the nodes file are:
@@ -14,6 +13,7 @@ class NODESDATACOLS(enum.IntEnum):
     ID = 0
     CATEGORY = 1
     NAME = 2
+
 
 # the data header columns for the edges file are:
 class EDGESDATACOLS(enum.IntEnum):
@@ -47,7 +47,7 @@ class BLLoader(SourceDataLoader):
         self.bl_edges_file_name = 'sri-reference-kg_edges.tsv'
         self.bl_nodes_file_name = 'sri-reference-kg_nodes.tsv'
         self.data_files: list = [self.bl_edges_file_name, self.bl_nodes_file_name]
-        self.data_url = 'https://archive.monarchinitiative.org/202103/kgx/'
+        self.data_url = 'https://archive.monarchinitiative.org/latest/kgx/'
 
     def get_latest_source_version(self) -> str:
         """
