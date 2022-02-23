@@ -35,7 +35,6 @@ graphs:
     sources:
       - source_id: GWASCatalog
       - source_id: GTEx
-        strict_normalization: False
 
   - graph_id: Covid
     subgraphs:
