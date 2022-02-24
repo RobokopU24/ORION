@@ -127,7 +127,9 @@ class PostgresContainer(DataServicesContainer):
         if exit_code == 0:
             self.logger.info(f'Database dump restored... {response}')
         else:
-            self.logger.info(f'Database dump restoration failed. Exit code {exit_code}:{response}')
+            error_message = f'Database dump restoration failed. Exit code {exit_code}:{response}'
+            self.logger.error(error_message)
+            raise DSContainerError(error_message)
 
     # returns a psycopg2 connection object
     def get_db_connection(self):
@@ -152,16 +154,19 @@ class MySQLContainer(DataServicesContainer):
         self.db_connection_port = 3306
         self.default_ports = {'3306/tcp': self.db_connection_port}
         self.database_name = database_name
-        self.database_user = 'default_user'
+        # self.database_user = 'default_user'
         self.database_password = 'default_password'
-        self.environment_vars["MYSQL_ROOT_PASSWORD"] = self.database_password + '_root'
-        self.environment_vars["MYSQL_USER"] = self.database_user
-        self.environment_vars["MYSQL_PASSWORD"] = self.database_password
+        self.database_root_password = 'default_root_password'
+        self.environment_vars["MYSQL_ROOT_PASSWORD"] = self.database_root_password
+        # self.environment_vars["MYSQL_USER"] = self.database_user
+        # self.environment_vars["MYSQL_PASSWORD"] = self.database_password
         self.environment_vars["MYSQL_DATABASE"] = self.database_name
+        self.environment_vars["MYSQL_ROOT_HOST"] = "%"
 
         self.mysql_connection_config = {
-            'user': self.database_user,
-            'password': self.database_password,
+            # 'user': self.database_user,
+            'user': 'root',
+            'password': self.database_root_password,
             'host': self.container_name,
             'port': self.db_connection_port,
             'database': self.database_name
@@ -171,11 +176,13 @@ class MySQLContainer(DataServicesContainer):
         self.logger.info(f'Restoring db dump...')
         docker_container = self.get_container()
         exit_code, response = docker_container.exec_run(f"/bin/bash -c 'gunzip -c {dump_file_path} | "
-                                       f"mysql -u{self.database_user} -p{self.database_password} {self.database_name}'")
+                                       f"mysql -uroot -p{self.database_root_password} {self.database_name}'")
         if exit_code == 0:
             self.logger.info(f'Database dump restored... {response}')
         else:
-            self.logger.info(f'Database dump restoration failed. Exit code {exit_code}:{response}')
+            error_message = f'Database dump restoration failed. Exit code {exit_code}:{response}'
+            self.logger.error(error_message)
+            raise DSContainerError(error_message)
 
     # returns a mysql connection object
     def get_db_connection(self):
