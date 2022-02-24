@@ -359,7 +359,7 @@ class PHAROSLoader(SourceDataLoader):
         """
         db_connection = self.pharos_db_container.get_db_connection()
         # get a cursor to the db
-        cursor = db_connection.cursor()
+        cursor = db_connection.cursor(dictionary=True, buffered=True)
 
         # execute the sql
         cursor.execute(sql_query)
