@@ -62,7 +62,6 @@ class PHAROSLoader(SourceDataLoader):
 
         :return: the version of the data
         """
-        return "v6_12_4"
         url = 'http://juniper.health.unm.edu/tcrd/download/latest.README'
         response = requests.get(url)
         first_line = response.text.splitlines()[0]
