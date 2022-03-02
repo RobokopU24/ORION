@@ -7,7 +7,7 @@ from xxhash import xxh64_hexdigest
 from Common.utils import LoggingUtil
 from Common.load_manager import SourceDataManager
 from Common.kgx_file_merger import KGXFileMerger
-from Common.kgxmodel import GraphSpec, SourceDataSpec, SubGraphSpec, NormalizationScheme
+from Common.kgxmodel import GraphSpec, SubGraphSource, DataSource, NormalizationScheme
 from Common.metadata import Metadata, GraphMetadata, SourceMetadata
 from Common.supplementation import SequenceVariantSupplementation
 
@@ -92,8 +92,8 @@ class GraphBuilder:
 
         graph_id = graph_spec.graph_id
         for subgraph_source in graph_spec.subgraphs:
-            subgraph_id = subgraph_source.graph_id
-            subgraph_version = subgraph_source.graph_version
+            subgraph_id = subgraph_source.id
+            subgraph_version = subgraph_source.version
             if subgraph_version == 'current':
                 subgraph_version = self.current_graph_versions[subgraph_id]
             if self.check_for_existing_graph_dir(subgraph_id, subgraph_version):
@@ -102,7 +102,8 @@ class GraphBuilder:
 
                 # grab the graph version from the metadata - this is necessary to replace 'latest' with a real one
                 subgraph_version = graph_metadata.get_graph_version()
-                subgraph_source.graph_version = subgraph_version
+                subgraph_source.version = subgraph_version
+                subgraph_source.graph_metadata = graph_metadata.metadata
             else:
                 self.logger.warning(f'Attempting to build graph {graph_id} failed, '
                                     f'subgraph {subgraph_id} version {subgraph_version} not found.')
@@ -120,10 +121,10 @@ class GraphBuilder:
                 return False
 
         for data_source in graph_spec.sources:
-            source_id = data_source.source_id
+            source_id = data_source.id
 
-            if data_source.source_version == 'latest':
-                data_source.source_version = self.source_data_manager.get_latest_source_version(source_id)
+            if data_source.version == 'latest':
+                data_source.version = self.source_data_manager.get_latest_source_version(source_id)
             if data_source.parsing_version == 'latest':
                 data_source.parsing_version = self.source_data_manager.get_latest_parsing_version(source_id)
 
@@ -136,14 +137,14 @@ class GraphBuilder:
             data_source.supplementation_version = SequenceVariantSupplementation.SUPPLEMENTATION_VERSION
 
             source_metadata: SourceMetadata = self.source_data_manager.get_source_metadata(source_id,
-                                                                                           data_source.source_version)
+                                                                                           data_source.version)
             if not source_metadata.is_stable(parsing_version=data_source.parsing_version,
                                              normalization_version=data_source.normalization_scheme.get_composite_normalization_version(),
                                              supplementation_version=data_source.supplementation_version):
                 self.logger.info(
                     f'Attempting to build graph {graph_id}, dependency {source_id} is not ready. Building now...')
                 success = self.source_data_manager.run_pipeline(source_id,
-                                                                source_version=data_source.source_version,
+                                                                source_version=data_source.version,
                                                                 parsing_version=data_source.parsing_version,
                                                                 normalization_scheme=data_source.normalization_scheme,
                                                                 supplementation_version=data_source.supplementation_version)
@@ -153,7 +154,7 @@ class GraphBuilder:
                     return False
 
             data_source.file_paths = self.source_data_manager.get_final_file_paths(source_id,
-                                                                                   data_source.source_version,
+                                                                                   data_source.version,
                                                                                    data_source.parsing_version,
                                                                                    data_source.normalization_scheme.get_composite_normalization_version(),
                                                                                    data_source.supplementation_version)
@@ -232,9 +233,9 @@ class GraphBuilder:
         graph_id = subgraph_yml['graph_id']
         graph_version = subgraph_yml['graph_version'] if 'graph_version' in subgraph_yml else 'current'
         merge_strategy = subgraph_yml['merge_strategy'] if 'merge_strategy' in subgraph_yml else 'default'
-        subgraph_source = SubGraphSpec(graph_id=graph_id,
-                                       graph_version=graph_version,
-                                       merge_strategy=merge_strategy)
+        subgraph_source = SubGraphSource(id=graph_id,
+                                         version=graph_version,
+                                         merge_strategy=merge_strategy)
         return subgraph_source
 
     def parse_data_source_spec(self, source_yml):
@@ -254,11 +255,11 @@ class GraphBuilder:
                                                    edge_normalization_version=edge_normalization_version,
                                                    strict=strict_normalization,
                                                    conflation=conflation)
-        graph_source = SourceDataSpec(source_id=source_id,
-                                      source_version=source_version,
-                                      normalization_scheme=normalization_scheme,
-                                      parsing_version=parsing_version,
-                                      merge_strategy=merge_strategy)
+        graph_source = DataSource(id=source_id,
+                                  version=source_version,
+                                  merge_strategy=merge_strategy,
+                                  normalization_scheme=normalization_scheme,
+                                  parsing_version=parsing_version)
         return graph_source
 
     def get_graph_spec(self, graph_id: str):
@@ -294,7 +295,7 @@ class GraphBuilder:
     @staticmethod
     def generate_graph_version(graph_spec: GraphSpec):
         graph_version_string = ''.join(
-            [f'{graph_source.source_id}{graph_source.source_version}{graph_source.merge_strategy}'
+            [f'{graph_source.id}{graph_source.version}{graph_source.merge_strategy}'
              for graph_source in graph_spec.sources])
         graph_version = xxh64_hexdigest(graph_version_string)
         return graph_version

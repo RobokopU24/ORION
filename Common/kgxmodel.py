@@ -77,33 +77,33 @@ class GraphSpec:
 
 
 @dataclass
-class SubGraphSpec:
-    graph_id: str
-    graph_version: str
+class GraphSource:
+    id: str
+    version: str
     merge_strategy: str = 'default'
-    graph_metadata: dict = None
     file_paths: list = None
 
+
+@dataclass
+class SubGraphSource(GraphSource):
+    graph_metadata: dict = None
+
     def get_metadata_representation(self):
-        return {'graph_id': self.graph_id,
-                'graph_version': self.graph_version,
+        return {'graph_id': self.id,
+                'graph_version': self.version,
                 'merge_strategy:': self.merge_strategy,
                 'graph_metadata': self.graph_metadata}
 
 
 @dataclass
-class SourceDataSpec:
-    source_id: str
-    source_version: str
-    normalization_scheme: NormalizationScheme
+class DataSource(GraphSource):
+    normalization_scheme: NormalizationScheme = None
     parsing_version: str = None
     supplementation_version: str = None
-    merge_strategy: str = 'default'
-    file_paths: list = None
 
     def get_metadata_representation(self):
-        return {'source_id': self.source_id,
-                'source_version': self.source_version,
+        return {'source_id': self.id,
+                'source_version': self.version,
                 'parsing_version': self.parsing_version,
                 'supplementation_version': self.supplementation_version,
                 'normalization_scheme': self.normalization_scheme.get_metadata_representation(),

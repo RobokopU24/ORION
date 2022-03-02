@@ -1,6 +1,7 @@
 import os
 import jsonlines
 import orjson
+from itertools import chain
 from Common.utils import LoggingUtil
 from Common.kgxmodel import GraphSpec
 from Common.node_types import SUBJECT_ID, OBJECT_ID
@@ -38,7 +39,7 @@ class KGXFileMerger:
               nodes_output_file_path: str,
               edges_output_file_path: str):
 
-        if not graph_spec.sources:
+        if not (graph_spec.sources or graph_spec.subgraphs):
             merge_error_msg = f'Merge attempted but {graph_spec.graph_id} had no sources to merge.'
             self.logger.error(merge_error_msg)
             return {'merge_error': merge_error_msg}
@@ -51,7 +52,7 @@ class KGXFileMerger:
         # group the sources based on their merge strategy, we'll process the primary sources first
         primary_sources = []
         secondary_sources = []
-        for graph_source in graph_spec.sources:
+        for graph_source in chain(graph_spec.sources, graph_spec.subgraphs):
             if graph_source.merge_strategy == 'default':
                 primary_sources.append(graph_source)
             elif graph_source.merge_strategy == 'connected_edge_subset':
@@ -78,8 +79,8 @@ class KGXFileMerger:
                                      edges_output_file_path,
                                      merge_metadata)
 
-        if len(merge_metadata['sources']) != len(graph_spec.sources):
-            all_source_ids = [graph_source.source_id for graph_source in graph_spec.sources]
+        if len(merge_metadata['sources']) != len(graph_spec.sources) + len(graph_spec.subgraphs):
+            all_source_ids = [graph_source.id for graph_source in chain(graph_spec.sources, graph_spec.subgraphs)]
             missing_data_sets = [source_id for source_id in all_source_ids if
                                  source_id not in merge_metadata['sources'].keys()]
             self.logger.error(f"Error merging graph {graph_spec.graph_id}! could not merge: {missing_data_sets}")
@@ -94,34 +95,34 @@ class KGXFileMerger:
 
         graph_merger = GraphMerger()
         for i, graph_source in enumerate(graph_sources, start=1):
-            self.logger.info(f"Processing {graph_source.source_id}. (primary source {i}/{len(graph_sources)})")
-            merge_metadata["sources"][graph_source.source_id] = {'source_version': graph_source.source_version}
+            self.logger.info(f"Processing {graph_source.id}. (primary source {i}/{len(graph_sources)})")
+            merge_metadata["sources"][graph_source.id] = {'source_version': graph_source.version}
 
             for file_path in graph_source.file_paths:
                 source_filename = file_path.rsplit('/')[-1]
-                merge_metadata["sources"][graph_source.source_id][source_filename] = {}
+                merge_metadata["sources"][graph_source.id][source_filename] = {}
                 if "nodes" in file_path:
                     with jsonlines.open(file_path) as nodes:
                         nodes_count, merged_nodes_count = graph_merger.merge_nodes(nodes)
-                        merge_metadata["sources"][graph_source.source_id][source_filename]["nodes"] = nodes_count
-                        merge_metadata["sources"][graph_source.source_id][source_filename][
+                        merge_metadata["sources"][graph_source.id][source_filename]["nodes"] = nodes_count
+                        merge_metadata["sources"][graph_source.id][source_filename][
                             "nodes_merged"] = merged_nodes_count
                         if merged_nodes_count:
-                            self.logger.info(f"Merged {merged_nodes_count} nodes from {graph_source.source_id}"
+                            self.logger.info(f"Merged {merged_nodes_count} nodes from {graph_source.id}"
                                              f" - {file_path}.")
 
                 elif "edges" in file_path:
                     with jsonlines.open(file_path) as edges:
                         edges_count, merged_edge_count = graph_merger.merge_edges(edges, overwrite=True)
-                        merge_metadata["sources"][graph_source.source_id][source_filename]["edges"] = edges_count
-                        merge_metadata["sources"][graph_source.source_id][source_filename][
+                        merge_metadata["sources"][graph_source.id][source_filename]["edges"] = edges_count
+                        merge_metadata["sources"][graph_source.id][source_filename][
                             "edges_merged"] = merged_edge_count
                         if merged_edge_count:
-                            self.logger.info(f"Merged {merged_edge_count} edges from {graph_source.source_id}"
+                            self.logger.info(f"Merged {merged_edge_count} edges from {graph_source.id}"
                                              f" - {file_path}.")
                 else:
                     raise ValueError(f"Did not recognize file {file_path} for merging "
-                                     f"from data source {graph_source.source_id}.")
+                                     f"from data source {graph_source.id}.")
 
         nodes_written, edges_written = self.__write_back_to_file(graph_merger,
                                                                  nodes_out_file,
@@ -136,11 +137,11 @@ class KGXFileMerger:
                                 edges_output_file_path: str,
                                 merge_metadata: dict):
         for i, graph_source in enumerate(graph_sources, start=1):
-            self.logger.info(f"Processing {graph_source.source_id}. (secondary source {i}/{len(graph_sources)})")
+            self.logger.info(f"Processing {graph_source.id}. (secondary source {i}/{len(graph_sources)})")
             if graph_source.merge_strategy == 'connected_edge_subset':
-                self.logger.info(f"Merging {graph_source.source_id} using connected_edge_subset merge strategy.")
+                self.logger.info(f"Merging {graph_source.id} using connected_edge_subset merge strategy.")
 
-                merge_metadata["sources"][graph_source.source_id] = {'source_version': graph_source.source_version}
+                merge_metadata["sources"][graph_source.id] = {'version': graph_source.version}
 
                 file_path_iterator = iter(graph_source.file_paths)
                 for file_path in file_path_iterator:
@@ -166,11 +167,11 @@ class KGXFileMerger:
                     edges_source_filename = connected_edge_subset_edges_file.rsplit('/')[-1]
 
                     # due to the algorithm implemented in kgx_a_subset_b there are no mergers to log
-                    merge_metadata["sources"][graph_source.source_id][nodes_source_filename] = {
+                    merge_metadata["sources"][graph_source.id][nodes_source_filename] = {
                         "nodes": new_node_count,
                         "nodes_merged": 0,
                     }
-                    merge_metadata["sources"][graph_source.source_id][edges_source_filename] = {
+                    merge_metadata["sources"][graph_source.id][edges_source_filename] = {
                         "edges": new_edge_count,
                         "edges_merged": 0
                     }
@@ -201,7 +202,7 @@ class KGXFileMerger:
     """
     This is on hold / TBD - we should be able to process individual sources more efficiently
     def process_single_source(self, graph_source: SourceDataSpec, nodes_out_file: str, edges_out_file: str):
-        self.logger.info(f"Processing single primary source {graph_source.source_id}.")
+        self.logger.info(f"Processing single primary source {graph_source.id}.")
         files_processed = 0
         files_to_process = graph_source.file_paths
         if len(files_to_process) <= 2:
