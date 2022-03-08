@@ -1,0 +1,50 @@
+{{- $fullName := include "kgx-load-helm.fullname" . -}}
+{{- $image := .Values.kgx.image.repository }}
+{{- $imageTag := .Values.kgx.image.tag }}
+{{- $pullPolicy := .Values.kgx.imagePullPolicy }}
+{{- $resources := .Values.kgx.resources }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: "{{ $fullName }}-kgx-load-job"
+spec:
+  template:
+    metadata:
+      name: "{{ $fullName }}-kgx-load-job"
+    spec:
+      initContainers:
+        - name: download-ds
+          image: busybox
+          command:
+          - "/download-kgx-files.sh"
+          volumeMounts:
+          - mountPath: /data
+            name: "data-dir"
+          - mountPath: /download-kgx-files.sh
+            name: "scripts"
+            subPath: "download-kgx-files.sh"
+          {{ with .Values.kgx.init.resources }}
+          resources:  {{ . | toYaml | nindent 12 }}
+          {{ end }}
+      containers:
+        - name: loader-container
+          image: "{{ $image }}:{{ $imageTag }}"
+          imagePullPolicy: {{ $pullPolicy }}
+          command:
+          - /bin/sh
+          tty: true
+          stdin: true
+          volumeMounts:
+            - mountPath: /data
+              name: "data-dir"
+          resources:
+            {{ $resources | toYaml | nindent 12 }}
+      restartPolicy: OnFailure
+      volumes:
+        - name: scripts
+          configMap:
+            name: "{{- include "kgx-load-helm.fullname" . }}-scripts"
+            defaultMode: 0777
+        - name: data-dir
+          persistentVolumeClaim:
+            claimName: "{{ $fullName }}-kgx-data-pvc"

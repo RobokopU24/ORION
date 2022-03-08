@@ -20,4 +20,4 @@ mysql-connector-python==8.0.28
 linkml==1.1.17
 linkml-dataops==0.1.0
 linkml-runtime==1.1.21
-git+https://github.com/Yaphetkg/kgx.git@master
+git+https://github.com/biolink/kgx.git@master
