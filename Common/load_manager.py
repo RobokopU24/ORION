@@ -267,11 +267,12 @@ class SourceDataManager:
         elif parsing_status == SourceMetadata.IN_PROGRESS:
             self.logger.info(f"Parsing stage for {source_id} is already in progress.")
             return False
-        elif parsing_status == SourceMetadata.BROKEN or parsing_status == SourceMetadata.FAILED:
+        elif parsing_status == SourceMetadata.BROKEN:
             self.logger.info(f"Parsing stage for {source_id} previously: {parsing_status}")
-            # TODO consider retry logic here
             return False
         else:
+            # if parsing_status == SourceMetadata.FAILED:
+            # TODO consider retry logic here - should we only try a few times? ask user?
             self.logger.info(f"Parsing source {source_id} (source_version: {source_version}, "
                              f"parsing_version: {parsing_version})...")
             return self.parse_source(source_id, source_version, parsing_version)
