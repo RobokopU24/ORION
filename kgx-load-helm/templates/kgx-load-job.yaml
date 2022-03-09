@@ -26,12 +26,41 @@ spec:
           {{ with .Values.kgx.init.resources }}
           resources:  {{ . | toYaml | nindent 12 }}
           {{ end }}
+        - name: check-neo4j
+          image: busybox
+          command:
+          - "/check_neo.sh"
+          env:
+          - name: NEO4J_HOST
+            value: {{ include "kgx-load-helm.fullname" . }}-neo4j-service
+          - name: NEO4J_HTTP_PORT
+            value: {{ .Values.neo4j.httpPort | quote }}
+          volumeMounts:
+          - mountPath: /check_neo.sh
+            name: "scripts"
+            subPath: "check_neo.sh"
+          {{ with .Values.kgx.init.resources }}
+          resources:  {{ . | toYaml | nindent 12 }}
+          {{ end }}
       containers:
         - name: loader-container
           image: "{{ $image }}:{{ $imageTag }}"
           imagePullPolicy: {{ $pullPolicy }}
           command:
-          - /bin/sh
+          - python
+          args:
+          - /Data_services/Common/neo4j_tools.py
+          - --neo4j-host
+          - {{ include "kgx-load-helm.fullname" . }}-neo4j-service
+          - --neo4j-bolt-port
+          - {{ .Values.neo4j.boltPort | quote }}
+          - --username
+          - {{ .Values.neo4j.username | quote}}
+          - --password
+          - {{ .Values.neo4j.password | quote }}
+          - default
+          - /data/nodes.jsonl
+          - /data/edges.jsonl
           tty: true
           stdin: true
           volumeMounts:

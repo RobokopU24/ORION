@@ -3,46 +3,44 @@ kind: StatefulSet
 metadata:
   name: {{ include "kgx-load-helm.fullname" . }}-neo4j
   labels:
-    {{- include "plater.labels" . | nindent 4 }}
+    {{- include "kgx-load-helm.labels" . | nindent 4 }}
 spec:
   serviceName: {{ include "kgx-load-helm.fullname" . }}-neo4j-service
   selector:
     matchLabels:
-      {{- include "plater.selectorLabels" . | nindent 6 }}
+      {{- include "kgx-load-helm.selectorLabels" . | nindent 6 }}
       service-type: database
   template:
     metadata:
       labels:
-        {{- include "plater.selectorLabels" . | nindent 8 }}
+        {{- include "kgx-load-helm.selectorLabels" . | nindent 8 }}
         service-type: database
     spec:
       containers:
-        - image: {{ .Values.image.neo4j.repository }}:{{ .Values.image.neo4j.tag }}
+        - image: {{ .Values.neo4j.image.repository }}:{{ .Values.neo4j.image.tag }}
           name: {{ include "kgx-load-helm.fullname" . }}-neo4j-container
-          {{- with .Values.app.neo4j.resources }}
+          {{- with .Values.neo4j.resources }}
           resources:
             {{- toYaml . | nindent 12 }}
           {{- end }}
-          imagePullPolicy:  {{ .Values.image.neo4j.imagePullPolicy }}
+          imagePullPolicy:  {{ .Values.neo4j.image.imagePullPolicy }}
           env:
           - name: NEO4J_AUTH
-            value: {{ .Values.app.neo4j.username }}/{{ .Values.app.neo4j.password }}
+            value: {{ .Values.neo4j.username }}/{{ .Values.neo4j.password }}
           - name: NEO4J_dbms_connectors_default__listen__address
             value: "0.0.0.0"
           - name: NEO4J_dbms_memory_heap_initial__size
-            value: "{{ .Values.app.neo4j.heapSize }}"
+            value: "{{ .Values.neo4j.heapSize }}"
           - name: NEO4J_dbms_memory_heap_max__size
-            value: "{{ .Values.app.neo4j.heapSize }}"
+            value: "{{ .Values.neo4j.heapSize }}"
           - name: NEO4J_dbms_memory_pagecache_size
-            value: "{{ .Values.app.neo4j.pageCacheSize }}"
+            value: "{{ .Values.neo4j.pageCacheSize }}"
           - name: NEO4J_dbms_read__only
-            value: {{ .Values.app.neo4j.readOnly }}
+            value: {{ .Values.neo4j.readOnly }}
           - name: NEO4J_dbms_security_procedures_unrestricted
             value: "apoc.*"
           - name: NEO4J_dbms_jvm_additional
-            value: "-XX:+UnlockExperimentalVMOptions -XX:+UseZGC -Xss{{ .Values.app.neo4j.jvmStackSize }} -Dlog4j2.disable.jmx=true -Dlog4j2.formatMsgNoLookups=true"
-          - name: NEO4J_dbms_transaction_timeout
-            value: "{{ .Values.app.Neo4jQueryTimeout }}s"
+            value: "-XX:+UnlockExperimentalVMOptions -XX:+UseZGC  -Dlog4j2.disable.jmx=true -Dlog4j2.formatMsgNoLookups=true"
           ports:
             - name: neo4j-http
               containerPort: 7474
@@ -87,4 +85,4 @@ spec:
         accessModes: [ "ReadWriteOnce" ]
         resources:
           requests:
-            storage: {{ .Values.app.neo4j.storage.size }}
+            storage: {{ .Values.neo4j.storage.size }}
