@@ -47,9 +47,9 @@ class GraphDBTools:
         # TODO - make memory settings configurable
         environment = [
             f'NEO4J_AUTH=neo4j/{self.graph_db_password}',
-            'NEO4J_dbms_memory_heap_max__size=1G',
-            'NEO4J_dbms_memory_heap_initial__size=1G',
-            'NEO4J_dbms_memory_pagecache_size=200M',
+            'NEO4J_dbms_memory_heap_max__size=4G',
+            'NEO4J_dbms_memory_heap_initial__size=4G',
+            'NEO4J_dbms_memory_pagecache_size=4G',
             'NEO4J_dbms_default__listen__address=0.0.0.0'
         ]
 
@@ -64,7 +64,7 @@ class GraphDBTools:
                                                                environment=environment,
                                                                ports=ports,
                                                                # network='data_services_network',
-                                                               auto_remove=False,
+                                                               auto_remove=True,
                                                                detach=True)
 
     def wait_for_container_initialization(self):
