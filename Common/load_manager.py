@@ -32,6 +32,7 @@ from parsers.drugcentral.src.loaddrugcentral import DrugCentralLoader
 from parsers.hetio.src.loadHetio import HetioLoader
 from parsers.biolink.src.loadBL import BLLoader
 from parsers.OntologicalHierarchy.src.loadOH import OHLoader
+from parsers.yeast.src.loadYeastNucleosomes import YeastNucleosomeLoader
 
 GWAS_CATALOG = 'GWASCatalog'
 CTD = 'CTD'
@@ -53,6 +54,7 @@ BIOLINK = 'Biolink'
 UNIREF = 'UniRef'
 SCENT = 'Scent'
 ONTOLOGICAL_HIERARCHY = 'OntologicalHierarchy'
+YEAST_NUCLEOSOMES = 'YeastNucleosomes'
 # FOODB = 'FooDB' # this is on hold, data needs review after latest release of data.
 
 
@@ -76,7 +78,8 @@ SOURCE_DATA_LOADER_CLASSES = {
     PANTHER: PLoader,
     UNIREF: UniRefSimLoader,
     ONTOLOGICAL_HIERARCHY: OHLoader,
-    SCENT: ScentLoader
+    SCENT: ScentLoader,
+    YEAST_NUCLEOSOMES: YeastNucleosomeLoader
     # items to go
     # textminingkp
 

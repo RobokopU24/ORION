@@ -1,27 +1,11 @@
 import os
-import logging
 import enum
 
-from copy import deepcopy
-
-import numpy
-from Common.utils import LoggingUtil, GetData
+from Common.utils import GetData
 from Common.loader_interface import SourceDataLoader
 from Common.extractor import Extractor
 from Common.node_types import AGGREGATOR_KNOWLEDGE_SOURCES, ORIGINAL_KNOWLEDGE_SOURCE
 
-from Common.kgxmodel import kgxnode, kgxedge
-
-#                if chemical_id not in self.previous_node_ids:
-#                    chem_node = kgxnode(chemical_id, name=r['chem_label'])
-#                    node_list.append(chem_node)
-#                    self.previous_node_ids.add(chemical_id)
-#
-#                # save the gene node
-#                if gene_id not in self.previous_node_ids:
-#                    gene_node = kgxnode(gene_id, name=r['gene_label'], nodeprops={NCBITAXON: r['taxonID'].split(':')[1]})
-#                    node_list.append(gene_node)
-#                    self.previous_node_ids.add(gene_id)
 
 # Maps Experimental Condition affects Nucleosome edge.
 class EXPNUC_EDGEUMAN(enum.IntEnum):
@@ -29,6 +13,7 @@ class EXPNUC_EDGEUMAN(enum.IntEnum):
     NUCLEOSOME = 1
     PREDICATE = 2
     OCCUPANCY = 3
+
 
 # Maps Nucleosomes located_on Gene edge
 class NUCGENE_EDGEUMAN(enum.IntEnum):
@@ -45,6 +30,7 @@ class NUCGENE_EDGECOSDIST(enum.IntEnum):
     DISTANCE = 3
 """
 
+
 ##############
 # Class: Nucleosome Mapping to Gene Data loader
 #
@@ -54,8 +40,8 @@ class NUCGENE_EDGECOSDIST(enum.IntEnum):
 ##############
 class YeastNucleosomeLoader(SourceDataLoader):
 
-    source_id: str = 'Yeast_Nucleosome'
-    provenance_id: str = 'infores:Yeast'
+    source_id: str = 'YeastNucleosomes'
+    provenance_id: str = 'yeast_nucleosomes'
 
     def __init__(self, test_mode: bool = False, source_data_dir: str = None):
         """
