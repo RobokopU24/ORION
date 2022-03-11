@@ -43,12 +43,14 @@ class Extractor:
                     comment_character="#", delim='\t', has_header_row=False):
         """Read a csv, perform callbacks to retrieve node and edge info per row.
         Assumes that all of the properties extractable for a node occur on the line with the node identifier"""
+        skipped_header = False
         for i, line in enumerate(infile, start=1):
         
             if comment_character is not None and line.startswith(comment_character):
                 continue
 
-            if has_header_row and i == 1:
+            if has_header_row and not skipped_header:
+                skipped_header = True
                 continue
 
             if filter_field != -1:
