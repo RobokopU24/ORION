@@ -33,6 +33,7 @@ from parsers.hetio.src.loadHetio import HetioLoader
 from parsers.biolink.src.loadBL import BLLoader
 from parsers.OntologicalHierarchy.src.loadOH import OHLoader
 from parsers.yeast.src.loadYeastNucleosomes import YeastNucleosomeLoader
+from parsers.GenomeAlliance.src.loadGenomeAlliance import GenomeAllianceOrthologLoader
 
 GWAS_CATALOG = 'GWASCatalog'
 CTD = 'CTD'
@@ -55,6 +56,7 @@ UNIREF = 'UniRef'
 SCENT = 'Scent'
 ONTOLOGICAL_HIERARCHY = 'OntologicalHierarchy'
 YEAST_NUCLEOSOMES = 'YeastNucleosomes'
+GENOME_ALLIANCE_ORTHOLOGS = 'GenomeAllianceOrthologs'
 # FOODB = 'FooDB' # this is on hold, data needs review after latest release of data.
 
 
@@ -79,7 +81,8 @@ SOURCE_DATA_LOADER_CLASSES = {
     UNIREF: UniRefSimLoader,
     ONTOLOGICAL_HIERARCHY: OHLoader,
     SCENT: ScentLoader,
-    YEAST_NUCLEOSOMES: YeastNucleosomeLoader
+    YEAST_NUCLEOSOMES: YeastNucleosomeLoader,
+    GENOME_ALLIANCE_ORTHOLOGS: GenomeAllianceOrthologLoader
     # items to go
     # textminingkp
 
