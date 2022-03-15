@@ -23,38 +23,28 @@ from Common.kgxmodel import kgxnode, kgxedge
 #                    node_list.append(gene_node)
 #                    self.previous_node_ids.add(gene_id)
 
-# Maps Experimental Condition affects Nucleosome edge.
-class EXPNUC_EDGEUMAN(enum.IntEnum):
+# Maps Experimental Condition Histone and Expression edges to Genes.
+class EXPGENE_EDGEUMAN(enum.IntEnum):
     EXPCONDITIONS = 0
-    NUCLEOSOME = 1
-    PREDICATE = 2
-    OCCUPANCY = 3
-
-# Maps Nucleosomes located_on Gene edge
-class NUCGENE_EDGEUMAN(enum.IntEnum):
-    NUCLEOSOME = 0
     GENE = 1
-    PREDICATE = 2
+    RNAPREDICATE = 2
+    CHIPPREDICATE = 3
+    RNAFC = 4
+    RNAFDR = 5
+    CHIPFC = 6
+    CHIPPVAL = 7
 
-#mmod_id,hypothetical_nucleosome,relationship,cosine_distance
-"""
-class NUCGENE_EDGECOSDIST(enum.IntEnum):
-    DRUG_ID = 0
-    VERBAL_SCENT = 1
-    PREDICATE = 2
-    DISTANCE = 3
-"""
 
 ##############
-# Class: Nucleosome Mapping to Gene Data loader
+# Class: Experiments affecting histones and expression on Genes Loader
 #
 # By: Jon-Michael Beasley
-# Date: 03/08/2022
-# Desc: Class that loads/parses the unique data for mapping nucleosomes to genes.
+# Date: 03/15/2022
+# Desc: Class that loads/parses the unique data for mapping experiments to genes where edges contain information about histone and expression changes.
 ##############
-class YeastNucleosomeLoader(SourceDataLoader):
+class YeastHistoneAndExpressionLoader(SourceDataLoader):
 
-    source_id: str = 'Yeast_Nucleosome'
+    source_id: str = 'YeastHistoneAndExpression'
     provenance_id: str = 'infores:Yeast'
 
     def __init__(self, test_mode: bool = False, source_data_dir: str = None):
@@ -68,19 +58,15 @@ class YeastNucleosomeLoader(SourceDataLoader):
         self.cos_dist_threshold = 1.0
         self.yeast_data_url = 'https://stars.renci.org/var/data_services/yeast/'
 
-        self.experimental_conditions_list_file_name = "experimental_conditions_list.csv"
-        self.hypothetical_nucleosome_list_file_name = "hypothetical_nucleosome_list.csv"
+        self.experimental_conditions_list_file_name = "experimental_conditions_list_GSE178161.csv"
         self.sgd_gene_list_file_name = "sgd_gene_robokop_id_list.csv"
-        self.experimental_conditions_to_nucleosomes_edges_file_name = "experimental_conditions_mapped_to_nucleosomes.csv"
-        self.nucleosome_to_gene_edges_file_name = "Yeast_Nucleosomes_Mapped_to_Genes.csv"
-        
 
+        self.experimental_conditions_to_gene_edges_file_name = "experiment_mapped_to_genes_GSE178161.csv"
+        
         self.data_files = [
             self.experimental_conditions_list_file_name,
-            self.hypothetical_nucleosome_list_file_name,
             self.sgd_gene_list_file_name,
-            self.experimental_conditions_to_nucleosomes_edges_file_name,
-            self.nucleosome_to_gene_edges_file_name,
+            self.experimental_conditions_to_gene_edges_file_name,
         ]
 
     def get_latest_source_version(self) -> str:
@@ -132,21 +118,6 @@ class YeastNucleosomeLoader(SourceDataLoader):
                                   delim=',',
                                   has_header_row=False)
 
-        #This file is a list of hypothetical nucleosomes that may be present along the yeast genome.
-        hypothetical_nucleosome_list_file: str = os.path.join(self.data_path,  self.hypothetical_nucleosome_list_file_name)
-        with open(hypothetical_nucleosome_list_file, 'r') as fp:
-            extractor.csv_extract(fp,
-                                  lambda line: line[0].replace(" ","_").strip(), # subject id
-                                  lambda line: None,  # object id
-                                  lambda line: None,  # predicate extractor
-                                  lambda line: {'categories': ['nucleosome','biolink:GenomicEntity'],
-                                                'name':line[1]},  # subject props
-                                  lambda line: {},  # object props
-                                  lambda line: {}, #edgeprops
-                                  comment_character=None,
-                                  delim=',',
-                                  has_header_row=False)
-
         #This file is just a list of SGD IDs which consistitute our yeast genes.
         sgd_gene_file: str = os.path.join(self.data_path, self.sgd_gene_list_file_name)
         with open(sgd_gene_file, 'r') as fp:
@@ -169,55 +140,35 @@ class YeastNucleosomeLoader(SourceDataLoader):
                                   delim=',',
                                   has_header_row=False)
 
-        #Experimental conditions to nucleosomes edges. Edges contain nucleosome occupancy as a property
-        experimental_conditions_to_nucleosome_edges_file: str = os.path.join(self.data_path, self.experimental_conditions_to_nucleosomes_edges_file_name)
-        with open(experimental_conditions_to_nucleosome_edges_file, 'r') as fp:
+        #Experimental conditions to genes edges. Edges contain RNA expression changes as a property
+        experimental_conditions_to_gene_edges_file: str = os.path.join(self.data_path, self.experimental_conditions_to_gene_edges_file_name)
+        with open(experimental_conditions_to_gene_edges_file, 'r') as fp:
             extractor.csv_extract(fp,
-                                  lambda line: line[EXPNUC_EDGEUMAN.EXPCONDITIONS.value], #subject id
-                                  lambda line: line[EXPNUC_EDGEUMAN.NUCLEOSOME.value].replace(' ','_'),  # object id
-                                  lambda line: line[EXPNUC_EDGEUMAN.PREDICATE.value],  # predicate extractor
-                                  lambda line: None,  # subject props
-                                  lambda line: None,  # object props
-                                  lambda line: {'occupancy':float(line[EXPNUC_EDGEUMAN.OCCUPANCY.value])}, #edgeprops
+                                  lambda line: line[EXPGENE_EDGEUMAN.EXPCONDITIONS.value], #subject id
+                                  lambda line: line[EXPGENE_EDGEUMAN.GENE.value].replace(' ','_'),  # object id
+                                  lambda line: line[EXPGENE_EDGEUMAN.RNAPREDICATE.value],  # predicate extractor
+                                  lambda line: {},  # subject props
+                                  lambda line: {},  # object props
+                                  lambda line: {'ExpressionFoldChange':float(line[EXPGENE_EDGEUMAN.RNAFC.value]),
+                                                'ExpressionFalseDiscoveryRate':float(line[EXPGENE_EDGEUMAN.RNAFDR.value])}, #edgeprops
                                   comment_character=None,
                                   delim=',',
                                   has_header_row=True)
 
-        nucleosome_to_gene_edges_file: str = os.path.join(self.data_path, self.nucleosome_to_gene_edges_file_name)
-        with open(nucleosome_to_gene_edges_file, 'r') as fp:
+        #Experimental conditions to genes edges. Edges contain histone modification changes as a property
+        experimental_conditions_to_gene_edges_file: str = os.path.join(self.data_path, self.experimental_conditions_to_gene_edges_file_name)
+        with open(experimental_conditions_to_gene_edges_file, 'r') as fp:
             extractor.csv_extract(fp,
-                                  lambda line: line[NUCGENE_EDGEUMAN.NUCLEOSOME.value], #subject id
-                                  lambda line: line[NUCGENE_EDGEUMAN.GENE.value].replace(' ','_'),  # object id
-                                  lambda line: line[NUCGENE_EDGEUMAN.PREDICATE.value],  # predicate extractor
-                                  lambda line: None,  # subject props
-                                  lambda line: None,  # object props
-                                  lambda line: {}, #edgeprops
+                                  lambda line: line[EXPGENE_EDGEUMAN.EXPCONDITIONS.value], #subject id
+                                  lambda line: line[EXPGENE_EDGEUMAN.GENE.value].replace(' ','_'),  # object id
+                                  lambda line: line[EXPGENE_EDGEUMAN.CHIPPREDICATE.value],  # predicate extractor
+                                  lambda line: {},  # subject props
+                                  lambda line: {},  # object props
+                                  lambda line: {'HistoneModicationFoldChange':float(line[EXPGENE_EDGEUMAN.CHIPFC.value]),
+                                                'HistoneModificationPValue':float(line[EXPGENE_EDGEUMAN.CHIPPVAL.value])}, #edgeprops
                                   comment_character=None,
                                   delim=',',
                                   has_header_row=True)
-        
-        #Goes through the file and only yields the rows in which the cosine distance is above a predefined threshold.
-        """
-        def cos_dist_filter(infile):
-            #Header
-            yield next(infile)
-            for line in infile:
-               if(float(line.split(',')[SOREDGECOSDIST.DISTANCE.value])<=self.cos_dist_threshold): yield line
-
-                 
-        sor_vsd_cos_dist_edges_file: str = os.path.join(self.data_path, self.sor_vsd_cos_dist_edges_file_name)
-        with open(sor_vsd_cos_dist_edges_file, 'r') as fp:
-            extractor.csv_extract(cos_dist_filter(fp),
-                                  lambda line: line[SOREDGECOSDIST.DRUG_ID.value], #subject id
-                                  lambda line: "SCENT:" + line[SOREDGECOSDIST.VERBAL_SCENT.value].replace(' ','_'),  # object id
-                                  lambda line: line[SOREDGECOSDIST.PREDICATE.value],  # predicate extractor
-                                  lambda line: {'categories': ['odorant','biolink:ChemicalEntity']},  # subject props
-                                  lambda line: {'categories': ['verbal_scent_descriptor'],"name":line[SOREDGECOSDIST.VERBAL_SCENT.value]},  # object props
-                                  lambda line: {'cosine_distance':float(line[SOREDGECOSDIST.DISTANCE.value])}, #edgeprops
-                                  comment_character=None,
-                                  delim=',',
-                                  has_header_row=True)
-        """
         
         self.final_node_list = extractor.nodes
         self.final_edge_list = extractor.edges
