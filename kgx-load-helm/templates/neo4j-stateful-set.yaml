@@ -1,0 +1,88 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ include "kgx-load-helm.fullname" . }}-neo4j
+  labels:
+    {{- include "kgx-load-helm.labels" . | nindent 4 }}
+spec:
+  serviceName: {{ include "kgx-load-helm.fullname" . }}-neo4j-service
+  selector:
+    matchLabels:
+      {{- include "kgx-load-helm.selectorLabels" . | nindent 6 }}
+      service-type: database
+  template:
+    metadata:
+      labels:
+        {{- include "kgx-load-helm.selectorLabels" . | nindent 8 }}
+        service-type: database
+    spec:
+      containers:
+        - image: {{ .Values.neo4j.image.repository }}:{{ .Values.neo4j.image.tag }}
+          name: {{ include "kgx-load-helm.fullname" . }}-neo4j-container
+          {{- with .Values.neo4j.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          imagePullPolicy:  {{ .Values.neo4j.image.imagePullPolicy }}
+          env:
+          - name: NEO4J_AUTH
+            value: {{ .Values.neo4j.username }}/{{ .Values.neo4j.password }}
+          - name: NEO4J_dbms_connectors_default__listen__address
+            value: "0.0.0.0"
+          - name: NEO4J_dbms_memory_heap_initial__size
+            value: "{{ .Values.neo4j.heapSize }}"
+          - name: NEO4J_dbms_memory_heap_max__size
+            value: "{{ .Values.neo4j.heapSize }}"
+          - name: NEO4J_dbms_memory_pagecache_size
+            value: "{{ .Values.neo4j.pageCacheSize }}"
+          - name: NEO4J_dbms_read__only
+            value: {{ .Values.neo4j.readOnly }}
+          - name: NEO4J_dbms_security_procedures_unrestricted
+            value: "apoc.*"
+          - name: NEO4J_dbms_jvm_additional
+            value: "-XX:+UnlockExperimentalVMOptions -XX:+UseZGC  -Dlog4j2.disable.jmx=true -Dlog4j2.formatMsgNoLookups=true"
+          ports:
+            - name: neo4j-http
+              containerPort: 7474
+              protocol: TCP
+            - name: neo4j-https
+              containerPort: 7473
+              protocol: TCP
+            - name: neo4j-bolt
+              containerPort: 7687
+              protocol: TCP
+          volumeMounts:
+          - mountPath: /data
+            name: {{ include "kgx-load-helm.fullname" . }}-neo4jkp-pvc
+            subPath: neo4j_data
+          - mountPath: /logs
+            name: {{ include "kgx-load-helm.fullname" . }}-neo4jkp-pvc
+            subPath: neo4j_logs
+          startupProbe:
+{{ toYaml .Values.neo4j.startupProbe | indent 12 }}
+          readinessProbe:
+{{ toYaml .Values.neo4j.readinessProbe | indent 12 }}
+          livenessProbe:
+{{ toYaml .Values.neo4j.livenessProbe | indent 12 }}
+      restartPolicy: Always
+    {{ with .Values.neo4j.affinity }}
+      affinity:
+        {{ toYaml . | nindent 8 }}
+    {{ end }}
+    {{ with .Values.neo4j.tolerations }}
+      tolerations:
+      {{ toYaml . | nindent 8 }}
+    {{ end }}
+      volumes:
+        - name: {{ include "kgx-load-helm.fullname" . }}-scripts
+          configMap:
+            name: {{ include "kgx-load-helm.fullname" . }}-configmap
+            defaultMode: 0777
+  volumeClaimTemplates:
+    - metadata:
+        name: {{ include "kgx-load-helm.fullname" . }}-neo4jkp-pvc
+      spec:
+        accessModes: [ "ReadWriteOnce" ]
+        resources:
+          requests:
+            storage: {{ .Values.neo4j.storage.size }}

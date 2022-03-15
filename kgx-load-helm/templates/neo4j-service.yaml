@@ -1,0 +1,20 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "kgx-load-helm.fullname" . }}-neo4j-service
+  labels:
+    {{- include "kgx-load-helm.labels" . | nindent 4 }}
+spec:
+  type: {{ .Values.neo4j.service.type }}
+  ports:
+    - port: {{ .Values.neo4j.httpPort }}
+      targetPort: {{ .Values.neo4j.httpPort }}
+      protocol: TCP
+      name: neo4j-http
+    - port: {{ .Values.neo4j.boltPort }}
+      targetPort: {{ .Values.neo4j.boltPort }}
+      protocol: TCP
+      name: neo4j-bolt
+  selector:
+    {{- include "kgx-load-helm.selectorLabels" . | nindent 4 }}
+    service-type: database
