@@ -3,7 +3,6 @@ import os
 import argparse
 import datetime
 from collections import defaultdict
-# from multiprocessing import Pool
 
 from Common.utils import LoggingUtil, NodeNormUtils, EdgeNormUtils, GetDataPullError
 from Common.kgx_file_normalizer import KGXFileNormalizer, NormalizationBrokenError, NormalizationFailedError
@@ -18,8 +17,6 @@ from parsers.GWASCatalog.src.loadGWASCatalog import GWASCatalogLoader
 from parsers.CTD.src.loadCTD import CTDLoader
 from parsers.cord19.src.loadCord19 import Cord19Loader
 from parsers.scent.src.loadScent import ScentLoader
-
-# from parsers.FooDB.src.loadFDB import FDBLoader
 from parsers.GOA.src.loadGOA import PlantGOALoader, HumanGOALoader
 from parsers.IntAct.src.loadIA import IALoader
 from parsers.PHAROS.src.loadPHAROS import PHAROSLoader
@@ -35,7 +32,6 @@ from parsers.drugcentral.src.loaddrugcentral import DrugCentralLoader
 from parsers.hetio.src.loadHetio import HetioLoader
 from parsers.biolink.src.loadBL import BLLoader
 from parsers.OntologicalHierarchy.src.loadOH import OHLoader
-from parsers.yeast.src.loadYeastNucleosomes import YeastNucleosomeLoader
 from parsers.GenomeAlliance.src.loadGenomeAlliance import GenomeAllianceOrthologLoader
 
 GWAS_CATALOG = 'GWASCatalog'
@@ -89,7 +85,7 @@ SOURCE_DATA_LOADER_CLASSES = {
     SCENT: ScentLoader,
     YEASTSGD: YeastSGDLoader,
     YEASTNUC: YeastNucleosomeLoader,
-    YEASTHISTONEANDEXPRESSION: YeastHistoneAndExpressionLoader
+    YEASTHISTONEANDEXPRESSION: YeastHistoneAndExpressionLoader,
     YEAST_NUCLEOSOMES: YeastNucleosomeLoader,
     GENOME_ALLIANCE_ORTHOLOGS: GenomeAllianceOrthologLoader
     # items to go
