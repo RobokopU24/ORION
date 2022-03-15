@@ -55,7 +55,6 @@ UNIREF = 'UniRef'
 SCENT = 'Scent'
 ONTOLOGICAL_HIERARCHY = 'OntologicalHierarchy'
 YEASTSGD = 'YeastSGDInfo'
-YEASTNUC = 'YeastNucleosomes'
 YEASTHISTONEANDEXPRESSION = 'YeastHistoneAndExpression'
 YEAST_NUCLEOSOMES = 'YeastNucleosomes'
 GENOME_ALLIANCE_ORTHOLOGS = 'GenomeAllianceOrthologs'
@@ -84,7 +83,6 @@ SOURCE_DATA_LOADER_CLASSES = {
     ONTOLOGICAL_HIERARCHY: OHLoader,
     SCENT: ScentLoader,
     YEASTSGD: YeastSGDLoader,
-    YEASTNUC: YeastNucleosomeLoader,
     YEASTHISTONEANDEXPRESSION: YeastHistoneAndExpressionLoader,
     YEAST_NUCLEOSOMES: YeastNucleosomeLoader,
     GENOME_ALLIANCE_ORTHOLOGS: GenomeAllianceOrthologLoader
