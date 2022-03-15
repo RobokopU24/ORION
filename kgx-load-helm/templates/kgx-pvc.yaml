@@ -1,0 +1,11 @@
+{{- $fullName := include "kgx-load-helm.fullname" . -}}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: "{{ $fullName }}-kgx-data-pvc"
+spec:
+  accessModes:
+  - ReadWriteOnce
+  resources:
+    requests:
+      storage: {{ .Values.kgx.storage.size }}

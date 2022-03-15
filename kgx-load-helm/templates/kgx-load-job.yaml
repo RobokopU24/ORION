@@ -1,0 +1,79 @@
+{{- $fullName := include "kgx-load-helm.fullname" . -}}
+{{- $image := .Values.kgx.image.repository }}
+{{- $imageTag := .Values.kgx.image.tag }}
+{{- $pullPolicy := .Values.kgx.imagePullPolicy }}
+{{- $resources := .Values.kgx.resources }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: "{{ $fullName }}-kgx-load-job"
+spec:
+  template:
+    metadata:
+      name: "{{ $fullName }}-kgx-load-job"
+    spec:
+      initContainers:
+        - name: download-ds
+          image: busybox
+          command:
+          - "/download-kgx-files.sh"
+          volumeMounts:
+          - mountPath: /data
+            name: "data-dir"
+          - mountPath: /download-kgx-files.sh
+            name: "scripts"
+            subPath: "download-kgx-files.sh"
+          {{ with .Values.kgx.init.resources }}
+          resources:  {{ . | toYaml | nindent 12 }}
+          {{ end }}
+        - name: check-neo4j
+          image: busybox
+          command:
+          - "/check_neo.sh"
+          env:
+          - name: NEO4J_HOST
+            value: {{ include "kgx-load-helm.fullname" . }}-neo4j-service
+          - name: NEO4J_HTTP_PORT
+            value: {{ .Values.neo4j.httpPort | quote }}
+          volumeMounts:
+          - mountPath: /check_neo.sh
+            name: "scripts"
+            subPath: "check_neo.sh"
+          {{ with .Values.kgx.init.resources }}
+          resources:  {{ . | toYaml | nindent 12 }}
+          {{ end }}
+      containers:
+        - name: loader-container
+          image: "{{ $image }}:{{ $imageTag }}"
+          imagePullPolicy: {{ $pullPolicy }}
+          command:
+          - python
+          args:
+          - /Data_services/Common/neo4j_tools.py
+          - --neo4j-host
+          - {{ include "kgx-load-helm.fullname" . }}-neo4j-service
+          - --neo4j-bolt-port
+          - {{ .Values.neo4j.boltPort | quote }}
+          - --username
+          - {{ .Values.neo4j.username | quote}}
+          - --password
+          - {{ .Values.neo4j.password | quote }}
+          - default
+          - /data/nodes.jsonl
+          - /data/edges.jsonl
+          tty: true
+          stdin: true
+          volumeMounts:
+            - mountPath: /data
+              name: "data-dir"
+          resources:
+            {{ $resources | toYaml | nindent 12 }}
+      restartPolicy: OnFailure
+      volumes:
+        - name: scripts
+          configMap:
+            name: "{{- include "kgx-load-helm.fullname" . }}-scripts"
+            defaultMode: 0777
+        - name: data-dir
+          persistentVolumeClaim:
+            claimName: "{{ $fullName }}-kgx-data-pvc"

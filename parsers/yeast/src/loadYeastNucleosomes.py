@@ -109,7 +109,7 @@ class YeastNucleosomeLoader(SourceDataLoader):
                                                 'organism': line[1],
                                                 'strain': line[2],
                                                 'name': line[3],
-                                                'characteristic': line[4],
+                                                'observable': line[4],
                                                 ORIGINAL_KNOWLEDGE_SOURCE: "GEO",
                                                 AGGREGATOR_KNOWLEDGE_SOURCES: ["GEO"]}, #subject props
                                   lambda line: {},  # object props

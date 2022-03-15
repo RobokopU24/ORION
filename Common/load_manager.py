@@ -11,6 +11,9 @@ from Common.kgxmodel import NormalizationScheme
 from Common.metadata import SourceMetadata
 from Common.loader_interface import SourceDataBrokenError, SourceDataFailedError
 from Common.supplementation import SequenceVariantSupplementation, SupplementationFailedError
+from parsers.yeast.src.loadYeastSGDInfo import YeastSGDLoader
+from parsers.yeast.src.loadYeastNucleosomes import YeastNucleosomeLoader
+from parsers.yeast.src.loadYeastHistoneModificationsAndRNASeq import YeastHistoneAndExpressionLoader
 from parsers.GWASCatalog.src.loadGWASCatalog import GWASCatalogLoader
 from parsers.CTD.src.loadCTD import CTDLoader
 from parsers.cord19.src.loadCord19 import Cord19Loader
@@ -55,6 +58,9 @@ BIOLINK = 'Biolink'
 UNIREF = 'UniRef'
 SCENT = 'Scent'
 ONTOLOGICAL_HIERARCHY = 'OntologicalHierarchy'
+YEASTSGD = 'YeastSGDInfo'
+YEASTNUC = 'YeastNucleosomes'
+YEASTHISTONEANDEXPRESSION = 'YeastHistoneAndExpression'
 YEAST_NUCLEOSOMES = 'YeastNucleosomes'
 GENOME_ALLIANCE_ORTHOLOGS = 'GenomeAllianceOrthologs'
 # FOODB = 'FooDB' # this is on hold, data needs review after latest release of data.
@@ -81,6 +87,9 @@ SOURCE_DATA_LOADER_CLASSES = {
     UNIREF: UniRefSimLoader,
     ONTOLOGICAL_HIERARCHY: OHLoader,
     SCENT: ScentLoader,
+    YEASTSGD: YeastSGDLoader,
+    YEASTNUC: YeastNucleosomeLoader,
+    YEASTHISTONEANDEXPRESSION: YeastHistoneAndExpressionLoader
     YEAST_NUCLEOSOMES: YeastNucleosomeLoader,
     GENOME_ALLIANCE_ORTHOLOGS: GenomeAllianceOrthologLoader
     # items to go
