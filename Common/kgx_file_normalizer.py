@@ -146,7 +146,8 @@ class KGXFileNormalizer:
                         self.logger.debug(f'Normalizing {len(regular_nodes)} regular nodes...')
                         self.node_normalizer.normalize_node_data(regular_nodes)
                     regular_nodes_post_norm += len(regular_nodes)
-                    self.logger.info(f'Normalized {regular_nodes_pre_norm} regular nodes so far...')
+                    if regular_nodes:
+                        self.logger.info(f'Normalized {regular_nodes_pre_norm} regular nodes so far...')
 
                     variant_nodes_pre_norm += len(variant_nodes)
                     if self.has_sequence_variants:
@@ -172,6 +173,8 @@ class KGXFileNormalizer:
                     else:
                         variant_nodes_split_count = 0
                     variant_nodes_post_norm += len(variant_nodes)
+                    if variant_nodes:
+                        self.logger.info(f'Normalized {variant_nodes_pre_norm} variant nodes so far...')
 
                     if regular_nodes:
                         self.logger.debug(f'Writing regular nodes to file...')
