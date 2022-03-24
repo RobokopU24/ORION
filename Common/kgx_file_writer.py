@@ -7,6 +7,7 @@ from Common.kgxmodel import kgxnode, kgxedge
 from Common.node_types import ORIGINAL_KNOWLEDGE_SOURCE, PRIMARY_KNOWLEDGE_SOURCE, AGGREGATOR_KNOWLEDGE_SOURCES, \
     SUBJECT_ID, OBJECT_ID, PREDICATE
 
+
 class KGXFileWriter:
 
     logger = LoggingUtil.init_logging("Data_services.Common.KGXFileWriter",
@@ -20,14 +21,15 @@ class KGXFileWriter:
     """
     def __init__(self,
                  nodes_output_file_path: str = None,
-                 edges_output_file_path: str = None):
+                 edges_output_file_path: str = None,
+                 buffer_size: int = 20000):
         self.edges_to_write = []
-        self.edges_buffer_size = 20000
+        self.edges_buffer_size = buffer_size
 
         # written nodes is a set of node ids used for preventing duplicate node writes
         self.written_nodes = set()
         self.nodes_to_write = []
-        self.nodes_buffer_size = 20000
+        self.nodes_buffer_size = buffer_size
         self.repeat_node_count = 0
 
         self.nodes_output_file_handler = None
