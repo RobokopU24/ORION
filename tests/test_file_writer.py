@@ -162,5 +162,5 @@ def test_writing_json_lines():
     assert is_valid_edges_file(edges_file_path)
     assert has_valid_edge_properties(edges_file_path)
     assert count_lines(edges_file_path) == 500
-    # remove_old_files()
+    remove_old_files()
 
