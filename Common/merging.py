@@ -1,18 +1,7 @@
-
-import orjson
 from xxhash import xxh64_hexdigest
 from kgx.utils.kgx_utils import prepare_data_dict as kgx_dict_merge
-from Common.node_types import ORIGINAL_KNOWLEDGE_SOURCE, PRIMARY_KNOWLEDGE_SOURCE, SUBJECT_ID, OBJECT_ID, PREDICATE, \
-    AGGREGATOR_KNOWLEDGE_SOURCES, PUBLICATIONS, OBJECT_ID, SUBJECT_ID, PREDICATE
-
-
-def quick_json_dumps(item):
-    return str(orjson.dumps(item), encoding='utf-8')
-
-
-def quick_json_loads(item):
-    return orjson.loads(item)
-
+from Common.node_types import *
+from Common.utils import quick_json_loads, quick_json_dumps
 
 EDGE_PROPERTIES_THAT_SHOULD_BE_SETS = {AGGREGATOR_KNOWLEDGE_SOURCES, PUBLICATIONS}
 
@@ -23,7 +12,9 @@ class GraphMerger:
         self.nodes = {}
         self.edges = {}
 
-    def merge_nodes(self, nodes, overwrite: bool = False):
+    # merge a list of nodes (dictionaries not kgxnode objects!) into the existing list
+    # throw_out_duplicates will throw out duplicates, otherwise merge their attributes
+    def merge_nodes(self, nodes, throw_out_duplicates: bool = False):
         node_count = 0
         merge_count = 0
         for node in nodes:
@@ -31,7 +22,7 @@ class GraphMerger:
             node_key = node['id']
             if node_key in self.nodes:
                 merge_count += 1
-                if not overwrite:
+                if not throw_out_duplicates:
                     previous_node = quick_json_loads(self.nodes[node_key])
                     merged_node = kgx_dict_merge(node, previous_node)
                     self.nodes[node_key] = quick_json_dumps(merged_node)
@@ -39,7 +30,9 @@ class GraphMerger:
                 self.nodes[node_key] = quick_json_dumps(node)
         return node_count, merge_count
 
-    def merge_edges(self, edges, overwrite: bool = False):
+    # merge a list of edges (dictionaries not kgxedge objects!) into the existing list
+    # throw_out_duplicates will throw out duplicates, otherwise merge their attributes
+    def merge_edges(self, edges, throw_out_duplicates: bool = False):
 
         def edge_key_function(edge):
             return xxh64_hexdigest(
@@ -54,7 +47,7 @@ class GraphMerger:
             edge_key = edge_key_function(edge)
             if edge_key in self.edges:
                 merge_count += 1
-                if not overwrite:
+                if not throw_out_duplicates:
                     merged_edge = quick_json_loads(self.edges[edge_key])
                     for key, value in edge.items():
                         # TODO - make sure this is the behavior we want -
@@ -63,7 +56,7 @@ class GraphMerger:
                         if key in merged_edge and isinstance(value, list):
                             merged_edge[key].extend(value)
                             if key in EDGE_PROPERTIES_THAT_SHOULD_BE_SETS:
-                                merged_edge[key] = list(set(value))
+                                merged_edge[key] = list(set(merged_edge[key]))
                         else:
                             merged_edge[key] = value
                     self.edges[edge_key] = quick_json_dumps(merged_edge)

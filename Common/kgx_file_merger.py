@@ -1,8 +1,7 @@
 import os
 import jsonlines
-import orjson
 from itertools import chain
-from Common.utils import LoggingUtil
+from Common.utils import LoggingUtil, quick_jsonl_file_iterator, quick_json_dumps
 from Common.kgxmodel import GraphSpec
 from Common.node_types import SUBJECT_ID, OBJECT_ID
 from Common.merging import GraphMerger
@@ -11,20 +10,6 @@ from Common.merging import GraphMerger
 # import atexit
 # profile = line_profiler.LineProfiler()
 # atexit.register(profile.print_stats)
-
-
-def quick_json_dumps(item):
-    return str(orjson.dumps(item), encoding='utf-8')
-
-
-def quick_json_loads(item):
-    return orjson.loads(item)
-
-
-def quick_jsonl_file_iterator(json_file):
-    with open(json_file, 'r', encoding='utf-8') as stream:
-        for line in stream:
-            yield orjson.loads(line)
 
 
 class KGXFileMerger:

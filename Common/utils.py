@@ -5,6 +5,7 @@ import csv
 import gzip
 import requests
 import pandas as pd
+import orjson
 from dateutil import parser as dp
 
 from urllib import request
@@ -19,6 +20,7 @@ from logging.handlers import RotatingFileHandler
 from pathlib import Path
 from robokop_genetics.genetics_normalization import GeneticsNormalizer
 from Common.node_types import ROOT_ENTITY, FALLBACK_EDGE_PREDICATE, FALLBACK_EDGE_PREDICATE_LABEL, PREDICATE
+
 
 class LoggingUtil(object):
     """
@@ -1309,3 +1311,17 @@ class GetData:
 
         # return to the caller
         return ret_val
+
+
+def quick_json_dumps(item):
+    return str(orjson.dumps(item), encoding='utf-8')
+
+
+def quick_json_loads(item):
+    return orjson.loads(item)
+
+
+def quick_jsonl_file_iterator(json_file):
+    with open(json_file, 'r', encoding='utf-8') as stream:
+        for line in stream:
+            yield orjson.loads(line)
