@@ -69,13 +69,14 @@ class GraphDBTools:
                 # If the path starts with /Data_services_graphs we are probably in a docker container.
                 # The following will replace the docker relative directory path with the real one from the host,
                 # so that we may mount the volume in the new docker container.
-                neo4j_data_dir_real_path = f'{os.environ["HOST_GRAPHS_DIR"]}{temp_neo4j_data_dir.split("/Data_services_graphs/", 1)[1]}'
+                neo4j_data_dir_real_path = f'{os.environ["HOST_GRAPHS_DIR"]}' \
+                                           f'{neo4j_data_dir_relative_path.split("/Data_services_graphs/", 1)[1]}'
             else:
                 neo4j_data_dir_real_path = neo4j_data_dir_relative_path
 
             volumes = [
                 f'{os.environ["HOST_GRAPHS_DIR"]}:/Data_services_graphs',
-                f'{temp_neo4j_data_dir}:/data'  # neo4j data directory - necessary for persistence after import
+                f'{neo4j_data_dir_real_path}:/data'  # neo4j data directory - necessary for persistence after import
             ]
             print(f'Creating container and importing csv files to neo4j...')
             neo4j_cmd = f'neo4j-admin import --nodes={csv_nodes_file} --relationships={csv_edges_file}'
