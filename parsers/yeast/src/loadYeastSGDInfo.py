@@ -5,6 +5,7 @@ import enum
 from copy import deepcopy
 
 import numpy
+from parsers.yeast.src.collectSGDdata import main
 from Common.utils import LoggingUtil, GetData
 from Common.loader_interface import SourceDataLoader
 from Common.extractor import Extractor
@@ -71,7 +72,7 @@ class YeastSGDLoader(SourceDataLoader):
         super().__init__(test_mode=test_mode, source_data_dir=source_data_dir)
 
         self.cos_dist_threshold = 1.0
-        self.yeast_data_url = 'https://stars.renci.org/var/data_services/yeast/'
+        #self.yeast_data_url = 'https://stars.renci.org/var/data_services/yeast/'
 
         self.sgd_gene_list_file_name = "SGDAllGenes.csv"
         #self.go_term_list_file_name = "yeast_GO_term_list.csv"
@@ -106,10 +107,12 @@ class YeastSGDLoader(SourceDataLoader):
         Gets the yeast data.
 
         """
-        data_puller = GetData()
-        for source in self.data_files:
-            source_url = f"{self.yeast_data_url}{source}"
-            data_puller.pull_via_http(source_url, self.data_path)
+        genome_resolution = 9
+        main(genome_resolution, self.data_path)
+        # data_puller = GetData()
+        # for source in self.data_files:
+        #     source_url = f"{self.yeast_data_url}{source}"
+        #     data_puller.(source_url, self.data_path)
 
         return True
 

@@ -1,72 +1,77 @@
-from operator import ge
 import intermine
 import pandas as pd
 import os
 import requests as rq
-import json
 import csv
-import sys
 
-def main():
-    checking_input = True
-    while checking_input == True:
-        args = input(f"Please specify one or more of the following files to download from SGD: \n\n\
-GenomeLoci, AllGenes, Gene2GOTerm, Gene2Phenotype, Gene2Pathway, Gene2Complex. Otherwise type 'Everything' to download all files. Include 'Exit' to stop.\n\n\
-Which file(s) would you like? ")
-        run = False
-        if "GenomeLoci" in args:
-            res = input("Set resolution of genome loci: ")
-            createLociWindows(res)
-            run = True
-        else:
-            pass
-        if "AllGenes" in args:
-            SGDAllGenes()
-            run = True
-        else:
-            pass
-        if "Gene2GOTerm" in args:
-            SGDGene2GOTerm()
-            run = True
-        else:
-            pass
-        if "Gene2Phenotype" in args:
-            SGDGene2Phenotype()
-            run = True
-        else:
-            pass
-        if "Gene2Pathway" in args:
-            SGDGene2Pathway()
-            run = True
-        else:
-            pass
-        if "Gene2Complex" in args:
-            SGDGene2Complex()
-            run = True
-        else:
-            pass
-        if "Everything" in args:
-            res = input("Set resolution of genome loci: ")
-            createLociWindows(res)
-            SGDAllGenes()
-            SGDGene2GOTerm()
-            SGDGene2Phenotype()
-            SGDGene2Pathway()
-            SGDGene2Complex()
-            run = True
-        else:
-            pass
-        if "Exit" in args:
-            break
-        else:
-            pass
-        if run == False:
-            print("Sorry, input not recognized...\n")
-            continue
-        else:
-            continue
+def main(resolution, source_data_path):
+#     checking_input = True
+#     while checking_input == True:
+#         args = input(f"Please specify one or more of the following files to download from SGD: \n\n\
+# GenomeLoci, AllGenes, Gene2GOTerm, Gene2Phenotype, Gene2Pathway, Gene2Complex. Otherwise type 'Everything' to download all files. Include 'Exit' to stop.\n\n\
+# Which file(s) would you like? ")
+#         run = False
+#         if "GenomeLoci" in args:
+#             res = input("Set resolution of genome loci: ")
+#             createLociWindows(res)
+#             run = True
+#         else:
+#             pass
+#         if "AllGenes" in args:
+#             SGDAllGenes()
+#             run = True
+#         else:
+#             pass
+#         if "Gene2GOTerm" in args:
+#             SGDGene2GOTerm()
+#             run = True
+#         else:
+#             pass
+#         if "Gene2Phenotype" in args:
+#             SGDGene2Phenotype()
+#             run = True
+#         else:
+#             pass
+#         if "Gene2Pathway" in args:
+#             SGDGene2Pathway()
+#             run = True
+#         else:
+#             pass
+#         if "Gene2Complex" in args:
+#             SGDGene2Complex()
+#             run = True
+#         else:
+#             pass
+#         if "Everything" in args:
+#             res = input("Set resolution of genome loci: ")
+#             createLociWindows(res)
+#             SGDAllGenes()
+#             SGDGene2GOTerm()
+#             SGDGene2Phenotype()
+#             SGDGene2Pathway()
+#             SGDGene2Complex()
+#             run = True
+#         else:
+#             pass
+#         if "Exit" in args:
+#             break
+#         else:
+#             pass
+#         if run == False:
+#             print("Sorry, input not recognized...\n")
+#             continue
+#         else:
+#             continue
+    res = resolution
+    path = source_data_path
+    createLociWindows(res, path)
+    SGDAllGenes(path)
+    SGDGene2GOTerm(path)
+    SGDGene2Phenotype(path)
+    SGDGene2Pathway(path)
+    SGDGene2Complex(path)
 
-def SGDGene2GOTerm():
+def SGDGene2GOTerm(data_directory):
     #Collects all GO Term data for all genes in SGD
     print("---------------------------------------------------\nCollecting all GO Annotation data for all genes on SGD...\n---------------------------------------------------\n")
     view =["primaryIdentifier", "secondaryIdentifier", "symbol", "featureType",
@@ -86,21 +91,23 @@ def SGDGene2GOTerm():
     reader = csv.reader(lines)
 
     # Save Result
-    with open('//Data_services/parsers/yeast/src/SGDGene2GOTerm.csv', 'w', encoding="utf-8-sig", newline='') as csvfile:
+    storage_dir = data_directory
+    csv_fname = 'SGDGene2GOTerm.csv'
+    with open(os.path.join(storage_dir,csv_fname), 'w', encoding="utf-8-sig", newline='') as csvfile:
         datawriter = csv.writer(csvfile, delimiter=',',
                                 quotechar='"', quoting=csv.QUOTE_MINIMAL)
         for row in reader:
             datawriter.writerow(row)
-    gene2gotermdf = pd.read_csv('//Data_services/parsers/yeast/src/SGDGene2GOTerm.csv')
+    gene2gotermdf = pd.read_csv(os.path.join(storage_dir,csv_fname))
     gene2gotermdf.columns = view
     gene2gotermdf[view[0]] = gene2gotermdf[view[0]].apply(lambda x: "SGD:"+str(x))
     gene2gotermdf.fillna("?",inplace=True)
     print('SGD gene2goterm Data Collected!')
-    csv_fname = 'SGDGene2GOTerm.csv'
-    print(os.path.join(os.getcwd(),csv_fname))
-    gene2gotermdf.to_csv(f"//Data_services/parsers/yeast/src/{csv_fname}", encoding="utf-8-sig", index=False)
+    print(os.path.join(storage_dir,csv_fname))
+    #gene2gotermdf.to_csv(f"//Data_services/parsers/yeast/src/{csv_fname}", encoding="utf-8-sig", index=False)
+    gene2gotermdf.to_csv(os.path.join(storage_dir, csv_fname), encoding="utf-8-sig", index=False)
 
-def SGDGene2Phenotype():
+def SGDGene2Phenotype(data_directory):
     #Gets all APO ids for phenotypes and saves as csv
     print("---------------------------------------------------\nCollecting all phenotype data for all genes on SGD...\n---------------------------------------------------\n")
     print("Collecting all phenotype observable APO ids..."
@@ -120,8 +127,9 @@ def SGDGene2Phenotype():
     apodf = pd.DataFrame(data=apo_dict)
     print('APO IDs Collected!')
     csv_fname = 'yeast_phenotype_APO_identifiers.csv'
-    print(os.path.join(os.getcwd(),csv_fname))
-    apodf.to_csv(f"//Data_services/parsers/yeast/src/{csv_fname}", encoding="utf-8-sig", index=False)
+    storage_dir = data_directory
+    print(os.path.join(storage_dir,csv_fname))
+    apodf.to_csv(os.path.join(storage_dir,csv_fname), encoding="utf-8-sig", index=False)
 
     #Collects all phenotype data for all genes in SGD
     view =["primaryIdentifier", "secondaryIdentifier", "symbol", "sgdAlias",
@@ -140,7 +148,8 @@ def SGDGene2Phenotype():
     reader = csv.reader(lines)
 
     # Save Result
-    with open('//Data_services/parsers/yeast/src/SGDGene2Phenotype.csv', 'w', encoding="utf-8-sig", newline='') as csvfile:
+    csv_fname = 'SGDGene2Phenotype.csv'
+    with open(os.path.join(storage_dir,csv_fname), 'w', encoding="utf-8-sig", newline='') as csvfile:
         datawriter = csv.writer(csvfile, delimiter=',',
                                 quotechar='"', quoting=csv.QUOTE_MINIMAL)
         for row in reader:
@@ -149,7 +158,7 @@ def SGDGene2Phenotype():
 
     #Join SGD data to APO identifiers and save file in current directory
     print("Joining APO IDs and SGD links to gene2phenotype table and saving...")
-    gene2phenotypedf = pd.read_csv('//Data_services/parsers/yeast/src/SGDGene2Phenotype.csv')
+    gene2phenotypedf = pd.read_csv(os.path.join(storage_dir,csv_fname))
 
     gene2phenotypedf.columns = view
     gene2phenotypedf[view[0]] = gene2phenotypedf[view[0]].apply(lambda x: "SGD:"+str(x))
@@ -157,10 +166,10 @@ def SGDGene2Phenotype():
     inner_join_df.fillna("?",inplace=True)
     print("APO IDs Assigned to SGD Phenotype Observables!")
     csv_fname = 'SGDGene2Phenotype.csv'
-    print(os.path.join(os.getcwd(),csv_fname))
-    inner_join_df.to_csv(f"//Data_services/parsers/yeast/src/{csv_fname}", encoding="utf-8-sig", index=False)
+    print(os.path.join(storage_dir,csv_fname))
+    inner_join_df.to_csv(os.path.join(storage_dir,csv_fname), encoding="utf-8-sig", index=False)
 
-def SGDGene2Pathway():
+def SGDGene2Pathway(data_directory):
     #Collects all pathway data for all genes in SGD
     print("---------------------------------------------------\nCollecting all pathway data for all genes on SGD...\n---------------------------------------------------\n")
     from intermine.webservice import Service
@@ -189,10 +198,11 @@ def SGDGene2Pathway():
     gene2pathwaydf.fillna("?",inplace=True)
     print('SGD gene2pathway Data Collected!')
     csv_fname = 'SGDGene2Pathway.csv'
-    print(os.path.join(os.getcwd(),csv_fname))
-    gene2pathwaydf.to_csv(f"//Data_services/parsers/yeast/src/{csv_fname}", encoding="utf-8-sig", index=False)
+    storage_dir = data_directory
+    print(os.path.join(storage_dir,csv_fname))
+    gene2pathwaydf.to_csv(os.path.join(storage_dir,csv_fname), encoding="utf-8-sig", index=False)
 
-def SGDAllGenes():
+def SGDAllGenes(data_directory):
     #Collects all genes in SGD.
     print("---------------------------------------------------\nCollecting all genes on SGD...\n---------------------------------------------------\n")
     from intermine.webservice import Service
@@ -226,10 +236,11 @@ def SGDAllGenes():
     genesdf.fillna("?",inplace=True)
     print('SGD Gene Data Collected!')
     csv_fname = 'SGDAllGenes.csv'
-    print(os.path.join(os.getcwd(),csv_fname))
-    genesdf.to_csv(f"//Data_services/parsers/yeast/src/{csv_fname}", encoding="utf-8-sig", index=False)
+    storage_dir = data_directory
+    print(os.path.join(storage_dir,csv_fname))
+    genesdf.to_csv(os.path.join(storage_dir,csv_fname), encoding="utf-8-sig", index=False)
 
-def SGDGene2Complex():
+def SGDGene2Complex(data_directory):
     #Collects all data for genes involved in protein complexes in SGD.
     print("---------------------------------------------------\nCollecting all protein complex data for all genes on SGD...\n---------------------------------------------------\n")
     from intermine.webservice import Service
@@ -268,10 +279,11 @@ def SGDGene2Complex():
     gene2complexdf.fillna("?",inplace=True)
     print('SGD Gene2Complex Data Collected!')
     csv_fname = 'SGDGene2Complex.csv'
-    print(os.path.join(os.getcwd(),csv_fname))
-    gene2complexdf.to_csv(f"//Data_services/parsers/yeast/src/{csv_fname}", encoding="utf-8-sig", index=False)
+    storage_dir = data_directory
+    print(os.path.join(storage_dir,csv_fname))
+    gene2complexdf.to_csv(os.path.join(storage_dir,csv_fname), encoding="utf-8-sig", index=False)
 
-def createLociWindows(resolution):
+def createLociWindows(resolution, data_directory):
     #Creates sliding windows of hypothetical genome locations. 
     n = int(resolution) #Sets sliding window resolution.
     print(f"---------------------------------------------------\nCreating sliding window of resolution {n} of yeast genome loci...\n---------------------------------------------------\n")
@@ -287,7 +299,7 @@ def createLociWindows(resolution):
 
     for chr in chromosome_lengths.keys():
         m = int(chromosome_lengths[chr])
-        for i in range(m-1): #Create loci nodes for chromosomes
+        for i in range(m): #Create loci nodes for chromosomes
             if i!= 0 and i % n == 0:
                 data['chromosomeID'].append(str(chr))
                 data['start'].append(i-(n-1))
@@ -304,8 +316,9 @@ def createLociWindows(resolution):
     genomelocidf = pd.DataFrame(data)
     print('Genome Loci Collected!')
     csv_fname = f"Res{n}GenomeLoci.csv"
-    print(os.path.join(os.getcwd(),csv_fname))
-    genomelocidf.to_csv(f"//Data_services/parsers/yeast/src/{csv_fname}", encoding="utf-8-sig", index=False)
+    storage_dir = data_directory
+    print(os.path.join(storage_dir,csv_fname))
+    genomelocidf.to_csv(os.path.join(storage_dir,csv_fname), encoding="utf-8-sig", index=False)
 
 if __name__ == "__main__":
     main()
