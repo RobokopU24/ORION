@@ -35,6 +35,8 @@ from parsers.drugcentral.src.loaddrugcentral import DrugCentralLoader
 from parsers.hetio.src.loadHetio import HetioLoader
 from parsers.biolink.src.loadBL import BLLoader
 from parsers.OntologicalHierarchy.src.loadOH import OHLoader
+from parsers.yeast.src.loadYeastNucleosomes import YeastNucleosomeLoader
+from parsers.GenomeAlliance.src.loadGenomeAlliance import GenomeAllianceOrthologLoader
 
 GWAS_CATALOG = 'GWASCatalog'
 CTD = 'CTD'
@@ -59,6 +61,8 @@ ONTOLOGICAL_HIERARCHY = 'OntologicalHierarchy'
 YEASTSGD = 'YeastSGDInfo'
 YEASTNUC = 'YeastNucleosomes'
 YEASTHISTONEANDEXPRESSION = 'YeastHistoneAndExpression'
+YEAST_NUCLEOSOMES = 'YeastNucleosomes'
+GENOME_ALLIANCE_ORTHOLOGS = 'GenomeAllianceOrthologs'
 # FOODB = 'FooDB' # this is on hold, data needs review after latest release of data.
 
 
@@ -86,6 +90,8 @@ SOURCE_DATA_LOADER_CLASSES = {
     YEASTSGD: YeastSGDLoader,
     YEASTNUC: YeastNucleosomeLoader,
     YEASTHISTONEANDEXPRESSION: YeastHistoneAndExpressionLoader
+    YEAST_NUCLEOSOMES: YeastNucleosomeLoader,
+    GENOME_ALLIANCE_ORTHOLOGS: GenomeAllianceOrthologLoader
     # items to go
     # textminingkp
 
