@@ -6,6 +6,9 @@ from Common.kgxmodel import kgxnode, kgxedge
 from Common.node_types import *
 
 test_workspace_dir = os.path.dirname(os.path.abspath(__file__)) + '/workspace/'
+# TODO this is hacky and should be done with better design in pytest or somewhere else
+if not os.path.exists(test_workspace_dir):
+    os.mkdir(test_workspace_dir)
 nodes_file_path = test_workspace_dir + 'test_nodes.jsonl'
 edges_file_path = test_workspace_dir + 'test_edges.jsonl'
 
