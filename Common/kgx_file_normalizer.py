@@ -7,8 +7,7 @@ from collections import defaultdict
 from xxhash import xxh64_hexdigest
 from Common.node_types import SEQUENCE_VARIANT, ORIGINAL_KNOWLEDGE_SOURCE, PRIMARY_KNOWLEDGE_SOURCE, \
     AGGREGATOR_KNOWLEDGE_SOURCES, PUBLICATIONS, OBJECT_ID, SUBJECT_ID, PREDICATE
-from Common.utils import LoggingUtil
-from Common.utils import NodeNormUtils, EdgeNormUtils, EdgeNormalizationResult
+from Common.utils import LoggingUtil, NodeNormUtils, EdgeNormUtils, EdgeNormalizationResult
 from Common.kgx_file_writer import KGXFileWriter
 from Common.kgxmodel import NormalizationScheme
 
@@ -90,7 +89,8 @@ class KGXFileNormalizer:
         try:
             self.node_normalizer = NodeNormUtils(node_normalization_version=normalization_scheme.node_normalization_version,
                                                  strict_normalization=normalization_scheme.strict,
-                                                 conflate_node_types=normalization_scheme.conflation)
+                                                 conflate_node_types=normalization_scheme.conflation,
+                                                 biolink_version=normalization_scheme.edge_normalization_version)
             self.edge_normalizer = EdgeNormUtils(edge_normalization_version=normalization_scheme.edge_normalization_version)
         except Exception as e:
             raise NormalizationFailedError(e)

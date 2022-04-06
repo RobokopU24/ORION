@@ -19,7 +19,7 @@ from datetime import datetime
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
 from robokop_genetics.genetics_normalization import GeneticsNormalizer
-from Common.node_types import ROOT_ENTITY, FALLBACK_EDGE_PREDICATE, FALLBACK_EDGE_PREDICATE_LABEL, PREDICATE
+from Common.node_types import ROOT_ENTITY, FALLBACK_EDGE_PREDICATE, FALLBACK_EDGE_PREDICATE_LABEL, PREDICATE, CUSTOM_NODE_TYPES
 
 
 class LoggingUtil(object):
@@ -121,6 +121,7 @@ class NodeNormUtils:
     def __init__(self,
                  log_level=logging.INFO,
                  node_normalization_version: str = 'latest',
+                 biolink_version: str = 'latest',
                  strict_normalization: bool = True,
                  conflate_node_types: bool = False):
         """
@@ -139,6 +140,8 @@ class NodeNormUtils:
         self.failed_to_normalize_variant_ids = {}
         # flag that determines whether nodes that failed to normalize should be included or thrown out
         self.strict_normalization = strict_normalization
+        self.biolink_version = biolink_version
+        self.biolink_compliant_node_types = None
         # whether the normalizer should conflate node types (ie combine genes and proteins)
         self.conflate_node_types = conflate_node_types
         # storage for variant nodes that split into multiple new nodes in normalization
@@ -202,8 +205,6 @@ class NodeNormUtils:
                 # collect a slice of records from the data frame
                 data_chunk: list = to_normalize[start_index: end_index]
 
-                # self.logger.info(f'Calling node norm service. request size is {len("&curie=".join(data_chunk))} bytes')
-
                 # get the data
                 resp: requests.models.Response = requests.post(f'{self.node_norm_endpoint}get_normalized_nodes',
                                                                json={'curies': data_chunk,
@@ -239,26 +240,46 @@ class NodeNormUtils:
         # node ids that failed to normalize
         failed_to_normalize: list = []
 
+        # look up valid node types if needed
+        if not self.strict_normalization and not self.biolink_compliant_node_types:
+            biolink_lookup = EdgeNormUtils(edge_normalization_version=self.biolink_version)
+            self.biolink_compliant_node_types = biolink_lookup.get_valid_node_types()
+
         # for each node update the node with normalized information
         # store the normalized IDs for later look up
         while node_idx < node_count:
-            # get the next node list item by index
-            current_node_id = node_list[node_idx]['id']
 
-            # did we find a normalized value
+            # get the next node list item by index
+            current_node = node_list[node_idx]
+            current_node_id = current_node['id']
+
+            # if strict normalization is off, enforce valid node types
+            if not self.strict_normalization:
+
+                # remove all the bad types and make them a property instead
+                invalid_node_types = [node_type for node_type in current_node['category'] if
+                                      node_type not in self.biolink_compliant_node_types]
+                if invalid_node_types:
+                    current_node[CUSTOM_NODE_TYPES] = invalid_node_types
+
+                # keep all the valid types
+                current_node['category'] = [node_type for node_type in current_node['category'] if
+                                            node_type in self.biolink_compliant_node_types]
+                # add the ROOT ENTITY type if it's not there
+                if ROOT_ENTITY not in current_node['category']:
+                    current_node['category'].append(ROOT_ENTITY)
+
+                # make sure there is a name
+                if not current_node['name']:
+                    current_node['name'] = current_node['id'].split(':').pop()
+
+            # did we get a response from the normalizer
             if cached_node_norms[current_node_id] is not None:
 
                 # update the node with the normalized info
-                current_node = node_list[node_idx]
                 normalized_id = cached_node_norms[current_node_id]['id']['identifier']
                 current_node['id'] = normalized_id
-                categories = cached_node_norms[current_node_id]['type']
-                # If we are not in strict normalization, use categories provided by user in addition to
-                if not self.strict_normalization:
-                    categories.extend(node_list[node_idx].get('category',[]))
-                    categories = list(set(categories))
-                
-                current_node['category'] = categories
+                current_node['category'] = cached_node_norms[current_node_id]['type']
                 current_node['equivalent_identifiers'] = list(item['identifier'] for item in cached_node_norms[current_node_id]['equivalent_identifiers'])
                 # set the name as the label if it exists
                 if 'label' in cached_node_norms[current_node_id]['id']:
@@ -274,12 +295,6 @@ class NodeNormUtils:
                     # store None in the normalization map so we know it didn't normalize
                     self.node_normalization_lookup[current_node_id] = None
                 else:
-                    #  if strict normalization is off we set a default node type
-                    #We respect the user labels if we are in non-strict mode. 
-                    #Have a list of ROOT_ENTITY and all user provided categories.
-                    node_list[node_idx]['category'] = list(set([ROOT_ENTITY] + node_list[node_idx].get('category',[])))
-                    if not node_list[node_idx]['name']:
-                        node_list[node_idx]['name'] = node_list[node_idx]['id']
                     # if strict normalization is off set its previous id in the normalization map
                     self.node_normalization_lookup[current_node_id] = [current_node_id]
 
@@ -593,7 +608,7 @@ class EdgeNormUtils:
             return False
 
     def get_available_versions(self):
-        # fetch the edge norm openapi spec
+        # call the versions endpoint
         edge_norm_versions_url = f'{self.edge_norm_endpoint}versions'
         resp: requests.models.Response = requests.get(edge_norm_versions_url)
 
@@ -602,6 +617,26 @@ class EdgeNormUtils:
             # parse json
             versions = resp.json()
             return versions  # array of versions
+        else:
+            # this shouldn't happen, raise an exception
+            resp.raise_for_status()
+
+    def check_node_type_valid(self, node_type: str):
+        if node_type in self.get_valid_node_types():
+            return True
+        else:
+            return False
+
+    def get_valid_node_types(self):
+        # call the descendants endpoint with the root node type
+        edge_norm_descendants_url = f'{self.edge_norm_endpoint}bl/{ROOT_ENTITY}/descendants?version={self.edge_norm_version}'
+        resp: requests.models.Response = requests.get(edge_norm_descendants_url)
+
+        # did we get a good status code
+        if resp.status_code == 200:
+            # parse json
+            descendants = resp.json()
+            return descendants  # array of descendants
         else:
             # this shouldn't happen, raise an exception
             resp.raise_for_status()
