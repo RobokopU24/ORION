@@ -12,7 +12,7 @@ ENV USER=ds_user
 
 COPY ./requirements.txt /Data_services/requirements.txt
 
-RUN pip install -r /Data_services/requirements.txt --use-deprecated=legacy-resolver
+RUN pip install -r /Data_services/requirements.txt
 
 COPY . /Data_services/.
 

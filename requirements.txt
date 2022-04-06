@@ -1,23 +1,21 @@
-pandas==1.2.4
-requests==2.25.1
-pytest==6.2.4
-pytest-cov==2.12.1
+pandas==1.4.2
+requests==2.27.1
+pytest==7.1.1
+# pytest-cov==2.12.1
 git+https://github.com/ObesityHub/robokop-genetics.git
-rdflib==6.0.0
+rdflib==6.1.1
 mysql-connector==2.2.9
 jsonlines==2.0.0
 pyyaml==5.4.1
 beautifulsoup4==4.9.3
 psycopg2-binary==2.9.1
-orjson==3.6.4
+orjson==3.6.7
 xxhash==2.0.2
-#kgx==1.5.5
 docker==5.0.3
 mysql-connector-python==8.0.28
+intermine==1.12.0
+kgx==1.5.6
 # line-profiler==3.4.0
-# on hold for neo4j_tools.py when kgx supports neo4j:4+
-# neo4j==4.3.0
-linkml==1.1.17
-linkml-dataops==0.1.0
-linkml-runtime==1.1.21
-git+https://github.com/biolink/kgx.git@master
+# linkml==1.1.17
+# linkml-dataops==0.1.0
+# linkml-runtime==1.1.21
