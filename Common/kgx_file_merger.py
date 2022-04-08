@@ -98,7 +98,7 @@ class KGXFileMerger:
 
                 elif "edges" in file_path:
                     with jsonlines.open(file_path) as edges:
-                        edges_count, merged_edge_count = graph_merger.merge_edges(edges, overwrite=True)
+                        edges_count, merged_edge_count = graph_merger.merge_edges(edges, throw_out_duplicates=True)
                         merge_metadata["sources"][graph_source.id][source_filename]["edges"] = edges_count
                         merge_metadata["sources"][graph_source.id][source_filename][
                             "edges_merged"] = merged_edge_count
