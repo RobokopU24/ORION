@@ -79,7 +79,8 @@ class GraphDBTools:
                 f'{neo4j_data_dir_real_path}:/data'  # neo4j data directory - necessary for persistence after import
             ]
             print(f'Creating container and importing csv files to neo4j...')
-            neo4j_cmd = f'neo4j-admin import --nodes={csv_nodes_file} --relationships={csv_edges_file}'
+            neo4j_cmd = f'neo4j-admin import --nodes={csv_nodes_file} --relationships={csv_edges_file} ' \
+                        f'--delimiter="\t" --array-delimiter="U+001F" --ignore-empty-strings=false --multiline-fields=true'
             docker_client.containers.run("neo4j:4.3",
                                          name=self.graph_db_host,
                                          command=neo4j_cmd,
@@ -94,12 +95,15 @@ class GraphDBTools:
             while not import_complete:
                 container = self.get_container(container_name=self.graph_db_host,
                                                docker_client=docker_client)
-                print(f'Waiting... got container {container.name} with status {container.status}')
-                if container.status == 'exited':
-                    container.remove()
-                    import_complete = True
+                if container:
+                    print(f'Waiting... got container {container.name} with status {container.status}')
+                    if container.status == 'exited':
+                        container.remove()
+                        import_complete = True
+                    else:
+                        time.sleep(10)
                 else:
-                    time.sleep(10)
+                    import_complete = True
 
             print(f'Creating a backup dump of the neo4j...')
             neo4j_cmd = f'neo4j-admin dump --to={current_graph_dir}/graph.db.dump'
@@ -112,10 +116,37 @@ class GraphDBTools:
                                          network='data_services_network',
                                          volumes=volumes,
                                          detach=False)
+
+            # wait for the container to finish dump and exit
+            print(f'Dump complete. Waiting for container to exit...')
+            '''
+            dump_complete = False
+            while not dump_complete:
+                container = self.get_container(container_name=self.graph_db_host,
+                                               docker_client=docker_client)
+                if container:
+                    print(f'Waiting... got container {container.name} with status {container.status}')
+                    if container.status == 'exited':
+                        container.remove()
+                        dump_complete = True
+                    else:
+                        time.sleep(10)
+                else:
+                    dump_complete = True
             print(f'Backup dump complete.')
+            print(f'Hosting graph again...')
+            docker_client.containers.run("neo4j:4.3",
+                                         name=self.graph_db_host,
+                                         environment=environment,
+                                         ports=ports,
+                                         auto_remove=False,
+                                         network='data_services_network',
+                                         volumes=volumes,
+                                         detach=True)
             # os.remove(csv_nodes_file)
             # os.remove(csv_edges_file)
             # os.remove(neo4j_data_dir_relative_path)
+            '''
         else:
             docker_client.containers.run("neo4j:4.3",
                                          name=self.graph_db_host,
@@ -156,11 +187,11 @@ class GraphDBTools:
             raise Exception(f'File format {input_file_format} not supported by GraphDBTools.')
 
         if use_csv:
-            print(f'Converting kgx to csv files...')
-            csv_nodes_file, csv_edges_file = self.convert_kgx_to_csv(nodes_input_file, edges_input_file)
+            # print(f'Converting kgx to csv files...')
+            # csv_nodes_file, csv_edges_file = self.convert_kgx_to_csv(nodes_input_file, edges_input_file)
             self.init_graph_db_container(use_csv=use_csv,
-                                         csv_nodes_file=csv_nodes_file,
-                                         csv_edges_file=csv_edges_file)
+                                         csv_nodes_file=nodes_input_file,
+                                         csv_edges_file=edges_input_file)
             return
 
         if start_neo4j:
