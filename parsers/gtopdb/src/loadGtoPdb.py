@@ -176,7 +176,7 @@ class GtoPdbLoader(SourceDataLoader):
                 record_counter += 1
 
                 # only process human records
-                if r['Species'].upper().find('HUMAN') > -1 and r['Subunit ids'] != '':
+                if r['Species'] and r['Species'].upper().find('HUMAN') > -1 and r['Subunit ids'] != '':
                     # (GTOPDB:<ligand_id>, name=<ligand>)
 
                     # create a ligand node
@@ -250,7 +250,8 @@ class GtoPdbLoader(SourceDataLoader):
                 record_counter += 1
 
                 # do the ligand to gene nodes/edges
-                if r['target_species'].startswith('Human') and r['target_ensembl_gene_id'] != '' and r['target'] != '':  # and r['ligand_id'] in self.ligands
+                if r['target_species'] and r['target_species'].startswith('Human') \
+                        and r['target_ensembl_gene_id'] != '' and r['target'] != '':  # and r['ligand_id'] in self.ligands
                     # did we get a good predicate
                     if r['type'].startswith('None'):
                         continue
