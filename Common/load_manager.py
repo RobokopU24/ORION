@@ -348,10 +348,8 @@ class SourceDataManager:
         if source_id in self.latest_parsing_version_lookup:
             return self.latest_parsing_version_lookup[source_id]
 
-        # TODO each parser should return it's own parsing version like:
-        # source_data_loader = SOURCE_DATA_LOADER_CLASSES[source_id]()
-        # parsing_version = source_data_loader.get_latest_parsing_version()
-        parsing_version = "1.0"
+        source_data_loader = SOURCE_DATA_LOADER_CLASSES[source_id]()
+        parsing_version = source_data_loader.get_latest_parsing_version()
         self.latest_parsing_version_lookup[source_id] = parsing_version
         return parsing_version
 

@@ -7,6 +7,8 @@ from Common.utils import LoggingUtil
 
 class SourceDataLoader:
 
+    parsing_version = "1.0"
+
     def __init__(self, test_mode: bool = False, source_data_dir: str = None):
         """Initialize with the option to run in testing mode."""
         self.test_mode: bool = test_mode
@@ -35,6 +37,10 @@ class SourceDataLoader:
     def get_data(self):
         """Download the source data"""
         raise NotImplementedError
+
+    def get_latest_parsing_version(self):
+        # implementations of parsers should override and increment this whenever they change
+        return self.parsing_version
 
     def parse_data(self):
         """Parse the downloaded data into kgx files"""
