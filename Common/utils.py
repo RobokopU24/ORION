@@ -253,6 +253,10 @@ class NodeNormUtils:
             current_node = node_list[node_idx]
             current_node_id = current_node['id']
 
+            # make sure there is a name
+            if not current_node['name']:
+                current_node['name'] = current_node['id'].split(':')[-1]
+
             # if strict normalization is off, enforce valid node types
             if not self.strict_normalization:
 
@@ -269,10 +273,6 @@ class NodeNormUtils:
                 if ROOT_ENTITY not in current_node['category']:
                     current_node['category'].append(ROOT_ENTITY)
 
-                # make sure there is a name
-                if not current_node['name']:
-                    current_node['name'] = current_node['id'].split(':').pop()
-
             # did we get a response from the normalizer
             if cached_node_norms[current_node_id] is not None:
 
@@ -281,6 +281,7 @@ class NodeNormUtils:
                 current_node['id'] = normalized_id
                 current_node['category'] = cached_node_norms[current_node_id]['type']
                 current_node['equivalent_identifiers'] = list(item['identifier'] for item in cached_node_norms[current_node_id]['equivalent_identifiers'])
+
                 # set the name as the label if it exists
                 if 'label' in cached_node_norms[current_node_id]['id']:
                     current_node['name'] = cached_node_norms[current_node_id]['id']['label']
@@ -290,12 +291,12 @@ class NodeNormUtils:
                 # we didn't find a normalization - add it to the failure list
                 failed_to_normalize.append(current_node_id)
                 if self.strict_normalization:
-                    # if strict normalization is on we set that index to None so that it is later removed
+                    # if strict normalization is on we set that index to None so that the node is removed
                     node_list[node_idx] = None
                     # store None in the normalization map so we know it didn't normalize
                     self.node_normalization_lookup[current_node_id] = None
                 else:
-                    # if strict normalization is off set its previous id in the normalization map
+                    # if strict normalization is off keep it and set its previous id in the normalization map
                     self.node_normalization_lookup[current_node_id] = [current_node_id]
 
             # go to the next node index
