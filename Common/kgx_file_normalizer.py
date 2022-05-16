@@ -2,14 +2,13 @@ import os
 import json
 import jsonlines
 import logging
-from itertools import islice
-from collections import defaultdict
 from xxhash import xxh64_hexdigest
 from Common.node_types import SEQUENCE_VARIANT, ORIGINAL_KNOWLEDGE_SOURCE, PRIMARY_KNOWLEDGE_SOURCE, \
     AGGREGATOR_KNOWLEDGE_SOURCES, PUBLICATIONS, OBJECT_ID, SUBJECT_ID, PREDICATE
-from Common.utils import LoggingUtil, NodeNormUtils, EdgeNormUtils, EdgeNormalizationResult
+from Common.utils import LoggingUtil, NodeNormUtils, EdgeNormUtils, EdgeNormalizationResult, chunk_iterator
 from Common.kgx_file_writer import KGXFileWriter
 from Common.kgxmodel import NormalizationScheme
+from Common.merging import MemoryGraphMerger, DiskGraphMerger
 
 
 class NormalizationBrokenError(Exception):
@@ -24,19 +23,16 @@ class NormalizationFailedError(Exception):
         self.actual_error = actual_error
 
 
-def chunk_iterator(iterable, chunk_size):
-    iterator = iter(iterable)
-    while True:
-        chunk = list(islice(iterator, chunk_size))
-        if chunk:
-            yield chunk
-        else:
-            break
-
-
 EDGE_PROPERTIES_THAT_SHOULD_BE_SETS = {AGGREGATOR_KNOWLEDGE_SOURCES, PUBLICATIONS}
-NODE_NORMALIZATION_BATCH_SIZE = 100000
-EDGE_NORMALIZATION_BATCH_SIZE = 100000
+NODE_NORMALIZATION_BATCH_SIZE = 1_000_000
+EDGE_NORMALIZATION_BATCH_SIZE = 1_000_000
+
+
+def edge_id_function(edge):
+    return xxh64_hexdigest(
+        str(f'{edge[SUBJECT_ID]}{edge[PREDICATE]}{edge[OBJECT_ID]}' +
+            (f'{edge.get(ORIGINAL_KNOWLEDGE_SOURCE, "")}{edge.get(PRIMARY_KNOWLEDGE_SOURCE, "")}'
+             if ((ORIGINAL_KNOWLEDGE_SOURCE in edge) or (PRIMARY_KNOWLEDGE_SOURCE in edge)) else "")))
 
 
 #
@@ -63,7 +59,9 @@ class KGXFileNormalizer:
                  edge_object_pre_normalized: bool = False,
                  has_sequence_variants: bool = False,
                  sequence_variants_pre_normalized: bool = False,
-                 predicates_pre_normalized: bool = False):
+                 predicates_pre_normalized: bool = False,
+                 default_provenance: str = None,
+                 process_in_memory: bool = True):
         if not normalization_scheme:
             normalization_scheme = NormalizationScheme()
         self.source_nodes_file_path = source_nodes_file_path
@@ -80,6 +78,8 @@ class KGXFileNormalizer:
         self.edge_object_pre_normalized = edge_object_pre_normalized
         self.predicates_pre_normalized = predicates_pre_normalized
         self.has_sequence_variants = has_sequence_variants
+        self.process_in_memory = process_in_memory
+        self.default_provenance = default_provenance
         self.sequence_variants_pre_normalized = sequence_variants_pre_normalized
         self.normalization_metadata = {'strict_normalization': normalization_scheme.strict,
                                        'sequence_variants_pre_normalized': sequence_variants_pre_normalized}
@@ -235,10 +235,11 @@ class KGXFileNormalizer:
     # also write a file with the predicates that did not successfully normalize
     def normalize_edge_file(self):
 
-        # We organize the edges into a dictionary of dictionaries of dictionaries of dictionaries, no really,
-        # to merge edges with the same subject, object, predicate, and knowledge source.
-        # merged_edges[subject_id][object_id][predicate][knowledge_source] = edge
-        merged_edges = defaultdict(lambda: defaultdict(lambda: defaultdict(dict)))
+        if self.process_in_memory:
+            graph_merger = MemoryGraphMerger()
+        else:
+            path_head, file_name = os.path.split(self.edges_output_file_path)
+            graph_merger = DiskGraphMerger(temp_directory=path_head)
 
         number_of_source_edges = 0
         normalized_edge_count = 0
@@ -264,6 +265,7 @@ class KGXFileNormalizer:
                             self.logger.error(
                                 f'Edge normalization service failed to return results for {edge_norm_failures}')
 
+                    normalized_edges = []
                     for edge in edges_subset:
                         normalized_subject_ids = None
                         normalized_object_ids = None
@@ -298,6 +300,8 @@ class KGXFileNormalizer:
                                 edge_inverted_by_normalization = False
 
                             edge_count = 0
+                            if ORIGINAL_KNOWLEDGE_SOURCE not in edge and PRIMARY_KNOWLEDGE_SOURCE not in edge:
+                                edge[ORIGINAL_KNOWLEDGE_SOURCE] = self.default_provenance
                             for norm_subject_id in normalized_subject_ids:
                                 for norm_object_id in normalized_object_ids:
                                     edge_count += 1
@@ -311,38 +315,18 @@ class KGXFileNormalizer:
                                     if edge_inverted_by_normalization:
                                         normalized_edge[OBJECT_ID] = norm_subject_id
                                         normalized_edge[SUBJECT_ID] = norm_object_id
-                                        norm_subject_id = normalized_edge[SUBJECT_ID]
-                                        norm_object_id = normalized_edge[OBJECT_ID]
                                     else:
                                         normalized_edge[SUBJECT_ID] = norm_subject_id
                                         normalized_edge[OBJECT_ID] = norm_object_id
 
-                                    normalized_edge_id = xxh64_hexdigest(
-                                        str(f'{norm_subject_id}{normalized_predicate}{norm_object_id}'
-                                            f'{normalized_edge.get(ORIGINAL_KNOWLEDGE_SOURCE, "")}'
-                                            f'{normalized_edge.get(PRIMARY_KNOWLEDGE_SOURCE, "")}'))
-                                    normalized_edge['id'] = normalized_edge_id
+                                    normalized_edge['id'] = edge_id_function(normalized_edge)
+                                    normalized_edges.append(normalized_edge)
 
-                                    # merge with existing similar edges and/or queue up for writing
-                                    if normalized_edge_id in merged_edges:
-                                        previous_edge = merged_edges[normalized_edge_id]
-                                        edge_mergers += 1
-                                        for key, value in normalized_edge.items():
-                                            # TODO - make sure this is the behavior we want -
-                                            # for properties that are lists append the values
-                                            # otherwise overwrite them
-                                            if key in previous_edge and isinstance(value, list):
-                                                previous_edge[key].extend(value)
-                                                if key in EDGE_PROPERTIES_THAT_SHOULD_BE_SETS:
-                                                    previous_edge[key] = list(set(value))
-                                            else:
-                                                previous_edge[key] = value
-                                    else:
-                                        merged_edges[normalized_edge_id] = normalized_edge
                             # this counter tracks the number of new edges created from each individual edge in the original file
                             # this could happen due to rare cases of normalization splits where one node normalizes to many
                             if edge_count > 1:
                                 edge_splits += edge_count - 1
+                    graph_merger.merge_edges(normalized_edges)
                     self.logger.info(f'Processed {number_of_source_edges} edges so far...')
 
         except OSError as e:
@@ -351,14 +335,11 @@ class KGXFileNormalizer:
 
         try:
             self.logger.debug(f'Writing normalized edges to file...')
-            with KGXFileWriter(edges_output_file_path=self.edges_output_file_path) as output_file_writer:
-                for edge_key, edge in merged_edges.items():
+            with open(self.edges_output_file_path, 'w') as edges_out:
+                for edge_line in graph_merger.get_merged_edges_jsonl():
+                    edges_out.write(edge_line)
                     normalized_edge_count += 1
-                    output_file_writer.write_edge(subject_id=edge[SUBJECT_ID],
-                                                  object_id=edge[OBJECT_ID],
-                                                  predicate=edge[PREDICATE],
-                                                  edge_properties=edge,
-                                                  edge_id=edge['id'])
+
         except OSError as e:
             norm_error_msg = f'Error writing edges file {self.edges_output_file_path}'
             raise NormalizationFailedError(error_message=norm_error_msg, actual_error=e)

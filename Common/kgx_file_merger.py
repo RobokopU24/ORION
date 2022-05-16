@@ -4,7 +4,7 @@ from itertools import chain
 from Common.utils import LoggingUtil, quick_jsonl_file_iterator, quick_json_dumps
 from Common.kgxmodel import GraphSpec
 from Common.node_types import SUBJECT_ID, OBJECT_ID
-from Common.merging import GraphMerger
+from Common.merging import GraphMerger, DiskGraphMerger, MemoryGraphMerger
 
 # import line_profiler
 # import atexit
@@ -14,21 +14,25 @@ from Common.merging import GraphMerger
 
 class KGXFileMerger:
 
-    def __init__(self):
+    def __init__(self,
+                 output_directory: str):
+        self.output_directory = output_directory
         self.logger = LoggingUtil.init_logging("Data_services.Common.KGXFileMerger",
                                                line_format='medium',
                                                log_file_path=os.environ['DATA_SERVICES_LOGS'])
 
     def merge(self,
               graph_spec: GraphSpec,
-              nodes_output_file_path: str,
-              edges_output_file_path: str):
+              nodes_output_filename: str,
+              edges_output_filename: str):
 
         if not (graph_spec.sources or graph_spec.subgraphs):
             merge_error_msg = f'Merge attempted but {graph_spec.graph_id} had no sources to merge.'
             self.logger.error(merge_error_msg)
             return {'merge_error': merge_error_msg}
 
+        nodes_output_file_path = os.path.join(self.output_directory, nodes_output_filename)
+        edges_output_file_path = os.path.join(self.output_directory, edges_output_filename)
         if os.path.exists(nodes_output_file_path) or os.path.exists(edges_output_file_path):
             merge_error_msg = f'Merge attempted for {graph_spec.graph_id} but merged files already existed!'
             self.logger.error(merge_error_msg)
@@ -78,7 +82,7 @@ class KGXFileMerger:
                               edges_out_file: str,
                               merge_metadata: dict):
 
-        graph_merger = GraphMerger()
+        graph_merger = DiskGraphMerger(temp_directory=self.output_directory)
         for i, graph_source in enumerate(graph_sources, start=1):
             self.logger.info(f"Processing {graph_source.id}. (primary source {i}/{len(graph_sources)})")
             merge_metadata["sources"][graph_source.id] = {'source_version': graph_source.version}
@@ -88,23 +92,14 @@ class KGXFileMerger:
                 merge_metadata["sources"][graph_source.id][source_filename] = {}
                 if "nodes" in file_path:
                     with jsonlines.open(file_path) as nodes:
-                        nodes_count, merged_nodes_count = graph_merger.merge_nodes(nodes)
+                        nodes_count = graph_merger.merge_nodes(nodes)
                         merge_metadata["sources"][graph_source.id][source_filename]["nodes"] = nodes_count
-                        merge_metadata["sources"][graph_source.id][source_filename][
-                            "nodes_merged"] = merged_nodes_count
-                        if merged_nodes_count:
-                            self.logger.info(f"Merged {merged_nodes_count} nodes from {graph_source.id}"
-                                             f" - {file_path}.")
 
                 elif "edges" in file_path:
                     with jsonlines.open(file_path) as edges:
-                        edges_count, merged_edge_count = graph_merger.merge_edges(edges, throw_out_duplicates=True)
+                        edges_count = graph_merger.merge_edges(edges)
                         merge_metadata["sources"][graph_source.id][source_filename]["edges"] = edges_count
-                        merge_metadata["sources"][graph_source.id][source_filename][
-                            "edges_merged"] = merged_edge_count
-                        if merged_edge_count:
-                            self.logger.info(f"Merged {merged_edge_count} edges from {graph_source.id}"
-                                             f" - {file_path}.")
+
                 else:
                     raise ValueError(f"Did not recognize file {file_path} for merging "
                                      f"from data source {graph_source.id}.")
@@ -112,6 +107,8 @@ class KGXFileMerger:
         nodes_written, edges_written = self.__write_back_to_file(graph_merger,
                                                                  nodes_out_file,
                                                                  edges_out_file)
+        merge_metadata['merged_nodes'] = graph_merger.merged_node_counter
+        merge_metadata['merged_edges'] = graph_merger.merged_edge_counter
         merge_metadata['final_node_count'] += nodes_written
         merge_metadata['final_edge_count'] += edges_written
         return True
@@ -153,12 +150,10 @@ class KGXFileMerger:
 
                     # due to the algorithm implemented in kgx_a_subset_b there are no mergers to log
                     merge_metadata["sources"][graph_source.id][nodes_source_filename] = {
-                        "nodes": new_node_count,
-                        "nodes_merged": 0,
+                        "nodes": new_node_count
                     }
                     merge_metadata["sources"][graph_source.id][edges_source_filename] = {
-                        "edges": new_edge_count,
-                        "edges_merged": 0
+                        "edges": new_edge_count
                     }
                     merge_metadata['final_node_count'] += new_node_count
                     merge_metadata['final_edge_count'] += new_edge_count
@@ -171,14 +166,14 @@ class KGXFileMerger:
         self.logger.debug(f'Writing merged nodes to file...')
         nodes_written = 0
         with open(nodes_out_file, 'w') as nodes_out:
-            for node_line in graph_merger.get_merged_nodes_lines():
+            for node_line in graph_merger.get_merged_nodes_jsonl():
                 nodes_out.write(node_line)
                 nodes_written += 1
 
         self.logger.debug(f'Writing merged edges to file...')
         edges_written = 0
         with open(edges_out_file, 'w') as edges_out:
-            for edge_line in graph_merger.get_merged_edges_lines():
+            for edge_line in graph_merger.get_merged_edges_jsonl():
                 edges_out.write(edge_line)
                 edges_written += 1
 

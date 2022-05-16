@@ -5,12 +5,14 @@ import argparse
 import datetime
 from xxhash import xxh64_hexdigest
 from Common.utils import LoggingUtil
-from Common.load_manager import SourceDataManager
+from Common.load_manager import SourceDataManager, SOURCE_DATA_LOADER_CLASSES
 from Common.kgx_file_merger import KGXFileMerger
 from Common.kgxmodel import GraphSpec, SubGraphSource, DataSource, NormalizationScheme
 from Common.metadata import Metadata, GraphMetadata, SourceMetadata
 from Common.supplementation import SequenceVariantSupplementation
 
+NODES_FILENAME = 'nodes.jsonl'
+EDGES_FILENAME = 'edges.jsonl'
 
 class GraphBuilder:
 
@@ -63,14 +65,12 @@ class GraphBuilder:
 
         # determine output file paths
         graph_output_dir = self.get_graph_dir_path(graph_id, graph_version)
-        nodes_output_path = self.get_graph_nodes_file_path(graph_output_dir)
-        edges_output_path = self.get_graph_edges_file_path(graph_output_dir)
 
         # merge the sources and write the finalized graph kgx files
-        source_merger = KGXFileMerger()
+        source_merger = KGXFileMerger(output_directory=graph_output_dir)
         merge_metadata = source_merger.merge(graph_spec,
-                                             nodes_output_file_path=nodes_output_path,
-                                             edges_output_file_path=edges_output_path)
+                                             nodes_output_filename=NODES_FILENAME,
+                                             edges_output_filename=EDGES_FILENAME)
 
         if "merge_error" in merge_metadata:
             current_time = datetime.datetime.now().strftime('%m-%d-%y %H:%M:%S')
@@ -122,6 +122,10 @@ class GraphBuilder:
 
         for data_source in graph_spec.sources:
             source_id = data_source.id
+            if source_id not in SOURCE_DATA_LOADER_CLASSES.keys():
+                self.logger.warning(
+                    f'Attempting to build graph {graph_id} failed: {source_id} is not a valid data source id. ')
+                return False
 
             if data_source.version == 'latest':
                 data_source.version = self.source_data_manager.get_latest_source_version(source_id)
@@ -272,10 +276,10 @@ class GraphBuilder:
         return os.path.join(self.graphs_dir, graph_id, graph_version)
 
     def get_graph_nodes_file_path(self, graph_output_dir: str):
-        return os.path.join(graph_output_dir, f'nodes.jsonl')
+        return os.path.join(graph_output_dir, NODES_FILENAME)
 
     def get_graph_edges_file_path(self, graph_output_dir: str):
-        return os.path.join(graph_output_dir, f'edges.jsonl')
+        return os.path.join(graph_output_dir, EDGES_FILENAME)
 
     def check_for_existing_graph_dir(self, graph_id: str, graph_version: str):
         graph_output_dir = self.get_graph_dir_path(graph_id, graph_version)
