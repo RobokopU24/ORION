@@ -7,6 +7,7 @@ import requests
 import pandas as pd
 import orjson
 from dateutil import parser as dp
+from itertools import islice
 
 from urllib import request
 from zipfile import ZipFile
@@ -256,6 +257,15 @@ class NodeNormUtils:
             # make sure there is a name
             if not current_node['name']:
                 current_node['name'] = current_node['id'].split(':')[-1]
+
+            # remove properties with null values, remove newline characters
+            for key in list(current_node.keys()):
+                value = current_node[key]
+                if value is None:
+                    del(current_node[key])
+                else:
+                    if isinstance(value, str):
+                        current_node[key] = value.replace("\n", "")
 
             # if strict normalization is off, enforce valid node types
             if not self.strict_normalization:
@@ -1361,3 +1371,13 @@ def quick_jsonl_file_iterator(json_file):
     with open(json_file, 'r', encoding='utf-8') as stream:
         for line in stream:
             yield orjson.loads(line)
+
+
+def chunk_iterator(iterable, chunk_size):
+    iterator = iter(iterable)
+    while True:
+        chunk = list(islice(iterator, chunk_size))
+        if chunk:
+            yield chunk
+        else:
+            break
