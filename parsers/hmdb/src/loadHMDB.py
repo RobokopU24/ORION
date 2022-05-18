@@ -107,13 +107,12 @@ class HMDBLoader(SourceDataLoader):
         skipped_record_counter: int = 0
 
         with ZipFile(infile_path) as zf:
-            # open the taxon file indexes and the uniref data file
+            # open the hmdb xml file
             with zf.open('hmdb_metabolites.xml', 'r') as fp:
-                # get all the xml elements
-                xml_records: list = self.read_xml_file(fp, 'metabolite')
 
-                # loop through the elements
-                for record in xml_records:
+                # loop through, filtering for relevant elements
+                for record in self.read_xml_file(fp, 'metabolite'):
+
                     # increment the counter
                     record_counter += 1
 
@@ -146,8 +145,9 @@ class HMDBLoader(SourceDataLoader):
                             if pathway_success or disease_success or gene_success:
                                 # create a metabolite node and add it to the list
                                 metabolite_node = kgxnode(metabolite_id, name=metabolite_name.text.encode('ascii',errors='ignore').decode(encoding="utf-8"))
-                                self.final_node_list.append(metabolite_node)
+                                self.output_file_writer.write_kgx_node(metabolite_node)
                             else:
+
                                 # increment the counter
                                 skipped_record_counter += 1
 
@@ -250,7 +250,7 @@ class HMDBLoader(SourceDataLoader):
 
                         # create a node and add it to the list
                         new_node = kgxnode(protein_id, name=name)
-                        self.final_node_list.append(new_node)
+                        self.output_file_writer.write_kgx_node(new_node)
 
                         # create an edge and add it to the list
                         new_edge = kgxedge(subject_id,
@@ -258,7 +258,7 @@ class HMDBLoader(SourceDataLoader):
                                            predicate=predicate,
                                            original_knowledge_source=self.provenance_id,
                                            edgeprops=props)
-                        self.final_edge_list.append(new_edge)
+                        self.output_file_writer.write_kgx_edge(new_edge)
                     else:
                         self.logger.debug(f'no protein type for {metabolite_id}')
                 else:
@@ -309,8 +309,6 @@ class HMDBLoader(SourceDataLoader):
 
                 # did we get a value
                 if object_id is not None and object_id.text is not None:
-                    # we got at least something
-                    ret_val = True
 
                     # get the name
                     name: E_Tree.Element = d.find('name')
@@ -350,7 +348,7 @@ class HMDBLoader(SourceDataLoader):
 
                         # create a node and add it to the list
                         new_node = kgxnode(disease_id, name=name)
-                        self.final_node_list.append(new_node)
+                        self.output_file_writer.write_kgx_node(new_node)
 
                         # create an edge and add it to the list
                         new_edge = kgxedge(metabolite_id,
@@ -358,7 +356,8 @@ class HMDBLoader(SourceDataLoader):
                                            predicate='RO:0002610',
                                            original_knowledge_source=self.provenance_id,
                                            edgeprops=props)
-                        self.final_edge_list.append(new_edge)
+                        self.output_file_writer.write_kgx_edge(new_edge)
+                        ret_val = True
                 else:
                     self.logger.debug(f'no omim id for {metabolite_id}')
         else:
@@ -416,14 +415,14 @@ class HMDBLoader(SourceDataLoader):
 
                         # create a node and add it to the list
                         new_node = kgxnode(object_id, name=name)
-                        self.final_node_list.append(new_node)
+                        self.output_file_writer.write_kgx_node(new_node)
 
                         # create an edge and add it to the list
                         new_edge = kgxedge(metabolite_id,
                                            object_id,
                                            predicate='RO:0000056',
                                            original_knowledge_source=self.provenance_id)
-                        self.final_edge_list.append(new_edge)
+                        self.output_file_writer.write_kgx_edge(new_edge)
                     else:
                         self.logger.debug(f'invalid smpdb for {metabolite_id}')
                 else:
@@ -448,50 +447,41 @@ class HMDBLoader(SourceDataLoader):
         # flag to indicate we have identified a new xml fragment
         tag_found: bool = False
 
-        # init the list of xml fragments
-        xml_fragments: list = []
-
-        # init the line of xml text captured
-        xml_line: str = ''
+        # init the xml text to be captured
+        xml_string: str = ''
 
         # init a record counter
         counter: int = 0
 
         # for every line in the file
         for line in fp:
+
             # convert to string and remove the unprintable characters
             line = line.decode('utf-8')
 
-            # are we starting a new one
+            # xml elements span multiple lines - are we starting a relevant one?
             if start_tag in line:
                 tag_found = True
                 counter += 1
                 if counter % 25000 == 0:
                     self.logger.debug(f'Loaded {counter} metabolites...')
 
-            # collect the line
+            # concatenate the relevant lines
             if tag_found:
-                xml_line += line
+                xml_string += line
 
             # did we read the end of the element
             if end_tag in line:
                 # save the element in the list
-                xml_fragments.append(xml_line)
+                yield xml_string
 
                 # reset the start flag
                 tag_found = False
 
-                # rest the captured line
-                xml_line = ''
-
-            # TODO debugging only
-            # if len(xml_fragments) > 10:
-            #     break
+                # reset the xml string
+                xml_string = ''
 
         self.logger.debug(f'Loaded a total of {counter} metabolites.')
-
-        # return the list of capture xml elements
-        return xml_fragments
 
     @staticmethod
     def smpdb_to_curie(smp_id: str) -> str:
