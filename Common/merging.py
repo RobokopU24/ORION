@@ -65,7 +65,7 @@ class GraphMerger:
 
 class DiskGraphMerger(GraphMerger):
 
-    def __init__(self, temp_directory: str = None, chunk_size: int = 50_000):
+    def __init__(self, temp_directory: str = None, chunk_size: int = 1_000_000):
 
         super().__init__()
 
