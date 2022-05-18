@@ -11,7 +11,7 @@ ARG UID=1000
 ARG GID=1000
 ARG DS_USER=ds_user
 RUN groupadd -f --gid $GID $DS_USER
-RUN useradd --uid $UID --gid $GID -m $DS_USER
+RUN useradd -o --uid $UID --gid $GID -m $DS_USER
 
 USER $DS_USER
 
