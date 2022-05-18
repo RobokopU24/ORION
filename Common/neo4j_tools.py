@@ -1,12 +1,9 @@
 import argparse
 import time
 import docker
-import csv
 import os
 from neo4j import GraphDatabase, Neo4jDriver
 from kgx.transformer import Transformer
-from Common.node_types import SUBJECT_ID, OBJECT_ID, PREDICATE
-from Common.utils import quick_jsonl_file_iterator
 
 
 class GraphDBTools:
@@ -18,8 +15,8 @@ class GraphDBTools:
                  https_port: int = 7473,
                  bolt_port: int = 7687,
                  neo4j_host: str = 'localhost',
-                 use_docker_network: bool = False,
-                 available_gb_memory: int = 8):
+                 use_docker_network: bool = True,
+                 available_gb_memory: int = 12):
         self.graph_id = graph_id if graph_id else "default"
         self.graph_http_port = http_port
         self.graph_https_port = https_port
@@ -119,7 +116,6 @@ class GraphDBTools:
 
             # wait for the container to finish dump and exit
             print(f'Dump complete. Waiting for container to exit...')
-            '''
             dump_complete = False
             while not dump_complete:
                 container = self.get_container(container_name=self.graph_db_host,
@@ -146,7 +142,6 @@ class GraphDBTools:
             # os.remove(csv_nodes_file)
             # os.remove(csv_edges_file)
             # os.remove(neo4j_data_dir_relative_path)
-            '''
         else:
             docker_client.containers.run("neo4j:4.3",
                                          name=self.graph_db_host,
@@ -183,16 +178,14 @@ class GraphDBTools:
                    start_neo4j: bool = False,
                    use_csv: bool = False):
 
-        if input_file_format != 'jsonl':
-            raise Exception(f'File format {input_file_format} not supported by GraphDBTools.')
-
         if use_csv:
-            # print(f'Converting kgx to csv files...')
-            # csv_nodes_file, csv_edges_file = self.convert_kgx_to_csv(nodes_input_file, edges_input_file)
             self.init_graph_db_container(use_csv=use_csv,
                                          csv_nodes_file=nodes_input_file,
                                          csv_edges_file=edges_input_file)
             return
+
+        if input_file_format != 'jsonl':
+            raise Exception(f'File format {input_file_format} not supported by GraphDBTools.')
 
         if start_neo4j:
             print(f'Creating Neo4j docker container named {self.graph_db_host}...')
@@ -217,39 +210,6 @@ class GraphDBTools:
         t = Transformer(stream=True)
         t.transform(input_args, output_args)
 
-    def convert_kgx_to_csv(self,
-                           nodes_file: str,
-                           edges_file: str):
-        '''
-        node_properties = set()
-        for node in quick_jsonl_file_iterator(nodes_file):
-            for key, value in node.items():
-                node_properties.add(key)
-        '''
-        nodes_csv_file_name = nodes_file + '.csv'
-        with open(nodes_csv_file_name, 'w', newline='') as nodes_csv_file:
-            nodes_writer = csv.writer(nodes_csv_file)
-            nodes_writer.writerow([':ID', 'name', ':LABEL'])
-            for node in quick_jsonl_file_iterator(nodes_file):
-                csv_node = [node['id'], node['name'], '|'.join(node['category'])]
-                nodes_writer.writerow(csv_node)
-
-        '''
-        edge_properties = set()
-        for edge in quick_jsonl_file_iterator(edges_file):
-            for key, value in edge.items():
-                edge_properties.add(key)
-        '''
-        edges_csv_file_name = edges_file + '.csv'
-        with open(edges_csv_file_name, 'w', newline='') as edges_csv_file:
-            edges_writer = csv.writer(edges_csv_file)
-            edges_writer.writerow([':START_ID', ':TYPE', ':END_ID'])
-            for edge in quick_jsonl_file_iterator(edges_file):
-                csv_edge = [edge[SUBJECT_ID], edge[PREDICATE], edge[OBJECT_ID]]
-                edges_writer.writerow(csv_edge)
-
-        return nodes_csv_file_name, edges_csv_file_name
-
 
 if __name__ == '__main__':
 
@@ -265,7 +225,7 @@ if __name__ == '__main__':
     parser.add_argument('--username', help='username', default='neo4j')
     parser.add_argument('--password', help='password', default='default')
     parser.add_argument('--start-neo4j', help='starts neo4j as a docker container', action="store_true")
-    parser.add_argument('--use-docker-network', help='use a local docker network', action="store_true")
+    # parser.add_argument('--use-docker-network', help='use a local docker network', action="store_true")
     args = parser.parse_args()
 
     graph_db_tools = GraphDBTools(
@@ -274,8 +234,8 @@ if __name__ == '__main__':
         http_port=args.neo4j_http_port,
         https_port=args.neo4j_https_port,
         bolt_port=args.neo4j_bolt_port,
-        neo4j_host=args.neo4j_host,
-        use_docker_network=args.use_docker_network
+        neo4j_host=args.neo4j_host
+        # use_docker_network=args.use_docker_network
     )
     graph_db_tools.load_graph(args.nodes,
                               args.edges,
