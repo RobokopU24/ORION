@@ -67,7 +67,7 @@ def remove_old_files():
 
 def test_writing_objects():
     remove_old_files()
-    with KGXFileWriter(nodes_file_path, edges_file_path, buffer_size=TEST_BUFFER_SIZE) as test_file_writer:
+    with KGXFileWriter(nodes_file_path, edges_file_path) as test_file_writer:
 
         # write buffer size (475) + 25 nodes = 500 nodes of different types
         for i in range(1, TEST_BUFFER_SIZE + 26):
