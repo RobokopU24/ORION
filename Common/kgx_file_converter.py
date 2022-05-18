@@ -116,8 +116,9 @@ def __determine_properties_and_types(file_path: str, required_properties: dict):
 
         if prop in required_properties and has_type_conflicts:
             raise Exception(f'Required property {prop} had multiple conflicting types: {type_counts.items()}')
-        elif not has_type_conflicts:
-            properties[prop] = prop_types[0]
+        elif prop in required_properties:
+            # do nothing, already set
+            pass
         else:
             if 'string[]' in prop_types:
                 properties[prop] = 'string[]'
