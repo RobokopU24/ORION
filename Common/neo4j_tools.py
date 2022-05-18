@@ -77,7 +77,7 @@ class GraphDBTools:
             ]
             print(f'Creating container and importing csv files to neo4j...')
             neo4j_cmd = f'neo4j-admin import --nodes={csv_nodes_file} --relationships={csv_edges_file} ' \
-                        f'--delimiter="\t" --array-delimiter="U+001F" --ignore-empty-strings=false --multiline-fields=true'
+                        f'--delimiter="\t" --array-delimiter="U+001F" --ignore-empty-strings=true'
             docker_client.containers.run("neo4j:4.3",
                                          name=self.graph_db_host,
                                          command=neo4j_cmd,
