@@ -16,7 +16,7 @@ class GraphDBTools:
                  bolt_port: int = 7687,
                  neo4j_host: str = 'localhost',
                  use_docker_network: bool = True,
-                 available_gb_memory: int = 10):
+                 available_gb_memory: int = 8):
         self.graph_id = graph_id if graph_id else "default"
         self.graph_http_port = http_port
         self.graph_https_port = https_port
@@ -224,6 +224,7 @@ if __name__ == '__main__':
     parser.add_argument('--neo4j-bolt-port', help='neo4j https port', default=7687)
     parser.add_argument('--username', help='username', default='neo4j')
     parser.add_argument('--password', help='password', default='default')
+    parser.add_argument('--memory', help='available RAM', default=8)
     parser.add_argument('--start-neo4j', help='starts neo4j as a docker container', action="store_true")
     # parser.add_argument('--use-docker-network', help='use a local docker network', action="store_true")
     args = parser.parse_args()
@@ -234,7 +235,8 @@ if __name__ == '__main__':
         http_port=args.neo4j_http_port,
         https_port=args.neo4j_https_port,
         bolt_port=args.neo4j_bolt_port,
-        neo4j_host=args.neo4j_host
+        neo4j_host=args.neo4j_host,
+        available_gb_memory=int(args.memory)
         # use_docker_network=args.use_docker_network
     )
     graph_db_tools.load_graph(args.nodes,
