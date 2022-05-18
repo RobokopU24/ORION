@@ -1,76 +1,167 @@
-
 import argparse
 import time
 import docker
+import os
 from neo4j import GraphDatabase, Neo4jDriver
 from kgx.transformer import Transformer
-
-
-# ATTENTION - currently KGX does not support neo4j 4.3 officially yet,
-# this is on hold until it does.. in the meantime you need to use neo4j 3 or this version of kgx:
-# git+https://github.com/biolink/kgx.git@neo4j-client-upgrade
 
 
 class GraphDBTools:
 
     def __init__(self,
                  graph_id: str,
-                 graph_db_password: str = 'bad_password',
+                 graph_db_password: str = 'default',
                  http_port: int = 7474,
                  https_port: int = 7473,
                  bolt_port: int = 7687,
-                 neo4j_host: str = 'localhost'):
+                 neo4j_host: str = 'localhost',
+                 use_docker_network: bool = True,
+                 available_gb_memory: int = 12):
         self.graph_id = graph_id if graph_id else "default"
         self.graph_http_port = http_port
         self.graph_https_port = https_port
         self.graph_bolt_port = bolt_port
-        self.graph_db_container_name = f'data_services_graph_db_{self.graph_id}'
-        self.graph_db_uri = f'bolt://{neo4j_host}:{bolt_port}'
-        # TODO use the container instead of localhost
-        # self.graph_uri = f'neo4j://{self.graph_db_container_name}:{self.graph_http_port}'
         self.graph_db_password = graph_db_password
+        self.available_gb_memory = available_gb_memory
+        if use_docker_network:
+            self.graph_db_host = f'data_services_graph_db_{self.graph_id}'
+            self.graph_db_uri = f'bolt://{self.graph_db_host}:{bolt_port}'
+        else:
+            self.graph_db_host = neo4j_host
+            self.graph_db_uri = f'bolt://{neo4j_host}:{bolt_port}'
 
-        self.graph_db_container = None
-
-    def init_graph_db_container(self):
+    def init_graph_db_container(self,
+                                use_csv: bool = True,
+                                csv_nodes_file: str = None,
+                                csv_edges_file: str = None):
         docker_client = docker.from_env()
-        for container in docker_client.containers.list(all=True):
-            if container.name == self.graph_db_container_name:
-                print(f'Found previous container for {container.name}.')
-                if container.status == 'exited':
-                    container.remove()
-                    print(f'Removed previous container for {container.name}.')
-                else:
-                    return
-                    # raise Exception(f'Error: Graph DB Container named {self.graph_db_container_name} already exists!')
+        container = self.get_container(container_name=self.graph_db_host,
+                                       docker_client=docker_client)
+        if container:
+            if container.status == 'exited':
+                container.remove()
+                print(f'Removed previous container for {container.name}.')
+            else:
+                raise Exception(f'Error: Graph DB Container named {self.graph_db_host} already exists!')
 
-        # TODO - make memory settings configurable
+        heap_size = self.available_gb_memory * .75
+        pagecache_size = self.available_gb_memory * .25
         environment = [
             f'NEO4J_AUTH=neo4j/{self.graph_db_password}',
-            'NEO4J_dbms_memory_heap_max__size=4G',
-            'NEO4J_dbms_memory_heap_initial__size=4G',
-            'NEO4J_dbms_memory_pagecache_size=4G',
+            f'NEO4J_dbms_memory_heap_max__size={heap_size}G',
+            f'NEO4J_dbms_memory_heap_initial__size={heap_size}G',
+            f'NEO4J_dbms_memory_pagecache_size={pagecache_size}G',
             'NEO4J_dbms_default__listen__address=0.0.0.0'
         ]
-
         ports = {
             self.graph_http_port: self.graph_http_port,
             self.graph_https_port: self.graph_https_port,
             self.graph_bolt_port: self.graph_bolt_port
         }
-        print(f'Creating Neo4j docker container named {self.graph_db_container_name}...')
-        self.graph_db_container = docker_client.containers.run("neo4j:4.3",
-                                                               name=self.graph_db_container_name,
-                                                               environment=environment,
-                                                               ports=ports,
-                                                               # network='data_services_network',
-                                                               auto_remove=True,
-                                                               detach=True)
+        if use_csv:
+            current_graph_dir = csv_nodes_file.rsplit('/', 1)[0]
+            neo4j_data_dir_relative_path = current_graph_dir + '/neo4j_data'
+            os.mkdir(neo4j_data_dir_relative_path)
+            if neo4j_data_dir_relative_path.startswith('/Data_services_graphs'):
+                # If the path starts with /Data_services_graphs we are probably in a docker container.
+                # The following will replace the docker relative directory path with the real one from the host,
+                # so that we may mount the volume in the new docker container.
+                neo4j_data_dir_real_path = f'{os.environ["HOST_GRAPHS_DIR"]}' \
+                                           f'{neo4j_data_dir_relative_path.split("/Data_services_graphs/", 1)[1]}'
+            else:
+                neo4j_data_dir_real_path = neo4j_data_dir_relative_path
+
+            volumes = [
+                f'{os.environ["HOST_GRAPHS_DIR"]}:/Data_services_graphs',
+                f'{neo4j_data_dir_real_path}:/data'  # neo4j data directory - necessary for persistence after import
+            ]
+            print(f'Creating container and importing csv files to neo4j...')
+            neo4j_cmd = f'neo4j-admin import --nodes={csv_nodes_file} --relationships={csv_edges_file} ' \
+                        f'--delimiter="\t" --array-delimiter="U+001F" --ignore-empty-strings=false --multiline-fields=true'
+            docker_client.containers.run("neo4j:4.3",
+                                         name=self.graph_db_host,
+                                         command=neo4j_cmd,
+                                         environment=environment,
+                                         ports=ports,
+                                         network='data_services_network',
+                                         volumes=volumes)
+
+            # wait for the container to finish importing and exit
+            print(f'Import complete. Waiting for container to exit...')
+            import_complete = False
+            while not import_complete:
+                container = self.get_container(container_name=self.graph_db_host,
+                                               docker_client=docker_client)
+                if container:
+                    print(f'Waiting... got container {container.name} with status {container.status}')
+                    if container.status == 'exited':
+                        container.remove()
+                        import_complete = True
+                    else:
+                        time.sleep(10)
+                else:
+                    import_complete = True
+
+            print(f'Creating a backup dump of the neo4j...')
+            neo4j_cmd = f'neo4j-admin dump --to={current_graph_dir}/graph.db.dump'
+            docker_client.containers.run("neo4j:4.3",
+                                         name=self.graph_db_host,
+                                         command=neo4j_cmd,
+                                         environment=environment,
+                                         ports=ports,
+                                         auto_remove=True,
+                                         network='data_services_network',
+                                         volumes=volumes,
+                                         detach=False)
+
+            # wait for the container to finish dump and exit
+            print(f'Dump complete. Waiting for container to exit...')
+            dump_complete = False
+            while not dump_complete:
+                container = self.get_container(container_name=self.graph_db_host,
+                                               docker_client=docker_client)
+                if container:
+                    print(f'Waiting... got container {container.name} with status {container.status}')
+                    if container.status == 'exited':
+                        container.remove()
+                        dump_complete = True
+                    else:
+                        time.sleep(10)
+                else:
+                    dump_complete = True
+            print(f'Backup dump complete.')
+            print(f'Hosting graph again...')
+            docker_client.containers.run("neo4j:4.3",
+                                         name=self.graph_db_host,
+                                         environment=environment,
+                                         ports=ports,
+                                         auto_remove=False,
+                                         network='data_services_network',
+                                         volumes=volumes,
+                                         detach=True)
+            # os.remove(csv_nodes_file)
+            # os.remove(csv_edges_file)
+            # os.remove(neo4j_data_dir_relative_path)
+        else:
+            docker_client.containers.run("neo4j:4.3",
+                                         name=self.graph_db_host,
+                                         environment=environment,
+                                         ports=ports,
+                                         auto_remove=False,
+                                         network='data_services_network',
+                                         detach=True)
+
+    def get_container(self, docker_client: docker.DockerClient, container_name: str):
+        for container in docker_client.containers.list(all=True):
+            if container.name == container_name:
+                return container
+        return None
 
     def wait_for_container_initialization(self):
         try:
             http_driver: Neo4jDriver = GraphDatabase.driver(
-                self.graph_db_uri, auth=('neo4j', self.graph_db_password)
+                self.graph_db_uri,
+                auth=('neo4j', self.graph_db_password)
             )
             with http_driver.session() as session:
                 session.run("match (c) return count(c)")
@@ -84,14 +175,24 @@ class GraphDBTools:
                    nodes_input_file: str,
                    edges_input_file: str,
                    input_file_format: str = 'jsonl',
-                   start_neo4j: bool = False):
+                   start_neo4j: bool = False,
+                   use_csv: bool = False):
 
-        if not self.graph_db_container and start_neo4j:
-            self.init_graph_db_container()
-        self.wait_for_container_initialization()
+        if use_csv:
+            self.init_graph_db_container(use_csv=use_csv,
+                                         csv_nodes_file=nodes_input_file,
+                                         csv_edges_file=edges_input_file)
+            return
 
         if input_file_format != 'jsonl':
             raise Exception(f'File format {input_file_format} not supported by GraphDBTools.')
+
+        if start_neo4j:
+            print(f'Creating Neo4j docker container named {self.graph_db_host}...')
+            self.init_graph_db_container()
+        else:
+            print(f'Looking for existing Neo4j instance..')
+        self.wait_for_container_initialization()
 
         # prepare the parameters required by KGX
         input_args = {
@@ -105,7 +206,7 @@ class GraphDBTools:
             'format': 'neo4j'
         }
         # use KGX to load the files into neo4j
-        print(f'Loading data from {nodes_input_file} and {edges_input_file} into {self.graph_db_container_name}...')
+        print(f'Loading data from {nodes_input_file} and {edges_input_file} into {self.graph_db_uri}...')
         t = Transformer(stream=True)
         t.transform(input_args, output_args)
 
@@ -124,6 +225,7 @@ if __name__ == '__main__':
     parser.add_argument('--username', help='username', default='neo4j')
     parser.add_argument('--password', help='password', default='default')
     parser.add_argument('--start-neo4j', help='starts neo4j as a docker container', action="store_true")
+    # parser.add_argument('--use-docker-network', help='use a local docker network', action="store_true")
     args = parser.parse_args()
 
     graph_db_tools = GraphDBTools(
@@ -133,16 +235,14 @@ if __name__ == '__main__':
         https_port=args.neo4j_https_port,
         bolt_port=args.neo4j_bolt_port,
         neo4j_host=args.neo4j_host
+        # use_docker_network=args.use_docker_network
     )
     graph_db_tools.load_graph(args.nodes,
                               args.edges,
-                              start_neo4j=args.start_neo4j)
+                              start_neo4j=args.start_neo4j,
+                              use_csv=True)
     """
-
-    # ATTENTION - currently KGX does not support neo4j 4.3 officially yet,
-    # this is on hold until it does.. in the meantime you need to use neo4j 3 or this version of kgx:
-    # git+https://github.com/biolink/kgx.git@neo4j-client-upgrade
-
+    
     graph_db_tools = GraphDBTools("Example_Graph_ID")
     nodes_file = '/Example/nodes.jsonl'
     edges_file = '/Example/edges.jsonl'
