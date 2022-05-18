@@ -92,9 +92,6 @@ class PHAROSLoader(SourceDataLoader):
         db_dump_path = os.path.join(self.data_path, self.data_file)
         db_container.load_db_dump(db_dump_path)
 
-        # db_container.move_files_to_container([db_dump_path])
-        # db_container.load_db_dump(self.data_file)
-
         self.pharos_db_container = db_container
 
         # storage for the node list
@@ -129,6 +126,8 @@ class PHAROSLoader(SourceDataLoader):
             self.logger.debug(f'{len(self.final_node_list)} nodes found, {len(self.final_edge_list)} edges found.')
         else:
             self.logger.warning(f'No records found.')
+
+        db_container.stop_container()
 
         # load up the metadata
         load_metadata = {

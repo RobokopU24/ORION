@@ -89,6 +89,9 @@ class DataServicesContainer:
         except docker.errors.NotFound:
             return None
 
+    def stop_container(self):
+        self.get_container().stop()
+
     """
     # given a list of source files move them inside of the container
     # this could be useful if sharing volumes is not possible

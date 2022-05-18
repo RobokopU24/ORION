@@ -52,9 +52,13 @@ graphs:
       - source_id: HGNC
 ```
 
-Run the build manager to build graphs from your Graph Spec. 
+Install Docker to create and run the necessary containers. 
 
-Use docker compose to create and run the necessary containers. By default the Dockerfile invokes Common/build_manager.py with no arguments,
+To avoid user and group permissions issues, first build the main container using your existing user and group ids:
+```
+docker-compose build --build-arg UID="$(id -u)" --build-arg GID="$(id -g)" data_services
+```
+By default using docker-compose invokes /Data_services/Common/build_manager.py with no arguments,
 which will build every graph in your Graph Spec.
 ```
 docker-compose up
