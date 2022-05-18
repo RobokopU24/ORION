@@ -16,7 +16,7 @@ class GraphDBTools:
                  bolt_port: int = 7687,
                  neo4j_host: str = 'localhost',
                  use_docker_network: bool = True,
-                 available_gb_memory: int = 12):
+                 available_gb_memory: int = 10):
         self.graph_id = graph_id if graph_id else "default"
         self.graph_http_port = http_port
         self.graph_https_port = https_port
@@ -34,7 +34,7 @@ class GraphDBTools:
                                 use_csv: bool = True,
                                 csv_nodes_file: str = None,
                                 csv_edges_file: str = None):
-        docker_client = docker.from_env()
+        docker_client = docker.from_env(timeout=120)
         container = self.get_container(container_name=self.graph_db_host,
                                        docker_client=docker_client)
         if container:
