@@ -190,7 +190,8 @@ class GraphDBTools:
             time.sleep(15)
             self.wait_for_container_initialization()
 
-    # WARNING: neo4j_load_using_kgx is deprecated and probably broken - saving for possible use later on
+    """
+    # neo4j_load_using_kgx is deprecated and probably broken - saving for possible use later on
     def __neo4j_load_using_kgx(self,
                              nodes_input_file: str,
                              edges_input_file: str,
@@ -224,7 +225,7 @@ class GraphDBTools:
         print(f'Loading data from {nodes_input_file} and {edges_input_file} into {self.graph_db_uri}...')
         t = Transformer(stream=True)
         t.transform(input_args, output_args)
-
+    """
 
 if __name__ == '__main__':
 
