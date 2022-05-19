@@ -66,8 +66,10 @@ class GraphDBTools:
                 # If the path starts with /Data_services_graphs we are probably in a docker container.
                 # The following will replace the docker relative directory path with the real one from the host,
                 # so that we may mount the volume in the new docker container.
-                neo4j_data_dir_real_path = f'{os.environ["HOST_GRAPHS_DIR"]}' \
-                                           f'{neo4j_data_dir_relative_path.split("/Data_services_graphs/", 1)[1]}'
+                neo4j_data_dir_real_path = os.path.join(
+                    f'{os.environ["HOST_GRAPHS_DIR"]}',
+                    f'{neo4j_data_dir_relative_path.split("/Data_services_graphs/", 1)[1]}'
+                )
             else:
                 neo4j_data_dir_real_path = neo4j_data_dir_relative_path
 
@@ -93,11 +95,12 @@ class GraphDBTools:
                 container = self.get_container(container_name=self.graph_db_host,
                                                docker_client=docker_client)
                 if container:
-                    print(f'Waiting... got container {container.name} with status {container.status}')
                     if container.status == 'exited':
                         container.remove()
                         import_complete = True
+                        print(f'Removing container...')
                     else:
+                        print(f'Waiting... got container {container.name} with status {container.status}')
                         time.sleep(10)
                 else:
                     import_complete = True
