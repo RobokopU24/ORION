@@ -2,7 +2,6 @@ import argparse
 import time
 import docker
 import os
-import sys
 import neo4j
 # from kgx.transformer import Transformer
 from Common.node_types import NAMED_THING
@@ -201,10 +200,14 @@ class GraphDBTools:
                 print(f'Container not found.. Possibly auto-removed..')
 
     def deploy_neo4j(self,
-                     output_dir: str):
+                     output_dir: str,
+                     include_apoc: bool = False):
 
         self.check_for_existing_container()
         self.establish_neo4j_volumes(output_dir=output_dir)
+        apoc_string = 'NEO4JLABS_PLUGINS=["apoc"]'
+        if include_apoc:
+            self.neo4j_env_vars.append(apoc_string)
 
         print(f'Starting up Neo4j...')
         self.docker_client.containers.run("neo4j:4.3",
@@ -216,6 +219,8 @@ class GraphDBTools:
                                           user=self.unix_user_id,
                                           detach=True)
         deploy_success = self.wait_for_neo4j_initialization()
+        if include_apoc:
+            self.neo4j_env_vars.remove(apoc_string)
         return deploy_success
 
     def get_container(self):
@@ -323,7 +328,7 @@ def run_neo4j_pipeline(args):
     if exit_code != 0:
         return
 
-    graph_db_tools.deploy_neo4j(output_dir=output_directory)
+    graph_db_tools.deploy_neo4j(output_dir=output_directory, include_apoc=True)
 
 
 if __name__ == '__main__':
