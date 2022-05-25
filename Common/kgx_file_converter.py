@@ -61,7 +61,7 @@ def __verify_conversion(file_path: str,
             counter += 1
             if len(split_line) != num_properties:
                 raise Exception(f'Number of fields mismatch on line {counter} - got {len(split_line)}'
-                                f' expected {len(property_types)}: {line}')
+                                f' expected {num_properties}: {split_line}')
             for (prop, value) in zip(properties.keys(), split_line):
                 if not value:
                     continue
@@ -79,7 +79,7 @@ def __verify_conversion(file_path: str,
     if len(verified_properties) != num_properties:
         print(f'Not all properties were verified.. This should not happen..')
         print(f'Properties that were not verified: '
-              f'{[prop for prop in property_types.keys() if prop not in verified_properties]}')
+              f'{[prop for prop in properties.keys() if prop not in verified_properties]}')
     else:
         print(f'Passed verification step: {file_path}')
 
@@ -107,19 +107,22 @@ def __determine_properties_and_types(file_path: str, required_properties: dict):
     for prop, type_counts in property_type_counts.items():
         prop_types = list(type_counts.keys())
         num_prop_types = len(prop_types)
-        has_type_conflicts = num_prop_types > 1
 
         if 'None' in prop_types:
             print(f'WARNING: None found as a value for property {prop}, that should not happen!')
             if prop in required_properties:
                 raise Exception(f'None found as a value for a required property - {type_counts.items()}')
 
-        if prop in required_properties and has_type_conflicts:
+        if prop in required_properties and (num_prop_types > 1):
             raise Exception(f'Required property {prop} had multiple conflicting types: {type_counts.items()}')
         elif prop in required_properties:
             # do nothing, already set
             pass
+        elif num_prop_types == 1:
+            # if only one type just set it to that
+            properties[prop] = prop_types[0]
         else:
+            print(f'Property {prop} had conflicting types: {type_counts}')
             if 'string[]' in prop_types:
                 properties[prop] = 'string[]'
             elif 'float' in prop_types and 'int' in prop_types and num_prop_types == 2:
