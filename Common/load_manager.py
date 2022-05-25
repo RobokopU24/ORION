@@ -93,7 +93,7 @@ SOURCE_DATA_LOADER_CLASSES = {
     # FOODB: FDBLoader - no longer has curies that will normalize
 }
 
-RESOURCE_HOGS = [GTEX, UNIREF, UBERGRAPH, ONTOLOGICAL_HIERARCHY, DRUG_CENTRAL]
+RESOURCE_HOGS = [GTEX, GWAS_CATALOG, UNIREF, ONTOLOGICAL_HIERARCHY]
 
 
 class SourceDataManager:
@@ -415,7 +415,7 @@ class SourceDataManager:
             edges_norm_file_path = self.get_normalized_edge_file_path(source_id, source_version, parsing_version, composite_normalization_version)
             edge_norm_predicate_map_file_path = self.get_edge_norm_predicate_map_file_path(source_id, source_version, parsing_version, composite_normalization_version)
             default_provenance = SOURCE_DATA_LOADER_CLASSES[source_id].provenance_id
-            process_in_memory = False if source_id in RESOURCE_HOGS or has_sequence_variants else True
+            process_in_memory = False if source_id in RESOURCE_HOGS else True
             file_normalizer = KGXFileNormalizer(nodes_source_file_path,
                                                 nodes_norm_file_path,
                                                 node_norm_map_file_path,

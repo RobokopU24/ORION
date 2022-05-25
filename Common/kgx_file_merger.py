@@ -5,6 +5,7 @@ from Common.utils import LoggingUtil, quick_jsonl_file_iterator, quick_json_dump
 from Common.kgxmodel import GraphSpec
 from Common.node_types import SUBJECT_ID, OBJECT_ID
 from Common.merging import GraphMerger, DiskGraphMerger, MemoryGraphMerger
+from Common.load_manager import RESOURCE_HOGS
 
 # import line_profiler
 # import atexit
@@ -81,8 +82,15 @@ class KGXFileMerger:
                               nodes_out_file: str,
                               edges_out_file: str,
                               merge_metadata: dict):
-
-        graph_merger = DiskGraphMerger(temp_directory=self.output_directory)
+        needs_on_disk_merge = False
+        for source_id in [graph_source.id for graph_source in graph_sources]:
+            if source_id in RESOURCE_HOGS:
+                needs_on_disk_merge = True
+                break
+        if needs_on_disk_merge:
+            graph_merger = DiskGraphMerger(temp_directory=self.output_directory)
+        else:
+            graph_merger = MemoryGraphMerger()
         for i, graph_source in enumerate(graph_sources, start=1):
             self.logger.info(f"Processing {graph_source.id}. (primary source {i}/{len(graph_sources)})")
             merge_metadata["sources"][graph_source.id] = {'source_version': graph_source.version}
