@@ -126,7 +126,7 @@ class SequenceVariantSupplementation:
     def run_snpeff(self,
                    vcf_file_path: str,
                    annotated_vcf_path: str,
-                   ud_distance: int = 500000):
+                   ud_distance: int = 100_000):
 
         # changing this reference genome DB may break things,
         # such as assuming gene IDs and biotypes are from ensembl
