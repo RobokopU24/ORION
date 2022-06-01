@@ -17,7 +17,7 @@ class GraphDBTools:
                  https_port: int = 7473,
                  bolt_port: int = 7687,
                  available_gb_memory: int = 8,
-                 unix_user_id: str = '1000:1000'):
+                 unix_user_id: str = '0:0'):
 
         self.graph_id = graph_id
         self.graph_http_port = http_port
@@ -205,7 +205,7 @@ class GraphDBTools:
 
         self.check_for_existing_container()
         self.establish_neo4j_volumes(output_dir=output_dir)
-        apoc_string = 'NEO4JLABS_PLUGINS=["apoc"]'
+        apoc_string = 'NEO4JLABS_PLUGINS=["apoc", "graph-data-science"]'
         if include_apoc:
             self.neo4j_env_vars.append(apoc_string)
 
@@ -345,7 +345,7 @@ if __name__ == '__main__':
     # parser.add_argument('--username', help='username', default='neo4j')
     parser.add_argument('--password', help='neo4j password', default='default')
     parser.add_argument('--memory', help='available RAM', default=8)
-    parser.add_argument('--uid', help='unix user id', default='1000:1000')
+    parser.add_argument('--uid', help='unix user id', default='0:0')
     args = parser.parse_args()
 
     run_neo4j_pipeline(args)

@@ -7,8 +7,8 @@ COPY ./requirements.txt /Data_services/requirements.txt
 
 RUN pip install -r /Data_services/requirements.txt
 
-ARG UID=1000
-ARG GID=1000
+ARG UID=0
+ARG GID=0
 ARG DS_USER=ds_user
 RUN groupadd -f --gid $GID $DS_USER
 RUN useradd -o --uid $UID --gid $GID -m $DS_USER
