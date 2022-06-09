@@ -255,7 +255,7 @@ class NodeNormUtils:
             current_node_id = current_node['id']
 
             # make sure there is a name
-            if not current_node['name']:
+            if 'name' not in current_node or not current_node['name']:
                 current_node['name'] = current_node['id'].split(':')[-1]
 
             # remove properties with null values, remove newline characters
@@ -269,6 +269,9 @@ class NodeNormUtils:
 
             # if strict normalization is off, enforce valid node types
             if not self.strict_normalization:
+
+                if 'category' not in current_node:
+                    current_node['category'] == [ROOT_ENTITY]
 
                 # remove all the bad types and make them a property instead
                 invalid_node_types = [node_type for node_type in current_node['category'] if
