@@ -13,7 +13,6 @@ from urllib import request
 from zipfile import ZipFile
 from io import TextIOWrapper
 from io import BytesIO
-from rdflib import Graph
 from csv import reader, DictReader
 from ftplib import FTP
 from datetime import datetime
@@ -1241,20 +1240,6 @@ class GetData:
         for row_index, row in df_edge_grp.iterrows():
             the_logger.info(f'{row["curie"]}\t{data_set_name}')
             # self.logger.info(f'Failed edge predicate: {row["curie"]}, count: {row["count"]}')
-
-    @staticmethod
-    def get_biolink_graph(data_uri: str) -> Graph:
-        """
-        Gets the passed URI into turtle format
-
-        :return: A RDF Graph of the ttl data file passed in
-        """
-
-        # create a RDF graph of the json-ld
-        ret_val = Graph().parse(data_uri, format='turtle')
-
-        # return the data to the caller
-        return ret_val
 
     @staticmethod
     def split_file(archive_file_path: str, output_dir: str, data_file_name: str, lines_per_file: int = 500000) -> list:
