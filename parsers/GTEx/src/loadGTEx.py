@@ -157,12 +157,12 @@ class GTExLoader(SourceDataWithVariantsLoader):
         return load_metadata
 
     def parse_gtex_tar(self,
-                       tar_file_path: str,
+                       tar_path: str,
                        load_metadata: dict,
                        is_sqtl: bool = False):
         record_counter = load_metadata['record_counter']
         skipped_record_counter = load_metadata['skipped_record_counter']
-        for gtex_relationship in self.parse_file_and_yield_relationships(tar_file_path):
+        for gtex_relationship in self.parse_file_and_yield_relationships(tar_path):
             # unpack the gtex_relationship tuple
             anatomy_id, gtex_variant, gtex_gene, p_value, slope = gtex_relationship
             # process and write the nodes
