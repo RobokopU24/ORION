@@ -162,14 +162,13 @@ class GTExLoader(SourceDataWithVariantsLoader):
                        is_sqtl: bool = False):
         record_counter = load_metadata['record_counter']
         skipped_record_counter = load_metadata['skipped_record_counter']
-        for gtex_relationship in self.parse_file_and_yield_relationships(tar_path):
+        for gtex_relationship in self.parse_file_and_yield_relationships(tar_path, is_sqtl=is_sqtl):
             # unpack the gtex_relationship tuple
             anatomy_id, gtex_variant, gtex_gene, p_value, slope = gtex_relationship
             # process and write the nodes
             variant_id = self.process_variant(gtex_variant)
-            gene_id = self.process_gene(gtex_gene)
-            if variant_id and gene_id:
-                # create the edge (stored in self.edge_list)
+            if variant_id:
+                gene_id = self.process_gene(gtex_gene)
                 self.create_edge(anatomy_id, variant_id, gene_id, p_value, slope, is_sqtl=is_sqtl)
                 record_counter += 1
                 if self.test_mode and record_counter % 500_000 == 0:
