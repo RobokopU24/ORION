@@ -85,15 +85,13 @@ class SequenceVariantSupplementation:
                                supp_edge_norm_predicate_map_file_path: str,
                                normalization_scheme: NormalizationScheme):
 
-        self.logger.debug('Parsing nodes file..')
-        source_nodes = self.parse_nodes_file(nodes_file_path)
-
-        self.logger.debug('Creating VCF file from source nodes..')
         workspace_dir = supp_nodes_norm_file_path.rsplit("/", 1)[0]
         vcf_file_path = f'{workspace_dir}/variants.vcf'
-        self.create_vcf_from_variant_nodes(source_nodes,
+
+        self.logger.info('Creating VCF file from source nodes..')
+        self.create_vcf_from_variant_nodes(nodes_file_path,
                                            vcf_file_path)
-        self.logger.debug('Running SNPEFF, creating annotated VCF..')
+        self.logger.info('Running SNPEFF, creating annotated VCF..')
         annotated_vcf_path = f'{workspace_dir}/variants_ann.vcf'
         self.run_snpeff(vcf_file_path,
                         annotated_vcf_path)
@@ -131,7 +129,7 @@ class SequenceVariantSupplementation:
         # changing this reference genome DB may break things,
         # such as assuming gene IDs and biotypes are from ensembl
         reference_genome = 'GRCh38.99'
-        subprocess_command = ['java', '-Xmx12g', '-jar', 'snpEff.jar',
+        subprocess_command = ['java', '-Xmx6g', '-jar', 'snpEff.jar',
                               '-noStats', '-ud', str(ud_distance), reference_genome, vcf_file_path]
         with open(annotated_vcf_path, "w") as new_snpeff_file:
             snpeff_results: subprocess.CompletedProcess = subprocess.run(subprocess_command,
@@ -201,51 +199,44 @@ class SequenceVariantSupplementation:
 
         return supplementation_info
 
-    def parse_nodes_file(self, nodes_file_path: str):
-        self.logger.debug(f'Parsing Node File {nodes_file_path} for supplementation...')
+    def create_vcf_from_variant_nodes(self,
+                                      nodes_file_path: str,
+                                      vcf_file_path: str):
         try:
-            with open(nodes_file_path) as source_json:
-                source_reader = jsonlines.Reader(source_json)
-                source_nodes = [node for node in source_reader]
-            return source_nodes
+            with open(vcf_file_path, "w") as vcf_file, jsonlines.open(nodes_file_path) as source_json:
+                vcf_headers = "\t".join(["CHROM", "POS", "ID", "REF", "ALT", "QUAL", "FILTER", "INFO"])
+                vcf_file.write(f'#{vcf_headers}\n')
+                for node in source_json:
+                    if SEQUENCE_VARIANT in node['category']:
+                        for curie in node['equivalent_identifiers']:
+                            if curie.startswith('ROBO_VAR'):
+                                robo_key = curie.split(':', 1)[1]
+                                robo_params = robo_key.split('|')
+
+                                chromosome = robo_params[1]
+                                position = int(robo_params[2])
+                                ref_allele = robo_params[4]
+                                alt_allele = robo_params[5]
+
+                                if not ref_allele:
+                                    ref_allele = f'N'
+                                    alt_allele = f'N{alt_allele}'
+                                elif not alt_allele:
+                                    ref_allele = f'N{ref_allele}'
+                                    alt_allele = f'N'
+                                else:
+                                    position += 1
+
+                                current_variant_line = "\t".join([chromosome,
+                                                                  str(position),
+                                                                  node['id'],
+                                                                  ref_allele,
+                                                                  alt_allele,
+                                                                  '',
+                                                                  'PASS',
+                                                                  ''])
+                                vcf_file.write(f'{current_variant_line}\n')
+                                break
         except json.JSONDecodeError as e:
             norm_error_msg = f'Error decoding json from {nodes_file_path} on line number {e.lineno}'
             raise SupplementationFailedError(error_message=norm_error_msg, actual_error=e.msg)
-
-    def create_vcf_from_variant_nodes(self,
-                                      source_nodes: list,
-                                      vcf_file_path: str):
-        with open(vcf_file_path, "w") as vcf_file:
-            vcf_headers = "\t".join(["CHROM", "POS", "ID", "REF", "ALT", "QUAL", "FILTER", "INFO"])
-            vcf_file.write(f'#{vcf_headers}\n')
-            for node in source_nodes:
-                if SEQUENCE_VARIANT in node['category']:
-                    for curie in node['equivalent_identifiers']:
-                        if curie.startswith('ROBO_VAR'):
-                            robo_key = curie.split(':', 1)[1]
-                            robo_params = robo_key.split('|')
-
-                            chromosome = robo_params[1]
-                            position = int(robo_params[2])
-                            ref_allele = robo_params[4]
-                            alt_allele = robo_params[5]
-
-                            if not ref_allele:
-                                ref_allele = f'N'
-                                alt_allele = f'N{alt_allele}'
-                            elif not alt_allele:
-                                ref_allele = f'N{ref_allele}'
-                                alt_allele = f'N'
-                            else:
-                                position += 1
-
-                            current_variant_line = "\t".join([chromosome,
-                                                              str(position),
-                                                              node['id'],
-                                                              ref_allele,
-                                                              alt_allele,
-                                                              '',
-                                                              'PASS',
-                                                              ''])
-                            vcf_file.write(f'{current_variant_line}\n')
-                            break
