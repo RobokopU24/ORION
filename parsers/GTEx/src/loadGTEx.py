@@ -143,14 +143,14 @@ class GTExLoader(SourceDataWithVariantsLoader):
 
         self.logger.info('Parsing eqtl data and writing nodes...')
         eqtl_tar_download_path = os.path.join(self.data_path, self.eqtl_tar_file_name)
-        self.parse_gtex_tar_file(tar_path=eqtl_tar_download_path,
-                                 load_metadata=load_metadata)
+        self.parse_gtex_tar(tar_path=eqtl_tar_download_path,
+                            load_metadata=load_metadata)
 
         self.logger.info('Parsing sqtl data and writing nodes...')
         sqtl_tar_download_path = os.path.join(self.data_path, self.sqtl_tar_file_name)
-        self.parse_gtex_tar_file(tar_path=sqtl_tar_download_path,
-                                 load_metadata=load_metadata,
-                                 is_sqtl=True)
+        self.parse_gtex_tar(tar_path=sqtl_tar_download_path,
+                            load_metadata=load_metadata,
+                            is_sqtl=True)
 
         self.logger.info(f'GTEx parsing and KGX file creation complete.')
         load_metadata['errors'] = self.parsing_errors
