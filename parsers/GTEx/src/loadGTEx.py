@@ -82,6 +82,7 @@ class GTExLoader(SourceDataWithVariantsLoader):
 
     source_id = 'GTEx'
     provenance_id = 'infores:gtex'
+    parsing_version = '1.1'
 
     def __init__(self, test_mode: bool = False, source_data_dir: str = None):
         """
