@@ -16,7 +16,7 @@ class DATACOLS(enum.IntEnum):
     normalized_score = 3
 
 
-class CarrotArabidopsisOrthlogsLoader(SourceDataLoader):
+class CarrotArabidopsisOrthologsLoader(SourceDataLoader):
 
     def __init__(self, test_mode: bool = False, source_data_dir: str = None):
         """
@@ -37,7 +37,7 @@ class CarrotArabidopsisOrthlogsLoader(SourceDataLoader):
         """
         # init the return
         # Not needed, locally stored file.
-        ret_val: str = 'curr_version'
+        ret_val: str = 'v1.0'
         return ret_val
 
     # get data
@@ -98,7 +98,7 @@ if __name__ == '__main__':
     # get the params
     data_dir = args['data_dir']
 
-    orthologLoader = CarrotArabidopsisOrthlogsLoader(False)
+    orthologLoader = CarrotArabidopsisOrthologsLoader(False)
     # orthologLoader.parse_data()
 
     # load data files and create KGX output

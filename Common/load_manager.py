@@ -17,7 +17,7 @@ from parsers.scent.src.loadScent import ScentLoader
 
 # from parsers.FooDB.src.loadFDB import FDBLoader
 from parsers.GOA.src.loadGOA import PlantGOALoader, HumanGOALoader
-from parsers.orthologs.src.carrot_arabidopsis import CarrotArabidopsisOrthlogsLoader
+from parsers.orthologs.src.carrot_arabidopsis import CarrotArabidopsisOrthologsLoader
 from parsers.IntAct.src.loadIA import IALoader
 from parsers.PHAROS.src.loadPHAROS import PHAROSLoader
 from parsers.UberGraph.src.loadUG import UGLoader
@@ -64,7 +64,7 @@ SOURCE_DATA_LOADER_CLASSES = {
     GTOPDB: GtoPdbLoader,
     HUMAN_GOA: HumanGOALoader,
     PLANT_GOA: PlantGOALoader,
-    CAR_ARA_ORTHOLOG: CarrotArabidopsisOrthlogsLoader,
+    CAR_ARA_ORTHOLOG: CarrotArabidopsisOrthologsLoader,
     HGNC: HGNCLoader,
     UBERGRAPH: UGLoader,
     VP: VPLoader,

@@ -41,8 +41,3 @@ graphs:
       - source_id: OntologicalHierarchy
         merge_strategy: connected_edge_subset
 
-  - graph_id: Plant
-    sources:
-      - source_id: PlantGOA
-      - source_id: CarrotArabidopsisOrthologs
-
