@@ -2,7 +2,7 @@ pandas==1.4.2
 requests==2.27.1
 pytest==7.1.1
 # pytest-cov==2.12.1
-git+https://github.com/ObesityHub/robokop-genetics.git@large_batches
+git+https://github.com/ObesityHub/robokop-genetics.git
 mysql-connector==2.2.9
 jsonlines==2.0.0
 pyyaml==5.4.1
