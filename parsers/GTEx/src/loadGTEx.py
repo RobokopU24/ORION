@@ -10,11 +10,6 @@ from Common.node_types import SEQUENCE_VARIANT, GENE
 from Common.prefixes import HGVS, UBERON
 from Common.hgvs_utils import convert_variant_to_hgvs
 
-import line_profiler
-import atexit
-profile = line_profiler.LineProfiler()
-atexit.register(profile.print_stats)
-
 
 class GTExLoader(SourceDataWithVariantsLoader):
 
@@ -132,7 +127,6 @@ class GTExLoader(SourceDataWithVariantsLoader):
         self.logger.info(f'Downloading raw GTEx data files from {sqtl_url}.')
         self.fetch_and_save_tar(sqtl_url, sqtl_tar_download_path)
 
-    @profile
     def parse_data(self):
 
         self.logger.info('Normalizing anatomy IDs...')
@@ -259,7 +253,6 @@ class GTExLoader(SourceDataWithVariantsLoader):
                                            original_knowledge_source=self.provenance_id,
                                            edge_properties=edge_properties)
 
-    @profile
     def parse_file_and_yield_relationships(self,
                                            full_tar_path: str,
                                            is_sqtl: bool = False):
