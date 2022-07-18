@@ -1,0 +1,40 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ .Release.Name }}
+spec:
+  template:
+    metadata:
+      name: {{ .Release.Name }}
+    spec:
+      restartPolicy: Never
+      containers:
+      - name: ds-graph-builder
+        image: {{ .Values.dataServices.image.repository }}
+        command: ["python", "/Data_services/build_manager.py"]
+        volumeMounts:
+          - mountPath: /Data_services_storage
+            name: ds-sources-volume
+            subPath: storage
+          - mountPath: /Data_services_logs
+            name: ds-sources-volume
+            subPath: logs
+          - name: ds-graphs-volume
+            mountPath: /Data_services_graphs
+        env:
+          - name: DATA_SERVICES_STORAGE
+            value: /Data_services_storage
+          - name: DATA_SERVICES_GRAPHS
+            value: /Data_services_graphs
+          - name: DATA_SERVICES_GRAPH_SPEC
+            value: {{ .Values.dataServices.graphSpec }}
+          - name: DATA_SERVICES_LOGS
+            value: /Data_services_logs
+      volumes:
+        - name: ds-sources-volume
+          persistentVolumeClaim:
+            claimName: ds-sources-pvc
+        - name: ds-graphs-volume
+          persistentVolumeClaim:
+            claimName: ds-graphs-pvc
+

@@ -14,11 +14,7 @@ export DATA_SERVICES_STORAGE=$PWD/../Data_services_storage/
 mkdir -p $PWD/../Data_services_graphs
 export DATA_SERVICES_GRAPHS=$PWD/../Data_services_graphs/
 
-GRAPH_SPEC_FILE=$PWD/../Data_services_graphs/graph-spec.yml
-if [ ! -f "$GRAPH_SPEC_FILE" ]; then
-    cp $PWD/default-graph-spec.yml $PWD/../Data_services_graphs/graph-spec.yml
-fi
-export DATA_SERVICES_GRAPH_SPEC=graph-spec.yml
+export DATA_SERVICES_GRAPH_SPEC=testing-graph-spec.yml
 
 mkdir -p $PWD/../Data_services_logs
 export DATA_SERVICES_LOGS=$PWD/../Data_services_logs/

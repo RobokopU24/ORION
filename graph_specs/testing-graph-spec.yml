@@ -1,0 +1,7 @@
+# testing graph spec
+graphs:
+
+  - graph_id: Test_Graph
+    sources:
+      - source_id: HGNC
+      - source_id: HumanGOA

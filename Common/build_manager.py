@@ -167,7 +167,8 @@ class GraphBuilder:
     def load_graph_specs(self):
         if 'DATA_SERVICES_GRAPH_SPEC' in os.environ:
             graph_spec_file = os.environ['DATA_SERVICES_GRAPH_SPEC']
-            graph_spec_path = os.path.join(self.graphs_dir, graph_spec_file)
+            # TODO - this is a messy way to find the graph spec path but we will change where that is soon anyway
+            graph_spec_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'graph_specs', graph_spec_file)
             if os.path.exists(graph_spec_path):
                 self.logger.info(f'Loading graph spec: {graph_spec_file}')
                 with open(graph_spec_path) as graph_spec_file:
@@ -177,7 +178,7 @@ class GraphBuilder:
                 raise Exception(f'Configuration Error - Graph Spec could not be found: {graph_spec_file}')
         else:
             raise Exception(f'Configuration Error - No Graph Spec was configured. Set the environment variable '
-                            f'DATA_SERVICES_GRAPH_SPEC to a valid Graph Spec file in your Graphs directory. '
+                            f'DATA_SERVICES_GRAPH_SPEC to a valid Graph Spec file. '
                             f'See the README for more info.')
 
     def parse_graph_spec(self, graph_spec_yaml):
@@ -317,7 +318,7 @@ class GraphBuilder:
 
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description="Merge KGX files into neo4j graphs.")
+    parser = argparse.ArgumentParser(description="Merge data source files into complete graphs.")
     parser.add_argument('-g', '--graph_id', default='all',
                         help=f'Select a single graph to load by the graph id.')
     args = parser.parse_args()
