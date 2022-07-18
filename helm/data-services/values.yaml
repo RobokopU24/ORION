@@ -1,0 +1,52 @@
+# Default values for data-services.
+
+replicaCount: 1
+
+dataServices:
+  graphSpec: "testing-graph-spec.yml"
+  image:
+    repository: evandietzmorris/data_services
+    pullPolicy: IfNotPresent
+    # Overrides the image tag whose default is the chart appVersion.
+    tag: "latest"
+  graphsVolume:
+    size: 16Gi
+  sourcesVolume:
+    size: 32Gi
+  resources:
+    limits:
+      cpu: "4"
+      memory: 8Gi
+    requests:
+      cpu: "2"
+      memory: 8Gi
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+podAnnotations: {}
+
+podSecurityContext: {}
+  # fsGroup: 2000
+
+securityContext: {}
+  # capabilities:
+  #   drop:
+  #   - ALL
+  # readOnlyRootFilesystem: true
+  # runAsNonRoot: true
+  # runAsUser: 1000
+
+autoscaling:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 100
+  targetCPUUtilizationPercentage: 80
+  # targetMemoryUtilizationPercentage: 80
+
+nodeSelector: {}
+
+tolerations: []
+
+affinity: {}
