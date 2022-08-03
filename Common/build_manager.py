@@ -1,8 +1,10 @@
 
 import os
+import shutil
 import yaml
 import argparse
 import datetime
+import Common.kgx_file_converter as kgx_file_converter
 from xxhash import xxh64_hexdigest
 from Common.utils import LoggingUtil
 from Common.load_manager import SourceDataManager, SOURCE_DATA_LOADER_CLASSES
@@ -13,6 +15,7 @@ from Common.supplementation import SequenceVariantSupplementation
 
 NODES_FILENAME = 'nodes.jsonl'
 EDGES_FILENAME = 'edges.jsonl'
+
 
 class GraphBuilder:
 
@@ -33,13 +36,13 @@ class GraphBuilder:
 
     def build_graph(self, graph_spec: GraphSpec):
 
-        graph_id = graph_spec.graph_id
-        graph_version = self.generate_graph_version(graph_spec)
-        self.current_graph_versions[graph_id] = graph_version
-
         if not self.build_dependencies(graph_spec):
             self.logger.warning(f'Aborting graph {graph_spec.graph_id}, building dependencies failed.')
             return
+
+        graph_id = graph_spec.graph_id
+        graph_version = self.generate_graph_version(graph_spec)
+        self.current_graph_versions[graph_id] = graph_version
 
         graph_metadata = self.get_graph_metadata(graph_id, graph_version)
 
@@ -72,21 +75,40 @@ class GraphBuilder:
                                              nodes_output_filename=NODES_FILENAME,
                                              edges_output_filename=EDGES_FILENAME)
 
+        current_time = datetime.datetime.now().strftime('%m-%d-%y %H:%M:%S')
         if "merge_error" in merge_metadata:
-            current_time = datetime.datetime.now().strftime('%m-%d-%y %H:%M:%S')
             graph_metadata.set_build_error(merge_metadata["merge_error"], current_time)
             graph_metadata.set_build_status(Metadata.FAILED)
             self.logger.info(f'Error building graph {graph_id}.')
-        else:
-            current_time = datetime.datetime.now().strftime('%m-%d-%y %H:%M:%S')
-            graph_metadata.set_build_info(merge_metadata, current_time)
-            graph_metadata.set_build_status(Metadata.STABLE)
-            self.logger.info(f'Building graph {graph_id} complete!')
+            return
 
-            # create a symlink for accessing 'latest'
-            # latest_graph_dir = self.get_graph_dir_path(graph_id, 'latest')
-            # os.remove(latest_graph_dir)
-            # os.symlink(graph_output_dir, latest_graph_dir, target_is_directory=True)
+        graph_metadata.set_build_info(merge_metadata, current_time)
+        graph_metadata.set_build_status(Metadata.STABLE)
+        self.logger.info(f'Building graph {graph_id} complete!')
+
+        # create or replace latest csv files for export
+        latest_graph_dir = self.get_graph_dir_path(graph_id, 'latest-csv')
+        csv_nodes_file_path = os.path.join(latest_graph_dir, NODES_FILENAME)
+        csv_edges_file_path = os.path.join(latest_graph_dir, EDGES_FILENAME)
+
+        if os.path.exists(latest_graph_dir):
+            if os.path.exists(csv_nodes_file_path):
+                os.remove(csv_nodes_file_path)
+            if os.path.exists(csv_edges_file_path):
+                os.remove(csv_edges_file_path)
+        else:
+            os.mkdir(latest_graph_dir)
+
+        output_nodes_file_path = os.path.join(graph_output_dir, NODES_FILENAME)
+        output_edges_file_path = os.path.join(graph_output_dir, EDGES_FILENAME)
+        kgx_file_converter.convert_jsonl_to_neo4j_csv(nodes_input_file=output_nodes_file_path,
+                                                      edges_input_file=output_edges_file_path,
+                                                      nodes_output_file=csv_nodes_file_path,
+                                                      edges_output_file=csv_edges_file_path)
+
+        latest_neo4j_dir = self.get_graph_dir_path(graph_id, 'neo4j-data')
+        if os.path.exists(latest_neo4j_dir):
+            shutil.rmtree(latest_neo4j_dir)
 
     def build_dependencies(self, graph_spec: GraphSpec):
 
