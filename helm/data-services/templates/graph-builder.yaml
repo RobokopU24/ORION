@@ -1,0 +1,93 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: ds-graph-job
+spec:
+  template:
+    metadata:
+      name: ds-graph-job
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: ds-graph-analyzer
+          image: {{ .Values.dataServices.image.repository }}:{{ .Values.dataServices.image.tag }}
+          imagePullPolicy: {{ .Values.dataServices.image.pullPolicy }}
+          command: [ "bash" ]
+          stdin: True
+          tty: True
+          volumeMounts:
+            - mountPath: /Data_services_graphs
+              name: ds-graphs-volume
+      initContainers:
+        - name: ds-graph-builder
+          image: {{ .Values.dataServices.image.repository }}:{{ .Values.dataServices.image.tag }}
+          imagePullPolicy: {{ .Values.dataServices.image.pullPolicy }}
+          command: [ "python", "/Data_services/Common/build_manager.py", "-g", {{ .Values.dataServices.graphID | quote }} ]
+          volumeMounts:
+            - mountPath: /Data_services_storage
+              name: ds-sources-volume
+              subPath: storage
+            - mountPath: /Data_services_logs
+              name: ds-sources-volume
+              subPath: logs
+            - mountPath: /Data_services_graphs
+              name: ds-graphs-volume
+          env:
+            - name: DATA_SERVICES_STORAGE
+              value: /Data_services_storage
+            - name: DATA_SERVICES_GRAPHS
+              value: /Data_services_graphs
+            - name: DATA_SERVICES_GRAPH_SPEC
+              value: {{ .Values.dataServices.graphSpec }}
+            - name: DATA_SERVICES_LOGS
+              value: /Data_services_logs
+            {{- if .Values.dataServices.httpProxy.useProxy }}
+            - name: HTTPS_PROXY
+              value: {{ .Values.dataServices.httpProxy.proxyURL }}
+            {{- end }}
+          resources:
+            {{- toYaml .Values.dataServices.resources | nindent 12 }}
+        - name: ds-neo4j-import
+          image: {{ .Values.neo4j.image.repository }}:{{ .Values.neo4j.image.tag }}
+          imagePullPolicy: {{ .Values.neo4j.image.pullPolicy }}
+          command: [ "neo4j-admin" ]
+          args:
+            - import
+            - --nodes=/import/nodes.jsonl
+            - --relationships=/import/edges.jsonl
+            - --delimiter=TAB
+            - --array-delimiter=U+001F
+            - --ignore-empty-strings=true
+          volumeMounts:
+            - mountPath: /import
+              name: ds-graphs-volume
+              subPath: {{.Values.dataServices.graphID}}/latest-csv
+            - mountPath: /data
+              name: ds-graphs-volume
+              subPath: {{.Values.dataServices.graphID}}/neo4j-data
+          resources:
+            {{- toYaml .Values.neo4j.resources | nindent 12 }}
+        - name: ds-neo4j-dump
+          image: {{ .Values.neo4j.image.repository }}:{{ .Values.neo4j.image.tag }}
+          imagePullPolicy: {{ .Values.neo4j.image.pullPolicy }}
+          command: [ "neo4j-admin" ]
+          args:
+            - dump
+            - --to=/export/graph.db.dump
+          volumeMounts:
+            - mountPath: /export
+              name: ds-graphs-volume
+              subPath: {{.Values.dataServices.graphID}}/latest-dump/
+            - mountPath: /data
+              name: ds-graphs-volume
+              subPath: {{.Values.dataServices.graphID}}/neo4j-data/
+          resources:
+            {{- toYaml .Values.neo4j.resources | nindent 12 }}
+      volumes:
+        - name: ds-sources-volume
+          persistentVolumeClaim:
+            claimName: ds-sources-pvc
+        - name: ds-graphs-volume
+          persistentVolumeClaim:
+            claimName: ds-graphs-pvc
+  backoffLimit: 1

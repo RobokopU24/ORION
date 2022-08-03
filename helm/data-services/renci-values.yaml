@@ -1,4 +1,4 @@
-# Default values for data-services.
+# Values for running data-services on Sterling at RENCI
 
 replicaCount: 1
 
@@ -10,19 +10,19 @@ dataServices:
     pullPolicy: IfNotPresent
     tag: latest
   graphsVolume:
-    size: 32Gi
+    size: 120Gi
   sourcesVolume:
-    size: 32Gi
+    size: 120Gi
   resources:
     limits:
       cpu: "4"
-      memory: 16Gi
+      memory: 24Gi
     requests:
       cpu: "2"
-      memory: 12Gi
+      memory: 16Gi
   httpProxy:
-    useProxy: false
-    proxyURL:
+    useProxy: true
+    proxyURL: http://proxy.renci.org:8080/
 
 neo4j:
   image:
@@ -36,6 +36,3 @@ neo4j:
     requests:
       cpu: "4"
       memory: 28Gi
-
-
-
