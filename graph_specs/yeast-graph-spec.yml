@@ -1,0 +1,9 @@
+# yeast graph spec
+graphs:
+  - graph_id: Yeast_Test_Graph
+    conflation: False
+    sources:
+      - source_id: YeastSGDInfo
+      - source_id: YeastHistoneAndExpression
+      - source_id: YeastNucleosomes
+      - source_id: GenomeAllianceOrthologs
