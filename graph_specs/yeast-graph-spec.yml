@@ -2,6 +2,7 @@
 graphs:
   - graph_id: Yeast_Test_Graph
     conflation: False
+    strict_normalization: False
     sources:
       - source_id: YeastSGDInfo
       - source_id: YeastHistoneAndExpression
