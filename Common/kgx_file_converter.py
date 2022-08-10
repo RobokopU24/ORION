@@ -79,8 +79,6 @@ def __verify_conversion(file_path: str,
         print(f'Not all properties were verified.. This should not happen..')
         print(f'Properties that were not verified: '
               f'{[prop for prop in properties.keys() if prop not in verified_properties]}')
-    else:
-        print(f'Passed verification step: {file_path}')
 
 
 def __determine_properties_and_types(file_path: str, required_properties: dict):
@@ -121,7 +119,7 @@ def __determine_properties_and_types(file_path: str, required_properties: dict):
             # if only one type just set it to that
             properties[prop] = prop_types[0]
         else:
-            print(f'Property {prop} had conflicting types: {type_counts}')
+            # print(f'Property {prop} had conflicting types: {type_counts}')
             if 'string[]' in prop_types:
                 properties[prop] = 'string[]'
             elif 'float' in prop_types and 'int' in prop_types and num_prop_types == 2:
@@ -136,7 +134,7 @@ def __determine_properties_and_types(file_path: str, required_properties: dict):
         if prop not in properties:
             raise Exception(f'Property type could not be determined for: {prop}. {type_counts.items()}')
 
-    print(f'Found {len(properties)} properties:{properties.items()}')
+    # print(f'Found {len(properties)} properties:{properties.items()}')
     return properties
 
 
@@ -167,8 +165,6 @@ def __convert_to_csv(input_file: str,
                         # neo4j handles boolean with string 'true' being true and everything else false
                         item[key] = 'true' if item[key] is True else 'false'
             csv_file_writer.writerow(item)
-
-
 
 
 if __name__ == '__main__':
