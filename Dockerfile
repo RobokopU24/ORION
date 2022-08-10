@@ -1,22 +1,19 @@
-# A docker container with java and python for Data Services
-
-FROM openjdk:slim
-COPY --from=python:3.9 / /
+# A docker container with neo4j, java and python for Data Services
+FROM neo4j:4.3.16
 
 COPY ./requirements.txt /Data_services/requirements.txt
 
-RUN pip install -r /Data_services/requirements.txt
+RUN apt update
+RUN apt-get -y install rsync
+RUN apt-get -y install python3
+RUN apt-get -y install python-is-python3
+RUN apt-get -y install python3-pip
+RUN apt-get -y install git
 
-ARG UID=0
-ARG GID=0
-ARG DS_USER=ds_user
-RUN groupadd -f --gid $GID $DS_USER
-RUN useradd -o --uid $UID --gid $GID -m $DS_USER
-
-USER $DS_USER
+RUN pip3 install -r /Data_services/requirements.txt
 
 COPY . /Data_services/.
 
 ENV PYTHONPATH "/Data_services"
 
-CMD ["python", "/Data_services/Common/build_manager.py"]
+CMD ["neo4j"]
