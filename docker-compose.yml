@@ -10,6 +10,8 @@ services:
       - DATA_SERVICES_LOGS=/Data_services_logs
       - "HOST_STORAGE_DIR=${DATA_SERVICES_STORAGE}"
       - "HOST_GRAPHS_DIR=${DATA_SERVICES_GRAPHS}"
+      - NEO4J_dbms_default__listen__address=0.0.0.0
+      - DATA_SERVICES_NEO4J_PASSWORD
     volumes:
       - .:/Data_services
       - "${DATA_SERVICES_STORAGE}:/Data_services_storage"
