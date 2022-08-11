@@ -65,6 +65,7 @@ def main(resolution, source_data_path):
     res = resolution
     path = source_data_path
     createLociWindows(res, path)
+    SGDComplex2GOTerm(path)
     SGDAllGenes(path)
     SGDGene2GOTerm(path)
     SGDGene2Phenotype(path)
@@ -283,6 +284,43 @@ def SGDGene2Complex(data_directory):
     print(os.path.join(storage_dir,csv_fname))
     gene2complexdf.to_csv(os.path.join(storage_dir,csv_fname), encoding="utf-8-sig", index=False)
 
+def SGDComplex2GOTerm(data_directory):
+    #Collects all data for complexes with GO Term annotations in SGD.
+    print("---------------------------------------------------\nCollecting all GO Terms for all protein complexes on SGD...\n---------------------------------------------------\n")
+    from intermine.webservice import Service
+    service = Service("https://yeastmine.yeastgenome.org/yeastmine/service")
+    query = service.new_query("Complex")
+    query.add_view("accession", "goAnnotation.ontologyTerm.identifier",
+    "goAnnotation.ontologyTerm.namespace")
+
+    view = ["accession", "goAnnotation.ontologyTerm.identifier",
+    "goAnnotation.ontologyTerm.namespace","goAnnotation.qualifier"]
+
+    data = dict.fromkeys(view, [])
+
+    for row in query.rows():
+        for col in view:
+
+            if col == "accession":
+                value = "CPX:" + str(row[col])
+            elif col == "goAnnotation.qualifier":
+                if str(row["goAnnotation.ontologyTerm.namespace"]) == "molecular_function":
+                    value = "biolink:enables"
+                elif str(row["goAnnotation.ontologyTerm.namespace"]) == "biological_process":
+                    value = "biolink:actively_involved_in"
+                elif str(row["goAnnotation.ontologyTerm.namespace"]) == "cellular_component":
+                    value = "biolink:located_in"
+            else:
+                value = str(row[col])
+            data[col] = data[col] + [value]
+    complex2gotermdf = pd.DataFrame(data)
+    complex2gotermdf.fillna("?",inplace=True)
+    print('SGD Complex2GOTerm Data Collected!')
+    csv_fname = 'SGDComplex2GOTerm.csv'
+    storage_dir = data_directory
+    print(os.path.join(storage_dir,csv_fname))
+    complex2gotermdf.to_csv(os.path.join(storage_dir,csv_fname), encoding="utf-8-sig", index=False)
+
 def createLociWindows(resolution, data_directory):
     #Creates sliding windows of hypothetical genome locations. 
     n = int(resolution) #Sets sliding window resolution.
@@ -321,4 +359,4 @@ def createLociWindows(resolution, data_directory):
     genomelocidf.to_csv(os.path.join(storage_dir,csv_fname), encoding="utf-8-sig", index=False)
 
 if __name__ == "__main__":
-    main()
+    main(200,"Data_services/parsers/yeast/src/SGD_Data_Storage")

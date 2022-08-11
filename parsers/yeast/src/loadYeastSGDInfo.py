@@ -176,7 +176,7 @@ class YeastSGDLoader(SourceDataLoader):
                                   lambda line: None,  # predicate extractor
                                   lambda line: {'name': line[3],
                                                 'categories': ['biolink:Pathway'],
-                                                'taxon': 'NCBITaxon:559292',
+                                                'taxon': 'NCBI_Taxon:559292',
                                                 'organism': line[1],
                                                 'referenceLink': line[4],
                                                 ORIGINAL_KNOWLEDGE_SOURCE: "SGD",
