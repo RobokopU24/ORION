@@ -18,8 +18,11 @@ services:
       - "${DATA_SERVICES_GRAPHS}:/Data_services_graphs"
       - "${DATA_SERVICES_LOGS}:/Data_services_logs"
       - /var/run/docker.sock:/var/run/docker.sock
+    ports:
+      - "7474:7474"
     networks:
       - ds_network
+    user: 7474:7474
 
 networks:
   ds_network:
