@@ -169,35 +169,39 @@ class GraphBuilder:
             return
 
         neo4j_tools = Neo4jTools(graph_id=graph_id, graph_version=graph_version)
-        password_exit_code = neo4j_tools.set_initial_password()
-        if password_exit_code != 0:
-            return
+        try:
+            password_exit_code = neo4j_tools.set_initial_password()
+            if password_exit_code != 0:
+                return
 
-        import_exit_code = neo4j_tools.import_csv_files(graph_directory=graph_directory,
-                                                        csv_nodes_filename=nodes_csv_filename,
-                                                        csv_edges_filename=edges_csv_filename)
-        if import_exit_code != 0:
-            return
+            import_exit_code = neo4j_tools.import_csv_files(graph_directory=graph_directory,
+                                                            csv_nodes_filename=nodes_csv_filename,
+                                                            csv_edges_filename=edges_csv_filename)
+            if import_exit_code != 0:
+                return
 
-        start_exit_code = neo4j_tools.start_neo4j()
-        if start_exit_code != 0:
-            return
+            start_exit_code = neo4j_tools.start_neo4j()
+            if start_exit_code != 0:
+                return
 
-        waiting_exit_code = neo4j_tools.wait_for_neo4j_initialization()
-        if waiting_exit_code != 0:
-            return
+            waiting_exit_code = neo4j_tools.wait_for_neo4j_initialization()
+            if waiting_exit_code != 0:
+                return
 
-        indexes_exit_code = neo4j_tools.add_db_indexes()
-        if indexes_exit_code != 0:
-            return
+            indexes_exit_code = neo4j_tools.add_db_indexes()
+            if indexes_exit_code != 0:
+                return
 
-        stop_exit_code = neo4j_tools.stop_neo4j()
-        if stop_exit_code != 0:
-            return
+            stop_exit_code = neo4j_tools.stop_neo4j()
+            if stop_exit_code != 0:
+                return
 
-        dump_exit_code = neo4j_tools.create_backup_dump(graph_dump_file_path)
-        if dump_exit_code != 0:
-            return
+            dump_exit_code = neo4j_tools.create_backup_dump(graph_dump_file_path)
+            if dump_exit_code != 0:
+                return
+
+        finally:
+            neo4j_tools.close()
 
         self.logger.info(f'Success! Neo4j dump created with indexes for {graph_id}({graph_version})')
 

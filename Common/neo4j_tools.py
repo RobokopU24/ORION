@@ -24,6 +24,8 @@ class Neo4jTools:
         self.https_port = https_port
         self.bolt_port = bolt_port
         self.graph_db_uri = f'bolt://{neo4j_host}:{bolt_port}'
+        self.graph_db_auth = ("neo4j", os.environ['DATA_SERVICES_NEO4J_PASSWORD'])
+        self.neo4j_driver = neo4j.GraphDatabase.driver(self.graph_db_uri, auth=self.graph_db_auth)
         self.logger = LoggingUtil.init_logging("Data_services.Common.neo4j_tools",
                                                line_format='medium',
                                                log_file_path=os.environ['DATA_SERVICES_LOGS'])
@@ -93,21 +95,28 @@ class Neo4jTools:
 
     def add_db_indexes(self):
         self.logger.info('Adding indexes to neo4j db...')
+        indexes_added = 0
+        index_names = []
         try:
-            with self.get_neo4j_driver_session() as session:
+            with self.neo4j_driver.session() as session:
 
                 # edge id index
                 cypher_result = list(session.run("CALL db.relationshipTypes()"))
                 rel_types = [result['relationshipType'] for result in cypher_result]
                 self.logger.info(f'Adding edge indexes for rel types: {rel_types}')
                 for i, rel_type in enumerate(rel_types):
-                    edge_id_index_cypher = f'CREATE INDEX edge_id_{i} FOR ()-[r:`{rel_type}`]-() ON (r.id)'
+                    index_name = f'edge_id_{i}'
+                    edge_id_index_cypher = f'CREATE INDEX {index_name} FOR ()-[r:`{rel_type}`]-() ON (r.id)'
                     session.run(edge_id_index_cypher).consume()
+                    indexes_added += 1
+                    index_names.append(index_name)
 
                 # node name index
                 node_name_index_cypher = f'CREATE INDEX node_name_index FOR (n:`{NAMED_THING}`) on (n.name)'
                 self.logger.info(f'Adding node name index on {NAMED_THING}.name')
                 session.run(node_name_index_cypher).consume()
+                indexes_added += 1
+                index_names.append("node_name_index")
 
                 # node id indexes
                 cypher_result = list(session.run("CALL db.labels()"))
@@ -115,21 +124,46 @@ class Neo4jTools:
                 node_labels.remove(NAMED_THING)
                 self.logger.info(f'Adding node id indexes for node labels: {node_labels}')
                 for node_label in node_labels:
-                    node_index_id = f'node_id_{node_label.replace(":", "_")}'
-                    node_name_index_cypher = f'CREATE CONSTRAINT {node_index_id} ON (n:`{node_label}`) ' \
+                    node_label_index = f'node_id_{node_label.replace(":", "_")}'
+                    node_name_index_cypher = f'CREATE CONSTRAINT {node_label_index} ON (n:`{node_label}`) ' \
                                              f'ASSERT n.id IS UNIQUE'
                     session.run(node_name_index_cypher).consume()
+                    indexes_added += 1
+                    index_names.append(node_label_index)
+
+                # wait for indexes
+                self.logger.info(f'Waiting for indexes to be created...')
+                await_indexes_cypher = f'CALL db.awaitIndexes()'
+                session.run(await_indexes_cypher).consume()
+
+                self.logger.info(f'Waiting for indexes to be created...')
+                retrieve_indexes_cypher = f'SHOW INDEXES'
+                retrieve_indexes_results = session.run(retrieve_indexes_cypher)
+                index_count = 0
+                existing_indexes = 0
+                for result in retrieve_indexes_results:
+                    if result['name'] not in index_names:
+                        existing_indexes += 1
+                    else:
+                        if result['state'] == 'ONLINE':
+                            index_count += 1
+                        else:
+                            self.logger.error(f"Oh No. Index {result['name']} has state {result['state']} "
+                                              f"but should be online.")
+                if indexes_added != existing_indexes + index_count:
+                    self.logger.error(f"Oh No. Tried to add {indexes_added} indexes but only {index_count} were added.")
+                    return 1
 
         except neo4j.exceptions.ClientError as e:
             self.logger.error(f"Adding indexes failed: {e}")
             return 1
 
-        self.logger.info("Adding indexes successful.")
+        self.logger.info(f"Adding indexes successful. {indexes_added} indexes created.")
         return 0
 
     def wait_for_neo4j_initialization(self, counter: int = 1):
         try:
-            with self.get_neo4j_driver_session() as session:
+            with self.neo4j_driver.session() as session:
                 session.run("return 1")
                 self.logger.info(f'Neo4j ready at {self.host}:{self.http_port}, {self.graph_db_uri}.')
                 return 0
@@ -139,16 +173,12 @@ class Neo4jTools:
             if counter > 8:
                 self.logger.error(f'Waited too long for Neo4j initialization... giving up..')
                 return 1
-            self.logger.info(f'Waiting for Neo4j container to finish initialization... {e}')
+            self.logger.info(f'Waiting for Neo4j container to finish initialization... {repr(e)}')
             time.sleep(10)
             return self.wait_for_neo4j_initialization(counter + 1)
 
-    def get_neo4j_driver_session(self):
-        http_driver: neo4j.BoltDriver = neo4j.GraphDatabase.driver(
-            self.graph_db_uri,
-            auth=("neo4j", os.environ['DATA_SERVICES_NEO4J_PASSWORD'])
-        )
-        return http_driver.session()
+    def close(self):
+        self.neo4j_driver.close()
 
 
 # this version only works if you can access the docker.sock - soon to be removed
