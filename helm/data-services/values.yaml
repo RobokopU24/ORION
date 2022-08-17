@@ -5,6 +5,7 @@ replicaCount: 1
 dataServices:
   graphID: "Test_Graph"
   graphSpec: "testing-graph-spec.yml"
+  remoteSyncDirectory: 'user@server:/example_directory'
   image:
     repository: evandietzmorris/data_services
     pullPolicy: IfNotPresent
@@ -16,10 +17,10 @@ dataServices:
   resources:
     limits:
       cpu: "4"
-      memory: 16Gi
+      memory: 28Gi
     requests:
-      cpu: "2"
-      memory: 12Gi
+      cpu: "4"
+      memory: 28Gi
   httpProxy:
     useProxy: false
     proxyURL:
@@ -28,7 +29,9 @@ neo4j:
   image:
     repository: neo4j
     pullPolicy: IfNotPresent
-    tag: 4.4
+    tag: 4.3
+  username: neo4j
+  password: neo4jpw
   resources:
     limits:
       cpu: "4"
