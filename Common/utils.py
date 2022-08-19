@@ -116,7 +116,7 @@ class NodeNormUtils:
         equivalent_identifiers: the list of synonymous ids
     """
 
-    DEFAULT_NODE_NORMALIZATION_ENDPOINT = 'https://nodenormalization-sri.renci.org/1.2/'
+    DEFAULT_NODE_NORMALIZATION_ENDPOINT = 'https://nodenormalization-sri.renci.org/1.3/'
 
     def __init__(self,
                  log_level=logging.INFO,
