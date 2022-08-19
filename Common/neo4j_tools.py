@@ -136,22 +136,20 @@ class Neo4jTools:
                 await_indexes_cypher = f'CALL db.awaitIndexes()'
                 session.run(await_indexes_cypher).consume()
 
-                self.logger.info(f'Waiting for indexes to be created...')
+                self.logger.info(f'Confirming index creation...')
                 retrieve_indexes_cypher = f'SHOW INDEXES'
                 retrieve_indexes_results = session.run(retrieve_indexes_cypher)
-                index_count = 0
-                existing_indexes = 0
+                confirmed_index_count = 0
                 for result in retrieve_indexes_results:
-                    if result['name'] not in index_names:
-                        existing_indexes += 1
-                    else:
+                    if result['name'] in index_names:
                         if result['state'] == 'ONLINE':
-                            index_count += 1
+                            confirmed_index_count += 1
                         else:
                             self.logger.error(f"Oh No. Index {result['name']} has state {result['state']} "
                                               f"but should be online.")
-                if indexes_added != existing_indexes + index_count:
-                    self.logger.error(f"Oh No. Tried to add {indexes_added} indexes but only {index_count} were added.")
+                if indexes_added != confirmed_index_count:
+                    self.logger.error(f"Oh No. Tried to add {indexes_added} indexes "
+                                      f"but only {confirmed_index_count} were added.")
                     return 1
 
         except neo4j.exceptions.ClientError as e:
