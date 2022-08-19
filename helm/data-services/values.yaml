@@ -14,6 +14,8 @@ dataServices:
     size: 32Gi
   sourcesVolume:
     size: 32Gi
+  neo4jScratchVolume:
+    size: 16Gi
   resources:
     limits:
       cpu: "4"

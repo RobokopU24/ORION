@@ -11,9 +11,11 @@ dataServices:
     pullPolicy: IfNotPresent
     tag: latest
   graphsVolume:
-    size: 120Gi
+    size: 90Gi
   sourcesVolume:
-    size: 120Gi
+    size: 90Gi
+  neo4jScratchVolume:
+    size: 40Gi
   resources:
     limits:
       cpu: "4"

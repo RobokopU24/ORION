@@ -10,7 +10,7 @@ spec:
       restartPolicy: Never
       securityContext:
         runAsUser: 7474
-        runAsGroup: 0
+        runAsGroup: 7474
         fsGroup: 7474
         fsGroupChangePolicy: "OnRootMismatch"
       containers:
@@ -30,9 +30,7 @@ spec:
         - name: ds-graph-builder
           image: {{ .Values.dataServices.image.repository }}:{{ .Values.dataServices.image.tag }}
           imagePullPolicy: {{ .Values.dataServices.image.pullPolicy }}
-          command: ["bash"]
-          stdin: True
-          tty: True
+          args: ["python", "/Data_services/Common/build_manager.py", {{ .Values.dataServices.graphID | quote }}, "-n" ]
           volumeMounts:
             - mountPath: /Data_services_storage
               name: ds-sources-volume
@@ -43,8 +41,7 @@ spec:
             - mountPath: /Data_services_graphs
               name: ds-graphs-volume
             - mountPath: /data
-              name: ds-graphs-volume
-              subPath: neo4j_data
+              name: ds-neo4j-scratch-volume
           env:
             - name: DATA_SERVICES_STORAGE
               value: /Data_services_storage
@@ -69,4 +66,13 @@ spec:
         - name: ds-graphs-volume
           persistentVolumeClaim:
             claimName: ds-graphs-pvc
+        - name: ds-neo4j-scratch-volume
+          ephemeral:
+            volumeClaimTemplate:
+              spec:
+                accessModes: [ "ReadWriteOnce" ]
+                storageClassName:
+                resources:
+                  requests:
+                    storage: {{ .Values.dataServices.neo4jScratchVolume.size }}
   backoffLimit: 1
