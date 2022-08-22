@@ -384,7 +384,7 @@ class GraphBuilder:
             [json.dumps(graph_source.get_metadata_representation())
              for graph_source in graph_spec.sources])
         subgraphs_string = ''.join(
-            [''.join(subgraph.id, subgraph.version, subgraph.merge_strategy)
+            [''.join([subgraph.id, subgraph.version, subgraph.merge_strategy])
              for subgraph in graph_spec.subgraphs])
         graph_version = xxh64_hexdigest(sources_string + subgraphs_string)
         return graph_version
