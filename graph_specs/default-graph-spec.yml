@@ -29,13 +29,6 @@ graphs:
       - source_id: PHAROS
       - source_id: UberGraph
 
-  - graph_id: Genetics
-    subgraphs:
-      - graph_id: Baseline
-    sources:
-      - source_id: GWASCatalog
-      - source_id: GTEx
-
 #  - graph_id: Covid
 #    subgraphs:
 #      - graph_id: Genetics
@@ -118,3 +111,22 @@ graphs:
       - source_id: UberGraph
       - source_id: OntologicalHierarchy
         merge_strategy: connected_edge_subset
+
+  - graph_id: GTEx_Automat
+    sources:
+      - source_id: GTEx
+      - source_id: OntologicalHierarchy
+        merge_strategy: connected_edge_subset
+
+  - graph_id: GWASCatalog_Automat
+    sources:
+      - source_id: GWASCatalog
+      - source_id: OntologicalHierarchy
+        merge_strategy: connected_edge_subset
+
+  - graph_id: Genetics
+    subgraphs:
+      - graph_id: Baseline
+    sources:
+      - source_id: GWASCatalog
+      - source_id: GTEx
