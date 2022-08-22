@@ -298,7 +298,7 @@ class GraphBuilder:
                 self.current_graph_versions[graph_id] = graph_version
                 graph_specs.append(current_graph_spec)
         except KeyError as e:
-            self.logger.error(f'Error parsing Graph Spec, formatting error or missing information: {e}')
+            self.logger.error(f'Error parsing Graph Spec ({graph_id}), formatting error or missing information: {repr(e)}')
 
         return graph_specs
 
