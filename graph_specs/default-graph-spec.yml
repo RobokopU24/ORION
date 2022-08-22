@@ -50,7 +50,7 @@ graphs:
 
   - graph_id: DrugCentral_Automat
     sources:
-      - source_id:
+      - source_id: DrugCentral
       - source_id: OntologicalHierarchy
         merge_strategy: connected_edge_subset
 
