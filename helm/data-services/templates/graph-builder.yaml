@@ -26,11 +26,12 @@ spec:
               subPath: storage
             - mountPath: /Data_services_graphs
               name: ds-graphs-volume
+      {{- if .Values.dataServices.buildMode }}
       initContainers:
         - name: ds-graph-builder
           image: {{ .Values.dataServices.image.repository }}:{{ .Values.dataServices.image.tag }}
           imagePullPolicy: {{ .Values.dataServices.image.pullPolicy }}
-          args: ["python", "/Data_services/Common/build_manager.py", {{ .Values.dataServices.graphID | quote }}, "-n" ]
+          args: ["python", "/Data_services/Common/build_manager.py", {{ .Values.dataServices.graphID }}, "-n" ]
           volumeMounts:
             - mountPath: /Data_services_storage
               name: ds-sources-volume
@@ -59,6 +60,7 @@ spec:
             {{- end }}
           resources:
             {{- toYaml .Values.dataServices.resources | nindent 12 }}
+      {{- end }}
       volumes:
         - name: ds-sources-volume
           persistentVolumeClaim:

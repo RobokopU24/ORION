@@ -6,6 +6,7 @@ dataServices:
   graphID: "Test_Graph"
   graphSpec: "testing-graph-spec.yml"
   remoteSyncDirectory: 'user@server:/example_directory'
+  buildMode: true
   image:
     repository: evandietzmorris/data_services
     pullPolicy: IfNotPresent
