@@ -159,9 +159,11 @@ class GtoPdbLoader(SourceDataLoader):
         # open up the file
         with open(file_path, 'r', encoding="utf-8") as fp:
             # the list of columns in the data
-            cols = ["Ligand id", "Name", "Species", "Type", "Subunit ids", "Subunit names", "Approved", "Withdrawn", "Labelled", "Radioactive", "PubChem SID",
-                    "PubChem CID", "UniProt id", "INN", "Single letter amino acid sequence", "Three letter amino acid sequence", "Post-translational modification",
-                    "Chemical modification", "SMILES", "InChIKey"]
+            cols = ["Ligand id", "Name", "Species", "Type", "Subunit ids", "Subunit names", "Approved", "Withdrawn",
+                    "Labelled", "Radioactive", "PubChem SID", "PubChem CID", "UniProt id", "Ensembl id",
+                    "Subunit UniProt IDs", "Subunit Ensembl IDs", "INN", "Single letter amino acid sequence",
+                    "Three letter amino acid sequence", "Post-translational modification", "Chemical modification",
+                    "SMILES", "InChIKey"]
 
             # get a handle on the input data
             data = csv.DictReader(filter(lambda row: row[0] != '?', fp), delimiter='\t', fieldnames=cols)
@@ -230,12 +232,15 @@ class GtoPdbLoader(SourceDataLoader):
         # open up the file
         with open(file_path, 'r', encoding="utf-8") as fp:
             # the list of columns in the data
-            cols = ['target', 'target_id', 'target_gene_symbol', 'target_uniprot', 'target_ensembl_gene_id', 'target_ligand', 'target_ligand_id',
-                    'target_ligand_gene_symbol', 'target_ligand_ensembl_gene_id', 'target_ligand_uniprot', 'target_ligand_pubchem_sid',
-                    'target_species', 'ligand', 'ligand_id', 'ligand_gene_symbol', 'ligand_species', 'ligand_pubchem_sid', 'approved_drug', 'type',
-                    'action', 'action_comment', 'selectivity', 'endogenous', 'primary_target', 'concentration_range', 'affinity_units', 'affinity_high',
-                    'affinity_median', 'affinity_low', 'original_affinity_units', 'original_affinity_low_nm', 'original_affinity_median_nm',
-                    'original_affinity_high_nm', 'original_affinity_relation', 'assay_description', 'receptor_site', 'ligand_context', 'pubmed_id']
+            cols = ["Target", "Target ID", "Target Subunit IDs", "Target Gene Symbol", "Target UniProt ID",
+                    "Target Ensembl Gene ID", "Target Ligand", "Target Ligand ID", "Target Ligand Subunit IDs",
+                    "Target Ligand Gene Symbol", "Target Ligand UniProt ID", "Target Ligand Ensembl Gene ID",
+                    "Target Ligand PubChem SID", "Target Species", "Ligand", "Ligand ID", "Ligand Subunit IDs",
+                    "Ligand Gene Symbol", "Ligand Species", "Ligand PubChem SID", "Approved", "Type", "Action",
+                    "Action comment", "Selectivity", "Endogenous", "Primary Target", "concentration Range",
+                    "Affinity Units", "Affinity High", "Affinity Median", "Affinity Low", "Original Affinity Units",
+                    "Original Affinity Low nm", "Original Affinity Median nm", "Original Affinity High nm",
+                    "Original Affinity Relation", "Assay Description", "Receptor Site", "Ligand Context", "PubMed ID"]
 
             # get a handle on the input data
             data = csv.DictReader(filter(lambda row: row[0] != '?', fp), delimiter='\t', fieldnames=cols)
@@ -250,40 +255,40 @@ class GtoPdbLoader(SourceDataLoader):
                 record_counter += 1
 
                 # do the ligand to gene nodes/edges
-                if r['target_species'] and r['target_species'].startswith('Human') \
-                        and r['target_ensembl_gene_id'] != '' and r['target'] != '':  # and r['ligand_id'] in self.ligands
+                if r['Target Species'] and r['Target Species'].startswith('Human') \
+                        and r['Target Ensembl Gene ID'] != '' and r['Target'] != '':  # and r['ligand_id'] in self.ligands
                     # did we get a good predicate
-                    if r['type'].startswith('None'):
+                    if r['Type'].startswith('None'):
                         continue
                     else:
-                        predicate = 'GAMMA:' + r['type'].lower().replace(' ', '_')
+                        predicate = 'GAMMA:' + r['Type'].lower().replace(' ', '_')
 
                     # create a ligand node
-                    ligand_id = f'{GTOPDB}:' + r['ligand_id']
-                    ligand_name = r['ligand'].encode('ascii',errors='ignore').decode(encoding="utf-8")
+                    ligand_id = f'{GTOPDB}:' + r['Ligand ID']
+                    ligand_name = r['Ligand'].encode('ascii',errors='ignore').decode(encoding="utf-8")
                     ligand_node = kgxnode(ligand_id, name=ligand_name)
 
                     # save the ligand node
                     node_list.append(ligand_node)
 
                     # get all the properties
-                    props: dict = {'primaryTarget': r['primary_target'].lower().startswith('t'),
-                                   'affinityParameter': r['affinity_units'],
-                                   'endogenous': r['endogenous'].lower().startswith('t')}
+                    props: dict = {'primaryTarget': r['Primary Target'].lower().startswith('t'),
+                                   'affinityParameter': r['Affinity Units'],
+                                   'endogenous': r['Endogenous'].lower().startswith('t')}
 
                     # check the affinity and insure it is a float
-                    if r['affinity_median'] != '':
-                        props.update({'affinity': float(r['affinity_median'])})
+                    if r['Affinity Median'] != '':
+                        props.update({'affinity': float(r['Affinity Median'])})
 
                     # if there are publications add them in
-                    if r['pubmed_id'] != '':
-                        props.update({'publications': [f'PMID:{x}' for x in r['pubmed_id'].split('|')]})
+                    if r['PubMed ID'] != '':
+                        props.update({'publications': [f'PMID:{x}' for x in r['PubMed ID'].split('|')]})
 
                     # get the list of gene ids (ENSEMBL ids)
-                    genes = r['target_ensembl_gene_id'].split('|')
+                    genes = r['Target Ensembl Gene ID'].split('|')
 
                     # get the list of gene names
-                    gene_names = r['target_gene_symbol'].split('|')
+                    gene_names = r['Target Gene Symbol'].split('|')
 
                     # for each gene listed
                     for idx, g in enumerate(genes):
@@ -307,12 +312,12 @@ class GtoPdbLoader(SourceDataLoader):
                         edge_list.append(new_edge)
 
                     # do the chem to precursor node/edges if it exists
-                    if r['ligand_species'].startswith('Human') and r['ligand_gene_symbol'] != '':
+                    if r['Ligand Species'].startswith('Human') and r['Ligand Gene Symbol'] != '':
                         # increment the record counter
                         record_counter += 1
 
                         # split the genes into an array
-                        gene_symbols = r['ligand_gene_symbol'].upper().split('|')
+                        gene_symbols = r['Ligand Gene Symbol'].upper().split('|')
 
                         # go through all the listed genes
                         for gene_symbol in gene_symbols:
@@ -325,7 +330,7 @@ class GtoPdbLoader(SourceDataLoader):
                                 gene_id = f'{HGNC}:' + gene_id
 
                                 # create the nodes
-                                gene_node = kgxnode(gene_id, name=r['ligand_gene_symbol'].encode('ascii',errors='ignore').decode(encoding="utf-8"))
+                                gene_node = kgxnode(gene_id, name=r['Ligand Gene Symbol'].encode('ascii',errors='ignore').decode(encoding="utf-8"))
 
                                 # save the gene node
                                 node_list.append(gene_node)
@@ -334,7 +339,7 @@ class GtoPdbLoader(SourceDataLoader):
                                 props: dict = {}
 
                                 # check the pubmed id and insure they are ints
-                                if r['pubmed_id'] != '':
+                                if r['PubMed ID'] != '':
                                     props.update({'publications': [f'PMID:{x}' for x in r['pubmed_id'].split('|')]})
 
                                 # create the edge
@@ -348,10 +353,15 @@ class GtoPdbLoader(SourceDataLoader):
                                 edge_list.append(new_edge)
                 else:
                     skipped_record_counter += 1
+                    print([(key,value) for key,value in r.items()])
 
         # return the node/edge lists and the record counters to the caller
         return node_list, edge_list, record_counter, skipped_record_counter
 
+
+    '''
+    These functions were used in the past to confirm some data - they may not work anymore after changes in header files
+    
     def get_ligands_diffs(self, file_path):
         """
         tester for comparing the ligands against normalized values and peptides.
@@ -469,7 +479,7 @@ class GtoPdbLoader(SourceDataLoader):
                 # all ids that arent a peptide or an antibody are good
                 if not r['Type'].startswith('Peptide') and not r['Type'].startswith('Antibody'):
                     self.ligands.append(r['Ligand id'])
-
+    '''
 
 if __name__ == '__main__':
     """
