@@ -129,7 +129,7 @@ class SequenceVariantSupplementation:
         # changing this reference genome DB may break things,
         # such as assuming gene IDs and biotypes are from ensembl
         reference_genome = 'GRCh38.99'
-        subprocess_command = ['java', '-Xmx6g', '-jar', 'snpEff.jar',
+        subprocess_command = ['java', '-Xmx12g', '-jar', 'snpEff.jar',
                               '-noStats', '-ud', str(ud_distance), reference_genome, vcf_file_path]
         with open(annotated_vcf_path, "w") as new_snpeff_file:
             snpeff_results: subprocess.CompletedProcess = subprocess.run(subprocess_command,
