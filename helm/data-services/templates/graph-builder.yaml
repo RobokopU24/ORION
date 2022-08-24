@@ -16,7 +16,7 @@ spec:
       containers:
         - name: ds-graph-analyzer
           image: {{ .Values.dataServices.image.repository }}:{{ .Values.dataServices.image.tag }}
-          imagePullPolicy: Never
+          imagePullPolicy: {{ .Values.dataServices.image.pullPolicy }}
           command: ["bash"]
           stdin: True
           tty: True
@@ -24,8 +24,30 @@ spec:
             - mountPath: /Data_services_storage
               name: ds-sources-volume
               subPath: storage
+            - mountPath: /Data_services_logs
+              name: ds-sources-volume
+              subPath: logs
             - mountPath: /Data_services_graphs
               name: ds-graphs-volume
+            - mountPath: /data
+              name: ds-neo4j-scratch-volume
+          env:
+            - name: DATA_SERVICES_STORAGE
+              value: /Data_services_storage
+            - name: DATA_SERVICES_GRAPHS
+              value: /Data_services_graphs
+            - name: DATA_SERVICES_GRAPH_SPEC
+              value: {{ .Values.dataServices.graphSpec }}
+            - name: DATA_SERVICES_LOGS
+              value: /Data_services_logs
+            - name: DATA_SERVICES_NEO4J_PASSWORD
+              value: {{ .Values.neo4j.password }}
+            {{- if .Values.dataServices.httpProxy.useProxy }}
+            - name: HTTPS_PROXY
+              value: {{ .Values.dataServices.httpProxy.proxyURL }}
+            {{- end }}
+          resources:
+            {{- toYaml .Values.dataServices.resources | nindent 12 }}
       {{- if .Values.dataServices.buildMode }}
       initContainers:
         - name: ds-graph-builder
