@@ -36,8 +36,13 @@ spec:
               value: /Data_services_storage
             - name: DATA_SERVICES_GRAPHS
               value: /Data_services_graphs
+            {{- if .Values.dataServices.useLocalGraphSpec }}
             - name: DATA_SERVICES_GRAPH_SPEC
               value: {{ .Values.dataServices.graphSpec }}
+            {{- else }}
+            - name: DATA_SERVICES_GRAPH_SPEC_URL
+              value: {{ .Values.dataServices.graphSpec}}
+            {{- end }}
             - name: DATA_SERVICES_LOGS
               value: /Data_services_logs
             - name: DATA_SERVICES_NEO4J_PASSWORD
@@ -99,4 +104,4 @@ spec:
                 resources:
                   requests:
                     storage: {{ .Values.dataServices.neo4jScratchVolume.size }}
-  backoffLimit: 1
+  backoffLimit: 0

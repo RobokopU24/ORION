@@ -5,6 +5,8 @@ replicaCount: 1
 dataServices:
   graphID: "Test_Graph"
   graphSpec: "testing-graph-spec.yml"
+  # useLocalGraphSpec true if the graphSpec is a file in the codebase (mainly for testing), false if a remote URL
+  useLocalGraphSpec: true
   remoteSyncDirectory: 'user@server:/example_directory'
   buildMode: true
   image:
