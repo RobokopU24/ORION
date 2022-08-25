@@ -220,7 +220,7 @@ class GraphBuilder:
         self.logger.info(f'CSV files created for {graph_id}({graph_version})...')
 
     def load_graph_specs(self):
-        if 'DATA_SERVICES_GRAPH_SPEC' in os.environ:
+        if 'DATA_SERVICES_GRAPH_SPEC' in os.environ and os.environ['DATA_SERVICES_GRAPH_SPEC']:
             # this is a messy way to find the graph spec path, mainly for testing - URL is preferred
             graph_spec_file = os.environ['DATA_SERVICES_GRAPH_SPEC']
             graph_spec_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'graph_specs', graph_spec_file)
@@ -232,7 +232,7 @@ class GraphBuilder:
             else:
                 raise Exception(f'Configuration Error - Graph Spec could not be found: {graph_spec_file}')
         elif 'DATA_SERVICES_GRAPH_SPEC_URL' in os.environ:
-            graph_spec_url = os.environ['DATA_SERVICES_GRAPH_SPEC']
+            graph_spec_url = os.environ['DATA_SERVICES_GRAPH_SPEC_URL']
             graph_spec_request = requests.get(graph_spec_url)
             graph_spec_request.raise_for_status()
             graph_spec_yaml = yaml.full_load(graph_spec_request.text)
