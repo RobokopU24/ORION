@@ -46,11 +46,18 @@ class GENEPHENOTYPES_EDGEUMAN(enum.IntEnum):
 # Maps Genes to Complexes
 class GENECOMPLEXES_EDGEUMAN(enum.IntEnum):
     GENE = 11
-    COMPLEX = 8
+    COMPLEX = 10
     ROLE = 5
     STOICHIOMETRY = 6
     TYPE = 7
-    
+
+
+class COMPLEXEGO_EDGEUMAN(enum.IntEnum):
+    GOTERM = 1
+    COMPLEX = 0
+    PREDICATE = 3
+    COMPLEXNAME = 2
+     
 ##############
 # Class: Mapping SGD Genes to SGD Associations
 #
@@ -83,6 +90,7 @@ class YeastSGDLoader(SourceDataLoader):
         self.genes_to_pathway_edges_file_name = "SGDGene2Pathway.csv"
         self.genes_to_phenotype_edges_file_name = "SGDGene2Phenotype.csv"
         self.genes_to_complex_edges_file_name = "SGDGene2Complex.csv"
+        self.complex_to_go_term_edges_file_name = "SGDComplex2GOTerm.csv"
         
         self.data_files = [
             self.sgd_gene_list_file_name,
@@ -92,7 +100,8 @@ class YeastSGDLoader(SourceDataLoader):
             self.genes_to_go_term_edges_file_name,
             self.genes_to_pathway_edges_file_name,
             self.genes_to_phenotype_edges_file_name,
-            self.genes_to_complex_edges_file_name]
+            self.genes_to_complex_edges_file_name,
+            self.complex_to_go_term_edges_file_name]
 
     def get_latest_source_version(self) -> str:
         """
@@ -211,7 +220,7 @@ class YeastSGDLoader(SourceDataLoader):
         yeast_complex_file: str = os.path.join(self.data_path, self.genes_to_complex_edges_file_name)
         with open(yeast_complex_file, 'r') as fp:
             extractor.csv_extract(fp,
-                                  lambda line: line[8].replace(" ","_").strip(),  # subject id
+                                  lambda line: "CPX:" + line[10],  # subject id
                                   lambda line: None,  # object id
                                   lambda line: None,  # predicate extractor
                                   lambda line: {'name': line[0],
@@ -291,7 +300,7 @@ class YeastSGDLoader(SourceDataLoader):
         with open(gene_to_complex_edges_file, 'r') as fp:
             extractor.csv_extract(fp,
                                   lambda line: line[GENECOMPLEXES_EDGEUMAN.GENE.value], #subject id
-                                  lambda line: line[GENECOMPLEXES_EDGEUMAN.COMPLEX.value].replace(' ','_'),  # object id
+                                  lambda line: "CPX:" + line[GENECOMPLEXES_EDGEUMAN.COMPLEX.value],  # object id
                                   lambda line: "biolink:in_complex_with",  # predicate extractor
                                   lambda line: {},  # subject props
                                   lambda line: {},  # object props
@@ -302,6 +311,22 @@ class YeastSGDLoader(SourceDataLoader):
                                   delim=',',
                                   has_header_row=True)
 
+         #Complex to GO Annotations. Evidence and annotation type as edge properties.
+        complex_to_go_term_edges_file: str = os.path.join(self.data_path, self.complex_to_go_term_edges_file_name)
+        with open(complex_to_go_term_edges_file, 'r') as fp:
+            extractor.csv_extract(fp,
+                                  lambda line: line[COMPLEXEGO_EDGEUMAN.COMPLEX.value],#.split(':')[1], #subject id
+                                  lambda line: line[COMPLEXEGO_EDGEUMAN.GOTERM.value],#.replace(' ','_'),  # object id
+                                  lambda line: line[COMPLEXEGO_EDGEUMAN.PREDICATE.value] if line[COMPLEXEGO_EDGEUMAN.PREDICATE.value] != "involved in" else "biolink:actively_involved_in",  # predicate extractor
+                                  lambda line: {'complexname': line[COMPLEXEGO_EDGEUMAN.COMPLEXNAME.value]},  # subject props
+                                  lambda line: {},  # object props
+                                  lambda line: {}, #edgeprops
+                                  comment_character=None,
+                                  delim=',',
+                                  has_header_row=True)
+       
+       
+       
         #Goes through the file and only yields the rows in which the cosine distance is above a predefined threshold.
         """
         def cos_dist_filter(infile):
