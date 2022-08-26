@@ -125,6 +125,7 @@ graphs:
         merge_strategy: connected_edge_subset
 
   - graph_id: Genetics
+    conflation: True
     subgraphs:
       - graph_id: Baseline
     sources:
