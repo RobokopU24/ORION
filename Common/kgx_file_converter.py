@@ -96,7 +96,22 @@ def __determine_properties_and_types(file_path: str, required_properties: dict):
             elif isinstance(value, float):
                 property_type_counts[key]["float"] += 1
             elif isinstance(value, list):
-                property_type_counts[key]["string[]"] += 1
+                has_floats = False
+                has_ints = False
+                has_strings = False
+                for item in value:
+                    if isinstance(value, float):
+                        has_floats = True
+                    elif isinstance(value, int):
+                        has_ints = True
+                    else:
+                        has_strings = True
+                if has_strings:
+                    property_type_counts[key]["string[]"] += 1
+                elif has_floats:
+                    property_type_counts[key]["float[]"] += 1
+                elif has_ints:
+                    property_type_counts[key]["int[]"] += 1
             else:
                 property_type_counts[key]["string"] += 1
 
@@ -119,9 +134,14 @@ def __determine_properties_and_types(file_path: str, required_properties: dict):
             # if only one type just set it to that
             properties[prop] = prop_types[0]
         else:
+            # try to resolve the conflicts - TODO: this probably needs more work, it means a property had mixed types
             # print(f'Property {prop} had conflicting types: {type_counts}')
             if 'string[]' in prop_types:
                 properties[prop] = 'string[]'
+            elif 'float[]' in prop_types:
+                properties[prop] = 'float[]'
+            elif 'int[]' in prop_types:
+                properties[prop] = 'int[]'
             elif 'float' in prop_types and 'int' in prop_types and num_prop_types == 2:
                 properties[prop] = 'float'
             elif 'float' in prop_types and 'None' in prop_types and num_prop_types == 2:
@@ -158,9 +178,12 @@ def __convert_to_csv(input_file: str,
                     del item[key]
                 else:
                     prop_type = properties[key]
-                    if prop_type == 'string[]' or prop_type == 'LABEL':
-                        # convert lists into strings with an array delimiter
-                        item[key] = array_delimiter.join(item[key])
+                    # convert lists into strings with an array delimiter
+                    if prop_type == 'LABEL' or \
+                            prop_type == 'string[]' or \
+                            prop_type == 'float[]' or \
+                            prop_type == 'int[]':
+                        item[key] = array_delimiter.join(str(value) for value in item[key])
                     elif prop_type == 'boolean':
                         # neo4j handles boolean with string 'true' being true and everything else false
                         item[key] = 'true' if item[key] is True else 'false'
