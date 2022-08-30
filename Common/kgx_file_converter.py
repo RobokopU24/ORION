@@ -100,9 +100,9 @@ def __determine_properties_and_types(file_path: str, required_properties: dict):
                 has_ints = False
                 has_strings = False
                 for item in value:
-                    if isinstance(value, float):
+                    if isinstance(item, float):
                         has_floats = True
-                    elif isinstance(value, int):
+                    elif isinstance(item, int):
                         has_ints = True
                     else:
                         has_strings = True
@@ -183,7 +183,8 @@ def __convert_to_csv(input_file: str,
                             prop_type == 'string[]' or \
                             prop_type == 'float[]' or \
                             prop_type == 'int[]':
-                        item[key] = array_delimiter.join(str(value) for value in item[key])
+                        if isinstance(item[key], list):  # need to doublecheck for cases of properties with mixed types
+                            item[key] = array_delimiter.join(str(value) for value in item[key])
                     elif prop_type == 'boolean':
                         # neo4j handles boolean with string 'true' being true and everything else false
                         item[key] = 'true' if item[key] is True else 'false'
