@@ -3,13 +3,14 @@
 replicaCount: 1
 
 dataServices:
-  graphID: "Test_Graph"
-  graphSpec: "testing-graph-spec.yml"
-  remoteSyncDirectory: 'realuser@realserver.org:/path/to/graphs_directory'
+  graphID: "Genetics"
+  graphSpec: "https://stars.renci.org/var/data_services/graph_specs/genetics_graph_spec.yml"
+  # useLocalGraphSpec true if the graphSpec is a file in the codebase (mainly for testing), false if a remote URL
+  useLocalGraphSpec: false
   buildMode: true
   image:
     repository: evandietzmorris/data_services
-    pullPolicy: IfNotPresent
+    pullPolicy: Always
     tag: latest
   graphsVolume:
     size: 90Gi
@@ -20,13 +21,16 @@ dataServices:
   resources:
     limits:
       cpu: "4"
-      memory: 28Gi
+      memory: 32Gi
     requests:
       cpu: "4"
-      memory: 28Gi
+      memory: 32Gi
   httpProxy:
     useProxy: true
     proxyURL: http://proxy.renci.org:8080/
+  normalization:
+    nodeNormEndpoint: "https://nodenormalization-sri.renci.org/"
+    edgeNormEndpoint: "https://biolink-lookup.transltr.io/"
 
 neo4j:
   image:

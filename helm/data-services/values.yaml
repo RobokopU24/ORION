@@ -7,7 +7,6 @@ dataServices:
   graphSpec: "testing-graph-spec.yml"
   # useLocalGraphSpec true if the graphSpec is a file in the codebase (mainly for testing), false if a remote URL
   useLocalGraphSpec: true
-  remoteSyncDirectory: 'user@server:/example_directory'
   buildMode: true
   image:
     repository: evandietzmorris/data_services
@@ -29,6 +28,9 @@ dataServices:
   httpProxy:
     useProxy: false
     proxyURL:
+  normalization:
+    nodeNormEndpoint:
+    edgeNormEndpoint:
 
 neo4j:
   image:

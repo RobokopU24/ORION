@@ -51,6 +51,14 @@ spec:
             - name: HTTPS_PROXY
               value: {{ .Values.dataServices.httpProxy.proxyURL }}
             {{- end }}
+            {{- if .Values.dataServices.normalization.nodeNormEndpoint }}
+            - name: NODE_NORMALIZATION_ENDPOINT
+              value: {{ .Values.dataServices.normalization.nodeNormEndpoint }}
+            {{- end }}
+            {{- if .Values.dataServices.normalization.edgeNormEndpoint }}
+            - name: EDGE_NORMALIZATION_ENDPOINT
+              value: {{ .Values.dataServices.normalization.edgeNormEndpoint }}
+            {{- end }}
           resources:
             {{- toYaml .Values.dataServices.resources | nindent 12 }}
       {{- if .Values.dataServices.buildMode }}
@@ -89,6 +97,14 @@ spec:
             {{- if .Values.dataServices.httpProxy.useProxy }}
             - name: HTTPS_PROXY
               value: {{ .Values.dataServices.httpProxy.proxyURL }}
+            {{- end }}
+            {{- if .Values.dataServices.normalization.nodeNormEndpoint }}
+            - name: NODE_NORMALIZATION_ENDPOINT
+              value: {{ .Values.dataServices.normalization.nodeNormEndpoint }}
+            {{- end }}
+            {{- if .Values.dataServices.normalization.edgeNormEndpoint }}
+            - name: EDGE_NORMALIZATION_ENDPOINT
+              value: {{ .Values.dataServices.normalization.edgeNormEndpoint }}
             {{- end }}
           resources:
             {{- toYaml .Values.dataServices.resources | nindent 12 }}
