@@ -453,7 +453,7 @@ class EdgeNormUtils:
 
     """
 
-    DEFAULT_EDGE_NORM_ENDPOINT = f'https://bl-lookup-sri.renci.org/'
+    DEFAULT_EDGE_NORM_ENDPOINT = f'https://biolink-lookup.transltr.io/'
 
     def __init__(self,
                  edge_normalization_version: str = 'latest',
