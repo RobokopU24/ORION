@@ -50,7 +50,10 @@ def __verify_conversion(file_path: str,
                         output_delimiter: str):
     counter = 0
     list_properties = [prop for prop in properties
-                       if properties[prop] == "string[]" or properties[prop] == 'LABEL']
+                       if properties[prop] == "string[]"
+                       or properties[prop] == "float[]"
+                       or properties[prop] == "int[]"
+                       or properties[prop] == 'LABEL']
     verified_properties = set()
     num_properties = len(properties.keys())
     with open(file_path, newline='') as file_handler:
