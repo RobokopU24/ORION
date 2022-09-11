@@ -33,6 +33,7 @@ from parsers.hetio.src.loadHetio import HetioLoader
 from parsers.biolink.src.loadBL import BLLoader
 from parsers.OntologicalHierarchy.src.loadOH import OHLoader
 from parsers.GenomeAlliance.src.loadGenomeAlliance import GenomeAllianceOrthologLoader
+from parsers.STRING.src.loadSTRINGDB import STRINGDBLoader
 
 GWAS_CATALOG = 'GWASCatalog'
 CTD = 'CTD'
@@ -58,6 +59,7 @@ YEASTSGD = 'YeastSGDInfo'
 YEASTHISTONEANDEXPRESSION = 'YeastHistoneAndExpression'
 YEAST_NUCLEOSOMES = 'YeastNucleosomes'
 GENOME_ALLIANCE_ORTHOLOGS = 'GenomeAllianceOrthologs'
+STRING_DB = 'STRING-DB'
 # FOODB = 'FooDB' # this is on hold, data needs review after latest release of data.
 
 
@@ -85,7 +87,9 @@ SOURCE_DATA_LOADER_CLASSES = {
     YEASTSGD: YeastSGDLoader,
     YEASTHISTONEANDEXPRESSION: YeastHistoneAndExpressionLoader,
     YEAST_NUCLEOSOMES: YeastNucleosomeLoader,
-    GENOME_ALLIANCE_ORTHOLOGS: GenomeAllianceOrthologLoader
+    GENOME_ALLIANCE_ORTHOLOGS: GenomeAllianceOrthologLoader,
+    STRING_DB: STRINGDBLoader
+
     # items to go
     # textminingkp
 
