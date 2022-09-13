@@ -67,6 +67,10 @@ If you want to specify an individual graph you can override that default entrypo
 ```
 docker-compose run --rm data_services python /Data_services/Common/build_manager.py -g Example_Graph_ID
 ```
+To also create a Neo4j backup dump of the graph, add the -n or --neo4j_dump flag.
+```
+docker-compose run --rm data_services python /Data_services/Common/build_manager.py -g Example_Graph_ID -n
+```
 To run the Data Services pipeline for a single data source, you can use:
 ```
 docker-compose run --rm data_services python /Data_services/Common/load_manager.py Example_Source
