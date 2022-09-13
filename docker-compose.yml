@@ -7,6 +7,7 @@ services:
       - DATA_SERVICES_STORAGE=/Data_services_storage
       - DATA_SERVICES_GRAPHS=/Data_services_graphs
       - DATA_SERVICES_GRAPH_SPEC
+      - DATA_SERVICES_GRAPH_SPEC_URL
       - DATA_SERVICES_LOGS=/Data_services_logs
       - "HOST_STORAGE_DIR=${DATA_SERVICES_STORAGE}"
       - "HOST_GRAPHS_DIR=${DATA_SERVICES_GRAPHS}"
