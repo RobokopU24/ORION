@@ -3,7 +3,6 @@ import os
 import argparse
 import datetime
 from collections import defaultdict
-# from multiprocessing import Pool
 
 from Common.utils import LoggingUtil, NodeNormUtils, EdgeNormUtils, GetDataPullError
 from Common.kgx_file_normalizer import KGXFileNormalizer, NormalizationBrokenError, NormalizationFailedError
@@ -18,8 +17,6 @@ from parsers.GWASCatalog.src.loadGWASCatalog import GWASCatalogLoader
 from parsers.CTD.src.loadCTD import CTDLoader
 from parsers.cord19.src.loadCord19 import Cord19Loader
 from parsers.scent.src.loadScent import ScentLoader
-
-# from parsers.FooDB.src.loadFDB import FDBLoader
 from parsers.GOA.src.loadGOA import PlantGOALoader, HumanGOALoader
 from parsers.IntAct.src.loadIA import IALoader
 from parsers.PHAROS.src.loadPHAROS import PHAROSLoader
@@ -35,7 +32,6 @@ from parsers.drugcentral.src.loaddrugcentral import DrugCentralLoader
 from parsers.hetio.src.loadHetio import HetioLoader
 from parsers.biolink.src.loadBL import BLLoader
 from parsers.OntologicalHierarchy.src.loadOH import OHLoader
-from parsers.yeast.src.loadYeastNucleosomes import YeastNucleosomeLoader
 from parsers.GenomeAlliance.src.loadGenomeAlliance import GenomeAllianceOrthologLoader
 
 GWAS_CATALOG = 'GWASCatalog'
@@ -59,7 +55,6 @@ UNIREF = 'UniRef'
 SCENT = 'Scent'
 ONTOLOGICAL_HIERARCHY = 'OntologicalHierarchy'
 YEASTSGD = 'YeastSGDInfo'
-YEASTNUC = 'YeastNucleosomes'
 YEASTHISTONEANDEXPRESSION = 'YeastHistoneAndExpression'
 YEAST_NUCLEOSOMES = 'YeastNucleosomes'
 GENOME_ALLIANCE_ORTHOLOGS = 'GenomeAllianceOrthologs'
@@ -88,8 +83,7 @@ SOURCE_DATA_LOADER_CLASSES = {
     ONTOLOGICAL_HIERARCHY: OHLoader,
     SCENT: ScentLoader,
     YEASTSGD: YeastSGDLoader,
-    YEASTNUC: YeastNucleosomeLoader,
-    YEASTHISTONEANDEXPRESSION: YeastHistoneAndExpressionLoader
+    YEASTHISTONEANDEXPRESSION: YeastHistoneAndExpressionLoader,
     YEAST_NUCLEOSOMES: YeastNucleosomeLoader,
     GENOME_ALLIANCE_ORTHOLOGS: GenomeAllianceOrthologLoader
     # items to go
@@ -99,7 +93,7 @@ SOURCE_DATA_LOADER_CLASSES = {
     # FOODB: FDBLoader - no longer has curies that will normalize
 }
 
-RESOURCE_HOGS = [GTEX, UNIREF]
+RESOURCE_HOGS = [GTEX, GWAS_CATALOG, UNIREF, ONTOLOGICAL_HIERARCHY]
 
 
 class SourceDataManager:
@@ -354,10 +348,8 @@ class SourceDataManager:
         if source_id in self.latest_parsing_version_lookup:
             return self.latest_parsing_version_lookup[source_id]
 
-        # TODO each parser should return it's own parsing version like:
-        # source_data_loader = SOURCE_DATA_LOADER_CLASSES[source_id]()
-        # parsing_version = source_data_loader.get_latest_parsing_version()
-        parsing_version = "1.0"
+        source_data_loader = SOURCE_DATA_LOADER_CLASSES[source_id]()
+        parsing_version = source_data_loader.get_latest_parsing_version()
         self.latest_parsing_version_lookup[source_id] = parsing_version
         return parsing_version
 
@@ -422,6 +414,8 @@ class SourceDataManager:
             edges_source_file_path = self.get_source_edge_file_path(source_id, source_version, parsing_version)
             edges_norm_file_path = self.get_normalized_edge_file_path(source_id, source_version, parsing_version, composite_normalization_version)
             edge_norm_predicate_map_file_path = self.get_edge_norm_predicate_map_file_path(source_id, source_version, parsing_version, composite_normalization_version)
+            default_provenance = SOURCE_DATA_LOADER_CLASSES[source_id].provenance_id
+            process_in_memory = False if source_id in RESOURCE_HOGS else True
             file_normalizer = KGXFileNormalizer(nodes_source_file_path,
                                                 nodes_norm_file_path,
                                                 node_norm_map_file_path,
@@ -430,7 +424,9 @@ class SourceDataManager:
                                                 edges_norm_file_path,
                                                 edge_norm_predicate_map_file_path,
                                                 has_sequence_variants=has_sequence_variants,
-                                                normalization_scheme=normalization_scheme)
+                                                normalization_scheme=normalization_scheme,
+                                                default_provenance=default_provenance,
+                                                process_in_memory=process_in_memory)
             normalization_info = file_normalizer.normalize_kgx_files()
 
             # update the associated metadata

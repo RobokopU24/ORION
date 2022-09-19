@@ -150,6 +150,8 @@ class DrugCentralLoader(SourceDataLoader):
             if node.identifier in node_props_by_id:
                 node.properties.update(node_props_by_id[node.identifier])
 
+        db_container.stop_container()
+
         return extractor.load_metadata
 
     def determine_postgres_version(self):

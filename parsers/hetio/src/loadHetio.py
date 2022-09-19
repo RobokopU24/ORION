@@ -10,10 +10,12 @@ from Common.extractor import Extractor
 from Common.prefixes import NCBIGENE, DRUGBANK, UBERON, DOID, MESH, UMLS
 from Common.node_types import AGGREGATOR_KNOWLEDGE_SOURCES, ORIGINAL_KNOWLEDGE_SOURCE, PRIMARY_KNOWLEDGE_SOURCE
 
+
 class HetioLoader(SourceDataLoader):
 
     source_id: str = 'Hetio'
     provenance_id: str = 'infores:hetio'
+    parsing_version: str = '1.1'
 
     def __init__(self, test_mode: bool = False, source_data_dir: str = None):
         """
@@ -169,9 +171,9 @@ hetio_abbrev_to_curie_lookup = {
     'DrD': 'SO:similar_to',  # disease resembles disease - similar_to
     'CrC': 'SO:similar_to',  # compound resembles compound - similar_to
     'GcG': 'RO:0002610',    # gene covaries gene - correlated with
-    'GpCC': 'RO:0002007',   # gene participates cellular component - has_part/part_of
-    'GpMF': 'RO:0002007',   # gene participates Molecular Function - has_part/part_of
-    'GpBP': 'RO:0002007'    # gene participates Biological Process - has_part/part_of
+    'GpCC': 'BFO:0000050',   # gene participates cellular component - has_part/part_of
+    'GpMF': 'RO:0002327',  # gene participates Molecular Function - enables
+    'GpBP': 'RO:0002331'  # gene participates Biological Process - involved in
 }
 
 

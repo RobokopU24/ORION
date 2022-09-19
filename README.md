@@ -52,9 +52,13 @@ graphs:
       - source_id: HGNC
 ```
 
-Run the build manager to build graphs from your Graph Spec. 
+Install Docker to create and run the necessary containers. 
 
-Use docker compose to create and run the necessary containers. By default the Dockerfile invokes Common/build_manager.py with no arguments,
+To avoid user and group permissions issues, first build the main container using your existing user and group ids:
+```
+docker-compose build --build-arg UID="$(id -u)" --build-arg GID="$(id -g)" data_services
+```
+By default using docker-compose invokes /Data_services/Common/build_manager.py with no arguments,
 which will build every graph in your Graph Spec.
 ```
 docker-compose up
@@ -62,6 +66,10 @@ docker-compose up
 If you want to specify an individual graph you can override that default entrypoint with a graph id from your Spec.
 ```
 docker-compose run --rm data_services python /Data_services/Common/build_manager.py -g Example_Graph_ID
+```
+To also create a Neo4j backup dump of the graph, add the -n or --neo4j_dump flag.
+```
+docker-compose run --rm data_services python /Data_services/Common/build_manager.py -g Example_Graph_ID -n
 ```
 To run the Data Services pipeline for a single data source, you can use:
 ```
@@ -107,3 +115,10 @@ Implement parse_data(). This function should parse the data files and populate l
 Finally, add your source to the list of sources at the top of Common/load_manager.py. The source ID string here should match the one specified in the new parser. Also your source to the SOURCE_DATA_LOADER_CLASSES dictionary, mapping the new parser class.
 
 Now you can use that source ID in a graph spec to include your new source in a graph.
+
+#### Testing and Troubleshooting
+
+After you alter the codebase, or if you are experiencing issues or errors you may want to run tests:
+```
+docker-compose run --rm data_services pytest /Data_services
+```

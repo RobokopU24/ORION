@@ -26,6 +26,13 @@ class CTDLoader(SourceDataLoader):
     source_id = 'CTD'
     provenance_id = 'infores:ctd'
 
+    predicate_conversion_map = {
+        'CTD:decreases_molecular_interaction_with': 'CTD:decreases_molecular_interaction',
+        'CTD:increases_molecular_interaction_with': 'CTD:increases_molecular_interaction',
+        'CTD:positive_correlation': 'CTD:positively_correlated_with',
+        'CTD:negative_correlation': 'CTD:negatively_correlated_with'
+    }
+
     def __init__(self, test_mode: bool = False, source_data_dir: str = None):
         """
         :param test_mode - sets the run into test mode
@@ -41,13 +48,10 @@ class CTDLoader(SourceDataLoader):
         self.hand_curated_data_file = 'ctd.tar'
         self.hand_curated_file = 'ctd-grouped-pipes.tsv'
 
-        # the final output lists of nodes and edges
-        self.final_node_list: list = []
-        self.final_edge_list: list = []
-        self.previous_node_ids = set()
+        self.therapeutic_predicate = 'CTD:ameliorates'
+        self.marker_predicate = 'CTD:contributes_to'
 
-        # create a logger
-        self.logger = LoggingUtil.init_logging("Data_services.CTD.CTDLoader", level=logging.INFO, line_format='medium', log_file_path=os.environ['DATA_SERVICES_LOGS'])
+        self.previous_node_ids = set()
 
     def get_latest_source_version(self) -> str:
         """
@@ -71,7 +75,7 @@ class CTDLoader(SourceDataLoader):
         # was the version found
         if version is not None:
             # save the value
-            ret_val = version.text.split(':')[1].strip()
+            ret_val = version.text.split(':')[1].strip().replace(' ', '_')
 
         # return to the caller
         return ret_val
@@ -349,7 +353,7 @@ class CTDLoader(SourceDataLoader):
                     skipped_record_counter += 1
                     continue
                 else:
-                    predicate: str = self.normalize_predicate(predicate_label)
+                    predicate: str = self.normalize_predicate(f"{CTD}:{predicate_label}")
 
                 # save the disease node
                 disease_id = f'{MESH}:' + r['diseaseid']
@@ -366,7 +370,6 @@ class CTDLoader(SourceDataLoader):
                     self.previous_node_ids.add(exposure_id)
 
                 # save the edge
-                predicate = f'{CTD}:{predicate}'
                 new_edge = kgxedge(exposure_id,
                                    disease_id,
                                    predicate=predicate,
@@ -495,8 +498,8 @@ class CTDLoader(SourceDataLoader):
                             # save the reference
                             marker_refs += evidence['refs']
 
-                    # get the predicate and label
-                    predicate, predicate_label = self.get_chemical_label_id(treats_count, marker_count)
+                    # get the predicate
+                    predicate = self.get_chemical_label_id(treats_count, marker_count)
 
                     # was there a valid predicate
                     if predicate is None:
@@ -508,14 +511,11 @@ class CTDLoader(SourceDataLoader):
                     if predicate == 'RO:0001001':
                         publications = treats_refs + marker_refs
 
-                    if 'marker' in predicate:
+                    if predicate == self.marker_predicate:
                         publications = marker_refs
 
-                    if 'therapeutic' in predicate:
+                    if predicate == self.therapeutic_predicate:
                         publications = treats_refs
-
-                    # normalize predicate
-                    predicate: str = self.normalize_predicate(predicate)
 
                     # was this node already added
                     if not disease_node_added:
@@ -617,33 +617,36 @@ class CTDLoader(SourceDataLoader):
         regex = '\/|\ |\^'
 
         # clean up the predicate
-        return re.sub(regex, '_', predicate)
+        cleaned_predicate = re.sub(regex, '_', predicate)
+        if cleaned_predicate in CTDLoader.predicate_conversion_map:
+            return CTDLoader.predicate_conversion_map[cleaned_predicate]
+        else:
+            return cleaned_predicate
 
-    @staticmethod
-    def get_chemical_label_id(therapeutic_count: int, marker_count: int, marker_predicate_label: str = 'marker_mechanism', therapeutic_predicate_label: str = 'therapeutic') -> (str, str):
+    def get_chemical_label_id(self,
+                              therapeutic_count: int,
+                              marker_count: int) -> (str, str):
         """
         This function applies rules to determine which edge to prefer in cases
         where conflicting edges are returned for a chemical disease relationship.
 
         :param therapeutic_count:
         :param marker_count:
-        :param marker_predicate_label:
-        :param therapeutic_predicate_label:
         :return:
         """
 
         # if this is not a good amount of evidence
         if therapeutic_count == marker_count and therapeutic_count < 3:
             # nothing is usable
-            return None, None
+            return None
 
         # if there are no markers but there is evidence
         if marker_count == 0 and therapeutic_count > 0:
-            return f'{CTD}:{therapeutic_predicate_label}', therapeutic_predicate_label
+            return self.therapeutic_predicate
 
         # if there is no therapeutic evidence but there are markers
         if therapeutic_count == 0 and marker_count > 0:
-            return f'{CTD}:{marker_predicate_label}', marker_predicate_label
+            return self.marker_predicate
 
         # get the marker flag
         marker = (therapeutic_count == 1 and marker_count > 1) or (marker_count / therapeutic_count > 2)
@@ -653,14 +656,14 @@ class CTDLoader(SourceDataLoader):
 
         # if there are a good number of markers
         if marker:
-            return f'{CTD}:{marker_predicate_label}', marker_predicate_label
+            return self.marker_predicate
 
         # if there is a good amount of therapeutic evidence
         if therapeutic:
-            return f'{CTD}:{therapeutic_predicate_label}', therapeutic_predicate_label
+            return self.therapeutic_predicate
 
         # return to caller with the default
-        return 'RO:0001001', 'related to'
+        return 'biolink:related_to'
 
 
 if __name__ == '__main__':

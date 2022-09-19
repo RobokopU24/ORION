@@ -1,11 +1,9 @@
 import os
 import argparse
-import logging
-import datetime
-import time
+import pyoxigraph
 
-from rdflib import Graph
-from Common.utils import LoggingUtil, GetData
+from zipfile import ZipFile
+from Common.utils import GetData
 from Common.loader_interface import SourceDataLoader
 from Common.kgxmodel import kgxnode, kgxedge
 from Common.prefixes import HGNC
@@ -52,112 +50,70 @@ class OHLoader(SourceDataLoader):
         Gets the ontological-hierarchy data.
 
         """
-        # get a reference to the data gathering class
-        # gd: GetData = GetData(self.logger.level)
-
         # get a reference to the data gatherer
         gd: GetData = GetData(self.logger.level)
 
         byte_count: int = gd.pull_via_http(f'{self.data_url}{self.data_file}',
                                            self.data_path, False)
-
         if byte_count > 0:
             return True
+        else:
+            return False
 
     def parse_data(self):
         """
         Parses the data file for graph nodes/edges
         """
 
+        def convert_iri_to_curie(iri):
+            id_portion = iri.rsplit('/')[-1].rsplit('#')[-1]
+            # HGNC must be handled differently that the others
+            if iri.find('hgnc') > 0:
+                return f"{HGNC}:" + id_portion
+            # if string is all lower it is not a curie
+            elif not id_portion.islower():
+                # replace the underscores to create a curie
+                return id_portion.replace('_', ':')
+            return None
+
         # init the record counters
         record_counter: int = 0
         skipped_record_counter: int = 0
         skipped_non_subclass_record_counter: int = 0
 
-        # get a reference to the data handler object
-        gd: GetData = GetData(self.logger.level)
+        archive_file_path = os.path.join(self.data_path, f'{self.data_file}')
+        with ZipFile(archive_file_path) as zf:
+            # open the hmdb xml file
+            with zf.open(self.data_file.replace('.zip', '.ttl')) as ttl_file:
 
-        # init a list for the output data
-        triple: list = []
+                # for every triple in the input data
+                for ttl_triple in pyoxigraph.parse(ttl_file, mime_type='text/turtle'):
 
-        # split the file into pieces
-        split_files: list = gd.split_file(archive_file_path=os.path.join(self.data_path, f'{self.data_file}'),
-                                          output_dir=self.data_path,
-                                          data_file_name=self.data_file.replace('.zip', '.ttl'))
+                    # increment the record counter
+                    record_counter += 1
 
-        # test mode
-        if self.test_mode:
-            # use the first few files
-            files_to_parse = split_files[0:2]
-        else:
-            files_to_parse = split_files
+                    if self.test_mode and record_counter == 2000:
+                        break
 
-        for file in files_to_parse:
-            self.logger.info(f'Working file: {file}')
-
-            # get a time stamp
-            tm_start = time.time()
-
-            # get the biolink json-ld data
-            g: Graph = gd.get_biolink_graph(file)
-
-            # get the triples
-            g_t = g.triples((None, None, None))
-
-            # for every triple in the input data
-            for t in g_t:
-                # increment the record counter
-                record_counter += 1
-
-                # clear before use
-                triple.clear()
-
-                # get the curie for each element in the triple
-                for n in t:
-                    # init the value storage
-                    val = None
-
-                    try:
-                        # get the value
-                        qname = g.compute_qname(n)
-
-                        # HGNC must be handled differently that the others
-                        if qname[1].find('hgnc') > 0:
-                            val = f"{HGNC}:" + qname[2]
-                        # if string is all lower it is not a curie
-                        elif not qname[2].islower():
-                            # replace the underscores to create a curie
-                            val = qname[2].replace('_', ':')
-
-                    except Exception as e:
-                        self.logger.warning(f'Exception parsing RDF {t}. {e}')
-
-                    # did we get a valid value
-                    if val is not None:
-                        # add it to the group
-                        triple.append(val)
-
-                # make sure we have all 3 entries
-                if len(triple) == 3:
                     # Filter only subclass edges
-                    if triple[1] == 'subClassOf':
-                        # create the nodes and edges
-                        self.final_node_list.append(kgxnode(triple[0], name=triple[0]))
-                        self.final_node_list.append(kgxnode(triple[2], name=triple[2]))
-                        self.final_edge_list.append(kgxedge(subject_id=triple[0],
-                                                            object_id=triple[2],
-                                                            predicate=self.subclass_predicate))
-                    else:
+                    if 'subClassOf' not in ttl_triple.predicate.value:
                         skipped_non_subclass_record_counter += 1
-                else:
-                    skipped_record_counter += 1
+                        continue
 
-            self.logger.debug(
-                f'Loading complete for file {file.split(".")[2]} of {len(split_files)} in {round(time.time() - tm_start, 0)} seconds.')
+                    subject_curie = convert_iri_to_curie(ttl_triple.subject.value)
+                    object_curie = convert_iri_to_curie(ttl_triple.object.value)
 
-        # remove all the intermediate files
-        for file in split_files:
-            os.remove(file)
+                    # make sure we have all 3 entries
+                    if subject_curie and object_curie:
+                        # create the nodes and edges
+                        self.output_file_writer.write_kgx_node(kgxnode(subject_curie))
+                        self.output_file_writer.write_kgx_node(kgxnode(object_curie))
+                        self.output_file_writer.write_kgx_edge(kgxedge(subject_id=subject_curie,
+                                                                       object_id=object_curie,
+                                                                       predicate=self.subclass_predicate,
+                                                                       original_knowledge_source=self.provenance_id))
+                    else:
+                        skipped_record_counter += 1
 
         # load up the metadata
         load_metadata: dict = {

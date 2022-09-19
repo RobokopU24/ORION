@@ -1,11 +1,10 @@
 import os
 import argparse
-import logging
 import datetime
-import time
+import pyoxigraph
 
-from rdflib import Graph
-from Common.utils import LoggingUtil, GetData
+from zipfile import ZipFile
+from Common.utils import GetData
 from Common.loader_interface import SourceDataLoader
 from Common.prefixes import HGNC
 from Common.kgxmodel import kgxnode, kgxedge
@@ -30,10 +29,9 @@ class UGLoader(SourceDataLoader):
         """
         super().__init__(test_mode=test_mode, source_data_dir=source_data_dir)
 
-        # this will be dynamically populated after extracting and splitting the data files
-        self.split_file_paths = []
         # this is the name of the archive file the source files will come from
         self.data_file = 'properties-nonredundant.zip'
+        self.data_url: str = 'https://stars.renci.org/var/data_services/'
 
     def get_latest_source_version(self):
         """
@@ -41,7 +39,10 @@ class UGLoader(SourceDataLoader):
 
         :return:
         """
-        return datetime.datetime.now().strftime("%m_%Y")
+        file_url = f'{self.data_url}{self.data_file}'
+        gd = GetData(self.logger.level)
+        latest_source_version = gd.get_http_file_modified_date(file_url)
+        return latest_source_version
 
     def get_data(self):
         """
@@ -51,7 +52,7 @@ class UGLoader(SourceDataLoader):
         # get a reference to the data gatherer
         gd: GetData = GetData(self.logger.level)
 
-        byte_count: int = gd.pull_via_http(f'https://stars.renci.org/var/data_services/{self.data_file}',
+        byte_count: int = gd.pull_via_http(f'{self.data_url}{self.data_file}',
                                            self.data_path, False)
         if byte_count > 0:
             return True
@@ -60,99 +61,61 @@ class UGLoader(SourceDataLoader):
 
     def parse_data(self):
         """
-        Parses the data file for graph nodes/edges.
+        Parses the data file for graph nodes/edges
         """
 
-        # unzip the archive and split the file into pieces of size file_size
-        gd: GetData = GetData(self.logger.level)
-        split_file_paths: list = gd.split_file(archive_file_path=os.path.join(self.data_path, f'{self.data_file}'),
-                                               output_dir=self.data_path,
-                                               data_file_name=self.data_file.replace('.zip', '.ttl'))
+        def convert_iri_to_curie(iri):
+            id_portion = iri.rsplit('/')[-1].rsplit('#')[-1]
+            # HGNC must be handled differently that the others
+            if iri.find('hgnc') > 0:
+                return f"{HGNC}:" + id_portion
+            # if string is all lower it is not a curie
+            elif not id_portion.islower():
+                # replace the underscores to create a curie
+                return id_portion.replace('_', ':')
+            return None
+
         # init the record counters
         record_counter: int = 0
         skipped_record_counter: int = 0
 
-        # init a list for the output data
-        triple: list = []
+        archive_file_path = os.path.join(self.data_path, f'{self.data_file}')
+        with ZipFile(archive_file_path) as zf:
+            # open the hmdb xml file
+            with zf.open(self.data_file.replace('.zip', '.ttl')) as ttl_file:
 
-        # get a reference to the data handler object
-        gd: GetData = GetData(self.logger.level)
+                # for every triple in the input data
+                for ttl_triple in pyoxigraph.parse(ttl_file, mime_type='text/turtle'):
 
-        # parse each file
-        for file in split_file_paths:
-            self.logger.info(f'Working file: {file}')
-
-            # get a time stamp
-            tm_start = time.time()
-
-            # get the biolink json-ld data
-            g: Graph = gd.get_biolink_graph(file)
-
-            # get the triples
-            g_t = g.triples((None, None, None))
-
-            # for every triple in the input data
-            for t in g_t:
-                # increment the record counter
-                record_counter += 1
-
-                # clear before use
-                triple.clear()
-
-                # get the curie for each element in the triple
-                for n in t:
-                    # init the value storage
-                    val = None
-
-                    try:
-                        # get the value
-                        qname = g.compute_qname(n)
-
-                        # HGNC must be handled differently that the others
-                        if qname[1].find('hgnc') > 0:
-                            val = f"{HGNC}:" + qname[2]
-                        # if string is all lower it is not a curie
-                        elif not qname[2].islower():
-                            # replace the underscores to create a curie
-                            val = qname[2].replace('_', ':')
-
-                    except Exception as e:
-                        self.logger.warning(f'Exception parsing RDF {t}. {e}')
-
-                    # did we get a valid value
-                    if val is not None:
-                        # add it to the group
-                        triple.append(val)
-
-                # make sure we have all 3 entries
-                if len(triple) == 3:
-                    # create the nodes
-                    node_1 = kgxnode(triple[0], name=triple[0])
-                    self.final_node_list.append(node_1)
-                    new_edge = kgxedge(subject_id=triple[0],
-                                       object_id=triple[2],
-                                       predicate=triple[1],
-                                       original_knowledge_source=self.provenance_id)
-                    self.final_edge_list.append(new_edge)
-                    node_2 = kgxnode(triple[2], name=triple[2])
-                    self.final_node_list.append(node_2)
+                    # increment the record counter
                     record_counter += 1
-                else:
-                    skipped_record_counter += 1
 
-            self.logger.debug(f'Loading complete for file {file.split(".")[2]} of {len(self.split_file_paths)} in {round(time.time() - tm_start, 0)} seconds.')
+                    if self.test_mode and record_counter == 2000:
+                        break
 
-        # remove all the intermediate files
-        for file in split_file_paths:
-            if os.path.exists(file):
-                os.remove(file)
+                    predicate_curie = convert_iri_to_curie(ttl_triple.predicate.value)
+                    subject_curie = convert_iri_to_curie(ttl_triple.subject.value)
+                    object_curie = convert_iri_to_curie(ttl_triple.object.value)
 
+                    # make sure we have all 3 entries
+                    if subject_curie and object_curie and predicate_curie:
+                        # create the nodes and edges
+                        self.output_file_writer.write_kgx_node(kgxnode(subject_curie))
+                        self.output_file_writer.write_kgx_node(kgxnode(object_curie))
+                        self.output_file_writer.write_kgx_edge(kgxedge(subject_id=subject_curie,
+                                                                       object_id=object_curie,
+                                                                       predicate=predicate_curie,
+                                                                       original_knowledge_source=self.provenance_id))
+                    else:
+                        skipped_record_counter += 1
+
+        # load up the metadata
         load_metadata: dict = {
             'num_source_lines': record_counter,
             'unusable_source_lines': skipped_record_counter
         }
 
-        # return to the caller
+        # return the split file names so they can be removed if desired
         return load_metadata
 
 

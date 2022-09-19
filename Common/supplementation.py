@@ -1,21 +1,55 @@
 import subprocess
 import jsonlines
 import json
-from subprocess import SubprocessError
+import os
 from os import path, environ
 from io import BytesIO
 from urllib.request import urlopen
 from zipfile import ZipFile
 from collections import defaultdict
-from Common.node_types import SEQUENCE_VARIANT, GENE
+from Common.node_types import SEQUENCE_VARIANT, GENE, FALLBACK_EDGE_PREDICATE
 from Common.utils import LoggingUtil
 from Common.kgx_file_writer import KGXFileWriter
 from Common.kgx_file_normalizer import KGXFileNormalizer
 from Common.kgxmodel import NormalizationScheme
 
 
+SNPEFF_SO_PREDICATES = {
+        # GAMMA are not from Sequence Ontology
+        # GAMMA:0000102 - biolink:is_nearby_variant_of
+        # GAMMA:0000103 - biolink:is_non_coding_variant_of
+
+        "3_prime_UTR_variant": "GAMMA:0000103",  # SO:0001624
+        "5_prime_UTR_premature_start_codon_gain_variant": "GAMMA:0000103",  # SO:0001988
+        "5_prime_UTR_variant": "GAMMA:0000103",  # SO:0001623
+        "conservative_inframe_deletion": "SO:0001825",
+        "conservative_inframe_insertion": "SO:0001823",
+        "disruptive_inframe_deletion": "SO:0001826",
+        "disruptive_inframe_insertion": "SO:0001824",
+        "downstream_gene_variant": "GAMMA:0000102",
+        "frameshift_variant": "SO:0001589",  # biolink:is_frameshift_variant_of
+        "initiator_codon_variant": "SO:0001583",  # biolink:is_missense_variant_of
+        "intergenic_region": "GAMMA:0000102",
+        "conserved_intergenic_region": "GAMMA:0000102",
+        "intragenic_variant": "GAMMA:0000103",
+        "intron_variant": "GAMMA:0000103",
+        "missense_variant": "SO:0001583",  # biolink:is_missense_variant_of
+        "non_coding_transcript_exon_variant": "GAMMA:0000103",
+        "non_coding_transcript_variant": "GAMMA:0000103",
+        "splice_acceptor_variant": "SO:0001629",  # biolink:is_splice_site_variant_of
+        "splice_donor_variant": "SO:0001629",  # biolink:is_splice_site_variant_of
+        "splice_region_variant": "SO:0001629",  # biolink:is_splice_site_variant_of
+        "start_lost":  "SO:0001589",  # biolink:is_frameshift_variant_of
+        "start_retained_variant": "SO:0001819",  # biolink:is_synonymous_variant_of
+        "stop_gained": "SO:0002054",  # biolink:is_nonsense_variant_of - more specifically SO:0001587
+        "stop_lost": "SO:0001589",  # biolink:is_frameshift_variant_of
+        "synonymous_variant": "SO:0001819",  # biolink:is_synonymous_variant_of
+        "upstream_gene_variant": "GAMMA:0000102"
+}
+
+
 class SupplementationFailedError(Exception):
-    def __init__(self, error_message: str, actual_error: str):
+    def __init__(self, error_message: str, actual_error: str = ''):
         self.error_message = error_message
         self.actual_error = actual_error
 
@@ -51,16 +85,14 @@ class SequenceVariantSupplementation:
                                supp_edge_norm_predicate_map_file_path: str,
                                normalization_scheme: NormalizationScheme):
 
-        self.logger.debug('Parsing nodes file..')
-        source_nodes = self.parse_nodes_file(nodes_file_path)
+        workspace_dir = supp_nodes_norm_file_path.rsplit("/", 1)[0]
+        vcf_file_path = f'{workspace_dir}/variants.vcf'
 
-        self.logger.debug('Creating VCF file from source nodes..')
-        nodes_file_path_base = nodes_file_path.rsplit("nodes.", 1)[0]
-        vcf_file_path = f'{nodes_file_path_base}variants.vcf'
-        self.create_vcf_from_variant_nodes(source_nodes,
+        self.logger.info('Creating VCF file from source nodes..')
+        self.create_vcf_from_variant_nodes(nodes_file_path,
                                            vcf_file_path)
-        self.logger.debug('Running SNPEFF, creating annotated VCF..')
-        annotated_vcf_path = f'{nodes_file_path_base}variants_ann.vcf'
+        self.logger.info('Running SNPEFF, creating annotated VCF..')
+        annotated_vcf_path = f'{workspace_dir}/variants_ann.vcf'
         self.run_snpeff(vcf_file_path,
                         annotated_vcf_path)
 
@@ -68,6 +100,9 @@ class SequenceVariantSupplementation:
         supplementation_metadata = self.convert_snpeff_to_kgx(annotated_vcf_path,
                                                               supp_nodes_file_path,
                                                               supp_edges_file_path)
+
+        os.remove(vcf_file_path)
+        os.remove(annotated_vcf_path)
 
         self.logger.debug('Normalizing Supplemental KGX File..')
         file_normalizer = KGXFileNormalizer(source_nodes_file_path=supp_nodes_file_path,
@@ -79,7 +114,8 @@ class SequenceVariantSupplementation:
                                             edge_norm_predicate_map_file_path=supp_edge_norm_predicate_map_file_path,
                                             normalization_scheme=normalization_scheme,
                                             edge_subject_pre_normalized=True,
-                                            has_sequence_variants=True)
+                                            has_sequence_variants=True,
+                                            process_in_memory=False)
         supp_normalization_info = file_normalizer.normalize_kgx_files()
         supplementation_metadata['supplementation_normalization_info'] = supp_normalization_info
 
@@ -88,21 +124,23 @@ class SequenceVariantSupplementation:
     def run_snpeff(self,
                    vcf_file_path: str,
                    annotated_vcf_path: str,
-                   ud_distance: int = 500000):
+                   ud_distance: int = 100_000):
 
         # changing this reference genome DB may break things,
         # such as assuming gene IDs and biotypes are from ensembl
         reference_genome = 'GRCh38.99'
-        try:
-            with open(annotated_vcf_path, "w") as new_snpeff_file:
-                snpeff_results = subprocess.run(['java', '-Xmx12g', '-jar', 'snpEff.jar', '-noStats', '-ud', str(ud_distance), reference_genome, vcf_file_path],
-                                                cwd=self.snpeff_dir,
-                                                stdout=new_snpeff_file,
-                                                stderr=subprocess.STDOUT)
-                snpeff_results.check_returncode()
-        except SubprocessError as e:
-            self.logger.error(f'SNPEFF subprocess error - {e}')
-            raise SupplementationFailedError('SNPEFF Failed', e)
+        subprocess_command = ['java', '-Xmx12g', '-jar', 'snpEff.jar',
+                              '-noStats', '-ud', str(ud_distance), reference_genome, vcf_file_path]
+        with open(annotated_vcf_path, "w") as new_snpeff_file:
+            snpeff_results: subprocess.CompletedProcess = subprocess.run(subprocess_command,
+                                                                         cwd=self.snpeff_dir,
+                                                                         stdout=new_snpeff_file,
+                                                                         stderr=subprocess.PIPE)
+            if snpeff_results.returncode != 0:
+                error_message = f'SNPEFF subprocess error (ExitCode {snpeff_results.returncode}): ' \
+                                f'{snpeff_results.stderr.decode("UTF-8")}'
+                self.logger.error(error_message)
+                raise SupplementationFailedError(error_message)
 
     def convert_snpeff_to_kgx(self,
                               annotated_vcf_path: str,
@@ -131,20 +169,17 @@ class SequenceVariantSupplementation:
                         annotations = info[4:].split(',')
                         for annotation in annotations:
                             annotation_info = annotation.split('|')
-                            effects = annotation_info[1].split("&")
-                            genes = annotation_info[4].split('-')
                             gene_biotype = annotation_info[7]
-                            distance_info = annotation_info[14]
                             if gene_biotype not in gene_biotypes_to_ignore:
-                                for gene in genes:
-                                    gene_id = f'ENSEMBL:{gene}'
-                                    gene_distances[gene_id] = distance_info
+                                effects = annotation_info[1].split("&")
+                                gene_ids = annotation_info[4].split('-')
+                                distance_info = annotation_info[14]
+                                for gene_id in gene_ids:
+                                    gene_curie = f'ENSEMBL:{gene_id}'
+                                    gene_distances[gene_curie] = distance_info
                                     for effect in effects:
-                                        if effect == 'intergenic_region':
-                                            effect_predicate = 'GAMMA:0000102'
-                                        else:
-                                            effect_predicate = f'SNPEFF:{effect}'
-                                        annotations_to_write[effect_predicate].add(gene_id)
+                                        effect_predicate = SNPEFF_SO_PREDICATES.get(effect, FALLBACK_EDGE_PREDICATE)
+                                        annotations_to_write[effect_predicate].add(gene_curie)
                         for effect_predicate, gene_ids in annotations_to_write.items():
                             for gene_id in gene_ids:
                                 if gene_distances[gene_id]:
@@ -154,7 +189,7 @@ class SequenceVariantSupplementation:
                                         edge_props = None
                                 else:
                                     edge_props = None
-                                output_file_writer.write_node(gene_id, gene_id, [GENE])
+                                output_file_writer.write_node(gene_id, None, [GENE])
                                 output_file_writer.write_edge(variant_id,
                                                               gene_id,
                                                               effect_predicate,
@@ -164,51 +199,44 @@ class SequenceVariantSupplementation:
 
         return supplementation_info
 
-    def parse_nodes_file(self, nodes_file_path: str):
-        self.logger.debug(f'Parsing Node File {nodes_file_path} for supplementation...')
+    def create_vcf_from_variant_nodes(self,
+                                      nodes_file_path: str,
+                                      vcf_file_path: str):
         try:
-            with open(nodes_file_path) as source_json:
-                source_reader = jsonlines.Reader(source_json)
-                source_nodes = [node for node in source_reader]
-            return source_nodes
+            with open(vcf_file_path, "w") as vcf_file, jsonlines.open(nodes_file_path) as source_json:
+                vcf_headers = "\t".join(["CHROM", "POS", "ID", "REF", "ALT", "QUAL", "FILTER", "INFO"])
+                vcf_file.write(f'#{vcf_headers}\n')
+                for node in source_json:
+                    if SEQUENCE_VARIANT in node['category']:
+                        for curie in node['equivalent_identifiers']:
+                            if curie.startswith('ROBO_VAR'):
+                                robo_key = curie.split(':', 1)[1]
+                                robo_params = robo_key.split('|')
+
+                                chromosome = robo_params[1]
+                                position = int(robo_params[2])
+                                ref_allele = robo_params[4]
+                                alt_allele = robo_params[5]
+
+                                if not ref_allele:
+                                    ref_allele = f'N'
+                                    alt_allele = f'N{alt_allele}'
+                                elif not alt_allele:
+                                    ref_allele = f'N{ref_allele}'
+                                    alt_allele = f'N'
+                                else:
+                                    position += 1
+
+                                current_variant_line = "\t".join([chromosome,
+                                                                  str(position),
+                                                                  node['id'],
+                                                                  ref_allele,
+                                                                  alt_allele,
+                                                                  '',
+                                                                  'PASS',
+                                                                  ''])
+                                vcf_file.write(f'{current_variant_line}\n')
+                                break
         except json.JSONDecodeError as e:
             norm_error_msg = f'Error decoding json from {nodes_file_path} on line number {e.lineno}'
             raise SupplementationFailedError(error_message=norm_error_msg, actual_error=e.msg)
-
-    def create_vcf_from_variant_nodes(self,
-                                      source_nodes: list,
-                                      vcf_file_path: str):
-        with open(vcf_file_path, "w") as vcf_file:
-            vcf_headers = "\t".join(["CHROM", "POS", "ID", "REF", "ALT", "QUAL", "FILTER", "INFO"])
-            vcf_file.write(f'#{vcf_headers}\n')
-            for node in source_nodes:
-                if SEQUENCE_VARIANT in node['category']:
-                    for curie in node['equivalent_identifiers']:
-                        if curie.startswith('ROBO_VAR'):
-                            robo_key = curie.split(':', 1)[1]
-                            robo_params = robo_key.split('|')
-
-                            chromosome = robo_params[1]
-                            position = int(robo_params[2])
-                            ref_allele = robo_params[4]
-                            alt_allele = robo_params[5]
-
-                            if not ref_allele:
-                                ref_allele = f'N'
-                                alt_allele = f'N{alt_allele}'
-                            elif not alt_allele:
-                                ref_allele = f'N{ref_allele}'
-                                alt_allele = f'N'
-                            else:
-                                position += 1
-
-                            current_variant_line = "\t".join([chromosome,
-                                                              str(position),
-                                                              node['id'],
-                                                              ref_allele,
-                                                              alt_allele,
-                                                              '',
-                                                              'PASS',
-                                                              ''])
-                            vcf_file.write(f'{current_variant_line}\n')
-                            break

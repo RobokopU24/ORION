@@ -29,6 +29,9 @@ FOOD = 'biolink:Food'
 # The root of all biolink_model entities
 ROOT_ENTITY = NAMED_THING
 
+# a property name for listing node types that did not normalize
+CUSTOM_NODE_TYPES = 'custom_node_types'
+
 node_types = [
     NAMED_THING,
     BIOLOGICAL_ENTITY,
@@ -67,3 +70,4 @@ ORIGINAL_KNOWLEDGE_SOURCE = 'biolink:original_knowledge_source'
 PRIMARY_KNOWLEDGE_SOURCE = 'biolink:primary_knowledge_source'
 AGGREGATOR_KNOWLEDGE_SOURCES = 'biolink:aggregator_knowledge_source'
 PUBLICATIONS = 'publications'
+

@@ -6,6 +6,7 @@ from Common.utils import GetData
 from Common.loader_interface import SourceDataLoader
 from Common.extractor import Extractor
 from Common.node_types import AGGREGATOR_KNOWLEDGE_SOURCES
+from Common.kgxmodel import kgxedge
 
 
 # the data header columns for the nodes file are:
@@ -21,6 +22,7 @@ class EDGESDATACOLS(enum.IntEnum):
     SUBJECT = 1
     PREDICATE = 2
     OBJECT = 3
+    CATEGORY = 4
     RELATION = 5
     # SOURCE = 17
 
@@ -36,6 +38,7 @@ class BLLoader(SourceDataLoader):
 
     source_id: str = 'Biolink'
     provenance_id: str = 'infores:biolink'
+    parsing_version: str = '1.1'
 
     def __init__(self, test_mode: bool = False, source_data_dir: str = None):
         """
@@ -105,7 +108,7 @@ class BLLoader(SourceDataLoader):
                                   lambda line: get_bl_edge_predicate(line),  # predicate extractor
                                   lambda line: {},  # subject props
                                   lambda line: {},  # object props
-                                  lambda line: {AGGREGATOR_KNOWLEDGE_SOURCES: ['infores:sri-reference-kg']},#edgeprops
+                                  lambda line: {AGGREGATOR_KNOWLEDGE_SOURCES: ['infores:sri-reference-kg']},  # edgeprops
                                   comment_character=None,
                                   delim='\t',
                                   has_header_row=True)
@@ -137,6 +140,13 @@ def get_bl_node_properties(line: list):
     return {'categories': categories, 'name': name}
 
 
+def passes_qc_filter(line: list):
+    return not (line[EDGESDATACOLS.SUBJECT.value].startswith('MESH') and
+                line[EDGESDATACOLS.OBJECT.value].startswith('MESH') and
+                line[EDGESDATACOLS.CATEGORY.value] ==
+                'biolink:Association|biolink:InformationContentEntity')
+
+
 DESIRED_BL_PREDICATES = {
     'biolink:biomarker_for',
     'biolink:contributes_to',
@@ -151,7 +161,10 @@ DESIRED_BL_PREDICATES = {
 
 def get_bl_edge_predicate(line: list):
     predicate = line[EDGESDATACOLS.PREDICATE.value]
-    return predicate if predicate in DESIRED_BL_PREDICATES else None
+    if predicate == 'biolink:biomarker_for' and not passes_qc_filter(line):
+        return None
+    else:
+        return predicate if predicate in DESIRED_BL_PREDICATES else None
 
 
 if __name__ == '__main__':

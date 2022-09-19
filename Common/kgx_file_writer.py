@@ -7,6 +7,7 @@ from Common.kgxmodel import kgxnode, kgxedge
 from Common.node_types import ORIGINAL_KNOWLEDGE_SOURCE, PRIMARY_KNOWLEDGE_SOURCE, AGGREGATOR_KNOWLEDGE_SOURCES, \
     SUBJECT_ID, OBJECT_ID, PREDICATE
 
+
 class KGXFileWriter:
 
     logger = LoggingUtil.init_logging("Data_services.Common.KGXFileWriter",
@@ -22,12 +23,12 @@ class KGXFileWriter:
                  nodes_output_file_path: str = None,
                  edges_output_file_path: str = None):
         self.edges_to_write = []
-        self.edges_buffer_size = 20000
+        self.edges_written = 0
 
         # written nodes is a set of node ids used for preventing duplicate node writes
         self.written_nodes = set()
         self.nodes_to_write = []
-        self.nodes_buffer_size = 20000
+        self.nodes_written = 0
         self.repeat_node_count = 0
 
         self.nodes_output_file_handler = None
@@ -50,14 +51,17 @@ class KGXFileWriter:
         return self
 
     def __exit__(self, exc_type, exc_value, traceback):
+        self.close()
+
+    def close(self):
         if self.nodes_output_file_handler:
-            self.__write_nodes_to_file()
             self.nodes_jsonl_writer.close()
             self.nodes_output_file_handler.close()
+            self.nodes_output_file_handler = None
         if self.edges_output_file_handler:
-            self.__write_edges_to_file()
             self.edges_jsonl_writer.close()
             self.edges_output_file_handler.close()
+            self.edges_output_file_handler = None
 
     def write_node(self, node_id: str, node_name: str, node_types: list, node_properties: dict = None, uniquify: bool = True):
         if uniquify:
@@ -70,8 +74,7 @@ class KGXFileWriter:
         if node_properties:
             node_object.update(node_properties)
 
-        self.nodes_to_write.append(node_object)
-        self.check_node_buffer_for_flush()
+        self.__write_node_to_file(node_object)
 
     def write_kgx_node(self, node: kgxnode):
         self.write_node(node.identifier,
@@ -86,25 +89,19 @@ class KGXFileWriter:
                 return
             self.written_nodes.add(node_json['id'])
 
-        self.nodes_to_write.append(node_json)
-        self.check_node_buffer_for_flush()
+        self.__write_node_to_file(node_json)
 
     def write_normalized_nodes(self, nodes: iter, uniquify: bool = True):
         for node in nodes:
             self.write_normalized_node(node, uniquify)
 
-    def check_node_buffer_for_flush(self):
-        if len(self.nodes_to_write) >= self.nodes_buffer_size:
-            self.__write_nodes_to_file()
-
-    def __write_nodes_to_file(self):
+    def __write_node_to_file(self, node):
         try:
-            self.nodes_jsonl_writer.write_all(self.nodes_to_write)
+            self.nodes_jsonl_writer.write(node)
+            self.nodes_written += 1
         except jsonlines.InvalidLineError as e:
             self.logger.error(f'KGXFileWriter: Failed to write json data: {e.line}.')
             raise e
-
-        self.nodes_to_write.clear()
 
     def write_edge(self,
                    subject_id: str,
@@ -137,8 +134,7 @@ class KGXFileWriter:
         if edge_properties is not None:
             edge_object.update(edge_properties)
 
-        self.edges_to_write.append(edge_object)
-        self.check_edge_buffer_for_flush()
+        self.__write_edge_to_file(edge_object)
 
     def write_kgx_edge(self, edge: kgxedge):
         self.write_edge(subject_id=edge.subjectid,
@@ -151,18 +147,12 @@ class KGXFileWriter:
 
     def write_normalized_edges(self, edges: iter):
         for edge in edges:
-            self.edges_to_write.append(edge)
-            self.check_edge_buffer_for_flush()
+            self.__write_edge_to_file(edge)
 
-    def check_edge_buffer_for_flush(self):
-        if len(self.edges_to_write) >= self.edges_buffer_size:
-            self.__write_edges_to_file()
-
-    def __write_edges_to_file(self):
+    def __write_edge_to_file(self, edge):
         try:
-            self.edges_jsonl_writer.write_all(self.edges_to_write)
+            self.edges_jsonl_writer.write(edge)
+            self.edges_written += 1
         except jsonlines.InvalidLineError as e:
             self.logger.error(f'KGXFileWriter: Failed to write json data: {e.line}.')
             raise e
-
-        self.edges_to_write.clear()
