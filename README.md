@@ -3,7 +3,7 @@
 
 This package takes data sets from various sources and converts them into Knowledge Graphs.
 
-Each data source will go through this pipeline before it can be included in a graph:
+Each data source will go through the following pipeline before it can be included in a graph:
 
 1. Fetch (retrieve an original data source) 
 2. Parse (convert the data source into KGX files) 
@@ -27,23 +27,48 @@ cd ~/Data_services_root
 git clone https://github.com/RENCI-AUTOMAT/Data_services/
 ```
 
-You can use this script to create example directories and set up required environment variables:
+Next create directories where data sources, graphs, and logs will be stored. 
+
+DATA_SERVICES_STORAGE - for storing data sources
+DATA_SERVICES_GRAPHS - for storing knowledge graphs
+DATA_SERVICES_LOGS - for storing logs
+
+You can do this manually, or use the script indicated below to set up a standard configuration (Option 1 or 2).
+
+Option 1: Create three directories and set environment variables specifying paths to the locations of those directories.
+```
+mkdir ~/Data_services_root/storage/
+export DATA_SERVICES_STORAGE=~/Data_services_root/storage/ 
+
+mkdir ~/Data_services_root/graphs/
+export DATA_SERVICES_GRAPHS=~/Data_services_root/graphs/
+
+mkdir ~/Data_services_root/logs/
+export DATA_SERVICES_LOGS=~/Data_services_root/logs/
+```
+
+Option 2: Use this script to create the directories and set the environment variables:
 ```
 cd ~/Data_services_root/Data_services/
 source ./set_up_test_env.sh
 ```
 
-Or use your own configuration by setting these environment variables:
+Next create or select a Graph Spec yaml file where the content of knowledge graphs to be built will be specified.
+
+Use either of the following options, but not both:
+
+Option 1: DATA_SERVICES_GRAPH_SPEC - the name of a Graph Spec file located in the graph_specs directory of Data_services
 ```
-DATA_SERVICES_STORAGE - a path to a directory for storing data sources
-DATA_SERVICES_GRAPHS - a path to a directory for storing knowledge graphs
-DATA_SERVICES_GRAPH_SPEC - a file where graphs to be built are specified
-DATA_SERVICES_LOGS - a directory for storing logs
+export DATA_SERVICES_GRAPH_SPEC=testing-graph-spec.yml
+```
+Option 2: DATA_SERVICES_GRAPH_SPEC_URL - a URL pointing to a Graph Spec file
+```
+export DATA_SERVICES_GRAPH_SPEC_URL=https://example.com/example-graph-spec.yml
 ```
 
-To build a graph alter the graph-spec.yml file in your DATA_SERVICES_GRAPHS directory. 
-The name of this file can be specified using the environment variable DATA_SERVICES_GRAPH_SPEC.
-It will look something like this:
+To build a custom graph, alter the Graph Spec file. See the graph_specs directory for examples. 
+
+TODO: explain options available in the graph spec (normalization version, source data version can be specified)
 ```
 graphs:
   - graph_id: Example_Graph_ID
@@ -54,12 +79,7 @@ graphs:
 
 Install Docker to create and run the necessary containers. 
 
-To avoid user and group permissions issues, first build the main container using your existing user and group ids:
-```
-docker-compose build --build-arg UID="$(id -u)" --build-arg GID="$(id -g)" data_services
-```
-By default using docker-compose invokes /Data_services/Common/build_manager.py with no arguments,
-which will build every graph in your Graph Spec.
+By default using docker-compose invokes /Data_services/Common/build_manager.py with no arguments, which will build every graph in your Graph Spec.
 ```
 docker-compose up
 ```
@@ -67,7 +87,7 @@ If you want to specify an individual graph you can override that default entrypo
 ```
 docker-compose run --rm data_services python /Data_services/Common/build_manager.py -g Example_Graph_ID
 ```
-To also create a Neo4j backup dump of the graph, add the -n or --neo4j_dump flag.
+To also create a Neo4j backup dump of the graph, add the -n (--neo4j_dump) flag.
 ```
 docker-compose run --rm data_services python /Data_services/Common/build_manager.py -g Example_Graph_ID -n
 ```
