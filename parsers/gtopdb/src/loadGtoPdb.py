@@ -353,7 +353,6 @@ class GtoPdbLoader(SourceDataLoader):
                                 edge_list.append(new_edge)
                 else:
                     skipped_record_counter += 1
-                    print([(key,value) for key,value in r.items()])
 
         # return the node/edge lists and the record counters to the caller
         return node_list, edge_list, record_counter, skipped_record_counter

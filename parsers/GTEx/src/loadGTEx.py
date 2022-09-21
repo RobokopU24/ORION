@@ -165,7 +165,7 @@ class GTExLoader(SourceDataWithVariantsLoader):
                 gene_id = self.process_gene(gtex_gene)
                 self.create_edge(anatomy_id, variant_id, gene_id, p_value, slope, is_sqtl=is_sqtl)
                 record_counter += 1
-                if self.test_mode and record_counter % 500_000 == 0:
+                if self.test_mode and record_counter % 50_000 == 0:
                     break
             else:
                 skipped_record_counter += 1

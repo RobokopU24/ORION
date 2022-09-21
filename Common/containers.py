@@ -4,9 +4,6 @@ import psycopg2
 import os
 import mysql.connector
 
-# import tempfile
-# import tarfile
-
 
 class DSContainerError(Exception):
     def __init__(self, error_message: str, actual_error: str = ''):
@@ -56,7 +53,8 @@ class DataServicesContainer:
     def wait_for_container_to_be_ready(self, retries: int = 1):
         service_available = False
         try:
-            if self.get_container().status == 'running':
+            docker_container_status = self.get_container().status
+            if docker_container_status == 'running':
                 self.logger.info(f'Container {self.container_name} running.. pinging service..')
                 service_available = self.ping_service()
             else:
@@ -204,43 +202,4 @@ class MySQLContainer(DataServicesContainer):
         db_conn.close()
         return True
 
-"""
-class MariaDBContainer(DataServicesContainer):
 
-    def __init__(self,
-                 container_name: str,
-                 mariadb_version: str,
-                 database_name: str,
-                 logger):
-        super().__init__(container_name=container_name, logger=logger)
-        self.default_image = f"mariadb:{mariadb_version}"
-        self.default_ports = {'3307/tcp': 3307}
-        self.mariadb_db_name = database_name
-        self.mariadb_password = 'default_mariadb_password'
-        self.environment_vars["MARIADB_ROOT_PASSWORD"] = self.mariadb_password
-        self.environment_vars["MARIADB_DATABASE"] = self.mariadb_db_name
-
-    def load_db_dump(self, dump_file_path: str):
-        self.logger.info(f'Restoring db dump...')
-        # dump_file_path = f'/{dump_file_name}'
-        exit_code, response = self.docker_container.exec_run(f"/bin/bash -c 'gunzip -c {dump_file_path} | "
-                                       f"mysql -uroot -p{self.mariadb_password} {self.mariadb_db_name}'")
-        if exit_code == 0:
-            self.logger.info(f'Database dump restored... {response}')
-        else:
-            self.logger.info(f'Database dump restoration failed. Exit code {exit_code}:{response}')
-
-    # returns a mariadb connection object
-    def get_db_connection(self):
-        return mariadb.connect(user='root',
-                               database=self.mariadb_db_name,
-                               password=self.mariadb_password,
-                               host=self.container_name,
-                               port=3306)
-
-    def ping_service(self):
-        db_conn = self.get_db_connection()
-        cur = db_conn.cursor()
-        cur.execute("SELECT 1")
-        return True
-"""

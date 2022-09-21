@@ -116,7 +116,7 @@ class NodeNormUtils:
         equivalent_identifiers: the list of synonymous ids
     """
 
-    DEFAULT_NODE_NORMALIZATION_ENDPOINT = 'https://nodenormalization-sri.renci.org/1.2/'
+    DEFAULT_NODE_NORMALIZATION_ENDPOINT = 'https://nodenormalization-sri.renci.org/'
 
     def __init__(self,
                  log_level=logging.INFO,
@@ -453,7 +453,7 @@ class EdgeNormUtils:
 
     """
 
-    DEFAULT_EDGE_NORM_ENDPOINT = f'https://bl-lookup-sri.renci.org/'
+    DEFAULT_EDGE_NORM_ENDPOINT = f'https://biolink-lookup.transltr.io/'
 
     def __init__(self,
                  edge_normalization_version: str = 'latest',

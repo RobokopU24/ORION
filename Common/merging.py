@@ -65,7 +65,7 @@ class GraphMerger:
 
 class DiskGraphMerger(GraphMerger):
 
-    def __init__(self, temp_directory: str = None, chunk_size: int = 10_000_000):
+    def __init__(self, temp_directory: str = None, chunk_size: int = 5_000_000):
 
         super().__init__()
 
@@ -85,7 +85,7 @@ class DiskGraphMerger(GraphMerger):
         for chunk_of_nodes in chunk_iterator(nodes, self.chunk_size):
             self.current_node_chunk += 1
             temp_node_file = os.path.join(self.temp_directory,
-                                          f'n_{self.current_node_chunk}_{self.probably_unique_temp_file_key}.jsonl')
+                                          f'n_{self.current_node_chunk}_{self.probably_unique_temp_file_key}.temp')
             node_counter += len(chunk_of_nodes)
             self.write_sorted_entities(chunk_of_nodes, node_key_function, temp_node_file)
             self.temp_node_file_paths.append(temp_node_file)
@@ -96,7 +96,7 @@ class DiskGraphMerger(GraphMerger):
         for chunk_of_edges in chunk_iterator(edges, self.chunk_size):
             self.current_edge_chunk += 1
             temp_edge_file = os.path.join(self.temp_directory,
-                                          f'e_{self.current_edge_chunk}_{self.probably_unique_temp_file_key}.temp.jsonl')
+                                          f'e_{self.current_edge_chunk}_{self.probably_unique_temp_file_key}.temp')
             edge_counter += len(chunk_of_edges)
             self.write_sorted_entities(chunk_of_edges, edge_key_function, temp_edge_file)
             self.temp_edge_file_paths.append(temp_edge_file)

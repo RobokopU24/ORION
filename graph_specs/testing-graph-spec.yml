@@ -1,0 +1,13 @@
+# testing graph spec
+graphs:
+
+  - graph_id: Testing_Baseline
+    sources:
+      - source_id: HGNC
+      - source_id: HumanGOA
+
+  - graph_id: Testing_Graph_2
+    subgraphs:
+      - graph_id: Testing_Baseline
+    sources:
+      - source_id: GtoPdb
