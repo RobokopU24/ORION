@@ -1,0 +1,128 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: ds-graph-job
+spec:
+  template:
+    metadata:
+      name: ds-graph-job
+    spec:
+      restartPolicy: Never
+      securityContext:
+        runAsUser: 7474
+        runAsGroup: 7474
+        fsGroup: 7474
+        fsGroupChangePolicy: "OnRootMismatch"
+      containers:
+        - name: ds-graph-analyzer
+          image: {{ .Values.dataServices.image.repository }}:{{ .Values.dataServices.image.tag }}
+          imagePullPolicy: {{ .Values.dataServices.image.pullPolicy }}
+          command: ["bash"]
+          stdin: True
+          tty: True
+          volumeMounts:
+            - mountPath: /Data_services_storage
+              name: ds-sources-volume
+              subPath: storage
+            - mountPath: /Data_services_logs
+              name: ds-sources-volume
+              subPath: logs
+            - mountPath: /Data_services_graphs
+              name: ds-graphs-volume
+            - mountPath: /data
+              name: ds-neo4j-scratch-volume
+          env:
+            - name: DATA_SERVICES_STORAGE
+              value: /Data_services_storage
+            - name: DATA_SERVICES_GRAPHS
+              value: /Data_services_graphs
+            {{- if .Values.dataServices.useLocalGraphSpec }}
+            - name: DATA_SERVICES_GRAPH_SPEC
+              value: {{ .Values.dataServices.graphSpec }}
+            {{- else }}
+            - name: DATA_SERVICES_GRAPH_SPEC_URL
+              value: {{ .Values.dataServices.graphSpec}}
+            {{- end }}
+            - name: DATA_SERVICES_LOGS
+              value: /Data_services_logs
+            - name: DATA_SERVICES_NEO4J_PASSWORD
+              value: {{ .Values.neo4j.password }}
+            {{- if .Values.dataServices.httpProxy.useProxy }}
+            - name: HTTPS_PROXY
+              value: {{ .Values.dataServices.httpProxy.proxyURL }}
+            {{- end }}
+            {{- if .Values.dataServices.normalization.nodeNormEndpoint }}
+            - name: NODE_NORMALIZATION_ENDPOINT
+              value: {{ .Values.dataServices.normalization.nodeNormEndpoint }}
+            {{- end }}
+            {{- if .Values.dataServices.normalization.edgeNormEndpoint }}
+            - name: EDGE_NORMALIZATION_ENDPOINT
+              value: {{ .Values.dataServices.normalization.edgeNormEndpoint }}
+            {{- end }}
+          resources:
+            {{- toYaml .Values.dataServices.resources | nindent 12 }}
+      {{- if .Values.dataServices.buildMode }}
+      initContainers:
+        - name: ds-graph-builder
+          image: {{ .Values.dataServices.image.repository }}:{{ .Values.dataServices.image.tag }}
+          imagePullPolicy: {{ .Values.dataServices.image.pullPolicy }}
+          args: ["python", "/Data_services/Common/build_manager.py", {{ .Values.dataServices.graphID }}, "-n" ]
+          volumeMounts:
+            - mountPath: /Data_services_storage
+              name: ds-sources-volume
+              subPath: storage
+            - mountPath: /Data_services_logs
+              name: ds-sources-volume
+              subPath: logs
+            - mountPath: /Data_services_graphs
+              name: ds-graphs-volume
+            - mountPath: /data
+              name: ds-neo4j-scratch-volume
+          env:
+            - name: DATA_SERVICES_STORAGE
+              value: /Data_services_storage
+            - name: DATA_SERVICES_GRAPHS
+              value: /Data_services_graphs
+            {{- if .Values.dataServices.useLocalGraphSpec }}
+            - name: DATA_SERVICES_GRAPH_SPEC
+              value: {{ .Values.dataServices.graphSpec }}
+            {{- else }}
+            - name: DATA_SERVICES_GRAPH_SPEC_URL
+              value: {{ .Values.dataServices.graphSpec }}
+            {{- end }}
+            - name: DATA_SERVICES_LOGS
+              value: /Data_services_logs
+            - name: DATA_SERVICES_NEO4J_PASSWORD
+              value: {{ .Values.neo4j.password }}
+            {{- if .Values.dataServices.httpProxy.useProxy }}
+            - name: HTTPS_PROXY
+              value: {{ .Values.dataServices.httpProxy.proxyURL }}
+            {{- end }}
+            {{- if .Values.dataServices.normalization.nodeNormEndpoint }}
+            - name: NODE_NORMALIZATION_ENDPOINT
+              value: {{ .Values.dataServices.normalization.nodeNormEndpoint }}
+            {{- end }}
+            {{- if .Values.dataServices.normalization.edgeNormEndpoint }}
+            - name: EDGE_NORMALIZATION_ENDPOINT
+              value: {{ .Values.dataServices.normalization.edgeNormEndpoint }}
+            {{- end }}
+          resources:
+            {{- toYaml .Values.dataServices.resources | nindent 12 }}
+      {{- end }}
+      volumes:
+        - name: ds-sources-volume
+          persistentVolumeClaim:
+            claimName: ds-sources-pvc
+        - name: ds-graphs-volume
+          persistentVolumeClaim:
+            claimName: ds-graphs-pvc
+        - name: ds-neo4j-scratch-volume
+          ephemeral:
+            volumeClaimTemplate:
+              spec:
+                accessModes: [ "ReadWriteOnce" ]
+                storageClassName:
+                resources:
+                  requests:
+                    storage: {{ .Values.dataServices.neo4jScratchVolume.size }}
+  backoffLimit: 0

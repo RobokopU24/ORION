@@ -3,7 +3,6 @@ import argparse
 from collections import defaultdict
 from Common.utils import quick_jsonl_file_iterator
 from Common.node_types import SUBJECT_ID, OBJECT_ID, PREDICATE
-# from kgx.transformer import Transformer
 
 
 def convert_jsonl_to_neo4j_csv(nodes_input_file: str,
@@ -51,7 +50,10 @@ def __verify_conversion(file_path: str,
                         output_delimiter: str):
     counter = 0
     list_properties = [prop for prop in properties
-                       if properties[prop] == "string[]" or properties[prop] == 'LABEL']
+                       if properties[prop] == "string[]"
+                       or properties[prop] == "float[]"
+                       or properties[prop] == "int[]"
+                       or properties[prop] == 'LABEL']
     verified_properties = set()
     num_properties = len(properties.keys())
     with open(file_path, newline='') as file_handler:
@@ -80,8 +82,6 @@ def __verify_conversion(file_path: str,
         print(f'Not all properties were verified.. This should not happen..')
         print(f'Properties that were not verified: '
               f'{[prop for prop in properties.keys() if prop not in verified_properties]}')
-    else:
-        print(f'Passed verification step: {file_path}')
 
 
 def __determine_properties_and_types(file_path: str, required_properties: dict):
@@ -99,7 +99,22 @@ def __determine_properties_and_types(file_path: str, required_properties: dict):
             elif isinstance(value, float):
                 property_type_counts[key]["float"] += 1
             elif isinstance(value, list):
-                property_type_counts[key]["string[]"] += 1
+                has_floats = False
+                has_ints = False
+                has_strings = False
+                for item in value:
+                    if isinstance(item, float):
+                        has_floats = True
+                    elif isinstance(item, int):
+                        has_ints = True
+                    else:
+                        has_strings = True
+                if has_strings:
+                    property_type_counts[key]["string[]"] += 1
+                elif has_floats:
+                    property_type_counts[key]["float[]"] += 1
+                elif has_ints:
+                    property_type_counts[key]["int[]"] += 1
             else:
                 property_type_counts[key]["string"] += 1
 
@@ -122,9 +137,14 @@ def __determine_properties_and_types(file_path: str, required_properties: dict):
             # if only one type just set it to that
             properties[prop] = prop_types[0]
         else:
-            print(f'Property {prop} had conflicting types: {type_counts}')
+            # try to resolve the conflicts - TODO: this probably needs more work, it means a property had mixed types
+            # print(f'Property {prop} had conflicting types: {type_counts}')
             if 'string[]' in prop_types:
                 properties[prop] = 'string[]'
+            elif 'float[]' in prop_types:
+                properties[prop] = 'float[]'
+            elif 'int[]' in prop_types:
+                properties[prop] = 'int[]'
             elif 'float' in prop_types and 'int' in prop_types and num_prop_types == 2:
                 properties[prop] = 'float'
             elif 'float' in prop_types and 'None' in prop_types and num_prop_types == 2:
@@ -137,7 +157,7 @@ def __determine_properties_and_types(file_path: str, required_properties: dict):
         if prop not in properties:
             raise Exception(f'Property type could not be determined for: {prop}. {type_counts.items()}')
 
-    print(f'Found {len(properties)} properties:{properties.items()}')
+    # print(f'Found {len(properties)} properties:{properties.items()}')
     return properties
 
 
@@ -161,15 +181,17 @@ def __convert_to_csv(input_file: str,
                     del item[key]
                 else:
                     prop_type = properties[key]
-                    if prop_type == 'string[]' or prop_type == 'LABEL':
-                        # convert lists into strings with an array delimiter
-                        item[key] = array_delimiter.join(item[key])
+                    # convert lists into strings with an array delimiter
+                    if prop_type == 'LABEL' or \
+                            prop_type == 'string[]' or \
+                            prop_type == 'float[]' or \
+                            prop_type == 'int[]':
+                        if isinstance(item[key], list):  # need to doublecheck for cases of properties with mixed types
+                            item[key] = array_delimiter.join(str(value) for value in item[key])
                     elif prop_type == 'boolean':
                         # neo4j handles boolean with string 'true' being true and everything else false
                         item[key] = 'true' if item[key] is True else 'false'
             csv_file_writer.writerow(item)
-
-
 
 
 if __name__ == '__main__':

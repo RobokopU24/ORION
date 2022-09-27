@@ -2,7 +2,6 @@ import os
 import jsonlines
 import secrets
 from xxhash import xxh64_hexdigest
-from kgx.utils.kgx_utils import prepare_data_dict as kgx_dict_merge
 from Common.node_types import *
 from Common.utils import quick_json_loads, quick_json_dumps, chunk_iterator
 
@@ -21,19 +20,19 @@ def edge_key_function(edge):
              if ((ORIGINAL_KNOWLEDGE_SOURCE in edge) or (PRIMARY_KNOWLEDGE_SOURCE in edge)) else "")))
 
 
-def edge_merging_function(edge_1, edge_2):
-    for key, value in edge_2.items():
+def entity_merging_function(entity_1, entity_2):
+    for key, value in entity_2.items():
         # TODO - make sure this is the behavior we want -
         # for properties that are lists append the values
         # otherwise keep the first one
-        if key in edge_1:
+        if key in entity_1:
             if isinstance(value, list):
-                edge_1[key].extend(value)
+                entity_1[key].extend(value)
                 if key in EDGE_PROPERTIES_THAT_SHOULD_BE_SETS:
-                    edge_1[key] = list(set(edge_1[key]))
+                    entity_1[key] = list(set(entity_1[key]))
         else:
-            edge_1[key] = value
-    return edge_1
+            entity_1[key] = value
+    return entity_1
 
 
 def node_key_function(node):
@@ -65,7 +64,7 @@ class GraphMerger:
 
 class DiskGraphMerger(GraphMerger):
 
-    def __init__(self, temp_directory: str = None, chunk_size: int = 10_000_000):
+    def __init__(self, temp_directory: str = None, chunk_size: int = 5_000_000):
 
         super().__init__()
 
@@ -85,7 +84,7 @@ class DiskGraphMerger(GraphMerger):
         for chunk_of_nodes in chunk_iterator(nodes, self.chunk_size):
             self.current_node_chunk += 1
             temp_node_file = os.path.join(self.temp_directory,
-                                          f'n_{self.current_node_chunk}_{self.probably_unique_temp_file_key}.jsonl')
+                                          f'n_{self.current_node_chunk}_{self.probably_unique_temp_file_key}.temp')
             node_counter += len(chunk_of_nodes)
             self.write_sorted_entities(chunk_of_nodes, node_key_function, temp_node_file)
             self.temp_node_file_paths.append(temp_node_file)
@@ -96,7 +95,7 @@ class DiskGraphMerger(GraphMerger):
         for chunk_of_edges in chunk_iterator(edges, self.chunk_size):
             self.current_edge_chunk += 1
             temp_edge_file = os.path.join(self.temp_directory,
-                                          f'e_{self.current_edge_chunk}_{self.probably_unique_temp_file_key}.temp.jsonl')
+                                          f'e_{self.current_edge_chunk}_{self.probably_unique_temp_file_key}.temp')
             edge_counter += len(chunk_of_edges)
             self.write_sorted_entities(chunk_of_edges, edge_key_function, temp_edge_file)
             self.temp_edge_file_paths.append(temp_edge_file)
@@ -105,7 +104,7 @@ class DiskGraphMerger(GraphMerger):
     def get_merged_nodes_jsonl(self):
         for node in self.get_merged_entities(file_paths=self.temp_node_file_paths,
                                              sorting_key_function=node_key_function,
-                                             merge_function=kgx_dict_merge,
+                                             merge_function=entity_merging_function,
                                              entity_type=NODE_ENTITY_TYPE):
             yield f'{quick_json_dumps(node)}\n'
         for file_path in self.temp_node_file_paths:
@@ -114,7 +113,7 @@ class DiskGraphMerger(GraphMerger):
     def get_merged_edges_jsonl(self):
         for edge in self.get_merged_entities(file_paths=self.temp_edge_file_paths,
                                              sorting_key_function=edge_key_function,
-                                             merge_function=edge_merging_function,
+                                             merge_function=entity_merging_function,
                                              entity_type=EDGE_ENTITY_TYPE):
             yield f'{quick_json_dumps(edge)}\n'
         for file_path in self.temp_edge_file_paths:
@@ -187,7 +186,7 @@ class MemoryGraphMerger(GraphMerger):
             if node_key in self.nodes:
                 self.merged_node_counter += 1
                 previous_node = quick_json_loads(self.nodes[node_key])
-                merged_node = kgx_dict_merge(previous_node, node)
+                merged_node = entity_merging_function(previous_node, node)
                 self.nodes[node_key] = quick_json_dumps(merged_node)
             else:
                 self.nodes[node_key] = quick_json_dumps(node)
@@ -202,7 +201,7 @@ class MemoryGraphMerger(GraphMerger):
             edge_key = edge_key_function(edge)
             if edge_key in self.edges:
                 self.merged_edge_counter += 1
-                merged_edge = edge_merging_function(quick_json_loads(self.edges[edge_key]), edge)
+                merged_edge = entity_merging_function(quick_json_loads(self.edges[edge_key]), edge)
                 self.edges[edge_key] = quick_json_dumps(merged_edge)
             else:
                 self.edges[edge_key] = quick_json_dumps(edge)
