@@ -12,6 +12,7 @@ class SourceDataLoader:
     def __init__(self, test_mode: bool = False, source_data_dir: str = None):
         """Initialize with the option to run in testing mode."""
         self.test_mode: bool = test_mode
+        self.filter_field = None
 
         if source_data_dir:
             self.data_path = os.path.join(source_data_dir, "source")
@@ -164,6 +165,14 @@ class SourceDataLoader:
         :return: str - the name of the class
         """
         return self.__class__.__name__
+
+    def get_filter_set(self):
+        """
+        Could be overwritten with a set of terms or identifiers to match against and filter by.
+        Used in conjuction with filter_field, currently for csv_extract only.
+        :return: set - the set of terms
+        """
+        return None
 
     def write_to_file(self) -> None:
         """
