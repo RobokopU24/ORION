@@ -79,17 +79,17 @@ graphs:
 
 Install Docker to create and run the necessary containers. 
 
-By default using docker-compose invokes /Data_services/Common/build_manager.py with no arguments, which will build every graph in your Graph Spec.
+By default using docker-compose up will build every graph in your Graph Spec. It runs the command: python /Data_services/Common/build_manager.py all.
 ```
 docker-compose up
 ```
-If you want to specify an individual graph you can override that default entrypoint with a graph id from your Spec.
+If you want to specify an individual graph you can override the default command with a graph id from your Spec.
 ```
-docker-compose run --rm data_services python /Data_services/Common/build_manager.py -g Example_Graph_ID
+docker-compose run --rm data_services python /Data_services/Common/build_manager.py Example_Graph_ID
 ```
 To also create a Neo4j backup dump of the graph, add the -n (--neo4j_dump) flag.
 ```
-docker-compose run --rm data_services python /Data_services/Common/build_manager.py -g Example_Graph_ID -n
+docker-compose run --rm data_services python /Data_services/Common/build_manager.py Example_Graph_ID -n
 ```
 To run the Data Services pipeline for a single data source, you can use:
 ```
