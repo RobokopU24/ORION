@@ -99,6 +99,7 @@ class STRINGDBLoader(SourceDataLoader):
 
     source_id: str = 'STRING-DB'
     provenance_id: str = 'infores:STRING'
+    taxon_id: str = '9606' #Human taxon
 
     def __init__(self, test_mode: bool = False, source_data_dir: str = None):
         """
@@ -107,12 +108,12 @@ class STRINGDBLoader(SourceDataLoader):
         """
         # call the super
         super().__init__(test_mode=test_mode, source_data_dir=source_data_dir)
-
+        self.taxon_id = '9606'
         self.cos_dist_threshold = 1.0
-        self.stringdb_data_url = 'https://stringdb-static.org/download/protein.links.full.v11.5/'
+        self.stringdb_data_url = ["https://stringdb-static.org/download/protein.links.full.v11.5/","https://stringdb-static.org/download/protein.physical.links.full.v11.5/"]
 
-        self.ppi_full_file_name = "9606.protein.links.full.v11.5.txt.gz"
-        self.ppi_physical_subnetwork_file_name = "9606.protein.physical.links.v11.5.txt.gz"
+        self.ppi_full_file_name = self.taxon_id+".protein.links.full.v11.5.txt.gz"
+        self.ppi_physical_subnetwork_file_name = self.taxon_id+".protein.physical.links.full.v11.5.txt.gz"
         #self.pathway_list_file_name = "yeast_pathways_list.csv"
         #self.phenotype_list_file_name = "yeast_phenotype_list.csv"
 
@@ -122,7 +123,7 @@ class STRINGDBLoader(SourceDataLoader):
         # self.genes_to_complex_edges_file_name = "SGDGene2Complex.csv"
         # self.complex_to_go_term_edges_file_name = "SGDComplex2GOTerm.csv"
         
-        self.data_files = [self.ppi_list_file_name, self.ppi_physical_list_file_name]
+        self.data_files = [self.ppi_full_file_name, self.ppi_physical_subnetwork_file_name]
             #self.go_term_list_file_name,
             #self.pathway_list_file_name,
             #self.phenotype_list_file_name,
@@ -146,12 +147,14 @@ class STRINGDBLoader(SourceDataLoader):
 
         """
         data_puller = GetData()
+        i=0
         for source in self.data_files:
-            source_url = f"{self.yeast_data_url}{source}"
-            data_puller(source_url, self.data_path)
+            source_url = f"{self.stringdb_data_url[i]}{source}"
+            data_puller.pull_via_http(source_url, self.data_path)
+            i+=1
 
         return True
-
+    
     def parse_data(self) -> dict:
         """
         Parses the data file for graph nodes/edges
@@ -160,242 +163,95 @@ class STRINGDBLoader(SourceDataLoader):
         """
 
         extractor = Extractor()
-
+        
         #This file contains full STRING PPI data for the Human proteome.
-        ppi_full_file: str = os.path.join(self.data_path, self.ppi_list_file_name)
+        ppi_full_file: str = os.path.join(self.data_path, self.ppi_full_file_name)
         with gzip.open(ppi_full_file, 'r') as fp:
             textdatafile = pd.read_csv(fp,delimiter=" ")
-            csv=textdatafile.to_csv(self.ppi_list_file_name, index = None)
-            extractor.csv_extract(csv,
-                                  lambda line: line[PPI_EDGEUMAN.PROTEIN1.value],  # subject id
-                                  lambda line: line[PPI_EDGEUMAN.PROTEIN2.value],  # object id
-                                  lambda line: ['biolink:functionally_interacts_with' if line[PPI_EDGEUMAN.COMBINED_SCORE.value] > 0 else "",
-                                                'biolink:coexpressed_with' if line[PPI_EDGEUMAN.COEXPRESSION.value] or line[PPI_EDGEUMAN.COEXPRESSION_TRANSFERRED.value] > 0 else "",
-                                                'biolink:homologous_to' if line[PPI_EDGEUMAN.HOMOLOGY.value] > 0 else "",
-                                                'biolink:gene_fusion_with' if line[PPI_EDGEUMAN.FUSION.value] > 0 else "",
-                                                'biolink:genetic_neighbor' if line[PPI_EDGEUMAN.NEIGHBORHOOD.value] or line[PPI_EDGEUMAN.NEIGHBORHOOD.value] > 0 else ""],  # predicate extractor
+            textdatafile.to_csv(ppi_full_file+'.csv', index = None)
+        with open(ppi_full_file+'.csv', 'r') as fp:
+            extractor.csv_extract(fp,
+                                  lambda line: line[PPI_EDGEUMAN.PROTEIN1.value].replace(self.taxon_id+".","").replace("ENSP","ENSP:"),  # subject id
+                                  lambda line: line[PPI_EDGEUMAN.PROTEIN2.value].replace(self.taxon_id+".","").replace("ENSP","ENSP:"),  # object id
+                                  lambda line: 'biolink:interacts_with' if int(line[PPI_EDGEUMAN.COMBINED_SCORE.value]) > 0 else "",
+                                  lambda line: {}, #subject props
+                                  lambda line: {}, #object props
+                                  lambda line: {
+                                    "Experiments":line[PPI_EDGEUMAN.EXPERIMENTS.value],
+                                    "Experiments_transferred":line[PPI_EDGEUMAN.EXPERIMENTS_TRANSFERRED.value],
+                                    "Database":line[PPI_EDGEUMAN.DATABASE.value],
+                                    "Database_transferred":line[PPI_EDGEUMAN.DATABASE_TRANSFERRED.value],
+                                    "Textmining":line[PPI_EDGEUMAN.TEXTMINING.value],
+                                    "Textmining_transferred":line[PPI_EDGEUMAN.TEXTMINING_TRANSFERRED.value],
+                                    "Combined_score":line[PPI_EDGEUMAN.COMBINED_SCORE.value]
+                                    }, # edge props
+                                  comment_character=None,
+                                  delim=',',
+                                  has_header_row=True)
+            '''
+            extractor.csv_extract(fp,
+                                  lambda line: line[PPI_EDGEUMAN.PROTEIN1.value].replace(self.taxon_id+".","").replace("ENSP","ENSP:"),  # subject id
+                                  lambda line: line[PPI_EDGEUMAN.PROTEIN2.value].replace(self.taxon_id+".","").replace("ENSP","ENSP:"),  # object id
+                                  lambda line: 'biolink:coexpressed_with' if int(line[PPI_EDGEUMAN.COEXPRESSION.value]) or int(line[PPI_EDGEUMAN.COEXPRESSION_TRANSFERRED.value]) > 0 else "", # predicate
+                                  lambda line: {
+                                    "Coexpression":line[PPI_EDGEUMAN.COEXPRESSION.value],
+                                    "Coexpression_transferred":line[PPI_EDGEUMAN.COEXPRESSION_TRANSFERRED.value],
+                                    "Combined_score":line[PPI_EDGEUMAN.COMBINED_SCORE.value]
+                                  },
+                                  comment_character=None,
+                                  delim=',',
+                                  has_header_row=True)
+            extractor.csv_extract(fp,
+                                  lambda line: line[PPI_EDGEUMAN.PROTEIN1.value].replace(self.taxon_id+".","").replace("ENSP","ENSP:"),  # subject id
+                                  lambda line: line[PPI_EDGEUMAN.PROTEIN2.value].replace(self.taxon_id+".","").replace("ENSP","ENSP:"),  # object id
+                                  lambda line: 'biolink:homologous_to' if int(line[PPI_EDGEUMAN.HOMOLOGY.value]) > 0 else "", # predicate
+                                  lambda line: {
+                                    "Homology":line[PPI_EDGEUMAN.HOMOLOGY.value],
+                                    "Combined_score":line[PPI_EDGEUMAN.COMBINED_SCORE.value]
+                                  },
+                                  comment_character=None,
+                                  delim=',',
+                                  has_header_row=True)
+            extractor.csv_extract(fp,
+                                  lambda line: line[PPI_EDGEUMAN.PROTEIN1.value].replace(self.taxon_id+".","").replace("ENSP","ENSP:"),  # subject id
+                                  lambda line: line[PPI_EDGEUMAN.PROTEIN2.value].replace(self.taxon_id+".","").replace("ENSP","ENSP:"),  # object id
+                                  lambda line: 'biolink:genetically_interacts_with' if int(line[PPI_EDGEUMAN.FUSION.value]) > 0 or int(line[PPI_EDGEUMAN.NEIGHBORHOOD.value]) > 0 or int(line[PPI_EDGEUMAN.NEIGHBORHOOD_TRANSFERRED.value]) > 0 or int(line[PPI_EDGEUMAN.COOCCURANCE.value]) > 0 else "", # predicate
                                   lambda line: {
                                     "Neighborhood":line[PPI_EDGEUMAN.NEIGHBORHOOD.value],
                                     "Neighborhood_transferred":line[PPI_EDGEUMAN.NEIGHBORHOOD_TRANSFERRED.value],
                                     "Fusion":line[PPI_EDGEUMAN.FUSION.value],
                                     "Cooccurance":line[PPI_EDGEUMAN.COOCCURANCE.value],
-                                    "Homology":line[PPI_EDGEUMAN.HOMOLOGY.value],
-                                    "Coexpression":line[PPI_EDGEUMAN.COEXPRESSION.value],
-                                    "Coexpression_transferred":line[PPI_EDGEUMAN.COEXPRESSION_TRANSFERRED.value],
-                                    "Experiments":line[PPI_EDGEUMAN.EXPERIMENTS.value],
-                                    "Experiments_transferred":line[PPI_EDGEUMAN.EXPERIMENTS_TRANSFERRED.value],
-                                    "Database":line[PPI_EDGEUMAN.DATABASE.value],
-                                    "Database_transferred":line[PPI_EDGEUMAN.DATABASE_TRANSFERRED.value],
-                                    "Textmining":line[PPI_EDGEUMAN.TEXTMINING.value],
-                                    "Textmining_transferred":line[PPI_EDGEUMAN.TEXTMINING_TRANSFERRED.value],
-                                    "Combined_score":line[PPI_EDGEUMAN.COMBINED_SCORE.value],
-                                    ORIGINAL_KNOWLEDGE_SOURCE: "STRING-DB",
-                                    AGGREGATOR_KNOWLEDGE_SOURCES: ["STRING-DB"]}, # subject props
-                                  lambda line: {},  # object props
-                                  lambda line: {},#edgeprops
+                                    "Combined_score":line[PPI_EDGEUMAN.COMBINED_SCORE.value]
+                                  },
                                   comment_character=None,
                                   delim=',',
                                   has_header_row=True)
-
+        '''
         #This file contains physical subnetwork STRING PPI data for the Human proteome.
-        ppi_physical_file: str = os.path.join(self.data_path, self.ppi_physical_list_file_name)
+        ppi_physical_file: str = os.path.join(self.data_path, self.ppi_physical_subnetwork_file_name)
         with gzip.open(ppi_physical_file, 'r') as fp:
             textdatafile = pd.read_csv(fp,delimiter=" ")
-            csv=textdatafile.to_csv(self.ppi_physical_list_file_name, index = None)
-            extractor.csv_extract(csv,
-                                  lambda line: line[PPI_EDGEUMAN.PROTEIN1.value],  # subject id
-                                  lambda line: line[PPI_EDGEUMAN.PROTEIN2.value],  # object id
-                                  lambda line: ['biolink:physically_interacts_with' if line[PPI_EDGEUMAN.COMBINED_SCORE.value] > 0 else ""],  # predicate extractor
-                                  lambda line: {
-                                    "Homology":line[PPI_EDGEUMAN.HOMOLOGY.value],
-                                    "Experiments":line[PPI_EDGEUMAN.EXPERIMENTS.value],
-                                    "Experiments_transferred":line[PPI_EDGEUMAN.EXPERIMENTS_TRANSFERRED.value],
-                                    "Database":line[PPI_EDGEUMAN.DATABASE.value],
-                                    "Database_transferred":line[PPI_EDGEUMAN.DATABASE_TRANSFERRED.value],
-                                    "Textmining":line[PPI_EDGEUMAN.TEXTMINING.value],
-                                    "Textmining_transferred":line[PPI_EDGEUMAN.TEXTMINING_TRANSFERRED.value],
-                                    "Combined_score":line[PPI_EDGEUMAN.COMBINED_SCORE.value],
-                                    ORIGINAL_KNOWLEDGE_SOURCE: "STRING-DB",
-                                    AGGREGATOR_KNOWLEDGE_SOURCES: ["STRING-DB"]}, # subject props
+            textdatafile.to_csv(ppi_physical_file+'.csv', index = None)
+        with open(ppi_physical_file+'.csv', 'r') as fp:
+            extractor.csv_extract(fp,
+                                  lambda line: line[PPI_PHYSICAL_EDGEUMAN.PROTEIN1.value].replace(self.taxon_id+".","").replace("ENSP","ENSP:"),  # subject id
+                                  lambda line: line[PPI_PHYSICAL_EDGEUMAN.PROTEIN2.value].replace(self.taxon_id+".","").replace("ENSP","ENSP:"),  # object id
+                                  lambda line: 'biolink:physically_interacts_with' if int(line[PPI_PHYSICAL_EDGEUMAN.COMBINED_SCORE.value]) > 0 else "",  # predicate extractor
+                                  lambda line: {},  # subject props
                                   lambda line: {},  # object props
-                                  lambda line: {},#edgeprops
+                                  lambda line: {
+                                    "Homology":line[PPI_PHYSICAL_EDGEUMAN.HOMOLOGY.value],
+                                    "Experiments":line[PPI_PHYSICAL_EDGEUMAN.EXPERIMENTS.value],
+                                    "Experiments_transferred":line[PPI_PHYSICAL_EDGEUMAN.EXPERIMENTS_TRANSFERRED.value],
+                                    "Database":line[PPI_PHYSICAL_EDGEUMAN.DATABASE.value],
+                                    "Database_transferred":line[PPI_PHYSICAL_EDGEUMAN.DATABASE_TRANSFERRED.value],
+                                    "Textmining":line[PPI_PHYSICAL_EDGEUMAN.TEXTMINING.value],
+                                    "Textmining_transferred":line[PPI_PHYSICAL_EDGEUMAN.TEXTMINING_TRANSFERRED.value],
+                                    "Combined_score":line[PPI_PHYSICAL_EDGEUMAN.COMBINED_SCORE.value],
+                                    }, # edge props
                                   comment_character=None,
                                   delim=',',
                                   has_header_row=True)
-
-        # #This file is a list of pathways in yeast.
-        # yeast_pathway_list_file: str = os.path.join(self.data_path, self.genes_to_pathway_edges_file_name)
-        # with open(yeast_pathway_list_file, 'r') as fp:
-        #     extractor.csv_extract(fp,
-        #                           lambda line: line[2].replace(" ","_").strip(), # subject id
-        #                           lambda line: None,  # object id
-        #                           lambda line: None,  # predicate extractor
-        #                           lambda line: {'name': line[3],
-        #                                         'categories': ['biolink:Pathway'],
-        #                                         'taxon': 'NCBITaxon:559292',
-        #                                         'organism': line[1],
-        #                                         'referenceLink': line[4],
-        #                                         ORIGINAL_KNOWLEDGE_SOURCE: "SGD",
-        #                                         AGGREGATOR_KNOWLEDGE_SOURCES: ["SGD"]},  # subject props
-        #                           lambda line: {},  # object props
-        #                           lambda line: {}, #edgeprops
-        #                           comment_character=None,
-        #                           delim=',',
-        #                           has_header_row=True)
-
-        # #This file is a list of yeast phenotypes.
-        # yeast_phenotype_file: str = os.path.join(self.data_path, self.genes_to_phenotype_edges_file_name)
-        # with open(yeast_phenotype_file, 'r') as fp:
-        #     extractor.csv_extract(fp,
-        #                           lambda line: line[18].replace(" ","_").strip(),  # subject id
-        #                           lambda line: None,  # object id
-        #                           lambda line: None,  # predicate extractor
-        #                           lambda line: {'name': line[7],
-        #                                         'categories': ['biolink:PhenotypicFeature'],
-        #                                         'taxon': 'NCBITaxon:559292',
-        #                                         'organism': "S. cerevisiae",
-        #                                         'referenceLink': line[19],
-        #                                         ORIGINAL_KNOWLEDGE_SOURCE: "SGD",
-        #                                         AGGREGATOR_KNOWLEDGE_SOURCES: ["SGD"]}, # subject props
-        #                           lambda line: {},  # object props
-        #                           lambda line: {},#edgeprops
-        #                           comment_character=None,
-        #                           delim=',',
-        #                           has_header_row=True)
-
-        # #This file is a list of yeast protein complexes.
-        # yeast_complex_file: str = os.path.join(self.data_path, self.genes_to_complex_edges_file_name)
-        # with open(yeast_complex_file, 'r') as fp:
-        #     extractor.csv_extract(fp,
-        #                           lambda line: "CPX:" + line[10],  # subject id
-        #                           lambda line: None,  # object id
-        #                           lambda line: None,  # predicate extractor
-        #                           lambda line: {'name': line[0],
-        #                                         'categories': ['biolink:MacromolecularComplexMixin'],
-        #                                         'function': line[1],
-        #                                         'systematicName': line[2],
-        #                                         'properties': line[9],
-        #                                         'SGDAccessionID': line[10],
-        #                                         'taxon': 'NCBITaxon:559292',
-        #                                         'organism': "S. cerevisiae",
-        #                                         'referenceLink': line[12],
-        #                                         ORIGINAL_KNOWLEDGE_SOURCE: "SGD",
-        #                                         AGGREGATOR_KNOWLEDGE_SOURCES: ["SGD"]}, # subject props
-        #                           lambda line: {},  # object props
-        #                           lambda line: {},#edgeprops
-        #                           comment_character=None,
-        #                           delim=',',
-        #                           has_header_row=True)
-
-        # #Genes to GO Annotations. Evidence and annotation type as edge properties.
-        # gene_to_go_term_edges_file: str = os.path.join(self.data_path, self.genes_to_go_term_edges_file_name)
-        # with open(gene_to_go_term_edges_file, 'r') as fp:
-        #     extractor.csv_extract(fp,
-        #                           lambda line: line[GENEGOTERMS_EDGEUMAN.GENE.value], #subject id
-        #                           lambda line: line[GENEGOTERMS_EDGEUMAN.GOTERM.value].replace(' ','_'),  # object id
-        #                           lambda line: line[GENEGOTERMS_EDGEUMAN.PREDICATE.value] if line[GENEGOTERMS_EDGEUMAN.PREDICATE.value] != "involved in" else "biolink:actively_involved_in",  # predicate extractor
-        #                           lambda line: {},  # subject props
-        #                           lambda line: {},  # object props
-        #                           lambda line: {'evidenceCode': line[GENEGOTERMS_EDGEUMAN.EVIDENCECODE.value],
-        #                                         'evidenceCodeText': line[GENEGOTERMS_EDGEUMAN.EVIDENCECODETEXT.value],
-        #                                         'annotationType': line[GENEGOTERMS_EDGEUMAN.ANNOTATIONTYPE.value],
-        #                                         'evidencePMIDs': line[GENEGOTERMS_EDGEUMAN.EVIDENCEPMID.value]
-        #                                      }, #edgeprops
-        #                           comment_character=None,
-        #                           delim=',',
-        #                           has_header_row=True)
-        
-        # #Genes to Pathways.
-        # gene_to_pathway_edges_file: str = os.path.join(self.data_path, self.genes_to_pathway_edges_file_name)
-        # with open(gene_to_pathway_edges_file, 'r') as fp:
-        #     extractor.csv_extract(fp,
-        #                           lambda line: line[GENEPATHWAYS_EDGEUMAN.GENE.value], #subject id
-        #                           lambda line: line[GENEPATHWAYS_EDGEUMAN.PATHWAY.value].replace(' ','_'),  # object id
-        #                           lambda line: "biolink:participates_in",  # predicate extractor
-        #                           lambda line: {},  # subject props
-        #                           lambda line: {},  # object props
-        #                           lambda line: {}, #edgeprops
-        #                           comment_character=None,
-        #                           delim=',',
-        #                           has_header_row=True)
-
-        # #Genes to Phenotypes.
-        # gene_to_phenotype_edges_file: str = os.path.join(self.data_path, self.genes_to_phenotype_edges_file_name)
-        # with open(gene_to_phenotype_edges_file, 'r') as fp:
-        #     extractor.csv_extract(fp,
-        #                           lambda line: line[GENEPHENOTYPES_EDGEUMAN.GENE.value], #subject id
-        #                           lambda line: line[GENEPHENOTYPES_EDGEUMAN.PHENOTYPE.value].replace(' ','_'),  # object id
-        #                           lambda line: "biolink:genetic_association",  # predicate extractor
-        #                           lambda line: {},  # subject props
-        #                           lambda line: {},  # object props
-        #                           lambda line: {'effectOnPhenotype': line[GENEPHENOTYPES_EDGEUMAN.QUALIFIER.value],
-        #                                         'phenotypeDetails': line[GENEPHENOTYPES_EDGEUMAN.DETAILS.value],
-        #                                         'experimentType': line[GENEPHENOTYPES_EDGEUMAN.EXPERIMENTTYPE.value],
-        #                                         'mutantType': line[GENEPHENOTYPES_EDGEUMAN.MUTANTTYPE.value],
-        #                                         'geneAllele': line[GENEPHENOTYPES_EDGEUMAN.ALLELE.value],
-        #                                         'alleleDescription': line[GENEPHENOTYPES_EDGEUMAN.ALLELEDESCRIPTION.value],
-        #                                         'yeastStrainBackground': line[GENEPHENOTYPES_EDGEUMAN.STRAINBACKGROUND.value],
-        #                                         'chemicalExposure': line[GENEPHENOTYPES_EDGEUMAN.CHEMICAL.value],
-        #                                         'experimentalCondition': line[GENEPHENOTYPES_EDGEUMAN.CONDITION.value],
-        #                                         'evidencePMIDs': line[GENEPHENOTYPES_EDGEUMAN.EVIDENCEPMID.value]}, #edgeprops
-        #                           comment_character=None,
-        #                           delim=',',
-        #                           has_header_row=True)
-
-        # #Genes to Complexes.
-        # gene_to_complex_edges_file: str = os.path.join(self.data_path, self.genes_to_complex_edges_file_name)
-        # with open(gene_to_complex_edges_file, 'r') as fp:
-        #     extractor.csv_extract(fp,
-        #                           lambda line: line[GENECOMPLEXES_EDGEUMAN.GENE.value], #subject id
-        #                           lambda line: "CPX:" + line[GENECOMPLEXES_EDGEUMAN.COMPLEX.value],  # object id
-        #                           lambda line: "biolink:in_complex_with",  # predicate extractor
-        #                           lambda line: {},  # subject props
-        #                           lambda line: {},  # object props
-        #                           lambda line: {'geneBiologicalRole': line[GENECOMPLEXES_EDGEUMAN.ROLE.value],
-        #                                         'geneStoichiometry': line[GENECOMPLEXES_EDGEUMAN.STOICHIOMETRY.value],
-        #                                         'interactorType': line[GENECOMPLEXES_EDGEUMAN.TYPE.value],}, #edgeprops
-        #                           comment_character=None,
-        #                           delim=',',
-        #                           has_header_row=True)
-
-        #  #Complex to GO Annotations. Evidence and annotation type as edge properties.
-        # complex_to_go_term_edges_file: str = os.path.join(self.data_path, self.complex_to_go_term_edges_file_name)
-        # with open(complex_to_go_term_edges_file, 'r') as fp:
-        #     extractor.csv_extract(fp,
-        #                           lambda line: line[COMPLEXEGO_EDGEUMAN.COMPLEX.value],#.split(':')[1], #subject id
-        #                           lambda line: line[COMPLEXEGO_EDGEUMAN.GOTERM.value],#.replace(' ','_'),  # object id
-        #                           lambda line: line[COMPLEXEGO_EDGEUMAN.PREDICATE.value] if line[COMPLEXEGO_EDGEUMAN.PREDICATE.value] != "involved in" else "biolink:actively_involved_in",  # predicate extractor
-        #                           lambda line: {'complexname': line[COMPLEXEGO_EDGEUMAN.COMPLEXNAME.value]},  # subject props
-        #                           lambda line: {},  # object props
-        #                           lambda line: {}, #edgeprops
-        #                           comment_character=None,
-        #                           delim=',',
-        #                           has_header_row=True)
-       
-       
-       
-        # #Goes through the file and only yields the rows in which the cosine distance is above a predefined threshold.
-        # """
-        # def cos_dist_filter(infile):
-        #     #Header
-        #     yield next(infile)
-        #     for line in infile:
-        #        if(float(line.split(',')[SOREDGECOSDIST.DISTANCE.value])<=self.cos_dist_threshold): yield line
-
-                 
-        # sor_vsd_cos_dist_edges_file: str = os.path.join(self.data_path, self.sor_vsd_cos_dist_edges_file_name)
-        # with open(sor_vsd_cos_dist_edges_file, 'r') as fp:
-        #     extractor.csv_extract(cos_dist_filter(fp),
-        #                           lambda line: line[SOREDGECOSDIST.DRUG_ID.value], #subject id
-        #                           lambda line: "SCENT:" + line[SOREDGECOSDIST.VERBAL_SCENT.value].replace(' ','_'),  # object id
-        #                           lambda line: line[SOREDGECOSDIST.PREDICATE.value],  # predicate extractor
-        #                           lambda line: {'categories': ['odorant','biolink:ChemicalEntity']},  # subject props
-        #                           lambda line: {'categories': ['verbal_scent_descriptor'],"name":line[SOREDGECOSDIST.VERBAL_SCENT.value]},  # object props
-        #                           lambda line: {'cosine_distance':float(line[SOREDGECOSDIST.DISTANCE.value])}, #edgeprops
-        #                           comment_character=None,
-        #                           delim=',',
-        #                           has_header_row=True)
-        # """
         
         self.final_node_list = extractor.nodes
         self.final_edge_list = extractor.edges
