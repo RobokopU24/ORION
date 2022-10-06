@@ -63,14 +63,14 @@ class GOALoader(SourceDataLoader):
         gd: GetData = GetData(self.logger.level)
 
         # the name of the file that has the version date
-        data_file_name: str = 'summary.txt'
+        summary_file_name: str = 'summary.txt'
 
         # get the summary file
-        byte_count: int = gd.pull_via_http(f'http://current.geneontology.org/{data_file_name}', self.data_path)
+        byte_count: int = gd.pull_via_http(f'http://current.geneontology.org/{summary_file_name}', self.data_path)
 
         # did we get the file
         if byte_count > 0:
-            with open(os.path.join(self.data_path, data_file_name), 'r') as inf:
+            with open(os.path.join(self.data_path, summary_file_name), 'r') as inf:
                 # read all the lines
                 lines = inf.readlines()
 
@@ -85,12 +85,12 @@ class GOALoader(SourceDataLoader):
                         ret_val = line.split(search_text)[1].strip()
 
             # remove the file
-            os.remove(os.path.join(self.data_path, data_file_name))
+            os.remove(os.path.join(self.data_path, summary_file_name))
 
         # return to the caller
         return ret_val
 
-    def get_data(self) -> (int):
+    def get_data(self) -> int:
         """
         Gets goa data.
 
@@ -99,7 +99,8 @@ class GOALoader(SourceDataLoader):
         gd: GetData = GetData(self.logger.level)
 
         # get the GOA data file
-        byte_count: int = gd.pull_via_http(self.data_url + self.data_file, self.data_path)
+        for (url, file) in zip(self.data_urls, self.data_files):
+            byte_count: int = gd.pull_via_http(url + file, self.data_path)
 
         # return the byte count to the caller
         return byte_count
@@ -110,11 +111,10 @@ class GOALoader(SourceDataLoader):
 
         :return: dict of parsing metadata results
         """
+        filter_set = self.get_filter_set()
 
-        infile_path = os.path.join(self.data_path, self.data_file)
-
-        extractor = Extractor( )
-
+        infile_path = os.path.join(self.data_path, self.goa_data_file)
+        extractor = Extractor()
         with (gzip.open if infile_path.endswith(".gz") else open)(infile_path) as zf:
             extractor.csv_extract(TextIOWrapper(zf, "utf-8"),
                                   lambda line: f'{line[DATACOLS.DB.value]}:{line[DATACOLS.DB_Object_ID.value]}',
@@ -124,7 +124,9 @@ class GOALoader(SourceDataLoader):
                                   lambda line: {},  # subject props
                                   lambda line: {},  # object props
                                   lambda line: {PRIMARY_KNOWLEDGE_SOURCE: self.provenance_id},  # edge props
-                                  comment_character = "!", delim = '\t' )
+                                  filter_set=filter_set,
+                                  filter_field=self.filter_field,
+                                  comment_character="!", delim='\t')
         # return to the caller
         self.final_node_list = extractor.nodes
         self.final_edge_list = extractor.edges
@@ -160,8 +162,11 @@ class HumanGOALoader(GOALoader):
 
     def __init__(self, test_mode: bool = False, source_data_dir: str = None):
         super().__init__(test_mode=test_mode, source_data_dir=source_data_dir)
-        self.data_file = 'goa_human.gaf.gz'
-        self.data_url = 'http://current.geneontology.org/annotations/'
+        self.goa_data_url = 'http://current.geneontology.org/annotations/'
+        self.goa_data_file = 'goa_human.gaf.gz'
+        self.filter_field = None
+        self.data_files = [self.goa_data_file]
+        self.data_urls = [self.goa_data_url]
 
 
 class PlantGOALoader(GOALoader):
@@ -170,46 +175,22 @@ class PlantGOALoader(GOALoader):
 
     def __init__(self, test_mode: bool = False, source_data_dir: str = None):
         super().__init__(test_mode=test_mode, source_data_dir=source_data_dir)
-        self.data_url = 'http://current.geneontology.org/annotations/'
-        self.data_file = 'goa_uniprot_test.gaf.gz' # 'goa_uniprot_all.gaf.gz' #
+        self.goa_data_url = 'http://current.geneontology.org/annotations/'
+        self.goa_data_file = 'goa_uniprot_all.gaf.gz'
+        self.plant_taxa_url = 'https://stars.renci.org/var/data_services/PlantGOA/'
         self.plant_taxa_file = 'plant_taxa.txt'
+        self.filter_field = DATACOLS.Taxon_Interacting_taxon.value
+        self.data_files = [self.plant_taxa_file, self.goa_data_file]
+        self.data_urls = [self.plant_taxa_url, self.goa_data_url]
 
-        self.plant_taxa_path = os.path.join(self.data_path, self.plant_taxa_file)
-
-
-    def parse_data(self) -> dict:
-        """
-        Parses the data file for nodes/edges
-
-        :return: dict of parsing metadata results
-        """
-
-        infile_path = os.path.join(self.data_path, self.data_file)
-
-        extractor = Extractor( )
-
-        with open(self.plant_taxa_path) as plant_taxa:
+    def get_filter_set(self):
+        plant_taxa_path = os.path.join(self.data_path, self.plant_taxa_file)
+        with open(plant_taxa_path) as plant_taxa:
             plant_taxa_set = set()
             for line in plant_taxa:
                 plant_taxa_set.add(line.strip())
+        return plant_taxa_set
 
-
-
-        with (gzip.open if infile_path.endswith(".gz") else open)(infile_path) as goa_file:
-            extractor.csv_extract(TextIOWrapper(goa_file, "utf-8"),
-                                          lambda line: f'{line[DATACOLS.DB.value]}:{line[DATACOLS.DB_Object_ID.value]}',
-                                          # extract subject id,
-                                          lambda line: f'{line[DATACOLS.GO_ID.value]}',  # extract object id
-                                          lambda line: get_goa_predicate(line),  # predicate extractor
-                                          lambda line: {},  # subject props
-                                          lambda line: {},  # object props
-                                          lambda line: {PRIMARY_KNOWLEDGE_SOURCE: self.provenance_id},  # edge props
-                                          plant_taxa_set,
-                                          DATACOLS.Taxon_Interacting_taxon.value,
-                                          comment_character = "!", delim = '\t' )
-        self.final_node_list = extractor.nodes
-        self.final_edge_list = extractor.edges
-        return extractor.load_metadata
 
 if __name__ == '__main__':
     # create a command line parser

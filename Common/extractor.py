@@ -21,16 +21,6 @@ class Extractor:
         self.load_metadata = { 'record_counter': 0, 'skipped_record_counter': 0, 'errors': []}
         self.errors = []
 
-    """
-    A simplified interface for CSV extract which only extracts nodes from a file.
-    """
-    def node_csv_extract(self, infile,
-                    subject_extractor,
-                    subject_property_extractor,
-                    comment_character="#", delim='\t', has_header_row=False):
-        self.csv_extractor(infile,subject_extractor, None, None, subject_property_extractor,
-                           None, None, comment_character, delim, has_header_row)
-
     def csv_extract(self, infile,
                     subject_extractor,
                     object_extractor,
@@ -38,8 +28,8 @@ class Extractor:
                     subject_property_extractor,
                     object_property_extractor,
                     edge_property_extractor,
-                    filter_set=set(),
-                    filter_field=-1,
+                    filter_set=None,
+                    filter_field=None,
                     comment_character="#", delim='\t', has_header_row=False):
         """Read a csv, perform callbacks to retrieve node and edge info per row.
         Assumes that all of the properties extractable for a node occur on the line with the node identifier"""
@@ -53,9 +43,9 @@ class Extractor:
                 skipped_header = True
                 continue
 
-            if filter_field != -1:
-                word_list = line[:-1].split(delim)
-                if(word_list[filter_field] not in filter_set):
+            if filter_field is not None:
+                filter_field_value = line[:-1].split(delim)[filter_field]
+                if filter_field_value not in filter_set:
                     continue
 
             self.load_metadata['record_counter'] += 1
