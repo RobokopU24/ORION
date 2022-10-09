@@ -1,8 +1,10 @@
 version: "3.7"
 services:
   data_services:
+    platform: linux/amd64
     build:
       context: .
+    command: [python, /Data_services/Common/build_manager.py, all]
     environment:
       - DATA_SERVICES_STORAGE=/Data_services_storage
       - DATA_SERVICES_GRAPHS=/Data_services_graphs

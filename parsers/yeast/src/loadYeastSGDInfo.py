@@ -325,7 +325,6 @@ class YeastSGDLoader(SourceDataLoader):
                                   comment_character=None,
                                   delim=',',
                                   has_header_row=True)
-
         #Goes through the file and only yields the rows in which the cosine distance is above a predefined threshold.
         """
         def cos_dist_filter(infile):

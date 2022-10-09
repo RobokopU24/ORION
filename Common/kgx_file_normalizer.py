@@ -243,7 +243,6 @@ class KGXFileNormalizer:
 
         number_of_source_edges = 0
         normalized_edge_count = 0
-        edge_mergers = 0
         edge_splits = 0
         edges_failed_due_to_nodes = 0
         edges_failed_due_to_predicates = 0
@@ -364,7 +363,7 @@ class KGXFileNormalizer:
             'edges_failed_due_to_predicates': edges_failed_due_to_predicates,
             # these keep track of how many edges merged into another, or split into multiple edges
             # this should be true: source_edges - failures - mergers + splits = edges post norm
-            'edge_mergers': edge_mergers,
+            'edge_mergers': graph_merger.merged_edge_counter,
             'edge_splits': edge_splits,
             'final_normalized_edges': normalized_edge_count
         })
