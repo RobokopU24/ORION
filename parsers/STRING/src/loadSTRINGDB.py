@@ -164,6 +164,7 @@ class STRINGDBLoader(SourceDataLoader):
 
         extractor = Extractor()
         
+        '''
         #This file contains full STRING PPI data for the Human proteome.
         ppi_full_file: str = os.path.join(self.data_path, self.ppi_full_file_name)
         with gzip.open(ppi_full_file, 'r') as fp:
@@ -171,8 +172,8 @@ class STRINGDBLoader(SourceDataLoader):
             textdatafile.to_csv(ppi_full_file+'.csv', index = None)
         with open(ppi_full_file+'.csv', 'r') as fp:
             extractor.csv_extract(fp,
-                                  lambda line: line[PPI_EDGEUMAN.PROTEIN1.value].replace(self.taxon_id+".","").replace("ENSP","ENSP:"),  # subject id
-                                  lambda line: line[PPI_EDGEUMAN.PROTEIN2.value].replace(self.taxon_id+".","").replace("ENSP","ENSP:"),  # object id
+                                  lambda line: "ENSEMBL:"+line[PPI_EDGEUMAN.PROTEIN1.value].replace(self.taxon_id+".",""),  # subject id
+                                  lambda line: "ENSEMBL:"+line[PPI_EDGEUMAN.PROTEIN2.value].replace(self.taxon_id+".",""),  # object id
                                   lambda line: 'biolink:interacts_with' if int(line[PPI_EDGEUMAN.COMBINED_SCORE.value]) > 0 else "",
                                   lambda line: {}, #subject props
                                   lambda line: {}, #object props
@@ -188,7 +189,7 @@ class STRINGDBLoader(SourceDataLoader):
                                   comment_character=None,
                                   delim=',',
                                   has_header_row=True)
-            '''
+            
             extractor.csv_extract(fp,
                                   lambda line: line[PPI_EDGEUMAN.PROTEIN1.value].replace(self.taxon_id+".","").replace("ENSP","ENSP:"),  # subject id
                                   lambda line: line[PPI_EDGEUMAN.PROTEIN2.value].replace(self.taxon_id+".","").replace("ENSP","ENSP:"),  # object id
@@ -234,8 +235,8 @@ class STRINGDBLoader(SourceDataLoader):
             textdatafile.to_csv(ppi_physical_file+'.csv', index = None)
         with open(ppi_physical_file+'.csv', 'r') as fp:
             extractor.csv_extract(fp,
-                                  lambda line: line[PPI_PHYSICAL_EDGEUMAN.PROTEIN1.value].replace(self.taxon_id+".","").replace("ENSP","ENSP:"),  # subject id
-                                  lambda line: line[PPI_PHYSICAL_EDGEUMAN.PROTEIN2.value].replace(self.taxon_id+".","").replace("ENSP","ENSP:"),  # object id
+                                  lambda line: "ENSEMBL:"+line[PPI_PHYSICAL_EDGEUMAN.PROTEIN1.value].replace(self.taxon_id+".",""),  # subject id
+                                  lambda line: "ENSEMBL:"+line[PPI_PHYSICAL_EDGEUMAN.PROTEIN2.value].replace(self.taxon_id+".",""),  # object id
                                   lambda line: 'biolink:physically_interacts_with' if int(line[PPI_PHYSICAL_EDGEUMAN.COMBINED_SCORE.value]) > 0 else "",  # predicate extractor
                                   lambda line: {},  # subject props
                                   lambda line: {},  # object props
