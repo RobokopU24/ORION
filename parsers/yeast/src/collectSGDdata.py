@@ -3,6 +3,7 @@ import pandas as pd
 import os
 import requests as rq
 import csv
+import numpy as np
 
 def main(resolution, source_data_path):
 #     checking_input = True
@@ -64,13 +65,14 @@ def main(resolution, source_data_path):
 #             continue
     res = resolution
     path = source_data_path
+    SGDAllGenes(path)
     createLociWindows(res, path)
     SGDComplex2GOTerm(path)
-    SGDAllGenes(path)
     SGDGene2GOTerm(path)
     SGDGene2Phenotype(path)
     SGDGene2Pathway(path)
     SGDGene2Complex(path)
+    
 
 def SGDGene2GOTerm(data_directory):
     #Collects all GO Term data for all genes in SGD
@@ -322,6 +324,88 @@ def SGDComplex2GOTerm(data_directory):
     complex2gotermdf.to_csv(os.path.join(storage_dir,csv_fname), encoding="utf-8-sig", index=False)
 
 def createLociWindows(resolution, data_directory):
+    #Creates sliding windows of hypothetical genome locations of all Histone PTMs. 
+    n = int(resolution) #Sets sliding window resolution.
+    print(f"---------------------------------------------------\nCreating sliding window of resolution {n} of yeast genome loci...\n---------------------------------------------------\n")
+
+    data = {'hisPTMid':[],'chromosomeID':[],'start':[],'end':[],'histoneMod':[]}
+
+    #Reference: https://wiki.yeastgenome.org/index.php/Systematic_Sequencing_Table
+
+    chromosome_lengths = {'chrI':230218, 'chrII':813184, 'chrIII':316620, 
+    'chrIV':1531933, 'chrV':576874, 'chrVI':270161, 'chrVII':1090940, 
+    'chrVIII':562643, 'chrIX':439888, 'chrX':745751, 'chrXI':666816, 
+    'chrXII':1078177, 'chrXIII': 924431, 'chrXIV':784333, 'chrXV':1091291, 
+    'chrXVI':948066, 'chrmt':85779}
+
+    histonePTMs = [
+                'H2AK5ac','H2AS129ph','H3K14ac','H3K18ac','H3K23ac',
+                'H3K27ac','H3K36me','H3K36me2','H3K36me3','H3K4ac',
+                'H3K4me','H3K4me2','H3K4me3','H3K56ac','H3K79me',
+                'H3K79me3','H3K56ac','H3K79me','H3K79me3','H3K9ac',
+                'H3S10ph','H4K12ac','H4K16ac','H4K20me','H4K5ac',
+                'H4K8ac','H4R3me','H4R3me2s','HTZ1'
+            ]
+
+    for chr in chromosome_lengths.keys():
+        m = int(chromosome_lengths[chr])
+        for i in range(m): #Create loci nodes for chromosomes
+            if i!= 0 and i % n == 0:
+                for ptm in histonePTMs:
+                    data['hisPTMid'].append("HisPTM:" + chr + "(" + str(i-(n-1)) + "-" + str(i) + ")" + ";" + ptm)
+                    data['chromosomeID'].append(str(chr))
+                    data['start'].append(i-(n-1))
+                    data['end'].append(i)
+                    data['histoneMod'].append(ptm)
+            
+            #Handles the tail end of chromosomes.
+            if i == m-1:
+                for ptm in histonePTMs:
+                    data['hisPTMid'].append("HisPTM:" + chr + "(" + str(((m//9)*9)+1) + "-" + str(m) + ")" + ";" + ptm)
+                    data['chromosomeID'].append(str(chr))
+                    data['start'].append(((m//9)*9)+1)
+                    data['end'].append(m)
+                    data['histoneMod'].append(ptm)
+    genomelocidf = pd.DataFrame(data)
+    print('Histone Modifications Loci Collected!')
+    csv_f1name = f"Res{n}HistoneModLoci.csv"
+    storage_dir = data_directory
+    print(os.path.join(storage_dir,csv_f1name))
+    genomelocidf.to_csv(os.path.join(storage_dir,csv_f1name), encoding="utf-8-sig", index=False)
+
+    allgenesdf = pd.read_csv(data_directory+'/SGDAllGenes.csv')
+    chunk = 0
+    chunks = 1000
+    for n in np.array_split(genomelocidf, chunks):
+        #print('380')
+        mergedf = n.merge(allgenesdf,how='inner',left_on='chromosomeID',right_on='chromosome.primaryIdentifier')
+        #print('382')
+        cleanmergedf = mergedf.loc[(mergedf['end'] >= mergedf['chromosomeLocation.start']) & (mergedf['start'] <= mergedf['chromosomeLocation.end'])]
+        #print('384')
+        #Reminder to drop unnecessary columns
+
+        print(f"Histone Modifications File {chunk} Mapped to Genes!")
+        csv_f2name = f"HistoneMod2Gene({chunk}).csv"
+        print(os.path.join(storage_dir,csv_f2name))
+        cleanmergedf.to_csv(os.path.join(storage_dir,csv_f2name), encoding="utf-8-sig", index=False)
+        del mergedf
+        del cleanmergedf
+        chunk+=1
+    frames = pd.DataFrame(data={})
+    for c in range(chunks):
+        file = pd.read_csv(data_directory+f"/HistoneMod2Gene({c}).csv")
+        frames = pd.concat([frames,file])
+        os.remove(data_directory+f"/HistoneMod2Gene({c}).csv")
+    print(f"Histone Modifications Mapping Complete!")
+    csv_f3name = f"HistoneMod2Gene.csv"
+    print(os.path.join(storage_dir,csv_f3name))
+    frames.to_csv(os.path.join(storage_dir,csv_f3name), encoding="utf-8-sig", index=False)
+
+    
+
+
+'''
+def createLociWindows(resolution, data_directory):
     #Creates sliding windows of hypothetical genome locations. 
     n = int(resolution) #Sets sliding window resolution.
     print(f"---------------------------------------------------\nCreating sliding window of resolution {n} of yeast genome loci...\n---------------------------------------------------\n")
@@ -357,6 +441,7 @@ def createLociWindows(resolution, data_directory):
     storage_dir = data_directory
     print(os.path.join(storage_dir,csv_fname))
     genomelocidf.to_csv(os.path.join(storage_dir,csv_fname), encoding="utf-8-sig", index=False)
+'''
 
 if __name__ == "__main__":
-    main(200,"Data_services/parsers/yeast/src/SGD_Data_Storage")
+    main(150,"Data_services/parsers/yeast/src/SGD_Data_Storage")
