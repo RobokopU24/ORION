@@ -264,7 +264,7 @@ class YeastSGDLoader(SourceDataLoader):
                                   lambda line: None,  # object id
                                   lambda line: None,  # predicate extractor
                                   lambda line: {'name': f"{line[HISTONEMODGENE_EDGEUMAN.MODIFICATION.value]} ({line[HISTONEMODGENE_EDGEUMAN.CHROMOSOME.value]}:{line[HISTONEMODGENE_EDGEUMAN.STARTLOCATION.value]}-{line[HISTONEMODGENE_EDGEUMAN.ENDLOCATION.value]})",
-                                                'categories': ['biolink:PostTranslationalModification','biolink:HistoneModification'],
+                                                'categories': ['biolink:NucleosomeModification','biolink:PosttranslationalModification'],
                                                 'histoneModification': line[HISTONEMODGENE_EDGEUMAN.MODIFICATION.value],
                                                 'chromosomeLocation': f"{line[HISTONEMODGENE_EDGEUMAN.CHROMOSOME.value]}:{line[HISTONEMODGENE_EDGEUMAN.STARTLOCATION.value]}-{line[HISTONEMODGENE_EDGEUMAN.ENDLOCATION.value]}",
                                                 ORIGINAL_KNOWLEDGE_SOURCE: "SGD",

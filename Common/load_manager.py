@@ -12,6 +12,7 @@ from Common.loader_interface import SourceDataBrokenError, SourceDataFailedError
 from Common.supplementation import SequenceVariantSupplementation, SupplementationFailedError
 from parsers.yeast.src.loadYeastSGDInfo import YeastSGDLoader
 from parsers.yeast.src.loadYeastNucleosomes import YeastNucleosomeLoader
+from parsers.yeast.src.loadYeastNucleosomesGSE61888 import YeastGSE61888Loader
 from parsers.yeast.src.loadYeastHistoneModificationsAndRNASeq import YeastHistoneAndExpressionLoader
 from parsers.GWASCatalog.src.loadGWASCatalog import GWASCatalogLoader
 from parsers.CTD.src.loadCTD import CTDLoader
@@ -57,6 +58,7 @@ ONTOLOGICAL_HIERARCHY = 'OntologicalHierarchy'
 YEASTSGD = 'YeastSGDInfo'
 YEASTHISTONEANDEXPRESSION = 'YeastHistoneAndExpression'
 YEAST_NUCLEOSOMES = 'YeastNucleosomes'
+YEAST_GSE61888 = 'YeastGSE61888'
 GENOME_ALLIANCE_ORTHOLOGS = 'GenomeAllianceOrthologs'
 # FOODB = 'FooDB' # this is on hold, data needs review after latest release of data.
 
@@ -85,6 +87,7 @@ SOURCE_DATA_LOADER_CLASSES = {
     YEASTSGD: YeastSGDLoader,
     YEASTHISTONEANDEXPRESSION: YeastHistoneAndExpressionLoader,
     YEAST_NUCLEOSOMES: YeastNucleosomeLoader,
+    YEAST_GSE61888: YeastGSE61888Loader,
     GENOME_ALLIANCE_ORTHOLOGS: GenomeAllianceOrthologLoader
     # items to go
     # textminingkp
@@ -93,7 +96,7 @@ SOURCE_DATA_LOADER_CLASSES = {
     # FOODB: FDBLoader - no longer has curies that will normalize
 }
 
-RESOURCE_HOGS = [GTEX, GWAS_CATALOG, UNIREF, ONTOLOGICAL_HIERARCHY]
+RESOURCE_HOGS = [GTEX, GWAS_CATALOG, UNIREF, ONTOLOGICAL_HIERARCHY, YEASTSGD]
 
 
 class SourceDataManager:
