@@ -1,6 +1,6 @@
 import csv
 from Common.kgxmodel import kgxnode, kgxedge
-from Common.node_types import ORIGINAL_KNOWLEDGE_SOURCE, PRIMARY_KNOWLEDGE_SOURCE, AGGREGATOR_KNOWLEDGE_SOURCES
+from Common.node_types import PRIMARY_KNOWLEDGE_SOURCE, AGGREGATOR_KNOWLEDGE_SOURCES
 
 
 class Extractor:
@@ -118,13 +118,11 @@ class Extractor:
             self.node_ids.add(object_id)
 
         if subject_id and object_id and predicate:
-            original_knowledge_source = edgeprops.pop(ORIGINAL_KNOWLEDGE_SOURCE, None)
             primary_knowledge_source = edgeprops.pop(PRIMARY_KNOWLEDGE_SOURCE, None)
             aggregator_knowledge_sources = edgeprops.pop(AGGREGATOR_KNOWLEDGE_SOURCES, None)
             edge = kgxedge(subject_id,
                            object_id,
                            predicate=predicate,
-                           original_knowledge_source=original_knowledge_source,
                            primary_knowledge_source=primary_knowledge_source,
                            aggregator_knowledge_sources=aggregator_knowledge_sources,
                            edgeprops=edgeprops)

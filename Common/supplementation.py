@@ -190,10 +190,10 @@ class SequenceVariantSupplementation:
                                 else:
                                     edge_props = None
                                 output_file_writer.write_node(gene_id, None, [GENE])
-                                output_file_writer.write_edge(variant_id,
-                                                              gene_id,
-                                                              effect_predicate,
-                                                              original_knowledge_source='infores:snpeff',
+                                output_file_writer.write_edge(subject_id=variant_id,
+                                                              object_id=gene_id,
+                                                              predicate=effect_predicate,
+                                                              primary_knowledge_source='infores:snpeff',
                                                               edge_properties=edge_props)
                         break
 

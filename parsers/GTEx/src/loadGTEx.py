@@ -250,7 +250,7 @@ class GTExLoader(SourceDataWithVariantsLoader):
         self.output_file_writer.write_edge(subject_id=variant_id,
                                            object_id=gene_id,
                                            predicate=predicate,
-                                           original_knowledge_source=self.provenance_id,
+                                           primary_knowledge_source=self.provenance_id,
                                            edge_properties=edge_properties)
 
     def parse_file_and_yield_relationships(self,
@@ -330,78 +330,6 @@ class GTExLoader(SourceDataWithVariantsLoader):
 
                     else:
                         self.logger.warning(f'Skipping unexpected tissue file {tissue_file.name}.')
-
-    def coalesce_and_write_edges(self, kgx_file_writer: KGXFileWriter):
-        """
-            Coalesces edge data so that expressed_in, p_value, slope are arrays on a single edge
-
-        :param kgx_file_writer: an already opened kgx_file_writer
-        :return: Nothing
-        """
-        # sort the list of dicts
-        self.edge_list = sorted(self.edge_list, key=lambda i: (i['subject'], i['object'], i['predicate']))
-
-        # create a list for the anatomy_ids, p-values and slope
-        anatomy_ids: list = []
-        p_values: list = []
-        slopes: list = []
-
-        # prime the boundary keys
-        item: dict = self.edge_list[0]
-
-        # create boundary group keys. the key will be the subject - edge label - object
-        start_group_key: str = item["subject"] + item["predicate"] + item["object"]
-
-        # prime the loop with the first record
-        cur_record: dict = item
-
-        # loop through the edge data
-        for item in self.edge_list:
-            # get the current group key
-            cur_group_key: str = item["subject"] + item["predicate"] + item["object"]
-
-            # did we encounter a new grouping
-            if cur_group_key != start_group_key:
-
-                # merge the properties of the previous edge group into arrays
-                edge_properties = {'expressed_in': anatomy_ids,
-                                   'p_value': p_values,
-                                   'slope': slopes}
-
-                # write out the coalesced edge for the previous group
-                kgx_file_writer.write_edge(subject_id=cur_record["subject"],
-                                           object_id=cur_record["object"],
-                                           predicate=cur_record["predicate"],
-                                           original_knowledge_source=self.provenance_id,
-                                           edge_properties=edge_properties)
-
-                # reset the record storage and intermediate items for the next group
-                cur_record = item
-                anatomy_ids = []
-                p_values = []
-                slopes = []
-
-                # save the new group key
-                start_group_key = cur_group_key
-
-            # save the uberon in the list
-            anatomy_ids.append(item["expressed_in"])
-            p_values.append(item["p_value"])
-            slopes.append(item["slope"])
-
-        # save anything that is left
-        if len(anatomy_ids) > 0:
-            # merge the properties of the previous edge group into arrays
-            edge_properties = {'expressed_in': anatomy_ids,
-                               'p_value': p_values,
-                               'slope': slopes}
-
-            # write out the coalesced edge for the previous group
-            kgx_file_writer.write_edge(subject_id=cur_record["subject"],
-                                       object_id=cur_record["object"],
-                                       predicate=cur_record["predicate"],
-                                       original_knowledge_source=self.provenance_id,
-                                       edge_properties=edge_properties)
 
     # take the UBERON ids for the anatomy / tissues and normalize them with the normalization API
     # this step would normally happen post-parsing for nodes but the anatomy IDs are set as edge properties

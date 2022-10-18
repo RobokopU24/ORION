@@ -209,7 +209,7 @@ class GtoPdbLoader(SourceDataLoader):
                         new_edge = kgxedge(ligand_id,
                                            part_node_id,
                                            predicate='BFO:0000051',
-                                           original_knowledge_source=GtoPdbLoader.provenance_id)
+                                           primary_knowledge_source=GtoPdbLoader.provenance_id)
                         edge_list.append(new_edge)
                 else:
                     skipped_record_counter += 1
@@ -305,7 +305,7 @@ class GtoPdbLoader(SourceDataLoader):
                         new_edge = kgxedge(ligand_id,
                                            gene_id,
                                            predicate=predicate,
-                                           original_knowledge_source=self.provenance_id,
+                                           primary_knowledge_source=self.provenance_id,
                                            edgeprops=props)
 
                         # save the edge
@@ -346,7 +346,7 @@ class GtoPdbLoader(SourceDataLoader):
                                 new_edge = kgxedge(gene_id,
                                                    ligand_id,
                                                    predicate='RO:0002205',
-                                                   original_knowledge_source=self.provenance_id,
+                                                   primary_knowledge_source=self.provenance_id,
                                                    edgeprops=props)
 
                                 # save the edge

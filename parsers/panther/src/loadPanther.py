@@ -263,7 +263,7 @@ class PLoader(SourceDataLoader):
                     new_edge = kgxedge(subject_id=g_sub_fam_id,
                                        predicate='BFO:0000050',
                                        object_id=family.identifier,
-                                       original_knowledge_source=self.provenance_id)
+                                       primary_knowledge_source=self.provenance_id)
                     self.final_edge_list.append(new_edge)
 
     def get_gene_by_gene_family(self, family):
@@ -288,7 +288,7 @@ class PLoader(SourceDataLoader):
                 gene_family_edge = kgxedge(subject_id=gene_id,
                                            predicate='BFO:0000050',
                                            object_id=family.identifier,
-                                           original_knowledge_source=self.provenance_id)
+                                           primary_knowledge_source=self.provenance_id)
                 self.final_edge_list.append(gene_family_edge)
 
     def get_biological_process_or_activity_by_gene_family(self, family):
@@ -312,7 +312,7 @@ class PLoader(SourceDataLoader):
                     new_edge = kgxedge(subject_id=family.identifier,
                                        predicate='RO:0002331',
                                        object_id=bio_p_id,
-                                       original_knowledge_source=self.provenance_id)
+                                       primary_knowledge_source=self.provenance_id)
                     self.final_edge_list.append(new_edge)
 
     def get_molecular_function_by_gene_family(self, family):
@@ -336,7 +336,7 @@ class PLoader(SourceDataLoader):
                     new_edge = kgxedge(subject_id=family.identifier,
                                        predicate='RO:0002327',
                                        object_id=mole_func_id,
-                                       original_knowledge_source=self.provenance_id)
+                                       primary_knowledge_source=self.provenance_id)
                     self.final_edge_list.append(new_edge)
 
     def get_cellular_component_by_gene_family(self, family):
@@ -360,7 +360,7 @@ class PLoader(SourceDataLoader):
                     new_edge = kgxedge(subject_id=family.identifier,
                                        predicate='RO:0001025',
                                        object_id=cellular_component_id,
-                                       original_knowledge_source=self.provenance_id)
+                                       primary_knowledge_source=self.provenance_id)
                     self.final_edge_list.append(new_edge)
 
     def get_pathway_by_gene_family(self, family):
@@ -386,7 +386,7 @@ class PLoader(SourceDataLoader):
                 new_edge = kgxedge(subject_id=panther_pathway_id,
                                    predicate='RO:0000057',
                                    object_id=family.identifier,
-                                   original_knowledge_source=self.provenance_id)
+                                   primary_knowledge_source=self.provenance_id)
                 self.final_edge_list.append(new_edge)
 
     def get_gene_id_from_row(self, row):

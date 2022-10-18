@@ -4,7 +4,7 @@ import logging
 
 from Common.utils import LoggingUtil
 from Common.kgxmodel import kgxnode, kgxedge
-from Common.node_types import ORIGINAL_KNOWLEDGE_SOURCE, PRIMARY_KNOWLEDGE_SOURCE, AGGREGATOR_KNOWLEDGE_SOURCES, \
+from Common.node_types import PRIMARY_KNOWLEDGE_SOURCE, AGGREGATOR_KNOWLEDGE_SOURCES, \
     SUBJECT_ID, OBJECT_ID, PREDICATE
 
 
@@ -107,7 +107,6 @@ class KGXFileWriter:
                    subject_id: str,
                    object_id: str,
                    predicate: str = None,
-                   original_knowledge_source: str = None,
                    primary_knowledge_source: str = None,
                    aggregator_knowledge_sources: list = None,
                    edge_properties: dict = None,
@@ -121,9 +120,6 @@ class KGXFileWriter:
             edge_object = {SUBJECT_ID: subject_id,
                            PREDICATE: predicate,
                            OBJECT_ID: object_id}
-
-        if original_knowledge_source is not None:
-            edge_object[ORIGINAL_KNOWLEDGE_SOURCE] = original_knowledge_source
 
         if primary_knowledge_source is not None:
             edge_object[PRIMARY_KNOWLEDGE_SOURCE] = primary_knowledge_source
@@ -140,7 +136,6 @@ class KGXFileWriter:
         self.write_edge(subject_id=edge.subjectid,
                         object_id=edge.objectid,
                         predicate=edge.predicate,
-                        original_knowledge_source=edge.original_knowledge_source,
                         primary_knowledge_source=edge.primary_knowledge_source,
                         aggregator_knowledge_sources=edge.aggregator_knowledge_sources,
                         edge_properties=edge.properties)

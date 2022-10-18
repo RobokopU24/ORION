@@ -226,7 +226,7 @@ class CTDLoader(SourceDataLoader):
                 new_edge = kgxedge(edge_subject,
                                    edge_object,
                                    predicate=predicate,
-                                   original_knowledge_source=self.provenance_id,
+                                   primary_knowledge_source=self.provenance_id,
                                    edgeprops={'publications': pmids}.update(props))
                 edge_list.append(new_edge)
 
@@ -302,7 +302,7 @@ class CTDLoader(SourceDataLoader):
                 new_edge = kgxedge(edge_subject,
                                    edge_object,
                                    predicate=predicate,
-                                   original_knowledge_source=self.provenance_id,
+                                   primary_knowledge_source=self.provenance_id,
                                    edgeprops={'publications': pmids}.update(props))
                 edge_list.append(new_edge)
 
@@ -373,7 +373,7 @@ class CTDLoader(SourceDataLoader):
                 new_edge = kgxedge(exposure_id,
                                    disease_id,
                                    predicate=predicate,
-                                   original_knowledge_source=self.provenance_id,
+                                   primary_knowledge_source=self.provenance_id,
                                    edgeprops={'publications': [f"PMID:{r['reference']}"]})
                 edge_list.append(new_edge)
 
@@ -535,7 +535,7 @@ class CTDLoader(SourceDataLoader):
                     new_edge = kgxedge(chemical_id,
                                        cur_disease_id.upper(),
                                        predicate=predicate,
-                                       original_knowledge_source=self.provenance_id,
+                                       primary_knowledge_source=self.provenance_id,
                                        edgeprops={'publications': publications})
                     edge_list.append(new_edge)
 

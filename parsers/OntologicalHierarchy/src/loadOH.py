@@ -111,7 +111,7 @@ class OHLoader(SourceDataLoader):
                         self.output_file_writer.write_kgx_edge(kgxedge(subject_id=subject_curie,
                                                                        object_id=object_curie,
                                                                        predicate=self.subclass_predicate,
-                                                                       original_knowledge_source=self.provenance_id))
+                                                                       primary_knowledge_source=self.provenance_id))
                     else:
                         skipped_record_counter += 1
 

@@ -379,7 +379,7 @@ class IALoader(SourceDataLoader):
                 new_edge = kgxedge(subject_id,
                                    object_id,
                                    predicate="RO:0002436",
-                                   original_knowledge_source=self.provenance_id,
+                                   primary_knowledge_source=self.provenance_id,
                                    edgeprops=edge_props)
                 self.final_edge_list.append(new_edge)
 
@@ -391,7 +391,7 @@ class IALoader(SourceDataLoader):
                     new_edge = kgxedge(subject_id,
                                        object_id,
                                        predicate="RO:0002162",
-                                       original_knowledge_source=self.provenance_id)
+                                       primary_knowledge_source=self.provenance_id)
                     self.final_edge_list.append(new_edge)
 
                 # goto the next pair
