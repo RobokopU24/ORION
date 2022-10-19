@@ -22,6 +22,7 @@ class FDBLoader(SourceDataLoader):
 
     source_id = 'FooDB'
     provenance_id = 'infores:foodb'
+    parsing_version: str = '1.1'
 
     def __init__(self, test_mode: bool = False, source_data_dir: str = None):
         """

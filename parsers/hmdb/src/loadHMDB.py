@@ -24,6 +24,7 @@ class HMDBLoader(SourceDataLoader):
 
     source_id: str = 'HMDB'
     provenance_id: str = 'infores:hmdb'
+    parsing_version: str = '1.1'
 
     def __init__(self, test_mode: bool = False, source_data_dir: str = None):
         """

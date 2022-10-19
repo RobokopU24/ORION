@@ -71,6 +71,7 @@ class IALoader(SourceDataLoader):
 
     source_id: str = 'IntAct'
     provenance_id: str = 'infores:intact'
+    parsing_version: str = '1.1'
 
     def __init__(self, test_mode: bool = False, source_data_dir: str = None):
         """

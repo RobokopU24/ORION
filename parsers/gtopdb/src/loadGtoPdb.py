@@ -22,6 +22,7 @@ class GtoPdbLoader(SourceDataLoader):
 
     source_id: str = 'GtoPdb'
     provenance_id = 'infores:gtopdb'
+    parsing_version: str = '1.1'
 
     def __init__(self, test_mode: bool = False, source_data_dir: str = None):
         """

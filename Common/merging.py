@@ -5,19 +5,12 @@ from xxhash import xxh64_hexdigest
 from Common.node_types import *
 from Common.utils import quick_json_loads, quick_json_dumps, chunk_iterator
 
-# import line_profiler
-# import atexit
-# profile = line_profiler.LineProfiler()
-# atexit.register(profile.print_stats)
-
 EDGE_PROPERTIES_THAT_SHOULD_BE_SETS = {AGGREGATOR_KNOWLEDGE_SOURCES, PUBLICATIONS}
 
 
 def edge_key_function(edge):
-    return xxh64_hexdigest(
-        str(f'{edge[SUBJECT_ID]}{edge[PREDICATE]}{edge[OBJECT_ID]}' +
-            (f'{edge.get(ORIGINAL_KNOWLEDGE_SOURCE, "")}{edge.get(PRIMARY_KNOWLEDGE_SOURCE, "")}'
-             if ((ORIGINAL_KNOWLEDGE_SOURCE in edge) or (PRIMARY_KNOWLEDGE_SOURCE in edge)) else "")))
+    return xxh64_hexdigest(f'{edge[SUBJECT_ID]}{edge[PREDICATE]}{edge[OBJECT_ID]}'
+                           f'{edge.get(PRIMARY_KNOWLEDGE_SOURCE, "")}')
 
 
 def entity_merging_function(entity_1, entity_2):

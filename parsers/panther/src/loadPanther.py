@@ -35,6 +35,7 @@ class PLoader(SourceDataLoader):
     source_id: str = 'PANTHER'
     source_db: str = 'Protein ANalysis THrough Evolutionary Relationships'
     provenance_id: str = 'infores:panther'
+    parsing_version: str = '1.1'
 
     def __init__(self, test_mode: bool = False, source_data_dir: str = None):
         """

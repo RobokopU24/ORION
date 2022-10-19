@@ -1,14 +1,13 @@
 import os
 import csv
 import argparse
-import logging
 import re
 import tarfile
 import requests
 
 from bs4 import BeautifulSoup
 from operator import itemgetter
-from Common.utils import LoggingUtil, GetData
+from Common.utils import GetData
 from Common.loader_interface import SourceDataLoader, SourceDataFailedError
 from Common.kgxmodel import kgxnode, kgxedge
 from Common.prefixes import CTD, NCBITAXON, MESH
@@ -25,6 +24,7 @@ class CTDLoader(SourceDataLoader):
 
     source_id = 'CTD'
     provenance_id = 'infores:ctd'
+    parsing_version: str = '1.1'
 
     predicate_conversion_map = {
         'CTD:decreases_molecular_interaction_with': 'CTD:decreases_molecular_interaction',

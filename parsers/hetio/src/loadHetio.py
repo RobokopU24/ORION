@@ -8,14 +8,14 @@ from Common.utils import GetDataPullError
 from Common.loader_interface import SourceDataLoader
 from Common.extractor import Extractor
 from Common.prefixes import NCBIGENE, DRUGBANK, UBERON, DOID, MESH, UMLS
-from Common.node_types import AGGREGATOR_KNOWLEDGE_SOURCES, ORIGINAL_KNOWLEDGE_SOURCE, PRIMARY_KNOWLEDGE_SOURCE
+from Common.node_types import AGGREGATOR_KNOWLEDGE_SOURCES, PRIMARY_KNOWLEDGE_SOURCE
 
 
 class HetioLoader(SourceDataLoader):
 
     source_id: str = 'Hetio'
     provenance_id: str = 'infores:hetio'
-    parsing_version: str = '1.1'
+    parsing_version: str = '1.2'
 
     def __init__(self, test_mode: bool = False, source_data_dir: str = None):
         """
@@ -206,10 +206,10 @@ def get_edge_properties(edge):
     for source in edge_sources:
         provenance = hetio_source_to_provenance_lookup.get(source, None)
         if provenance:
-            edge_props[ORIGINAL_KNOWLEDGE_SOURCE] = provenance
+            edge_props[PRIMARY_KNOWLEDGE_SOURCE] = provenance
             edge_props[AGGREGATOR_KNOWLEDGE_SOURCES] = [HetioLoader.provenance_id]
             break
-    if ORIGINAL_KNOWLEDGE_SOURCE not in edge_props:
+    if PRIMARY_KNOWLEDGE_SOURCE not in edge_props:
         edge_props[PRIMARY_KNOWLEDGE_SOURCE] = HetioLoader.provenance_id
         edge_props['hetio_source'] = edge_sources
 

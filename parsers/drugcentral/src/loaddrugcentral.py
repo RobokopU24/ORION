@@ -1,17 +1,13 @@
 import argparse
-import docker
-import time
 import psycopg2
 import psycopg2.extras
 import gzip
 import os
-import tempfile
-import tarfile
 
 from Common.extractor import Extractor
-from Common.loader_interface import SourceDataLoader, SourceDataFailedError
+from Common.loader_interface import SourceDataLoader
 from Common.utils import GetData
-from Common.node_types import ORIGINAL_KNOWLEDGE_SOURCE, PRIMARY_KNOWLEDGE_SOURCE, AGGREGATOR_KNOWLEDGE_SOURCES
+from Common.node_types import PRIMARY_KNOWLEDGE_SOURCE, AGGREGATOR_KNOWLEDGE_SOURCES
 from Common import prefixes
 from Common.containers import PostgresContainer
 
@@ -19,8 +15,8 @@ from Common.containers import PostgresContainer
 class DrugCentralLoader(SourceDataLoader):
 
     source_id = 'DrugCentral'
-    source_db = 'DrugCentral'
     provenance_id = 'infores:drugcentral'
+    parsing_version: str = '1.1'
 
     def __init__(self, test_mode: bool = False, source_data_dir: str = None):
         """
@@ -100,7 +96,7 @@ class DrugCentralLoader(SourceDataLoader):
                               lambda line: {},  # object props
                               lambda line: { 'FAERS_llr': line['llr'],
                                              AGGREGATOR_KNOWLEDGE_SOURCES: [DrugCentralLoader.provenance_id],
-                                             ORIGINAL_KNOWLEDGE_SOURCE: 'infores:faers' }  # edge props
+                                             PRIMARY_KNOWLEDGE_SOURCE: 'infores:faers' }  # edge props
                               )
 
         # bioactivity.  There are several rows in the main activity table (act_table_full) that include multiple accessions
@@ -294,7 +290,7 @@ def get_bioactivity_attributes(line):
         edge_props['affinity'] = line['act_value']
         edge_props['affinityParameter'] = line['act_type']
     if line['act_source'] == 'SCIENTIFIC LITERATURE' and line['act_source_url'] is not None:
-        edge_props[ORIGINAL_KNOWLEDGE_SOURCE] = DrugCentralLoader.provenance_id
+        edge_props[PRIMARY_KNOWLEDGE_SOURCE] = DrugCentralLoader.provenance_id
         papersource = line['act_source_url']
         if papersource.startswith('http://www.ncbi.nlm.nih.gov/pubmed'):
             papersource=f'{prefixes.PUBMED}:{papersource.split("/")[-1]}'
