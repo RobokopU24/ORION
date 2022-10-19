@@ -2,9 +2,8 @@ import os
 import json
 import jsonlines
 import logging
-from xxhash import xxh64_hexdigest
-from Common.node_types import SEQUENCE_VARIANT, ORIGINAL_KNOWLEDGE_SOURCE, PRIMARY_KNOWLEDGE_SOURCE, \
-    AGGREGATOR_KNOWLEDGE_SOURCES, PUBLICATIONS, OBJECT_ID, SUBJECT_ID, PREDICATE
+from Common.node_types import SEQUENCE_VARIANT, PRIMARY_KNOWLEDGE_SOURCE, AGGREGATOR_KNOWLEDGE_SOURCES, \
+    PUBLICATIONS, OBJECT_ID, SUBJECT_ID, PREDICATE
 from Common.utils import LoggingUtil, NodeNormUtils, EdgeNormUtils, EdgeNormalizationResult, chunk_iterator
 from Common.kgx_file_writer import KGXFileWriter
 from Common.kgxmodel import NormalizationScheme
@@ -12,13 +11,13 @@ from Common.merging import MemoryGraphMerger, DiskGraphMerger
 
 
 class NormalizationBrokenError(Exception):
-    def __init__(self, error_message: str, actual_error: str = ''):
+    def __init__(self, error_message: str, actual_error: Exception):
         self.error_message = error_message
         self.actual_error = actual_error
 
 
 class NormalizationFailedError(Exception):
-    def __init__(self, error_message: str, actual_error: str = ''):
+    def __init__(self, error_message: str, actual_error: Exception):
         self.error_message = error_message
         self.actual_error = actual_error
 
@@ -26,13 +25,6 @@ class NormalizationFailedError(Exception):
 EDGE_PROPERTIES_THAT_SHOULD_BE_SETS = {AGGREGATOR_KNOWLEDGE_SOURCES, PUBLICATIONS}
 NODE_NORMALIZATION_BATCH_SIZE = 1_000_000
 EDGE_NORMALIZATION_BATCH_SIZE = 1_000_000
-
-
-def edge_id_function(edge):
-    return xxh64_hexdigest(
-        str(f'{edge[SUBJECT_ID]}{edge[PREDICATE]}{edge[OBJECT_ID]}' +
-            (f'{edge.get(ORIGINAL_KNOWLEDGE_SOURCE, "")}{edge.get(PRIMARY_KNOWLEDGE_SOURCE, "")}'
-             if ((ORIGINAL_KNOWLEDGE_SOURCE in edge) or (PRIMARY_KNOWLEDGE_SOURCE in edge)) else "")))
 
 
 #
@@ -93,7 +85,7 @@ class KGXFileNormalizer:
                                                  biolink_version=normalization_scheme.edge_normalization_version)
             self.edge_normalizer = EdgeNormUtils(edge_normalization_version=normalization_scheme.edge_normalization_version)
         except Exception as e:
-            raise NormalizationFailedError(e)
+            raise NormalizationFailedError(error_message=repr(e), actual_error=e)
 
     def normalize_kgx_files(self):
         self.normalize_node_file()
@@ -290,17 +282,17 @@ class KGXFileNormalizer:
                                     normalized_predicate = edge_norm_result.identifier
                                     edge_inverted_by_normalization = edge_norm_result.inverted
                                     # edge_label = edge_norm_result.label # right now label is not used
-                                except KeyError:
+                                except KeyError as e:
                                     norm_error_msg = f'Edge norm lookup failure - missing {edge[PREDICATE]}!'
                                     self.logger.error(norm_error_msg)
-                                    raise NormalizationFailedError(norm_error_msg)
+                                    raise NormalizationFailedError(error_message=norm_error_msg, actual_error=e)
                             else:
                                 normalized_predicate = edge[PREDICATE]
                                 edge_inverted_by_normalization = False
 
                             edge_count = 0
-                            if ORIGINAL_KNOWLEDGE_SOURCE not in edge and PRIMARY_KNOWLEDGE_SOURCE not in edge:
-                                edge[ORIGINAL_KNOWLEDGE_SOURCE] = self.default_provenance
+                            if PRIMARY_KNOWLEDGE_SOURCE not in edge:
+                                edge[PRIMARY_KNOWLEDGE_SOURCE] = self.default_provenance
                             for norm_subject_id in normalized_subject_ids:
                                 for norm_object_id in normalized_object_ids:
                                     edge_count += 1
@@ -318,7 +310,6 @@ class KGXFileNormalizer:
                                         normalized_edge[SUBJECT_ID] = norm_subject_id
                                         normalized_edge[OBJECT_ID] = norm_object_id
 
-                                    normalized_edge['id'] = edge_id_function(normalized_edge)
                                     normalized_edges.append(normalized_edge)
 
                             # this counter tracks the number of new edges created from each individual edge in the original file
