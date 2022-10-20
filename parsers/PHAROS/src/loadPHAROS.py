@@ -6,10 +6,43 @@ import re
 import random
 import requests
 
-from Common.loader_interface import SourceDataLoader
+from Common.loader_interface import SourceDataLoader, SourceDataBrokenError
 from Common.kgxmodel import kgxnode, kgxedge
 from Common.utils import GetData
 from Common.containers import MySQLContainer
+from Common.prefixes import DGIDB, CHEMBL_MECHANISM, CTD
+
+DGIDB_PREDICATE_MAPPING = {
+    "ac50": f"{DGIDB}:activator",
+    "activator": f"{DGIDB}:activator",
+    "agonist": f"{DGIDB}:agonist",
+    "allosteric_antagonist": f"{DGIDB}:antagonist",
+    "allosteric_modulator": f"{DGIDB}:modulator",
+    "antagonist": f"{DGIDB}:antagonist",
+    "antibody": f"{DGIDB}:binding",
+    "antibody_binding": f"{DGIDB}:binding",
+    "blocker": f"{DGIDB}:blocker",
+    "channel_blocker": f"{DGIDB}:channel_blocker",
+    "ec50": f"{DGIDB}:agonist",
+    "gating_inhibitor": f"{DGIDB}:gating_inhibitor",
+    "ic50": f"{DGIDB}:inhibitor",
+    "inhibitor": f"{DGIDB}:inhibitor",
+    "interacts_with": f"RO:0002434",
+    "inverse_agonist": f"{DGIDB}:inverse_agonist",
+    "kb": f"{DGIDB}:binder",
+    "kd": f"{CTD}:affects_binding",
+    "ki": f"{DGIDB}:inhibitor",
+    "modulator": f"{DGIDB}:modulator",
+    "negative_modulator": f"{DGIDB}:negative_modulator",
+    "negative_allosteric_modulator": f"{DGIDB}:negative_modulator",
+    "opener": f"{CHEMBL_MECHANISM}:opener",
+    "partial_agonist": f"{DGIDB}:partial_agonist",
+    "pharmacological_chaperone": f"{DGIDB}:chaperone",
+    "positive_allosteric_modulator": f"{DGIDB}:positive_modulator",
+    "positive_modulator": f"{DGIDB}:positive_modulator",
+    "releasing_agent": f"{CHEMBL_MECHANISM}:releasing_agent",
+    "substrate": f"{CHEMBL_MECHANISM}:substrate"
+}
 
 
 class PHAROSLoader(SourceDataLoader):
@@ -42,6 +75,7 @@ class PHAROSLoader(SourceDataLoader):
 
     source_id = 'PHAROS'
     provenance_id = 'infores:pharos'
+    parsing_version: str = '1.1'
 
     def __init__(self, test_mode: bool = False, source_data_dir: str = None):
         """
@@ -311,7 +345,11 @@ class PHAROSLoader(SourceDataLoader):
             rel: str = 'interacts_with'
 
         # save the predicate
-        predicate: str = f'GAMMA:{rel}'
+        try:
+            predicate: str = DGIDB_PREDICATE_MAPPING[rel]
+        except KeyError as k:
+            # if we don't have a mapping for a predicate it's broken
+            raise SourceDataBrokenError(repr(k))
 
         # if there was provenance data save it
         if result['dtype'] is not None and len(result['dtype']) > 0:

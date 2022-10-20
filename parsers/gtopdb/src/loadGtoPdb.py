@@ -9,7 +9,7 @@ from Common.utils import GetData
 from Common.loader_interface import SourceDataLoader, SourceDataFailedError
 from Common.prefixes import GTOPDB, HGNC, ENSEMBL
 from Common.kgxmodel import kgxnode, kgxedge
-
+from parsers.PHAROS.src.loadPHAROS import DGIDB_PREDICATE_MAPPING
 
 ##############
 # Class: CTD loader
@@ -262,7 +262,8 @@ class GtoPdbLoader(SourceDataLoader):
                     if r['Type'].startswith('None'):
                         continue
                     else:
-                        predicate = 'GAMMA:' + r['Type'].lower().replace(' ', '_')
+                        formatted_predicate = r['Type'].lower().replace(' ', '_')
+                        predicate = DGIDB_PREDICATE_MAPPING[formatted_predicate]
 
                     # create a ligand node
                     ligand_id = f'{GTOPDB}:' + r['Ligand ID']

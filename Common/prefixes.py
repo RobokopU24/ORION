@@ -16,7 +16,10 @@
 # data services using a fixed key independent of biolink changes.
 
 CTD='CTD'
+CHEMBL='CHEMBL'
+CHEMBL_MECHANISM='CHEMBL.MECHANISM'
 DBSNP='DBSNP'
+DGIDB='DGIdb'
 DRUGBANK='DRUGBANK'
 DRUGCENTRAL='DrugCentral'
 DOID='DOID'
