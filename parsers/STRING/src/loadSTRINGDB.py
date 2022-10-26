@@ -11,7 +11,7 @@ from parsers.yeast.src.collectSGDdata import main
 from Common.utils import LoggingUtil, GetData
 from Common.loader_interface import SourceDataLoader
 from Common.extractor import Extractor
-from Common.node_types import AGGREGATOR_KNOWLEDGE_SOURCES, ORIGINAL_KNOWLEDGE_SOURCE
+from Common.node_types import AGGREGATOR_KNOWLEDGE_SOURCES, PRIMARY_KNOWLEDGE_SOURCE
 
 from Common.kgxmodel import kgxnode, kgxedge
 
@@ -164,7 +164,6 @@ class STRINGDBLoader(SourceDataLoader):
 
         extractor = Extractor()
         
-        '''
         #This file contains full STRING PPI data for the Human proteome.
         ppi_full_file: str = os.path.join(self.data_path, self.ppi_full_file_name)
         with gzip.open(ppi_full_file, 'r') as fp:
@@ -172,31 +171,19 @@ class STRINGDBLoader(SourceDataLoader):
             textdatafile.to_csv(ppi_full_file+'.csv', index = None)
         with open(ppi_full_file+'.csv', 'r') as fp:
             extractor.csv_extract(fp,
-                                  lambda line: "ENSEMBL:"+line[PPI_EDGEUMAN.PROTEIN1.value].replace(self.taxon_id+".",""),  # subject id
-                                  lambda line: "ENSEMBL:"+line[PPI_EDGEUMAN.PROTEIN2.value].replace(self.taxon_id+".",""),  # object id
-                                  lambda line: 'biolink:interacts_with' if int(line[PPI_EDGEUMAN.COMBINED_SCORE.value]) > 0 else "",
-                                  lambda line: {}, #subject props
-                                  lambda line: {}, #object props
-                                  lambda line: {
-                                    "Experiments":line[PPI_EDGEUMAN.EXPERIMENTS.value],
-                                    "Experiments_transferred":line[PPI_EDGEUMAN.EXPERIMENTS_TRANSFERRED.value],
-                                    "Database":line[PPI_EDGEUMAN.DATABASE.value],
-                                    "Database_transferred":line[PPI_EDGEUMAN.DATABASE_TRANSFERRED.value],
-                                    "Textmining":line[PPI_EDGEUMAN.TEXTMINING.value],
-                                    "Textmining_transferred":line[PPI_EDGEUMAN.TEXTMINING_TRANSFERRED.value],
-                                    "Combined_score":line[PPI_EDGEUMAN.COMBINED_SCORE.value]
-                                    }, # edge props
-                                  comment_character=None,
-                                  delim=',',
-                                  has_header_row=True)
-            
-            extractor.csv_extract(fp,
                                   lambda line: line[PPI_EDGEUMAN.PROTEIN1.value].replace(self.taxon_id+".","").replace("ENSP","ENSP:"),  # subject id
                                   lambda line: line[PPI_EDGEUMAN.PROTEIN2.value].replace(self.taxon_id+".","").replace("ENSP","ENSP:"),  # object id
                                   lambda line: 'biolink:coexpressed_with' if int(line[PPI_EDGEUMAN.COEXPRESSION.value]) or int(line[PPI_EDGEUMAN.COEXPRESSION_TRANSFERRED.value]) > 0 else "", # predicate
                                   lambda line: {
                                     "Coexpression":line[PPI_EDGEUMAN.COEXPRESSION.value],
                                     "Coexpression_transferred":line[PPI_EDGEUMAN.COEXPRESSION_TRANSFERRED.value],
+                                    "Experiments":line[PPI_EDGEUMAN.EXPERIMENTS.value],
+                                    "Experiments_transferred":line[PPI_EDGEUMAN.EXPERIMENTS_TRANSFERRED.value],
+                                    "Database":line[PPI_EDGEUMAN.DATABASE.value],
+                                    "Database_transferred":line[PPI_EDGEUMAN.DATABASE_TRANSFERRED.value],
+                                    "Textmining":line[PPI_EDGEUMAN.TEXTMINING.value],
+                                    "Textmining_transferred":line[PPI_EDGEUMAN.TEXTMINING_TRANSFERRED.value],
+                                    "Cooccurance":line[PPI_EDGEUMAN.COOCCURANCE.value],
                                     "Combined_score":line[PPI_EDGEUMAN.COMBINED_SCORE.value]
                                   },
                                   comment_character=None,
@@ -208,6 +195,13 @@ class STRINGDBLoader(SourceDataLoader):
                                   lambda line: 'biolink:homologous_to' if int(line[PPI_EDGEUMAN.HOMOLOGY.value]) > 0 else "", # predicate
                                   lambda line: {
                                     "Homology":line[PPI_EDGEUMAN.HOMOLOGY.value],
+                                    "Experiments":line[PPI_EDGEUMAN.EXPERIMENTS.value],
+                                    "Experiments_transferred":line[PPI_EDGEUMAN.EXPERIMENTS_TRANSFERRED.value],
+                                    "Database":line[PPI_EDGEUMAN.DATABASE.value],
+                                    "Database_transferred":line[PPI_EDGEUMAN.DATABASE_TRANSFERRED.value],
+                                    "Textmining":line[PPI_EDGEUMAN.TEXTMINING.value],
+                                    "Textmining_transferred":line[PPI_EDGEUMAN.TEXTMINING_TRANSFERRED.value],
+                                    "Cooccurance":line[PPI_EDGEUMAN.COOCCURANCE.value],
                                     "Combined_score":line[PPI_EDGEUMAN.COMBINED_SCORE.value]
                                   },
                                   comment_character=None,
@@ -216,18 +210,41 @@ class STRINGDBLoader(SourceDataLoader):
             extractor.csv_extract(fp,
                                   lambda line: line[PPI_EDGEUMAN.PROTEIN1.value].replace(self.taxon_id+".","").replace("ENSP","ENSP:"),  # subject id
                                   lambda line: line[PPI_EDGEUMAN.PROTEIN2.value].replace(self.taxon_id+".","").replace("ENSP","ENSP:"),  # object id
-                                  lambda line: 'biolink:genetically_interacts_with' if int(line[PPI_EDGEUMAN.FUSION.value]) > 0 or int(line[PPI_EDGEUMAN.NEIGHBORHOOD.value]) > 0 or int(line[PPI_EDGEUMAN.NEIGHBORHOOD_TRANSFERRED.value]) > 0 or int(line[PPI_EDGEUMAN.COOCCURANCE.value]) > 0 else "", # predicate
+                                  lambda line: 'biolink:gene_fusion_with' if int(line[PPI_EDGEUMAN.FUSION.value]) > 0 else "", # predicate
                                   lambda line: {
-                                    "Neighborhood":line[PPI_EDGEUMAN.NEIGHBORHOOD.value],
-                                    "Neighborhood_transferred":line[PPI_EDGEUMAN.NEIGHBORHOOD_TRANSFERRED.value],
                                     "Fusion":line[PPI_EDGEUMAN.FUSION.value],
+                                    "Experiments":line[PPI_EDGEUMAN.EXPERIMENTS.value],
+                                    "Experiments_transferred":line[PPI_EDGEUMAN.EXPERIMENTS_TRANSFERRED.value],
+                                    "Database":line[PPI_EDGEUMAN.DATABASE.value],
+                                    "Database_transferred":line[PPI_EDGEUMAN.DATABASE_TRANSFERRED.value],
+                                    "Textmining":line[PPI_EDGEUMAN.TEXTMINING.value],
+                                    "Textmining_transferred":line[PPI_EDGEUMAN.TEXTMINING_TRANSFERRED.value],
                                     "Cooccurance":line[PPI_EDGEUMAN.COOCCURANCE.value],
                                     "Combined_score":line[PPI_EDGEUMAN.COMBINED_SCORE.value]
                                   },
                                   comment_character=None,
                                   delim=',',
                                   has_header_row=True)
-        '''
+            extractor.csv_extract(fp,
+                                  lambda line: line[PPI_EDGEUMAN.PROTEIN1.value].replace(self.taxon_id+".","").replace("ENSP","ENSP:"),  # subject id
+                                  lambda line: line[PPI_EDGEUMAN.PROTEIN2.value].replace(self.taxon_id+".","").replace("ENSP","ENSP:"),  # object id
+                                  lambda line: 'biolink:genetic_neighborhood_of' if int(line[PPI_EDGEUMAN.NEIGHBORHOOD.value]) > 0 else "", # predicate
+                                  lambda line: {
+                                    "Neighborhood":line[PPI_EDGEUMAN.NEIGHBORHOOD.value],
+                                    "Neighborhood_transferred":line[PPI_EDGEUMAN.NEIGHBORHOOD_TRANSFERRED.value],
+                                    "Experiments":line[PPI_EDGEUMAN.EXPERIMENTS.value],
+                                    "Experiments_transferred":line[PPI_EDGEUMAN.EXPERIMENTS_TRANSFERRED.value],
+                                    "Database":line[PPI_EDGEUMAN.DATABASE.value],
+                                    "Database_transferred":line[PPI_EDGEUMAN.DATABASE_TRANSFERRED.value],
+                                    "Textmining":line[PPI_EDGEUMAN.TEXTMINING.value],
+                                    "Textmining_transferred":line[PPI_EDGEUMAN.TEXTMINING_TRANSFERRED.value],
+                                    "Cooccurance":line[PPI_EDGEUMAN.COOCCURANCE.value],
+                                    "Combined_score":line[PPI_EDGEUMAN.COMBINED_SCORE.value]
+                                  },
+                                  comment_character=None,
+                                  delim=',',
+                                  has_header_row=True)
+      
         #This file contains physical subnetwork STRING PPI data for the Human proteome.
         ppi_physical_file: str = os.path.join(self.data_path, self.ppi_physical_subnetwork_file_name)
         with gzip.open(ppi_physical_file, 'r') as fp:
