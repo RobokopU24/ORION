@@ -9,7 +9,7 @@ from parsers.yeast.src.collectSGDdata import createLociWindows
 from Common.utils import GetData
 from Common.loader_interface import SourceDataLoader
 from Common.extractor import Extractor
-from Common.node_types import AGGREGATOR_KNOWLEDGE_SOURCES, ORIGINAL_KNOWLEDGE_SOURCE
+from Common.node_types import AGGREGATOR_KNOWLEDGE_SOURCES, PRIMARY_KNOWLEDGE_SOURCE
 
 
 # Maps Experimental Condition affects Nucleosome edge.
@@ -275,6 +275,7 @@ class YeastGSE61888Loader(SourceDataLoader):
         Gets the GEO datasets.
         """
         binned_histones = pd.read_csv(self.binned_histone_mods_file)
+        
         data_puller = GetData()
         for source in self.data_files:
             source_url = f"{self.yeast_data_url}{source}"
@@ -290,6 +291,12 @@ class YeastGSE61888Loader(SourceDataLoader):
             dataset['chr'] = chromes
             dataset.to_csv(os.path.join(self.data_path,source), encoding="utf-8-sig", index=False)
             print("----Mapping GEO Datasets to Binned Histone Modifications----")
+            ''' # New method to join tables by making locations consistent between tables
+            for row in dataset.iterrows():
+                window = binned_histones.loc[(row['chr'] == binned_histones['chromosomeID']) & (row['center'] >= binned_histones['start']) & (row['center'] <= binned_histones['end'])]
+                row['center'] = windown['chromosomeID']+'('+window['start']+'-'+window['end']+')'
+            mergedf = dataset.merge(binned_histones,how='inner',left_on='center',right_on='loci')
+            '''
             chunk = 0
             chunks = 10000
             saved_chunks = []
@@ -315,7 +322,7 @@ class YeastGSE61888Loader(SourceDataLoader):
             for sc in saved_chunks:
                 file = pd.read_csv(self.data_path+f"/HistoneMod2GSE61888({sc}).csv")
                 frames = pd.concat([frames,file])
-                frames = frames.fillna("")
+                #frames = frames.fillna("")
                 os.remove(self.data_path+f"/HistoneMod2GSE61888({sc}).csv")
             print(f"Histone Modifications Mapping Complete!")
             csv_f3name = "HistoneMod2GSE61888.csv"
@@ -345,7 +352,7 @@ class YeastGSE61888Loader(SourceDataLoader):
                                                 'categories': ['biolink:NucleosomeModification','biolink:PosttranslationalModification'],
                                                 'histoneModification': line[EXPNUC_EDGEUMAN.HISMOD.value],
                                                 'chromosomeLocation': f"{line[EXPNUC_EDGEUMAN.CHR_ID.value]}:{line[EXPNUC_EDGEUMAN.START.value]}-{line[EXPNUC_EDGEUMAN.END.value]}",
-                                                ORIGINAL_KNOWLEDGE_SOURCE: "SGD",
+                                                PRIMARY_KNOWLEDGE_SOURCE: "SGD",
                                                 AGGREGATOR_KNOWLEDGE_SOURCES: ["SGD"]}, # subject props
                                   lambda line: {},  # object props
                                   lambda line: {},#edgeprops

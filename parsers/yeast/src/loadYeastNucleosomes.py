@@ -119,6 +119,8 @@ class YeastNucleosomeLoader(SourceDataLoader):
                                   has_header_row=False)
 
         #This file is a list of hypothetical nucleosomes that may be present along the yeast genome.
+        # ID: HisPTM:chrI(0-150);H3K4ac
+        # Name:
         hypothetical_nucleosome_list_file: str = os.path.join(self.data_path,  self.hypothetical_nucleosome_list_file_name)
         with open(hypothetical_nucleosome_list_file, 'r') as fp:
             extractor.csv_extract(fp,
