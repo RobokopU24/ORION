@@ -135,11 +135,11 @@ def test_edge_normalization():
     edge_normalizer.normalize_edge_data(edge_list)
 
     edge_norm_result: EdgeNormalizationResult = edge_normalizer.edge_normalization_lookup['SEMMEDDB:CAUSES']
-    assert edge_norm_result.identifier == 'biolink:causes'
+    assert edge_norm_result.predicate == 'biolink:causes'
     assert edge_norm_result.inverted is False
 
     edge_norm_result: EdgeNormalizationResult = edge_normalizer.edge_normalization_lookup['RO:0002200']
-    assert edge_norm_result.identifier == 'biolink:has_phenotype'
+    assert edge_norm_result.predicate == 'biolink:has_phenotype'
 
     edge_norm_result: EdgeNormalizationResult = edge_normalizer.edge_normalization_lookup['BADPREFIX:123456']
-    assert edge_norm_result.identifier == FALLBACK_EDGE_PREDICATE
+    assert edge_norm_result.predicate == FALLBACK_EDGE_PREDICATE

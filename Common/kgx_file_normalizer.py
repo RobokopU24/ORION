@@ -279,7 +279,7 @@ class KGXFileNormalizer:
                                 try:
                                     edge_norm_result: EdgeNormalizationResult = edge_norm_lookup[edge[PREDICATE]]
                                     # extract the normalization info
-                                    normalized_predicate = edge_norm_result.identifier
+                                    normalized_predicate = edge_norm_result.predicate
                                     edge_inverted_by_normalization = edge_norm_result.inverted
                                     normalized_edge_properties = edge_norm_result.properties
                                 except KeyError as e:

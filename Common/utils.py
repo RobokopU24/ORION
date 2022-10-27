@@ -433,10 +433,10 @@ class NodeNormUtils:
 
 class EdgeNormalizationResult:
     def __init__(self,
-                 identifier: str,
+                 predicate: str,
                  inverted: bool = False,
                  properties: dict = None):
-        self.identifier = identifier
+        self.predicate = predicate
         self.inverted = inverted
         self.properties = properties
 
@@ -479,7 +479,7 @@ class EdgeNormUtils:
                             edge_list: list,
                             block_size: int = 2500) -> list:
         """
-        This method calls the EdgeNormalization web service to get the normalized identifier and labels.
+        This method calls the EdgeNormalization web service to retrieve information for normalizing edges.
 
         :param edge_list: A list of edges to normalize - edges are dictionaries with the PREDICATE constant as a key
         :param block_size: the number of predicates to process in a single call
@@ -546,17 +546,22 @@ class EdgeNormUtils:
         # walk through the unique predicates and process normalized predicates for the lookup map
         for predicate in predicates_to_normalize:
             # did the service return a value with an identifier
-            if predicate in edge_normalizations and 'predicate' in edge_normalizations[predicate]:
+            if predicate in edge_normalizations and \
+                    (('predicate' in edge_normalizations[predicate]) or \
+                    ('identifier' in edge_normalizations[predicate])):
                 normalization_info = edge_normalizations[predicate]
-                identifier = normalization_info.pop('predicate')
+                if 'predicate' in normalization_info:
+                    normalized_predicate = normalization_info.pop('predicate')
+                else:
+                    normalized_predicate = normalization_info.pop('identifier')
                 normalization_info.pop('label', None)  # just deleting this key, it's not needed anymore
                 inverted = True if normalization_info.pop('inverted', False) else False
-                self.edge_normalization_lookup[predicate] = EdgeNormalizationResult(identifier=identifier,
+                self.edge_normalization_lookup[predicate] = EdgeNormalizationResult(predicate=normalized_predicate,
                                                                                     inverted=inverted,
                                                                                     properties=normalization_info)
             else:
                 # this should not happen but if it does use the fallback predicate
-                self.edge_normalization_lookup[predicate] = EdgeNormalizationResult(identifier=FALLBACK_EDGE_PREDICATE)
+                self.edge_normalization_lookup[predicate] = EdgeNormalizationResult(predicate=FALLBACK_EDGE_PREDICATE)
                 failed_to_normalize.append(predicate)
 
         # if something failed to normalize output it
