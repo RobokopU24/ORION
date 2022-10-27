@@ -281,7 +281,7 @@ class KGXFileNormalizer:
                                     # extract the normalization info
                                     normalized_predicate = edge_norm_result.identifier
                                     edge_inverted_by_normalization = edge_norm_result.inverted
-                                    # edge_label = edge_norm_result.label # right now label is not used
+                                    normalized_edge_properties = edge_norm_result.properties
                                 except KeyError as e:
                                     norm_error_msg = f'Edge norm lookup failure - missing {edge[PREDICATE]}!'
                                     self.logger.error(norm_error_msg)
@@ -301,6 +301,9 @@ class KGXFileNormalizer:
                                     # start with the original edge to preserve other properties
                                     normalized_edge = edge.copy()
                                     normalized_edge[PREDICATE] = normalized_predicate
+
+                                    if normalized_edge_properties:
+                                        normalized_edge.update(normalized_edge_properties)
 
                                     # if normalization switched the direction of the predicate, swap the nodes
                                     if edge_inverted_by_normalization:

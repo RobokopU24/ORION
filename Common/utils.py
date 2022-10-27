@@ -149,7 +149,7 @@ class NodeNormUtils:
         # normalization map for future look up of all normalized node IDs
         self.node_normalization_lookup = {}
 
-        if 'NODE_NORMALIZATION_ENDPOINT' in os.environ:
+        if 'NODE_NORMALIZATION_ENDPOINT' in os.environ and os.environ['NODE_NORMALIZATION_ENDPOINT']:
             self.node_norm_endpoint = os.environ['NODE_NORMALIZATION_ENDPOINT']
         else:
             self.node_norm_endpoint = self.DEFAULT_NODE_NORMALIZATION_ENDPOINT
@@ -434,23 +434,16 @@ class NodeNormUtils:
 class EdgeNormalizationResult:
     def __init__(self,
                  identifier: str,
-                 label: str,
-                 inverted: bool = False):
+                 inverted: bool = False,
+                 properties: dict = None):
         self.identifier = identifier
-        self.label = label
         self.inverted = inverted
+        self.properties = properties
 
 
 class EdgeNormUtils:
     """
-    Class that contains methods relating to edge normalization of KGX data.
-
-    the input predicate list should be KGX compliant and have the following columns that may be
-    changed during the normalization:
-
-        predicate: the name of the predicate
-        edge_label: label of the predicate
-
+    Class that contains methods relating to edge normalization.
     """
 
     DEFAULT_EDGE_NORM_ENDPOINT = f'https://biolink-lookup.transltr.io/'
@@ -468,7 +461,7 @@ class EdgeNormUtils:
         self.edge_normalization_lookup = {}
         self.cached_edge_norms = {}
 
-        if 'EDGE_NORMALIZATION_ENDPOINT' in os.environ:
+        if 'EDGE_NORMALIZATION_ENDPOINT' in os.environ and os.environ['EDGE_NORMALIZATION_ENDPOINT']:
             self.edge_norm_endpoint = os.environ['EDGE_NORMALIZATION_ENDPOINT']
         else:
             self.edge_norm_endpoint = self.DEFAULT_EDGE_NORM_ENDPOINT
@@ -487,119 +480,88 @@ class EdgeNormUtils:
                             block_size: int = 2500) -> list:
         """
         This method calls the EdgeNormalization web service to get the normalized identifier and labels.
-        the data comes in as a edge list.
 
-        :param edge_list: A list with items to normalize
-        :param cached_edge_norms: dict of previously captured normalizations
-        :param block_size: the number of curies to process in a single call
+        :param edge_list: A list of edges to normalize - edges are dictionaries with the PREDICATE constant as a key
+        :param block_size: the number of predicates to process in a single call
         :return:
         """
 
-        self.logger.debug(f'Start of normalize_edge_data. items: {len(edge_list)}')
-
-        # init the edge index counter
-        edge_idx: int = 0
-
-        # save the edge list count to avoid grabbing it over and over
-        edge_count: int = len(edge_list)
-
-        # init a set to hold edge predicates that have not yet been normed
-        tmp_normalize: set = set()
-        # iterate through node groups and get only the taxa records.
-
-        cached_edge_norms = self.cached_edge_norms
-
-        while edge_idx < edge_count:
-            # check to see if this one needs normalization data from the website
-            if not edge_list[edge_idx][PREDICATE] in cached_edge_norms:
-                tmp_normalize.add(edge_list[edge_idx][PREDICATE])
-            else:
-                self.logger.debug(f"Cache hit: {edge_list[edge_idx][PREDICATE]}")
-
-            # increment to the next node array element
-            edge_idx += 1
+        # find the predicates that have not been normalized yet
+        predicates_to_normalize = set()
+        for edge in edge_list:
+            if edge[PREDICATE] not in self.edge_normalization_lookup:
+                predicates_to_normalize.add(edge[PREDICATE])
 
         # convert the set to a list so we can iterate through it
-        to_normalize: list = list(tmp_normalize)
+        predicates_to_normalize_list = list(predicates_to_normalize)
 
-        # init the array index lower boundary
+        # dictionary to accumulate normalization results
+        edge_normalizations = {}
+
+        # indexes for iterating through the list in chunks
         start_index: int = 0
-
-        # get the last index of the list
-        last_index: int = len(to_normalize)
-
-        self.logger.debug(f'{last_index} unique edges will be normalized.')
-
-        # grab chunks of the data frame
+        last_index: int = len(predicates_to_normalize_list)
         while True:
-            if start_index < last_index:
-                # define the end index of the slice
-                end_index: int = start_index + block_size
-
-                # force the end index to be the last index to insure no overflow
-                if end_index >= last_index:
-                    end_index = last_index
-
-                # collect a slice of records from the data frame
-                data_chunk: list = to_normalize[start_index: end_index]
-
-                #self.logger.debug(f'Calling edge norm service. request size is {len("&predicate=".join(data_chunk))} bytes')
-
-                # get the data
-                resp: requests.models.Response = requests.get(f'{self.edge_norm_endpoint}resolve_predicate?'
-                                                              f'version={self.edge_norm_version}&predicate=' + '&predicate='.join(data_chunk))
-
-                # did we get a good status code
-                if resp.status_code == 200:
-                    # convert json to dict
-                    rvs: dict = resp.json()
-
-                    # merge this list with what we have gotten so far
-                    cached_edge_norms.update(**rvs)
-                elif resp.status_code == 404:
-                    # this should never happen but if it does fail gracefully so we use the fallback predicate
-                    pass
-                else:
-                    # this is a real error with the edge normalizer so we bail
-                    error_message = f'Edge norm response code: {resp.status_code}'
-                    self.logger.error(error_message)
-                    resp.raise_for_status()
-
-                # move on down the list
-                start_index += block_size
-            else:
+            if start_index >= last_index:
+                # no more predicates to process, break the loop
                 break
+
+            # define the end index of the slice
+            end_index: int = start_index + block_size
+
+            # force the end index to be at most the last index to ensure no overflow
+            if end_index > last_index:
+                end_index = last_index
+
+            # collect a slice of predicates
+            predicate_chunk: list = predicates_to_normalize_list[start_index: end_index]
+
+            # hit the edge normalization service
+            request_url = f'{self.edge_norm_endpoint}resolve_predicate?version={self.edge_norm_version}&predicate='
+            request_url += '&predicate='.join(predicate_chunk)
+            self.logger.debug(f'Sending request: {request_url}')
+            resp: requests.models.Response = requests.get(request_url)
+
+            # if we get a success status code
+            if resp.status_code == 200:
+                # merge the response with what we have already
+                rvs: dict = resp.json()
+                edge_normalizations.update(**rvs)
+            elif resp.status_code == 404:
+                # this should not happen but if it does fail gracefully and assume no meaningful normalization results
+                # (current versions of bl look up should always return at least a default for each predicate)
+                pass
+            else:
+                # this is a real error with the edge normalizer so we bail
+                error_message = f'Edge norm response code: {resp.status_code}'
+                self.logger.error(error_message)
+                resp.raise_for_status()
+
+            # move on down the list
+            start_index += block_size
 
         # storage for items that failed to normalize
         failed_to_normalize: list = list()
 
-        # walk through the unique predicates and extract the normalized predicate for the lookup map
-        for predicate in to_normalize:
-            success = False
-            # did the service return a value
-            if predicate in cached_edge_norms and cached_edge_norms[predicate]:
-                if 'identifier' in cached_edge_norms[predicate]:
-                    # store it in the look up map
-                    identifier = cached_edge_norms[predicate]['identifier']
-                    label = cached_edge_norms[predicate]['label']
-                    if 'inverted' in cached_edge_norms[predicate] and cached_edge_norms[predicate]['inverted']:
-                        inverted = True
-                    else:
-                        inverted = False
-                    self.edge_normalization_lookup[predicate] = EdgeNormalizationResult(identifier, label, inverted)
-                    success = True
-            if not success:
+        # walk through the unique predicates and process normalized predicates for the lookup map
+        for predicate in predicates_to_normalize:
+            # did the service return a value with an identifier
+            if predicate in edge_normalizations and 'predicate' in edge_normalizations[predicate]:
+                normalization_info = edge_normalizations[predicate]
+                identifier = normalization_info.pop('predicate')
+                normalization_info.pop('label', None)  # just deleting this key, it's not needed anymore
+                inverted = True if normalization_info.pop('inverted', False) else False
+                self.edge_normalization_lookup[predicate] = EdgeNormalizationResult(identifier=identifier,
+                                                                                    inverted=inverted,
+                                                                                    properties=normalization_info)
+            else:
                 # this should not happen but if it does use the fallback predicate
-                self.edge_normalization_lookup[predicate] = EdgeNormalizationResult(FALLBACK_EDGE_PREDICATE,
-                                                                                   FALLBACK_EDGE_PREDICATE_LABEL)
-                # if no result for whatever reason add it to the fail list
+                self.edge_normalization_lookup[predicate] = EdgeNormalizationResult(identifier=FALLBACK_EDGE_PREDICATE)
                 failed_to_normalize.append(predicate)
 
         # if something failed to normalize output it
-        if failed_to_normalize:
-            self.logger.debug(f'Failed to normalize: {", ".join(failed_to_normalize)}')
-
-        #self.logger.debug(f'End of normalize_edge_data.')
+        # if failed_to_normalize:
+        #    self.logger.error(f'Failed to normalize: {", ".join(failed_to_normalize)}')
 
         # return the failed list to the caller
         return failed_to_normalize

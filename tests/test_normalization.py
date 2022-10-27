@@ -136,7 +136,6 @@ def test_edge_normalization():
 
     edge_norm_result: EdgeNormalizationResult = edge_normalizer.edge_normalization_lookup['SEMMEDDB:CAUSES']
     assert edge_norm_result.identifier == 'biolink:causes'
-    assert edge_norm_result.label == 'causes'
     assert edge_norm_result.inverted is False
 
     edge_norm_result: EdgeNormalizationResult = edge_normalizer.edge_normalization_lookup['RO:0002200']
