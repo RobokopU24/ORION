@@ -3,6 +3,8 @@ import logging
 import enum
 import gzip
 import pandas as pd
+import requests as rq
+from bs4 import BeautifulSoup
 
 from copy import deepcopy
 
@@ -110,10 +112,13 @@ class STRINGDBLoader(SourceDataLoader):
         super().__init__(test_mode=test_mode, source_data_dir=source_data_dir)
         self.taxon_id = '9606'
         self.cos_dist_threshold = 1.0
-        self.stringdb_data_url = ["https://stringdb-static.org/download/protein.links.full.v11.5/","https://stringdb-static.org/download/protein.physical.links.full.v11.5/"]
+        self.version_index = rq.get('https://string-db.org/').text.index('string_database_version_dotted:')+33
+        self.string_db_version = rq.get('https://string-db.org/').text[self.version_index:self.version_index+4]
+        
+        self.stringdb_data_url = [f"https://stringdb-static.org/download/protein.links.full.v{self.string_db_version}/",f"https://stringdb-static.org/download/protein.physical.links.full.v{self.string_db_version}/"]
 
-        self.ppi_full_file_name = self.taxon_id+".protein.links.full.v11.5.txt.gz"
-        self.ppi_physical_subnetwork_file_name = self.taxon_id+".protein.physical.links.full.v11.5.txt.gz"
+        self.ppi_full_file_name = self.taxon_id+f".protein.links.full.v{self.string_db_version}.txt.gz"
+        self.ppi_physical_subnetwork_file_name = self.taxon_id+f".protein.physical.links.full.v{self.string_db_version}.txt.gz"
         #self.pathway_list_file_name = "yeast_pathways_list.csv"
         #self.phenotype_list_file_name = "yeast_phenotype_list.csv"
 
@@ -139,7 +144,7 @@ class STRINGDBLoader(SourceDataLoader):
 
         :return:
         """
-        return 'STRING_v11.5'
+        return f"STRING_v{self.string_db_version}"
 
     def get_data(self) -> int:
         """
@@ -171,9 +176,11 @@ class STRINGDBLoader(SourceDataLoader):
             textdatafile.to_csv(ppi_full_file+'.csv', index = None)
         with open(ppi_full_file+'.csv', 'r') as fp:
             extractor.csv_extract(fp,
-                                  lambda line: line[PPI_EDGEUMAN.PROTEIN1.value].replace(self.taxon_id+".","").replace("ENSP","ENSP:"),  # subject id
-                                  lambda line: line[PPI_EDGEUMAN.PROTEIN2.value].replace(self.taxon_id+".","").replace("ENSP","ENSP:"),  # object id
+                                  lambda line: "ENSEMBL:"+line[PPI_EDGEUMAN.PROTEIN1.value].replace(self.taxon_id+".",""),  # subject id
+                                  lambda line: "ENSEMBL:"+line[PPI_EDGEUMAN.PROTEIN2.value].replace(self.taxon_id+".",""),  # object id
                                   lambda line: 'biolink:coexpressed_with' if int(line[PPI_EDGEUMAN.COEXPRESSION.value]) or int(line[PPI_EDGEUMAN.COEXPRESSION_TRANSFERRED.value]) > 0 else "", # predicate
+                                  lambda line: {},  # subject props
+                                  lambda line: {},  # object props
                                   lambda line: {
                                     "Coexpression":line[PPI_EDGEUMAN.COEXPRESSION.value],
                                     "Coexpression_transferred":line[PPI_EDGEUMAN.COEXPRESSION_TRANSFERRED.value],
@@ -185,14 +192,16 @@ class STRINGDBLoader(SourceDataLoader):
                                     "Textmining_transferred":line[PPI_EDGEUMAN.TEXTMINING_TRANSFERRED.value],
                                     "Cooccurance":line[PPI_EDGEUMAN.COOCCURANCE.value],
                                     "Combined_score":line[PPI_EDGEUMAN.COMBINED_SCORE.value]
-                                  },
+                                  }, # edge props
                                   comment_character=None,
                                   delim=',',
                                   has_header_row=True)
             extractor.csv_extract(fp,
-                                  lambda line: line[PPI_EDGEUMAN.PROTEIN1.value].replace(self.taxon_id+".","").replace("ENSP","ENSP:"),  # subject id
-                                  lambda line: line[PPI_EDGEUMAN.PROTEIN2.value].replace(self.taxon_id+".","").replace("ENSP","ENSP:"),  # object id
+                                  lambda line: "ENSEMBL:"+line[PPI_EDGEUMAN.PROTEIN1.value].replace(self.taxon_id+".",""),  # subject id
+                                  lambda line: "ENSEMBL:"+line[PPI_EDGEUMAN.PROTEIN2.value].replace(self.taxon_id+".",""),  # object id
                                   lambda line: 'biolink:homologous_to' if int(line[PPI_EDGEUMAN.HOMOLOGY.value]) > 0 else "", # predicate
+                                  lambda line: {},  # subject props
+                                  lambda line: {},  # object props
                                   lambda line: {
                                     "Homology":line[PPI_EDGEUMAN.HOMOLOGY.value],
                                     "Experiments":line[PPI_EDGEUMAN.EXPERIMENTS.value],
@@ -203,14 +212,16 @@ class STRINGDBLoader(SourceDataLoader):
                                     "Textmining_transferred":line[PPI_EDGEUMAN.TEXTMINING_TRANSFERRED.value],
                                     "Cooccurance":line[PPI_EDGEUMAN.COOCCURANCE.value],
                                     "Combined_score":line[PPI_EDGEUMAN.COMBINED_SCORE.value]
-                                  },
+                                  }, #edge props
                                   comment_character=None,
                                   delim=',',
                                   has_header_row=True)
             extractor.csv_extract(fp,
-                                  lambda line: line[PPI_EDGEUMAN.PROTEIN1.value].replace(self.taxon_id+".","").replace("ENSP","ENSP:"),  # subject id
-                                  lambda line: line[PPI_EDGEUMAN.PROTEIN2.value].replace(self.taxon_id+".","").replace("ENSP","ENSP:"),  # object id
+                                  lambda line: "ENSEMBL:"+line[PPI_EDGEUMAN.PROTEIN1.value].replace(self.taxon_id+".",""),  # subject id
+                                  lambda line: "ENSEMBL:"+line[PPI_EDGEUMAN.PROTEIN2.value].replace(self.taxon_id+".",""),  # object id
                                   lambda line: 'biolink:gene_fusion_with' if int(line[PPI_EDGEUMAN.FUSION.value]) > 0 else "", # predicate
+                                  lambda line: {},  # subject props
+                                  lambda line: {},  # object props
                                   lambda line: {
                                     "Fusion":line[PPI_EDGEUMAN.FUSION.value],
                                     "Experiments":line[PPI_EDGEUMAN.EXPERIMENTS.value],
@@ -221,14 +232,16 @@ class STRINGDBLoader(SourceDataLoader):
                                     "Textmining_transferred":line[PPI_EDGEUMAN.TEXTMINING_TRANSFERRED.value],
                                     "Cooccurance":line[PPI_EDGEUMAN.COOCCURANCE.value],
                                     "Combined_score":line[PPI_EDGEUMAN.COMBINED_SCORE.value]
-                                  },
+                                  }, #edge props
                                   comment_character=None,
                                   delim=',',
                                   has_header_row=True)
             extractor.csv_extract(fp,
-                                  lambda line: line[PPI_EDGEUMAN.PROTEIN1.value].replace(self.taxon_id+".","").replace("ENSP","ENSP:"),  # subject id
-                                  lambda line: line[PPI_EDGEUMAN.PROTEIN2.value].replace(self.taxon_id+".","").replace("ENSP","ENSP:"),  # object id
-                                  lambda line: 'biolink:genetic_neighborhood_of' if int(line[PPI_EDGEUMAN.NEIGHBORHOOD.value]) > 0 else "", # predicate
+                                  lambda line: "ENSEMBL:"+line[PPI_EDGEUMAN.PROTEIN1.value].replace(self.taxon_id+".",""),  # subject id
+                                  lambda line: "ENSEMBL:"+line[PPI_EDGEUMAN.PROTEIN2.value].replace(self.taxon_id+".",""),  # object id
+                                  lambda line: 'biolink:genetic_neighborhood_of' if int(line[PPI_EDGEUMAN.NEIGHBORHOOD.value]) > 0 or int(line[PPI_EDGEUMAN.NEIGHBORHOOD_TRANSFERRED.value]) > 0 else "", # predicate
+                                  lambda line: {},  # subject props
+                                  lambda line: {},  # object props
                                   lambda line: {
                                     "Neighborhood":line[PPI_EDGEUMAN.NEIGHBORHOOD.value],
                                     "Neighborhood_transferred":line[PPI_EDGEUMAN.NEIGHBORHOOD_TRANSFERRED.value],
@@ -240,7 +253,7 @@ class STRINGDBLoader(SourceDataLoader):
                                     "Textmining_transferred":line[PPI_EDGEUMAN.TEXTMINING_TRANSFERRED.value],
                                     "Cooccurance":line[PPI_EDGEUMAN.COOCCURANCE.value],
                                     "Combined_score":line[PPI_EDGEUMAN.COMBINED_SCORE.value]
-                                  },
+                                  }, # edge props
                                   comment_character=None,
                                   delim=',',
                                   has_header_row=True)
