@@ -9,7 +9,7 @@ from parsers.yeast.src.collectSGDdata import main
 from Common.utils import LoggingUtil, GetData
 from Common.loader_interface import SourceDataLoader
 from Common.extractor import Extractor
-from Common.node_types import AGGREGATOR_KNOWLEDGE_SOURCES, ORIGINAL_KNOWLEDGE_SOURCE
+from Common.node_types import AGGREGATOR_KNOWLEDGE_SOURCES, PRIMARY_KNOWLEDGE_SOURCE
 
 from Common.kgxmodel import kgxnode, kgxedge
 
@@ -151,7 +151,7 @@ class YeastSGDLoader(SourceDataLoader):
                                   'featureType': line[11],
                                   'chromosomeLocation': f"{line[6]}: {line[7]}-{line[8]}, strand: {line[9]}",
                                   'referenceLink': line[12],
-                                  ORIGINAL_KNOWLEDGE_SOURCE: "SGD",
+                                  PRIMARY_KNOWLEDGE_SOURCE: "SGD",
                                   AGGREGATOR_KNOWLEDGE_SOURCES: ["SGD"]}, # subject props
                                   lambda line: {},  # object props
                                   lambda line: {},#edgeprops
@@ -168,7 +168,7 @@ class YeastSGDLoader(SourceDataLoader):
                                   lambda line: None,  # predicate extractor
                                   lambda line: {'name': line[6],
                                                 'categories': [line[7]],
-                                                ORIGINAL_KNOWLEDGE_SOURCE: "SGD",
+                                                PRIMARY_KNOWLEDGE_SOURCE: "SGD",
                                                 AGGREGATOR_KNOWLEDGE_SOURCES: ["SGD"]}, #subject props
                                   lambda line: {},  # object props
                                   lambda line: {},#edgeprops
@@ -188,7 +188,7 @@ class YeastSGDLoader(SourceDataLoader):
                                                 'taxon': 'NCBITaxon:559292',
                                                 'organism': line[1],
                                                 'referenceLink': line[4],
-                                                ORIGINAL_KNOWLEDGE_SOURCE: "SGD",
+                                                PRIMARY_KNOWLEDGE_SOURCE: "SGD",
                                                 AGGREGATOR_KNOWLEDGE_SOURCES: ["SGD"]},  # subject props
                                   lambda line: {},  # object props
                                   lambda line: {}, #edgeprops
@@ -208,7 +208,7 @@ class YeastSGDLoader(SourceDataLoader):
                                                 'taxon': 'NCBITaxon:559292',
                                                 'organism': "S. cerevisiae",
                                                 'referenceLink': line[19],
-                                                ORIGINAL_KNOWLEDGE_SOURCE: "SGD",
+                                                PRIMARY_KNOWLEDGE_SOURCE: "SGD",
                                                 AGGREGATOR_KNOWLEDGE_SOURCES: ["SGD"]}, # subject props
                                   lambda line: {},  # object props
                                   lambda line: {},#edgeprops
@@ -232,7 +232,7 @@ class YeastSGDLoader(SourceDataLoader):
                                                 'taxon': 'NCBITaxon:559292',
                                                 'organism': "S. cerevisiae",
                                                 'referenceLink': line[12],
-                                                ORIGINAL_KNOWLEDGE_SOURCE: "SGD",
+                                                PRIMARY_KNOWLEDGE_SOURCE: "SGD",
                                                 AGGREGATOR_KNOWLEDGE_SOURCES: ["SGD"]}, # subject props
                                   lambda line: {},  # object props
                                   lambda line: {},#edgeprops
