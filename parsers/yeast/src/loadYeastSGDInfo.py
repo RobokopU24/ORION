@@ -116,7 +116,7 @@ class YeastSGDLoader(SourceDataLoader):
         Gets the yeast data.
 
         """
-        genome_resolution = 9
+        genome_resolution = 150
         main(genome_resolution, self.data_path)
         # data_puller = GetData()
         # for source in self.data_files:
