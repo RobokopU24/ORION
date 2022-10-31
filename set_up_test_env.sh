@@ -17,7 +17,7 @@ export DATA_SERVICES_LOGS=$PWD/../Data_services_logs/
 # Use EITHER of the following, DATA_SERVICES_GRAPH_SPEC or DATA_SERVICES_GRAPH_SPEC_URL:
 
 # DATA_SERVICES_GRAPH_SPEC - the name of a Graph Spec file located in the graph_specs directory of Data_services
-export DATA_SERVICES_GRAPH_SPEC=stringdb-graph-spec.yml
+export DATA_SERVICES_GRAPH_SPEC=yeast-graph-spec.yml
 
 # DATA_SERVICES_GRAPH_SPEC_URL - a URL pointing to a Graph Spec file
 #export DATA_SERVICES_GRAPH_SPEC_URL=https://raw.githubusercontent.com/RENCI-AUTOMAT/Data_services/helm_deploy/graph_specs/yeast-graph-spec.yml
