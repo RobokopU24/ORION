@@ -65,6 +65,11 @@ class STRINGDBLoader(SourceDataLoader):
         super().__init__(test_mode=test_mode, source_data_dir=source_data_dir)
         self.taxon_id = '9606'
         self.cos_dist_threshold = 1.0
+        self.coexpression_score_threshold = 1
+        self.homologous_score_threshold = 1
+        self.gene_fusion_score_threshold = 1
+        self.genetic_neighborhood_score_threshold = 1
+        self.physical_interaction_score_threshold = 1
 
         self.coexpression_predicate = 'biolink:coexpressed_with'
         self.homologous_predicate = 'biolink:homologous_to'
@@ -124,7 +129,7 @@ class STRINGDBLoader(SourceDataLoader):
             extractor.csv_extract(fp,
                                   lambda line: f'{ENSEMBL}:{line[PPI_EDGEUMAN.PROTEIN1.value].replace(self.taxon_id+".","")}',  # subject id
                                   lambda line: f'{ENSEMBL}:{line[PPI_EDGEUMAN.PROTEIN2.value].replace(self.taxon_id+".","")}',  # object id
-                                  lambda line: self.coexpression_predicate if int(line[PPI_EDGEUMAN.COEXPRESSION.value]) or int(line[PPI_EDGEUMAN.COEXPRESSION_TRANSFERRED.value]) > 0 else None, # predicate
+                                  lambda line: self.coexpression_predicate if int(line[PPI_EDGEUMAN.COEXPRESSION.value]) or int(line[PPI_EDGEUMAN.COEXPRESSION_TRANSFERRED.value]) >= self.coexpression_score_threshold else None, # predicate
                                   lambda line: {
                                     "Coexpression":line[PPI_EDGEUMAN.COEXPRESSION.value],
                                     "Coexpression_transferred":line[PPI_EDGEUMAN.COEXPRESSION_TRANSFERRED.value],
@@ -145,7 +150,7 @@ class STRINGDBLoader(SourceDataLoader):
             extractor.csv_extract(fp,
                                   lambda line: f'{ENSEMBL}:{line[PPI_EDGEUMAN.PROTEIN1.value].replace(self.taxon_id+".","")}',  # subject id
                                   lambda line: f'{ENSEMBL}:{line[PPI_EDGEUMAN.PROTEIN2.value].replace(self.taxon_id+".","")}',  # object id
-                                  lambda line: self.homologous_predicate if int(line[PPI_EDGEUMAN.HOMOLOGY.value]) > 0 else None, # predicate
+                                  lambda line: self.homologous_predicate if int(line[PPI_EDGEUMAN.HOMOLOGY.value]) >= self.homologous_score_threshold else None, # predicate
                                   lambda line: {
                                     "Homology":line[PPI_EDGEUMAN.HOMOLOGY.value],
                                     "Experiments":line[PPI_EDGEUMAN.EXPERIMENTS.value],
@@ -165,7 +170,7 @@ class STRINGDBLoader(SourceDataLoader):
             extractor.csv_extract(fp,
                                   lambda line: f'{ENSEMBL}:{line[PPI_EDGEUMAN.PROTEIN1.value].replace(self.taxon_id+".","")}',  # subject id
                                   lambda line: f'{ENSEMBL}:{line[PPI_EDGEUMAN.PROTEIN2.value].replace(self.taxon_id+".","")}',  # object id
-                                  lambda line: self.gene_fusion_predicate if int(line[PPI_EDGEUMAN.FUSION.value]) > 0 else None, # predicate
+                                  lambda line: self.gene_fusion_predicate if int(line[PPI_EDGEUMAN.FUSION.value]) >= self.gene_fusion_score_threshold else None, # predicate
                                   lambda line: {
                                     "Fusion":line[PPI_EDGEUMAN.FUSION.value],
                                     "Experiments":line[PPI_EDGEUMAN.EXPERIMENTS.value],
@@ -185,7 +190,7 @@ class STRINGDBLoader(SourceDataLoader):
             extractor.csv_extract(fp,
                                   lambda line: f'{ENSEMBL}:{line[PPI_EDGEUMAN.PROTEIN1.value].replace(self.taxon_id+".","")}',  # subject id
                                   lambda line: f'{ENSEMBL}:{line[PPI_EDGEUMAN.PROTEIN2.value].replace(self.taxon_id+".","")}',  # object id
-                                  lambda line: self.genetic_neighborhood_predicate if int(line[PPI_EDGEUMAN.NEIGHBORHOOD.value]) > 0 else None, # predicate
+                                  lambda line: self.genetic_neighborhood_predicate if int(line[PPI_EDGEUMAN.NEIGHBORHOOD.value]) >= self.genetic_neighborhood_score_threshold else None, # predicate
                                   lambda line: {
                                     "Neighborhood":line[PPI_EDGEUMAN.NEIGHBORHOOD.value],
                                     "Neighborhood_transferred":line[PPI_EDGEUMAN.NEIGHBORHOOD_TRANSFERRED.value],
@@ -208,7 +213,7 @@ class STRINGDBLoader(SourceDataLoader):
             extractor.csv_extract(fp,
                                   lambda line: f'{ENSEMBL}:{line[PPI_PHYSICAL_EDGEUMAN.PROTEIN1.value].replace(self.taxon_id+".","")}',  # subject id
                                   lambda line: f'{ENSEMBL}:{line[PPI_PHYSICAL_EDGEUMAN.PROTEIN2.value].replace(self.taxon_id+".","")}',  # object id
-                                  lambda line: self.physically_interacts_with_predicate if int(line[PPI_PHYSICAL_EDGEUMAN.COMBINED_SCORE.value]) > 0 else None,  # predicate extractor
+                                  lambda line: self.physically_interacts_with_predicate if int(line[PPI_PHYSICAL_EDGEUMAN.COMBINED_SCORE.value]) >= self.physical_interaction_score_threshold else None,  # predicate extractor
                                   lambda line: {},  # subject props
                                   lambda line: {},  # object props
                                   lambda line: {
