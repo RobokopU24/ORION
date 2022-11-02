@@ -3,46 +3,42 @@
 replicaCount: 1
 
 dataServices:
-  graphID: "Genetics"
-  graphSpec: "https://stars.renci.org/var/data_services/graph_specs/genetics_graph_spec.yml"
+  graphID: "HGNC_Automat"
+  graphSpec: "default-graph-spec.yml"
   # useLocalGraphSpec true if the graphSpec is a file in the codebase (mainly for testing), false if a remote URL
-  useLocalGraphSpec: false
+  useLocalGraphSpec: true
   buildMode: true
   image:
     repository: evandietzmorris/data_services
     pullPolicy: Always
     tag: latest
   graphsVolume:
-    size: 90Gi
+    use_nfs: true
+    nfs_server: na-projects.edc.renci.org
+    nfs_path: /stars/Data_services
+    nfs_mount_subpath: biolink3/graphs/
   sourcesVolume:
-    size: 90Gi
+    use_nfs: true
+    nfs_server: na-projects.edc.renci.org
+    nfs_path: /stars/Data_services
+    nfs_mount_subpath: biolink3/storage/
   neo4jScratchVolume:
-    size: 40Gi
+    size: 80Gi
   resources:
     limits:
-      cpu: "4"
-      memory: 32Gi
+      cpu: "2"
+      memory: 38Gi
+      ephemeral-storage: 2Gi
     requests:
-      cpu: "4"
+      cpu: "2"
       memory: 32Gi
-  httpProxy:
+      ephemeral-storage: 1Gi
+  httpsProxy:
     useProxy: true
     proxyURL: http://proxy.renci.org:8080/
+  securityContext:
+    runAsUser: 30000
+    runAsGroup: 1000
   normalization:
-    nodeNormEndpoint: "https://nodenormalization-sri.renci.org/"
-    edgeNormEndpoint: "https://biolink-lookup.transltr.io/"
-
-neo4j:
-  image:
-    repository: neo4j
-    pullPolicy: IfNotPresent
-    tag: 4.3
-  username: neo4j
-  password: neo4jpw
-  resources:
-    limits:
-      cpu: "4"
-      memory: 28Gi
-    requests:
-      cpu: "4"
-      memory: 28Gi
+    nodeNormEndpoint: 
+    edgeNormEndpoint:

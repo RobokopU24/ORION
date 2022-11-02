@@ -1,3 +1,4 @@
+{{- if not .Values.dataServices.graphsVolume.use_nfs }}
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
@@ -10,4 +11,7 @@ spec:
   resources:
     requests:
       storage: {{ .Values.dataServices.graphsVolume.size }}
+    limits:
+      storage: {{ .Values.dataServices.graphsVolume.size }}
   storageClassName: basic
+{{- end }}
