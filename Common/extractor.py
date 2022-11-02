@@ -1,5 +1,6 @@
 import csv
 from Common.kgxmodel import kgxnode, kgxedge
+from Common.kgx_file_writer import KGXFileWriter
 from Common.node_types import PRIMARY_KNOWLEDGE_SOURCE, AGGREGATOR_KNOWLEDGE_SOURCES
 
 
@@ -9,9 +10,9 @@ class Extractor:
     Also so that it can provide a few different interfaces (csv, sql) and keep the guts of the callback code in one
     place.
     """
-    def __init__(self):
-        #You might thing it would be good to include all the extractors at this level, but they are really file or query
-        # level things.  You might want to use the same extractor with two differently formatted files or two different
+    def __init__(self, file_writer: KGXFileWriter = None):
+        # You might think it would be good to include all the extractors at this level, but they are really file or query
+        # level things. You might want to use the same extractor with two differently formatted files or two different
         # sql queries.
 
         self.node_ids = set()
@@ -21,13 +22,15 @@ class Extractor:
         self.load_metadata = { 'record_counter': 0, 'skipped_record_counter': 0, 'errors': []}
         self.errors = []
 
+        self.file_writer = file_writer
+
     def csv_extract(self, infile,
                     subject_extractor,
-                    object_extractor,
-                    predicate_extractor,
-                    subject_property_extractor,
-                    object_property_extractor,
-                    edge_property_extractor,
+                    object_extractor=None,
+                    predicate_extractor=None,
+                    subject_property_extractor=None,
+                    object_property_extractor=None,
+                    edge_property_extractor=None,
                     filter_set=None,
                     filter_field=None,
                     comment_character="#", delim='\t', has_header_row=False):
@@ -94,28 +97,33 @@ class Extractor:
     def parse_row(self, row, subject_extractor, object_extractor, predicate_extractor, subject_property_extractor, object_property_extractor, edge_property_extractor):
         # pull the information out of the edge
         subject_id = subject_extractor(row)
-        object_id = object_extractor(row)
-        predicate = predicate_extractor(row)
-        subjectprops = subject_property_extractor(row)
-        objectprops = object_property_extractor(row)
-        edgeprops = edge_property_extractor(row)
-
+        object_id = object_extractor(row) if object_extractor is not None else None
+        predicate = predicate_extractor(row) if predicate_extractor is not None else None
+        subjectprops = subject_property_extractor(row) if subject_property_extractor is not None else {}
+        objectprops = object_property_extractor(row) if object_property_extractor is not None else {}
+        edgeprops = edge_property_extractor(row) if edge_property_extractor is not None else {}
 
         # if we  haven't seen the subject before, add it to nodes
         if subject_id and subject_id not in self.node_ids:
             subject_name = subjectprops.pop('name', None)
             subject_categories = subjectprops.pop('categories', None)
             subject_node = kgxnode(subject_id, name=subject_name, categories=subject_categories, nodeprops=subjectprops)
-            self.nodes.append(subject_node)
-            self.node_ids.add(subject_id)
+            if self.file_writer:
+                self.file_writer.write_kgx_node(subject_node)
+            else:
+                self.nodes.append(subject_node)
+                self.node_ids.add(subject_id)
 
         # if we  haven't seen the object before, add it to nodes
         if object_id and object_id not in self.node_ids:
             object_name = objectprops.pop('name', None)
             object_categories = objectprops.pop('categories', None)
             object_node = kgxnode(object_id, name=object_name, categories=object_categories, nodeprops=objectprops)
-            self.nodes.append(object_node)
-            self.node_ids.add(object_id)
+            if self.file_writer:
+                self.file_writer.write_kgx_node(object_node)
+            else:
+                self.nodes.append(object_node)
+                self.node_ids.add(object_id)
 
         if subject_id and object_id and predicate:
             primary_knowledge_source = edgeprops.pop(PRIMARY_KNOWLEDGE_SOURCE, None)
@@ -126,4 +134,14 @@ class Extractor:
                            primary_knowledge_source=primary_knowledge_source,
                            aggregator_knowledge_sources=aggregator_knowledge_sources,
                            edgeprops=edgeprops)
-            self.edges.append(edge)
+            if self.file_writer:
+                self.file_writer.write_kgx_edge(edge)
+            else:
+                self.edges.append(edge)
+
+    def get_node_ids(self):
+        if self.file_writer:
+            return self.file_writer.written_nodes
+        else:
+            return self.node_ids
+

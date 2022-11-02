@@ -138,7 +138,7 @@ class DrugCentralLoader(SourceDataLoader):
         rows = cur.fetchall()
         for row in rows:
             node_id = f"{prefixes.DRUGCENTRAL}:{row.pop('id')}"
-            if node_id in extractor.node_ids:
+            if node_id in extractor.get_node_ids():
                 for prop in unwanted_properties:
                     del row[prop]
                 node_props_by_id[node_id] = row
