@@ -5,11 +5,12 @@ import requests
 import re
 
 from bs4 import BeautifulSoup
-from Common.utils import GetData
-from Common.loader_interface import SourceDataLoader, SourceDataFailedError
+from Common.utils import GetData, snakify
+from Common.loader_interface import SourceDataLoader, SourceDataFailedError, SourceDataBrokenError
 from Common.prefixes import GTOPDB, HGNC, ENSEMBL
 from Common.kgxmodel import kgxnode, kgxedge
-from parsers.PHAROS.src.loadPHAROS import DGIDB_PREDICATE_MAPPING
+from Common.predicates import DGIDB_PREDICATE_MAPPING
+
 
 ##############
 # Class: CTD loader
@@ -259,11 +260,16 @@ class GtoPdbLoader(SourceDataLoader):
                 if r['Target Species'] and r['Target Species'].startswith('Human') \
                         and r['Target Ensembl Gene ID'] != '' and r['Target'] != '':  # and r['ligand_id'] in self.ligands
                     # did we get a good predicate
-                    if r['Type'].startswith('None'):
+                    if r['Type'].startswith('None') or r['Type'] == 'Fusion protein':
                         continue
                     else:
-                        formatted_predicate = r['Type'].lower().replace(' ', '_')
-                        predicate = DGIDB_PREDICATE_MAPPING[formatted_predicate]
+                        snakified_predicate = snakify(r['Type'])
+                        # look up a standardized predicate we want to use
+                        try:
+                            predicate: str = DGIDB_PREDICATE_MAPPING[snakified_predicate]
+                        except KeyError:
+                            # if we don't have a mapping for a predicate consider the parser broken
+                            raise SourceDataBrokenError(f'Predicate mapping for {predicate} not found')
 
                     # create a ligand node
                     ligand_id = f'{GTOPDB}:' + r['Ligand ID']

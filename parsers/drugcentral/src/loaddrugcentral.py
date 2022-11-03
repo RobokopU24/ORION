@@ -5,10 +5,11 @@ import gzip
 import os
 
 from Common.extractor import Extractor
-from Common.loader_interface import SourceDataLoader, SourceDataFailedError
-from Common.utils import GetData
-from Common.node_types import PRIMARY_KNOWLEDGE_SOURCE, AGGREGATOR_KNOWLEDGE_SOURCES
-from Common import prefixes
+from Common.loader_interface import SourceDataLoader, SourceDataFailedError, SourceDataBrokenError
+from Common.utils import GetData, snakify
+from Common.node_types import PRIMARY_KNOWLEDGE_SOURCE, AGGREGATOR_KNOWLEDGE_SOURCES, PUBLICATIONS
+from Common.prefixes import DRUGCENTRAL, MEDDRA, UMLS, UNIPROTKB, PUBMED
+from Common.predicates import DGIDB_PREDICATE_MAPPING
 from Common.db_connectors import PostgresConnector
 
 
@@ -39,9 +40,6 @@ class DrugCentralLoader(SourceDataLoader):
         self.adverse_event_predicate = 'biolink:has_adverse_event'
 
         self.drug_central_db = None
-
-        self.bioactivity_query = 'select struct_id, target_id, accession, act_value, act_unit, act_type, act_source, ' \
-                                 'act_source_url, action_type from act_table_full ;'
 
         self.chemical_phenotype_query = 'select struct_id, relationship_name, umls_cui from public.omop_relationship ' \
                                         'where umls_cui is not null'
@@ -91,8 +89,8 @@ class DrugCentralLoader(SourceDataLoader):
 
         # chemical/phenotypes
         extractor.sql_extract(db_cursor, self.chemical_phenotype_query,
-                              lambda line: f'{prefixes.DRUGCENTRAL}:{line["struct_id"]}',
-                              lambda line: f'{prefixes.UMLS}:{line["umls_cui"]}',
+                              lambda line: f'{DRUGCENTRAL}:{line["struct_id"]}',
+                              lambda line: f'{UMLS}:{line["umls_cui"]}',
                               lambda line: self.omop_relationmap[line['relationship_name']],
                               lambda line: {},  # subject props
                               lambda line: {},  # object props
@@ -101,8 +99,8 @@ class DrugCentralLoader(SourceDataLoader):
 
         # adverse events
         extractor.sql_extract(db_cursor, self.faers_query,
-                              lambda line: f'{prefixes.DRUGCENTRAL}:{line["struct_id"]}',
-                              lambda line: f'{prefixes.MEDDRA}:{line["meddra_code"]}',
+                              lambda line: f'{DRUGCENTRAL}:{line["struct_id"]}',
+                              lambda line: f'{MEDDRA}:{line["meddra_code"]}',
                               lambda line: self.adverse_event_predicate, #It would be better if there were a mapping...
                               lambda line: {},  # subject props
                               lambda line: {},  # object props
@@ -115,8 +113,8 @@ class DrugCentralLoader(SourceDataLoader):
         # the joins to td2tc and target_component split these out so that each accession appears once per row.
         # TODO: many of these will represent components, perhaps GO CCs, and it would be good to make a link from chem -> CC
         extractor.sql_extract(db_cursor, self.bioactivity_query,
-                              lambda line: f'{prefixes.DRUGCENTRAL}:{line["struct_id"]}',
-                              lambda line: f'{prefixes.UNIPROTKB}:{line["accession"]}',
+                              lambda line: f'{DRUGCENTRAL}:{line["struct_id"]}',
+                              lambda line: f'{UNIPROTKB}:{line["accession"]}',
                               lambda line: get_bioactivity_predicate(line),
                               lambda line: {},  # subject props
                               lambda line: {},  # object props
@@ -143,7 +141,7 @@ class DrugCentralLoader(SourceDataLoader):
         db_cursor.execute(node_props_query)
         rows = db_cursor.fetchall()
         for row in rows:
-            node_id = f"{prefixes.DRUGCENTRAL}:{row.pop('id')}"
+            node_id = f"{DRUGCENTRAL}:{row.pop('id')}"
             if node_id in extractor.get_node_ids():
                 for prop in unwanted_properties:
                     del row[prop]
@@ -189,6 +187,9 @@ class DrugCentralLoader(SourceDataLoader):
 
 
 def get_bioactivity_predicate(line):
+    """
+    old mappings:
+
     action_type_mappings={
         'ANTAGONIST':'biolink:decreases_activity_of',
         'AGONIST':'biolink:increases_activity_of',
@@ -212,20 +213,33 @@ def get_bioactivity_predicate(line):
         'MODULATOR':'biolink:affects',
         'ALLOSTERIC MODULATOR':'biolink:affects',
         'RELEASING AGENT':'biolink:interacts_with'}
-    if line['action_type'] is not None and line['action_type'] in action_type_mappings:
-        return action_type_mappings[line['action_type']]
-    act_type_mappings = {
+
+            act_type_mappings = {
         'IC50':'biolink:decreases_activity_of',
         'Kd':'biolink:interacts_with',
         'AC50':'biolink:increases_activity_of',
         'Ki':'biolink:decreases_activity_of',
         'EC50':'biolink:increases_activity_of'
     }
-    acttype = line['act_type']
-    if acttype is not None and acttype in act_type_mappings:
-        if line['act_value'] is not None and line['act_value']> 6:
-            return act_type_mappings[acttype]
-    return 'biolink:interacts_with'
+    """
+
+    if line['action_type'] is not None and line['action_type']:
+        action_type = line['action_type']
+    elif line['act_type'] is not None and line['act_type']:
+        action_type = line['act_type']
+    else:
+        # default
+        action_type = 'interacts_with'
+
+    # look up a standardized predicate we want to use
+    action_type = snakify(action_type)
+    try:
+        predicate: str = DGIDB_PREDICATE_MAPPING[action_type]
+    except KeyError as k:
+        # if we don't have a mapping for a predicate consider the parser broken
+        raise SourceDataBrokenError(f'Predicate mapping for {action_type} not found')
+
+    return predicate
 
 
 def get_bioactivity_attributes(line):
@@ -237,8 +251,8 @@ def get_bioactivity_attributes(line):
         edge_props[PRIMARY_KNOWLEDGE_SOURCE] = DrugCentralLoader.provenance_id
         papersource = line['act_source_url']
         if papersource.startswith('http://www.ncbi.nlm.nih.gov/pubmed'):
-            papersource=f'{prefixes.PUBMED}:{papersource.split("/")[-1]}'
-            edge_props['publications'] = [papersource]
+            papersource=f'{PUBMED}:{papersource.split("/")[-1]}'
+            edge_props[PUBLICATIONS] = [papersource]
     else:
         edge_props[AGGREGATOR_KNOWLEDGE_SOURCES] = [DrugCentralLoader.provenance_id]
         if line['act_source'] == 'IUPHAR':

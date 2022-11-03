@@ -1336,3 +1336,10 @@ def chunk_iterator(iterable, chunk_size):
             yield chunk
         else:
             break
+
+
+def snakify(text):
+    lowercase_text = text.lower()  # make lowercase
+    snakified_text = lowercase_text.replace(',', '_').replace('-', '_')  # replace commas and dashes with underscores
+    snakified_text = '_'.join(snakified_text.split())  # replace whitespace with underscores
+    return snakified_text

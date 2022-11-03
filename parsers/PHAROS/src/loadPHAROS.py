@@ -8,45 +8,9 @@ import requests
 
 from Common.loader_interface import SourceDataLoader, SourceDataBrokenError, SourceDataFailedError
 from Common.kgxmodel import kgxnode, kgxedge
-from Common.utils import GetData
+from Common.utils import GetData, snakify
 from Common.db_connectors import MySQLConnector
-from Common.prefixes import DGIDB, CHEMBL_MECHANISM
-
-DGIDB_PREDICATE_MAPPING = {
-    "ac50": f"{DGIDB}:activator",
-    "activator": f"{DGIDB}:activator",
-    "agonist": f"{DGIDB}:agonist",
-    "allosteric_antagonist": f"{DGIDB}:antagonist",
-    "allosteric_modulator": f"{DGIDB}:modulator",
-    "antagonist": f"{DGIDB}:antagonist",
-    "antibody": f"{DGIDB}:binder",
-    "antibody_binding": f"{DGIDB}:binder",
-    "antisense_inhibitor": f"{DGIDB}:inhibitor",
-    "binding_agent": f"{DGIDB}:binder",
-    "blocker": f"{DGIDB}:blocker",
-    "channel_blocker": f"{DGIDB}:channel_blocker",
-    "ec50": f"{DGIDB}:agonist",
-    "gating_inhibitor": f"{DGIDB}:gating_inhibitor",
-    "ic50": f"{DGIDB}:inhibitor",
-    "inhibitor": f"{DGIDB}:inhibitor",
-    "interacts_with": f"RO:0002434",
-    "inverse_agonist": f"{DGIDB}:inverse_agonist",
-    "kb": f"{DGIDB}:binder",
-    "kd": f"{DGIDB}:binder",
-    "ki": f"{DGIDB}:inhibitor",
-    "modulator": f"{DGIDB}:modulator",
-    "negative_modulator": f"{CHEMBL_MECHANISM}:negative_modulator",
-    "negative_allosteric_modulator": f"{CHEMBL_MECHANISM}:negative_modulator",
-    "opener": f"{CHEMBL_MECHANISM}:opener",
-    "other": f"{DGIDB}:other",
-    "partial_agonist": f"{DGIDB}:partial_agonist",
-    "pharmacological_chaperone": f"{DGIDB}:chaperone",
-    "positive_allosteric_modulator": f"{CHEMBL_MECHANISM}:positive_modulator",
-    "positive_modulator": f"{CHEMBL_MECHANISM}:positive_modulator",
-    "releasing_agent": f"{CHEMBL_MECHANISM}:releasing_agent",
-    "substrate": f"{CHEMBL_MECHANISM}:substrate",
-    "xc50": f"RO:0002328"
-}
+from Common.predicates import DGIDB_PREDICATE_MAPPING
 
 
 class PHAROSLoader(SourceDataLoader):
@@ -330,25 +294,24 @@ class PHAROSLoader(SourceDataLoader):
         :param result:
         :return str: predicate, list: pmids, dict: props, str: provenance:
         """
-        # if there was a predicate make it look pretty
+        # get the predicate if there is one
         if result['pred'] is not None and len(result['pred']) > 1:
-            pred: str = result['pred'].lower()
-            rel: str = self.snakify(pred)
+            rel: str = snakify(result['pred'])
         else:
+            # otherwise default to interacts_with
             rel: str = 'interacts_with'
 
-        # save the predicate
+        # look up a standardized predicate we want to use
         try:
             predicate: str = DGIDB_PREDICATE_MAPPING[rel]
         except KeyError as k:
-            # if we don't have a mapping for a predicate it's broken
-            raise SourceDataBrokenError(repr(k))
+            # if we don't have a mapping for a predicate consider the parser broken
+            raise SourceDataBrokenError(f'Predicate mapping for {predicate} not found')
 
         # if there was provenance data save it
         if result['dtype'] is not None and len(result['dtype']) > 0:
             provenance = result['dtype']
         else:
-            # set the defaults
             provenance = None
 
         # if there were any pubmed ids save them
@@ -371,13 +334,6 @@ class PHAROSLoader(SourceDataLoader):
 
         # return to the caller
         return predicate, pmids, props, provenance
-
-    @staticmethod
-    def snakify(text):
-        decomma = '_'.join(text.split(','))
-        dedash = '_'.join(decomma.split('-'))
-        resu = '_'.join(dedash.split())
-        return resu
 
     def init_pharos_db(self):
         try:
