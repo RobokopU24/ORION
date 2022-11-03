@@ -5,18 +5,18 @@ import gzip
 import os
 
 from Common.extractor import Extractor
-from Common.loader_interface import SourceDataLoader
+from Common.loader_interface import SourceDataLoader, SourceDataFailedError
 from Common.utils import GetData
 from Common.node_types import PRIMARY_KNOWLEDGE_SOURCE, AGGREGATOR_KNOWLEDGE_SOURCES
 from Common import prefixes
-from Common.containers import PostgresContainer
+from Common.db_connectors import PostgresConnector
 
 
 class DrugCentralLoader(SourceDataLoader):
 
     source_id = 'DrugCentral'
     provenance_id = 'infores:drugcentral'
-    parsing_version: str = '1.1'
+    parsing_version: str = '1.2'
 
     def __init__(self, test_mode: bool = False, source_data_dir: str = None):
         """
@@ -32,13 +32,29 @@ class DrugCentralLoader(SourceDataLoader):
                                  'indication': 'RO:0002606', #is substance that treats
                                  'diagnosis': 'RO:0002606', #theres only one row like this.
                                  }
-        self.bioactivity_query='select struct_id, target_id, accession, act_value, act_unit, act_type, act_source, act_source_url, action_type from act_table_full ;'
-        self.db_docker_container = None
 
-        self.data_url = 'http://unmtid-shinyapps.net/download/'
-        self.data_file = 'drugcentral.dump.010_05_2021.sql.gz'
+        self.data_url = 'https://unmtid-shinyapps.net/download/'
+        self.data_file = 'drugcentral.dump.08222022.sql.gz'
 
-        self.docker_client = None
+        self.adverse_event_predicate = 'biolink:has_adverse_event'
+
+        self.drug_central_db = None
+
+        self.bioactivity_query = 'select struct_id, target_id, accession, act_value, act_unit, act_type, act_source, ' \
+                                 'act_source_url, action_type from act_table_full ;'
+
+        self.chemical_phenotype_query = 'select struct_id, relationship_name, umls_cui from public.omop_relationship ' \
+                                        'where umls_cui is not null'
+
+        self.faers_query = 'SELECT struct_id, meddra_code, llr FROM public.faers ' \
+                           'WHERE llr > llr_threshold and drug_ae > 25'
+
+        self.bioactivity_query = '''select a.struct_id as struct_id, a.act_value as act_value, a.act_unit as act_unit, 
+                            a.act_type as act_type, a.act_source as act_source, a.act_source_url as act_source_url, 
+                            a.action_type as action_type, dc.component_id as component_id, c.accession as accession
+                            from public.act_table_full a, public.td2tc dc, public.target_component c
+                            where a.target_id = dc.target_id
+                            and dc.component_id = c.id'''
 
     def get_latest_source_version(self) -> str:
         """
@@ -47,8 +63,8 @@ class DrugCentralLoader(SourceDataLoader):
         :return: the version of the data
         """
 
-        # TODO get dynamically
-        return '10_05_2021'
+        # pretty much impossible to get this dynamically, no predictable scheme (https://drugcentral.org/download)
+        return '8_22_2022'
 
     def get_data(self):
         gd: GetData = GetData(self.logger.level)
@@ -59,25 +75,22 @@ class DrugCentralLoader(SourceDataLoader):
 
     def parse_data(self):
 
-        postgres_version = self.determine_postgres_version()
-        db_container_name = self.source_id + "_" + self.get_latest_source_version()
-        db_container = PostgresContainer(container_name=db_container_name,
-                                         postgres_version=postgres_version,
-                                         logger=self.logger)
-        db_container.run()
-        db_dump_path = os.path.join(self.data_path, self.data_file)
-        db_container.load_db_dump(db_dump_path)
+        self.init_drugcentral_db()
 
-        # db_container.move_files_to_container([db_dump_path])
-        # db_container.load_db_dump(self.data_file)
+        if self.drug_central_db.ping_service():
+            self.logger.info('Pinging DrugCentral database successful..')
+        else:
+            error_message = "DrugCentral DB was not accessible. " \
+                            "Manually stand up DrugCentral DB and configure environment variables before trying again."
+            raise SourceDataFailedError(error_message=error_message)
 
         self.logger.info(f'Parsing data...')
-        cur = db_container.get_db_connection().cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        db_connection = self.drug_central_db.get_db_connection()
+        db_cursor = db_connection.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
         extractor = Extractor()
 
         # chemical/phenotypes
-        chemical_phenotype_query='select struct_id, relationship_name, umls_cui from public.omop_relationship where umls_cui is not null'
-        extractor.sql_extract(cur,chemical_phenotype_query,
+        extractor.sql_extract(db_cursor, self.chemical_phenotype_query,
                               lambda line: f'{prefixes.DRUGCENTRAL}:{line["struct_id"]}',
                               lambda line: f'{prefixes.UMLS}:{line["umls_cui"]}',
                               lambda line: self.omop_relationmap[line['relationship_name']],
@@ -87,11 +100,10 @@ class DrugCentralLoader(SourceDataLoader):
                               )
 
         # adverse events
-        faers_query = 'SELECT struct_id, meddra_code, llr FROM public.faers WHERE llr > llr_threshold and drug_ae > 25'
-        extractor.sql_extract(cur, faers_query,
+        extractor.sql_extract(db_cursor, self.faers_query,
                               lambda line: f'{prefixes.DRUGCENTRAL}:{line["struct_id"]}',
                               lambda line: f'{prefixes.MEDDRA}:{line["meddra_code"]}',
-                              lambda line: 'biolink:causes_adverse_event', #It would be better if there were a mapping...
+                              lambda line: self.adverse_event_predicate, #It would be better if there were a mapping...
                               lambda line: {},  # subject props
                               lambda line: {},  # object props
                               lambda line: { 'FAERS_llr': line['llr'],
@@ -102,13 +114,7 @@ class DrugCentralLoader(SourceDataLoader):
         # bioactivity.  There are several rows in the main activity table (act_table_full) that include multiple accessions
         # the joins to td2tc and target_component split these out so that each accession appears once per row.
         # TODO: many of these will represent components, perhaps GO CCs, and it would be good to make a link from chem -> CC
-        bioactivity_query='''select a.struct_id as struct_id, a.act_value as act_value, a.act_unit as act_unit, a.act_type as act_type, 
-                            a.act_source as act_source, a.act_source_url as act_source_url, a.action_type as action_type, 
-                            dc.component_id as component_id, c.accession as accession
-                            from public.act_table_full a, public.td2tc dc, public.target_component c
-                            where a.target_id = dc.target_id
-                            and dc.component_id = c.id'''
-        extractor.sql_extract(cur, bioactivity_query,
+        extractor.sql_extract(db_cursor, self.bioactivity_query,
                               lambda line: f'{prefixes.DRUGCENTRAL}:{line["struct_id"]}',
                               lambda line: f'{prefixes.UNIPROTKB}:{line["accession"]}',
                               lambda line: get_bioactivity_predicate(line),
@@ -134,8 +140,8 @@ class DrugCentralLoader(SourceDataLoader):
                                "inchi",
                                "inchikey"]
         node_props_query = 'select * from structures'
-        cur.execute(node_props_query)
-        rows = cur.fetchall()
+        db_cursor.execute(node_props_query)
+        rows = db_cursor.fetchall()
         for row in rows:
             node_id = f"{prefixes.DRUGCENTRAL}:{row.pop('id')}"
             if node_id in extractor.get_node_ids():
@@ -146,9 +152,27 @@ class DrugCentralLoader(SourceDataLoader):
             if node.identifier in node_props_by_id:
                 node.properties.update(node_props_by_id[node.identifier])
 
-        db_container.stop_container()
+        db_cursor.close()
+        db_connection.close()
 
         return extractor.load_metadata
+
+    def init_drugcentral_db(self):
+        try:
+            db_host = os.environ['DRUGCENTRAL_DB_HOST']
+            db_user = os.environ['DRUGCENTRAL_DB_USER']
+            db_password = os.environ['DRUGCENTRAL_DB_PASSWORD']
+            db_name = os.environ['DRUGCENTRAL_DB_NAME']
+            db_port = os.environ['DRUGCENTRAL_DB_PORT']
+        except KeyError as k:
+            raise SourceDataFailedError(f'DRUGCENTRAL DB environment variables not set. ({repr(k)})')
+
+        self.drug_central_db = PostgresConnector(db_host=db_host,
+                                                 db_user=db_user,
+                                                 db_password=db_password,
+                                                 db_name=db_name,
+                                                 db_port=db_port,
+                                                 logger=self.logger)
 
     def determine_postgres_version(self):
         path_to_dump = os.path.join(self.data_path, self.data_file)
@@ -162,88 +186,7 @@ class DrugCentralLoader(SourceDataLoader):
         self.logger.error(f'Postgres version could not be determined from the SQL dump. '
                           f'Defaulting to last known version: 10.11')
         return "10.11"
-"""
-    def init_db_container(self, postgres_version: str):
 
-        self.logger.info(f'Initializing Postgres.. connecting to docker..')
-        self.docker_client = docker.from_env(timeout=150)
-        self.logger.info(f'Initializing Postgres.. checking for old container..')
-        docker_container_name = self.get_db_docker_container_name()
-        docker_container = self.get_db_docker_container_object()
-        if docker_container:
-            self.logger.info(f'Found previous container {docker_container_name}.')
-            docker_container.remove(force=True)
-            self.logger.info(f'Removed previous container {docker_container_name}.')
-
-        self.logger.info(f'Creating Postgres docker container named {docker_container_name}')
-        self.db_docker_container = self.docker_client.containers.run(f"postgres:{postgres_version}",
-                                                                     name=docker_container_name,
-                                                                     network='data_services_network',
-                                                                     ports={'5432/tcp': 5432},
-                                                                     # would love to do this but it does not work on Mac
-                                                                     # volumes=[f'{self.data_path}:/DrugCentral'],
-                                                                     auto_remove=True,
-                                                                     detach=True)
-        self.logger.info(f'Postgres docker container {docker_container_name} created...')
-
-    def get_db_docker_container_name(self):
-        return self.source_id + "_" + self.get_latest_source_version()
-
-    def get_db_docker_container_object(self):
-        try:
-            return self.docker_client.containers.get(self.get_db_docker_container_name())
-        except docker.errors.NotFound as e:
-            return None
-            
-    def get_db_connection(self):
-        return psycopg2.connect(user='postgres', host=self.get_db_docker_container_name(), port=5432)
-
-   
-    def wait_for_db_container(self, retries: int=0):
-        try:
-            db_conn = self.get_db_connection()
-            cur = db_conn.cursor()
-            cur.execute("SELECT 1")
-            self.logger.info(f'Postgres container successfully initialized.')
-
-        except Exception as e:
-            if retries == 5:
-                raise SourceDataFailedError(f'Could not successfully initialize or connect to postgres DB: {repr(e)}{e}')
-            else:
-                self.logger.info(f'Waiting for Postgres container to finish initialization... retry: {retries}')
-                time.sleep(15)
-                self.wait_for_db_container(retries+1)
-
-    def load_data_into_postgres(self):
-        try:
-            self.logger.info(f'Restoring database dump...')
-            path_to_dump = os.path.join(self.data_path, self.data_file)
-            db_container = self.get_db_docker_container_object()
-            with self.convert_to_tar(path_to_dump) as archive_to_move:
-                db_container.put_archive('/', archive_to_move)
-
-            self.logger.info(f'Copied DB dump to container... Restoring with psql...')
-            db_container.exec_run(f"/bin/bash -c 'gunzip -c /{self.data_file} | psql -U postgres postgres'",
-                                  stdout=True,
-                                  stderr=True)
-            self.logger.info(f'Database dump restored...')
-        except Exception as e:
-            raise e
-
-    def remove_db_container(self):
-        db_container = self.get_db_docker_container_object()
-        if db_container:
-            db_container.remove(force=True)
-
-    def convert_to_tar(self, path):
-        f = tempfile.NamedTemporaryFile()
-        t = tarfile.open(mode='w', fileobj=f)
-        abs_path = os.path.abspath(path)
-        t.add(abs_path, arcname=os.path.basename(path), recursive=False)
-        t.close()
-        f.seek(0)
-        return f
-"""
 
 def get_bioactivity_predicate(line):
     action_type_mappings={
@@ -283,6 +226,7 @@ def get_bioactivity_predicate(line):
         if line['act_value'] is not None and line['act_value']> 6:
             return act_type_mappings[acttype]
     return 'biolink:interacts_with'
+
 
 def get_bioactivity_attributes(line):
     edge_props = {}
