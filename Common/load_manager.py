@@ -34,7 +34,7 @@ from parsers.biolink.src.loadBL import BLLoader
 from parsers.OntologicalHierarchy.src.loadOH import OHLoader
 from parsers.GenomeAlliance.src.loadGenomeAlliance import GenomeAllianceOrthologLoader
 from parsers.STRING.src.loadSTRINGDB import STRINGDBLoader
-from parsers.chebi.src.loadChebiProperties import ChebiSuplementLoader
+from parsers.chebi.src.loadChebiProperties import ChebiPropertiesLoader
 
 GWAS_CATALOG = 'GWASCatalog'
 CTD = 'CTD'
@@ -61,7 +61,7 @@ YEASTHISTONEANDEXPRESSION = 'YeastHistoneAndExpression'
 YEAST_NUCLEOSOMES = 'YeastNucleosomes'
 GENOME_ALLIANCE_ORTHOLOGS = 'GenomeAllianceOrthologs'
 STRING_DB = 'STRING-DB'
-CHEBI_SUPLEMENT = 'ChebiProperties'
+CHEBI_PROPERTIES = 'ChebiProperties'
 # FOODB = 'FooDB' # this is on hold, data needs review after latest release of data.
 
 
@@ -91,7 +91,7 @@ SOURCE_DATA_LOADER_CLASSES = {
     YEAST_NUCLEOSOMES: YeastNucleosomeLoader,
     GENOME_ALLIANCE_ORTHOLOGS: GenomeAllianceOrthologLoader,
     STRING_DB: STRINGDBLoader,
-    CHEBI_SUPLEMENT: ChebiSuplementLoader
+    CHEBI_PROPERTIES: ChebiPropertiesLoader
 
     # items to go
     # textminingkp
