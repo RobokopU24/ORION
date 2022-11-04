@@ -1,17 +1,14 @@
 import os
 import argparse
-import logging
 import re
 import requests
-import shutil
 
 from bs4 import BeautifulSoup
 from parsers.FooDB.src.FoodSQL import FoodSQL
 from Common.loader_interface import SourceDataLoader, SourceDataFailedError
-from Common.utils import LoggingUtil, GetData
+from Common.utils import GetData
 from Common.kgxmodel import kgxnode, kgxedge
 from Common.prefixes import NCBITAXON
-from Common.node_types import ORIGINAL_KNOWLEDGE_SOURCE
 
 
 ##############
@@ -25,6 +22,7 @@ class FDBLoader(SourceDataLoader):
 
     source_id = 'FooDB'
     provenance_id = 'infores:foodb'
+    parsing_version: str = '1.1'
 
     def __init__(self, test_mode: bool = False, source_data_dir: str = None):
         """
@@ -162,7 +160,7 @@ class FDBLoader(SourceDataLoader):
                         new_edge = kgxedge(subject_id,
                                            object_id,
                                            predicate='RO:0001019',
-                                           original_knowledge_source=self.provenance_id,
+                                           primary_knowledge_source=self.provenance_id,
                                            edgeprops=edge_props)
                         self.final_edge_list.append(new_edge)
 
@@ -219,7 +217,7 @@ class FDBLoader(SourceDataLoader):
                 new_edge = kgxedge(subject_id=subject_id,
                                    object_id=item['id'],
                                    predicate='RO:0001019',
-                                   original_knowledge_source=self.provenance_id,
+                                   primary_knowledge_source=self.provenance_id,
                                    edgeprops={'unit': item['properties']['unit'].encode('ascii', errors='ignore').decode(encoding="utf-8"), 'amount': item['properties']['amount']})
                 self.final_edge_list.append(new_edge)
 

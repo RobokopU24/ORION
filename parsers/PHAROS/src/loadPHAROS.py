@@ -6,15 +6,16 @@ import re
 import random
 import requests
 
-from Common.loader_interface import SourceDataLoader
+from Common.loader_interface import SourceDataLoader, SourceDataBrokenError, SourceDataFailedError
 from Common.kgxmodel import kgxnode, kgxedge
-from Common.utils import GetData
-from Common.containers import MySQLContainer
+from Common.utils import GetData, snakify
+from Common.db_connectors import MySQLConnector
+from Common.predicates import DGIDB_PREDICATE_MAPPING
 
 
 class PHAROSLoader(SourceDataLoader):
 
-    GENE_TO_DISEASE: str = """select distinct x.value, d.did, d.name, p.sym, d.dtype
+    GENE_TO_DISEASE_QUERY: str = """select distinct x.value, d.did, d.name, p.sym, d.dtype
                                 from disease d 
                                 join xref x on x.protein_id = d.protein_id 
                                 join protein p on p.id=x.protein_id
@@ -24,7 +25,7 @@ class PHAROSLoader(SourceDataLoader):
                                 and d.did not like 'AmyCo%'
                                 and d.did not like 'ENSP%'"""
 
-    GENE_TO_CMPD_ACTIVITY: str = """SELECT DISTINCT x.value, ca.cmpd_name_in_src as drug, ca.cmpd_id_in_src as cid, catype AS id_src,
+    GENE_TO_CMPD_ACTIVITY_QUERY: str = """SELECT DISTINCT x.value, ca.cmpd_name_in_src as drug, ca.cmpd_id_in_src as cid, catype AS id_src,
                                 ca.act_value AS affinity, ca.act_type as affinity_parameter, ca.act_type AS pred, p.sym,
                                 ca.pubmed_ids AS pubmed_ids, '' AS dtype
                                 FROM xref x
@@ -32,7 +33,7 @@ class PHAROSLoader(SourceDataLoader):
                                 JOIN protein p on p.id=x.protein_id
                                 WHERE x.xtype='HGNC' and ca.cmpd_name_in_src is not null and ca.cmpd_name_in_src <> 'NA' and ca.cmpd_name_in_src not like 'US%'"""
 
-    GENE_TO_DRUG_ACTIVITY: str = """SELECT DISTINCT x.value, da.drug, da.cmpd_chemblid AS cid, 'ChEMBL' AS id_src, p.sym,
+    GENE_TO_DRUG_ACTIVITY_QUERY: str = """SELECT DISTINCT x.value, da.drug, da.cmpd_chemblid AS cid, 'ChEMBL' AS id_src, p.sym,
                                 da.act_value AS affinity, da.act_type AS affinity_parameter, da.action_type AS pred, '' AS dtype
                                 FROM xref x
                                 JOIN drug_activity da on x.protein_id = da.target_id
@@ -42,6 +43,7 @@ class PHAROSLoader(SourceDataLoader):
 
     source_id = 'PHAROS'
     provenance_id = 'infores:pharos'
+    parsing_version: str = '1.1'
 
     def __init__(self, test_mode: bool = False, source_data_dir: str = None):
         """
@@ -53,8 +55,7 @@ class PHAROSLoader(SourceDataLoader):
         self.data_file = 'latest.sql.gz'
         self.data_url = 'http://juniper.health.unm.edu/tcrd/download/'
         self.source_db = 'Target Central Resource Database'
-        self.pharos_db_name = 'tcrd'
-        self.pharos_db_container = None
+        self.pharos_db = None
 
     def get_latest_source_version(self) -> str:
         """
@@ -82,17 +83,12 @@ class PHAROSLoader(SourceDataLoader):
         :return: parsed meta data results
         """
 
-        mysql_version = 'latest'
-        db_container_name = self.source_id + "_" + self.get_latest_source_version()
-        db_container = MySQLContainer(container_name=db_container_name,
-                                      mysql_version=mysql_version,
-                                      database_name=self.pharos_db_name,
-                                      logger=self.logger)
-        db_container.run()  # run() should automatically lock until the DB container is up and ready
-        db_dump_path = os.path.join(self.data_path, self.data_file)
-        db_container.load_db_dump(db_dump_path)
-
-        self.pharos_db_container = db_container
+        if self.ping_pharos_db():
+            self.logger.info('Pinging PHAROS database successful..')
+        else:
+            error_message = "PHAROS DB was not accessible. " \
+                            "Manually stand up PHAROS DB and configure environment variables before trying again."
+            raise SourceDataFailedError(error_message=error_message)
 
         # storage for the node list
         node_list: list = []
@@ -101,14 +97,17 @@ class PHAROSLoader(SourceDataLoader):
         final_skipped_count: int = 0
 
         # get the nodes and edges for each dataset
+        self.logger.info('Querying for gene to disease..')
         node_list, records, skipped = self.parse_gene_to_disease(node_list)
         final_record_count += records
         final_skipped_count += skipped
 
+        self.logger.info('Querying for gene to drug activity..')
         node_list, records, skipped = self.parse_gene_to_drug_activity(node_list)
         final_record_count += records
         final_skipped_count += skipped
 
+        self.logger.info('Querying for gene to compound activity..')
         node_list, records, skipped = self.parse_gene_to_cmpd_activity(node_list)
         final_record_count += records
         final_skipped_count += skipped
@@ -126,8 +125,6 @@ class PHAROSLoader(SourceDataLoader):
             self.logger.debug(f'{len(self.final_node_list)} nodes found, {len(self.final_edge_list)} edges found.')
         else:
             self.logger.warning(f'No records found.')
-
-        db_container.stop_container()
 
         # load up the metadata
         load_metadata = {
@@ -149,7 +146,7 @@ class PHAROSLoader(SourceDataLoader):
         skipped_record_counter: int = 0
 
         # get the data
-        gene_to_disease: dict = self.execute_pharos_sql(self.GENE_TO_DISEASE)
+        gene_to_disease: dict = self.query_pharos_db(self.GENE_TO_DISEASE_QUERY)
 
         # create a regex pattern to find UML nodes
         pattern = re.compile('^C\d+$')  # pattern for umls local id
@@ -209,7 +206,7 @@ class PHAROSLoader(SourceDataLoader):
         skipped_record_counter: int = 0
 
         # get the data
-        gene_to_drug_activity: dict = self.execute_pharos_sql(self.GENE_TO_DRUG_ACTIVITY)
+        gene_to_drug_activity: dict = self.query_pharos_db(self.GENE_TO_DRUG_ACTIVITY_QUERY)
 
         prefixmap = {'ChEMBL': 'CHEMBL.COMPOUND:CHEMBL', 'Guide to Pharmacology': 'GTOPDB:'}
 
@@ -255,7 +252,7 @@ class PHAROSLoader(SourceDataLoader):
         skipped_record_counter: int = 0
 
         # get the data
-        gene_to_cmpd_activity: dict = self.execute_pharos_sql(self.GENE_TO_CMPD_ACTIVITY)
+        gene_to_cmpd_activity: dict = self.query_pharos_db(self.GENE_TO_CMPD_ACTIVITY_QUERY)
 
         prefixmap = {'ChEMBL': 'CHEMBL.COMPOUND:CHEMBL', 'Guide to Pharmacology': 'GTOPDB:'}
 
@@ -297,27 +294,24 @@ class PHAROSLoader(SourceDataLoader):
         :param result:
         :return str: predicate, list: pmids, dict: props, str: provenance:
         """
-        # if there was a predicate make it look pretty
+        # get the predicate if there is one
         if result['pred'] is not None and len(result['pred']) > 1:
-            pred: str = result['pred'].lower()
-
-            if pred.startswith('antisense inhibitor'):
-                rel: str = 'inhibitor'
-            elif pred.startswith('binding agent'):
-                rel: str = 'interacts_with'
-            else:
-                rel: str = self.snakify(pred)
+            rel: str = snakify(result['pred'])
         else:
+            # otherwise default to interacts_with
             rel: str = 'interacts_with'
 
-        # save the predicate
-        predicate: str = f'GAMMA:{rel}'
+        # look up a standardized predicate we want to use
+        try:
+            predicate: str = DGIDB_PREDICATE_MAPPING[rel]
+        except KeyError as k:
+            # if we don't have a mapping for a predicate consider the parser broken
+            raise SourceDataBrokenError(f'Predicate mapping for {predicate} not found')
 
         # if there was provenance data save it
         if result['dtype'] is not None and len(result['dtype']) > 0:
             provenance = result['dtype']
         else:
-            # set the defaults
             provenance = None
 
         # if there were any pubmed ids save them
@@ -341,35 +335,34 @@ class PHAROSLoader(SourceDataLoader):
         # return to the caller
         return predicate, pmids, props, provenance
 
-    @staticmethod
-    def snakify(text):
-        decomma = '_'.join(text.split(','))
-        dedash = '_'.join(decomma.split('-'))
-        resu = '_'.join(dedash.split())
-        return resu
+    def init_pharos_db(self):
+        try:
+            db_host = os.environ['PHAROS_DB_HOST']
+            db_user = os.environ['PHAROS_DB_USER']
+            db_password = os.environ['PHAROS_DB_PASSWORD']
+            db_name = os.environ['PHAROS_DB_NAME']
+            db_port = os.environ['PHAROS_DB_PORT']
+        except KeyError as k:
+            raise SourceDataFailedError(f'PHAROS DB environment variables not set. ({repr(k)})')
 
-    def execute_pharos_sql(self, sql_query: str) -> dict:
-        """
-        executes a sql statement
+        self.pharos_db = MySQLConnector(db_host=db_host,
+                                        db_user=db_user,
+                                        db_password=db_password,
+                                        db_name=db_name,
+                                        db_port=db_port,
+                                        logger=self.logger)
 
-        :param sql_query:
-        :return dict of results:
-        """
-        db_connection = self.pharos_db_container.get_db_connection()
-        # get a cursor to the db
-        cursor = db_connection.cursor(dictionary=True, buffered=True)
+    def ping_pharos_db(self):
+        if not self.pharos_db:
+            self.init_pharos_db()
+        if self.pharos_db.ping_db():
+            return True
+        return False
 
-        # execute the sql
-        cursor.execute(sql_query)
-
-        # get all the records
-        ret_val: dict = cursor.fetchall()
-
-        cursor.close()
-        db_connection.close()
-
-        # return to the caller
-        return ret_val
+    def query_pharos_db(self, sql_query: str):
+        if not self.pharos_db:
+            self.init_pharos_db()
+        return self.pharos_db.query(sql_query)
 
     def get_nodes_and_edges(self, df: pd.DataFrame):
         """

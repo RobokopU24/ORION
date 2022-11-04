@@ -8,7 +8,7 @@ import numpy
 from Common.utils import LoggingUtil, GetData
 from Common.loader_interface import SourceDataLoader
 from Common.extractor import Extractor
-from Common.node_types import AGGREGATOR_KNOWLEDGE_SOURCES, ORIGINAL_KNOWLEDGE_SOURCE
+from Common.node_types import AGGREGATOR_KNOWLEDGE_SOURCES, PRIMARY_KNOWLEDGE_SOURCE
 
 from Common.kgxmodel import kgxnode, kgxedge
 
@@ -110,7 +110,7 @@ class YeastHistoneAndExpressionLoader(SourceDataLoader):
                                                 'strain': line[2],
                                                 'name': line[3],
                                                 'observable': line[4],
-                                                ORIGINAL_KNOWLEDGE_SOURCE: "GEO",
+                                                PRIMARY_KNOWLEDGE_SOURCE: "GEO",
                                                 AGGREGATOR_KNOWLEDGE_SOURCES: ["GEO"]}, #subject props
                                   lambda line: {},  # object props
                                   lambda line: {},#edgeprops
@@ -132,7 +132,7 @@ class YeastHistoneAndExpressionLoader(SourceDataLoader):
                                                 'organism': line[4],
                                                 'featureType': line[5],
                                                 'chromosomeLocation': line[6],
-                                                ORIGINAL_KNOWLEDGE_SOURCE: "SGD",
+                                                PRIMARY_KNOWLEDGE_SOURCE: "SGD",
                                                 AGGREGATOR_KNOWLEDGE_SOURCES: ["SGD"]}, # subject props
                                   lambda line: {},  # object props
                                   lambda line: {},#edgeprops

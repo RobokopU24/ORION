@@ -1,11 +1,9 @@
 import argparse
-import logging
-import datetime
 import csv
 import os
 
-from Common.utils import LoggingUtil, GetData
-from Common.loader_interface import SourceDataLoader, SourceDataFailedError
+from Common.utils import GetData
+from Common.loader_interface import SourceDataLoader
 from Common.kgxmodel import kgxnode, kgxedge
 from Common.prefixes import HGNC, HGNC_FAMILY
 
@@ -21,6 +19,7 @@ class HGNCLoader(SourceDataLoader):
 
     source_id: str = HGNC
     provenance_id: str = 'infores:hgnc'
+    parsing_version: str = '1.1'
 
     def __init__(self, test_mode: bool = False, source_data_dir: str = None):
         """
@@ -145,7 +144,7 @@ class HGNCLoader(SourceDataLoader):
                         new_edge = kgxedge(gene_family_curie,
                                            gene_id,
                                            predicate='BFO:0000051',
-                                           original_knowledge_source=self.provenance_id,
+                                           primary_knowledge_source=self.provenance_id,
                                            edgeprops=props)
                         self.final_edge_list.append(new_edge)
                 else:

@@ -28,7 +28,7 @@ class EDGESDATACOLS(enum.IntEnum):
 
 
 ##############
-# Class: Biolink model loader
+# Class: Biolink loader - This format of this source is no longer supported so we host a version at RENCI
 #
 # By: Phil Owen
 # Date: 4/5/2021
@@ -50,7 +50,7 @@ class BLLoader(SourceDataLoader):
         self.bl_edges_file_name = 'sri-reference-kg_edges.tsv'
         self.bl_nodes_file_name = 'sri-reference-kg_nodes.tsv'
         self.data_files: list = [self.bl_edges_file_name, self.bl_nodes_file_name]
-        self.data_url = 'https://archive.monarchinitiative.org/latest/kgx/'
+        self.data_url = 'https://stars.renci.org/var/data_services/Biolink/'
 
     def get_latest_source_version(self) -> str:
         """
@@ -58,10 +58,8 @@ class BLLoader(SourceDataLoader):
 
         :return:
         """
-        bl_edges_url = f'{self.data_url}{self.bl_edges_file_name}'
-        gd = GetData(self.logger.level)
-        latest_source_version = gd.get_http_file_modified_date(bl_edges_url)
-        return latest_source_version
+        # No more updates are coming so we host this version at RENCI
+        return "7_28_2021"
 
     def get_data(self) -> int:
         """
@@ -146,7 +144,7 @@ def passes_qc_filter(line: list):
                 line[EDGESDATACOLS.CATEGORY.value] ==
                 'biolink:Association|biolink:InformationContentEntity')
 
-
+# you might think these should be constants but this source is not updated and these won't change
 DESIRED_BL_PREDICATES = {
     'biolink:biomarker_for',
     'biolink:contributes_to',

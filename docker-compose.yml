@@ -8,25 +8,25 @@ services:
     environment:
       - DATA_SERVICES_STORAGE=/Data_services_storage
       - DATA_SERVICES_GRAPHS=/Data_services_graphs
+      - DATA_SERVICES_LOGS=/Data_services_logs
       - DATA_SERVICES_GRAPH_SPEC
       - DATA_SERVICES_GRAPH_SPEC_URL
-      - DATA_SERVICES_LOGS=/Data_services_logs
-      - "HOST_STORAGE_DIR=${DATA_SERVICES_STORAGE}"
-      - "HOST_GRAPHS_DIR=${DATA_SERVICES_GRAPHS}"
-      - NEO4J_dbms_default__listen__address=0.0.0.0
       - DATA_SERVICES_NEO4J_PASSWORD
+      - EDGE_NORMALIZATION_ENDPOINT
+      - NODE_NORMALIZATION_ENDPOINT
+      - PHAROS_DB_HOST
+      - PHAROS_DB_USER
+      - PHAROS_DB_PASSWORD
+      - PHAROS_DB_NAME
+      - PHAROS_DB_PORT
+      - DRUGCENTRAL_DB_HOST
+      - DRUGCENTRAL_DB_USER
+      - DRUGCENTRAL_DB_PASSWORD
+      - DRUGCENTRAL_DB_NAME
+      - DRUGCENTRAL_DB_PORT
     volumes:
       - .:/Data_services
       - "${DATA_SERVICES_STORAGE}:/Data_services_storage"
       - "${DATA_SERVICES_GRAPHS}:/Data_services_graphs"
       - "${DATA_SERVICES_LOGS}:/Data_services_logs"
-      - /var/run/docker.sock:/var/run/docker.sock
-    ports:
-      - "7474:7474"
-    networks:
-      - ds_network
     user: 7474:7474
-
-networks:
-  ds_network:
-    name: data_services_network

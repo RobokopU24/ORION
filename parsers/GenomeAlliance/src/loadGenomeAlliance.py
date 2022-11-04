@@ -6,7 +6,7 @@ import gzip
 from Common.utils import GetData
 from Common.loader_interface import SourceDataLoader
 from Common.extractor import Extractor
-from Common.node_types import ORIGINAL_KNOWLEDGE_SOURCE
+from Common.node_types import PRIMARY_KNOWLEDGE_SOURCE
 
 
 # the data header columns for the orthologs tsv file:
@@ -25,6 +25,7 @@ class GenomeAllianceOrthologLoader(SourceDataLoader):
 
     source_id: str = 'GenomeAllianceOrthologs'
     provenance_id: str = 'infores:alliance-of-genome-resources'
+    parsing_version: str = '1.1'
 
     def __init__(self, test_mode: bool = False, source_data_dir: str = None):
         """
@@ -77,7 +78,7 @@ class GenomeAllianceOrthologLoader(SourceDataLoader):
                                   lambda line: 'biolink:orthologous_to',  # predicate extractor
                                   lambda line: {},  # subject props
                                   lambda line: {},  # object props
-                                  lambda line: {ORIGINAL_KNOWLEDGE_SOURCE: self.provenance_id}, #edgeprops
+                                  lambda line: {PRIMARY_KNOWLEDGE_SOURCE: self.provenance_id}, #edgeprops
                                   comment_character='#',
                                   delim='\t',
                                   has_header_row=True)
