@@ -19,6 +19,11 @@ services:
       - PHAROS_DB_PASSWORD
       - PHAROS_DB_NAME
       - PHAROS_DB_PORT
+      - DRUGCENTRAL_DB_HOST
+      - DRUGCENTRAL_DB_USER
+      - DRUGCENTRAL_DB_PASSWORD
+      - DRUGCENTRAL_DB_NAME
+      - DRUGCENTRAL_DB_PORT
     volumes:
       - .:/Data_services
       - "${DATA_SERVICES_STORAGE}:/Data_services_storage"
