@@ -44,3 +44,18 @@ dataServices:
   normalization:
     nodeNormEndpoint:
     edgeNormEndpoint:
+
+pharos:
+  pharos_host:
+  pharos_port:
+  pharos_user:
+  pharos_password:
+  pharos_db_name:
+
+drugcentral:
+  drugcentral_host:
+  drugcentral_port:
+  drugcentral_user:
+  drugcentral_password:
+  drugcentral_db_name:
+

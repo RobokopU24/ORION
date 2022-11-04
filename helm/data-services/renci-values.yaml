@@ -11,7 +11,7 @@ dataServices:
   image:
     repository: evandietzmorris/data_services
     pullPolicy: Always
-    tag: latest
+    tag: biolink3
   graphsVolume:
     use_nfs: true
     nfs_server: na-projects.edc.renci.org
@@ -42,3 +42,17 @@ dataServices:
   normalization:
     nodeNormEndpoint: 
     edgeNormEndpoint:
+
+pharos:
+  pharos_host:
+  pharos_port:
+  pharos_user:
+  pharos_password:
+  pharos_db_name:
+
+drugcentral:
+  drugcentral_host:
+  drugcentral_port:
+  drugcentral_user:
+  drugcentral_password:
+  drugcentral_db_name:
