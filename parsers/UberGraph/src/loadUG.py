@@ -1,13 +1,12 @@
 import os
 import argparse
-import datetime
+import io
 import pyoxigraph
+import tarfile
 
-from zipfile import ZipFile
+from Common.prefixes import HGNC, NCBIGENE
 from Common.utils import GetData
-from Common.loader_interface import SourceDataLoader
-from Common.prefixes import HGNC
-from Common.kgxmodel import kgxnode, kgxedge
+from Common.loader_interface import SourceDataLoader, SourceDataBrokenError
 
 
 ##############
@@ -21,7 +20,7 @@ class UGLoader(SourceDataLoader):
 
     source_id = 'UberGraph'
     provenance_id = 'infores:ubergraph'
-    parsing_version: str = '1.1'
+    parsing_version: str = '1.2'
 
     def __init__(self, test_mode: bool = False, source_data_dir: str = None):
         """
@@ -31,8 +30,8 @@ class UGLoader(SourceDataLoader):
         super().__init__(test_mode=test_mode, source_data_dir=source_data_dir)
 
         # this is the name of the archive file the source files will come from
-        self.data_file = 'properties-nonredundant.zip'
-        self.data_url: str = 'https://stars.renci.org/var/data_services/'
+        self.data_file = 'nonredundant-graph-table.tgz'
+        self.data_url: str = 'https://ubergraph.apps.renci.org/downloads/current/'
 
     def get_latest_source_version(self):
         """
@@ -40,75 +39,113 @@ class UGLoader(SourceDataLoader):
 
         :return:
         """
-        file_url = f'{self.data_url}{self.data_file}'
+        latest_source_version = None
+        archive_url = f'{self.data_url}{self.data_file}'
         gd = GetData(self.logger.level)
-        latest_source_version = gd.get_http_file_modified_date(file_url)
-        return latest_source_version
+        gd.pull_via_http(archive_url,
+                         self.data_path)
+        tar_path = os.path.join(self.data_path, self.data_file)
+        with tarfile.open(tar_path, 'r') as tar_files:
+            with tar_files.extractfile('nonredundant-graph-table/build-metadata.nt') as metadata_file:
+                for metadata_triple in pyoxigraph.parse(metadata_file, mime_type='application/n-triples'):
+                    print(metadata_triple.predicate.value)
+                    if metadata_triple.predicate.value == 'http://purl.org/dc/terms/created':
+                        latest_source_version = metadata_triple.object.value.split("T")[0]
+        os.remove(tar_path)
+        if latest_source_version is None:
+            raise SourceDataBrokenError('Metadata file not found for UberGraph. Latest source version unavailable.')
+        else:
+            return latest_source_version
 
     def get_data(self):
         """
         Gets the uberon graph data.
 
         """
-        # get a reference to the data gatherer
-        gd: GetData = GetData(self.logger.level)
-
-        byte_count: int = gd.pull_via_http(f'{self.data_url}{self.data_file}',
-                                           self.data_path, False)
-        if byte_count > 0:
-            return True
-        else:
-            return False
+        archive_url = f'{self.data_url}{self.data_file}'
+        gd = GetData(self.logger.level)
+        gd.pull_via_http(archive_url,
+                         self.data_path)
+        return True
 
     def parse_data(self):
         """
         Parses the data file for graph nodes/edges
         """
 
-        def convert_iri_to_curie(iri):
-            id_portion = iri.rsplit('/')[-1].rsplit('#')[-1]
+        def convert_node_iri_to_curie(iri):
+            id_portion = iri.rsplit('/')[-1]
+            id_portion.replace('#_', ':')
+            id_portion.replace('_', ':')
+
             # HGNC must be handled differently that the others
-            if iri.find('hgnc') > 0:
-                return f"{HGNC}:" + id_portion
-            # if string is all lower it is not a curie
-            elif not id_portion.islower():
-                # replace the underscores to create a curie
-                return id_portion.replace('_', ':')
-            return None
+            if 'hgnc' in iri:
+                return f"{HGNC}:{id_portion}"
+
+            # HGNC must be handled differently that the others
+            if 'ncbigene' in iri:
+                return f"{NCBIGENE}:{id_portion}"
+
+            if id_portion.islower():
+                print(id_portion)
+                return None
+
+            return id_portion
+
+        predicate_prefix_conversion = {
+            'rdf-schema': 'rdfs',
+            'core': 'UBERON_CORE',
+            'so': 'FMA'
+        }
+
+        def convert_edge_iri_to_curie(iri):
+            id_portion = iri.rsplit('/')[-1]
+            if '#' in id_portion:
+                prefix, predicate = tuple(id_portion.split('#'))
+            elif '_' in id_portion:
+                prefix, predicate = tuple(id_portion.split('_', 1))
+            if prefix in predicate_prefix_conversion:
+                prefix = predicate_prefix_conversion[prefix]
+            else:
+                prefix = prefix.upper()
+            return f'{prefix}:{predicate}'
 
         # init the record counters
         record_counter: int = 0
         skipped_record_counter: int = 0
 
-        archive_file_path = os.path.join(self.data_path, f'{self.data_file}')
-        with ZipFile(archive_file_path) as zf:
-            # open the hmdb xml file
-            with zf.open(self.data_file.replace('.zip', '.ttl')) as ttl_file:
+        tar_path = os.path.join(self.data_path, self.data_file)
+        with tarfile.open(tar_path, 'r') as tar_files:
 
-                # for every triple in the input data
-                for ttl_triple in pyoxigraph.parse(ttl_file, mime_type='text/turtle'):
+            node_curies = {}
+            with tar_files.extractfile('nonredundant-graph-table/node-labels.tsv') as node_labels_file:
+                for line in io.TextIOWrapper(node_labels_file):
+                    node_id, node_iri = tuple(line.rstrip().split('\t'))
+                    node_curies[node_id] = convert_node_iri_to_curie(node_iri)
 
-                    # increment the record counter
+            edge_curies = {}
+            with tar_files.extractfile('nonredundant-graph-table/edge-labels.tsv') as edge_labels_file:
+                for line in io.TextIOWrapper(edge_labels_file):
+                    edge_id, edge_iri = tuple(line.rstrip().split('\t'))
+                    edge_curies[edge_id] = convert_edge_iri_to_curie(edge_iri)
+
+            with tar_files.extractfile('nonredundant-graph-table/edges.tsv') as edges_file:
+                for line in io.TextIOWrapper(edges_file):
                     record_counter += 1
 
                     if self.test_mode and record_counter == 2000:
                         break
 
-                    predicate_curie = convert_iri_to_curie(ttl_triple.predicate.value)
-                    subject_curie = convert_iri_to_curie(ttl_triple.subject.value)
-                    object_curie = convert_iri_to_curie(ttl_triple.object.value)
-
-                    # make sure we have all 3 entries
-                    if subject_curie and object_curie and predicate_curie:
-                        # create the nodes and edges
-                        self.output_file_writer.write_kgx_node(kgxnode(subject_curie))
-                        self.output_file_writer.write_kgx_node(kgxnode(object_curie))
-                        self.output_file_writer.write_kgx_edge(kgxedge(subject_id=subject_curie,
-                                                                       object_id=object_curie,
-                                                                       predicate=predicate_curie,
-                                                                       primary_knowledge_source=self.provenance_id))
-                    else:
-                        skipped_record_counter += 1
+                    subject_id, predicate_id, object_id = tuple(line.rstrip().split('\t'))
+                    subject_curie = node_curies[subject_id]
+                    object_curie = node_curies[object_id]
+                    predicate_curie = edge_curies[predicate_id]
+                    self.output_file_writer.write_node(node_id=subject_curie)
+                    self.output_file_writer.write_node(node_id=object_curie)
+                    self.output_file_writer.write_edge(subject_id=subject_curie,
+                                                       object_id=object_curie,
+                                                       predicate=predicate_curie,
+                                                       primary_knowledge_source=self.provenance_id)
 
         # load up the metadata
         load_metadata: dict = {
