@@ -29,7 +29,7 @@ EDGE_NORMALIZATION_BATCH_SIZE = 1_000_000
 
 #
 # This piece takes KGX-like files and normalizes the nodes and edges for biolink compliance.
-# It then writes all of the normalized nodes and edges to new files.
+# Then it writes the normalized nodes and edges to new files.
 #
 class KGXFileNormalizer:
 
@@ -53,7 +53,8 @@ class KGXFileNormalizer:
                  sequence_variants_pre_normalized: bool = False,
                  predicates_pre_normalized: bool = False,
                  default_provenance: str = None,
-                 process_in_memory: bool = True):
+                 process_in_memory: bool = True,
+                 preserve_unconnected_nodes: bool = False):
         if not normalization_scheme:
             normalization_scheme = NormalizationScheme()
         self.source_nodes_file_path = source_nodes_file_path
@@ -65,14 +66,15 @@ class KGXFileNormalizer:
         self.edge_norm_predicate_map_file_path = edge_norm_predicate_map_file_path
         # in some cases we start with normalized nodes on one end of the edge,
         # these flags indicate we should skip normalizing those IDs
-        # this is important because those IDs are probably missing from the supplied nodes file
+        # this is important because those IDs could be missing from the supplied nodes file
         self.edge_subject_pre_normalized = edge_subject_pre_normalized
         self.edge_object_pre_normalized = edge_object_pre_normalized
         self.predicates_pre_normalized = predicates_pre_normalized
+        self.sequence_variants_pre_normalized = sequence_variants_pre_normalized
         self.has_sequence_variants = has_sequence_variants
         self.process_in_memory = process_in_memory
+        self.preserve_unconnected_nodes = preserve_unconnected_nodes
         self.default_provenance = default_provenance
-        self.sequence_variants_pre_normalized = sequence_variants_pre_normalized
         self.normalization_metadata = {'strict_normalization': normalization_scheme.strict,
                                        'sequence_variants_pre_normalized': sequence_variants_pre_normalized}
 
@@ -90,8 +92,11 @@ class KGXFileNormalizer:
     def normalize_kgx_files(self):
         self.normalize_node_file()
         self.normalize_edge_file()
-        orphan_nodes_removed = remove_orphan_nodes(self.nodes_output_file_path, self.edges_output_file_path)
-        self.normalization_metadata['orphan_nodes_removed'] = orphan_nodes_removed
+        if not self.preserve_unconnected_nodes:
+            unconnected_nodes_removed = remove_unconnected_nodes(self.nodes_output_file_path, self.edges_output_file_path)
+            self.normalization_metadata['unconnected_nodes_removed'] = unconnected_nodes_removed
+        else:
+            self.normalization_metadata['unconnected_nodes_removed'] = 0
         return self.normalization_metadata
 
     # given file paths to the source data node file and an output file,
@@ -366,7 +371,7 @@ class KGXFileNormalizer:
 """
 Given a nodes file and an edges file, remove all of the nodes from the nodes file that aren't attached to edges.
 """
-def remove_orphan_nodes(nodes_file_path: str, edges_file_path: str):
+def remove_unconnected_nodes(nodes_file_path: str, edges_file_path: str):
     utilized_nodes = set()
     with open(edges_file_path) as edges_source:
         edge_reader = jsonlines.Reader(edges_source)
@@ -374,7 +379,7 @@ def remove_orphan_nodes(nodes_file_path: str, edges_file_path: str):
             utilized_nodes.add(edge[OBJECT_ID])
             utilized_nodes.add(edge[SUBJECT_ID])
 
-    orphan_nodes_removed = 0
+    unconnected_nodes_removed = 0
     temp_nodes_file_name = f'{nodes_file_path}.temp'
     os.rename(nodes_file_path, temp_nodes_file_name)
     with open(temp_nodes_file_name) as nodes_source:
@@ -384,7 +389,7 @@ def remove_orphan_nodes(nodes_file_path: str, edges_file_path: str):
                 if node['id'] in utilized_nodes:
                     kgx_file_writer.write_normalized_node(node, uniquify=False)
                 else:
-                    orphan_nodes_removed += 1
+                    unconnected_nodes_removed += 1
     os.remove(temp_nodes_file_name)
-    return orphan_nodes_removed
+    return unconnected_nodes_removed
 

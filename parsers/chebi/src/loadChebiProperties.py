@@ -33,6 +33,7 @@ class ChebiPropertiesLoader(SourceDataLoader):
     source_id: str = 'ChebiProperties'
     provenance_id: str = 'infores:chebi-properties'
     parsing_version = '1.0'
+    preserve_unconnected_nodes = True
 
     def __init__(self, test_mode: bool = False, source_data_dir: str = None):
         """

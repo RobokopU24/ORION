@@ -1,18 +1,23 @@
 import logging
 import os
 from Common.kgx_file_writer import KGXFileWriter
-from Common.kgx_file_normalizer import remove_orphan_nodes
 from Common.utils import LoggingUtil
 
 
 class SourceDataLoader:
 
+    # implementations of parsers should override and increment this whenever they change
     parsing_version = "1.0"
+
+    # implementations of parsers can override this with True to indicate that unconnected nodes should be preserved
+    preserve_unconnected_nodes = False
+
+    # implementations of parsers should override this with True when the source data will contain sequence variants
+    has_sequence_variants = False
 
     def __init__(self, test_mode: bool = False, source_data_dir: str = None):
         """Initialize with the option to run in testing mode."""
         self.test_mode: bool = test_mode
-        self.filter_field = None
 
         if source_data_dir:
             self.data_path = os.path.join(source_data_dir, "source")
@@ -42,10 +47,6 @@ class SourceDataLoader:
         """Download the source data"""
         raise NotImplementedError
 
-    def get_latest_parsing_version(self):
-        # implementations of parsers should override and increment this whenever they change
-        return self.parsing_version
-
     def parse_data(self):
         """Parse the downloaded data into kgx files"""
         raise NotImplementedError
@@ -60,42 +61,33 @@ class SourceDataLoader:
         self.logger.info(f'{source_name}: Processing beginning')
 
         try:
-            # download the data files if needed
+            # TODO really this step should not be here - there were a few parsers that did not implement fetch/get_data
+            # in the same way as the others. Ideally you would never get here if the data was not fetched.
+            # So this could be removed after a review that confirms all sources fetch successfully during get_data().
             if self.needs_data_download():
-                source_data_downloaded = False
-            else:
-                source_data_downloaded = True
-                self.logger.debug(f'{source_name}: Source data previously retrieved, parsing now...')
-
-            # did we get the files successfully
-            if source_data_downloaded:
-
-                # create a KGX file writer, parsers may use this
-                self.output_file_writer = KGXFileWriter(nodes_output_file_path,
-                                                        edges_output_file_path)
-
-                # if so parse the data
-                load_metadata = self.parse_data()
-                if 'errors' in load_metadata and load_metadata['errors']:
-                    self.logger.error(f'{source_name}: Experienced {len(load_metadata["errors"])} errors while parsing... examples: {load_metadata["errors"][:10]}')
-                    load_metadata['parsing_error_examples'] = load_metadata.pop('errors')[:10]
-                self.logger.info(f'{source_name}: File parsing complete. Writing to file...')
-
-                # if nodes or edges were queued, write them to file
-                if self.final_node_list or self.final_edge_list:
-                    self.write_to_file()
-
-                load_metadata['repeat_nodes'] = self.output_file_writer.repeat_node_count
-                load_metadata['source_nodes'] = self.output_file_writer.nodes_written
-                load_metadata['source_edges'] = self.output_file_writer.edges_written
-
-                # TODO we should extract information from the writer to add to the metadata here (ie node type counts)
-                # orphan_nodes_removed = remove_orphan_nodes(nodes_output_file_path, edges_output_file_path)
-                # load_metadata['orphan_nodes_removed'] = orphan_nodes_removed
-            else:
                 error_message = f'{source_name}: Error - Retrieving files failed.'
                 self.logger.error(error_message)
                 raise SourceDataFailedError(error_message)
+
+            # create a KGX file writer, parsers may use this
+            self.output_file_writer = KGXFileWriter(nodes_output_file_path,
+                                                    edges_output_file_path)
+
+            # parse the data
+            load_metadata = self.parse_data()
+            if 'errors' in load_metadata and load_metadata['errors']:
+                self.logger.error(f'{source_name}: Experienced {len(load_metadata["errors"])} errors while parsing... examples: {load_metadata["errors"][:10]}')
+                load_metadata['parsing_error_examples'] = load_metadata.pop('errors')[:10]
+            self.logger.info(f'{source_name}: Parsing complete.')
+
+            # if nodes or edges were queued, write them to file
+            if self.final_node_list or self.final_edge_list:
+                self.logger.info(f'{source_name}: Writing to file...')
+                self.write_to_file()
+
+            load_metadata['repeat_nodes'] = self.output_file_writer.repeat_node_count
+            load_metadata['source_nodes'] = self.output_file_writer.nodes_written
+            load_metadata['source_edges'] = self.output_file_writer.edges_written
 
         except Exception:
             raise
@@ -107,7 +99,7 @@ class SourceDataLoader:
             # remove the temp data files or do any necessary clean up
             self.clean_up()
 
-        self.logger.info(f'{self.get_name()}:Processing complete')
+        self.logger.info(f'{self.get_name()}: Processing complete')
 
         return load_metadata
 
@@ -166,20 +158,9 @@ class SourceDataLoader:
         """
         return self.__class__.__name__
 
-    def get_filter_set(self):
-        """
-        Could be overwritten with a set of terms or identifiers to match against and filter by.
-        Used in conjuction with filter_field, currently for csv_extract only.
-        :return: set - the set of terms
-        """
-        return None
-
     def write_to_file(self) -> None:
         """
         sends the data over to the KGX writer to create the node/edge files
-
-        :param nodes_output_file_path: the path to the node file
-        :param edges_output_file_path: the path to the edge file
         """
 
         # for each node captured
@@ -191,15 +172,6 @@ class SourceDataLoader:
         for edge in self.final_edge_list:
             # write out the edge data
             self.output_file_writer.write_kgx_edge(edge)
-
-    def has_sequence_variants(self):
-        return False
-
-
-class SourceDataWithVariantsLoader(SourceDataLoader):
-
-    def has_sequence_variants(self):
-        return True
 
 
 class SourceDataBrokenError(Exception):

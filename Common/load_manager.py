@@ -321,7 +321,7 @@ class SourceDataManager:
             parsing_info = source_data_loader.load(nodes_output_file_path, edges_output_file_path)
 
             # update the associated metadata
-            has_sequence_variants = source_data_loader.has_sequence_variants()
+            has_sequence_variants = source_data_loader.has_sequence_variants
             source_metadata.update_parsing_metadata(parsing_version,
                                                     parsing_source_version=source_version,
                                                     parsing_status=SourceMetadata.STABLE,
@@ -355,8 +355,7 @@ class SourceDataManager:
         if source_id in self.latest_parsing_version_lookup:
             return self.latest_parsing_version_lookup[source_id]
 
-        source_data_loader = SOURCE_DATA_LOADER_CLASSES[source_id]()
-        parsing_version = source_data_loader.get_latest_parsing_version()
+        parsing_version = SOURCE_DATA_LOADER_CLASSES[source_id].parsing_version
         self.latest_parsing_version_lookup[source_id] = parsing_version
         return parsing_version
 
@@ -413,7 +412,6 @@ class SourceDataManager:
                                                       normalization_status=SourceMetadata.IN_PROGRESS)
         try:
             current_time = datetime.datetime.now().strftime('%m-%d-%y %H:%M:%S')
-            has_sequence_variants = source_metadata.has_sequence_variants(parsing_version)
             nodes_source_file_path = self.get_source_node_file_path(source_id, source_version, parsing_version)
             nodes_norm_file_path = self.get_normalized_node_file_path(source_id, source_version, parsing_version, composite_normalization_version)
             node_norm_map_file_path = self.get_node_norm_map_file_path(source_id, source_version, parsing_version, composite_normalization_version)
@@ -421,7 +419,9 @@ class SourceDataManager:
             edges_source_file_path = self.get_source_edge_file_path(source_id, source_version, parsing_version)
             edges_norm_file_path = self.get_normalized_edge_file_path(source_id, source_version, parsing_version, composite_normalization_version)
             edge_norm_predicate_map_file_path = self.get_edge_norm_predicate_map_file_path(source_id, source_version, parsing_version, composite_normalization_version)
+            has_sequence_variants = source_metadata.has_sequence_variants(parsing_version)
             default_provenance = SOURCE_DATA_LOADER_CLASSES[source_id].provenance_id
+            preserve_unconnected_nodes = SOURCE_DATA_LOADER_CLASSES[source_id].preserve_unconnected_nodes
             process_in_memory = False if source_id in RESOURCE_HOGS else True
             file_normalizer = KGXFileNormalizer(nodes_source_file_path,
                                                 nodes_norm_file_path,
@@ -433,7 +433,8 @@ class SourceDataManager:
                                                 has_sequence_variants=has_sequence_variants,
                                                 normalization_scheme=normalization_scheme,
                                                 default_provenance=default_provenance,
-                                                process_in_memory=process_in_memory)
+                                                process_in_memory=process_in_memory,
+                                                preserve_unconnected_nodes=preserve_unconnected_nodes)
             normalization_info = file_normalizer.normalize_kgx_files()
 
             # update the associated metadata

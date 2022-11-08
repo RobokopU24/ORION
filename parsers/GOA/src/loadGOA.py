@@ -111,7 +111,8 @@ class GOALoader(SourceDataLoader):
 
         :return: dict of parsing metadata results
         """
-        filter_set = self.get_filter_set()
+        taxon_filter_set = self.get_taxon_filter_set()
+        taxon_filter_field = self.taxon_filter_field
 
         infile_path = os.path.join(self.data_path, self.goa_data_file)
         extractor = Extractor()
@@ -124,8 +125,8 @@ class GOALoader(SourceDataLoader):
                                   lambda line: {},  # subject props
                                   lambda line: {},  # object props
                                   lambda line: {PRIMARY_KNOWLEDGE_SOURCE: self.provenance_id},  # edge props
-                                  filter_set=filter_set,
-                                  filter_field=self.filter_field,
+                                  filter_set=taxon_filter_set,
+                                  filter_field=taxon_filter_field,
                                   comment_character="!", delim='\t')
         # return to the caller
         self.final_node_list = extractor.nodes
@@ -164,9 +165,12 @@ class HumanGOALoader(GOALoader):
         super().__init__(test_mode=test_mode, source_data_dir=source_data_dir)
         self.goa_data_url = 'http://current.geneontology.org/annotations/'
         self.goa_data_file = 'goa_human.gaf.gz'
-        self.filter_field = None
         self.data_files = [self.goa_data_file]
         self.data_urls = [self.goa_data_url]
+        self.taxon_filter_field = None
+
+    def get_taxon_filter_set(self):
+        return None
 
 
 class PlantGOALoader(GOALoader):
@@ -179,11 +183,11 @@ class PlantGOALoader(GOALoader):
         self.goa_data_file = 'goa_uniprot_all.gaf.gz'
         self.plant_taxa_url = 'https://stars.renci.org/var/data_services/PlantGOA/'
         self.plant_taxa_file = 'plant_taxa.txt'
-        self.filter_field = DATACOLS.Taxon_Interacting_taxon.value
         self.data_files = [self.plant_taxa_file, self.goa_data_file]
         self.data_urls = [self.plant_taxa_url, self.goa_data_url]
+        self.taxon_filter_field = DATACOLS.Taxon_Interacting_taxon.value
 
-    def get_filter_set(self):
+    def get_taxon_filter_set(self):
         plant_taxa_path = os.path.join(self.data_path, self.plant_taxa_file)
         with open(plant_taxa_path) as plant_taxa:
             plant_taxa_set = set()

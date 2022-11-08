@@ -4,14 +4,13 @@ import gzip
 import argparse
 from urllib import request
 from Common.utils import LoggingUtil, NodeNormUtils
-from Common.kgx_file_writer import KGXFileWriter
-from Common.loader_interface import SourceDataWithVariantsLoader, SourceDataBrokenError, SourceDataFailedError
+from Common.loader_interface import SourceDataLoader, SourceDataBrokenError, SourceDataFailedError
 from Common.node_types import SEQUENCE_VARIANT, GENE
 from Common.prefixes import HGVS, UBERON
 from Common.hgvs_utils import convert_variant_to_hgvs
 
 
-class GTExLoader(SourceDataWithVariantsLoader):
+class GTExLoader(SourceDataLoader):
 
     # this probably won't change very often - just hard code it for now
     GTEX_VERSION = "8"
@@ -78,6 +77,7 @@ class GTExLoader(SourceDataWithVariantsLoader):
     source_id = 'GTEx'
     provenance_id = 'infores:gtex'
     parsing_version = '1.2'
+    has_sequence_variants = True
 
     def __init__(self, test_mode: bool = False, source_data_dir: str = None):
         """

@@ -7,7 +7,7 @@ import enum
 from sys import float_info
 from collections import defaultdict
 from Common.utils import LoggingUtil, GetData
-from Common.loader_interface import SourceDataWithVariantsLoader, SourceDataBrokenError, SourceDataFailedError
+from Common.loader_interface import SourceDataLoader, SourceDataBrokenError, SourceDataFailedError
 from Common.kgxmodel import kgxnode, kgxedge
 from Common.node_types import SEQUENCE_VARIANT, DISEASE_OR_PHENOTYPIC_FEATURE, PUBLICATIONS
 from Common.prefixes import DBSNP, EFO, ORPHANET, HP, NCIT, MONDO, GO
@@ -31,10 +31,11 @@ class DATACOLS(enum.IntEnum):
 # Class: GWASCatalog Loader
 #
 ##############
-class GWASCatalogLoader(SourceDataWithVariantsLoader):
+class GWASCatalogLoader(SourceDataLoader):
 
     source_id = 'GWASCatalog'
     provenance_id = 'infores:gwas-catalog'
+    has_sequence_variants = True
 
     def __init__(self, test_mode: bool = False, source_data_dir: str = None):
         """
