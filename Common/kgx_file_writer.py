@@ -63,12 +63,15 @@ class KGXFileWriter:
             self.edges_output_file_handler.close()
             self.edges_output_file_handler = None
 
-    def write_node(self, node_id: str, node_name: str, node_types: list, node_properties: dict = None, uniquify: bool = True):
+    def write_node(self, node_id: str, node_name: str = "", node_types: list = None, node_properties: dict = None, uniquify: bool = True):
         if uniquify:
             if node_id in self.written_nodes:
                 self.repeat_node_count += 1
                 return
             self.written_nodes.add(node_id)
+
+        if node_types is None:
+            node_types = []
 
         node_object = {'id': node_id, 'name': node_name, 'category': node_types}
         if node_properties:
