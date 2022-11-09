@@ -3,11 +3,12 @@ import argparse
 import pyoxigraph
 
 from collections import defaultdict
-from zipfile import ZipFile
+from gzip import GzipFile
 from Common.utils import GetData
 from Common.loader_interface import SourceDataLoader
 from Common.kgxmodel import kgxnode, kgxedge
 from Common.prefixes import HGNC
+
 
 #This cutoff defines which MONDO classes will be turned into properties.  To find it, I used yasgui to run
 # the following query on ubergraph:
@@ -44,9 +45,9 @@ class MPLoader(SourceDataLoader):
         super().__init__(test_mode=test_mode, source_data_dir=source_data_dir)
 
         # set global variables
-        self.data_url: str = 'https://stars.renci.org/var/data_services/'
-        self.data_file: str = 'properties-redundant.zip'
-        self.source_db: str = 'properties-redundant.ttl'
+        self.data_url: str = 'https://ubergraph.apps.renci.org/downloads/current/'
+        self.data_file: str = 'ubergraph.nq.gz'
+        self.source_db: str = 'ubergraph'
         self.subclass_predicate = 'biolink:subclass_of'
 
     def get_latest_source_version(self) -> str:
@@ -70,6 +71,7 @@ class MPLoader(SourceDataLoader):
 
         byte_count: int = gd.pull_via_http(f'{self.data_url}{self.data_file}',
                                            self.data_path, False)
+
         if byte_count > 0:
             return True
         else:
@@ -101,51 +103,53 @@ class MPLoader(SourceDataLoader):
         mondo_superclasses: dict = defaultdict( list )
 
         archive_file_path = os.path.join(self.data_path, f'{self.data_file}')
-        with ZipFile(archive_file_path) as zf:
-            with zf.open(self.data_file.replace('.zip', '.ttl')) as ttl_file:
+        with GzipFile(archive_file_path) as nq_file:
 
-                # Loop through the triples
-                # We're only intereseted in MONDO ids
-                # For any mondo ID with a low Information Content, we want to make it a property
-                # So we need to find those, and find their names, and find what other MONDOs are subclasses of that thing.
-                # Then we can add those as properties to the subclasses and write everything out.
-                for ttl_triple in pyoxigraph.parse(ttl_file, mime_type='text/turtle'):
+            # Loop through the triples
+            # We're only intereseted in MONDO ids
+            # For any mondo ID with a low Information Content, we want to make it a property
+            # So we need to find those, and find their names, and find what other MONDOs are subclasses of that thing.
+            # Then we can add those as properties to the subclasses and write everything out.
+            for ttl_triple in pyoxigraph.parse(nq_file, mime_type='application/n-quads'):
 
-                    record_counter += 1
+                record_counter += 1
 
-                    if self.test_mode and record_counter == 2000:
-                        break
+                if self.test_mode and record_counter == 2000:
+                    break
 
-                    subject_curie = convert_iri_to_curie(ttl_triple.subject.value)
-                    if not subject_curie.startswith('MONDO'):
-                        skipped_non_mondo += 1
-                        continue
+                subject_curie = convert_iri_to_curie(ttl_triple.subject.value)
+                if (subject_curie is None) or (not subject_curie.startswith('MONDO')):
+                    skipped_non_mondo += 1
+                    continue
 
-                    if 'normalizedInformationContent' in ttl_triple.predicate:
-                        ic = ttl_triple.object.value
-                        if ic < IC_CUTOFF:
-                            property_mondos.add(subject_curie)
+                if 'normalizedInformationContent' in ttl_triple.predicate.value:
+                    ic = float(ttl_triple.object.value)
+                    if ic < IC_CUTOFF:
+                        property_mondos.add(subject_curie)
 
-                    elif 'label' in ttl_triple.predicate:
-                        label = ttl_triple.object.value
-                        mondo_labels[subject_curie] = label
+                elif 'label' in ttl_triple.predicate.value:
+                    label = ttl_triple.object.value
+                    mondo_labels[subject_curie] = label
 
-                    elif 'subClassOf' not in ttl_triple.predicate.value :
-                        skipped_non_subclass_record_counter += 1
-                        continue
+                elif 'subClassOf' not in ttl_triple.predicate.value :
+                    skipped_non_subclass_record_counter += 1
+                    continue
 
-                    object_curie = convert_iri_to_curie(ttl_triple.object.value)
-                    if not object_curie.startswith('MONDO'):
-                        skipped_non_mondo += 1
-                        continue
+                object_curie = convert_iri_to_curie(ttl_triple.object.value)
+                if (object_curie is None) or (not object_curie.startswith('MONDO')):
+                    skipped_non_mondo += 1
+                    continue
 
-                    #We want superclasses, so
-                    mondo_superclasses[object_curie].append(subject_curie)
+                #We want superclasses, so
+                mondo_superclasses[object_curie].append(subject_curie)
 
         nodes = []
         #Having now collected our properties and superclasses, we want to write nodes.
         for mondo_curie, scs in mondo_superclasses.items():
-            props = { f"MONDO_SUPERCLASS:{'_'.join(mondo_labels[sc_mc].split())}":True for sc_mc in scs}
+            props = {}
+            for sc_mc in scs:
+                if sc_mc in mondo_labels:
+                    props[f"MONDO_SUPERCLASS:{'_'.join(mondo_labels[sc_mc].split())}"] = True
             node = kgxnode(mondo_curie,nodeprops=props)
             nodes.append(node)
 
