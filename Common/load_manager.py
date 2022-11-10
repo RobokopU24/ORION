@@ -35,6 +35,7 @@ from parsers.OntologicalHierarchy.src.loadOH import OHLoader
 from parsers.GenomeAlliance.src.loadGenomeAlliance import GenomeAllianceOrthologLoader
 from parsers.STRING.src.loadSTRINGDB import STRINGDBLoader
 from parsers.chebi.src.loadChebiProperties import ChebiPropertiesLoader
+from parsers.MONDOProperties.src.loadMP import MPLoader
 
 GWAS_CATALOG = 'GWASCatalog'
 CTD = 'CTD'
@@ -62,6 +63,7 @@ YEAST_NUCLEOSOMES = 'YeastNucleosomes'
 GENOME_ALLIANCE_ORTHOLOGS = 'GenomeAllianceOrthologs'
 STRING_DB = 'STRING-DB'
 CHEBI_PROPERTIES = 'ChebiProperties'
+MONDO_PROPS = 'MONDOProps'
 # FOODB = 'FooDB' # this is on hold, data needs review after latest release of data.
 
 
@@ -91,7 +93,8 @@ SOURCE_DATA_LOADER_CLASSES = {
     YEAST_NUCLEOSOMES: YeastNucleosomeLoader,
     GENOME_ALLIANCE_ORTHOLOGS: GenomeAllianceOrthologLoader,
     STRING_DB: STRINGDBLoader,
-    CHEBI_PROPERTIES: ChebiPropertiesLoader
+    CHEBI_PROPERTIES: ChebiPropertiesLoader,
+    MONDO_PROPS: MPLoader
 
     # items to go
     # textminingkp
