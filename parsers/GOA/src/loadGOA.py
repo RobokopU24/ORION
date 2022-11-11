@@ -8,7 +8,7 @@ from Common.loader_interface import SourceDataLoader
 from Common.extractor import Extractor
 from io import TextIOWrapper
 from Common.utils import LoggingUtil, GetData
-from Common.node_types import PRIMARY_KNOWLEDGE_SOURCE
+from Common.node_types import PRIMARY_KNOWLEDGE_SOURCE, PUBLICATIONS
 
 
 # the data header columns are:
@@ -42,6 +42,7 @@ class DATACOLS(enum.IntEnum):
 class GOALoader(SourceDataLoader):
 
     provenance_id = 'infores:goa'
+    parsing_version = '1.1'
 
     def __init__(self, test_mode: bool = False, source_data_dir: str = None):
         """
@@ -124,7 +125,7 @@ class GOALoader(SourceDataLoader):
                                   lambda line: get_goa_predicate(line),  # predicate extractor
                                   lambda line: {},  # subject props
                                   lambda line: {},  # object props
-                                  lambda line: {PRIMARY_KNOWLEDGE_SOURCE: self.provenance_id},  # edge props
+                                  lambda line: get_goa_edge_properties(line),  # edge props
                                   filter_set=taxon_filter_set,
                                   filter_field=taxon_filter_field,
                                   comment_character="!", delim='\t')
@@ -156,6 +157,17 @@ def get_goa_predicate(line: list):
     else:
         return goa_predicates[supplied_qualifier]
 
+
+def get_goa_edge_properties(line: list):
+    edge_properties = {PRIMARY_KNOWLEDGE_SOURCE: GOALoader.provenance_id}
+    publications = []
+    evidence_field = line[DATACOLS.DB_Reference.value]
+    for evidence in evidence_field.split('|'):
+        if 'PMID' in evidence:
+            publications.append(evidence)
+    if publications:
+        edge_properties[PUBLICATIONS] = publications
+    return edge_properties
 
 class HumanGOALoader(GOALoader):
 
