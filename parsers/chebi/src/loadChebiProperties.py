@@ -15,10 +15,10 @@ RELATION_FINAL_ID_COLUMN = 3
 COMPOUNDS_CHEBI_ID_COLUMN = 2
 COMPOUNDS_CHEBI_NAME_COLUMN = 5
 
-CHEBI_ROLES_TO_IGNORE = ['CHEBI_ROLE:role',
-                         'CHEBI_ROLE:biological_role',
-                         'CHEBI_ROLE:chemical_role',
-                         'CHEBI_ROLE:application']
+CHEBI_ROLES_TO_IGNORE = ["CHEBI:50906",  # role
+                         "CHEBI:24432",  # biological role
+                         "CHEBI:51086",  # chemical role
+                         "CHEBI:33232"]  # application
 
 ##############
 # Class: Chebi-Properties loader
@@ -32,7 +32,7 @@ class ChebiPropertiesLoader(SourceDataLoader):
     # Setting the class level variables for the source ID and provenance
     source_id: str = 'ChebiProperties'
     provenance_id: str = 'infores:chebi-properties'
-    parsing_version = '1.0'
+    parsing_version = '1.1'
     preserve_unconnected_nodes = True
 
     def __init__(self, test_mode: bool = False, source_data_dir: str = None):
@@ -109,8 +109,11 @@ class ChebiPropertiesLoader(SourceDataLoader):
             if self.test_mode and record_counter == 2000:
                 break
 
-            # convert the roles to properly formatted property names and filter out the ones in CHEBI_ROLES_TO_IGNORE
-            role_properties = [self.fixname(names[x]) for x in chebi_roles[chebi_id] if x not in CHEBI_ROLES_TO_IGNORE]
+            # remove roles we don't want in graphs
+            filtered_chebi_roles = [role for role in chebi_roles[chebi_id] if role not in CHEBI_ROLES_TO_IGNORE]
+
+            # convert the roles to properly formatted property names
+            role_properties = [self.fixname(names[x]) for x in filtered_chebi_roles]
 
             # only include nodes that have roles
             if not role_properties:
@@ -118,7 +121,6 @@ class ChebiPropertiesLoader(SourceDataLoader):
             else:
                 # create a node with the properties
                 node_properties = {role: True for role in role_properties}
-                # node_properties['restroles'] = chebi_roles[chebi_id] - leaving in case we wanted this
                 output_node = kgxnode(chebi_id,
                                       name=names[chebi_id],
                                       nodeprops=node_properties)
@@ -134,7 +136,10 @@ class ChebiPropertiesLoader(SourceDataLoader):
         return load_metadata
 
     def fixname(self, n):
-        return f'CHEBI_ROLE:{"_".join(n.split())}'
+        formatted_name = f'CHEBI_ROLE_{"_".join(n.split())}'
+        formatted_name = formatted_name.replace("(", "_").replace(")", "_").\
+            replace(".*", "").replace("-", "_").replace("__", "_").replace("__", "_")
+        return formatted_name
 
     def update_ancestors(self, ancestors, parent, is_a_relationships):
         kids = is_a_relationships[parent]
@@ -159,7 +164,8 @@ class ChebiPropertiesLoader(SourceDataLoader):
             for line in inf:
                 x = line.strip().split('\t')
                 if x[RELATION_TYPE_COLUMN] == 'has_role':
-                    roles[f'{CHEBI}:{x[RELATION_FINAL_ID_COLUMN]}'].add(f'{CHEBI}:{x[RELATION_INIT_ID_COLUMN]}')
+                    role_id = str(x[RELATION_INIT_ID_COLUMN])
+                    roles[f'{CHEBI}:{x[RELATION_FINAL_ID_COLUMN]}'].add(f'{CHEBI}:{role_id}')
                 elif x[RELATION_TYPE_COLUMN] == 'is_a':
                     child = f'{CHEBI}:{x[RELATION_FINAL_ID_COLUMN]}'
                     parent = f'{CHEBI}:{x[RELATION_INIT_ID_COLUMN]}'
@@ -167,8 +173,6 @@ class ChebiPropertiesLoader(SourceDataLoader):
         # Now include parents
         ancestors = self.get_ancestors(is_a_relationships)
         for node, noderoles in roles.items():
-            # if node == 'CHEBI:64663':
-            #    print('hi checking CHEBI:64663 ')
             ancestor_roles = []
             for role in noderoles:
                 ancestor_roles += ancestors[role]
