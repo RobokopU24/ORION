@@ -70,6 +70,26 @@ spec:
             - name: EDGE_NORMALIZATION_ENDPOINT
               value: {{ .Values.dataServices.normalization.edgeNormEndpoint }}
             {{- end }}
+            - name: DRUGCENTRAL_DB_HOST
+              value: {{ .Values.drugcentral.host | quote }}
+            - name: DRUGCENTRAL_DB_USER
+              value: {{ .Values.drugcentral.user | quote }}
+            - name: DRUGCENTRAL_DB_PASSWORD
+              value: {{ .Values.drugcentral.password | quote}}
+            - name: DRUGCENTRAL_DB_PORT
+              value: {{ .Values.drugcentral.port | quote }}
+            - name: DRUGCENTRAL_DB_NAME
+              value: {{ .Values.drugcentral.db_name | quote }}
+            - name: PHAROS_DB_HOST
+              value: {{ .Values.pharos.host | quote }}
+            - name: PHAROS_DB_USER
+              value: {{ .Values.pharos.user | quote }}
+            - name: PHAROS_DB_PASSWORD
+              value: {{ .Values.pharos.password | quote }}
+            - name: PHAROS_DB_PORT
+              value: {{ .Values.pharos.port | quote }}
+            - name: PHAROS_DB_NAME
+              value: {{ .Values.pharos.db_name | quote }}
           resources:
             {{- toYaml .Values.dataServices.resources | nindent 12 }}
       {{- if .Values.dataServices.buildMode }}

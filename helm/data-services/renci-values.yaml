@@ -3,11 +3,11 @@
 replicaCount: 1
 
 dataServices:
-  graphID: "HGNC_Automat"
-  graphSpec: "default-graph-spec.yml"
+  graphID: "all"
+  graphSpec: 'https://stars.renci.org/var/data_services/default-graph-spec.yml'
   # useLocalGraphSpec true if the graphSpec is a file in the codebase (mainly for testing), false if a remote URL
-  useLocalGraphSpec: true
-  buildMode: true
+  useLocalGraphSpec: false
+  buildMode: false
   image:
     repository: evandietzmorris/data_services
     pullPolicy: Always
@@ -22,12 +22,17 @@ dataServices:
     nfs_server: na-projects.edc.renci.org
     nfs_path: /stars/Data_services
     nfs_mount_subpath: biolink3/storage/
+  extraVolume:
+    use_extra_volume: true
+    nfs_server: na-projects.edc.renci.org
+    nfs_path: /stars/Data_services
+    nfs_mount_subpath: sterling/
   neo4jScratchVolume:
     size: 80Gi
   resources:
     limits:
       cpu: "2"
-      memory: 38Gi
+      memory: 40Gi
       ephemeral-storage: 2Gi
     requests:
       cpu: "2"
@@ -40,19 +45,20 @@ dataServices:
     runAsUser: 30000
     runAsGroup: 1000
   normalization:
-    nodeNormEndpoint: 
-    edgeNormEndpoint:
+    nodeNormEndpoint: https://nodenormalization-sri.renci.org/
+    edgeNormEndpoint: https://bl-lookup-sri.renci.org/
 
 pharos:
-  pharos_host:
-  pharos_port:
-  pharos_user:
-  pharos_password:
-  pharos_db_name:
+  host: pod-host-or-ip
+  port: 3306
+  user: ds-user
+  password: ds-pass
+  db_name: PHAROS
 
 drugcentral:
-  drugcentral_host:
-  drugcentral_port:
-  drugcentral_user:
-  drugcentral_password:
-  drugcentral_db_name:
+  host: pod-host-or-ip
+  port: 5432
+  user: dc-user
+  password: dc-pass
+  db_name: drugcentral
+

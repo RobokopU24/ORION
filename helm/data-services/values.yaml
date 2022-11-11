@@ -51,16 +51,16 @@ dataServices:
     edgeNormEndpoint:
 
 pharos:
-  pharos_host:
-  pharos_port:
-  pharos_user:
-  pharos_password:
-  pharos_db_name:
+  host:
+  port:
+  user:
+  password:
+  db_name:
 
 drugcentral:
-  drugcentral_host:
-  drugcentral_port:
-  drugcentral_user:
-  drugcentral_password:
-  drugcentral_db_name:
+  host:
+  port:
+  user:
+  password:
+  db_name:
 
