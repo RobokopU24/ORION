@@ -1,4 +1,4 @@
-import mysql
+import mysql.connector
 import psycopg2
 
 # right now we don't maintain a mysql db connection across multiple queries, a new one is established per query
