@@ -140,14 +140,19 @@ class MPLoader(SourceDataLoader):
                 mondo_superclasses[object_curie].append(subject_curie)
 
         nodes = []
+        unique_properties = set()
         #Having now collected our properties and superclasses, we want to write nodes.
         for mondo_curie, scs in mondo_superclasses.items():
             props = {}
             for sc_mc in scs:
-                if sc_mc in mondo_labels:
-                    props[f"MONDO_SUPERCLASS:{'_'.join(mondo_labels[sc_mc].split())}"] = True
+                if sc_mc in mondo_labels and sc_mc in property_mondos:
+                    property_name = f"MONDO_SUPERCLASS_{'_'.join(mondo_labels[sc_mc].split())}"
+                    unique_properties.add(property_name)
+                    props[property_name] = True
             node = kgxnode(mondo_curie,nodeprops=props)
             nodes.append(node)
+
+        print(f'Added {len(unique_properties)} unique properties to nodes.')
 
         # load up the metadata
         load_metadata: dict = {
