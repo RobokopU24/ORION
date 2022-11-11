@@ -1,12 +1,12 @@
 import os
 import argparse
-import io
 import pyoxigraph
 import tarfile
 
-from Common.prefixes import HGNC, NCBIGENE
+from io import TextIOWrapper
 from Common.utils import GetData
-from Common.loader_interface import SourceDataLoader, SourceDataBrokenError
+from Common.loader_interface import SourceDataLoader, SourceDataBrokenError, SourceDataFailedError
+from parsers.UberGraph.src.ubergraph import UberGraphTools
 
 
 ##############
@@ -32,11 +32,13 @@ class UGLoader(SourceDataLoader):
         # this is the name of the archive file the source files will come from
         self.data_file = 'nonredundant-graph-table.tgz'
         self.data_url: str = 'https://ubergraph.apps.renci.org/downloads/current/'
+        self.nonredundant_graph_path = 'nonredundant-graph-table'
 
     def get_latest_source_version(self):
         """
         gets the version of the data
 
+        this is a terrible way to grab the latest version but it works until we get Jim to make it easier
         :return:
         """
         latest_source_version = None
@@ -48,12 +50,12 @@ class UGLoader(SourceDataLoader):
         with tarfile.open(tar_path, 'r') as tar_files:
             with tar_files.extractfile('nonredundant-graph-table/build-metadata.nt') as metadata_file:
                 for metadata_triple in pyoxigraph.parse(metadata_file, mime_type='application/n-triples'):
-                    print(metadata_triple.predicate.value)
                     if metadata_triple.predicate.value == 'http://purl.org/dc/terms/created':
                         latest_source_version = metadata_triple.object.value.split("T")[0]
         os.remove(tar_path)
         if latest_source_version is None:
-            raise SourceDataBrokenError('Metadata file not found for UberGraph. Latest source version unavailable.')
+            raise SourceDataBrokenError('Metadata file or value not found for UberGraph. '
+                                        'Latest source version unavailable.')
         else:
             return latest_source_version
 
@@ -73,79 +75,38 @@ class UGLoader(SourceDataLoader):
         Parses the data file for graph nodes/edges
         """
 
-        def convert_node_iri_to_curie(iri):
-            id_portion = iri.rsplit('/')[-1]
-            id_portion.replace('#_', ':')
-            id_portion.replace('_', ':')
-
-            # HGNC must be handled differently that the others
-            if 'hgnc' in iri:
-                return f"{HGNC}:{id_portion}"
-
-            # HGNC must be handled differently that the others
-            if 'ncbigene' in iri:
-                return f"{NCBIGENE}:{id_portion}"
-
-            if id_portion.islower():
-                print(id_portion)
-                return None
-
-            return id_portion
-
-        predicate_prefix_conversion = {
-            'rdf-schema': 'rdfs',
-            'core': 'UBERON_CORE',
-            'so': 'FMA'
-        }
-
-        def convert_edge_iri_to_curie(iri):
-            id_portion = iri.rsplit('/')[-1]
-            if '#' in id_portion:
-                prefix, predicate = tuple(id_portion.split('#'))
-            elif '_' in id_portion:
-                prefix, predicate = tuple(id_portion.split('_', 1))
-            if prefix in predicate_prefix_conversion:
-                prefix = predicate_prefix_conversion[prefix]
-            else:
-                prefix = prefix.upper()
-            return f'{prefix}:{predicate}'
-
         # init the record counters
         record_counter: int = 0
         skipped_record_counter: int = 0
 
-        tar_path = os.path.join(self.data_path, self.data_file)
-        with tarfile.open(tar_path, 'r') as tar_files:
+        ubergraph_archive_path = os.path.join(self.data_path, self.data_file)
+        ubergraph_tools = UberGraphTools(ubergraph_archive_path,
+                                         graph_base_path=self.nonredundant_graph_path)
 
-            node_curies = {}
-            with tar_files.extractfile('nonredundant-graph-table/node-labels.tsv') as node_labels_file:
-                for line in io.TextIOWrapper(node_labels_file):
-                    node_id, node_iri = tuple(line.rstrip().split('\t'))
-                    node_curies[node_id] = convert_node_iri_to_curie(node_iri)
+        with tarfile.open(ubergraph_archive_path, 'r') as tar_files:
 
-            edge_curies = {}
-            with tar_files.extractfile('nonredundant-graph-table/edge-labels.tsv') as edge_labels_file:
-                for line in io.TextIOWrapper(edge_labels_file):
-                    edge_id, edge_iri = tuple(line.rstrip().split('\t'))
-                    edge_curies[edge_id] = convert_edge_iri_to_curie(edge_iri)
-
-            with tar_files.extractfile('nonredundant-graph-table/edges.tsv') as edges_file:
-                for line in io.TextIOWrapper(edges_file):
+            self.logger.info(f'Parsing Ubergraph..')
+            with tar_files.extractfile(f'{self.nonredundant_graph_path}/edges.tsv') as edges_file:
+                for line in TextIOWrapper(edges_file):
                     record_counter += 1
 
-                    if self.test_mode and record_counter == 2000:
+                    if self.test_mode and record_counter == 5000:
                         break
 
                     subject_id, predicate_id, object_id = tuple(line.rstrip().split('\t'))
-                    subject_curie = node_curies[subject_id]
-                    object_curie = node_curies[object_id]
-                    predicate_curie = edge_curies[predicate_id]
-                    self.output_file_writer.write_node(node_id=subject_curie)
-                    self.output_file_writer.write_node(node_id=object_curie)
-                    self.output_file_writer.write_edge(subject_id=subject_curie,
-                                                       object_id=object_curie,
-                                                       predicate=predicate_curie,
-                                                       primary_knowledge_source=self.provenance_id)
+                    subject_curie = ubergraph_tools.get_curie_for_node_id(subject_id)
+                    object_curie = ubergraph_tools.get_curie_for_node_id(object_id)
+                    predicate_curie = ubergraph_tools.get_curie_for_edge_id(predicate_id)
+
+                    if subject_curie and object_curie and predicate_curie:
+                        self.output_file_writer.write_node(node_id=subject_curie)
+                        self.output_file_writer.write_node(node_id=object_curie)
+                        self.output_file_writer.write_edge(subject_id=subject_curie,
+                                                           object_id=object_curie,
+                                                           predicate=predicate_curie,
+                                                           primary_knowledge_source=self.provenance_id)
+                    else:
+                        skipped_record_counter += 1
 
         # load up the metadata
         load_metadata: dict = {

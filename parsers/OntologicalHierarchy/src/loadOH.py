@@ -1,12 +1,13 @@
 import os
 import argparse
 import pyoxigraph
+import tarfile
+from io import TextIOWrapper
 
-from zipfile import ZipFile
 from Common.utils import GetData
-from Common.loader_interface import SourceDataLoader
+from Common.loader_interface import SourceDataLoader, SourceDataBrokenError
 from Common.kgxmodel import kgxnode, kgxedge
-from Common.prefixes import HGNC
+from parsers.UberGraph.src.ubergraph import UberGraphTools
 
 
 ##############
@@ -20,7 +21,7 @@ class OHLoader(SourceDataLoader):
 
     source_id: str = 'OntologicalHierarchy'
     provenance_id: str = 'infores:ontological-hierarchy'
-    parsing_version: str = '1.1'
+    parsing_version: str = '1.2'
 
     def __init__(self, test_mode: bool = False, source_data_dir: str = None):
         """
@@ -30,21 +31,35 @@ class OHLoader(SourceDataLoader):
         super().__init__(test_mode=test_mode, source_data_dir=source_data_dir)
 
         # set global variables
-        self.data_url: str = 'https://stars.renci.org/var/data_services/'
-        self.data_file: str = 'properties-redundant.zip'
-        self.source_db: str = 'properties-redundant.ttl'
-        self.subclass_predicate = 'biolink:subclass_of'
+        self.data_file = 'redundant-graph-table.tgz'
+        self.data_url: str = 'https://ubergraph.apps.renci.org/downloads/current/'
+        self.redundant_graph_path = 'redundant-graph-table'
+        self.subclass_predicate = 'rdfs:subClassOf'
 
     def get_latest_source_version(self) -> str:
         """
         gets the latest available version of the data
 
+        this is a terrible way to grab the latest version but it works until we get Jim to make it easier
         :return:
         """
-        file_url = f'{self.data_url}{self.data_file}'
+        latest_source_version = None
+        metadata_archive_url = f'{self.data_url}nonredundant-graph-table.tgz'
         gd = GetData(self.logger.level)
-        latest_source_version = gd.get_http_file_modified_date(file_url)
-        return latest_source_version
+        gd.pull_via_http(metadata_archive_url,
+                         self.data_path)
+        tar_path = os.path.join(self.data_path, 'nonredundant-graph-table.tgz')
+        with tarfile.open(tar_path, 'r') as tar_files:
+            with tar_files.extractfile('nonredundant-graph-table/build-metadata.nt') as metadata_file:
+                for metadata_triple in pyoxigraph.parse(metadata_file, mime_type='application/n-triples'):
+                    if metadata_triple.predicate.value == 'http://purl.org/dc/terms/created':
+                        latest_source_version = metadata_triple.object.value.split("T")[0]
+        os.remove(tar_path)
+        if latest_source_version is None:
+            raise SourceDataBrokenError('Metadata file or value not found for UberGraph. '
+                                        'Latest source version unavailable.')
+        else:
+            return latest_source_version
 
     def get_data(self) -> int:
         """
@@ -66,53 +81,39 @@ class OHLoader(SourceDataLoader):
         Parses the data file for graph nodes/edges
         """
 
-        def convert_iri_to_curie(iri):
-            id_portion = iri.rsplit('/')[-1].rsplit('#')[-1]
-            # HGNC must be handled differently that the others
-            if iri.find('hgnc') > 0:
-                return f"{HGNC}:" + id_portion
-            # if string is all lower it is not a curie
-            elif not id_portion.islower():
-                # replace the underscores to create a curie
-                return id_portion.replace('_', ':')
-            return None
-
         # init the record counters
         record_counter: int = 0
         skipped_record_counter: int = 0
         skipped_non_subclass_record_counter: int = 0
 
-        archive_file_path = os.path.join(self.data_path, f'{self.data_file}')
-        with ZipFile(archive_file_path) as zf:
-            # open the hmdb xml file
-            with zf.open(self.data_file.replace('.zip', '.ttl')) as ttl_file:
+        ubergraph_archive_path = os.path.join(self.data_path, self.data_file)
+        ubergraph_tools = UberGraphTools(ubergraph_archive_path,
+                                         graph_base_path=self.redundant_graph_path)
+        with tarfile.open(ubergraph_archive_path, 'r') as tar_files:
 
-                # for every triple in the input data
-                for ttl_triple in pyoxigraph.parse(ttl_file, mime_type='text/turtle'):
-
-                    # increment the record counter
+            self.logger.info(f'Parsing Ubergraph for Ontological Hierarchy..')
+            with tar_files.extractfile(f'{self.redundant_graph_path}/edges.tsv') as edges_file:
+                for line in TextIOWrapper(edges_file):
                     record_counter += 1
-
-                    if self.test_mode and record_counter == 2000:
+                    if (self.test_mode and
+                            (record_counter - skipped_non_subclass_record_counter - skipped_record_counter == 5000)):
                         break
 
-                    # Filter only subclass edges
-                    if 'subClassOf' not in ttl_triple.predicate.value:
+                    subject_id, predicate_id, object_id = tuple(line.rstrip().split('\t'))
+                    predicate_curie = ubergraph_tools.get_curie_for_edge_id(predicate_id)
+                    if not predicate_curie or 'subClassOf' not in predicate_curie:
                         skipped_non_subclass_record_counter += 1
                         continue
 
-                    subject_curie = convert_iri_to_curie(ttl_triple.subject.value)
-                    object_curie = convert_iri_to_curie(ttl_triple.object.value)
-
-                    # make sure we have all 3 entries
+                    subject_curie = ubergraph_tools.get_curie_for_node_id(subject_id)
+                    object_curie = ubergraph_tools.get_curie_for_node_id(object_id)
                     if subject_curie and object_curie:
-                        # create the nodes and edges
-                        self.output_file_writer.write_kgx_node(kgxnode(subject_curie))
-                        self.output_file_writer.write_kgx_node(kgxnode(object_curie))
-                        self.output_file_writer.write_kgx_edge(kgxedge(subject_id=subject_curie,
-                                                                       object_id=object_curie,
-                                                                       predicate=self.subclass_predicate,
-                                                                       primary_knowledge_source=self.provenance_id))
+                        self.output_file_writer.write_node(node_id=subject_curie)
+                        self.output_file_writer.write_node(node_id=object_curie)
+                        self.output_file_writer.write_edge(subject_id=subject_curie,
+                                                           object_id=object_curie,
+                                                           predicate=predicate_curie,
+                                                           primary_knowledge_source=self.provenance_id)
                     else:
                         skipped_record_counter += 1
 
