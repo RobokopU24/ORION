@@ -33,6 +33,13 @@ spec:
               {{- if .Values.dataServices.graphsVolume.nfs_mount_subpath }}
               subPath: {{ .Values.dataServices.graphsVolume.nfs_mount_subpath }}
               {{- end }}
+            {{- if .Values.dataServices.extraVolume.use_extra_volume }}
+            - name: ds-extra-volume
+              mountPath: /Data_services_extra
+              {{- if .Values.dataServices.extraVolume.nfs_mount_subpath }}
+              subPath: {{ .Values.dataServices.extraVolume.nfs_mount_subpath }}
+              {{- end }}
+            {{- end }}
             - mountPath: /data
               name: ds-neo4j-scratch-volume
           env:
@@ -138,6 +145,12 @@ spec:
         - name: ds-graphs-volume
           persistentVolumeClaim:
             claimName: ds-graphs-pvc
+        {{- end }}
+        {{- if .Values.dataServices.extraVolume.use_extra_volume }}
+        - name: ds-extra-volume
+          nfs:
+            server: {{ .Values.dataServices.extraVolume.nfs_server }}
+            path: {{ .Values.dataServices.extraVolume.nfs_path }}
         {{- end }}
         - name: ds-neo4j-scratch-volume
           ephemeral:

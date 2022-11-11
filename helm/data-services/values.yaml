@@ -24,6 +24,11 @@ dataServices:
     nfs_path:
     nfs_mount_subpath:
     size: 32Gi # if use_nfs is set to true size is ignored
+  extraVolume:
+    use_extra_volume:
+    nfs_server:
+    nfs_path:
+    nfs_mount_subpath:
   neo4jScratchVolume:
     size: 16Gi # if use_nfs is set to true size is ignored
   resources:
