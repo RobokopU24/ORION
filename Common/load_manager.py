@@ -62,7 +62,7 @@ YEASTHISTONEANDEXPRESSION = 'YeastHistoneAndExpression'
 YEAST_NUCLEOSOMES = 'YeastNucleosomes'
 GENOME_ALLIANCE_ORTHOLOGS = 'GenomeAllianceOrthologs'
 STRING_DB = 'STRING-DB'
-CHEBI_PROPERTIES = 'ChebiProperties'
+CHEBI_PROPERTIES = 'CHEBIProps'
 MONDO_PROPS = 'MONDOProps'
 # FOODB = 'FooDB' # this is on hold, data needs review after latest release of data.
 
