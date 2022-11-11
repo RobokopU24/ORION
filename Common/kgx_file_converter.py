@@ -28,7 +28,7 @@ def convert_jsonl_to_neo4j_csv(nodes_input_file: str,
                      properties=node_properties,
                      output_delimiter=output_delimiter,
                      array_delimiter=array_delimiter)
-    __verify_conversion(nodes_output_file, node_properties, array_delimiter, output_delimiter)
+    # __verify_conversion(nodes_output_file, node_properties, array_delimiter, output_delimiter)
 
     required_edge_properties = {
         SUBJECT_ID: 'START_ID',
@@ -41,7 +41,7 @@ def convert_jsonl_to_neo4j_csv(nodes_input_file: str,
                      properties=edge_properties,
                      output_delimiter=output_delimiter,
                      array_delimiter=array_delimiter)
-    __verify_conversion(edges_output_file, edge_properties, array_delimiter, output_delimiter)
+    # __verify_conversion(edges_output_file, edge_properties, array_delimiter, output_delimiter)
 
 
 def __verify_conversion(file_path: str,
