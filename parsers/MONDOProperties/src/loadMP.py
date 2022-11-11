@@ -6,8 +6,7 @@ from collections import defaultdict
 from gzip import GzipFile
 from Common.utils import GetData
 from Common.loader_interface import SourceDataLoader
-from Common.kgxmodel import kgxnode, kgxedge
-from Common.prefixes import HGNC
+from Common.kgxmodel import kgxnode
 
 
 #This cutoff defines which MONDO classes will be turned into properties.  To find it, I used yasgui to run
@@ -36,6 +35,9 @@ IC_CUTOFF=70.0
 class MPLoader(SourceDataLoader):
 
     source_id: str = 'MONDOProperties'
+    provenance_id = None  # provenance doesn't apply to nodes/properties as of now, just a placeholder here
+    parsing_version: str = '1.0'
+    preserve_unconnected_nodes = True
 
     def __init__(self, test_mode: bool = False, source_data_dir: str = None):
         """
@@ -47,8 +49,6 @@ class MPLoader(SourceDataLoader):
         # set global variables
         self.data_url: str = 'https://ubergraph.apps.renci.org/downloads/current/'
         self.data_file: str = 'ubergraph.nq.gz'
-        self.source_db: str = 'ubergraph'
-        self.subclass_predicate = 'biolink:subclass_of'
 
     def get_latest_source_version(self) -> str:
         """
@@ -82,14 +82,10 @@ class MPLoader(SourceDataLoader):
         Parses the data file for graph nodes/edges
         """
 
-        def convert_iri_to_curie(iri):
-            id_portion = iri.rsplit('/')[-1].rsplit('#')[-1]
-            # HGNC must be handled differently that the others
-            if iri.find('hgnc') > 0:
-                return f"{HGNC}:" + id_portion
-            # if string is all lower it is not a curie
-            elif not id_portion.islower():
-                # replace the underscores to create a curie
+        # TODO we might want to use a real iri prefix mapping, but for this simple case this should work
+        def convert_iri_to_mondo_curie(iri):
+            if 'MONDO' in iri:
+                id_portion = iri.rsplit('/')[-1]
                 return id_portion.replace('_', ':')
             return None
 
@@ -117,8 +113,8 @@ class MPLoader(SourceDataLoader):
                 if self.test_mode and record_counter == 2000:
                     break
 
-                subject_curie = convert_iri_to_curie(ttl_triple.subject.value)
-                if (subject_curie is None) or (not subject_curie.startswith('MONDO')):
+                subject_curie = convert_iri_to_mondo_curie(ttl_triple.subject.value)
+                if subject_curie is None:
                     skipped_non_mondo += 1
                     continue
 
@@ -131,12 +127,12 @@ class MPLoader(SourceDataLoader):
                     label = ttl_triple.object.value
                     mondo_labels[subject_curie] = label
 
-                elif 'subClassOf' not in ttl_triple.predicate.value :
+                elif 'subClassOf' not in ttl_triple.predicate.value:
                     skipped_non_subclass_record_counter += 1
                     continue
 
-                object_curie = convert_iri_to_curie(ttl_triple.object.value)
-                if (object_curie is None) or (not object_curie.startswith('MONDO')):
+                object_curie = convert_iri_to_mondo_curie(ttl_triple.object.value)
+                if object_curie is None:
                     skipped_non_mondo += 1
                     continue
 
@@ -170,7 +166,7 @@ class MPLoader(SourceDataLoader):
 
 if __name__ == '__main__':
     # create a command line parser
-    ap = argparse.ArgumentParser(description='Load Ontological-Hierarchy data files and create KGX import files.')
+    ap = argparse.ArgumentParser(description='Load MONDOProps data files and create KGX import files.')
 
     ap.add_argument('-r', '--data_dir', required=True, help='The location of the Ontological-Hierarchy data file')
 
