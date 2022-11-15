@@ -5,7 +5,7 @@ graphs:
     # optional parameters to be applied to the entire graph - see README for more info
     # node_normalization_version: latest
     # edge_normalization_version: latest
-    conflation: True # (whether or not to conflate node types like Genes and Proteins)
+    conflation: True # (whether to conflate node types like Genes and Proteins)
     sources:
       - source_id: Biolink
         # optional parameters for each data source - see README for more info
@@ -16,6 +16,7 @@ graphs:
         # conflation: False
         # strict_normalization: True (whether or not data should be discarded when it can not be normalized)
         # merge_strategy: default (used to specify alternative merge strategies)
+      - source_id: CHEBIProps
       - source_id: CTD
       - source_id: DrugCentral
       - source_id: GtoPdb
@@ -24,10 +25,20 @@ graphs:
       - source_id: HMDB
       - source_id: HumanGOA
       - source_id: IntAct
+      - source_id: MONDOProps
       - source_id: OntologicalHierarchy
       - source_id: PANTHER
       - source_id: PHAROS
+      - source_id: STRING-DB
       - source_id: UberGraph
+
+  - graph_id: RobokopKG
+    conflation: True
+    subgraphs:
+      - graph_id: Baseline
+    sources:
+      - source_id: GWASCatalog
+      - source_id: GTEx
 
 #  - graph_id: Covid
 #    subgraphs:
@@ -54,9 +65,21 @@ graphs:
       - source_id: OntologicalHierarchy
         merge_strategy: connected_edge_subset
 
+  - graph_id: GTEx_Automat
+    sources:
+      - source_id: GTEx
+      - source_id: OntologicalHierarchy
+        merge_strategy: connected_edge_subset
+
   - graph_id: GtoPdb_Automat
     sources:
       - source_id: GtoPdb
+      - source_id: OntologicalHierarchy
+        merge_strategy: connected_edge_subset
+
+  - graph_id: GWASCatalog_Automat
+    sources:
+      - source_id: GWASCatalog
       - source_id: OntologicalHierarchy
         merge_strategy: connected_edge_subset
 
@@ -106,28 +129,14 @@ graphs:
       - source_id: OntologicalHierarchy
         merge_strategy: connected_edge_subset
 
+  - graph_id: STRING-DB_Automat
+    sources:
+      - source_id: STRING-DB
+      - source_id: OntologicalHierarchy
+        merge_strategy: connected_edge_subset
+
   - graph_id: UberGraph_Automat
     sources:
       - source_id: UberGraph
       - source_id: OntologicalHierarchy
         merge_strategy: connected_edge_subset
-
-  - graph_id: GTEx_Automat
-    sources:
-      - source_id: GTEx
-      - source_id: OntologicalHierarchy
-        merge_strategy: connected_edge_subset
-
-  - graph_id: GWASCatalog_Automat
-    sources:
-      - source_id: GWASCatalog
-      - source_id: OntologicalHierarchy
-        merge_strategy: connected_edge_subset
-
-  - graph_id: Genetics
-    conflation: True
-    subgraphs:
-      - graph_id: Baseline
-    sources:
-      - source_id: GWASCatalog
-      - source_id: GTEx
