@@ -31,8 +31,9 @@ class OHLoader(SourceDataLoader):
         super().__init__(test_mode=test_mode, source_data_dir=source_data_dir)
 
         # set global variables
+        self.base_url = 'https://ubergraph.apps.renci.org'
         self.data_file = 'redundant-graph-table.tgz'
-        self.data_url: str = 'https://ubergraph.apps.renci.org/downloads/current/'
+        self.data_url: str = f'{self.base_url}/downloads/current/'
         self.redundant_graph_path = 'redundant-graph-table'
         self.subclass_predicate = 'rdfs:subClassOf'
 
@@ -43,23 +44,8 @@ class OHLoader(SourceDataLoader):
         this is a terrible way to grab the latest version but it works until we get Jim to make it easier
         :return:
         """
-        latest_source_version = None
-        metadata_archive_url = f'{self.data_url}nonredundant-graph-table.tgz'
-        gd = GetData(self.logger.level)
-        gd.pull_via_http(metadata_archive_url,
-                         self.data_path)
-        tar_path = os.path.join(self.data_path, 'nonredundant-graph-table.tgz')
-        with tarfile.open(tar_path, 'r') as tar_files:
-            with tar_files.extractfile('nonredundant-graph-table/build-metadata.nt') as metadata_file:
-                for metadata_triple in pyoxigraph.parse(metadata_file, mime_type='application/n-triples'):
-                    if metadata_triple.predicate.value == 'http://purl.org/dc/terms/created':
-                        latest_source_version = metadata_triple.object.value.split("T")[0]
-        os.remove(tar_path)
-        if latest_source_version is None:
-            raise SourceDataBrokenError('Metadata file or value not found for UberGraph. '
-                                        'Latest source version unavailable.')
-        else:
-            return latest_source_version
+        latest_source_version = UberGraphTools.get_latest_source_version(ubergraph_url=self.base_url)
+        return latest_source_version
 
     def get_data(self) -> int:
         """
