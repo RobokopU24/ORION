@@ -328,7 +328,7 @@ def createLociWindows(resolution, data_directory):
     n = int(resolution) #Sets sliding window resolution.
     print(f"---------------------------------------------------\nCreating sliding window of resolution {n} of yeast genome loci...\n---------------------------------------------------\n")
 
-    data = {'hisPTMid':[],'chromosomeID':[],'start':[],'end':[],'histoneMod':[]}
+    data = {'hisPTMid':[],'chromosomeID':[],'start':[],'end':[],'loci':[],'histoneMod':[]}
 
     #Reference: https://wiki.yeastgenome.org/index.php/Systematic_Sequencing_Table
 
@@ -345,7 +345,15 @@ def createLociWindows(resolution, data_directory):
                 'H3K79me3','H3K9ac','H3S10ph','H4K12ac','H4K16ac','H4K20me','H4K5ac',
                 'H4K8ac','H4R3me','H4R3me2s','HTZ1'
             ]
-    
+    rhea_identifiers = {'H2AK5ac':None,'H2AS129ph':None,'H3K14ac':None,'H3K18ac':None,'H3K23ac':None,
+                'H3K27ac':None,'H3K36me':'RHEA-COMP:9786','H3K36me2':'RHEA-COMP:9787','H3K36me3':'RHEA-COMP:15536','H3K4ac':None,
+                'H3K4me':'RHEA-COMP:15543','H3K4me2':'RHEA-COMP:15540','H3K4me3':'RHEA-COMP:15537','H3K56ac':None,'H3K79me':'RHEA-COMP:15550',
+                'H3K79me3':' RHEA-COMP:15552','H3K9ac':None,'H3S10ph':None,'H4K12ac':None,'H4K16ac':None,'H4K20me':'RHEA-COMP:15555','H4K5ac':None,
+                'H4K8ac':None,'H4R3me':None,'H4R3me2s':None,'HTZ1':None}
+    # for ptm in histonePTMs:
+    #     search_result = rq.get("https://www.ebi.ac.uk/QuickGO/services/ontology/go/search?query=histone H3-K9 acetylation").json()
+    #     print(search_result['results'][0]['name'])
+
 
     for chr in chromosome_lengths.keys():
         m = int(chromosome_lengths[chr])
@@ -356,6 +364,7 @@ def createLociWindows(resolution, data_directory):
                     data['chromosomeID'].append(str(chr))
                     data['start'].append(i-(n-1))
                     data['end'].append(i)
+                    data['loci'].append(f"{str(chr)}({i-(n-1)}-{i})")
                     data['histoneMod'].append(ptm)
             
             #Handles the tail end of chromosomes.
@@ -365,6 +374,7 @@ def createLociWindows(resolution, data_directory):
                     data['chromosomeID'].append(str(chr))
                     data['start'].append(((m//9)*9)+1)
                     data['end'].append(m)
+                    data['loci'].append(f"{str(chr)}({((m//9)*9)+1}-{m})")
                     data['histoneMod'].append(ptm)
     genomelocidf = pd.DataFrame(data)
     print('Histone Modifications Loci Collected!')
@@ -372,34 +382,62 @@ def createLociWindows(resolution, data_directory):
     storage_dir = data_directory
     print(os.path.join(storage_dir,csv_f1name))
     genomelocidf.to_csv(os.path.join(storage_dir,csv_f1name), encoding="utf-8-sig", index=False)
-
+    
     allgenesdf = pd.read_csv(data_directory+'/SGDAllGenes.csv')
-    chunk = 0
-    chunks = 1000
-    for n in np.array_split(genomelocidf, chunks):
-        #print('380')
-        mergedf = n.merge(allgenesdf,how='inner',left_on='chromosomeID',right_on='chromosome.primaryIdentifier')
-        #print('382')
-        cleanmergedf = mergedf.loc[(mergedf['end'] >= mergedf['chromosomeLocation.start']) & (mergedf['start'] <= mergedf['chromosomeLocation.end'])]
-        #print('384')
-        #Reminder to drop unnecessary columns
+    chrome_dict = {}
+    for uc in chromosome_lengths.keys():
+        chrome_dict.update({uc:allgenesdf.loc[(allgenesdf['chromosome.primaryIdentifier'] == uc)]})
 
-        print(f"Histone Modifications File {chunk} Mapped to Genes!")
-        csv_f2name = f"HistoneMod2Gene({chunk}).csv"
-        print(os.path.join(storage_dir,csv_f2name))
-        cleanmergedf.to_csv(os.path.join(storage_dir,csv_f2name), encoding="utf-8-sig", index=False)
-        del mergedf
-        del cleanmergedf
-        chunk+=1
-    frames = pd.DataFrame(data={})
-    for c in range(chunks):
-        file = pd.read_csv(data_directory+f"/HistoneMod2Gene({c}).csv")
-        frames = pd.concat([frames,file])
-        os.remove(data_directory+f"/HistoneMod2Gene({c}).csv")
+    mapped_genes = []
+    total = len(genomelocidf.index)
+    for idx,row in genomelocidf.iterrows():
+        if (idx%10000)==0:
+            print(f"{idx} of {total}")
+        gene = chrome_dict[row['chromosomeID']].loc[(row['end'] >= chrome_dict[row['chromosomeID']]['chromosomeLocation.start']) & (row['start'] <= chrome_dict[row['chromosomeID']]['chromosomeLocation.end'])]
+        
+        try:
+            gene = gene['primaryIdentifier'].values[:]
+            if len(gene) < 1:
+                gene = "None"
+        except:
+            gene = "None"
+        
+        mapped_genes = mapped_genes + [gene]
+    genomelocidf['mapped_genes'] = mapped_genes
+    genomelocidf = genomelocidf[genomelocidf.mapped_genes.isin(["None"]) == False]
+    genomelocidf = genomelocidf.explode('mapped_genes')
     print(f"Histone Modifications Mapping Complete!")
     csv_f3name = f"HistoneMod2Gene.csv"
     print(os.path.join(storage_dir,csv_f3name))
-    frames.to_csv(os.path.join(storage_dir,csv_f3name), encoding="utf-8-sig", index=False)
+    genomelocidf.to_csv(os.path.join(storage_dir,csv_f3name), encoding="utf-8-sig", index=False)
+    
+    # chunk = 0
+    # chunks = 1000
+    # for n in np.array_split(genomelocidf, chunks):
+    #     #print('380')
+    #     mergedf = n.merge(allgenesdf,how='inner',left_on='chromosomeID',right_on='chromosome.primaryIdentifier')
+    #     #print('382')
+    #     cleanmergedf = mergedf.loc[(mergedf['end'] >= mergedf['chromosomeLocation.start']) & (mergedf['start'] <= mergedf['chromosomeLocation.end'])]
+    #     #print('384')
+    #     #Reminder to drop unnecessary columns
+
+    #     print(f"Histone Modifications File {chunk} Mapped to Genes!")
+    #     csv_f2name = f"HistoneMod2Gene({chunk}).csv"
+    #     print(os.path.join(storage_dir,csv_f2name))
+    #     cleanmergedf.to_csv(os.path.join(storage_dir,csv_f2name), encoding="utf-8-sig", index=False)
+    #     del mergedf
+    #     del cleanmergedf
+    #     chunk+=1
+    # frames = pd.DataFrame(data={})
+    # for c in range(chunks):
+    #     file = pd.read_csv(data_directory+f"/HistoneMod2Gene({c}).csv")
+    #     frames = pd.concat([frames,file])
+    #     os.remove(data_directory+f"/HistoneMod2Gene({c}).csv")
+    # print(f"Histone Modifications Mapping Complete!")
+    # csv_f3name = f"HistoneMod2Gene.csv"
+    # print(os.path.join(storage_dir,csv_f3name))
+    # frames.to_csv(os.path.join(storage_dir,csv_f3name), encoding="utf-8-sig", index=False)
+
 
     
 

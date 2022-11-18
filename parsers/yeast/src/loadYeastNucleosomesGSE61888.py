@@ -284,53 +284,104 @@ class YeastGSE61888Loader(SourceDataLoader):
             chromes = []
             for x in dataset['chr'].tolist():
                 if x != None:
-                    chrome = "chr"+self.int_to_Roman(int(x))
+                    chrome = 'chr'+self.int_to_Roman(int(x))
                 else:
                     chrome = ""
                 chromes.append(chrome)
             dataset['chr'] = chromes
-            dataset.to_csv(os.path.join(self.data_path,source), encoding="utf-8-sig", index=False)
             print("----Mapping GEO Datasets to Binned Histone Modifications----")
-            ''' # New method to join tables by making locations consistent between tables
-            for row in dataset.iterrows():
-                window = binned_histones.loc[(row['chr'] == binned_histones['chromosomeID']) & (row['center'] >= binned_histones['start']) & (row['center'] <= binned_histones['end'])]
-                row['center'] = windown['chromosomeID']+'('+window['start']+'-'+window['end']+')'
-            mergedf = dataset.merge(binned_histones,how='inner',left_on='center',right_on='loci')
-            '''
-            chunk = 0
-            chunks = 10000
-            saved_chunks = []
-            frames = pd.DataFrame(data={})
-            for n in np.array_split(binned_histones, chunks):
-                mergedf = n.merge(dataset,how='inner',left_on='chromosomeID',right_on='chr')
-                cleanmergedf = mergedf.loc[(mergedf['center'] >= mergedf['start']) & (mergedf['center'] <= mergedf['end'])]
-                frames = pd.concat([frames,cleanmergedf])
-                print(f"Histone Modifications File {chunk} Mapped to GSE61888!")
-                if chunk > 0:
-                    if chunk%100 == 0 or chunk == chunks-1:
-                        saved_chunks.append(chunk)
-                        csv_f2name = f"HistoneMod2GSE61888({chunk}).csv"
-                        print(os.path.join(self.data_path,csv_f2name))
-                        frames.to_csv(os.path.join(self.data_path,csv_f2name), encoding="utf-8-sig", index=False)
-                        del frames
-                        frames = pd.DataFrame(data={})
-                del mergedf
-                del cleanmergedf
-                chunk+=1
+            chrome_dict = {}
+            unique_chromes = dataset['chr'].unique()
 
-            frames = pd.DataFrame(data={})
-            for sc in saved_chunks:
-                file = pd.read_csv(self.data_path+f"/HistoneMod2GSE61888({sc}).csv")
-                frames = pd.concat([frames,file])
-                #frames = frames.fillna("")
-                os.remove(self.data_path+f"/HistoneMod2GSE61888({sc}).csv")
+            for uc in unique_chromes:
+                chrome_dict.update({uc:binned_histones.loc[(binned_histones['chromosomeID'] == uc)]})
+            dataset_bins = []
+            total = len(dataset.index)
+            for idx,row in dataset.iterrows():
+                if (idx%10000)==0:
+                    print(f"{idx} of {total}")
+                
+                #chrome_matches = binned_histones.loc[(row['chr'] == binned_histones['chromosomeID'])]
+                binned = chrome_dict[row['chr']].loc[(row['center'] >= chrome_dict[row['chr']]['start']) & (row['center'] <= chrome_dict[row['chr']]['end'])]
+                #binned = start_matches.loc[(row['center'] <= binned_histones['end'])]
+                #binned = binned_histones.loc[(row['chr'] == binned_histones['chromosomeID']) & (row['center'] >= binned_histones['start']) & (row['center'] <= binned_histones['end'])]
+                try:
+                    binned = binned['loci'].values[0]
+                    if len(binned) < 1:
+                        binned = "None"
+                except:
+                    binned = "None"
+                dataset_bins = dataset_bins + [binned]
+
+            dataset['loci'] = dataset_bins
+            dataset = dataset[dataset.loci.isin(["None"]) == False]
+            #dataset = dataset.explode('loci')
+            print(os.path.join(self.data_path,source))
+            dataset.to_csv(os.path.join(self.data_path,source), encoding="utf-8-sig", index=False)
+            mergedf = dataset.merge(binned_histones,how='inner',on='loci')
             print(f"Histone Modifications Mapping Complete!")
             csv_f3name = "HistoneMod2GSE61888.csv"
+            mergedf.to_csv(os.path.join(self.data_path,csv_f3name), encoding="utf-8-sig", index=False)
             print(os.path.join(self.data_path,csv_f3name))
-            frames.to_csv(os.path.join(self.data_path,csv_f3name), encoding="utf-8-sig", index=False)
+
         
         return True
+             # New method to join tables by making locations consistent between tables
+        
+        #     for idx,row in dataset.iterrows():
+        #         if (idx%100)==0:
+        #             print(idx)
+        #         window = binned_histones.loc[(row['chr'] == binned_histones['chromosomeID']) & (row['center'] >= binned_histones['start']) & (row['center'] <= binned_histones['end'])]
+        #         loci = window['chromosomeID']+'('+window['start']+'-'+window['end']+')'
+        #         if idx == 0:
+        #             dataset_bins = loci
+        #         else:
+        #             dataset_bins = dataset_bins.append(loci)
+        #     dataset['binned_locations'] = dataset_bins
+        #     dataset.to_csv(os.path.join(self.data_path,source), encoding="utf-8-sig", index=False)
+        #     mergedf = dataset.merge(binned_histones,how='inner',left_on='binned_locations',right_on='loci')
+        #     print(f"Histone Modifications Mapping Complete!")
+        #     csv_f3name = "HistoneMod2GSE61888.csv"
+        #     print(os.path.join(self.data_path,csv_f3name))
+        #     mergedf.to_csv(os.path.join(self.data_path,csv_f3name), encoding="utf-8-sig", index=False)
+        
+        # return True
 
+        
+        #     chunk = 0
+        #     chunks = 10000
+        #     saved_chunks = []
+        #     frames = pd.DataFrame(data={})
+        #     for n in np.array_split(binned_histones, chunks):
+        #         mergedf = n.merge(dataset,how='inner',left_on='chromosomeID',right_on='chr')
+        #         cleanmergedf = mergedf.loc[(mergedf['center'] >= mergedf['start']) & (mergedf['center'] <= mergedf['end'])]
+        #         frames = pd.concat([frames,cleanmergedf])
+        #         print(f"Histone Modifications File {chunk} Mapped to GSE61888!")
+        #         if chunk > 0:
+        #             if chunk%100 == 0 or chunk == chunks-1:
+        #                 saved_chunks.append(chunk)
+        #                 csv_f2name = f"HistoneMod2GSE61888({chunk}).csv"
+        #                 print(os.path.join(self.data_path,csv_f2name))
+        #                 frames.to_csv(os.path.join(self.data_path,csv_f2name), encoding="utf-8-sig", index=False)
+        #                 del frames
+        #                 frames = pd.DataFrame(data={})
+        #         del mergedf
+        #         del cleanmergedf
+        #         chunk+=1
+
+        #     frames = pd.DataFrame(data={})
+        #     for sc in saved_chunks:
+        #         file = pd.read_csv(self.data_path+f"/HistoneMod2GSE61888({sc}).csv")
+        #         frames = pd.concat([frames,file])
+        #         #frames = frames.fillna("")
+        #         os.remove(self.data_path+f"/HistoneMod2GSE61888({sc}).csv")
+        #     print(f"Histone Modifications Mapping Complete!")
+        #     csv_f3name = "HistoneMod2GSE61888.csv"
+        #     print(os.path.join(self.data_path,csv_f3name))
+        #     frames.to_csv(os.path.join(self.data_path,csv_f3name), encoding="utf-8-sig", index=False)
+        
+        # return True
+    
     def parse_data(self) -> dict:
         """
         Parses the data file for graph nodes/edges
