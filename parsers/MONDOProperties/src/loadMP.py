@@ -137,7 +137,7 @@ class MPLoader(SourceDataLoader):
                     continue
 
                 #We want superclasses, so
-                mondo_superclasses[object_curie].append(subject_curie)
+                mondo_superclasses[subject_curie].append(object_curie)
 
         nodes = []
         unique_properties = set()
