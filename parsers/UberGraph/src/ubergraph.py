@@ -60,8 +60,8 @@ class UberGraphTools:
                     edge_curie = iri_to_biolink_curie_converter.compress(edge_iri)
                     if edge_curie is None:
                         edge_curie = iri_to_obo_curie_converter.compress(edge_iri)
-                        if edge_curie is None:
-                            print(f'No prefix mapping found for: {edge_iri}')
+                        # if edge_curie is None:
+                        #    print(f'No prefix mapping found for: {edge_iri}')
                     self.edge_curies[edge_id] = edge_curie
 
         self.converted_to_curies = True
