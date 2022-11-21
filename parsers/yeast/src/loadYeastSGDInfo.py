@@ -51,13 +51,23 @@ class GENECOMPLEXES_EDGEUMAN(enum.IntEnum):
     STOICHIOMETRY = 6
     TYPE = 7
 
-
+# Maps Complexes to GO Terms
 class COMPLEXEGO_EDGEUMAN(enum.IntEnum):
     GOTERM = 1
     COMPLEX = 0
     PREDICATE = 3
     COMPLEXNAME = 2
-     
+
+# Maps Histone Modifications to Genes
+class HISTONEMODGENE_EDGEUMAN(enum.IntEnum):
+    ID = 0
+    CHROMOSOME = 1
+    STARTLOCATION = 2
+    ENDLOCATION = 3
+    MODIFICATION = 5
+    GENE = 6
+
+    
 ##############
 # Class: Mapping SGD Genes to SGD Associations
 #
@@ -79,29 +89,28 @@ class YeastSGDLoader(SourceDataLoader):
         super().__init__(test_mode=test_mode, source_data_dir=source_data_dir)
 
         self.cos_dist_threshold = 1.0
+        self.genome_resolution = 150
         #self.yeast_data_url = 'https://stars.renci.org/var/data_services/yeast/'
 
         self.sgd_gene_list_file_name = "SGDAllGenes.csv"
-        #self.go_term_list_file_name = "yeast_GO_term_list.csv"
-        #self.pathway_list_file_name = "yeast_pathways_list.csv"
-        #self.phenotype_list_file_name = "yeast_phenotype_list.csv"
-
         self.genes_to_go_term_edges_file_name = "SGDGene2GOTerm.csv"
         self.genes_to_pathway_edges_file_name = "SGDGene2Pathway.csv"
         self.genes_to_phenotype_edges_file_name = "SGDGene2Phenotype.csv"
         self.genes_to_complex_edges_file_name = "SGDGene2Complex.csv"
         self.complex_to_go_term_edges_file_name = "SGDComplex2GOTerm.csv"
+        self.histone_mod_list_file_name = f"Res{self.genome_resolution}HistoneModLoci.csv"
+        self.histone_mod_to_gene_file_name = "HistoneMod2Gene.csv"
+        
         
         self.data_files = [
             self.sgd_gene_list_file_name,
-            #self.go_term_list_file_name,
-            #self.pathway_list_file_name,
-            #self.phenotype_list_file_name,
             self.genes_to_go_term_edges_file_name,
             self.genes_to_pathway_edges_file_name,
             self.genes_to_phenotype_edges_file_name,
             self.genes_to_complex_edges_file_name,
-            self.complex_to_go_term_edges_file_name]
+            self.complex_to_go_term_edges_file_name,
+            self.histone_mod_list_file_name,
+            self.histone_mod_to_gene_file_name]
 
     def get_latest_source_version(self) -> str:
         """
@@ -118,10 +127,6 @@ class YeastSGDLoader(SourceDataLoader):
         """
         genome_resolution = 150
         main(genome_resolution, self.data_path)
-        # data_puller = GetData()
-        # for source in self.data_files:
-        #     source_url = f"{self.yeast_data_url}{source}"
-        #     data_puller.(source_url, self.data_path)
 
         return True
 
@@ -149,7 +154,7 @@ class YeastSGDLoader(SourceDataLoader):
                                   'description': line[5],
                                   'organism': line[10],
                                   'featureType': line[11],
-                                  'chromosomeLocation': f"{line[6]}: {line[7]}-{line[8]}, strand: {line[9]}",
+                                  'chromosomeLocation': f"{line[6]}:{line[7]}-{line[8]}, strand: {line[9]}",
                                   'referenceLink': line[12],
                                   PRIMARY_KNOWLEDGE_SOURCE: "SGD",
                                   AGGREGATOR_KNOWLEDGE_SOURCES: ["SGD"]}, # subject props
@@ -185,7 +190,7 @@ class YeastSGDLoader(SourceDataLoader):
                                   lambda line: None,  # predicate extractor
                                   lambda line: {'name': line[3],
                                                 'categories': ['biolink:Pathway'],
-                                                'taxon': 'NCBITaxon:559292',
+                                                'taxon': 'NCBI_Taxon:559292',
                                                 'organism': line[1],
                                                 'referenceLink': line[4],
                                                 PRIMARY_KNOWLEDGE_SOURCE: "SGD",
@@ -232,6 +237,25 @@ class YeastSGDLoader(SourceDataLoader):
                                                 'taxon': 'NCBITaxon:559292',
                                                 'organism': "S. cerevisiae",
                                                 'referenceLink': line[12],
+                                                PRIMARY_KNOWLEDGE_SOURCE: "SGD",
+                                                AGGREGATOR_KNOWLEDGE_SOURCES: ["SGD"]}, # subject props
+                                  lambda line: {},  # object props
+                                  lambda line: {},#edgeprops
+                                  comment_character=None,
+                                  delim=',',
+                                  has_header_row=True)
+
+        #This file is a list of histone modification genomic loci.
+        histone_modification_file: str = os.path.join(self.data_path, self.histone_mod_list_file_name)
+        with open(histone_modification_file, 'r') as fp:
+            extractor.csv_extract(fp,
+                                  lambda line: line[HISTONEMODGENE_EDGEUMAN.ID.value],  # subject id
+                                  lambda line: None,  # object id
+                                  lambda line: None,  # predicate extractor
+                                  lambda line: {'name': f"{line[HISTONEMODGENE_EDGEUMAN.MODIFICATION.value]} ({line[HISTONEMODGENE_EDGEUMAN.CHROMOSOME.value]}:{line[HISTONEMODGENE_EDGEUMAN.STARTLOCATION.value]}-{line[HISTONEMODGENE_EDGEUMAN.ENDLOCATION.value]})",
+                                                'categories': ['biolink:NucleosomeModification','biolink:PosttranslationalModification'],
+                                                'histoneModification': line[HISTONEMODGENE_EDGEUMAN.MODIFICATION.value],
+                                                'chromosomeLocation': f"{line[HISTONEMODGENE_EDGEUMAN.CHROMOSOME.value]}:{line[HISTONEMODGENE_EDGEUMAN.STARTLOCATION.value]}-{line[HISTONEMODGENE_EDGEUMAN.ENDLOCATION.value]}",
                                                 PRIMARY_KNOWLEDGE_SOURCE: "SGD",
                                                 AGGREGATOR_KNOWLEDGE_SOURCES: ["SGD"]}, # subject props
                                   lambda line: {},  # object props
@@ -300,7 +324,7 @@ class YeastSGDLoader(SourceDataLoader):
         with open(gene_to_complex_edges_file, 'r') as fp:
             extractor.csv_extract(fp,
                                   lambda line: line[GENECOMPLEXES_EDGEUMAN.GENE.value], #subject id
-                                  lambda line: "CPX:" + line[GENECOMPLEXES_EDGEUMAN.COMPLEX.value],  # object id
+                                  lambda line: line[GENECOMPLEXES_EDGEUMAN.COMPLEX.value],  # object id
                                   lambda line: "biolink:in_complex_with",  # predicate extractor
                                   lambda line: {},  # subject props
                                   lambda line: {},  # object props
@@ -311,44 +335,33 @@ class YeastSGDLoader(SourceDataLoader):
                                   delim=',',
                                   has_header_row=True)
 
-         #Complex to GO Annotations. Evidence and annotation type as edge properties.
+        #Complex to GO Annotations. Evidence and annotation type as edge properties.
         complex_to_go_term_edges_file: str = os.path.join(self.data_path, self.complex_to_go_term_edges_file_name)
         with open(complex_to_go_term_edges_file, 'r') as fp:
             extractor.csv_extract(fp,
                                   lambda line: line[COMPLEXEGO_EDGEUMAN.COMPLEX.value],#.split(':')[1], #subject id
                                   lambda line: line[COMPLEXEGO_EDGEUMAN.GOTERM.value],#.replace(' ','_'),  # object id
                                   lambda line: line[COMPLEXEGO_EDGEUMAN.PREDICATE.value] if line[COMPLEXEGO_EDGEUMAN.PREDICATE.value] != "involved in" else "biolink:actively_involved_in",  # predicate extractor
-                                  lambda line: {'complexname': line[COMPLEXEGO_EDGEUMAN.COMPLEXNAME.value]},  # subject props
+                                  lambda line: {},  # subject props
                                   lambda line: {},  # object props
                                   lambda line: {}, #edgeprops
                                   comment_character=None,
                                   delim=',',
                                   has_header_row=True)
-       
-       
-       
-        #Goes through the file and only yields the rows in which the cosine distance is above a predefined threshold.
-        """
-        def cos_dist_filter(infile):
-            #Header
-            yield next(infile)
-            for line in infile:
-               if(float(line.split(',')[SOREDGECOSDIST.DISTANCE.value])<=self.cos_dist_threshold): yield line
 
-                 
-        sor_vsd_cos_dist_edges_file: str = os.path.join(self.data_path, self.sor_vsd_cos_dist_edges_file_name)
-        with open(sor_vsd_cos_dist_edges_file, 'r') as fp:
-            extractor.csv_extract(cos_dist_filter(fp),
-                                  lambda line: line[SOREDGECOSDIST.DRUG_ID.value], #subject id
-                                  lambda line: "SCENT:" + line[SOREDGECOSDIST.VERBAL_SCENT.value].replace(' ','_'),  # object id
-                                  lambda line: line[SOREDGECOSDIST.PREDICATE.value],  # predicate extractor
-                                  lambda line: {'categories': ['odorant','biolink:ChemicalEntity']},  # subject props
-                                  lambda line: {'categories': ['verbal_scent_descriptor'],"name":line[SOREDGECOSDIST.VERBAL_SCENT.value]},  # object props
-                                  lambda line: {'cosine_distance':float(line[SOREDGECOSDIST.DISTANCE.value])}, #edgeprops
+        #Genes to HistonePTMs.
+        gene_to_histone_mod_edges_file: str = os.path.join(self.data_path, self.histone_mod_to_gene_file_name)
+        with open(gene_to_histone_mod_edges_file, 'r') as fp:
+            extractor.csv_extract(fp,
+                                  lambda line: line[HISTONEMODGENE_EDGEUMAN.ID.value], #subject id
+                                  lambda line: line[HISTONEMODGENE_EDGEUMAN.GENE.value],  # object id
+                                  lambda line: "biolink:located_in",  # predicate extractor
+                                  lambda line: {},  # subject props
+                                  lambda line: {},  # object props
+                                  lambda line: {}, #edgeprops
                                   comment_character=None,
                                   delim=',',
                                   has_header_row=True)
-        """
         
         self.final_node_list = extractor.nodes
         self.final_edge_list = extractor.edges
