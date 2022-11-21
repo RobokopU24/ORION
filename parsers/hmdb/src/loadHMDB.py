@@ -24,6 +24,7 @@ class HMDBLoader(SourceDataLoader):
 
     source_id: str = 'HMDB'
     provenance_id: str = 'infores:hmdb'
+    parsing_version: str = '1.1'
 
     def __init__(self, test_mode: bool = False, source_data_dir: str = None):
         """
@@ -256,7 +257,7 @@ class HMDBLoader(SourceDataLoader):
                         new_edge = kgxedge(subject_id,
                                            object_id,
                                            predicate=predicate,
-                                           original_knowledge_source=self.provenance_id,
+                                           primary_knowledge_source=self.provenance_id,
                                            edgeprops=props)
                         self.output_file_writer.write_kgx_edge(new_edge)
                     else:
@@ -354,7 +355,7 @@ class HMDBLoader(SourceDataLoader):
                         new_edge = kgxedge(metabolite_id,
                                            disease_id,
                                            predicate='RO:0002610',
-                                           original_knowledge_source=self.provenance_id,
+                                           primary_knowledge_source=self.provenance_id,
                                            edgeprops=props)
                         self.output_file_writer.write_kgx_edge(new_edge)
                         ret_val = True
@@ -421,7 +422,7 @@ class HMDBLoader(SourceDataLoader):
                         new_edge = kgxedge(metabolite_id,
                                            object_id,
                                            predicate='RO:0000056',
-                                           original_knowledge_source=self.provenance_id)
+                                           primary_knowledge_source=self.provenance_id)
                         self.output_file_writer.write_kgx_edge(new_edge)
                     else:
                         self.logger.debug(f'invalid smpdb for {metabolite_id}')

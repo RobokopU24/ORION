@@ -5,10 +5,11 @@ import requests
 import re
 
 from bs4 import BeautifulSoup
-from Common.utils import GetData
-from Common.loader_interface import SourceDataLoader, SourceDataFailedError
+from Common.utils import GetData, snakify
+from Common.loader_interface import SourceDataLoader, SourceDataFailedError, SourceDataBrokenError
 from Common.prefixes import GTOPDB, HGNC, ENSEMBL
 from Common.kgxmodel import kgxnode, kgxedge
+from Common.predicates import DGIDB_PREDICATE_MAPPING
 
 
 ##############
@@ -22,6 +23,7 @@ class GtoPdbLoader(SourceDataLoader):
 
     source_id: str = 'GtoPdb'
     provenance_id = 'infores:gtopdb'
+    parsing_version: str = '1.1'
 
     def __init__(self, test_mode: bool = False, source_data_dir: str = None):
         """
@@ -209,7 +211,7 @@ class GtoPdbLoader(SourceDataLoader):
                         new_edge = kgxedge(ligand_id,
                                            part_node_id,
                                            predicate='BFO:0000051',
-                                           original_knowledge_source=GtoPdbLoader.provenance_id)
+                                           primary_knowledge_source=GtoPdbLoader.provenance_id)
                         edge_list.append(new_edge)
                 else:
                     skipped_record_counter += 1
@@ -258,10 +260,16 @@ class GtoPdbLoader(SourceDataLoader):
                 if r['Target Species'] and r['Target Species'].startswith('Human') \
                         and r['Target Ensembl Gene ID'] != '' and r['Target'] != '':  # and r['ligand_id'] in self.ligands
                     # did we get a good predicate
-                    if r['Type'].startswith('None'):
+                    if r['Type'].startswith('None') or r['Type'] == 'Fusion protein':
                         continue
                     else:
-                        predicate = 'GAMMA:' + r['Type'].lower().replace(' ', '_')
+                        snakified_predicate = snakify(r['Type'])
+                        # look up a standardized predicate we want to use
+                        try:
+                            predicate: str = DGIDB_PREDICATE_MAPPING[snakified_predicate]
+                        except KeyError:
+                            # if we don't have a mapping for a predicate consider the parser broken
+                            raise SourceDataBrokenError(f'Predicate mapping for {predicate} not found')
 
                     # create a ligand node
                     ligand_id = f'{GTOPDB}:' + r['Ligand ID']
@@ -305,7 +313,7 @@ class GtoPdbLoader(SourceDataLoader):
                         new_edge = kgxedge(ligand_id,
                                            gene_id,
                                            predicate=predicate,
-                                           original_knowledge_source=self.provenance_id,
+                                           primary_knowledge_source=self.provenance_id,
                                            edgeprops=props)
 
                         # save the edge
@@ -346,7 +354,7 @@ class GtoPdbLoader(SourceDataLoader):
                                 new_edge = kgxedge(gene_id,
                                                    ligand_id,
                                                    predicate='RO:0002205',
-                                                   original_knowledge_source=self.provenance_id,
+                                                   primary_knowledge_source=self.provenance_id,
                                                    edgeprops=props)
 
                                 # save the edge

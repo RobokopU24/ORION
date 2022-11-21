@@ -1,26 +1,10 @@
 import os
-import logging
 import enum
 
-from copy import deepcopy
-from Common.utils import LoggingUtil, GetData
+from Common.utils import GetData
 from Common.loader_interface import SourceDataLoader
 from Common.extractor import Extractor
-from Common.node_types import AGGREGATOR_KNOWLEDGE_SOURCES, ORIGINAL_KNOWLEDGE_SOURCE
-
-from Common.kgxmodel import kgxnode, kgxedge
-
-#                if chemical_id not in self.previous_node_ids:
-#                    chem_node = kgxnode(chemical_id, name=r['chem_label'])
-#                    node_list.append(chem_node)
-#                    self.previous_node_ids.add(chemical_id)
-#
-#                # save the gene node
-#                if gene_id not in self.previous_node_ids:
-#                    gene_node = kgxnode(gene_id, name=r['gene_label'], nodeprops={NCBITAXON: r['taxonID'].split(':')[1]})
-#                    node_list.append(gene_node)
-#                    self.previous_node_ids.add(gene_id)
-
+from Common.node_types import PRIMARY_KNOWLEDGE_SOURCE, AGGREGATOR_KNOWLEDGE_SOURCES
 
 
 # the scent odorant edge header columns:
@@ -47,6 +31,7 @@ class ScentLoader(SourceDataLoader):
 
     source_id: str = 'Scent'
     provenance_id: str = 'infores:Scent'
+    parsing_version: str = '1.1'
 
     def __init__(self, test_mode: bool = False, source_data_dir: str = None):
         """
@@ -113,8 +98,7 @@ class ScentLoader(SourceDataLoader):
                                   lambda line: None,  # predicate extractor
                                   lambda line: {'categories': ['verbal_scent_descriptor','ifa_vsd'],
                                                 'notes': "", 
-                                                ORIGINAL_KNOWLEDGE_SOURCE: "ifa",
-                                                AGGREGATOR_KNOWLEDGE_SOURCES: ["ifa"],
+                                                PRIMARY_KNOWLEDGE_SOURCE: "ifa",
                                                 "name":line[0].strip()},  # subject props
                                   lambda line: {},  # object props
                                   lambda line: {},#edgeprops

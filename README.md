@@ -132,7 +132,7 @@ Implement get_data(). This function should retrieve any source data files. The f
 
 Implement parse_data(). This function should parse the data files and populate lists of node and edge objects: self.final_node_list (kgxnode), self.final_edge_list (kgxedge).
 
-Finally, add your source to the list of sources at the top of Common/load_manager.py. The source ID string here should match the one specified in the new parser. Also your source to the SOURCE_DATA_LOADER_CLASSES dictionary, mapping the new parser class.
+Finally, add your source to the list of sources at the top of Common/load_manager.py. The source ID string here should match the one specified in the new parser. Also add your source to the SOURCE_DATA_LOADER_CLASSES dictionary, mapping the new parser class.
 
 Now you can use that source ID in a graph spec to include your new source in a graph.
 

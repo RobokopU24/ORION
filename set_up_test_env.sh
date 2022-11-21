@@ -23,3 +23,6 @@ export DATA_SERVICES_GRAPH_SPEC=testing-graph-spec.yml
 #export DATA_SERVICES_GRAPH_SPEC_URL=https://raw.githubusercontent.com/RENCI-AUTOMAT/Data_services/helm_deploy/graph_specs/yeast-graph-spec.yml
 
 export DATA_SERVICES_NEO4J_PASSWORD=insecurepasswordexample
+
+# export EDGE_NORMALIZATION_ENDPOINT=https://biolink-lookup.transltr.io/
+# export NODE_NORMALIZATION_ENDPOINT=https://nodenormalization-sri.renci.org/

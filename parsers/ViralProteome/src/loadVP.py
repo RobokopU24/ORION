@@ -1,14 +1,12 @@
 import os
 import csv
 import argparse
-import logging
 import enum
 import pandas as pd
-import requests
 import shutil
 
 from csv import reader
-from Common.utils import LoggingUtil, GetData
+from Common.utils import GetData
 from Common.kgx_file_writer import KGXFileWriter
 from Common.loader_interface import SourceDataLoader
 
@@ -48,6 +46,7 @@ class VPLoader(SourceDataLoader):
 
     source_id = 'Viral proteome'
     provenance_id = 'infores:uniref-viral-proteins'
+    parsing_version: str = '1.1'
 
     def __init__(self, test_mode: bool = False, source_data_dir: str = None):
         """
@@ -120,7 +119,7 @@ class VPLoader(SourceDataLoader):
                 file_writer.write_edge(subject_id=edge['subject'],
                                        object_id=edge['object'],
                                        predicate=edge['predicate'],
-                                       original_knowledge_source=self.provenance_id,
+                                       primary_knowledge_source=self.provenance_id,
                                        edge_properties=edge['properties'])
 
     def load(self, nodes_output_file_path: str, edges_output_file_path: str) -> dict:

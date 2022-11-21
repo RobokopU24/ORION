@@ -15,8 +15,12 @@
 #  Then, no matter what the prefix changed to, it would always be tied to the URL and could always be looked up within
 # data services using a fixed key independent of biolink changes.
 
+CHEBI='CHEBI'
 CTD='CTD'
+CHEMBL='CHEMBL'
+CHEMBL_MECHANISM='CHEMBL.MECHANISM'
 DBSNP='DBSNP'
+DGIDB='DGIdb'
 DRUGBANK='DRUGBANK'
 DRUGCENTRAL='DrugCentral'
 DOID='DOID'

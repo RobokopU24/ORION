@@ -23,6 +23,7 @@ class UniRefSimLoader(SourceDataLoader):
 
     source_id = 'UniRef'
     provenance_id = 'infores:uniref'
+    parsing_version: str = '1.1'
 
     def __init__(self, test_mode: bool = False, source_data_dir: str = None):
         """
@@ -67,7 +68,7 @@ class UniRefSimLoader(SourceDataLoader):
             file_writer.write_edge(subject_id=edge['subject'],
                                    object_id=edge['object'],
                                    predicate=edge['predicate'],
-                                   original_knowledge_source=self.provenance_id,
+                                   primary_knowledge_source=self.provenance_id,
                                    edge_properties=edge['properties'])
 
         self.final_node_list.clear()

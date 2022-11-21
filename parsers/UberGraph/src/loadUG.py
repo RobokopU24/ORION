@@ -21,6 +21,7 @@ class UGLoader(SourceDataLoader):
 
     source_id = 'UberGraph'
     provenance_id = 'infores:ubergraph'
+    parsing_version: str = '1.1'
 
     def __init__(self, test_mode: bool = False, source_data_dir: str = None):
         """
@@ -105,7 +106,7 @@ class UGLoader(SourceDataLoader):
                         self.output_file_writer.write_kgx_edge(kgxedge(subject_id=subject_curie,
                                                                        object_id=object_curie,
                                                                        predicate=predicate_curie,
-                                                                       original_knowledge_source=self.provenance_id))
+                                                                       primary_knowledge_source=self.provenance_id))
                     else:
                         skipped_record_counter += 1
 

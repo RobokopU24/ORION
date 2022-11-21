@@ -9,10 +9,9 @@ spec:
     spec:
       restartPolicy: Never
       securityContext:
-        runAsUser: 7474
-        runAsGroup: 7474
-        fsGroup: 7474
-        fsGroupChangePolicy: "OnRootMismatch"
+        runAsUser: {{ .Values.dataServices.securityContext.runAsUser }}
+        runAsGroup: {{ .Values.dataServices.securityContext.runAsGroup }}
+        fsGroup: {{ .Values.dataServices.securityContext.runAsGroup }}
       containers:
         - name: ds-graph-analyzer
           image: {{ .Values.dataServices.image.repository }}:{{ .Values.dataServices.image.tag }}
@@ -21,14 +20,19 @@ spec:
           stdin: True
           tty: True
           volumeMounts:
-            - mountPath: /Data_services_storage
-              name: ds-sources-volume
-              subPath: storage
-            - mountPath: /Data_services_logs
-              name: ds-sources-volume
-              subPath: logs
-            - mountPath: /Data_services_graphs
-              name: ds-graphs-volume
+            - name: ds-sources-volume
+              mountPath: /Data_services_storage
+              {{- if .Values.dataServices.sourcesVolume.nfs_mount_subpath }}
+              subPath: {{ .Values.dataServices.sourcesVolume.nfs_mount_subpath }}
+              {{- end }}
+            - name: ds-sources-volume
+              mountPath: /Data_services_logs
+              subPath: {{ .Values.dataServices.sourcesVolume.nfs_mount_subpath }}logs
+            - name: ds-graphs-volume
+              mountPath: /Data_services_graphs
+              {{- if .Values.dataServices.graphsVolume.nfs_mount_subpath }}
+              subPath: {{ .Values.dataServices.graphsVolume.nfs_mount_subpath }}
+              {{- end }}
             - mountPath: /data
               name: ds-neo4j-scratch-volume
           env:
@@ -46,10 +50,10 @@ spec:
             - name: DATA_SERVICES_LOGS
               value: /Data_services_logs
             - name: DATA_SERVICES_NEO4J_PASSWORD
-              value: {{ .Values.neo4j.password }}
-            {{- if .Values.dataServices.httpProxy.useProxy }}
+              value: ds-password
+            {{- if .Values.dataServices.httpsProxy.useProxy }}
             - name: HTTPS_PROXY
-              value: {{ .Values.dataServices.httpProxy.proxyURL }}
+              value: {{ .Values.dataServices.httpsProxy.proxyURL }}
             {{- end }}
             {{- if .Values.dataServices.normalization.nodeNormEndpoint }}
             - name: NODE_NORMALIZATION_ENDPOINT
@@ -70,12 +74,17 @@ spec:
           volumeMounts:
             - mountPath: /Data_services_storage
               name: ds-sources-volume
-              subPath: storage
+              {{- if .Values.dataServices.sourcesVolume.nfs_mount_subpath }}
+              subPath: {{ .Values.dataServices.sourcesVolume.nfs_mount_subpath }}
+              {{- end }}
             - mountPath: /Data_services_logs
               name: ds-sources-volume
-              subPath: logs
+              subPath: {{ .Values.dataServices.sourcesVolume.nfs_mount_subpath }}logs
             - mountPath: /Data_services_graphs
               name: ds-graphs-volume
+              {{- if .Values.dataServices.graphsVolume.nfs_mount_subpath }}
+              subPath: {{ .Values.dataServices.graphsVolume.nfs_mount_subpath }}
+              {{- end }}
             - mountPath: /data
               name: ds-neo4j-scratch-volume
           env:
@@ -93,10 +102,10 @@ spec:
             - name: DATA_SERVICES_LOGS
               value: /Data_services_logs
             - name: DATA_SERVICES_NEO4J_PASSWORD
-              value: {{ .Values.neo4j.password }}
-            {{- if .Values.dataServices.httpProxy.useProxy }}
+              value: ds-password
+            {{- if .Values.dataServices.httpsProxy.useProxy }}
             - name: HTTPS_PROXY
-              value: {{ .Values.dataServices.httpProxy.proxyURL }}
+              value: {{ .Values.dataServices.httpsProxy.proxyURL }}
             {{- end }}
             {{- if .Values.dataServices.normalization.nodeNormEndpoint }}
             - name: NODE_NORMALIZATION_ENDPOINT
@@ -110,12 +119,26 @@ spec:
             {{- toYaml .Values.dataServices.resources | nindent 12 }}
       {{- end }}
       volumes:
+        {{- if .Values.dataServices.sourcesVolume.use_nfs }}
+        - name: ds-sources-volume
+          nfs:
+            server: {{ .Values.dataServices.sourcesVolume.nfs_server }}
+            path: {{ .Values.dataServices.sourcesVolume.nfs_path }}
+        {{- else }}
         - name: ds-sources-volume
           persistentVolumeClaim:
             claimName: ds-sources-pvc
+        {{- end }}
+        {{- if .Values.dataServices.graphsVolume.use_nfs }}
+        - name: ds-graphs-volume
+          nfs:
+            server: {{ .Values.dataServices.graphsVolume.nfs_server }}
+            path: {{ .Values.dataServices.graphsVolume.nfs_path }}
+        {{- else }}
         - name: ds-graphs-volume
           persistentVolumeClaim:
             claimName: ds-graphs-pvc
+        {{- end }}
         - name: ds-neo4j-scratch-volume
           ephemeral:
             volumeClaimTemplate:

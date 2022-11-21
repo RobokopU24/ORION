@@ -19,14 +19,12 @@ class kgxedge:
                  subject_id,
                  object_id,
                  predicate=None,
-                 original_knowledge_source=None,
                  primary_knowledge_source=None,
                  aggregator_knowledge_sources=None,
                  edgeprops=None):
         self.subjectid = subject_id
         self.objectid = object_id
         self.predicate = predicate
-        self.original_knowledge_source = original_knowledge_source
         self.primary_knowledge_source = primary_knowledge_source
         self.aggregator_knowledge_sources = aggregator_knowledge_sources
         if edgeprops:
