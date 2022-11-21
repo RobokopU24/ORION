@@ -3,69 +3,15 @@ import pandas as pd
 import os
 import requests as rq
 import csv
+import numpy as np
 
 def main(resolution, source_data_path):
-#     checking_input = True
-#     while checking_input == True:
-#         args = input(f"Please specify one or more of the following files to download from SGD: \n\n\
-# GenomeLoci, AllGenes, Gene2GOTerm, Gene2Phenotype, Gene2Pathway, Gene2Complex. Otherwise type 'Everything' to download all files. Include 'Exit' to stop.\n\n\
-# Which file(s) would you like? ")
-#         run = False
-#         if "GenomeLoci" in args:
-#             res = input("Set resolution of genome loci: ")
-#             createLociWindows(res)
-#             run = True
-#         else:
-#             pass
-#         if "AllGenes" in args:
-#             SGDAllGenes()
-#             run = True
-#         else:
-#             pass
-#         if "Gene2GOTerm" in args:
-#             SGDGene2GOTerm()
-#             run = True
-#         else:
-#             pass
-#         if "Gene2Phenotype" in args:
-#             SGDGene2Phenotype()
-#             run = True
-#         else:
-#             pass
-#         if "Gene2Pathway" in args:
-#             SGDGene2Pathway()
-#             run = True
-#         else:
-#             pass
-#         if "Gene2Complex" in args:
-#             SGDGene2Complex()
-#             run = True
-#         else:
-#             pass
-#         if "Everything" in args:
-#             res = input("Set resolution of genome loci: ")
-#             createLociWindows(res)
-#             SGDAllGenes()
-#             SGDGene2GOTerm()
-#             SGDGene2Phenotype()
-#             SGDGene2Pathway()
-#             SGDGene2Complex()
-#             run = True
-#         else:
-#             pass
-#         if "Exit" in args:
-#             break
-#         else:
-#             pass
-#         if run == False:
-#             print("Sorry, input not recognized...\n")
-#             continue
-#         else:
-#             continue
+
     res = resolution
     path = source_data_path
-    createLociWindows(res, path)
     SGDAllGenes(path)
+    createLociWindows(res, path)
+    SGDComplex2GOTerm(path)
     SGDGene2GOTerm(path)
     SGDGene2Phenotype(path)
     SGDGene2Pathway(path)
@@ -283,42 +229,182 @@ def SGDGene2Complex(data_directory):
     print(os.path.join(storage_dir,csv_fname))
     gene2complexdf.to_csv(os.path.join(storage_dir,csv_fname), encoding="utf-8-sig", index=False)
 
+def SGDComplex2GOTerm(data_directory):
+    #Collects all data for complexes with GO Term annotations in SGD.
+    print("---------------------------------------------------\nCollecting all GO Terms for all protein complexes on SGD...\n---------------------------------------------------\n")
+    from intermine.webservice import Service
+    service = Service("https://yeastmine.yeastgenome.org/yeastmine/service")
+    query = service.new_query("Complex")
+    query.add_view("accession", "goAnnotation.ontologyTerm.identifier",
+    "goAnnotation.ontologyTerm.namespace")
+
+    view = ["accession", "goAnnotation.ontologyTerm.identifier",
+    "goAnnotation.ontologyTerm.namespace","goAnnotation.qualifier"]
+
+    data = dict.fromkeys(view, [])
+
+    for row in query.rows():
+        for col in view:
+
+            if col == "accession":
+                value = "CPX:" + str(row[col])
+            elif col == "goAnnotation.qualifier":
+                if str(row["goAnnotation.ontologyTerm.namespace"]) == "molecular_function":
+                    value = "biolink:enables"
+                elif str(row["goAnnotation.ontologyTerm.namespace"]) == "biological_process":
+                    value = "biolink:actively_involved_in"
+                elif str(row["goAnnotation.ontologyTerm.namespace"]) == "cellular_component":
+                    value = "biolink:located_in"
+            else:
+                value = str(row[col])
+            data[col] = data[col] + [value]
+    complex2gotermdf = pd.DataFrame(data)
+    complex2gotermdf.fillna("?",inplace=True)
+    print('SGD Complex2GOTerm Data Collected!')
+    csv_fname = 'SGDComplex2GOTerm.csv'
+    storage_dir = data_directory
+    print(os.path.join(storage_dir,csv_fname))
+    complex2gotermdf.to_csv(os.path.join(storage_dir,csv_fname), encoding="utf-8-sig", index=False)
+
 def createLociWindows(resolution, data_directory):
-    #Creates sliding windows of hypothetical genome locations. 
+    #Creates sliding windows of hypothetical genome locations of all Histone PTMs. 
     n = int(resolution) #Sets sliding window resolution.
     print(f"---------------------------------------------------\nCreating sliding window of resolution {n} of yeast genome loci...\n---------------------------------------------------\n")
 
-    data = {'lociID':[],'chromosomeID':[],'start':[],'end':[]}
+    data = {'hisPTMid':[],'chromosomeID':[],'start':[],'end':[],'loci':[],'histoneMod':[]}
 
     #Reference: https://wiki.yeastgenome.org/index.php/Systematic_Sequencing_Table
+
     chromosome_lengths = {'chrI':230218, 'chrII':813184, 'chrIII':316620, 
     'chrIV':1531933, 'chrV':576874, 'chrVI':270161, 'chrVII':1090940, 
     'chrVIII':562643, 'chrIX':439888, 'chrX':745751, 'chrXI':666816, 
     'chrXII':1078177, 'chrXIII': 924431, 'chrXIV':784333, 'chrXV':1091291, 
     'chrXVI':948066, 'chrmt':85779}
 
+    histonePTMs = [
+                'H2AK5ac','H2AS129ph','H3K14ac','H3K18ac','H3K23ac',
+                'H3K27ac','H3K36me','H3K36me2','H3K36me3','H3K4ac',
+                'H3K4me','H3K4me2','H3K4me3','H3K56ac','H3K79me',
+                'H3K79me3','H3K9ac','H3S10ph','H4K12ac','H4K16ac','H4K20me','H4K5ac',
+                'H4K8ac','H4R3me','H4R3me2s','HTZ1'
+    ]
+    
+    rhea_identifiers = {'H2AK5ac':None,'H2AS129ph':None,'H3K14ac':None,'H3K18ac':None,'H3K23ac':None,
+                'H3K27ac':None,'H3K36me':'RHEA-COMP:9786','H3K36me2':'RHEA-COMP:9787','H3K36me3':'RHEA-COMP:15536','H3K4ac':None,
+                'H3K4me':'RHEA-COMP:15543','H3K4me2':'RHEA-COMP:15540','H3K4me3':'RHEA-COMP:15537','H3K56ac':None,'H3K79me':'RHEA-COMP:15550',
+                'H3K79me3':' RHEA-COMP:15552','H3K9ac':None,'H3S10ph':None,'H4K12ac':None,'H4K16ac':None,'H4K20me':'RHEA-COMP:15555','H4K5ac':None,
+                'H4K8ac':None,'H4R3me':None,'H4R3me2s':None,'HTZ1':None}
+    
+    # Will continue to work on this mapping.
+    '''
+    histonePTM2GO={'ptm':[],'GOid':[],'GOname':[]}
+    for ptm in histonePTMs:
+        if 'ac' in ptm:
+            mod = ['acetylation','acetyltransferase activity']
+            ptm = ptm.replace('ac','')
+        elif 'me2s' in ptm:
+            mod = ['methylation','methyltransferase activity']
+            ptm = ptm.replace('me2s','')
+        elif 'me2' in ptm:
+            mod = ['methylation','methyltransferase activity']
+            ptm = ptm.replace('me2','')
+        elif 'me3' in ptm:
+            mod = ['methylation','methyltransferase activity']
+            ptm = ptm.replace('me3','') 
+        elif 'me' in ptm:
+            mod = ['methylation','methyltransferase activity']
+            ptm = ptm.replace('me','') 
+        elif 'ph' in ptm:
+            mod = ['phosphorylation','phosphotase activity']
+            ptm = ptm.replace('ph','')
+        else:
+            pass
+        if 'H2A' in ptm:
+            query_process = f"histone {ptm[0:3]}-{ptm[3:]} {mod[0]}"
+            query_activity = f"histone {ptm[0:3]}{ptm[3:]} {mod[1]}"
+        else:
+            query_process = f"histone {ptm[0:2]}-{ptm[2:]} {mod[0]}"
+            query_activity = f"histone {ptm[0:2]}{ptm[2:]} {mod[1]}"
+        search_result_process = rq.get(f"https://www.ebi.ac.uk/QuickGO/services/ontology/go/search?query={query_process}").json()
+        search_result_activity = rq.get(f"https://www.ebi.ac.uk/QuickGO/services/ontology/go/search?query={query_activity}").json()
+    print(search_result_process['results'][0]['name'])
+    print(query_process)
+    if search_result_process['results'][0]['name'] == query_process:
+        histonePTM2GO['ptm'].append(ptm)
+        histonePTM2GO['GOid'].append(search_result_process['results'][0]['id'])
+        histonePTM2GO['GOname'].append(search_result_process['results'][0]['name'])
+        print(search_result_process['results'][0]['name'])
+        print(search_result_process['results'][0]['id'])
+    if search_result_activity['results'][0]['name'] == query_activity:
+        histonePTM2GO['ptm'].append(ptm)
+        histonePTM2GO['GOid'].append(search_result_process['results'][0]['id'])
+        histonePTM2GO['GOname'].append(search_result_process['results'][0]['name'])
+        print(search_result_activity['results'][0]['name'])
+        print(search_result_activity['results'][0]['id'])
+    
+    print('Histone Modifications Mapped to GO Terms!')
+    csv_fname = f"HistonePTM2GO.csv"
+    storage_dir = data_directory
+    histonePTM2GO_df = pd.DataFrame.from_dict(histonePTM2GO)
+    histonePTM2GO_df.to_csv(os.path.join(storage_dir,csv_fname), encoding="utf-8-sig", index=False)
+    print(os.path.join(storage_dir,csv_fname))
+    '''
+
     for chr in chromosome_lengths.keys():
         m = int(chromosome_lengths[chr])
         for i in range(m): #Create loci nodes for chromosomes
             if i!= 0 and i % n == 0:
-                data['chromosomeID'].append(str(chr))
-                data['start'].append(i-(n-1))
-                data['end'].append(i)
-                data['lociID'].append("LOC:" + chr + "-" + str(i-(n-1)) + "-" + str(i))
+                for ptm in histonePTMs:
+                    data['hisPTMid'].append("HisPTM:" + chr + "(" + str(i-(n-1)) + "-" + str(i) + ")" + ";" + ptm)
+                    data['chromosomeID'].append(str(chr))
+                    data['start'].append(i-(n-1))
+                    data['end'].append(i)
+                    data['loci'].append(f"{str(chr)}({i-(n-1)}-{i})")
+                    data['histoneMod'].append(ptm)
             
             #Handles the tail end of chromosomes.
             if i == m-1:
-                data['chromosomeID'].append(str(chr))
-                data['start'].append(((m//9)*9)+1)
-                data['end'].append(m)
-                data['lociID'].append("LOC:" + chr + "-" + str(((m//9)*9)+1) + "-" + str(m))
-
+                for ptm in histonePTMs:
+                    data['hisPTMid'].append("HisPTM:" + chr + "(" + str(((m//9)*9)+1) + "-" + str(m) + ")" + ";" + ptm)
+                    data['chromosomeID'].append(str(chr))
+                    data['start'].append(((m//9)*9)+1)
+                    data['end'].append(m)
+                    data['loci'].append(f"{str(chr)}({((m//9)*9)+1}-{m})")
+                    data['histoneMod'].append(ptm)
     genomelocidf = pd.DataFrame(data)
-    print('Genome Loci Collected!')
-    csv_fname = f"Res{n}GenomeLoci.csv"
+    print('Histone Modifications Loci Collected!')
+    csv_f1name = f"Res{n}HistoneModLoci.csv"
     storage_dir = data_directory
-    print(os.path.join(storage_dir,csv_fname))
-    genomelocidf.to_csv(os.path.join(storage_dir,csv_fname), encoding="utf-8-sig", index=False)
+    print(os.path.join(storage_dir,csv_f1name))
+    genomelocidf.to_csv(os.path.join(storage_dir,csv_f1name), encoding="utf-8-sig", index=False)
+    
+    allgenesdf = pd.read_csv(data_directory+'/SGDAllGenes.csv')
+    chrome_dict = {}
+    for uc in chromosome_lengths.keys():
+        chrome_dict.update({uc:allgenesdf.loc[(allgenesdf['chromosome.primaryIdentifier'] == uc)]})
 
+    mapped_genes = []
+    total = len(genomelocidf.index)
+    for idx,row in genomelocidf.iterrows():
+        if (idx%10000)==0:
+            print(f"{idx} of {total}")
+        gene = chrome_dict[row['chromosomeID']].loc[(row['end'] >= chrome_dict[row['chromosomeID']]['chromosomeLocation.start']) & (row['start'] <= chrome_dict[row['chromosomeID']]['chromosomeLocation.end'])]
+        
+        try:
+            gene = gene['primaryIdentifier'].values[:]
+            if len(gene) < 1:
+                gene = "None"
+        except:
+            gene = "None"
+        
+        mapped_genes = mapped_genes + [gene]
+    genomelocidf['mapped_genes'] = mapped_genes
+    genomelocidf = genomelocidf[genomelocidf.mapped_genes.isin(["None"]) == False]
+    genomelocidf = genomelocidf.explode('mapped_genes')
+    print(f"Histone Modifications Mapping Complete!")
+    csv_f3name = f"HistoneMod2Gene.csv"
+    print(os.path.join(storage_dir,csv_f3name))
+    genomelocidf.to_csv(os.path.join(storage_dir,csv_f3name), encoding="utf-8-sig", index=False)
+    
 if __name__ == "__main__":
-    main()
+    main(150,"Data_services/parsers/yeast/src/SGD_Data_Storage")
