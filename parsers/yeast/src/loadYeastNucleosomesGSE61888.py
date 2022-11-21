@@ -225,19 +225,9 @@ class YeastGSE61888Loader(SourceDataLoader):
 
         self.binned_histone_mods_file = f"{self.data_path}/../../../YeastSGDInfo/yeast_v1/source/Res150HistoneModLoci.csv"
         self.GSE61888_ChIPseq = "GSE61888_nucs_normed.csv"
-        #self.nucleosome_list_file_name = "/Data_services/parsers/yeast/src/SGD_Data_Storage/GSE61888_nucs_normed_updated.csv"
-        #self.sgd_gene_list_file_name = "/SGD_Data_Storage/SDGAllGenes.csv"
-        #self.experimental_conditions_to_nucleosomes_edges_file_name = "experimental_conditions_mapped_to_nucleosomes.csv"
-        #self.nucleosome_to_gene_edges_file_name = "Yeast_Nucleosomes_Mapped_to_Genes.csv"
         
-
         self.data_files = [
-            #self.experimental_conditions_list_file_name,
             self.GSE61888_ChIPseq
-            #self.nucleosome_list_file_name
-            #self.sgd_gene_list_file_name
-            #self.experimental_conditions_to_nucleosomes_edges_file_name,
-            #self.nucleosome_to_gene_edges_file_name,
         ]
 
     def get_latest_source_version(self) -> str:
@@ -301,10 +291,8 @@ class YeastGSE61888Loader(SourceDataLoader):
                 if (idx%10000)==0:
                     print(f"{idx} of {total}")
                 
-                #chrome_matches = binned_histones.loc[(row['chr'] == binned_histones['chromosomeID'])]
                 binned = chrome_dict[row['chr']].loc[(row['center'] >= chrome_dict[row['chr']]['start']) & (row['center'] <= chrome_dict[row['chr']]['end'])]
-                #binned = start_matches.loc[(row['center'] <= binned_histones['end'])]
-                #binned = binned_histones.loc[(row['chr'] == binned_histones['chromosomeID']) & (row['center'] >= binned_histones['start']) & (row['center'] <= binned_histones['end'])]
+
                 try:
                     binned = binned['loci'].values[0]
                     if len(binned) < 1:
@@ -315,7 +303,6 @@ class YeastGSE61888Loader(SourceDataLoader):
 
             dataset['loci'] = dataset_bins
             dataset = dataset[dataset.loci.isin(["None"]) == False]
-            #dataset = dataset.explode('loci')
             print(os.path.join(self.data_path,source))
             dataset.to_csv(os.path.join(self.data_path,source), encoding="utf-8-sig", index=False)
             mergedf = dataset.merge(binned_histones,how='inner',on='loci')
@@ -323,64 +310,8 @@ class YeastGSE61888Loader(SourceDataLoader):
             csv_f3name = "HistoneMod2GSE61888.csv"
             mergedf.to_csv(os.path.join(self.data_path,csv_f3name), encoding="utf-8-sig", index=False)
             print(os.path.join(self.data_path,csv_f3name))
-
-        
+    
         return True
-             # New method to join tables by making locations consistent between tables
-        
-        #     for idx,row in dataset.iterrows():
-        #         if (idx%100)==0:
-        #             print(idx)
-        #         window = binned_histones.loc[(row['chr'] == binned_histones['chromosomeID']) & (row['center'] >= binned_histones['start']) & (row['center'] <= binned_histones['end'])]
-        #         loci = window['chromosomeID']+'('+window['start']+'-'+window['end']+')'
-        #         if idx == 0:
-        #             dataset_bins = loci
-        #         else:
-        #             dataset_bins = dataset_bins.append(loci)
-        #     dataset['binned_locations'] = dataset_bins
-        #     dataset.to_csv(os.path.join(self.data_path,source), encoding="utf-8-sig", index=False)
-        #     mergedf = dataset.merge(binned_histones,how='inner',left_on='binned_locations',right_on='loci')
-        #     print(f"Histone Modifications Mapping Complete!")
-        #     csv_f3name = "HistoneMod2GSE61888.csv"
-        #     print(os.path.join(self.data_path,csv_f3name))
-        #     mergedf.to_csv(os.path.join(self.data_path,csv_f3name), encoding="utf-8-sig", index=False)
-        
-        # return True
-
-        
-        #     chunk = 0
-        #     chunks = 10000
-        #     saved_chunks = []
-        #     frames = pd.DataFrame(data={})
-        #     for n in np.array_split(binned_histones, chunks):
-        #         mergedf = n.merge(dataset,how='inner',left_on='chromosomeID',right_on='chr')
-        #         cleanmergedf = mergedf.loc[(mergedf['center'] >= mergedf['start']) & (mergedf['center'] <= mergedf['end'])]
-        #         frames = pd.concat([frames,cleanmergedf])
-        #         print(f"Histone Modifications File {chunk} Mapped to GSE61888!")
-        #         if chunk > 0:
-        #             if chunk%100 == 0 or chunk == chunks-1:
-        #                 saved_chunks.append(chunk)
-        #                 csv_f2name = f"HistoneMod2GSE61888({chunk}).csv"
-        #                 print(os.path.join(self.data_path,csv_f2name))
-        #                 frames.to_csv(os.path.join(self.data_path,csv_f2name), encoding="utf-8-sig", index=False)
-        #                 del frames
-        #                 frames = pd.DataFrame(data={})
-        #         del mergedf
-        #         del cleanmergedf
-        #         chunk+=1
-
-        #     frames = pd.DataFrame(data={})
-        #     for sc in saved_chunks:
-        #         file = pd.read_csv(self.data_path+f"/HistoneMod2GSE61888({sc}).csv")
-        #         frames = pd.concat([frames,file])
-        #         #frames = frames.fillna("")
-        #         os.remove(self.data_path+f"/HistoneMod2GSE61888({sc}).csv")
-        #     print(f"Histone Modifications Mapping Complete!")
-        #     csv_f3name = "HistoneMod2GSE61888.csv"
-        #     print(os.path.join(self.data_path,csv_f3name))
-        #     frames.to_csv(os.path.join(self.data_path,csv_f3name), encoding="utf-8-sig", index=False)
-        
-        # return True
     
     def parse_data(self) -> dict:
         """
@@ -390,27 +321,6 @@ class YeastGSE61888Loader(SourceDataLoader):
         """
 
         extractor = Extractor()
-
-        '''
-        #This file is a list of histone modification genomic loci.
-        histone_modification_file: str = os.path.join(self.data_path, "HistoneMod2GSE61888.csv")
-        with open(histone_modification_file, 'r') as fp:
-            extractor.csv_extract(fp,
-                                  lambda line: line[EXPNUC_EDGEUMAN.HISMODID.value],  # subject id
-                                  lambda line: None,  # object id
-                                  lambda line: None,  # predicate extractor
-                                  lambda line: {'name': f"{line[EXPNUC_EDGEUMAN.HISMOD.value]} ({line[EXPNUC_EDGEUMAN.CHR_ID.value]}:{line[EXPNUC_EDGEUMAN.START.value]}-{line[EXPNUC_EDGEUMAN.END.value]})",
-                                                'categories': ['biolink:NucleosomeModification','biolink:PosttranslationalModification'],
-                                                'histoneModification': line[EXPNUC_EDGEUMAN.HISMOD.value],
-                                                'chromosomeLocation': f"{line[EXPNUC_EDGEUMAN.CHR_ID.value]}:{line[EXPNUC_EDGEUMAN.START.value]}-{line[EXPNUC_EDGEUMAN.END.value]}",
-                                                PRIMARY_KNOWLEDGE_SOURCE: "SGD",
-                                                AGGREGATOR_KNOWLEDGE_SOURCES: ["SGD"]}, # subject props
-                                  lambda line: {},  # object props
-                                  lambda line: {},#edgeprops
-                                  comment_character=None,
-                                  delim=',',
-                                  has_header_row=True)
-        '''
 
         #Experimental conditions to nucleosomes edges. Edges contain nucleosome occupancy and histone PTMs/Variants as properties.
         #In this case, handles only "GSE61888 High resolution chromatin dynamics during a yeast stress response" data
@@ -458,44 +368,7 @@ class YeastGSE61888Loader(SourceDataLoader):
                                   comment_character=None,
                                   delim=',',
                                   has_header_row=True)
-        '''
-        nucleosome_to_gene_edges_file: str = os.path.join(self.nucleosome_list_file_name)
-        with open(nucleosome_to_gene_edges_file, 'r') as fp:
-            extractor.csv_extract(fp,
-                                  lambda line: f"NUC:GSE61888_{str(line[EXPNUC_EDGEUMAN.NUC_ID.value])}", #subject id
-                                  lambda line: line[EXPNUC_EDGEUMAN.SGD_ID.value],  # object id
-                                  lambda line: 'biolink:located_in',  # predicate extractor
-                                  lambda line: None,  # subject props
-                                  lambda line: None,  # object props
-                                  lambda line: {}, #edgeprops
-                                  comment_character=None,
-                                  delim=',',
-                                  has_header_row=True)
-        '''
-
-        #Goes through the file and only yields the rows in which the cosine distance is above a predefined threshold.
-        """
-        def cos_dist_filter(infile):
-            #Header
-            yield next(infile)
-            for line in infile:
-               if(float(line.split(',')[SOREDGECOSDIST.DISTANCE.value])<=self.cos_dist_threshold): yield line
-
-                 
-        sor_vsd_cos_dist_edges_file: str = os.path.join(self.data_path, self.sor_vsd_cos_dist_edges_file_name)
-        with open(sor_vsd_cos_dist_edges_file, 'r') as fp:
-            extractor.csv_extract(cos_dist_filter(fp),
-                                  lambda line: line[SOREDGECOSDIST.DRUG_ID.value], #subject id
-                                  lambda line: "SCENT:" + line[SOREDGECOSDIST.VERBAL_SCENT.value].replace(' ','_'),  # object id
-                                  lambda line: line[SOREDGECOSDIST.PREDICATE.value],  # predicate extractor
-                                  lambda line: {'categories': ['odorant','biolink:ChemicalEntity']},  # subject props
-                                  lambda line: {'categories': ['verbal_scent_descriptor'],"name":line[SOREDGECOSDIST.VERBAL_SCENT.value]},  # object props
-                                  lambda line: {'cosine_distance':float(line[SOREDGECOSDIST.DISTANCE.value])}, #edgeprops
-                                  comment_character=None,
-                                  delim=',',
-                                  has_header_row=True)
-        """
-        
+       
         self.final_node_list = extractor.nodes
         self.final_edge_list = extractor.edges
         return extractor.load_metadata

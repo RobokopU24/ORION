@@ -93,10 +93,6 @@ class YeastSGDLoader(SourceDataLoader):
         #self.yeast_data_url = 'https://stars.renci.org/var/data_services/yeast/'
 
         self.sgd_gene_list_file_name = "SGDAllGenes.csv"
-        #self.go_term_list_file_name = "yeast_GO_term_list.csv"
-        #self.pathway_list_file_name = "yeast_pathways_list.csv"
-        #self.phenotype_list_file_name = "yeast_phenotype_list.csv"
-
         self.genes_to_go_term_edges_file_name = "SGDGene2GOTerm.csv"
         self.genes_to_pathway_edges_file_name = "SGDGene2Pathway.csv"
         self.genes_to_phenotype_edges_file_name = "SGDGene2Phenotype.csv"
@@ -108,9 +104,6 @@ class YeastSGDLoader(SourceDataLoader):
         
         self.data_files = [
             self.sgd_gene_list_file_name,
-            #self.go_term_list_file_name,
-            #self.pathway_list_file_name,
-            #self.phenotype_list_file_name,
             self.genes_to_go_term_edges_file_name,
             self.genes_to_pathway_edges_file_name,
             self.genes_to_phenotype_edges_file_name,
@@ -134,10 +127,6 @@ class YeastSGDLoader(SourceDataLoader):
         """
         genome_resolution = 150
         main(genome_resolution, self.data_path)
-        # data_puller = GetData()
-        # for source in self.data_files:
-        #     source_url = f"{self.yeast_data_url}{source}"
-        #     data_puller.(source_url, self.data_path)
 
         return True
 
@@ -373,29 +362,6 @@ class YeastSGDLoader(SourceDataLoader):
                                   comment_character=None,
                                   delim=',',
                                   has_header_row=True)
-                                  
-        #Goes through the file and only yields the rows in which the cosine distance is above a predefined threshold.
-        """
-        def cos_dist_filter(infile):
-            #Header
-            yield next(infile)
-            for line in infile:
-               if(float(line.split(',')[SOREDGECOSDIST.DISTANCE.value])<=self.cos_dist_threshold): yield line
-
-                 
-        sor_vsd_cos_dist_edges_file: str = os.path.join(self.data_path, self.sor_vsd_cos_dist_edges_file_name)
-        with open(sor_vsd_cos_dist_edges_file, 'r') as fp:
-            extractor.csv_extract(cos_dist_filter(fp),
-                                  lambda line: line[SOREDGECOSDIST.DRUG_ID.value], #subject id
-                                  lambda line: "SCENT:" + line[SOREDGECOSDIST.VERBAL_SCENT.value].replace(' ','_'),  # object id
-                                  lambda line: line[SOREDGECOSDIST.PREDICATE.value],  # predicate extractor
-                                  lambda line: {'categories': ['odorant','biolink:ChemicalEntity']},  # subject props
-                                  lambda line: {'categories': ['verbal_scent_descriptor'],"name":line[SOREDGECOSDIST.VERBAL_SCENT.value]},  # object props
-                                  lambda line: {'cosine_distance':float(line[SOREDGECOSDIST.DISTANCE.value])}, #edgeprops
-                                  comment_character=None,
-                                  delim=',',
-                                  has_header_row=True)
-        """
         
         self.final_node_list = extractor.nodes
         self.final_edge_list = extractor.edges

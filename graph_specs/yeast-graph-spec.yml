@@ -6,8 +6,6 @@ graphs:
     sources:
       - source_id: YeastSGDInfo
       - source_id: YeastGSE61888
-      #- source_id: YeastHistoneAndExpression
-      #- source_id: YeastNucleosomes
       - source_id: GenomeAllianceOrthologs
       - source_id: OntologicalHierarchy
         merge_strategy: connected_edge_subset
