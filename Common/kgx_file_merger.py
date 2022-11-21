@@ -1,7 +1,7 @@
 import os
 import jsonlines
 from itertools import chain
-from Common.utils import LoggingUtil, quick_jsonl_file_iterator, quick_json_dumps
+from Common.utils import LoggingUtil, quick_jsonl_file_iterator, quick_json_dumps, quick_json_loads
 from Common.kgxmodel import GraphSpec
 from Common.node_types import SUBJECT_ID, OBJECT_ID
 from Common.merging import GraphMerger, DiskGraphMerger, MemoryGraphMerger
@@ -121,6 +121,7 @@ class KGXFileMerger:
         merge_metadata['final_edge_count'] += edges_written
         return True
 
+    # nodes_output_file_path and edges_output_file_path could/should be existing kgx files that will be appended to
     def merge_secondary_sources(self,
                                 graph_sources: list,
                                 nodes_output_file_path: str,
@@ -135,28 +136,18 @@ class KGXFileMerger:
 
                 file_path_iterator = iter(graph_source.file_paths)
                 for file_path in file_path_iterator:
-                    connected_edge_subset_nodes_file = file_path
-                    connected_edge_subset_edges_file = next(file_path_iterator)
-                    if not (('nodes' in connected_edge_subset_nodes_file) and
-                            ('edges' in connected_edge_subset_edges_file)):
+                    nodes_file_to_merge = file_path
+                    edges_file_to_merge = next(file_path_iterator)
+                    if not (('nodes' in nodes_file_to_merge) and
+                            ('edges' in edges_file_to_merge)):
                         raise IOError(
-                            f'File paths were not in node, edge ordered pairs: {connected_edge_subset_nodes_file},{connected_edge_subset_edges_file}')
-                    temp_nodes_file = f'{nodes_output_file_path}_temp'
-                    temp_edges_file = f'{edges_output_file_path}_temp'
-                    new_node_count, new_edge_count = self.kgx_a_subset_b(nodes_output_file_path,
-                                                                         edges_output_file_path,
-                                                                         connected_edge_subset_nodes_file,
-                                                                         connected_edge_subset_edges_file,
-                                                                         temp_nodes_file,
-                                                                         temp_edges_file)
-                    os.remove(nodes_output_file_path)
-                    os.remove(edges_output_file_path)
-                    os.rename(temp_nodes_file, nodes_output_file_path)
-                    os.rename(temp_edges_file, edges_output_file_path)
-                    nodes_source_filename = connected_edge_subset_nodes_file.rsplit('/')[-1]
-                    edges_source_filename = connected_edge_subset_edges_file.rsplit('/')[-1]
-
-                    # due to the algorithm implemented in kgx_a_subset_b there are no mergers to log
+                            f'File paths were not in node, edge ordered pairs: {nodes_file_to_merge},{edges_file_to_merge}')
+                    new_node_count, new_edge_count = self.merge_connected_edges(nodes_output_file_path,
+                                                                                edges_output_file_path,
+                                                                                nodes_file_to_merge,
+                                                                                edges_file_to_merge)
+                    nodes_source_filename = nodes_file_to_merge.rsplit('/')[-1]
+                    edges_source_filename = edges_file_to_merge.rsplit('/')[-1]
                     merge_metadata["sources"][graph_source.id][nodes_source_filename] = {
                         "nodes": new_node_count
                     }
@@ -201,53 +192,45 @@ class KGXFileMerger:
     """
 
     """
-    Given two kgx sets, A and B, generate a new kgx file that contains:
-    All nodes and edges from A
-    Edges from B that connect to nodes in A, and any nodes from B that they connect to.
+    Given two sets of kgx files, A and B, append to A the edges from B that connect to nodes in A, 
+    and any nodes from B that they connect to.
     """
+    def merge_connected_edges(self, node_file_a, edge_file_a, node_file_b, edge_file_b):
 
-    def kgx_a_subset_b(self, node_file_a, edge_file_a, node_file_b, edge_file_b, new_node_file, new_edge_file):
-        # first read all nodes from fileset A
-        nodes_reader = quick_jsonl_file_iterator(node_file_a)
-        node_ids = set([node['id'] for node in nodes_reader])
+        # first grab the node ids from file A
+        node_ids = set([node['id'] for node in quick_jsonl_file_iterator(node_file_a)])
+        connected_node_ids_not_in_a = set()
 
-        # filter edges from B that contain nodes from A
-        edges_reader = quick_jsonl_file_iterator(edge_file_b)
-        filtered_edges = [edge for edge in edges_reader
-                          if edge[SUBJECT_ID] in node_ids or edge[OBJECT_ID] in node_ids]
-        new_edge_count = len(filtered_edges)
-        self.logger.debug(f'Found {new_edge_count} new connected edges')
+        # append to edges file A the edges from B that connect to nodes from A,
+        # meanwhile determine the set of node ids from those edges that aren't in A already
+        edges_added = 0
+        with open(edge_file_a, 'a') as merged_edges_file, \
+                open(edge_file_b, 'r', encoding='utf-8') as edges_from_b:
+            for edge_line in edges_from_b:
+                subject_connected = False
+                object_connected = False
+                edge = quick_json_loads(edge_line)
+                if edge[SUBJECT_ID] in node_ids:
+                    subject_connected = True
+                if edge[OBJECT_ID] in node_ids:
+                    object_connected = True
+                if subject_connected or object_connected:
+                    edges_added += 1
+                    merged_edges_file.write(edge_line)
+                    if not subject_connected:
+                        connected_node_ids_not_in_a.add(edge[SUBJECT_ID])
+                    elif not object_connected:
+                        connected_node_ids_not_in_a.add(edge[OBJECT_ID])
+        self.logger.debug(f'Added {edges_added} new connected edges')
 
-        # find node ids that filtered edges from B connect to not present in A
-        filtered_edges_node_ids = set()
-        for edge in filtered_edges:
-            filtered_edges_node_ids.add(edge[SUBJECT_ID])
-            filtered_edges_node_ids.add(edge[OBJECT_ID])
-        filtered_edges_node_ids = filtered_edges_node_ids - node_ids
+        nodes_added = len(connected_node_ids_not_in_a)
+        self.logger.debug(f'Found {nodes_added} new nodes from connected edges')
 
-        new_node_count = len(filtered_edges_node_ids)
-        self.logger.debug(f'Found {new_node_count} new nodes from connected edges')
+        with open(node_file_a, 'a') as merged_nodes_file:
+            for node_line in open(node_file_b, 'r', encoding='utf-8'):
+                node = quick_json_loads(node_line)
+                if node['id'] in connected_node_ids_not_in_a:
+                    merged_nodes_file.write(node_line)
 
-        # get node data from B
-        nodes_reader = quick_jsonl_file_iterator(node_file_b)
-        filtered_nodes_from_b = [node for node in nodes_reader
-                                 if node['id'] in filtered_edges_node_ids]
-
-        # write out nodes
-        with open(new_node_file, 'w', encoding='utf-8') as stream:
-            # write out jsonl nodes of A
-            with open(node_file_a) as node_file_a_reader:
-                stream.writelines(node_file_a_reader)
-            # write new nodes from B
-            stream.writelines([quick_json_dumps(node) + '\n' for node in filtered_nodes_from_b])
-
-        # write out edges
-        with open(new_edge_file, 'w', encoding='utf-8') as stream:
-            # write out jsonl edges from A
-            with open(edge_file_a) as edge_file_a_reader:
-                stream.writelines(edge_file_a_reader)
-            # write out new edges from B
-            stream.writelines([quick_json_dumps(edge) + '\n' for edge in filtered_edges])
-
-        return new_node_count, new_edge_count
+        return nodes_added, edges_added
 
