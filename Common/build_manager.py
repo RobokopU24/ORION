@@ -30,6 +30,7 @@ class GraphBuilder:
         self.graphs_dir = self.init_graphs_dir()  # path to the graphs output directory
         self.source_data_manager = SourceDataManager()  # access to the data sources and their metadata
         self.graph_specs = self.load_graph_specs()  # list of graphs to build (GraphSpec objects)
+        self.build_results = {}
 
     def build_graph(self, graph_id: str, create_neo4j_dump: bool = False):
 
@@ -75,8 +76,10 @@ class GraphBuilder:
             graph_metadata.set_build_info(merge_metadata, current_time)
             graph_metadata.set_build_status(Metadata.STABLE)
             self.logger.info(f'Building graph {graph_id} complete!')
+            self.build_results[graph_id] = {'version': graph_version, 'success': True}
         else:
             self.logger.info(f'Graph {graph_id} version {graph_version} was already built.')
+            self.build_results[graph_id] = {'version': graph_version, 'success': False}
 
         if create_neo4j_dump:
             self.logger.info(f'Starting Neo4j dump pipeline for {graph_id}...')
@@ -439,4 +442,8 @@ if __name__ == '__main__':
                 graph_builder.build_graph(graph_id_arg, create_neo4j_dump=neo4j_dump_bool)
         else:
             print(f'Invalid graph spec requested: {graph_id_arg}')
+    for graph_id, results in graph_builder.build_results.items():
+        if results['success']:
+            print(f'{graph_id}\t{results["version"]}')
+
 
