@@ -297,7 +297,7 @@ class GraphBuilder:
                 current_graph_spec.graph_version = graph_version
                 self.current_graph_versions[graph_id] = graph_version
                 graph_specs.append(current_graph_spec)
-        except KeyError as e:
+        except Exception as e:
             self.logger.error(f'Error parsing Graph Spec ({graph_id}), formatting error or missing information: {repr(e)}')
 
         return graph_specs
@@ -320,6 +320,12 @@ class GraphBuilder:
 
     def parse_data_source_spec(self, source_yml):
         source_id = source_yml['source_id']
+        if source_id not in SOURCE_DATA_LOADER_CLASSES.keys():
+            error_message = f'Data source {source_id} is not a valid data source id.'
+            self.logger.error(error_message + " " +
+                              f'Valid sources are: {", ".join(sorted(SOURCE_DATA_LOADER_CLASSES.keys()))}')
+            raise Exception(error_message)
+
         source_version = source_yml['source_version'] if 'source_version' in source_yml \
             else self.source_data_manager.get_latest_source_version(source_id)
         parsing_version = source_yml['parsing_version'] if 'parsing_version' in source_yml \
@@ -432,5 +438,5 @@ if __name__ == '__main__':
             else:
                 graph_builder.build_graph(graph_id_arg, create_neo4j_dump=neo4j_dump_bool)
         else:
-            print(f'Invalid graph id requested: {graph_id_arg}')
+            print(f'Invalid graph spec requested: {graph_id_arg}')
 
