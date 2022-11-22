@@ -1,14 +1,13 @@
 import os
 import csv
 import argparse
-import logging
 import re
 import tarfile
 import requests
 
 from bs4 import BeautifulSoup
 from operator import itemgetter
-from Common.utils import LoggingUtil, GetData
+from Common.utils import GetData
 from Common.loader_interface import SourceDataLoader, SourceDataFailedError
 from Common.kgxmodel import kgxnode, kgxedge
 from Common.prefixes import CTD, NCBITAXON, MESH
@@ -25,6 +24,7 @@ class CTDLoader(SourceDataLoader):
 
     source_id = 'CTD'
     provenance_id = 'infores:ctd'
+    parsing_version: str = '1.1'
 
     predicate_conversion_map = {
         'CTD:decreases_molecular_interaction_with': 'CTD:decreases_molecular_interaction',
@@ -226,7 +226,7 @@ class CTDLoader(SourceDataLoader):
                 new_edge = kgxedge(edge_subject,
                                    edge_object,
                                    predicate=predicate,
-                                   original_knowledge_source=self.provenance_id,
+                                   primary_knowledge_source=self.provenance_id,
                                    edgeprops={'publications': pmids}.update(props))
                 edge_list.append(new_edge)
 
@@ -302,7 +302,7 @@ class CTDLoader(SourceDataLoader):
                 new_edge = kgxedge(edge_subject,
                                    edge_object,
                                    predicate=predicate,
-                                   original_knowledge_source=self.provenance_id,
+                                   primary_knowledge_source=self.provenance_id,
                                    edgeprops={'publications': pmids}.update(props))
                 edge_list.append(new_edge)
 
@@ -373,7 +373,7 @@ class CTDLoader(SourceDataLoader):
                 new_edge = kgxedge(exposure_id,
                                    disease_id,
                                    predicate=predicate,
-                                   original_knowledge_source=self.provenance_id,
+                                   primary_knowledge_source=self.provenance_id,
                                    edgeprops={'publications': [f"PMID:{r['reference']}"]})
                 edge_list.append(new_edge)
 
@@ -535,7 +535,7 @@ class CTDLoader(SourceDataLoader):
                     new_edge = kgxedge(chemical_id,
                                        cur_disease_id.upper(),
                                        predicate=predicate,
-                                       original_knowledge_source=self.provenance_id,
+                                       primary_knowledge_source=self.provenance_id,
                                        edgeprops={'publications': publications})
                     edge_list.append(new_edge)
 

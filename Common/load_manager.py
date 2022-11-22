@@ -11,9 +11,7 @@ from Common.metadata import SourceMetadata
 from Common.loader_interface import SourceDataBrokenError, SourceDataFailedError
 from Common.supplementation import SequenceVariantSupplementation, SupplementationFailedError
 from parsers.yeast.src.loadYeastSGDInfo import YeastSGDLoader
-from parsers.yeast.src.loadYeastNucleosomes import YeastNucleosomeLoader
 from parsers.yeast.src.loadYeastNucleosomesGSE61888 import YeastGSE61888Loader
-from parsers.yeast.src.loadYeastHistoneModificationsAndRNASeq import YeastHistoneAndExpressionLoader
 from parsers.GWASCatalog.src.loadGWASCatalog import GWASCatalogLoader
 from parsers.CTD.src.loadCTD import CTDLoader
 from parsers.cord19.src.loadCord19 import Cord19Loader
@@ -34,6 +32,8 @@ from parsers.hetio.src.loadHetio import HetioLoader
 from parsers.biolink.src.loadBL import BLLoader
 from parsers.OntologicalHierarchy.src.loadOH import OHLoader
 from parsers.GenomeAlliance.src.loadGenomeAlliance import GenomeAllianceOrthologLoader
+from parsers.STRING.src.loadSTRINGDB import STRINGDBLoader
+from parsers.chebi.src.loadChebiProperties import ChebiPropertiesLoader
 
 GWAS_CATALOG = 'GWASCatalog'
 CTD = 'CTD'
@@ -60,6 +60,8 @@ YEASTHISTONEANDEXPRESSION = 'YeastHistoneAndExpression'
 YEAST_NUCLEOSOMES = 'YeastNucleosomes'
 YEAST_GSE61888 = 'YeastGSE61888'
 GENOME_ALLIANCE_ORTHOLOGS = 'GenomeAllianceOrthologs'
+STRING_DB = 'STRING-DB'
+CHEBI_PROPERTIES = 'ChebiProperties'
 # FOODB = 'FooDB' # this is on hold, data needs review after latest release of data.
 
 
@@ -85,10 +87,11 @@ SOURCE_DATA_LOADER_CLASSES = {
     ONTOLOGICAL_HIERARCHY: OHLoader,
     SCENT: ScentLoader,
     YEASTSGD: YeastSGDLoader,
-    YEASTHISTONEANDEXPRESSION: YeastHistoneAndExpressionLoader,
-    YEAST_NUCLEOSOMES: YeastNucleosomeLoader,
     YEAST_GSE61888: YeastGSE61888Loader,
-    GENOME_ALLIANCE_ORTHOLOGS: GenomeAllianceOrthologLoader
+    GENOME_ALLIANCE_ORTHOLOGS: GenomeAllianceOrthologLoader,
+    STRING_DB: STRINGDBLoader,
+    CHEBI_PROPERTIES: ChebiPropertiesLoader
+
     # items to go
     # textminingkp
 
@@ -96,7 +99,7 @@ SOURCE_DATA_LOADER_CLASSES = {
     # FOODB: FDBLoader - no longer has curies that will normalize
 }
 
-RESOURCE_HOGS = [GTEX, GWAS_CATALOG, UNIREF, ONTOLOGICAL_HIERARCHY, YEASTSGD]
+RESOURCE_HOGS = [GTEX, GWAS_CATALOG, UNIREF, ONTOLOGICAL_HIERARCHY, YEASTSGD, STRING_DB]
 
 
 class SourceDataManager:

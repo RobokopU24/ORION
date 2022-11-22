@@ -66,7 +66,6 @@ PREDICATE = 'predicate'
 FALLBACK_EDGE_PREDICATE = 'biolink:related_to'
 FALLBACK_EDGE_PREDICATE_LABEL = 'related to'
 
-ORIGINAL_KNOWLEDGE_SOURCE = 'biolink:original_knowledge_source'
 PRIMARY_KNOWLEDGE_SOURCE = 'biolink:primary_knowledge_source'
 AGGREGATOR_KNOWLEDGE_SOURCES = 'biolink:aggregator_knowledge_source'
 PUBLICATIONS = 'publications'

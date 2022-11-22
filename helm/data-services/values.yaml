@@ -13,39 +13,49 @@ dataServices:
     pullPolicy: IfNotPresent
     tag: latest
   graphsVolume:
-    size: 32Gi
+    use_nfs: false
+    nfs_server:
+    nfs_path:
+    nfs_mount_subpath:
+    size: 32Gi # if use_nfs is set to true size is ignored
   sourcesVolume:
-    size: 32Gi
+    use_nfs: false
+    nfs_server:
+    nfs_path:
+    nfs_mount_subpath:
+    size: 32Gi # if use_nfs is set to true size is ignored
   neo4jScratchVolume:
-    size: 16Gi
+    size: 16Gi # if use_nfs is set to true size is ignored
   resources:
     limits:
-      cpu: "4"
-      memory: 28Gi
+      cpu: "1"
+      memory: 16Gi
+      ephemeral-storage: 2Gi
     requests:
-      cpu: "4"
-      memory: 28Gi
-  httpProxy:
+      cpu: "1"
+      memory: 16Gi
+      ephemeral-storage: 1Gi
+  httpsProxy:
     useProxy: false
     proxyURL:
+  securityContext:
+    runAsUser:
+    runAsGroup:
   normalization:
     nodeNormEndpoint:
     edgeNormEndpoint:
 
-neo4j:
-  image:
-    repository: neo4j
-    pullPolicy: IfNotPresent
-    tag: 4.3
-  username: neo4j
-  password: neo4jpw
-  resources:
-    limits:
-      cpu: "4"
-      memory: 28Gi
-    requests:
-      cpu: "4"
-      memory: 28Gi
+pharos:
+  pharos_host:
+  pharos_port:
+  pharos_user:
+  pharos_password:
+  pharos_db_name:
 
-
+drugcentral:
+  drugcentral_host:
+  drugcentral_port:
+  drugcentral_user:
+  drugcentral_password:
+  drugcentral_db_name:
 

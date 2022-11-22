@@ -97,7 +97,7 @@ def test_writing_objects():
                 edge = kgxedge(subject_id=f'TEST:{i}',
                                object_id=f'TEST:{i+j}',
                                predicate='biolink:related_to',
-                               original_knowledge_source='infores:testing',
+                               primary_knowledge_source='infores:testing',
                                edgeprops={'test_prop_bool': True,
                                           'test_prop_float': 1.5,
                                           'test_prop_string': 'hey'})
@@ -149,7 +149,7 @@ def test_writing_json_lines():
                 edge_json = {SUBJECT_ID: f"TEST:{i}",
                              PREDICATE: "biolink:related_to",
                              OBJECT_ID: f"TEST:{i+j}",
-                             ORIGINAL_KNOWLEDGE_SOURCE: "infores:testing",
+                             PRIMARY_KNOWLEDGE_SOURCE: "infores:testing",
                              "test_prop_bool": True,
                              "test_prop_float": 1.5,
                              "test_prop_string": 'hey'}

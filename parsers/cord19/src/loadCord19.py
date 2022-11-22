@@ -1,12 +1,11 @@
 import os
-import logging
 import enum
 
 from copy import deepcopy
-from Common.utils import LoggingUtil, GetData
+from Common.utils import GetData
 from Common.loader_interface import SourceDataLoader
 from Common.extractor import Extractor
-from Common.node_types import AGGREGATOR_KNOWLEDGE_SOURCES, ORIGINAL_KNOWLEDGE_SOURCE
+from Common.node_types import AGGREGATOR_KNOWLEDGE_SOURCES, PRIMARY_KNOWLEDGE_SOURCE
 
 
 # the data header columns for both nodes files are:
@@ -57,6 +56,7 @@ class Cord19Loader(SourceDataLoader):
 
     source_id: str = 'Cord19'
     provenance_id: str = 'infores:cord19'
+    parsing_version: str = '1.1'
 
     def __init__(self, test_mode: bool = False, source_data_dir: str = None):
         """
@@ -157,7 +157,7 @@ class Cord19Loader(SourceDataLoader):
                                   lambda line: {},  # object props
                                   lambda line: {'num_publications': float(line[SBEDGESDATACOLS.EFFECTIVE_PUBS.value]),
                                                 'enrichment_p': float(line[SBEDGESDATACOLS.ENRICHMENT.value]),
-                                                ORIGINAL_KNOWLEDGE_SOURCE: 'infores:cord19-scibite'},#edgeprops
+                                                PRIMARY_KNOWLEDGE_SOURCE: 'infores:cord19-scibite'},#edgeprops
                                   comment_character=None,
                                   delim='\t',
                                   has_header_row=True)
@@ -173,7 +173,7 @@ class Cord19Loader(SourceDataLoader):
                                   lambda line: {},  # object props
                                   lambda line: {'num_publications': float(line[SGEDGESDATACOLS.EFFECTIVE_PUBS.value]),
                                                 'enrichment_p': float(line[SGEDGESDATACOLS.ENRICHMENT.value]),
-                                                ORIGINAL_KNOWLEDGE_SOURCE: self.provenance_id},#edgeprops
+                                                PRIMARY_KNOWLEDGE_SOURCE: self.provenance_id},#edgeprops
                                   comment_character=None,
                                   delim='\t',
                                   has_header_row=True)
@@ -188,8 +188,7 @@ class Cord19Loader(SourceDataLoader):
                                   lambda line: {},  # subject props
                                   lambda line: {},  # object props
                                   lambda line: {'notes': line[PHENOTYPESDATACOLS.PHENOTYPE_NOTE.value],
-                                                ORIGINAL_KNOWLEDGE_SOURCE: self.provenance_id,
-                                                AGGREGATOR_KNOWLEDGE_SOURCES: [self.provenance_id]},#edgeprops
+                                                PRIMARY_KNOWLEDGE_SOURCE: self.provenance_id},#edgeprops
                                   comment_character=None,
                                   delim=',',
                                   has_header_row=True)
@@ -204,7 +203,7 @@ class Cord19Loader(SourceDataLoader):
                                   lambda line: {},  # subject props
                                   lambda line: {},  # object props
                                   lambda line: {'count': line[TRIALSDATACOLS.COUNT.value],
-                                                ORIGINAL_KNOWLEDGE_SOURCE: 'infores:drugbank'},#edgeprops
+                                                PRIMARY_KNOWLEDGE_SOURCE: 'infores:drugbank'},#edgeprops
                                   comment_character=None,
                                   delim='\t',
                                   has_header_row=True)

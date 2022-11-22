@@ -15,36 +15,32 @@ from Common.kgxmodel import NormalizationScheme
 
 
 SNPEFF_SO_PREDICATES = {
-        # GAMMA are not from Sequence Ontology
-        # GAMMA:0000102 - biolink:is_nearby_variant_of
-        # GAMMA:0000103 - biolink:is_non_coding_variant_of
-
-        "3_prime_UTR_variant": "GAMMA:0000103",  # SO:0001624
-        "5_prime_UTR_premature_start_codon_gain_variant": "GAMMA:0000103",  # SO:0001988
-        "5_prime_UTR_variant": "GAMMA:0000103",  # SO:0001623
-        "conservative_inframe_deletion": "SO:0001825",
-        "conservative_inframe_insertion": "SO:0001823",
-        "disruptive_inframe_deletion": "SO:0001826",
-        "disruptive_inframe_insertion": "SO:0001824",
-        "downstream_gene_variant": "GAMMA:0000102",
-        "frameshift_variant": "SO:0001589",  # biolink:is_frameshift_variant_of
-        "initiator_codon_variant": "SO:0001583",  # biolink:is_missense_variant_of
-        "intergenic_region": "GAMMA:0000102",
-        "conserved_intergenic_region": "GAMMA:0000102",
-        "intragenic_variant": "GAMMA:0000103",
-        "intron_variant": "GAMMA:0000103",
-        "missense_variant": "SO:0001583",  # biolink:is_missense_variant_of
-        "non_coding_transcript_exon_variant": "GAMMA:0000103",
-        "non_coding_transcript_variant": "GAMMA:0000103",
-        "splice_acceptor_variant": "SO:0001629",  # biolink:is_splice_site_variant_of
-        "splice_donor_variant": "SO:0001629",  # biolink:is_splice_site_variant_of
-        "splice_region_variant": "SO:0001629",  # biolink:is_splice_site_variant_of
-        "start_lost":  "SO:0001589",  # biolink:is_frameshift_variant_of
-        "start_retained_variant": "SO:0001819",  # biolink:is_synonymous_variant_of
-        "stop_gained": "SO:0002054",  # biolink:is_nonsense_variant_of - more specifically SO:0001587
-        "stop_lost": "SO:0001589",  # biolink:is_frameshift_variant_of
-        "synonymous_variant": "SO:0001819",  # biolink:is_synonymous_variant_of
-        "upstream_gene_variant": "GAMMA:0000102"
+    "3_prime_UTR_variant": "biolink:is_non_coding_variant_of",  # SO:0001624
+    "5_prime_UTR_premature_start_codon_gain_variant": "biolink:is_non_coding_variant_of",  # SO:0001988
+    "5_prime_UTR_variant": "biolink:is_non_coding_variant_of",  # SO:0001623
+    "conservative_inframe_deletion": "SO:0001825",
+    "conservative_inframe_insertion": "SO:0001823",
+    "disruptive_inframe_deletion": "SO:0001826",
+    "disruptive_inframe_insertion": "SO:0001824",
+    "downstream_gene_variant": "biolink:is_nearby_variant_of",
+    "frameshift_variant": "SO:0001589",  # biolink:is_frameshift_variant_of
+    "initiator_codon_variant": "SO:0001583",  # biolink:is_missense_variant_of
+    "intergenic_region": "biolink:is_nearby_variant_of",
+    "conserved_intergenic_region": "biolink:is_nearby_variant_of",
+    "intragenic_variant": "biolink:is_non_coding_variant_of",
+    "intron_variant": "biolink:is_non_coding_variant_of",
+    "missense_variant": "SO:0001583",  # biolink:is_missense_variant_of
+    "non_coding_transcript_exon_variant": "biolink:is_non_coding_variant_of",
+    "non_coding_transcript_variant": "biolink:is_non_coding_variant_of",
+    "splice_acceptor_variant": "SO:0001629",  # biolink:is_splice_site_variant_of
+    "splice_donor_variant": "SO:0001629",  # biolink:is_splice_site_variant_of
+    "splice_region_variant": "SO:0001629",  # biolink:is_splice_site_variant_of
+    "start_lost":  "SO:0001589",  # biolink:is_frameshift_variant_of
+    "start_retained_variant": "SO:0001819",  # biolink:is_synonymous_variant_of
+    "stop_gained": "SO:0002054",  # biolink:is_nonsense_variant_of - more specifically SO:0001587
+    "stop_lost": "SO:0001589",  # biolink:is_frameshift_variant_of
+    "synonymous_variant": "SO:0001819",  # biolink:is_synonymous_variant_of
+    "upstream_gene_variant": "biolink:is_nearby_variant_of"
 }
 
 
@@ -190,10 +186,10 @@ class SequenceVariantSupplementation:
                                 else:
                                     edge_props = None
                                 output_file_writer.write_node(gene_id, None, [GENE])
-                                output_file_writer.write_edge(variant_id,
-                                                              gene_id,
-                                                              effect_predicate,
-                                                              original_knowledge_source='infores:snpeff',
+                                output_file_writer.write_edge(subject_id=variant_id,
+                                                              object_id=gene_id,
+                                                              predicate=effect_predicate,
+                                                              primary_knowledge_source='infores:snpeff',
                                                               edge_properties=edge_props)
                         break
 
