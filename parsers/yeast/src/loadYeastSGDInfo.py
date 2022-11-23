@@ -64,6 +64,7 @@ class HISTONEMODGENE_EDGEUMAN(enum.IntEnum):
     CHROMOSOME = 1
     STARTLOCATION = 2
     ENDLOCATION = 3
+    LOCI = 4
     MODIFICATION = 5
     GENE = 6
 
@@ -255,7 +256,7 @@ class YeastSGDLoader(SourceDataLoader):
                                   lambda line: {'name': f"{line[HISTONEMODGENE_EDGEUMAN.MODIFICATION.value]} ({line[HISTONEMODGENE_EDGEUMAN.CHROMOSOME.value]}:{line[HISTONEMODGENE_EDGEUMAN.STARTLOCATION.value]}-{line[HISTONEMODGENE_EDGEUMAN.ENDLOCATION.value]})",
                                                 'categories': ['biolink:NucleosomeModification','biolink:PosttranslationalModification'],
                                                 'histoneModification': line[HISTONEMODGENE_EDGEUMAN.MODIFICATION.value],
-                                                'chromosomeLocation': f"{line[HISTONEMODGENE_EDGEUMAN.CHROMOSOME.value]}:{line[HISTONEMODGENE_EDGEUMAN.STARTLOCATION.value]}-{line[HISTONEMODGENE_EDGEUMAN.ENDLOCATION.value]}",
+                                                'chromosomeLocation': line[HISTONEMODGENE_EDGEUMAN.LOCI.value],
                                                 PRIMARY_KNOWLEDGE_SOURCE: "SGD",
                                                 AGGREGATOR_KNOWLEDGE_SOURCES: ["SGD"]}, # subject props
                                   lambda line: {},  # object props

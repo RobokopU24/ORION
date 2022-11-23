@@ -384,23 +384,25 @@ def createLociWindows(resolution, data_directory):
         chrome_dict.update({uc:allgenesdf.loc[(allgenesdf['chromosome.primaryIdentifier'] == uc)]})
 
     mapped_genes = []
-    total = len(genomelocidf.index)
-    for idx,row in genomelocidf.iterrows():
+    just_windows = genomelocidf[['loci','chromosomeID','start','end']]
+    just_windows = just_windows.drop_duplicates().reset_index(drop=True)
+    total = len(just_windows.index)
+    for idx,row in just_windows.iterrows():
         if (idx%10000)==0:
             print(f"{idx} of {total}")
         gene = chrome_dict[row['chromosomeID']].loc[(row['end'] >= chrome_dict[row['chromosomeID']]['chromosomeLocation.start']) & (row['start'] <= chrome_dict[row['chromosomeID']]['chromosomeLocation.end'])]
         
-        try:
-            gene = gene['primaryIdentifier'].values[:]
-            if len(gene) < 1:
-                gene = "None"
-        except:
+        gene = gene['primaryIdentifier'].values[:]
+        if len(gene)<1:
             gene = "None"
-        
+            
         mapped_genes = mapped_genes + [gene]
-    genomelocidf['mapped_genes'] = mapped_genes
-    genomelocidf = genomelocidf[genomelocidf.mapped_genes.isin(["None"]) == False]
-    genomelocidf = genomelocidf.explode('mapped_genes')
+        
+    just_windows['mapped_genes'] = mapped_genes
+    just_windows = just_windows[just_windows.mapped_genes.isin(["None"]) == False]
+    just_windows = just_windows.explode('mapped_genes')
+    genomelocidf = genomelocidf.merge(just_windows,how='inner',on=['chromosomeID','start','end','loci'])
+
     print(f"Histone Modifications Mapping Complete!")
     csv_f3name = f"HistoneMod2Gene.csv"
     print(os.path.join(storage_dir,csv_f3name))
