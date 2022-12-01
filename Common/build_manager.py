@@ -34,8 +34,11 @@ class GraphBuilder:
 
     def build_graph(self, graph_id: str, create_neo4j_dump: bool = False):
 
+        self.logger.info(f'Building graph {graph_id}. Checking dependencies...')
         graph_spec = self.get_graph_spec(graph_id)
-        if not self.build_dependencies(graph_spec):
+        if self.build_dependencies(graph_spec):
+            self.logger.info(f'Building graph {graph_id}. Dependencies are ready...')
+        else:
             self.logger.warning(f'Aborting graph {graph_spec.graph_id}, building dependencies failed.')
             return
 
@@ -55,7 +58,7 @@ class GraphBuilder:
         if build_status != Metadata.STABLE:
 
             # if we get here we need to build the graph
-            self.logger.info(f'Building graph {graph_id} version {graph_version}')
+            self.logger.info(f'Building graph {graph_id} version {graph_version}. Merging sources...')
             graph_metadata.set_build_status(Metadata.IN_PROGRESS)
             graph_metadata.set_graph_version(graph_version)
             graph_metadata.set_graph_spec(graph_spec.get_metadata_representation())
@@ -70,7 +73,7 @@ class GraphBuilder:
             if "merge_error" in merge_metadata:
                 graph_metadata.set_build_error(merge_metadata["merge_error"], current_time)
                 graph_metadata.set_build_status(Metadata.FAILED)
-                self.logger.info(f'Error building graph {graph_id}.')
+                self.logger.error(f'Error building graph {graph_id}.')
                 return
 
             graph_metadata.set_build_info(merge_metadata, current_time)
@@ -87,8 +90,6 @@ class GraphBuilder:
                                    graph_directory=graph_output_dir)
 
     def build_dependencies(self, graph_spec: GraphSpec):
-
-        graph_id = graph_spec.graph_id
         for subgraph_source in graph_spec.subgraphs:
             subgraph_id = subgraph_source.id
             subgraph_version = subgraph_source.version
@@ -96,11 +97,17 @@ class GraphBuilder:
                 # load previous metadata
                 graph_metadata = self.get_graph_metadata(subgraph_id, subgraph_version)
                 subgraph_source.graph_metadata = graph_metadata.metadata
+            elif self.current_graph_versions[subgraph_id] == subgraph_version:
+                self.logger.warning(f'For graph {graph_spec.graph_id} subgraph dependency '
+                                    f'{subgraph_id} version {subgraph_version} is not ready. Building now...')
+                self.build_graph(subgraph_id)
             else:
-                self.logger.warning(f'Attempting to build graph {graph_id} failed, '
-                                    f'subgraph {subgraph_id} version {subgraph_version} not found.')
+                self.logger.warning(f'Building graph {graph_spec.graph_id} failed, '
+                                    f'subgraph {subgraph_id} had version {subgraph_version} specified, '
+                                    f'but that version of the graph was not found in the graphs directory.')
                 return False
 
+            graph_metadata = self.get_graph_metadata(subgraph_id, subgraph_version)
             if graph_metadata.get_build_status() == Metadata.STABLE:
                 # we found the sub graph and it's stable - update the GraphSource in preparation for building the graph
                 subgraph_dir = self.get_graph_dir_path(subgraph_id, subgraph_version)
@@ -109,14 +116,16 @@ class GraphBuilder:
                 subgraph_source.file_paths = [subgraph_nodes_path, subgraph_edges_path]
             else:
                 self.logger.warning(
-                    f'Attempting to build graph {graph_id} failed, sub graph {subgraph_id} version {subgraph_version} is not stable.')
+                    f'Attempting to build graph {graph_spec.graph_id} failed, dependency '
+                    f'subgraph {subgraph_id} version {subgraph_version} was not built successfully.')
                 return False
 
         for data_source in graph_spec.sources:
             source_id = data_source.id
             if source_id not in SOURCE_DATA_LOADER_CLASSES.keys():
                 self.logger.warning(
-                    f'Attempting to build graph {graph_id} failed: {source_id} is not a valid data source id. ')
+                    f'Attempting to build graph {graph_spec.graph_id} failed: '
+                    f'{source_id} is not a valid data source id. ')
                 return False
 
             source_metadata: SourceMetadata = self.source_data_manager.get_source_metadata(source_id,
@@ -125,7 +134,8 @@ class GraphBuilder:
                                              normalization_version=data_source.normalization_scheme.get_composite_normalization_version(),
                                              supplementation_version=data_source.supplementation_version):
                 self.logger.info(
-                    f'Attempting to build graph {graph_id}, dependency {source_id} is not ready. Building now...')
+                    f'Attempting to build graph {graph_spec.graph_id}, '
+                    f'dependency {source_id} is not ready. Building now...')
                 success = self.source_data_manager.run_pipeline(source_id,
                                                                 source_version=data_source.version,
                                                                 parsing_version=data_source.parsing_version,
@@ -133,7 +143,7 @@ class GraphBuilder:
                                                                 supplementation_version=data_source.supplementation_version)
                 if not success:
                     self.logger.info(
-                        f'Attempting to build graph {graph_id}, building dependency {source_id} failed. ...')
+                        f'While attempting to build {graph_spec.graph_id}, dependency {source_id} failed...')
                     return False
 
             data_source.file_paths = self.source_data_manager.get_final_file_paths(source_id,
@@ -313,7 +323,7 @@ class GraphBuilder:
                 subgraph_version = self.current_graph_versions[subgraph_id]
             else:
                 raise Exception(f'Graph Spec Error - Could not determine version of subgraph {subgraph_id}. '
-                                f'Either specify an existing version, already built in your graphs storage directory, '
+                                f'Either specify an existing version, already built in your graphs directory, '
                                 f'or the subgraph must be defined previously in the same Graph Spec.')
         merge_strategy = subgraph_yml['merge_strategy'] if 'merge_strategy' in subgraph_yml else 'default'
         subgraph_source = SubGraphSource(id=subgraph_id,
@@ -442,8 +452,8 @@ if __name__ == '__main__':
                 graph_builder.build_graph(graph_id_arg, create_neo4j_dump=neo4j_dump_bool)
         else:
             print(f'Invalid graph spec requested: {graph_id_arg}')
-    for graph_id, results in graph_builder.build_results.items():
+    for results_graph_id, results in graph_builder.build_results.items():
         if results['success']:
-            print(f'{graph_id}\t{results["version"]}')
+            print(f'{results_graph_id}\t{results["version"]}')
 
 
