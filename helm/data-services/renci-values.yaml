@@ -4,14 +4,14 @@ replicaCount: 1
 
 dataServices:
   graphID: "all"
-  graphSpec: 'https://stars.renci.org/var/data_services/default-graph-spec.yml'
+  graphSpec: 'https://stars.renci.org/var/data_services/graph_specs/default-graph-spec.yml'
   # useLocalGraphSpec true if the graphSpec is a file in the codebase (mainly for testing), false if a remote URL
   useLocalGraphSpec: false
-  buildMode: false
+  buildMode: true
   image:
-    repository: evandietzmorris/data_services
+    repository: ghcr.io/renci-automat/data_services
     pullPolicy: Always
-    tag: biolink3
+    tag: v1.0.0
   graphsVolume:
     use_nfs: true
     nfs_server: na-projects.edc.renci.org
