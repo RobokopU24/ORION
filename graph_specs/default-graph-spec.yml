@@ -32,20 +32,24 @@ graphs:
       - source_id: STRING-DB
       - source_id: UberGraph
 
+# using an older version of GWASCatalog because EFO terms are not normalizing right now
   - graph_id: RobokopKG
     conflation: True
     subgraphs:
       - graph_id: Baseline
     sources:
       - source_id: GWASCatalog
+        source_version: '8_23_2022'
+        edge_normalization_version: 'v.2.4.4'
+        node_normalization_version: '2.0.9'
       - source_id: GTEx
 
-#  - graph_id: Covid
-#    subgraphs:
-#      - graph_id: Genetics
-#    sources:
-#      - source_id: Cord19
-#      - source_id: ViralProteome
+  - graph_id: RobokopPlus
+    conflation: True
+    subgraphs:
+      - graph_id: RobokopKG
+    sources:
+      - source_id: Cord19
 
   - graph_id: Biolink_Automat
     sources:
@@ -77,11 +81,11 @@ graphs:
       - source_id: OntologicalHierarchy
         merge_strategy: connected_edge_subset
 
-  - graph_id: GWASCatalog_Automat
-    sources:
-      - source_id: GWASCatalog
-      - source_id: OntologicalHierarchy
-        merge_strategy: connected_edge_subset
+  # - graph_id: GWASCatalog_Automat
+  #  sources:
+  #    - source_id: GWASCatalog
+  #    - source_id: OntologicalHierarchy
+  #      merge_strategy: connected_edge_subset
 
   - graph_id: Hetio_Automat
     sources:
