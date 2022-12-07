@@ -31,11 +31,11 @@ dataServices:
     size: 80Gi
   resources:
     limits:
-      cpu: "2"
+      cpu: "2500m"
       memory: 40Gi
       ephemeral-storage: 2Gi
     requests:
-      cpu: "2"
+      cpu: "2500m"
       memory: 32Gi
       ephemeral-storage: 1Gi
   httpsProxy:
