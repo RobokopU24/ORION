@@ -2,15 +2,17 @@ import os
 import csv
 import argparse
 import re
-import tarfile
+import tarfile, gzip
 import requests
 
+from io import TextIOWrapper
 from bs4 import BeautifulSoup
 from operator import itemgetter
 from Common.utils import GetData
 from Common.loader_interface import SourceDataLoader, SourceDataFailedError
 from Common.kgxmodel import kgxnode, kgxedge
 from Common.prefixes import CTD, NCBITAXON, MESH
+from Common.node_types import PUBLICATIONS
 
 
 ##############
@@ -24,13 +26,11 @@ class CTDLoader(SourceDataLoader):
 
     source_id = 'CTD'
     provenance_id = 'infores:ctd'
-    parsing_version: str = '1.1'
+    parsing_version: str = '1.2'
 
     predicate_conversion_map = {
         'CTD:decreases_molecular_interaction_with': 'CTD:decreases_molecular_interaction',
-        'CTD:increases_molecular_interaction_with': 'CTD:increases_molecular_interaction',
-        'CTD:positive_correlation': 'CTD:positively_correlated_with',
-        'CTD:negative_correlation': 'CTD:negatively_correlated_with'
+        'CTD:increases_molecular_interaction_with': 'CTD:increases_molecular_interaction'
     }
 
     def __init__(self, test_mode: bool = False, source_data_dir: str = None):
@@ -40,16 +40,27 @@ class CTDLoader(SourceDataLoader):
         """
         super().__init__(test_mode=test_mode, source_data_dir=source_data_dir)
 
-        self.data_files: list = ['CTD_chemicals_diseases.tsv', 'CTD_exposure_events.tsv']
-
         self.source_db = 'Comparative Toxicogenomics Database'
-
-        # this file is from JB
-        self.hand_curated_data_file = 'ctd.tar'
-        self.hand_curated_file = 'ctd-grouped-pipes.tsv'
 
         self.therapeutic_predicate = 'CTD:ameliorates'
         self.marker_predicate = 'CTD:contributes_to'
+
+        # this file is from JB
+        self.hand_curated_data_url = 'https://stars.renci.org/var/data_services/'
+        self.hand_curated_data_archive = 'ctd.tar.gz'
+        self.hand_curated_chemical_to_gene_file = 'ctd-grouped-pipes.tsv'
+        self.hand_curated_files = [self.hand_curated_data_archive]
+
+        # these are files from CTD
+        self.ctd_data_url = 'http://ctdbase.org/reports/'
+        self.ctd_chemical_to_disease_file = 'CTD_chemicals_diseases.tsv.gz'
+        self.ctd_exposure_events_file = 'CTD_exposure_events.tsv.gz'
+        self.ctd_data_files = [self.ctd_chemical_to_disease_file,
+                               self.ctd_exposure_events_file]
+
+        self.data_files = []
+        self.data_files.extend(self.hand_curated_files)
+        self.data_files.extend(self.ctd_data_files)
 
         self.previous_node_ids = set()
 
@@ -82,30 +93,17 @@ class CTDLoader(SourceDataLoader):
 
     def get_data(self):
         """
-        Gets the CTD data gathered from http://ctdbase.org/reports/
-
+        Gets the CTD data
         """
         # and get a reference to the data gatherer
         gd: GetData = GetData(self.logger.level)
+        for data_file in self.ctd_data_files:
+            gd.pull_via_http(f'{self.ctd_data_url}{data_file}', data_dir=self.data_path)
 
-        # get all the files noted above
-        file_count: int = gd.get_ctd_http_files(self.data_path, self.data_files)
+        for data_file in self.hand_curated_files:
+            gd.pull_via_http(f'{self.hand_curated_data_url}{data_file}', data_dir=self.data_path)
 
-        # abort if we didnt get all the files
-        if file_count != len(self.data_files):
-            self.logger.error('CTDLoader - Not all files were retrieved from CTD.')
-            raise SourceDataFailedError('CTDLoader - Not all files were retrieved from CTD')
-        # if everything is ok so far get the hand curated file in the right place
-        else:
-            tar = tarfile.open(os.path.join(self.data_path, self.hand_curated_data_file))
-            tar.extractall(self.data_path)
-            tar.close()
-
-            # save the file in the list
-            self.data_files.append(self.hand_curated_file)
-            self.data_files.append(self.hand_curated_data_file)
-
-            return True
+        return True
 
     def parse_data(self) -> dict:
         """
@@ -113,36 +111,30 @@ class CTDLoader(SourceDataLoader):
 
         :return:
         """
-        # process disease to exposure
-        node_list, edge_list, records, skipped = self.disease_to_exposure(os.path.join(self.data_path, 'CTD_exposure_events.tsv'))
-        self.final_node_list.extend(node_list)
-        self.final_edge_list.extend(edge_list)
 
-        final_record_count: int = records
-        final_skipped_count: int = skipped
-
-        # disease to chemical
-        node_list, edge_list, records, skipped = self.disease_to_chemical(os.path.join(self.data_path, 'CTD_chemicals_diseases.tsv'))
-        self.final_node_list.extend(node_list)
-        self.final_edge_list.extend(edge_list)
-
-        # add to the final counts
-        final_record_count += records
-        final_skipped_count += skipped
+        final_record_count: int = 0
+        final_skipped_count: int = 0
 
         # process chemical to gene (expanded)
-        node_list, edge_list, records, skipped = self.chemical_to_gene_exp(os.path.join(self.data_path, 'ctd-grouped-pipes.tsv'))
-        self.final_node_list.extend(node_list)
-        self.final_edge_list.extend(edge_list)
+        curated_files_archive_path = os.path.join(self.data_path, self.hand_curated_data_archive)
+        records, skipped = self.chemical_to_gene_exp(curated_files_archive_path,
+                                                     self.hand_curated_chemical_to_gene_file)
 
         # add to the final counts
         final_record_count += records
         final_skipped_count += skipped
 
-        # process gene to chemical (expanded)
-        node_list, edge_list, records, skipped = self.gene_to_chemical_exp(os.path.join(self.data_path, 'ctd-grouped-pipes.tsv'))
-        self.final_node_list.extend(node_list)
-        self.final_edge_list.extend(edge_list)
+        # process disease to exposure
+        exposures_file_path = os.path.join(self.data_path, self.ctd_exposure_events_file)
+        records, skipped = self.disease_to_exposure(exposures_file_path)
+
+        # add to the final counts
+        final_record_count += records
+        final_skipped_count += skipped
+
+        # disease to chemical
+        disease_to_chemical_file_path = os.path.join(self.data_path, self.ctd_chemical_to_disease_file)
+        records, skipped = self.disease_to_chemical(disease_to_chemical_file_path)
 
         # add to the final counts
         final_record_count += records
@@ -157,29 +149,41 @@ class CTDLoader(SourceDataLoader):
         # return the metadata to the caller
         return load_metadata
 
-    def chemical_to_gene_exp(self, file_path: str) -> (list, list, int, int):
+    def chemical_to_gene_exp(self, archive_path: str, chemical_to_gene_file: str) -> (list, list, int, int):
         """
         Parses the data file to create chemical to gene nodes and relationships
 
-        :param file_path: the path to the data file
+        :param archive_path: the path to the data archive tar
+        :param chemical_to_gene_file: the data file within the archive
         :return: a node list and an edge list with invalid records count
         """
 
-        # init the returned data
-        node_list: list = []
-        edge_list: list = []
-
         # init the record counters
         record_counter: int = 0
         skipped_record_counter: int = 0
 
-        # open up the file
-        with open(file_path, 'r', encoding="utf-8") as fp:
-            # the list of columns in the data
-            cols = ['chemicalID', 'chem_label', 'interaction', 'direction', 'geneID', 'gene_label', 'form', 'taxonID', 'PMID']
+        # open the archive
+        with tarfile.open(archive_path, 'r:gz') as data_archive:
+            # find the specified file and extract it
+            fp = None
+            for archive_member in data_archive:
+                if archive_member.name == chemical_to_gene_file:
+                    fp = data_archive.extractfile(archive_member)
+            if fp is None:
+                raise SourceDataFailedError(f'File {chemical_to_gene_file} not found in archive {archive_path}')
+            else:
+                # cast bufferedreader to textwrapper
+                fp = TextIOWrapper(fp, "utf-8")
 
-            # get a handle on the input data
-            data = csv.DictReader(filter(lambda row: row[0] != '?', fp), delimiter='\t', fieldnames=cols)
+            # skip the header line
+            next(fp)
+
+            # make a list of headers we'd prefer
+            cols = ['chemicalID', 'chem_label', 'interaction', 'direction', 'geneID', 'gene_label', 'form',
+                    'taxonID', 'PMID']
+
+            # make a DictReader with the headers
+            data = csv.DictReader(fp, delimiter='\t', fieldnames=cols)
 
             # for each record
             for r in data:
@@ -187,9 +191,9 @@ class CTDLoader(SourceDataLoader):
                 record_counter += 1
 
                 # validate the info
-                good_row, predicate_label, props, pmids = self.check_expanded_gene_chemical_row(r)
+                good_row, predicate_label, edge_props = self.check_expanded_gene_chemical_row(r)
 
-                # skip if not all the data was there
+                # skip if not all the data was there or evidence was not sufficient
                 if not good_row:
                     # increment the skipped record counter
                     skipped_record_counter += 1
@@ -203,16 +207,12 @@ class CTDLoader(SourceDataLoader):
                 gene_id: str = r['geneID'].upper()
 
                 # save the chemical node
-                if chemical_id not in self.previous_node_ids:
-                    chem_node = kgxnode(chemical_id, name=r['chem_label'])
-                    node_list.append(chem_node)
-                    self.previous_node_ids.add(chemical_id)
+                chem_node = kgxnode(chemical_id, name=r['chem_label'])
+                self.output_file_writer.write_kgx_node(chem_node)
 
                 # save the gene node
-                if gene_id not in self.previous_node_ids:
-                    gene_node = kgxnode(gene_id, name=r['gene_label'], nodeprops={NCBITAXON: r['taxonID'].split(':')[1]})
-                    node_list.append(gene_node)
-                    self.previous_node_ids.add(gene_id)
+                gene_node = kgxnode(gene_id, name=r['gene_label'], nodeprops={NCBITAXON: r['taxonID'].split(':')[1]})
+                self.output_file_writer.write_kgx_node(gene_node)
 
                 # get the right source/object depending on the predicate direction
                 if r['direction'] == '->':
@@ -227,87 +227,11 @@ class CTDLoader(SourceDataLoader):
                                    edge_object,
                                    predicate=predicate,
                                    primary_knowledge_source=self.provenance_id,
-                                   edgeprops={'publications': pmids}.update(props))
-                edge_list.append(new_edge)
+                                   edgeprops=edge_props)
+                self.output_file_writer.write_kgx_edge(new_edge)
 
-        # return the node/edge lists and the record counters to the caller
-        return node_list, edge_list, record_counter, skipped_record_counter
-
-    def gene_to_chemical_exp(self, file_path: str) -> (list, list):
-        """
-        Parses the data file to create gene to chemical nodes and relationships
-
-        :param file_path: the path to the data file
-        :return: a node list and an edge list
-        """
-
-        # init the return data
-        node_list: list = []
-        edge_list: list = []
-
-        # init the record counters
-        record_counter: int = 0
-        skipped_record_counter: int = 0
-
-        # open up the file
-        with open(file_path, 'r', encoding="utf-8") as fp:
-            # declare the columns in the input data
-            cols: list = ['chemicalID', 'chem_label', 'interaction', 'direction', 'geneID', 'gene_label', 'form', 'taxonID', 'PMID']
-
-            # get a handle on the input data
-            data = csv.DictReader(filter(lambda row: row[0] != '?', fp), delimiter='\t', fieldnames=cols)
-
-            # for each record
-            for r in data:
-                # increment the record counter
-                record_counter += 1
-
-                # validate the info
-                good_row, predicate_label, props, pmids = self.check_expanded_gene_chemical_row(r)
-
-                # skip if not all the data was there
-                if not good_row:
-                    # increment the skipped record counter
-                    skipped_record_counter += 1
-                    continue
-
-                # get the edge predicate
-                predicate = self.normalize_predicate(f"{CTD}:{predicate_label}")
-
-                # capitalize the node IDs
-                chemical_id: str = r['chemicalID'].upper()
-                gene_id: str = r['geneID'].upper()
-
-                # save the chemical node
-                if chemical_id not in self.previous_node_ids:
-                    chem_node = kgxnode(chemical_id, name=r['chem_label'])
-                    node_list.append(chem_node)
-                    self.previous_node_ids.add(chemical_id)
-
-                # save the gene node
-                if gene_id not in self.previous_node_ids:
-                    gene_node = kgxnode(gene_id, name=r['gene_label'], nodeprops={NCBITAXON: r['taxonID'].split(':')[1]})
-                    node_list.append(gene_node)
-                    self.previous_node_ids.add(gene_id)
-
-                # get the right source/object depending on the predicate direction
-                if r['direction'] == '->':
-                    edge_subject: str = chemical_id
-                    edge_object: str = gene_id
-                else:
-                    edge_subject: str = gene_id
-                    edge_object: str = chemical_id
-
-                # save the edge
-                new_edge = kgxedge(edge_subject,
-                                   edge_object,
-                                   predicate=predicate,
-                                   primary_knowledge_source=self.provenance_id,
-                                   edgeprops={'publications': pmids}.update(props))
-                edge_list.append(new_edge)
-
-        # return the node/edge lists and the record counters to the caller
-        return node_list, edge_list, record_counter, skipped_record_counter
+        # return the record counters to the caller
+        return record_counter, skipped_record_counter
 
     def disease_to_exposure(self, file_path: str) -> (list, list, int, int):
         """
@@ -317,16 +241,12 @@ class CTDLoader(SourceDataLoader):
         :return: a node list and an edge list
         """
 
-        # init the return data
-        node_list: list = []
-        edge_list: list = []
-
         # init the record counters
         record_counter: int = 0
         skipped_record_counter: int = 0
 
         # open up the file
-        with open(file_path, 'r', encoding="utf-8") as fp:
+        with gzip.open(file_path, 'rt', encoding="utf-8") as fp:
             # declare the columns in the data file
             cols: list = ['exposurestressorname', 'exposurestressorid', 'stressorsourcecategory', 'stressorsourcedetails', 'numberofstressorsamples',
                           'stressornotes', 'numberofreceptors', 'receptors', 'receptornotes', 'smokingstatus', 'age',
@@ -336,7 +256,7 @@ class CTDLoader(SourceDataLoader):
                           'outcomerelationship', 'diseasename', 'diseaseid', 'phenotypename', 'phenotypeid', 'phenotypeactiondegreetype', 'anatomy',
                           'exposureoutcomenotes', 'reference', 'associatedstudytitles', 'enrollmentstartyear', 'enrollmentendyear', 'studyfactors']
 
-            # get a handle on the input data
+            # make a dict reader for the file, use a filter that removes comment lines
             data: csv.DictReader = csv.DictReader(filter(lambda row: row[0] != '#', fp), delimiter='\t', fieldnames=cols)
 
             # for each record
@@ -357,28 +277,24 @@ class CTDLoader(SourceDataLoader):
 
                 # save the disease node
                 disease_id = f'{MESH}:' + r['diseaseid']
-                if disease_id not in self.previous_node_ids:
-                    disease_node = kgxnode(disease_id, name=r['diseasename'])
-                    node_list.append(disease_node)
-                    self.previous_node_ids.add(disease_id)
+                disease_node = kgxnode(disease_id, name=r['diseasename'])
+                self.output_file_writer.write_kgx_node(disease_node)
 
                 # save the exposure node
                 exposure_id = f'{MESH}:' + r['exposurestressorid']
-                if exposure_id not in self.previous_node_ids:
-                    exposure_node = kgxnode(exposure_id, name=r['exposurestressorname'])
-                    node_list.append(exposure_node)
-                    self.previous_node_ids.add(exposure_id)
+                exposure_node = kgxnode(exposure_id, name=r['exposurestressorname'])
+                self.output_file_writer.write_kgx_node(exposure_node)
 
                 # save the edge
                 new_edge = kgxedge(exposure_id,
                                    disease_id,
                                    predicate=predicate,
                                    primary_knowledge_source=self.provenance_id,
-                                   edgeprops={'publications': [f"PMID:{r['reference']}"]})
-                edge_list.append(new_edge)
+                                   edgeprops={PUBLICATIONS: [f"PMID:{r['reference']}"]})
+                self.output_file_writer.write_kgx_edge(new_edge)
 
         # return the node and edge lists to the caller
-        return node_list, edge_list, record_counter, skipped_record_counter
+        return record_counter, skipped_record_counter
 
     def disease_to_chemical(self, file_path: str):
         """
@@ -388,20 +304,16 @@ class CTDLoader(SourceDataLoader):
         :return: a node list and an edge list
         """
 
-        # init the return data
-        node_list: list = []
-        edge_list: list = []
-
         # init the record counters
         record_counter: int = 0
         skipped_record_counter: int = 0
 
         # open up the file
-        with open(file_path, 'r', encoding="utf-8") as fp:
+        with gzip.open(file_path, 'rt', encoding="utf-8") as fp:
             # declare the columns in the data
             cols: list = ['ChemicalName', 'ChemicalID', 'CasRN', 'DiseaseName', 'DiseaseID', 'DirectEvidence', 'InferenceGeneSymbol', 'InferenceScore', 'OmimIDs', 'PubMedIDs']
 
-            # get a handle on the input data
+            # make a dict reader for the file, use a filter that removes comment lines
             data: csv.DictReader = csv.DictReader(filter(lambda row: row[0] != '#', fp), delimiter='\t', fieldnames=cols)
 
             # sort the data so we can walk through it
@@ -521,7 +433,7 @@ class CTDLoader(SourceDataLoader):
                     if not disease_node_added:
                         # add the disease node
                         disease_node = kgxnode(cur_disease_id.upper(), name=cur_disease_name)
-                        node_list.append(disease_node)
+                        self.output_file_writer.write_kgx_node(disease_node)
 
                         # set the flag so we dont duplicate adding this node
                         disease_node_added = True
@@ -529,15 +441,15 @@ class CTDLoader(SourceDataLoader):
                     # add the chemical node
                     chemical_id = f'{MESH}:{c_id}'
                     chemical_node = kgxnode(chemical_id, name=chemical_info['name'])
-                    node_list.append(chemical_node)
+                    self.output_file_writer.write_kgx_node(chemical_node)
 
                     # add the edge
                     new_edge = kgxedge(chemical_id,
                                        cur_disease_id.upper(),
                                        predicate=predicate,
                                        primary_knowledge_source=self.provenance_id,
-                                       edgeprops={'publications': publications})
-                    edge_list.append(new_edge)
+                                       edgeprops={PUBLICATIONS: publications})
+                    self.output_file_writer.write_kgx_edge(new_edge)
 
                 # insure we dont overrun the list
                 if record_counter >= record_count:
@@ -547,7 +459,7 @@ class CTDLoader(SourceDataLoader):
                 cur_disease_id = sorted_data[record_counter]['DiseaseID']
 
         # return the node/edge lists and counters to the caller
-        return node_list, edge_list, record_counter, skipped_record_counter
+        return record_counter, skipped_record_counter
 
     @staticmethod
     def check_expanded_gene_chemical_row(r):
@@ -560,7 +472,6 @@ class CTDLoader(SourceDataLoader):
         # init returned variables
         good_row: bool = True
         props: dict = {}
-        pmids: list = []
         predicate_label: str = ''
 
         # loop through data and search for "?" which indicates incomplete data
@@ -577,7 +488,7 @@ class CTDLoader(SourceDataLoader):
             # get the pubmed ids into a list
             pmids: list = r['PMID'].split('|')
 
-            # set the predicate label. might get overwritten in edge norm
+            # set the predicate label
             predicate_label: str = r['interaction']
 
             # less then 3 publications
@@ -599,11 +510,11 @@ class CTDLoader(SourceDataLoader):
                     # mark the row unusable
                     good_row = False
 
-            # make a list of the publications
-            pmids: list = [p.upper() for p in pmids]
+            # set formatted PMIDs as an edge property
+            props[PUBLICATIONS] = [p.upper() for p in pmids]
 
         # return to the caller
-        return good_row, predicate_label, props, pmids
+        return good_row, predicate_label, props
 
     @staticmethod
     def normalize_predicate(predicate):
