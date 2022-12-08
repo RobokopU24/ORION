@@ -3,16 +3,16 @@
 # These environment variables are required by Data Services. See the README for more information.
 
 # DATA_SERVICES_STORAGE - a directory for storing data sources
-mkdir -p "$PWD"/../Data_services_storage
-export DATA_SERVICES_STORAGE=$PWD/../Data_services_storage/
+mkdir -p "$PWD/../Data_services_storage"
+export DATA_SERVICES_STORAGE="$PWD/../Data_services_storage/"
 
 # DATA_SERVICES_GRAPHS - a directory for storing knowledge graphs
-mkdir -p "$PWD"/../Data_services_graphs
-export DATA_SERVICES_GRAPHS=$PWD/../Data_services_graphs/
+mkdir -p "$PWD/../Data_services_graphs"
+export DATA_SERVICES_GRAPHS="$PWD/../Data_services_graphs/"
 
 # DATA_SERVICES_LOGS - a directory for storing logs
-mkdir -p "$PWD"/../Data_services_logs
-export DATA_SERVICES_LOGS=$PWD/../Data_services_logs/
+mkdir -p "$PWD/../Data_services_logs"
+export DATA_SERVICES_LOGS="$PWD/../Data_services_logs/"
 
 # Use EITHER of the following, DATA_SERVICES_GRAPH_SPEC or DATA_SERVICES_GRAPH_SPEC_URL
 
