@@ -9,8 +9,8 @@ dataServices:
   useLocalGraphSpec: true
   buildMode: true
   image:
-    repository: evandietzmorris/data_services
-    pullPolicy: IfNotPresent
+    repository: ghcr.io/renci-automat/data_services
+    pullPolicy: Always
     tag: latest
   graphsVolume:
     use_nfs: false
