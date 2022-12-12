@@ -1,5 +1,6 @@
 
-# Data services
+# ORION
+### Operational Routine for the Ingest and Output of Networks
 
 This package takes data sets from various sources and converts them into Knowledge Graphs.
 
@@ -12,9 +13,9 @@ Each data source will go through the following pipeline before it can be include
 
 To build a graph use a Graph Spec yaml file to specify the sources you want.
 
-Data Services will automatically run each data source specified through the necessary pipeline. Then it will merge the specified sources into a Knowledge Graph.
+ORION will automatically run each data source specified through the necessary pipeline. Then it will merge the specified sources into a Knowledge Graph.
 
-### Using Data Services
+### Using ORION
 
 Create a parent directory:
 ```
@@ -91,7 +92,7 @@ To also create a Neo4j backup dump of the graph, add the -n (--neo4j_dump) flag.
 ```
 docker-compose run --rm data_services python /Data_services/Common/build_manager.py Example_Graph_ID -n
 ```
-To run the Data Services pipeline for a single data source, you can use:
+To run the ORION pipeline for a single data source, you can use:
 ```
 docker-compose run --rm data_services python /Data_services/Common/load_manager.py Example_Source
 ```
@@ -102,7 +103,7 @@ python /Data_services/Common/load_manager.py -h
 
 ### For Developers
 
-To add a new data source to Data Services, create a new parser. Each parser extends the SourceDataLoader interface in Common/loader_interface.py.
+To add a new data source to ORION, create a new parser. Each parser extends the SourceDataLoader interface in Common/loader_interface.py.
 
 To implement the interface you will need to write a class that fulfills the following.
 
