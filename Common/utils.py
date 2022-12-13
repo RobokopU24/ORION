@@ -270,7 +270,7 @@ class NodeNormUtils:
             if not self.strict_normalization:
 
                 if 'category' not in current_node:
-                    current_node['category'] == [ROOT_ENTITY]
+                    current_node['category'] = [ROOT_ENTITY]
 
                 # remove all the bad types and make them a property instead
                 invalid_node_types = [node_type for node_type in current_node['category'] if
