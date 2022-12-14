@@ -7,7 +7,7 @@ from Common.node_types import *
 from Common.utils import LoggingUtil
 
 
-class NodeNormUtils:
+class NodeNormalizer:
     """
     Class that contains methods relating to node normalization of KGX data.
 
@@ -34,7 +34,7 @@ class NodeNormUtils:
         :param node_normalization_version - not implemented yet
         """
         # create a logger
-        self.logger = LoggingUtil.init_logging("Data_services.Common.NodeNormUtils",
+        self.logger = LoggingUtil.init_logging("Data_services.Common.NodeNormalizer",
                                                level=log_level,
                                                line_format='medium',
                                                log_file_path=os.environ['DATA_SERVICES_LOGS'])
@@ -146,7 +146,7 @@ class NodeNormUtils:
 
         # look up valid node types if needed
         if not self.strict_normalization and not self.biolink_compliant_node_types:
-            biolink_lookup = EdgeNormUtils(edge_normalization_version=self.biolink_version)
+            biolink_lookup = EdgeNormalizer(edge_normalization_version=self.biolink_version)
             self.biolink_compliant_node_types = biolink_lookup.get_valid_node_types()
 
         # for each node update the node with normalized information
@@ -318,7 +318,7 @@ class EdgeNormalizationResult:
         self.properties = properties
 
 
-class EdgeNormUtils:
+class EdgeNormalizer:
     """
     Class that contains methods relating to edge normalization.
     """
@@ -333,7 +333,7 @@ class EdgeNormUtils:
         :param log_level - overrides default log level
         """
         # create a logger
-        self.logger = LoggingUtil.init_logging("Data_services.Common.EdgeNormUtils", level=log_level, line_format='medium', log_file_path=os.environ['DATA_SERVICES_LOGS'])
+        self.logger = LoggingUtil.init_logging("Data_services.Common.EdgeNormalizer", level=log_level, line_format='medium', log_file_path=os.environ['DATA_SERVICES_LOGS'])
         # normalization map for future look up of all normalized predicates
         self.edge_normalization_lookup = {}
         self.cached_edge_norms = {}

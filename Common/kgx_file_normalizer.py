@@ -4,7 +4,8 @@ import jsonlines
 import logging
 from Common.node_types import SEQUENCE_VARIANT, PRIMARY_KNOWLEDGE_SOURCE, AGGREGATOR_KNOWLEDGE_SOURCES, \
     PUBLICATIONS, OBJECT_ID, SUBJECT_ID, PREDICATE
-from Common.utils import LoggingUtil, NodeNormUtils, EdgeNormUtils, EdgeNormalizationResult, chunk_iterator
+from Common.normalization import NodeNormalizer, EdgeNormalizer, EdgeNormalizationResult
+from Common.utils import LoggingUtil, chunk_iterator
 from Common.kgx_file_writer import KGXFileWriter
 from Common.kgxmodel import NormalizationScheme
 from Common.merging import MemoryGraphMerger, DiskGraphMerger
@@ -81,11 +82,11 @@ class KGXFileNormalizer:
         # instances of the normalization service wrappers
         # strict normalization flag tells normalizer to throw away any nodes that don't normalize
         try:
-            self.node_normalizer = NodeNormUtils(node_normalization_version=normalization_scheme.node_normalization_version,
+            self.node_normalizer = NodeNormalizer(node_normalization_version=normalization_scheme.node_normalization_version,
                                                  strict_normalization=normalization_scheme.strict,
                                                  conflate_node_types=normalization_scheme.conflation,
                                                  biolink_version=normalization_scheme.edge_normalization_version)
-            self.edge_normalizer = EdgeNormUtils(edge_normalization_version=normalization_scheme.edge_normalization_version)
+            self.edge_normalizer = EdgeNormalizer(edge_normalization_version=normalization_scheme.edge_normalization_version)
         except Exception as e:
             raise NormalizationFailedError(error_message=repr(e), actual_error=e)
 

@@ -402,8 +402,8 @@ class GtoPdbLoader(SourceDataLoader):
 
             ligands = norm_ligands.copy()
 
-            from Common.utils import NodeNormUtils
-            gd = NodeNormUtils()
+            from Common.normalization import NodeNormalizer
+            gd = NodeNormalizer()
             fails = gd.normalize_node_data(norm_ligands)
 
             print('\nAll ligands')

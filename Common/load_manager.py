@@ -4,9 +4,10 @@ import argparse
 import datetime
 from collections import defaultdict
 
-from Common.utils import LoggingUtil, NodeNormUtils, EdgeNormUtils, GetDataPullError
+from Common.utils import LoggingUtil, GetDataPullError
 from Common.kgx_file_normalizer import KGXFileNormalizer, NormalizationBrokenError, NormalizationFailedError
 from Common.kgxmodel import NormalizationScheme
+from Common.normalization import NodeNormalizer, EdgeNormalizer
 from Common.metadata import SourceMetadata
 from Common.loader_interface import SourceDataBrokenError, SourceDataFailedError
 from Common.supplementation import SequenceVariantSupplementation, SupplementationFailedError
@@ -476,7 +477,7 @@ class SourceDataManager:
     def get_latest_node_normalization_version(self):
         if self.latest_node_normalization_version is not None:
             return self.latest_node_normalization_version
-        node_normalizer = NodeNormUtils()
+        node_normalizer = NodeNormalizer()
         node_norm_version = node_normalizer.get_current_node_norm_version()
         self.latest_node_normalization_version = node_norm_version
         return node_norm_version
@@ -484,7 +485,7 @@ class SourceDataManager:
     def get_latest_edge_normalization_version(self):
         if self.latest_edge_normalization_version is not None:
             return self.latest_edge_normalization_version
-        edge_normalizer = EdgeNormUtils()
+        edge_normalizer = EdgeNormalizer()
         edge_norm_version = edge_normalizer.get_current_edge_norm_version()
         self.latest_edge_normalization_version = edge_norm_version
         return edge_norm_version

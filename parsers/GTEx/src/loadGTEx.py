@@ -3,7 +3,8 @@ import tarfile
 import gzip
 import argparse
 from urllib import request
-from Common.utils import LoggingUtil, NodeNormUtils
+from Common.normalization import NodeNormalizer
+from Common.utils import LoggingUtil
 from Common.loader_interface import SourceDataLoader, SourceDataBrokenError, SourceDataFailedError
 from Common.node_types import SEQUENCE_VARIANT, GENE
 from Common.prefixes import HGVS, UBERON
@@ -334,7 +335,7 @@ class GTExLoader(SourceDataLoader):
     # take the UBERON ids for the anatomy / tissues and normalize them with the normalization API
     # this step would normally happen post-parsing for nodes but the anatomy IDs are set as edge properties
     def normalize_anatomy_ids(self):
-        node_normalizer = NodeNormUtils()
+        node_normalizer = NodeNormalizer()
         anatomy_nodes = [{'id': anatomy_id} for anatomy_id in self.anatomy_id_lookup.values()]
         node_normalizer.normalize_node_data(anatomy_nodes)
         for anatomy_label, anatomy_id in self.anatomy_id_lookup.items():

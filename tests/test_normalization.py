@@ -1,5 +1,5 @@
 import pytest
-from Common.utils import NodeNormUtils, EdgeNormUtils, EdgeNormalizationResult
+from Common.normalization import NodeNormalizer, EdgeNormalizer, EdgeNormalizationResult
 from Common.node_types import ROOT_ENTITY, GENE, SEQUENCE_VARIANT, FALLBACK_EDGE_PREDICATE, CUSTOM_NODE_TYPES
 
 INVALID_NODE_TYPE = "testing:Type1"
@@ -28,7 +28,7 @@ def test_nodes():
 
 def test_node_norm(test_nodes):
 
-    node_normalizer = NodeNormUtils()
+    node_normalizer = NodeNormalizer()
     node_normalizer.normalize_node_data(test_nodes)
 
     correct_normalized_id = 'NCBIGene:4522'
@@ -50,7 +50,7 @@ def test_node_norm(test_nodes):
 
 
 def test_node_norm_lenient(test_nodes):
-    node_normalizer = NodeNormUtils(strict_normalization=False)
+    node_normalizer = NodeNormalizer(strict_normalization=False)
     node_normalizer.normalize_node_data(test_nodes)
 
     correct_normalized_id = 'NCBIGene:4522'
@@ -89,7 +89,7 @@ def test_variant_node_norm():
     ]
     variant_nodes_2 = variant_nodes.copy()
 
-    node_normalizer = NodeNormUtils(strict_normalization=True)
+    node_normalizer = NodeNormalizer(strict_normalization=True)
     node_normalizer.normalize_sequence_variants(variant_nodes)
     assert len(variant_nodes) >= 10
     assert len(node_normalizer.variant_node_splits) == 1
@@ -109,7 +109,7 @@ def test_variant_node_norm():
                         it_worked = True
     assert it_worked
 
-    node_normalizer = NodeNormUtils(strict_normalization=False)
+    node_normalizer = NodeNormalizer(strict_normalization=False)
     node_normalizer.normalize_sequence_variants(variant_nodes_2)
 
     assert len(variant_nodes_2) >= 12
@@ -131,7 +131,7 @@ def test_edge_normalization():
                  {'predicate': 'RO:0000052'},
                  {'predicate': 'RO:0002200'},
                  {'predicate': 'BADPREFIX:123456'}]
-    edge_normalizer = EdgeNormUtils()
+    edge_normalizer = EdgeNormalizer()
     edge_normalizer.normalize_edge_data(edge_list)
 
     edge_norm_result: EdgeNormalizationResult = edge_normalizer.edge_normalization_lookup['SEMMEDDB:CAUSES']
