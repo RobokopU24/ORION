@@ -2,9 +2,9 @@ import os
 import logging
 import requests
 
-from Common.utils import LoggingUtil
 from robokop_genetics.genetics_normalization import GeneticsNormalizer
 from Common.node_types import *
+from Common.utils import LoggingUtil
 
 
 class NodeNormUtils:
@@ -190,17 +190,19 @@ class NodeNormUtils:
                     current_node[NODE_TYPES].append(ROOT_ENTITY)
 
             # did we get a response from the normalizer
-            if cached_node_norms[current_node_id] is not None:
+            current_node_normalization = cached_node_norms[current_node_id]
+            if current_node_normalization is not None:
 
                 # update the node with the normalized info
-                normalized_id = cached_node_norms[current_node_id]['id']['identifier']
+                normalized_id = current_node_normalization['id']['identifier']
                 current_node['id'] = normalized_id
-                current_node['category'] = cached_node_norms[current_node_id]['type']
-                current_node['equivalent_identifiers'] = list(item['identifier'] for item in cached_node_norms[current_node_id]['equivalent_identifiers'])
+                current_node[NODE_TYPES] = current_node_normalization['type']
+                current_node[SYNONYMS] = list(item['identifier'] for item in current_node_normalization[SYNONYMS])
+                current_node[INFORMATION_CONTENT] = current_node_normalization[INFORMATION_CONTENT]
 
                 # set the name as the label if it exists
-                if 'label' in cached_node_norms[current_node_id]['id']:
-                    current_node['name'] = cached_node_norms[current_node_id]['id']['label']
+                if 'label' in current_node_normalization['id']:
+                    current_node['name'] = current_node_normalization['id']['label']
 
                 self.node_normalization_lookup[current_node_id] = [normalized_id]
             else:
@@ -230,35 +232,6 @@ class NodeNormUtils:
 
         # return the failed list to the caller
         return failed_to_normalize
-
-    def synomymize_node_data(self, node_list: list) -> list:
-        # for each node list item
-        for idx, item in enumerate(node_list):
-            # these types normally get worked in node normalization
-            if not item['id'].startswith('NCBIGene:') and not item['id'].startswith('MONDO:'):
-                # generate the request url
-                url: str = f"https://onto.renci.org/synonyms/{item['id']}"
-
-                # make the call to the synonymizer
-                resp: requests.models.Response = requests.get(url)
-
-                # did we get a good status code
-                if resp.status_code == 200:
-                    # convert json to dict
-                    rvs: dict = resp.json()
-
-                    # get the synonyms into a list. this data could potentially have double quotes in it
-                    synonyms: list = [x['desc'].replace('"', '\\"') for x in rvs]
-
-                    # did we get anything
-                    if len(synonyms) > 0:
-                        # save the values to the list
-                        node_list[idx]['synonyms'] = '|'.join(synonyms)
-                else:
-                    self.logger.debug(f'Could not find synonym of r: {item["id"]}')
-
-        # return the list to the caller
-        return node_list
 
     def normalize_sequence_variants(self, variant_nodes: list):
 

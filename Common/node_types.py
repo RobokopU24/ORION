@@ -62,6 +62,9 @@ node_types = [
 SUBJECT_ID = 'subject'
 OBJECT_ID = 'object'
 PREDICATE = 'predicate'
+NODE_TYPES = 'category'
+SYNONYMS = 'equivalent_identifiers'
+INFORMATION_CONTENT = 'information_content'
 
 FALLBACK_EDGE_PREDICATE = 'biolink:related_to'
 FALLBACK_EDGE_PREDICATE_LABEL = 'related to'
