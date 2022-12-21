@@ -1,8 +1,8 @@
-
 import os
 import argparse
 import datetime
 from collections import defaultdict
+import importlib
 
 from Common.utils import LoggingUtil, NodeNormUtils, EdgeNormUtils, GetDataPullError
 from Common.kgx_file_normalizer import KGXFileNormalizer, NormalizationBrokenError, NormalizationFailedError
@@ -10,31 +10,7 @@ from Common.kgxmodel import NormalizationScheme
 from Common.metadata import SourceMetadata
 from Common.loader_interface import SourceDataBrokenError, SourceDataFailedError
 from Common.supplementation import SequenceVariantSupplementation, SupplementationFailedError
-from parsers.yeast.src.loadYeastSGDInfo import YeastSGDLoader
-from parsers.yeast.src.loadYeastNucleosomesGSE61888 import YeastGSE61888Loader
-from parsers.GWASCatalog.src.loadGWASCatalog import GWASCatalogLoader
-from parsers.CTD.src.loadCTD import CTDLoader
-from parsers.cord19.src.loadCord19 import Cord19Loader
-from parsers.scent.src.loadScent import ScentLoader
-from parsers.GOA.src.loadGOA import PlantGOALoader, HumanGOALoader
-from parsers.IntAct.src.loadIA import IALoader
-from parsers.PHAROS.src.loadPHAROS import PHAROSLoader
-from parsers.UberGraph.src.loadUG import UGLoader
-from parsers.ViralProteome.src.loadVP import VPLoader
-from parsers.ViralProteome.src.loadUniRef import UniRefSimLoader
-from parsers.gtopdb.src.loadGtoPdb import GtoPdbLoader
-from parsers.hmdb.src.loadHMDB import HMDBLoader
-from parsers.hgnc.src.loadHGNC import HGNCLoader
-from parsers.panther.src.loadPanther import PLoader
-from parsers.GTEx.src.loadGTEx import GTExLoader
-from parsers.drugcentral.src.loaddrugcentral import DrugCentralLoader
-from parsers.hetio.src.loadHetio import HetioLoader
-from parsers.biolink.src.loadBL import BLLoader
-from parsers.OntologicalHierarchy.src.loadOH import OHLoader
-from parsers.GenomeAlliance.src.loadGenomeAlliance import GenomeAllianceOrthologLoader
-from parsers.STRING.src.loadSTRINGDB import STRINGDBLoader
-from parsers.chebi.src.loadChebiProperties import ChebiPropertiesLoader
-from parsers.MONDOProperties.src.loadMP import MPLoader
+
 
 GWAS_CATALOG = 'GWASCatalog'
 CTD = 'CTD'
@@ -66,34 +42,38 @@ CHEBI_PROPERTIES = 'CHEBIProps'
 MONDO_PROPS = 'MONDOProps'
 # FOODB = 'FooDB' # this is on hold, data needs review after latest release of data.
 
+#def __missing__(self, key):
+#    self[key] = self.default_factory()
+#    return self[key]
 
-SOURCE_DATA_LOADER_CLASSES = {
-    CTD: CTDLoader,
-    CORD19: Cord19Loader,
-    INTACT: IALoader,
-    GTOPDB: GtoPdbLoader,
-    HUMAN_GOA: HumanGOALoader,
-    PLANT_GOA: PlantGOALoader,
-    HGNC: HGNCLoader,
-    UBERGRAPH: UGLoader,
-    VP: VPLoader,
-    HMDB: HMDBLoader,
-    GWAS_CATALOG: GWASCatalogLoader,
-    GTEX: GTExLoader,
-    DRUG_CENTRAL: DrugCentralLoader,
-    PHAROS: PHAROSLoader,
-    HETIO: HetioLoader,
-    BIOLINK: BLLoader,
-    PANTHER: PLoader,
-    UNIREF: UniRefSimLoader,
-    ONTOLOGICAL_HIERARCHY: OHLoader,
-    SCENT: ScentLoader,
-    YEASTSGD: YeastSGDLoader,
-    YEAST_GSE61888: YeastGSE61888Loader,
-    GENOME_ALLIANCE_ORTHOLOGS: GenomeAllianceOrthologLoader,
-    STRING_DB: STRINGDBLoader,
-    CHEBI_PROPERTIES: ChebiPropertiesLoader,
-    MONDO_PROPS: MPLoader
+
+SOURCE_DATA_LOADER_CLASS_IMPORTS = {
+    CTD: ("parsers.CTD.src.loadCTD", "CTDLoader"),
+    CORD19: ("parsers.cord19.src.loadCord19", "Cord19Loader"),
+    INTACT: ("parsers.IntAct.src.loadIA","IALoader"),
+    GTOPDB: ("parsers.gtopdb.src.loadGtoPdb","GtoPdbLoader"),
+    HUMAN_GOA: ("parsers.GOA.src.loadGOA","HumanGOALoader"),
+    PLANT_GOA: ("parsers.GOA.src.loadGOA","PlantGOALoader"),
+    HGNC: ("parsers.hgnc.src.loadHGNC","HGNCLoader"),
+    UBERGRAPH: ("parsers.UberGraph.src.loadUG","UGLoader"),
+    VP: ("parsers.ViralProteome.src.loadVP","VPLoader"),
+    HMDB: ("parsers.hmdb.src.loadHMDB","HMDBLoader"),
+    GWAS_CATALOG: ("parsers.GWASCatalog.src.loadGWASCatalog","GWASCatalogLoader"),
+    GTEX: ("parsers.GTEx.src.loadGTEx","GTExLoader"),
+    DRUG_CENTRAL: ("parsers.drugcentral.src.loaddrugcentral","DrugCentralLoader"),
+    PHAROS: ("parsers.PHAROS.src.loadPHAROS","PHAROSLoader"),
+    HETIO: ("parsers.hetio.src.loadHetio","HetioLoader"),
+    BIOLINK: ("parsers.biolink.src.loadBL","BLLoader"),
+    PANTHER: ("parsers.panther.src.loadPanther","PLoader"),
+    UNIREF: ("parsers.ViralProteome.src.loadUniRef","UniRefSimLoader"),
+    ONTOLOGICAL_HIERARCHY: ("parsers.OntologicalHierarchy.src.loadOH","OHLoader"),
+    SCENT: ("parsers.scent.src.loadScent","ScentLoader"),
+    YEASTSGD: ("parsers.yeast.src.loadYeastSGDInfo","YeastSGDLoader"),
+    YEAST_GSE61888: ("parsers.yeast.src.loadYeastNucleosomesGSE61888","YeastGSE61888Loader"),
+    GENOME_ALLIANCE_ORTHOLOGS: ("parsers.GenomeAlliance.src.loadGenomeAlliance","GenomeAllianceOrthologLoader"),
+    STRING_DB: ("parsers.STRING.src.loadSTRINGDB","STRINGDBLoader"),
+    CHEBI_PROPERTIES: ("parsers.chebi.src.loadChebiProperties","ChebiPropertiesLoader"),
+    MONDO_PROPS: ("parsers.MONDOProperties.src.loadMP","MPLoader")
 
     # items to go
     # textminingkp
@@ -101,6 +81,42 @@ SOURCE_DATA_LOADER_CLASSES = {
     # items with issues
     # FOODB: FDBLoader - no longer has curies that will normalize
 }
+
+
+#This class allows defaultdictonaries to build out their entries dynamically based on what is requested.
+#Taken from https://stackoverflow.com/a/44731234.
+class KeyBasedDefaultDict(defaultdict):
+    def __missing__(self, key):
+        if self.default_factory is None:
+            raise KeyError(key)
+        self[key] = self.default_factory(key)
+        return self[key]
+
+
+def getLoaderObject(key):
+    #Taken from https://stackoverflow.com/a/61435983.
+
+    #Get the name of the package and object from the dictonary above.
+    (package_name,obj_name) = SOURCE_DATA_LOADER_CLASS_IMPORTS[key]
+
+    #This imports the package pointed to in the first item in the tuple.
+    class_ptr = importlib.import_module(package_name)
+    #This loads the attribute from the class loaded above (the SO answer
+    # indicated this needed to be done through getattr, but there may be a way
+    # to do this with importlib.)
+    obj_ptr = getattr(class_ptr,obj_name)
+
+    #One example of this is the Scent class. First we load in parsers.scent.src.loadScent
+    # then get the ScentLoader object from it. The final result is <parsers.scent.src.loadScent.ScentLoader>
+
+    return obj_ptr
+    
+
+
+#This builds a DefaultDict which whenever we pass it a key that hasn't been seen yet we run: 
+# SOURCE_DATA_LOADER_CLASSES[key] = getLoaderObject(key)
+# return SOURCE_DATA_LOADER_CLASSES[key]
+SOURCE_DATA_LOADER_CLASSES = KeyBasedDefaultDict(getLoaderObject)
 
 RESOURCE_HOGS = [GTEX, GWAS_CATALOG, UNIREF, ONTOLOGICAL_HIERARCHY, YEASTSGD, STRING_DB]
 
@@ -801,9 +817,9 @@ if __name__ == '__main__':
     load_manager = SourceDataManager(test_mode=loader_test_mode,
                                      fresh_start_mode=args.fresh_start_mode)
     for data_source in args.data_source:
-        if data_source not in SOURCE_DATA_LOADER_CLASSES.keys():
+        if data_source not in SOURCE_DATA_LOADER_CLASS_IMPORTS.keys():
             print(f'Data source {data_source} is not valid. '
-                  f'Valid sources: {", ".join(sorted(SOURCE_DATA_LOADER_CLASSES.keys()))}')
+                  f'Valid sources: {", ".join(sorted(SOURCE_DATA_LOADER_CLASS_IMPORTS.keys()))}')
         else:
             cmd_line_normalization_scheme = NormalizationScheme(strict=loader_strict_normalization)
             load_manager.run_pipeline(data_source, normalization_scheme=cmd_line_normalization_scheme)
