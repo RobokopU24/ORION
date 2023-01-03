@@ -198,7 +198,8 @@ class NodeNormalizer:
                 current_node['id'] = normalized_id
                 current_node[NODE_TYPES] = current_node_normalization['type']
                 current_node[SYNONYMS] = list(item['identifier'] for item in current_node_normalization[SYNONYMS])
-                current_node[INFORMATION_CONTENT] = current_node_normalization[INFORMATION_CONTENT]
+                if INFORMATION_CONTENT in current_node_normalization:
+                    current_node[INFORMATION_CONTENT] = current_node_normalization[INFORMATION_CONTENT]
 
                 # set the name as the label if it exists
                 if 'label' in current_node_normalization['id']:
