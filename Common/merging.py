@@ -5,6 +5,7 @@ from xxhash import xxh64_hexdigest
 from Common.node_types import *
 from Common.utils import quick_json_loads, quick_json_dumps, chunk_iterator
 
+NODE_PROPERTIES_THAT_SHOULD_BE_SETS = {SYNONYMS, NODE_TYPES}
 EDGE_PROPERTIES_THAT_SHOULD_BE_SETS = {AGGREGATOR_KNOWLEDGE_SOURCES, PUBLICATIONS}
 
 
@@ -13,7 +14,7 @@ def edge_key_function(edge):
                            f'{edge.get(PRIMARY_KNOWLEDGE_SOURCE, "")}')
 
 
-def entity_merging_function(entity_1, entity_2):
+def entity_merging_function(entity_1, entity_2, properties_that_are_sets):
     for key, value in entity_2.items():
         # TODO - make sure this is the behavior we want -
         # for properties that are lists append the values
@@ -21,7 +22,7 @@ def entity_merging_function(entity_1, entity_2):
         if key in entity_1:
             if isinstance(value, list):
                 entity_1[key].extend(value)
-                if key in EDGE_PROPERTIES_THAT_SHOULD_BE_SETS:
+                if key in properties_that_are_sets:
                     entity_1[key] = list(set(entity_1[key]))
         else:
             entity_1[key] = value
@@ -137,10 +138,11 @@ class DiskGraphMerger(GraphMerger):
                 next_key, next_entity = next_entities[i]
                 while next_key == min_key:
                     if merged_entity:
-                        merged_entity = merge_function(merged_entity, next_entity)
                         if entity_type == NODE_ENTITY_TYPE:
+                            merged_entity = merge_function(merged_entity, next_entity, NODE_PROPERTIES_THAT_SHOULD_BE_SETS)
                             self.merged_node_counter += 1
                         else:
+                            merged_entity = merge_function(merged_entity, next_entity, EDGE_PROPERTIES_THAT_SHOULD_BE_SETS)
                             self.merged_edge_counter += 1
                     else:
                         merged_entity = next_entity
@@ -179,7 +181,9 @@ class MemoryGraphMerger(GraphMerger):
             if node_key in self.nodes:
                 self.merged_node_counter += 1
                 previous_node = quick_json_loads(self.nodes[node_key])
-                merged_node = entity_merging_function(previous_node, node)
+                merged_node = entity_merging_function(previous_node,
+                                                      node,
+                                                      NODE_PROPERTIES_THAT_SHOULD_BE_SETS)
                 self.nodes[node_key] = quick_json_dumps(merged_node)
             else:
                 self.nodes[node_key] = quick_json_dumps(node)
@@ -194,7 +198,9 @@ class MemoryGraphMerger(GraphMerger):
             edge_key = edge_key_function(edge)
             if edge_key in self.edges:
                 self.merged_edge_counter += 1
-                merged_edge = entity_merging_function(quick_json_loads(self.edges[edge_key]), edge)
+                merged_edge = entity_merging_function(quick_json_loads(self.edges[edge_key]),
+                                                      edge,
+                                                      EDGE_PROPERTIES_THAT_SHOULD_BE_SETS)
                 self.edges[edge_key] = quick_json_dumps(merged_edge)
             else:
                 self.edges[edge_key] = quick_json_dumps(edge)

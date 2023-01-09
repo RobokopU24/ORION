@@ -189,6 +189,9 @@ class NodeNormalizer:
                 if ROOT_ENTITY not in current_node[NODE_TYPES]:
                     current_node[NODE_TYPES].append(ROOT_ENTITY)
 
+                # enforce that the list is really a set
+                current_node[NODE_TYPES] = list(set(current_node[NODE_TYPES]))
+
             # did we get a response from the normalizer
             current_node_normalization = cached_node_norms[current_node_id]
             if current_node_normalization is not None:

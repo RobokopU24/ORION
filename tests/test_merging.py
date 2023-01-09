@@ -10,7 +10,8 @@ def node_property_merging_test(graph_merger: GraphMerger):
 
     test_nodes = [{'id': 'NODE:1',
                    'name': 'Node 1',
-                   'category': [NAMED_THING],
+                   NODE_TYPES: [NAMED_THING],
+                   SYNONYMS: ['SYN_X', f'SYN_{i}'],
                    'testing_prop': [i]}
                   for i in range(1, 11)]
 
@@ -18,8 +19,11 @@ def node_property_merging_test(graph_merger: GraphMerger):
 
     merged_nodes = [json.loads(node) for node in graph_merger.get_merged_nodes_jsonl()]
     assert len(merged_nodes) == 1
-    assert merged_nodes[0]['testing_prop'] == [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
-
+    merged_node = merged_nodes[0]
+    assert merged_node['testing_prop'] == [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+    assert len(merged_node[SYNONYMS]) == 11
+    assert 'SYN_X' in merged_node[SYNONYMS] and 'SYN_5' in merged_node[SYNONYMS]
+    assert len(merged_node[NODE_TYPES]) == 1
 
 def test_node_property_merging_in_memory():
     node_property_merging_test(MemoryGraphMerger())
@@ -33,12 +37,12 @@ def node_merging_counts_test(graph_merger: GraphMerger):
 
     nodes_1_20 = []
     for i in range(1, 21):
-        node = {'id': f'NODE:{i}', 'name': f'Node {i}', 'category': [NAMED_THING]}
+        node = {'id': f'NODE:{i}', 'name': f'Node {i}', NODE_TYPES: [NAMED_THING]}
         nodes_1_20.append(node)
 
     nodes_6_25 = []
     for i in range(6, 26):
-        node = {'id': f'NODE:{i}', 'name': f'Node {i}', 'category': [NAMED_THING]}
+        node = {'id': f'NODE:{i}', 'name': f'Node {i}', NODE_TYPES: [NAMED_THING]}
         nodes_6_25.append(node)
 
     input_node_counter = 0
