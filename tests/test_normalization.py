@@ -1,6 +1,7 @@
 import pytest
 from Common.normalization import NodeNormalizer, EdgeNormalizer, EdgeNormalizationResult
-from Common.node_types import ROOT_ENTITY, GENE, SEQUENCE_VARIANT, FALLBACK_EDGE_PREDICATE, CUSTOM_NODE_TYPES
+from Common.node_types import ROOT_ENTITY, \
+    GENE, SEQUENCE_VARIANT, FALLBACK_EDGE_PREDICATE, CUSTOM_NODE_TYPES, INFORMATION_CONTENT
 
 INVALID_NODE_TYPE = "testing:Type1"
 
@@ -40,6 +41,7 @@ def test_node_norm(test_nodes):
     assert ROOT_ENTITY in normalized_node['category']
     assert CUSTOM_NODE_TYPES not in normalized_node
     assert normalized_node['test_prop'] == 1
+    assert INFORMATION_CONTENT in normalized_node and normalized_node[INFORMATION_CONTENT] > 0
 
     normalized_id = node_normalizer.node_normalization_lookup['HGNC:15301'][0]
     normalized_id_2 = node_normalizer.node_normalization_lookup['ENSEMBL:ENSG00000184933'][0]
