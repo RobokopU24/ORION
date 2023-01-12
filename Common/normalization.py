@@ -6,6 +6,8 @@ from robokop_genetics.genetics_normalization import GeneticsNormalizer
 from Common.node_types import *
 from Common.utils import LoggingUtil
 
+NORMALIZATION_CODE_VERSION = '1.0'
+
 
 class NodeNormalizer:
     """
