@@ -11,7 +11,7 @@ dataServices:
   image:
     repository: ghcr.io/renci-automat/data_services
     pullPolicy: IfNotPresent
-    tag: v1.0.1
+    tag: v1.0.2
   graphsVolume:
     use_nfs: true
     nfs_server: na-projects.edc.renci.org
