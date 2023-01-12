@@ -9,7 +9,7 @@ dataServices:
   useLocalGraphSpec: false
   buildMode: true
   image:
-    repository: ghcr.io/renci-automat/data_services
+    repository: ghcr.io/robokopu24/orion
     pullPolicy: IfNotPresent
     tag: v1.0.2
   graphsVolume:
