@@ -17,7 +17,7 @@ class DrugCentralLoader(SourceDataLoader):
 
     source_id = 'DrugCentral'
     provenance_id = 'infores:drugcentral'
-    parsing_version: str = '1.2'
+    parsing_version: str = '1.3'
 
     def __init__(self, test_mode: bool = False, source_data_dir: str = None):
         """
@@ -26,12 +26,12 @@ class DrugCentralLoader(SourceDataLoader):
         """
         super().__init__(test_mode=test_mode, source_data_dir=source_data_dir)
 
-        self.omop_relationmap = {'off-label use': 'RO:0002606' , #is substance that treats
-                                 'reduce risk': 'RO:0002606', #is substance that treats
-                                 'contraindication': 'DrugCentral:0000001', # should be: NCIT:C37933', #contraindication
-                                 'symptomatic treatment': 'RO:0002606', #is substance that treats
-                                 'indication': 'RO:0002606', #is substance that treats
-                                 'diagnosis': 'RO:0002606', #theres only one row like this.
+        self.omop_relationmap = {'off-label use': 'RO:0002606',  # is substance that treats
+                                 'reduce risk': 'RO:0002606',  # is substance that treats
+                                 'contraindication': 'NCIT:C37933',  # contraindication
+                                 'symptomatic treatment': 'RO:0002606',  # is substance that treats
+                                 'indication': 'RO:0002606',  # is substance that treats
+                                 'diagnosis': 'RO:0002606',  # theres only one row like this.
                                  }
 
         self.data_url = 'https://unmtid-shinyapps.net/download/'
@@ -61,7 +61,8 @@ class DrugCentralLoader(SourceDataLoader):
         :return: the version of the data
         """
 
-        # pretty much impossible to get this dynamically, no predictable scheme (https://drugcentral.org/download)
+        # we could grab this dynamically from here http://juniper.health.unm.edu/tcrd/download/latest.README
+        # but it wouldn't be very helpful until we can automatically populate the DB
         return '8_22_2022'
 
     def get_data(self):
