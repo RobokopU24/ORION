@@ -87,7 +87,8 @@ class UberGraphTools:
         biolink_prefix_map = response.json()
 
         for duplicate_mapping in BIOLINK_DUPLICATE_MAPPINGS:
-            del (biolink_prefix_map[duplicate_mapping])
+            if duplicate_mapping in biolink_prefix_map:
+                del (biolink_prefix_map[duplicate_mapping])
         kegg_keys = []
         for key, value in biolink_prefix_map.items():
             if 'KEGG.' in key:
