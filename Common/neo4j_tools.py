@@ -121,7 +121,6 @@ class Neo4jTools:
                 # node id indexes
                 cypher_result = list(session.run("CALL db.labels()"))
                 node_labels = [result['label'] for result in cypher_result]
-                node_labels.remove(NAMED_THING)
                 self.logger.info(f'Adding node id indexes for node labels: {node_labels}')
                 for node_label in node_labels:
                     node_label_index = f'node_id_{node_label.replace(":", "_")}'
