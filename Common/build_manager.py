@@ -334,10 +334,10 @@ class GraphBuilder:
 
     def parse_data_source_spec(self, source_yml):
         source_id = source_yml['source_id']
-        if source_id not in SOURCE_DATA_LOADER_CLASSES.keys():
+        if source_id not in get_available_data_sources():
             error_message = f'Data source {source_id} is not a valid data source id.'
             self.logger.error(error_message + " " +
-                              f'Valid sources are: {", ".join(sorted(SOURCE_DATA_LOADER_CLASSES.keys()))}')
+                              f'Valid sources are: {", ".join(get_available_data_sources())}')
             raise Exception(error_message)
 
         source_version = source_yml['source_version'] if 'source_version' in source_yml \
