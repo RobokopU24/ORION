@@ -1,22 +1,21 @@
 import os
 import json
 import argparse
-import datetime
 import enum
 
-from Common.utils import LoggingUtil, GetData
+from Common.utils import GetData
 from Common.kgxmodel import kgxnode, kgxedge
-from Common.extractor import Extractor
-from Common.kgx_file_writer import KGXFileWriter
 from Common.loader_interface import SourceDataLoader
 
 from gzip import GzipFile
+
 
 #The TMKP Edge file:
 class TMKPNODE(enum.IntEnum):
     NODE_ID = 0
     NODE_NAME = 1
     NODE_LABEL = 2
+
 
 #The TMKP Edge file:
 class TMKPEDGE(enum.IntEnum):
@@ -28,7 +27,7 @@ class TMKPEDGE(enum.IntEnum):
     CONFIDENCE = 5
     TMPK_IDXS = 6 #list of specific identifiers for each paper where a (s,p,o) relationship is found. One idx per sentence/per paper. "|" seperated.
     PAPER_IDXS = 7 #list of PMIDs and PMC ids. One idx per paper. "|" seperated.
-    ATTRIBUTE_LIST = 8 
+    ATTRIBUTE_LIST = 8
 
 
 ##############
@@ -40,9 +39,19 @@ class TMKPEDGE(enum.IntEnum):
 ##############
 class TMKPLoader(SourceDataLoader):
 
-
     source_id: str = "text-mining-provider-targeted"
-    provenance_id: str = "infores:text-mining-provider-targeted"
+    provenance_id: str = "infores:textminingkp"
+    parsing_version = "1.0"
+
+    # this is not the right way to do this, ideally all predicates would be normalized later in the pipeline,
+    # but this handles some complications with certain biolink 2 predicates (failing to) normalizing to biolink 3
+    tmkp_predicate_map = {
+        "biolink:contributes_to": 'RO:0002326',
+        "biolink:entity_negatively_regulates_entity": 'RO:0002449',
+        "biolink:entity_positively_regulates_entity": 'RO:0002450',
+        "biolink:gain_of_function_contributes_to": 'biolink:contributes_to',  # could not find a better predicate
+        "biolink:loss_of_function_contributes_to": 'biolink:contributes_to'  # could not find a better predicate
+    }
 
     def __init__(self, test_mode: bool = False, source_data_dir: str = None):
         """
@@ -71,18 +80,12 @@ class TMKPLoader(SourceDataLoader):
 
         :return:
         """
-        #return datetime.datetime.now().strftime("%m_%Y")
-        return "tmkg_v1" 
-
-
+        return "tmkg_v1"
 
     def get_data(self) -> int:
         """
         Gets the TextMiningKP data.
-
         """
-        # get a reference to the data gathering class
-        # gd: GetData = GetData(self.logger.level)
 
         data_puller = GetData()
         for source in self.data_files:
@@ -110,11 +113,10 @@ class TMKPLoader(SourceDataLoader):
                 node_name = line[TMKPNODE.NODE_NAME.value]           
                 node_category = line[TMKPNODE.NODE_LABEL.value]           
                 new_node = kgxnode(node_idx,
-                                      name=node_name,
-                                      categories=[node_category],
-                                      nodeprops=None)
-                self.final_node_list.append(new_node)
-                record_counter+=1
+                                   name=node_name,
+                                   categories=[node_category],
+                                   nodeprops=None)
+                self.output_file_writer.write_kgx_node(new_node)
 
         edge_file_path: str = os.path.join(self.data_path, self.edge_file_name)
         with GzipFile(edge_file_path) as zf:
@@ -124,7 +126,7 @@ class TMKPLoader(SourceDataLoader):
                 line = lines.strip().split('\t')
 
                 subject_id=line[TMKPEDGE.SUBJECT_ID.value]
-                predicate=line[TMKPEDGE.EDGE_PRED.value]
+                predicate=self.convert_tmkp_predicate(line[TMKPEDGE.EDGE_PRED.value])
                 object_id=line[TMKPEDGE.OBJECT_ID.value]
                 edge_idx=line[TMKPEDGE.EDGE_IDX.value]
                 general_predicate=line[TMKPEDGE.EDGE_PRED_HIGHER.value]
@@ -136,31 +138,31 @@ class TMKPLoader(SourceDataLoader):
                 attributes = json.loads(property_json)
                 sentences = []
                 for attribute in attributes:
-                      if(attribute.get("value_type_id","")=="biolink:TextMiningResult"):
-                           sent=""
-                           paper="NA"
-                           for nested_attribute in attribute["attributes"]: #Each attribute property can have more attributes attached to it.
-                               if(nested_attribute["attribute_type_id"]=="biolink:supporting_text"):
-                                   sent = nested_attribute["value"]
-                               if(nested_attribute["attribute_type_id"]=="biolink:supporting_document"):
-                                   paper = nested_attribute["value"]
-                           sentences.append(sent)
-                           sentences.append(paper)
-                               
+                    if attribute.get("value_type_id", "") == "biolink:TextMiningResult":
+                        supporting_text = ""
+                        paper = "NA"
+                        for nested_attribute in attribute["attributes"]:  #Each attribute property can have more attributes attached to it.
+                            if nested_attribute["attribute_type_id"] == "biolink:supporting_text":
+                                supporting_text = nested_attribute["value"]
+                            if nested_attribute["attribute_type_id"] == "biolink:supporting_document":
+                                paper = nested_attribute["value"]
+                        sentences.append(supporting_text)
+                        sentences.append(paper)
 
-                edge_props = {"publications":paper_idxs, 
-                              "biolink:tmkp_confidence_score":confidence,
-                              "sentences":"|".join(sentences),
-                              "tmkp_ids":tmpk_idxs}
+                edge_props = {"publications": [paper_id for paper_id in paper_idxs.split('|')],
+                              "biolink:tmkp_confidence_score": confidence,
+                              "sentences": "|".join(sentences),
+                              "tmkp_ids": [tmkp_id for tmkp_id in tmpk_idxs.split('|')]}
 
                 new_edge = kgxedge(subject_id=subject_id,
                                    predicate=predicate,
                                    object_id=object_id,
                                    edgeprops=edge_props,
-                                   primary_knowledge_source='infores:text-mining-provider-targeted',
-                                   aggregator_knowledge_sources=['infores:text-mining-provider-targeted'])
-                self.final_edge_list.append(new_edge)
-                record_counter+=1
+                                   primary_knowledge_source='infores:textminingkp')
+                self.output_file_writer.write_kgx_edge(new_edge)
+                record_counter += 1
+                if self.test_mode and record_counter >= 20000:
+                    break
         
         self.logger.debug(f'Parsing data file complete.')
         # load up the metadata
@@ -170,6 +172,12 @@ class TMKPLoader(SourceDataLoader):
             }
 
         return load_metadata
+
+    def convert_tmkp_predicate(self, predicate: str):
+        if predicate in self.tmkp_predicate_map:
+            return self.tmkp_predicate_map[predicate]
+        else:
+            return predicate
 
 
 if __name__ == '__main__':
