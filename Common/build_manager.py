@@ -7,7 +7,8 @@ import json
 import Common.kgx_file_converter as kgx_file_converter
 from xxhash import xxh64_hexdigest
 from Common.utils import LoggingUtil
-from Common.load_manager import SourceDataManager, SOURCE_DATA_LOADER_CLASSES
+from Common.data_sources import get_available_data_sources
+from Common.load_manager import SourceDataManager
 from Common.kgx_file_merger import KGXFileMerger
 from Common.neo4j_tools import Neo4jTools
 from Common.kgxmodel import GraphSpec, SubGraphSource, DataSource, NormalizationScheme
@@ -122,7 +123,7 @@ class GraphBuilder:
 
         for data_source in graph_spec.sources:
             source_id = data_source.id
-            if source_id not in SOURCE_DATA_LOADER_CLASSES.keys():
+            if source_id in get_available_data_sources():
                 self.logger.warning(
                     f'Attempting to build graph {graph_spec.graph_id} failed: '
                     f'{source_id} is not a valid data source id. ')
