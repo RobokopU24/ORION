@@ -11,7 +11,7 @@ dataServices:
   image:
     repository: ghcr.io/robokopu24/orion
     pullPolicy: IfNotPresent
-    tag: v1.0.5
+    tag: v1.0.6
   graphsVolume:
     use_nfs: true
     nfs_server: na-projects.edc.renci.org
