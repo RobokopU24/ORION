@@ -1,6 +1,5 @@
 import os
 import argparse
-import pandas as pd
 import re
 import requests
 
@@ -13,6 +12,14 @@ from Common.predicates import DGIDB_PREDICATE_MAPPING
 
 
 class PHAROSLoader(SourceDataLoader):
+
+    source_id = 'PHAROS'
+    provenance_id = 'infores:pharos'
+    description = ""
+    source_data_url = ""
+    license = ""
+    attribution = ""
+    parsing_version: str = '1.2'
 
     GENE_TO_DISEASE_QUERY: str = """select distinct x.value, d.did, d.name, p.sym, d.dtype
                                 from disease d 
@@ -39,10 +46,6 @@ class PHAROSLoader(SourceDataLoader):
                                 JOIN protein p on p.id=x.protein_id
                                 WHERE da.cmpd_chemblid IS NOT NULL
                                 AND x.xtype='HGNC'"""
-
-    source_id = 'PHAROS'
-    provenance_id = 'infores:pharos'
-    parsing_version: str = '1.2'
 
     def __init__(self, test_mode: bool = False, source_data_dir: str = None):
         """

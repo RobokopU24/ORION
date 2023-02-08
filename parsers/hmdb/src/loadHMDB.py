@@ -24,6 +24,10 @@ class HMDBLoader(SourceDataLoader):
 
     source_id: str = 'HMDB'
     provenance_id: str = 'infores:hmdb'
+    description = "A graph based on the Human Metabolome DataBase (hmdb.org)"
+    source_data_url = "https://translator.ncats.io/hmdb-knowledge-beacon"
+    license = "https://hmdb.ca/about"
+    attribution = "https://hmdb.ca/about#cite"
     parsing_version: str = '1.1'
 
     def __init__(self, test_mode: bool = False, source_data_dir: str = None):

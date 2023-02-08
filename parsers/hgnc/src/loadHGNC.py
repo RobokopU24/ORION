@@ -19,6 +19,10 @@ class HGNCLoader(SourceDataLoader):
 
     source_id: str = HGNC
     provenance_id: str = 'infores:hgnc'
+    description = "HGNC gene family and gene relationships"
+    source_data_url = "ftp://ftp.ebi.ac.uk/pub/databases/genenames/hgnc/archive/"
+    license = "https://www.genenames.org/about/"
+    attribution = "https://www.genenames.org/about/"
     parsing_version: str = '1.1'
 
     def __init__(self, test_mode: bool = False, source_data_dir: str = None):

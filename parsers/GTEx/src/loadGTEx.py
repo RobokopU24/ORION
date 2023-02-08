@@ -13,6 +13,15 @@ from Common.hgvs_utils import convert_variant_to_hgvs
 
 class GTExLoader(SourceDataLoader):
 
+    source_id = 'GTEx'
+    provenance_id = 'infores:gtex'
+    description = "A graph containing eqtl and sqtl information from the GTEx Portal. Also includes genes that the variants lie within or near."
+    source_data_url = "https://storage.googleapis.com/gtex_analysis_v8/single_tissue_qtl_data/"
+    license = "https://www.gtexportal.org/home/documentationPage"
+    attribution = "https://www.gtexportal.org/home/documentationPage"
+    parsing_version = '1.2'
+    has_sequence_variants = True
+
     # this probably won't change very often - just hard code it for now
     GTEX_VERSION = "8"
 
@@ -74,11 +83,6 @@ class GTExLoader(SourceDataLoader):
         "Artery_Aorta": f"{UBERON}:0004178",
         "Skin_Sun_Exposed_Lower_leg": f"{UBERON}:0004264"
     }
-
-    source_id = 'GTEx'
-    provenance_id = 'infores:gtex'
-    parsing_version = '1.2'
-    has_sequence_variants = True
 
     def __init__(self, test_mode: bool = False, source_data_dir: str = None):
         """

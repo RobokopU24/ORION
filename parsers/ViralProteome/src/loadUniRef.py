@@ -23,6 +23,10 @@ class UniRefSimLoader(SourceDataLoader):
 
     source_id = 'UniRef'
     provenance_id = 'infores:uniref'
+    description = ""
+    source_data_url = ""
+    license = ""
+    attribution = ""
     parsing_version: str = '1.1'
 
     def __init__(self, test_mode: bool = False, source_data_dir: str = None):

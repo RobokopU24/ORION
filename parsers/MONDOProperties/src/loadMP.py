@@ -35,7 +35,11 @@ IC_CUTOFF=70.0
 class MPLoader(SourceDataLoader):
 
     source_id: str = 'MONDOProperties'
-    provenance_id = None  # provenance doesn't apply to nodes/properties as of now, just a placeholder here
+    provenance_id = 'infores:mondo'  # provenance doesn't apply to nodes/properties as of now, just a placeholder here
+    description = ""
+    source_data_url = ""
+    license = ""
+    attribution = ""
     parsing_version: str = '1.0'
     preserve_unconnected_nodes = True
 

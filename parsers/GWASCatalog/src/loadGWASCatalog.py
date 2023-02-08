@@ -35,6 +35,10 @@ class GWASCatalogLoader(SourceDataLoader):
 
     source_id = 'GWASCatalog'
     provenance_id = 'infores:gwas-catalog'
+    description = "A graph containing the NHGRI-EBI Catalog of human genome-wide association studies."
+    source_data_url = "https://www.ebi.ac.uk/gwas/docs/file-downloads"
+    license = "https://www.ebi.ac.uk/gwas/"
+    attribution = "https://www.ebi.ac.uk/gwas/"
     has_sequence_variants = True
 
     def __init__(self, test_mode: bool = False, source_data_dir: str = None):

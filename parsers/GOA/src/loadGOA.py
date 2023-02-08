@@ -41,7 +41,12 @@ class DATACOLS(enum.IntEnum):
 ##############
 class GOALoader(SourceDataLoader):
 
+    source_id = None  # overriden by subclass
     provenance_id = 'infores:goa'
+    description = None  # overriden by subclass
+    source_data_url = "ftp://ftp.ebi.ac.uk/pub/databases/GO/goa/"
+    license = "https://www.ebi.ac.uk/about/terms-of-use/"
+    attribution = "https://www.ebi.ac.uk/GOA/publications"
     parsing_version = '1.1'
 
     def __init__(self, test_mode: bool = False, source_data_dir: str = None):
@@ -172,6 +177,7 @@ def get_goa_edge_properties(line: list):
 class HumanGOALoader(GOALoader):
 
     source_id = 'HumanGOA'
+    description = 'Human Gene Ontology Annotations from the GO consortium.'
 
     def __init__(self, test_mode: bool = False, source_data_dir: str = None):
         super().__init__(test_mode=test_mode, source_data_dir=source_data_dir)
@@ -188,6 +194,7 @@ class HumanGOALoader(GOALoader):
 class PlantGOALoader(GOALoader):
 
     source_id = 'PlantGOA'
+    description = 'Plant Gene Ontology Annotations from the GO consortium.'
 
     def __init__(self, test_mode: bool = False, source_data_dir: str = None):
         super().__init__(test_mode=test_mode, source_data_dir=source_data_dir)

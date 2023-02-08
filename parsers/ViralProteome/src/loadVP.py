@@ -40,13 +40,18 @@ class DATACOLS(enum.IntEnum):
 # Desc: Class that loads the Virus Proteome data and creates KGX files for importing into a Neo4j graph.
 ##############
 class VPLoader(SourceDataLoader):
-    # organism types
-    TYPE_BACTERIA: str = '0'
-    TYPE_VIRUS: str = '9'
 
     source_id = 'Viral proteome'
     provenance_id = 'infores:uniref-viral-proteins'
+    description = ""
+    source_data_url = ""
+    license = ""
+    attribution = ""
     parsing_version: str = '1.1'
+
+    # organism types
+    TYPE_BACTERIA: str = '0'
+    TYPE_VIRUS: str = '9'
 
     def __init__(self, test_mode: bool = False, source_data_dir: str = None):
         """

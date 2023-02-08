@@ -26,6 +26,10 @@ class CTDLoader(SourceDataLoader):
 
     source_id = 'CTD'
     provenance_id = 'infores:ctd'
+    description = "A subset of data from the Comparative Toxicogenomics Database"
+    source_data_url = "http://ctdbase.org/reports/"
+    license = "http://ctdbase.org/about/publications/#citing"
+    attribution = "http://ctdbase.org/about/"
     parsing_version: str = '1.2'
 
     predicate_conversion_map = {

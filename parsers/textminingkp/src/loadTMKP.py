@@ -41,6 +41,10 @@ class TMKPLoader(SourceDataLoader):
 
     source_id: str = "text-mining-provider-targeted"
     provenance_id: str = "infores:textminingkp"
+    description = ""
+    source_data_url = ""
+    license = ""
+    attribution = ""
     parsing_version = "1.0"
 
     # this is not the right way to do this, ideally all predicates would be normalized later in the pipeline,

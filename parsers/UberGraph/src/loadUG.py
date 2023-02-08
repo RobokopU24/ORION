@@ -20,6 +20,10 @@ class UGLoader(SourceDataLoader):
 
     source_id = 'UberGraph'
     provenance_id = 'infores:ubergraph'
+    description = ""
+    source_data_url = ""
+    license = ""
+    attribution = ""
     parsing_version: str = '1.2'
 
     def __init__(self, test_mode: bool = False, source_data_dir: str = None):

@@ -35,6 +35,10 @@ class PLoader(SourceDataLoader):
     source_id: str = 'PANTHER'
     source_db: str = 'Protein ANalysis THrough Evolutionary Relationships'
     provenance_id: str = 'infores:panther'
+    description = "Gene families and pathways from PANTHER"
+    source_data_url = "ftp.pantherdb.org/sequence_classifications/"
+    license = "http://pantherdb.org/tou.jsp"
+    attribution = "http://pantherdb.org/publications.jsp#HowToCitePANTHER"
     parsing_version: str = '1.1'
 
     def __init__(self, test_mode: bool = False, source_data_dir: str = None):

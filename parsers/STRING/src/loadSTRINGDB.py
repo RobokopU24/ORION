@@ -52,6 +52,10 @@ class STRINGDBLoader(SourceDataLoader):
 
     source_id: str = 'STRING-DB'
     provenance_id: str = 'infores:STRING'
+    description = ""
+    source_data_url = ""
+    license = ""
+    attribution = ""
     parsing_version = '1.0'
 
     taxon_id: str = '9606' # Human taxon

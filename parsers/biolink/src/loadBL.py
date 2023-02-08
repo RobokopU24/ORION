@@ -38,6 +38,10 @@ class BLLoader(SourceDataLoader):
 
     source_id: str = 'Biolink'
     provenance_id: str = 'infores:biolink'
+    description = "A graph based on the Monarch API (https://api.monarchinitiative.org/)."
+    source_data_url = "https://api.monarchinitiative.org/api/"
+    license = "https://monarchinitiative.org/about/licensing"
+    attribution = "https://monarchinitiative.org/about/monarch"
     parsing_version: str = '1.1'
 
     def __init__(self, test_mode: bool = False, source_data_dir: str = None):

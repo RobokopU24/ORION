@@ -32,6 +32,10 @@ class ChebiPropertiesLoader(SourceDataLoader):
     # Setting the class level variables for the source ID and provenance
     source_id: str = 'ChebiProperties'
     provenance_id: str = 'infores:chebi-properties'
+    description = ""
+    source_data_url = ""
+    license = ""
+    attribution = ""
     parsing_version = '1.1'
     preserve_unconnected_nodes = True
 

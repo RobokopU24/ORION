@@ -71,6 +71,10 @@ class IALoader(SourceDataLoader):
 
     source_id: str = 'IntAct'
     provenance_id: str = 'infores:intact'
+    description = "Molecular (Gene-Gene) interactions from EBI IntAct (https://www.ebi.ac.uk/intact/)"
+    source_data_url = "https://www.ebi.ac.uk/intact/"
+    license = "https://www.ebi.ac.uk/about/terms-of-use/"
+    attribution = "http://europepmc.org/article/MED/24234451"
     parsing_version: str = '1.1'
 
     def __init__(self, test_mode: bool = False, source_data_dir: str = None):

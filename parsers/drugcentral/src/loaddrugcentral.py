@@ -17,6 +17,11 @@ class DrugCentralLoader(SourceDataLoader):
 
     source_id = 'DrugCentral'
     provenance_id = 'infores:drugcentral'
+    description = "DrugCentral is an online drug information resource created and maintained by " \
+                  "Division of Translational Informatics at University of New Mexico in collaboration with the IDG."
+    source_data_url = "https://drugcentral.org/download"
+    license = "https://drugcentral.org/privacy"
+    attribution = "https://drugcentral.org/about"
     parsing_version: str = '1.3'
 
     def __init__(self, test_mode: bool = False, source_data_dir: str = None):

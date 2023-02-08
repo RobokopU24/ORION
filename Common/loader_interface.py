@@ -15,6 +15,16 @@ class SourceDataLoader:
     # implementations of parsers should override this with True when the source data will contain sequence variants
     has_sequence_variants = False
 
+    generator_code = "https://github.com/RobokopU24/ORION"
+
+    # parsers should override all of these attributes:
+    source_id = ""
+    provenance_id = ""
+    description = ""
+    source_data_url = ""
+    license = ""
+    attribution = ""
+
     def __init__(self, test_mode: bool = False, source_data_dir: str = None):
         """Initialize with the option to run in testing mode."""
         self.test_mode: bool = test_mode
@@ -157,6 +167,15 @@ class SourceDataLoader:
         :return: str - the name of the class
         """
         return self.__class__.__name__
+
+    def get_source_meta_information(self):
+        return {
+            'provenance': self.provenance_id,
+            'description': self.description,
+            'source_data_url': self.source_data_url,
+            'license': self.license,
+            'attribution': self.attribution
+        }
 
     def write_to_file(self) -> None:
         """
