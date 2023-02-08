@@ -1,10 +1,15 @@
-import docker
-import time
-import psycopg2
-import os
-import mysql.connector
+# import docker
+# import time
+# import psycopg2
+# import os
+# import mysql.connector
 
 
+# !!!! READ ME !!!!
+# This module is basically obsolete but I'm leaving it here just in case we ever want to use it again.
+# It provides an interface for creating and using docker containers to run mysql or postgres databases,
+# but it requires the ability for the docker driver to access the docker daemon (usually root access)
+"""
 class DSContainerError(Exception):
     def __init__(self, error_message: str, actual_error: str = ''):
         self.error_message = error_message
@@ -90,7 +95,6 @@ class DataServicesContainer:
     def stop_container(self):
         self.get_container().stop()
 
-    """
     # given a list of source files move them inside of the container
     # this could be useful if sharing volumes is not possible
     #
@@ -109,7 +113,6 @@ class DataServicesContainer:
         t.close()
         f.seek(0)
         return f
-    """
 
 
 class PostgresContainer(DataServicesContainer):
@@ -201,5 +204,5 @@ class MySQLContainer(DataServicesContainer):
         cur.close()
         db_conn.close()
         return True
-
+"""
 
