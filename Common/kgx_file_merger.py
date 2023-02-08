@@ -97,7 +97,7 @@ class KGXFileMerger:
             graph_merger = MemoryGraphMerger()
         for i, graph_source in enumerate(graph_sources, start=1):
             self.logger.info(f"Processing {graph_source.id}. (primary source {i}/{len(graph_sources)})")
-            merge_metadata["sources"][graph_source.id] = {'source_version': graph_source.version}
+            merge_metadata["sources"][graph_source.id] = {'release_version': graph_source.version}
 
             for file_path in graph_source.file_paths:
                 source_filename = file_path.rsplit('/')[-1]
@@ -136,7 +136,7 @@ class KGXFileMerger:
             if graph_source.merge_strategy == 'connected_edge_subset':
                 self.logger.info(f"Merging {graph_source.id} using connected_edge_subset merge strategy.")
 
-                merge_metadata["sources"][graph_source.id] = {'version': graph_source.version}
+                merge_metadata["sources"][graph_source.id] = {'release_version': graph_source.version}
 
                 file_path_iterator = iter(graph_source.file_paths)
                 for file_path in file_path_iterator:

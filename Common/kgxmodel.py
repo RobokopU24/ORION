@@ -79,7 +79,7 @@ class GraphSpec:
 @dataclass
 class GraphSource:
     id: str
-    version: str
+    version: str = None
     merge_strategy: str = 'default'
     file_paths: list = None
 
@@ -90,7 +90,7 @@ class SubGraphSource(GraphSource):
 
     def get_metadata_representation(self):
         return {'graph_id': self.id,
-                'graph_version': self.version,
+                'release_version': self.version,
                 'merge_strategy:': self.merge_strategy,
                 'graph_metadata': self.graph_metadata}
 
@@ -98,15 +98,21 @@ class SubGraphSource(GraphSource):
 @dataclass
 class DataSource(GraphSource):
     normalization_scheme: NormalizationScheme = None
+    source_version: str = None
     parsing_version: str = None
     supplementation_version: str = None
+    release_info: dict = None
 
     def get_metadata_representation(self):
-        return {'source_id': self.id,
-                'source_version': self.version,
+        metadata = {'source_id': self.id,
+                'source_version': self.source_version,
+                'release_version': self.version,
                 'parsing_version': self.parsing_version,
                 'supplementation_version': self.supplementation_version,
                 'normalization_scheme': self.normalization_scheme.get_metadata_representation(),
                 'merge_strategy': self.merge_strategy}
+        if self.release_info:
+            metadata.update(self.release_info)
+        return metadata
 
 

@@ -58,17 +58,25 @@ class SourceDataManager:
         self.logger.info(f"Running pipeline on {source_id}...")
         self.init_source_output_dir(source_id)
 
-        if not normalization_scheme:
-            self.logger.debug(f"No normalization scheme provided, using defaults/latest...")
-            normalization_scheme = NormalizationScheme()
-
+        if source_version == 'latest':
+            source_version = self.get_latest_source_version(source_id)
         if not self.run_fetch_stage(source_id, source_version):
             self.logger.warning(f"Pipeline for {source_id} aborted during fetch stage.")
             return False
 
+        if parsing_version == 'latest':
+            parsing_version = self.get_latest_parsing_version(source_id)
         if not self.run_parsing_stage(source_id, source_version, parsing_version=parsing_version):
             self.logger.warning(f"Pipeline for {source_id} aborted during parsing stage.")
             return False
+
+        if not normalization_scheme:
+            self.logger.debug(f"No normalization scheme provided, using defaults/latest...")
+            normalization_scheme = NormalizationScheme()
+        if normalization_scheme.node_normalization_version == 'latest':
+            normalization_scheme.node_normalization_version = self.get_latest_node_normalization_version()
+        if normalization_scheme.edge_normalization_version == 'latest':
+            normalization_scheme.edge_normalization_version = self.get_latest_edge_normalization_version()
 
         if not self.run_normalization_stage(source_id,
                                             source_version,
@@ -77,6 +85,8 @@ class SourceDataManager:
             self.logger.warning(f"Pipeline for {source_id} aborted during normalization stage.")
             return False
 
+        if supplementation_version == 'latest':
+            supplementation_version = SequenceVariantSupplementation.SUPPLEMENTATION_VERSION
         if not self.run_supplementation_stage(source_id,
                                               source_version,
                                               parsing_version=parsing_version,
@@ -85,14 +95,21 @@ class SourceDataManager:
             self.logger.warning(f"Pipeline for {source_id} supplementation stage not successful.")
             return False
 
-        return True
+        release_version = self.run_qc_and_metadata_stage(source_id,
+                                                         source_version,
+                                                         parsing_version=parsing_version,
+                                                         normalization_scheme=normalization_scheme,
+                                                         supplementation_version=supplementation_version)
+        if release_version is None:
+            self.logger.warning(f"Pipeline for {source_id} failed quality control...")
+            return False
+        else:
+            return release_version
 
     def run_fetch_stage(self, source_id: str, source_version: str):
-        if source_version == 'latest':
-            source_version = self.get_latest_source_version(source_id)
-            if not source_version:
-                self.logger.error(f"Error running pipeline for {source_id} - could not determine latest version.")
-                return False
+        if not source_version:
+            self.logger.error(f"Error running pipeline for {source_id} - could not determine latest version.")
+            return False
 
         fetch_status = self.get_source_metadata(source_id, source_version).get_fetch_status()
         if fetch_status == SourceMetadata.STABLE:
@@ -136,10 +153,7 @@ class SourceDataManager:
 
     def fetch_source(self, source_id: str, source_version: str='latest', retries: int=0):
 
-        self.logger.info(f'Fetching source {source_id}...')
-        if source_version == 'latest':
-            source_version = self.get_latest_source_version(source_id)
-
+        self.logger.debug(f'Fetching source {source_id}...')
         source_version_path = self.get_source_version_path(source_id, source_version)
         os.makedirs(source_version_path, exist_ok=True)
         source_metadata = self.get_source_metadata(source_id, source_version)
@@ -183,12 +197,6 @@ class SourceDataManager:
             return False
 
     def run_parsing_stage(self, source_id: str, source_version: str, parsing_version: str):
-
-        if source_version == 'latest':
-            source_version = self.get_latest_source_version(source_id)
-        if parsing_version == 'latest':
-            parsing_version = self.get_latest_parsing_version(source_id)
-
         source_metadata = self.get_source_metadata(source_id, source_version)
         parsing_status = source_metadata.get_parsing_status(parsing_version)
         if parsing_status == SourceMetadata.STABLE:
@@ -277,15 +285,6 @@ class SourceDataManager:
                                 source_version: str,
                                 parsing_version: str,
                                 normalization_scheme: NormalizationScheme):
-
-        if source_version == 'latest':
-            source_version = self.get_latest_source_version(source_id)
-        if parsing_version == 'latest':
-            parsing_version = self.get_latest_parsing_version(source_id)
-        if normalization_scheme.node_normalization_version == 'latest':
-            normalization_scheme.node_normalization_version = self.get_latest_node_normalization_version()
-        if normalization_scheme.edge_normalization_version == 'latest':
-            normalization_scheme.edge_normalization_version = self.get_latest_edge_normalization_version()
 
         composite_normalization_version = normalization_scheme.get_composite_normalization_version()
         source_metadata = self.get_source_metadata(source_id, source_version)
@@ -407,17 +406,7 @@ class SourceDataManager:
                                   supplementation_version: str,
                                   normalization_scheme: NormalizationScheme):
 
-        if source_version == 'latest':
-            source_version = self.get_latest_source_version(source_id)
-        if parsing_version == 'latest':
-            parsing_version = self.get_latest_parsing_version(source_id)
-        if normalization_scheme.node_normalization_version == 'latest':
-            normalization_scheme.node_normalization_version = self.get_latest_node_normalization_version()
-        if normalization_scheme.edge_normalization_version == 'latest':
-            normalization_scheme.edge_normalization_version = self.get_latest_edge_normalization_version()
-        if supplementation_version == 'latest':
-            supplementation_version = SequenceVariantSupplementation.SUPPLEMENTATION_VERSION
-        elif supplementation_version != SequenceVariantSupplementation.SUPPLEMENTATION_VERSION:
+        if supplementation_version != SequenceVariantSupplementation.SUPPLEMENTATION_VERSION:
             self.logger.warning(f"Supplementation version {supplementation_version} is not supported.")
             return False
 
@@ -459,7 +448,6 @@ class SourceDataManager:
         try:
 
             source_metadata = self.get_source_metadata(source_id, source_version)
-
             source_metadata.update_supplementation_metadata(parsing_version,
                                                             composite_normalization_version,
                                                             supplementation_version,
@@ -517,7 +505,30 @@ class SourceDataManager:
                                                             supplementation_time=current_time)
             return False
 
-    def get_source_metadata(self, source_id: str, source_version: str = 'latest'):
+    def run_qc_and_metadata_stage(self,
+                                  source_id: str,
+                                  source_version: str,
+                                  parsing_version: str,
+                                  supplementation_version: str,
+                                  normalization_scheme: NormalizationScheme):
+        # source data QC here
+        source_metadata = self.get_source_metadata(source_id, source_version)
+        normalization_version = normalization_scheme.get_composite_normalization_version()
+        if not source_metadata.get_release_version(parsing_version=parsing_version,
+                                                   supplementation_version=supplementation_version,
+                                                   normalization_version=normalization_version):
+            self.logger.info(f'Generating new release for {source_id}')
+            loader = SOURCE_DATA_LOADER_CLASSES[source_id](test_mode=self.test_mode)
+            source_meta_information = loader.get_source_meta_information()
+            source_metadata.generate_release_metadata(parsing_version=parsing_version,
+                                                      supplementation_version=supplementation_version,
+                                                      normalization_version=normalization_version,
+                                                      source_meta_information=source_meta_information)
+        return source_metadata.get_release_version(parsing_version=parsing_version,
+                                                   supplementation_version=supplementation_version,
+                                                   normalization_version=normalization_version)
+
+    def get_source_metadata(self, source_id: str, source_version):
         if source_id not in self.source_metadata or source_version not in self.source_metadata[source_id]:
             source_metadata = SourceMetadata(source_id,
                                              source_version,
@@ -717,4 +728,6 @@ if __name__ == '__main__':
                   f'These are the available data sources: {", ".join(get_available_data_sources())}')
         else:
             cmd_line_normalization_scheme = NormalizationScheme(strict=loader_strict_normalization)
-            load_manager.run_pipeline(data_source, normalization_scheme=cmd_line_normalization_scheme)
+            release_vers = load_manager.run_pipeline(data_source, normalization_scheme=cmd_line_normalization_scheme)
+            if release_vers:
+                print(f'Finished running data pipeline for {data_source} (release version {release_vers}).')

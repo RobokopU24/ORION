@@ -1,5 +1,5 @@
 # A docker container with neo4j, java and python for Data Services
-FROM neo4j:4.3.16
+FROM neo4j:4.4.10
 
 RUN apt-get update  \
     && apt-get -y install python3 \

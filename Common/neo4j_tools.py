@@ -1,6 +1,4 @@
-import argparse
 import time
-import docker
 import os
 import neo4j
 import subprocess
@@ -92,6 +90,19 @@ class Neo4jTools:
                             f'{neo4j_results.stderr.decode("UTF-8")}'
             self.logger.error(error_message)
         return neo4j_results_return_code
+
+    @staticmethod
+    def do_cypher_tx(tx, cypher):
+        neo4j_result = tx.run(cypher)
+        result = []
+        for record in neo4j_result:
+            result.append({key: value for key, value in record.items()})
+        return result
+
+    def execute_read_cypher_query(self, c_query):
+        with self.neo4j_driver.session() as session:
+            neo4j_result = session.execute_read(self.do_cypher_tx, c_query)
+            return neo4j_result
 
     def add_db_indexes(self):
         self.logger.info('Adding indexes to neo4j db...')

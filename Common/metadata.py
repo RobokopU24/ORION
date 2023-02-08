@@ -1,8 +1,10 @@
 
 import os
 import json
+from xxhash import xxh64_hexdigest
 
 from Common.kgxmodel import NormalizationScheme
+
 
 class Metadata:
 
@@ -43,13 +45,13 @@ class GraphMetadata(Metadata):
         self.metadata = dict()
         self.metadata['graph_id'] = self.graph_id
         self.metadata['graph_version'] = None
-        self.metadata['graph_spec'] = None
+        self.metadata['sources'] = []
+        self.metadata['subgraphs'] = []
         self.reset_state_metadata()
 
     def reset_state_metadata(self):
         self.metadata['build_status'] = self.NOT_STARTED
         self.metadata['build_time'] = None
-        self.metadata['build_info'] = {}
         self.metadata['build_error'] = None
 
     def set_graph_version(self, graph_version: str):
@@ -57,7 +59,8 @@ class GraphMetadata(Metadata):
         self.save_metadata()
 
     def set_graph_spec(self, graph_spec: dict):
-        self.metadata['graph_spec'] = graph_spec
+        self.metadata['sources'] = graph_spec['sources']
+        self.metadata['subgraphs'] = graph_spec['subgraphs']
         self.save_metadata()
 
     def set_build_status(self, status: str):
@@ -65,7 +68,13 @@ class GraphMetadata(Metadata):
         self.save_metadata()
 
     def set_build_info(self, build_info: dict, build_time: str):
-        self.metadata['build_info'] = build_info
+        for source_id, source_info in build_info['sources'].items():
+            for graph_spec_source in self.metadata['sources']:
+                if source_info['release_version'] == graph_spec_source['release_version']:
+                    graph_spec_source.update(source_info)
+        self.metadata.update({
+            key: value for key, value in build_info.items() if key != 'sources'
+        })
         self.metadata['build_time'] = build_time
         self.save_metadata()
 
@@ -251,13 +260,43 @@ class SourceMetadata(Metadata):
         except KeyError:
             return False
 
-    def is_stable(self, parsing_version: str, normalization_version: str, supplementation_version: str):
-        if ((self.get_parsing_status(parsing_version) == self.STABLE) and
-                (self.get_normalization_status(parsing_version, normalization_version) == self.STABLE) and
-                (self.get_supplementation_status(parsing_version, normalization_version, supplementation_version) == self.STABLE)):
-            return True
-        else:
-            return False
+    def get_release_version(self,
+                            parsing_version: str,
+                            normalization_version: str,
+                            supplementation_version: str):
+        if "releases" in self.metadata:
+            for release_version, release in self.metadata["releases"].items():
+                if ((release["parsing_version"] == parsing_version) and
+                        (release["normalization_version"] == normalization_version) and
+                        (release["supplementation_version"] == supplementation_version)):
+                    return release_version
+        return None
+
+    def generate_release_metadata(self,
+                                  parsing_version: str,
+                                  normalization_version: str,
+                                  supplementation_version: str,
+                                  source_meta_information: dict):
+        if "releases" not in self.metadata:
+            self.metadata["releases"] = {}
+        release_info = "".join([self.source_id,
+                                self.source_version,
+                                parsing_version,
+                                normalization_version,
+                                supplementation_version])
+        release_version = xxh64_hexdigest(release_info)
+        if release_version not in self.metadata["releases"]:
+            self.metadata["releases"][release_version] = {
+                "parsing_version": parsing_version,
+                "normalization_version": normalization_version,
+                "supplementation_version": supplementation_version
+            }
+            self.metadata["releases"][release_version].update(source_meta_information)
+        self.save_metadata()
+
+    def get_release_info(self, release_version: str):
+        if 'releases' in self.metadata and release_version in self.metadata['releases']:
+            return self.metadata['releases'][release_version]
 
     '''
     these need to be updated for the new versioning format, but we may not need them
