@@ -102,6 +102,10 @@ class BiolinkUtils:
                             new_attr_meta_data["value_type_id"] = new_type['uri']
             elif 'class_uri' in bl_info:
                 new_attr_meta_data['attribute_type_id'] = bl_info['class_uri']
+
+        # make sure this is not null in case the bmt toolkit lookup returns null
+        if not new_attr_meta_data['attribute_type_id']:
+            new_attr_meta_data['attribute_type_id'] = "biolink:Attribute"
         return new_attr_meta_data
 
     def predicate_has_qualifiers(self, predicate):
