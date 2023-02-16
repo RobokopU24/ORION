@@ -60,7 +60,6 @@ class PHAROSLoader(SourceDataLoader):
         self.pharos_db = None
         self.genetic_association_predicate = 'WIKIDATA_PROPERTY:P2293'
 
-
     def get_latest_source_version(self) -> str:
         """
         gets the version of the data
@@ -181,7 +180,7 @@ class PHAROSLoader(SourceDataLoader):
                                                    object_id=disease_id,
                                                    predicate=self.genetic_association_predicate,
                                                    primary_knowledge_source=edge_provenance,
-                                                   aggregator_knowledge_sources=self.provenance_id)
+                                                   aggregator_knowledge_sources=[self.provenance_id])
                 else:
                     gene_to_disease_edge = kgxedge(subject_id=gene_id,
                                                    object_id=disease_id,
@@ -246,7 +245,7 @@ class PHAROSLoader(SourceDataLoader):
                     predicate=predicate,
                     edgeprops=edge_properties,
                     primary_knowledge_source=edge_provenance,
-                    aggregator_knowledge_sources=self.provenance_id
+                    aggregator_knowledge_sources=[self.provenance_id]
                 )
             else:
                 drug_to_gene_edge = kgxedge(
@@ -314,7 +313,7 @@ class PHAROSLoader(SourceDataLoader):
                                             predicate=predicate,
                                             edgeprops=edge_properties,
                                             primary_knowledge_source=edge_provenance,
-                                            aggregator_knowledge_sources=self.provenance_id)
+                                            aggregator_knowledge_sources=[self.provenance_id])
             else:
                 cmpd_to_gene_edge = kgxedge(subject_id=cmpd_id,
                                             object_id=gene_id,
@@ -358,17 +357,13 @@ class PHAROSLoader(SourceDataLoader):
         else:
             pmids: list = []
 
-        # init the affinity properties dict
+        # init the properties dict
         props: dict = {}
 
-        # if there was data save it
+        # if there was affinity data save it
         if result['affinity'] is not None:
             props['affinity'] = float(result['affinity'])
             props['affinity_parameter'] = result['affinity_parameter']
-        else:
-            # set the defaults
-            props['affinity'] = float(0)
-            props['affinity_parameter'] = ''
 
         # return to the caller
         return predicate, pmids, props, provenance
