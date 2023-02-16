@@ -363,16 +363,16 @@ class GraphBuilder:
         self.logger.info(f'Meta KG and SRI Testing data complete. Generated {len(test_edges)} test edges. Writing to file..')
 
         meta_kg = {
-            'nodes': meta_kg_nodes,
-            'edges': meta_kg_edges
+            "nodes": meta_kg_nodes,
+            "edges": meta_kg_edges
         }
         meta_kg_file_path = os.path.join(output_directory, META_KG_FILENAME)
         with open(meta_kg_file_path, 'w') as meta_kg_file:
             meta_kg_file.write(json.dumps(meta_kg, indent=4))
 
         sri_testing_data = {
-            'source_type': 'primary',
-            'edges': test_edges
+            "source_type": "primary",
+            "edges": test_edges
         }
         sri_testing_file_path = os.path.join(output_directory, SRI_TESTING_FILENAME)
         with open(sri_testing_file_path, 'w') as sri_testing_file:
