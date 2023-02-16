@@ -20,7 +20,7 @@ class kgxedge:
                  object_id,
                  predicate=None,
                  primary_knowledge_source=None,
-                 aggregator_knowledge_sources=None,
+                 aggregator_knowledge_sources: list = None,
                  edgeprops=None):
         self.subjectid = subject_id
         self.objectid = object_id
