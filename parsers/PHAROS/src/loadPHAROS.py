@@ -19,7 +19,7 @@ class PHAROSLoader(SourceDataLoader):
     source_data_url = ""
     license = ""
     attribution = ""
-    parsing_version: str = '1.2'
+    parsing_version: str = '1.3'
 
     GENE_TO_DISEASE_QUERY: str = """select distinct x.value, d.did, d.name, p.sym, d.dtype
                                 from disease d 
@@ -46,6 +46,21 @@ class PHAROSLoader(SourceDataLoader):
                                 JOIN protein p on p.id=x.protein_id
                                 WHERE da.cmpd_chemblid IS NOT NULL
                                 AND x.xtype='HGNC'"""
+    # TODO check for updated infores ids, these did not exist at the time of writing this
+    # eRAM, JensenLab Experiment TIGA,
+    PHAROS_INFORES_MAPPING = {
+        'CTD': 'infores:ctd',
+        'DisGeNET': 'infores:disgenet',
+        'DrugCentral Indication': 'infores:drugcentral',
+        'eRAM': 'infores:eram',
+        'JensenLab Experiment TIGA': 'infores:tiga',
+        'JensenLab Knowledge AmyCo': 'infores:diseases',
+        'JensenLab Knowledge MedlinePlus': 'infores:diseases',
+        'JensenLab Knowledge UniProtKB-KW': 'infores:diseases',
+        'JensenLab Text Mining': 'infores:diseases',  # looks wrong but it's right https://diseases.jensenlab.org/
+        'Monarch': 'infores:monarchinitiative',
+        'UniProt Disease': 'infores:uniprot'
+    }
 
     def __init__(self, test_mode: bool = False, source_data_dir: str = None):
         """
@@ -150,7 +165,7 @@ class PHAROSLoader(SourceDataLoader):
             gene_name = self.sanitize_name(item['sym'])
             disease_id = item['did']
             disease_name = self.sanitize_name(item['name'])
-            edge_provenance = item['dtype']
+            edge_provenance = self.PHAROS_INFORES_MAPPING[item['dtype']]
 
             # move along, no disease id
             if disease_id is None:
@@ -214,15 +229,10 @@ class PHAROSLoader(SourceDataLoader):
             drug_name = self.sanitize_name(item['drug'])
             gene_id = item['value']
             gene_name = self.sanitize_name(item['sym'])
-            predicate, pmids, props, edge_provenance = self.get_edge_props(item)
+            predicate, pmids, edge_properties, edge_provenance = self.get_edge_props(item)
 
-            # if there were affinity properties use them
-            if len(props) == 2:
-                affinity = props['affinity']
-                affinity_parameter = props['affinity_parameter']
-            else:
-                affinity = 0
-                affinity_parameter = None
+            if pmids:
+                edge_properties[PUBLICATIONS] = pmids
 
             drug_node = kgxnode(drug_id,
                                 name=drug_name)
@@ -233,11 +243,6 @@ class PHAROSLoader(SourceDataLoader):
                                 categories=[GENE])
             self.output_file_writer.write_kgx_node(gene_node)
 
-            edge_properties = {
-                PUBLICATIONS: pmids,
-                'affinity': affinity,
-                'affinity_parameter': affinity_parameter
-            }
             if edge_provenance:
                 drug_to_gene_edge = kgxedge(
                     subject_id=drug_id,
@@ -283,15 +288,10 @@ class PHAROSLoader(SourceDataLoader):
             cmpd_name = self.sanitize_name(item['drug'])
             gene_id = item['value']
             gene_name = self.sanitize_name(item['sym'])
-            predicate, pmids, props, edge_provenance = self.get_edge_props(item)
+            predicate, pmids, edge_properties, edge_provenance = self.get_edge_props(item)
 
-            # if there were affinity properties use them
-            if len(props) == 2:
-                affinity = props['affinity']
-                affinity_parameter = props['affinity_parameter']
-            else:
-                affinity = None
-                affinity_parameter = None
+            if pmids:
+                edge_properties[PUBLICATIONS] = pmids
 
             cmpd_node = kgxnode(cmpd_id,
                                 name=cmpd_name)
@@ -301,12 +301,6 @@ class PHAROSLoader(SourceDataLoader):
                                 name=gene_name)
             self.output_file_writer.write_kgx_node(gene_node)
 
-            edge_properties = {
-                PUBLICATIONS: pmids
-            }
-            if affinity and affinity_parameter:
-                edge_properties['affinity'] = affinity
-                edge_properties['affinity_parameter'] = affinity_parameter
             if edge_provenance:
                 cmpd_to_gene_edge = kgxedge(subject_id=cmpd_id,
                                             object_id=gene_id,
@@ -347,7 +341,7 @@ class PHAROSLoader(SourceDataLoader):
 
         # if there was provenance data save it
         if result['dtype'] is not None and len(result['dtype']) > 0:
-            provenance = result['dtype']
+            provenance = self.PHAROS_INFORES_MAPPING[result['dtype']]
         else:
             provenance = None
 
@@ -357,10 +351,8 @@ class PHAROSLoader(SourceDataLoader):
         else:
             pmids: list = []
 
-        # init the properties dict
-        props: dict = {}
-
         # if there was affinity data save it
+        props: dict = {}
         if result['affinity'] is not None:
             props['affinity'] = float(result['affinity'])
             props['affinity_parameter'] = result['affinity_parameter']
