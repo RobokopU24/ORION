@@ -220,16 +220,16 @@ class Cord19Loader(SourceDataLoader):
             new_edge = None
             if edge.subjectid == covid_disease_id:
                 new_edge = deepcopy(edge)
-                new_edge.subjectid == coronavirus_taxon_id
+                new_edge.subjectid = coronavirus_taxon_id
             elif edge.objectid == covid_disease_id:
                 new_edge = deepcopy(edge)
-                new_edge.objectid == coronavirus_taxon_id
+                new_edge.objectid = coronavirus_taxon_id
             elif edge.subjectid == coronavirus_taxon_id:
                 new_edge = deepcopy(edge)
-                new_edge.subjectid == covid_disease_id
+                new_edge.subjectid = covid_disease_id
             elif edge.objectid == coronavirus_taxon_id:
                 new_edge = deepcopy(edge)
-                new_edge.objectid == covid_disease_id
+                new_edge.objectid = covid_disease_id
 
             if new_edge and new_edge.subjectid != new_edge.objectid:
                 edges_to_add.append(new_edge)
