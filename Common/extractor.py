@@ -33,7 +33,10 @@ class Extractor:
                     edge_property_extractor=None,
                     filter_set=None,
                     filter_field=None,
-                    comment_character="#", delim='\t', has_header_row=False):
+                    comment_character="#",
+                    delim='\t',
+                    has_header_row=False,
+                    exclude_unconnected_nodes=False):
         """Read a csv, perform callbacks to retrieve node and edge info per row.
         Assumes that all of the properties extractable for a node occur on the line with the node identifier"""
         skipped_header = False
@@ -58,7 +61,7 @@ class Extractor:
                 # We process one at a time, so we pass "line" in as a list and take the first result.
                 reader = csv.reader([line], delimiter=delim)
                 split_row = list(reader)[0]
-                self.parse_row(split_row, subject_extractor, object_extractor, predicate_extractor, subject_property_extractor, object_property_extractor, edge_property_extractor)
+                self.parse_row(split_row, subject_extractor, object_extractor, predicate_extractor, subject_property_extractor, object_property_extractor, edge_property_extractor, exclude_unconnected_nodes)
             except Exception as e:
                 self.load_metadata['errors'].append(e.__str__())
                 self.load_metadata['skipped_record_counter'] += 1
@@ -94,11 +97,21 @@ class Extractor:
                 self.load_metadata['skipped_record_counter'] += 1
                 return
 
-    def parse_row(self, row, subject_extractor, object_extractor, predicate_extractor, subject_property_extractor, object_property_extractor, edge_property_extractor):
+    def parse_row(self,
+                  row,
+                  subject_extractor,
+                  object_extractor,
+                  predicate_extractor,
+                  subject_property_extractor,
+                  object_property_extractor,
+                  edge_property_extractor,
+                  exclude_unconnected_nodes=False):
         # pull the information out of the edge
+        predicate = predicate_extractor(row) if predicate_extractor is not None else None
+        if exclude_unconnected_nodes and predicate is None:
+            return
         subject_id = subject_extractor(row)
         object_id = object_extractor(row) if object_extractor is not None else None
-        predicate = predicate_extractor(row) if predicate_extractor is not None else None
         subjectprops = subject_property_extractor(row) if subject_property_extractor is not None else {}
         objectprops = object_property_extractor(row) if object_property_extractor is not None else {}
         edgeprops = edge_property_extractor(row) if edge_property_extractor is not None else {}
