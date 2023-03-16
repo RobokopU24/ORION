@@ -54,7 +54,6 @@ class UberGraphTools:
                     node_curie = chain_converter.compress(node_iri)
                     if node_curie is None:
                         print(f'Could not find prefix mapping for: {node_iri}')
-                        continue
                     self.node_curies[node_id] = node_curie
 
             self.edge_curies = {}
@@ -64,7 +63,6 @@ class UberGraphTools:
                     edge_curie = chain_converter.compress(edge_iri)
                     if edge_curie is None:
                         print(f'No prefix mapping found for: {edge_iri}')
-                        continue
                     self.edge_curies[edge_id] = edge_curie
 
         self.converted_to_curies = True
