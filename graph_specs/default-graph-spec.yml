@@ -50,6 +50,7 @@ graphs:
       - graph_id: RobokopKG
     sources:
       - source_id: Cord19
+      - source_id: textminingkp
 
   - graph_id: Biolink_Automat
     sources:
