@@ -5,8 +5,7 @@ import enum
 from Common.utils import GetData
 from Common.loader_interface import SourceDataLoader
 from Common.extractor import Extractor
-from Common.node_types import AGGREGATOR_KNOWLEDGE_SOURCES
-from Common.kgxmodel import kgxedge
+from Common.node_types import PRIMARY_KNOWLEDGE_SOURCE, NODE_TYPES
 
 
 # the data header columns for the nodes file are:
@@ -37,12 +36,12 @@ class EDGESDATACOLS(enum.IntEnum):
 class BLLoader(SourceDataLoader):
 
     source_id: str = 'Biolink'
-    provenance_id: str = 'infores:biolink'
+    provenance_id: str = 'infores:sri-reference-kg'
     description = "A graph based on the Monarch API (https://api.monarchinitiative.org/)."
     source_data_url = "https://api.monarchinitiative.org/api/"
     license = "https://monarchinitiative.org/about/licensing"
     attribution = "https://monarchinitiative.org/about/monarch"
-    parsing_version: str = '1.1'
+    parsing_version: str = '1.2'
 
     def __init__(self, test_mode: bool = False, source_data_dir: str = None):
         """
@@ -52,8 +51,9 @@ class BLLoader(SourceDataLoader):
         super().__init__(test_mode=test_mode, source_data_dir=source_data_dir)
 
         self.bl_edges_file_name = 'sri-reference-kg_edges.tsv'
-        self.bl_nodes_file_name = 'sri-reference-kg_nodes.tsv'
-        self.data_files: list = [self.bl_edges_file_name, self.bl_nodes_file_name]
+        # self.bl_nodes_file_name = 'sri-reference-kg_nodes.tsv'
+        # self.data_files: list = [self.bl_edges_file_name, self.bl_nodes_file_name]
+        self.data_files: list = [self.bl_edges_file_name]
         self.data_url = 'https://stars.renci.org/var/data_services/Biolink/'
 
     def get_latest_source_version(self) -> str:
@@ -84,8 +84,11 @@ class BLLoader(SourceDataLoader):
         :return: ret_val: load_metadata
         """
 
-        extractor = Extractor()
+        extractor = Extractor(file_writer=self.output_file_writer)
 
+        """
+        # commented out - with strict normalization we aren't using names or node types from this file,
+        # so skipping this is more efficient, we get the node IDs from the edges file
         # parse the nodes file
         nodes_file: str = os.path.join(self.data_path, self.bl_nodes_file_name)
         with open(nodes_file, 'r') as fp:
@@ -100,6 +103,7 @@ class BLLoader(SourceDataLoader):
                                   comment_character=None,
                                   delim='\t',
                                   has_header_row=True)
+        """
 
         # parse the edges file
         edges_file: str = os.path.join(self.data_path, self.bl_edges_file_name)
@@ -110,13 +114,12 @@ class BLLoader(SourceDataLoader):
                                   lambda line: get_bl_edge_predicate(line),  # predicate extractor
                                   lambda line: {},  # subject props
                                   lambda line: {},  # object props
-                                  lambda line: {AGGREGATOR_KNOWLEDGE_SOURCES: ['infores:sri-reference-kg']},  # edgeprops
+                                  lambda line: {PRIMARY_KNOWLEDGE_SOURCE: self.provenance_id},  # edgeprops
                                   comment_character=None,
                                   delim='\t',
-                                  has_header_row=True)
+                                  has_header_row=True,
+                                  exclude_unconnected_nodes=True)
 
-        self.final_node_list = extractor.nodes
-        self.final_edge_list = extractor.edges
         return extractor.load_metadata
 
 
@@ -139,7 +142,7 @@ def get_bl_node_id(line: list, id_index: int):
 def get_bl_node_properties(line: list):
     categories = line[NODESDATACOLS.CATEGORY.value].split('|')
     name = line[NODESDATACOLS.NAME.value]
-    return {'categories': categories, 'name': name}
+    return {NODE_TYPES: categories, 'name': name}
 
 
 def passes_qc_filter(line: list):
