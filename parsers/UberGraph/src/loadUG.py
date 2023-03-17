@@ -80,24 +80,27 @@ class UGLoader(SourceDataLoader):
             with tar_files.extractfile(f'{self.nonredundant_graph_path}/edges.tsv') as edges_file:
                 for line in TextIOWrapper(edges_file):
                     record_counter += 1
-
-                    if self.test_mode and record_counter == 5000:
-                        break
-
                     subject_id, predicate_id, object_id = tuple(line.rstrip().split('\t'))
                     subject_curie = ubergraph_tools.get_curie_for_node_id(subject_id)
-                    object_curie = ubergraph_tools.get_curie_for_node_id(object_id)
-                    predicate_curie = ubergraph_tools.get_curie_for_edge_id(predicate_id)
-
-                    if subject_curie and object_curie and predicate_curie:
-                        self.output_file_writer.write_node(node_id=subject_curie)
-                        self.output_file_writer.write_node(node_id=object_curie)
-                        self.output_file_writer.write_edge(subject_id=subject_curie,
-                                                           object_id=object_curie,
-                                                           predicate=predicate_curie,
-                                                           primary_knowledge_source=self.provenance_id)
-                    else:
+                    if not subject_curie:
                         skipped_record_counter += 1
+                        break
+                    object_curie = ubergraph_tools.get_curie_for_node_id(object_id)
+                    if not object_curie:
+                        skipped_record_counter += 1
+                        break
+                    predicate_curie = ubergraph_tools.get_curie_for_edge_id(predicate_id)
+                    if not predicate_curie:
+                        skipped_record_counter += 1
+                        break
+                    self.output_file_writer.write_node(node_id=subject_curie)
+                    self.output_file_writer.write_node(node_id=object_curie)
+                    self.output_file_writer.write_edge(subject_id=subject_curie,
+                                                       object_id=object_curie,
+                                                       predicate=predicate_curie,
+                                                       primary_knowledge_source=self.provenance_id)
+                    if self.test_mode and record_counter == 5000:
+                        break
 
         # load up the metadata
         load_metadata: dict = {

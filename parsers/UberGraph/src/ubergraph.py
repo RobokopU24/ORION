@@ -27,11 +27,11 @@ class UberGraphTools:
                  ubergraph_archive_path: str = None,
                  graph_base_path: str = None):
 
-        self.ubergraph_archive_path = ubergraph_archive_path
-        self.graph_base_path = graph_base_path
-        self.converted_to_curies = False
         self.node_curies = {}
         self.edge_curies = {}
+        self.ubergraph_archive_path = ubergraph_archive_path
+        self.graph_base_path = graph_base_path
+        self.convert_iris_to_curies()
 
     def convert_iris_to_curies(self):
         biolink_prefix_map = self.get_biolink_prefix_map()
@@ -65,16 +65,10 @@ class UberGraphTools:
                         print(f'No prefix mapping found for: {edge_iri}')
                     self.edge_curies[edge_id] = edge_curie
 
-        self.converted_to_curies = True
-
     def get_curie_for_node_id(self, node_id):
-        if not self.converted_to_curies:
-            self.convert_iris_to_curies()
         return self.node_curies[node_id]
 
     def get_curie_for_edge_id(self, edge_id):
-        if not self.converted_to_curies:
-            self.convert_iris_to_curies()
         return self.edge_curies[edge_id]
 
     @staticmethod
