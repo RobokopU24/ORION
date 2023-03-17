@@ -188,12 +188,12 @@ class GraphBuilder:
         if os.path.exists(csv_nodes_file_path) and os.path.exists(csv_edges_file_path):
             self.logger.info(f'CSV files were already created for {graph_id}({graph_version})')
         else:
-            self.__convert_kgx_to_neo4j(graph_id=graph_id,
-                                        graph_version=graph_version,
-                                        nodes_input_file=graph_nodes_file_path,
-                                        edges_input_file=graph_edges_file_path,
-                                        nodes_output_file=csv_nodes_file_path,
-                                        edges_output_file=csv_edges_file_path)
+            self.__convert_kgx_to_csv(graph_id=graph_id,
+                                      graph_version=graph_version,
+                                      nodes_input_file=graph_nodes_file_path,
+                                      edges_input_file=graph_edges_file_path,
+                                      nodes_output_file=csv_nodes_file_path,
+                                      edges_output_file=csv_edges_file_path)
 
         graph_dump_file_path = os.path.join(graph_directory, f'graph_{graph_version}.db.dump')
         if os.path.exists(graph_dump_file_path):
@@ -240,13 +240,13 @@ class GraphBuilder:
 
         self.logger.info(f'Success! Neo4j dump created with indexes for {graph_id}({graph_version})')
 
-    def __convert_kgx_to_neo4j(self,
-                               graph_id: str,
-                               graph_version: str,
-                               nodes_input_file: str,
-                               edges_input_file: str,
-                               nodes_output_file: str,
-                               edges_output_file: str):
+    def __convert_kgx_to_csv(self,
+                             graph_id: str,
+                             graph_version: str,
+                             nodes_input_file: str,
+                             edges_input_file: str,
+                             nodes_output_file: str,
+                             edges_output_file: str):
         self.logger.info(f'Creating CSV files for {graph_id}({graph_version})...')
         kgx_file_converter.convert_jsonl_to_neo4j_csv(nodes_input_file=nodes_input_file,
                                                       edges_input_file=edges_input_file,
