@@ -152,7 +152,7 @@ class GraphBuilder:
                                                                         parsing_version=data_source.parsing_version,
                                                                         normalization_scheme=data_source.normalization_scheme,
                                                                         supplementation_version=data_source.supplementation_version)
-                if release_version is None:
+                if not release_version:
                     self.logger.info(
                         f'While attempting to build {graph_spec.graph_id}, dependency pipeline failed for {source_id}...')
                     return False
