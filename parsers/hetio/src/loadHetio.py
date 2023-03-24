@@ -14,7 +14,7 @@ from Common.node_types import AGGREGATOR_KNOWLEDGE_SOURCES, PRIMARY_KNOWLEDGE_SO
 class HetioLoader(SourceDataLoader):
 
     source_id: str = 'Hetio'
-    provenance_id: str = 'infores:hetio'
+    provenance_id: str = 'infores:hetionet'
     description = "Hetionet is an integrative network of biomedical knowledge assembled from 29 different databases of genes, compounds, diseases, and more. The network combines over 50 years of biomedical information into a single resource, consisting of 47,031 nodes (11 types) and 2,250,197 relationships (24 types).(source https://het.io)"
     source_data_url = "https://github.com/hetio/hetionet/blob/master/hetnet/json/hetionet-v1.0.json.bz2"
     license = "https://het.io/about/"
