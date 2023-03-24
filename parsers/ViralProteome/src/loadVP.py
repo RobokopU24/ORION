@@ -66,7 +66,6 @@ class VPLoader(SourceDataLoader):
         gd = GetData()
         proteomes_version = gd.get_ftp_file_date('ftp.ebi.ac.uk', '/pub/databases/GO/goa/proteomes/', 'datestamp')
         latest_version = f'{proteomes_version}'
-        self.logger.info(f'Got latest version: {latest_version}')
         return latest_version
 
     def get_data(self):
