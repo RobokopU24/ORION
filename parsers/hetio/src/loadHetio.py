@@ -19,7 +19,7 @@ class HetioLoader(SourceDataLoader):
     source_data_url = "https://github.com/hetio/hetionet/blob/master/hetnet/json/hetionet-v1.0.json.bz2"
     license = "https://het.io/about/"
     attribution = "https://het.io/about/"
-    parsing_version: str = '1.2'
+    parsing_version: str = '1.3'
 
     def __init__(self, test_mode: bool = False, source_data_dir: str = None):
         """
