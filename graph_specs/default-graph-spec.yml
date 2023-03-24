@@ -145,3 +145,12 @@ graphs:
       - source_id: UberGraph
       - source_id: OntologicalHierarchy
         merge_strategy: connected_edge_subset
+
+  - graph_id: ViralProteome_Automat
+    sources:
+      - source_id: ViralProteome
+      - source_id: OntologicalHierarchy
+        merge_strategy: connected_edge_subset
+
+
+
