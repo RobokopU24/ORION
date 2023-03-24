@@ -2,13 +2,13 @@ import os
 import argparse
 import enum
 import gzip
-import logging
 
 from Common.loader_interface import SourceDataLoader
 from Common.extractor import Extractor
 from io import TextIOWrapper
-from Common.utils import LoggingUtil, GetData
+from Common.utils import GetData
 from Common.node_types import PRIMARY_KNOWLEDGE_SOURCE, PUBLICATIONS
+from Common.prefixes import NCBITAXON
 
 
 # the data header columns are:
@@ -128,7 +128,7 @@ class GOALoader(SourceDataLoader):
                                   # extract subject id,
                                   lambda line: f'{line[DATACOLS.GO_ID.value]}',  # extract object id
                                   lambda line: get_goa_predicate(line),  # predicate extractor
-                                  lambda line: {},  # subject props
+                                  lambda line: get_goa_subject_props(line),  # subject props
                                   lambda line: {},  # object props
                                   lambda line: get_goa_edge_properties(line),  # edge props
                                   filter_set=taxon_filter_set,
@@ -140,7 +140,7 @@ class GOALoader(SourceDataLoader):
         return extractor.load_metadata
 
 
-goa_predicates = {'enables':'RO:0002327',
+GOA_PREDICATES = {'enables':'RO:0002327',
                   'involved_in':'RO:0002331',
                   'located_in':'RO:0001025',
                   'contributes_to':'RO:0002326',
@@ -158,9 +158,20 @@ goa_predicates = {'enables':'RO:0002327',
 def get_goa_predicate(line: list):
     supplied_qualifier = line[DATACOLS.Qualifier.value]
     if "|" in supplied_qualifier:
+        # TODO example of negation that we can't support - this could be NOT|enables
         return None
+    elif not supplied_qualifier:
+        aspect = line[DATACOLS.Aspect]
+        if aspect == 'F':  # molecular function
+            return GOA_PREDICATES['enables']
+        elif aspect == 'P':  # biological process
+            return GOA_PREDICATES['involved_in']
+        elif aspect == 'C':  # cellular component
+            return GOA_PREDICATES['located_in']
+        else:
+            return None
     else:
-        return goa_predicates[supplied_qualifier]
+        return GOA_PREDICATES[supplied_qualifier]
 
 
 def get_goa_edge_properties(line: list):
@@ -173,6 +184,12 @@ def get_goa_edge_properties(line: list):
     if publications:
         edge_properties[PUBLICATIONS] = publications
     return edge_properties
+
+
+def get_goa_subject_props(line: list):
+    taxon_id = line[DATACOLS.Taxon_Interacting_taxon].split('|')[0].split(':')[-1]
+    return {"taxon": f'{NCBITAXON}:{taxon_id}'} if taxon_id else {}
+
 
 class HumanGOALoader(GOALoader):
 
