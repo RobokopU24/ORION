@@ -391,10 +391,13 @@ class GraphBuilder:
         curie_prefixes = set()
         for i in curie_query_results[0]['ids']:
             curie_prefixes.add(i.split(':')[0])
-        # sort according to bl model
-        node_bl_def = self.bl_utils.toolkit.get_element(node_type)
-        id_prefixes = node_bl_def.id_prefixes
-        sorted_curie_prefixes = [i for i in id_prefixes if i in curie_prefixes]  # gives precedence to what's in BL
+        # sort according to bl model - this can throw an exception if id_prefixes are not found, default to empty
+        try:
+            node_bl_def = self.bl_utils.toolkit.get_element(node_type)
+            id_prefixes = node_bl_def.id_prefixes
+            sorted_curie_prefixes = [i for i in id_prefixes if i in curie_prefixes]  # gives precedence to what's in BL
+        except Exception as e:
+            sorted_curie_prefixes = []
         # add other ids even if not in BL next
         sorted_curie_prefixes += [i for i in curie_prefixes if i not in sorted_curie_prefixes]
         all_keys = set()
