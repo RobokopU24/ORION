@@ -72,7 +72,8 @@ class UGLoader(SourceDataLoader):
 
         ubergraph_archive_path = os.path.join(self.data_path, self.data_file)
         ubergraph_tools = UberGraphTools(ubergraph_archive_path,
-                                         graph_base_path=self.nonredundant_graph_path)
+                                         graph_base_path=self.nonredundant_graph_path,
+                                         logger=self.logger)
 
         with tarfile.open(ubergraph_archive_path, 'r') as tar_files:
 
@@ -84,15 +85,15 @@ class UGLoader(SourceDataLoader):
                     subject_curie = ubergraph_tools.get_curie_for_node_id(subject_id)
                     if not subject_curie:
                         skipped_record_counter += 1
-                        break
+                        continue
                     object_curie = ubergraph_tools.get_curie_for_node_id(object_id)
                     if not object_curie:
                         skipped_record_counter += 1
-                        break
+                        continue
                     predicate_curie = ubergraph_tools.get_curie_for_edge_id(predicate_id)
                     if not predicate_curie:
                         skipped_record_counter += 1
-                        break
+                        continue
                     self.output_file_writer.write_node(node_id=subject_curie)
                     self.output_file_writer.write_node(node_id=object_curie)
                     self.output_file_writer.write_edge(subject_id=subject_curie,
