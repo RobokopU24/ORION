@@ -13,6 +13,17 @@ from Common.node_types import AGGREGATOR_KNOWLEDGE_SOURCES, PRIMARY_KNOWLEDGE_SO
 
 from Common.kgxmodel import kgxnode, kgxedge
 
+# Costanza 2016 Yeast Genetic Interactions
+class COSTANZA_GENEINTERACTIONS(enum.IntEnum):
+    GENE1 = 0
+    GENE2 = 21
+    EVIDENCEPMID = 8
+    PREDICATE = 14
+    PVALUE = 17
+    SGASCORE = 18
+    GENE1ALLELE = 19
+    GENE2ALLELE = 20
+
 # Maps Genes to GO Terms.
 class GENEGOTERMS_EDGEUMAN(enum.IntEnum):
     GENE = 0
@@ -58,6 +69,15 @@ class COMPLEXEGO_EDGEUMAN(enum.IntEnum):
     PREDICATE = 3
     COMPLEXNAME = 2
 
+#List of Binned Histone Modifications
+class HISTONEMODBINS_EDGEUMAN(enum.IntEnum):
+    ID = 0
+    CHROMOSOME = 1
+    STARTLOCATION = 2
+    ENDLOCATION = 3
+    LOCI = 4
+    MODIFICATION = 5
+
 # Maps Histone Modifications to Genes
 class HISTONEMODGENE_EDGEUMAN(enum.IntEnum):
     ID = 0
@@ -68,7 +88,13 @@ class HISTONEMODGENE_EDGEUMAN(enum.IntEnum):
     MODIFICATION = 5
     GENE = 6
 
-    
+# Maps Histone Modifications to GO Terms
+class HISTONEMODGOTERMS_EDGEUMAN(enum.IntEnum):
+    ID = 0
+    PRED = 1
+    GOID = 2
+    GONAME = 3
+
 ##############
 # Class: Mapping SGD Genes to SGD Associations
 #
@@ -101,6 +127,8 @@ class YeastSGDLoader(SourceDataLoader):
         self.complex_to_go_term_edges_file_name = "SGDComplex2GOTerm.csv"
         self.histone_mod_list_file_name = f"Res{self.genome_resolution}HistoneModLoci.csv"
         self.histone_mod_to_gene_file_name = "HistoneMod2Gene.csv"
+        self.histone_mod_to_go_term_file_name = "HistonePTM2GO.csv"
+        self.costanza_genetic_interactions_file_name = "Costanza2016GeneticInteractions.csv"
         
         
         self.data_files = [
@@ -111,7 +139,9 @@ class YeastSGDLoader(SourceDataLoader):
             self.genes_to_complex_edges_file_name,
             self.complex_to_go_term_edges_file_name,
             self.histone_mod_list_file_name,
-            self.histone_mod_to_gene_file_name]
+            self.histone_mod_to_gene_file_name,
+            self.histone_mod_to_go_term_file_name,
+            self.costanza_genetic_interactions_file_name]
 
     def get_latest_source_version(self) -> str:
         """
@@ -156,9 +186,7 @@ class YeastSGDLoader(SourceDataLoader):
                                   'organism': line[10],
                                   'featureType': line[11],
                                   'chromosomeLocation': f"{line[6]}:{line[7]}-{line[8]}, strand: {line[9]}",
-                                  'referenceLink': line[12],
-                                  PRIMARY_KNOWLEDGE_SOURCE: "SGD",
-                                  AGGREGATOR_KNOWLEDGE_SOURCES: ["SGD"]}, # subject props
+                                  'referenceLink': line[12]}, # subject props
                                   lambda line: {},  # object props
                                   lambda line: {},#edgeprops
                                   comment_character=None,
@@ -173,9 +201,8 @@ class YeastSGDLoader(SourceDataLoader):
                                   lambda line: None,  # object id
                                   lambda line: None,  # predicate extractor
                                   lambda line: {'name': line[6],
-                                                'categories': [line[7]],
-                                                PRIMARY_KNOWLEDGE_SOURCE: "SGD",
-                                                AGGREGATOR_KNOWLEDGE_SOURCES: ["SGD"]}, #subject props
+                                                'categories': [line[7]]
+                                                }, #subject props
                                   lambda line: {},  # object props
                                   lambda line: {},#edgeprops
                                   comment_character=None,
@@ -193,9 +220,7 @@ class YeastSGDLoader(SourceDataLoader):
                                                 'categories': ['biolink:Pathway'],
                                                 'taxon': 'NCBI_Taxon:559292',
                                                 'organism': line[1],
-                                                'referenceLink': line[4],
-                                                PRIMARY_KNOWLEDGE_SOURCE: "SGD",
-                                                AGGREGATOR_KNOWLEDGE_SOURCES: ["SGD"]},  # subject props
+                                                'referenceLink': line[4]},  # subject props
                                   lambda line: {},  # object props
                                   lambda line: {}, #edgeprops
                                   comment_character=None,
@@ -213,9 +238,7 @@ class YeastSGDLoader(SourceDataLoader):
                                                 'categories': ['biolink:PhenotypicFeature'],
                                                 'taxon': 'NCBITaxon:559292',
                                                 'organism': "S. cerevisiae",
-                                                'referenceLink': line[19],
-                                                PRIMARY_KNOWLEDGE_SOURCE: "SGD",
-                                                AGGREGATOR_KNOWLEDGE_SOURCES: ["SGD"]}, # subject props
+                                                'referenceLink': line[19]}, # subject props
                                   lambda line: {},  # object props
                                   lambda line: {},#edgeprops
                                   comment_character=None,
@@ -237,9 +260,7 @@ class YeastSGDLoader(SourceDataLoader):
                                                 'SGDAccessionID': line[10],
                                                 'taxon': 'NCBITaxon:559292',
                                                 'organism': "S. cerevisiae",
-                                                'referenceLink': line[12],
-                                                PRIMARY_KNOWLEDGE_SOURCE: "SGD",
-                                                AGGREGATOR_KNOWLEDGE_SOURCES: ["SGD"]}, # subject props
+                                                'referenceLink': line[12]}, # subject props
                                   lambda line: {},  # object props
                                   lambda line: {},#edgeprops
                                   comment_character=None,
@@ -250,15 +271,13 @@ class YeastSGDLoader(SourceDataLoader):
         histone_modification_file: str = os.path.join(self.data_path, self.histone_mod_list_file_name)
         with open(histone_modification_file, 'r') as fp:
             extractor.csv_extract(fp,
-                                  lambda line: line[HISTONEMODGENE_EDGEUMAN.ID.value],  # subject id
+                                  lambda line: line[HISTONEMODBINS_EDGEUMAN.ID.value],  # subject id
                                   lambda line: None,  # object id
                                   lambda line: None,  # predicate extractor
-                                  lambda line: {'name': f"{line[HISTONEMODGENE_EDGEUMAN.MODIFICATION.value]} ({line[HISTONEMODGENE_EDGEUMAN.CHROMOSOME.value]}:{line[HISTONEMODGENE_EDGEUMAN.STARTLOCATION.value]}-{line[HISTONEMODGENE_EDGEUMAN.ENDLOCATION.value]})",
+                                  lambda line: {'name': f"{line[HISTONEMODBINS_EDGEUMAN.MODIFICATION.value]} ({line[HISTONEMODBINS_EDGEUMAN.CHROMOSOME.value]}:{line[HISTONEMODBINS_EDGEUMAN.STARTLOCATION.value]}-{line[HISTONEMODBINS_EDGEUMAN.ENDLOCATION.value]})",
                                                 'categories': ['biolink:NucleosomeModification','biolink:PosttranslationalModification'],
-                                                'histoneModification': line[HISTONEMODGENE_EDGEUMAN.MODIFICATION.value],
-                                                'chromosomeLocation': line[HISTONEMODGENE_EDGEUMAN.LOCI.value],
-                                                PRIMARY_KNOWLEDGE_SOURCE: "SGD",
-                                                AGGREGATOR_KNOWLEDGE_SOURCES: ["SGD"]}, # subject props
+                                                'histoneModification': line[HISTONEMODBINS_EDGEUMAN.MODIFICATION.value],
+                                                'chromosomeLocation': line[HISTONEMODBINS_EDGEUMAN.LOCI.value]}, # subject props
                                   lambda line: {},  # object props
                                   lambda line: {},#edgeprops
                                   comment_character=None,
@@ -277,7 +296,8 @@ class YeastSGDLoader(SourceDataLoader):
                                   lambda line: {'evidenceCode': line[GENEGOTERMS_EDGEUMAN.EVIDENCECODE.value],
                                                 'evidenceCodeText': line[GENEGOTERMS_EDGEUMAN.EVIDENCECODETEXT.value],
                                                 'annotationType': line[GENEGOTERMS_EDGEUMAN.ANNOTATIONTYPE.value],
-                                                'evidencePMIDs': line[GENEGOTERMS_EDGEUMAN.EVIDENCEPMID.value]
+                                                'evidencePMIDs': line[GENEGOTERMS_EDGEUMAN.EVIDENCEPMID.value],
+                                                PRIMARY_KNOWLEDGE_SOURCE: "SGD"
                                              }, #edgeprops
                                   comment_character=None,
                                   delim=',',
@@ -292,7 +312,9 @@ class YeastSGDLoader(SourceDataLoader):
                                   lambda line: "biolink:participates_in",  # predicate extractor
                                   lambda line: {},  # subject props
                                   lambda line: {},  # object props
-                                  lambda line: {}, #edgeprops
+                                  lambda line: {
+                                                PRIMARY_KNOWLEDGE_SOURCE: "SGD"
+                                                }, #edgeprops
                                   comment_character=None,
                                   delim=',',
                                   has_header_row=True)
@@ -315,7 +337,8 @@ class YeastSGDLoader(SourceDataLoader):
                                                 'yeastStrainBackground': line[GENEPHENOTYPES_EDGEUMAN.STRAINBACKGROUND.value],
                                                 'chemicalExposure': line[GENEPHENOTYPES_EDGEUMAN.CHEMICAL.value],
                                                 'experimentalCondition': line[GENEPHENOTYPES_EDGEUMAN.CONDITION.value],
-                                                'evidencePMIDs': line[GENEPHENOTYPES_EDGEUMAN.EVIDENCEPMID.value]}, #edgeprops
+                                                'evidencePMIDs': line[GENEPHENOTYPES_EDGEUMAN.EVIDENCEPMID.value],
+                                                PRIMARY_KNOWLEDGE_SOURCE: "SGD"}, #edgeprops
                                   comment_character=None,
                                   delim=',',
                                   has_header_row=True)
@@ -331,7 +354,8 @@ class YeastSGDLoader(SourceDataLoader):
                                   lambda line: {},  # object props
                                   lambda line: {'geneBiologicalRole': line[GENECOMPLEXES_EDGEUMAN.ROLE.value],
                                                 'geneStoichiometry': line[GENECOMPLEXES_EDGEUMAN.STOICHIOMETRY.value],
-                                                'interactorType': line[GENECOMPLEXES_EDGEUMAN.TYPE.value],}, #edgeprops
+                                                'interactorType': line[GENECOMPLEXES_EDGEUMAN.TYPE.value],
+                                                PRIMARY_KNOWLEDGE_SOURCE: "SGD"}, #edgeprops
                                   comment_character=None,
                                   delim=',',
                                   has_header_row=True)
@@ -345,12 +369,14 @@ class YeastSGDLoader(SourceDataLoader):
                                   lambda line: line[COMPLEXEGO_EDGEUMAN.PREDICATE.value] if line[COMPLEXEGO_EDGEUMAN.PREDICATE.value] != "involved in" else "biolink:actively_involved_in",  # predicate extractor
                                   lambda line: {},  # subject props
                                   lambda line: {},  # object props
-                                  lambda line: {}, #edgeprops
+                                  lambda line: {
+                                                PRIMARY_KNOWLEDGE_SOURCE: "SGD"
+                                                }, #edgeprops
                                   comment_character=None,
                                   delim=',',
                                   has_header_row=True)
 
-        #Genes to HistonePTMs.
+        #Genes to BinnedHistonePTMs.
         gene_to_histone_mod_edges_file: str = os.path.join(self.data_path, self.histone_mod_to_gene_file_name)
         with open(gene_to_histone_mod_edges_file, 'r') as fp:
             extractor.csv_extract(fp,
@@ -359,11 +385,106 @@ class YeastSGDLoader(SourceDataLoader):
                                   lambda line: "biolink:located_in",  # predicate extractor
                                   lambda line: {},  # subject props
                                   lambda line: {},  # object props
-                                  lambda line: {}, #edgeprops
+                                  lambda line: {
+                                                PRIMARY_KNOWLEDGE_SOURCE: "Epigenomics"
+                                  }, #edgeprops
                                   comment_character=None,
                                   delim=',',
                                   has_header_row=True)
         
+        #Binned Histone PTMS to general PTMs.
+        histone_modification_file: str = os.path.join(self.data_path, self.histone_mod_list_file_name)
+        with open(histone_modification_file, 'r') as fp:
+            extractor.csv_extract(fp,
+                                  lambda line: line[HISTONEMODBINS_EDGEUMAN.ID.value],  # subject id
+                                  lambda line: "HisPTM:"+line[HISTONEMODBINS_EDGEUMAN.MODIFICATION.value],  # object id
+                                  lambda line: "biolink:subclass_of",  # predicate extractor
+                                  lambda line: {}, # subject props
+                                  lambda line: {}, # object props
+                                  lambda line: {
+                                                PRIMARY_KNOWLEDGE_SOURCE: "Epigenomics"
+                                                },#edgeprops
+                                  comment_character=None,
+                                  delim=',',
+                                  has_header_row=True)
+        
+        #General PTMs to GO Terms.
+        histone_mod2go_term_file: str = os.path.join(self.data_path, self.histone_mod_to_go_term_file_name)
+        with open(histone_mod2go_term_file, 'r') as fp:
+            extractor.csv_extract(fp,
+                                  lambda line: line[HISTONEMODGOTERMS_EDGEUMAN.ID.value],  # subject id
+                                  lambda line: line[HISTONEMODGOTERMS_EDGEUMAN.GOID.value],  # object id
+                                  lambda line: line[HISTONEMODGOTERMS_EDGEUMAN.PRED.value],  # predicate extractor
+                                  lambda line: {}, # subject props
+                                  lambda line: {}, # object props
+                                  lambda line: {
+                                                PRIMARY_KNOWLEDGE_SOURCE: "Epigenomics"
+                                                }, #edgeprops
+                                  comment_character=None,
+                                  delim=',',
+                                  has_header_row=True)
+        
+        # Costanza Genetic Interactions Parser. Add edges between "Cell Growth" and the yeast genotype.
+        costanza_genetic_interactions: str = os.path.join(self.data_path, self.costanza_genetic_interactions_file_name)
+        with open(costanza_genetic_interactions, 'r') as fp:
+            extractor.csv_extract(fp,
+                                  lambda line: line[COSTANZA_GENEINTERACTIONS.GENE1.value]+"-"+line[COSTANZA_GENEINTERACTIONS.GENE2.value].replace("SGD:",""),  # subject id
+                                  lambda line: "GO:0016049",  # object id
+                                  lambda line: line[COSTANZA_GENEINTERACTIONS.PREDICATE.value],  # predicate extractor
+                                  lambda line: {
+                                                    'name': line[COSTANZA_GENEINTERACTIONS.GENE1ALLELE.value]+"-"+line[COSTANZA_GENEINTERACTIONS.GENE2ALLELE.value],
+                                                    'categories': ['biolink:Genotype'],
+                                                    'gene1_allele': line[COSTANZA_GENEINTERACTIONS.GENE1ALLELE.value],
+                                                    'gene2_allele': line[COSTANZA_GENEINTERACTIONS.GENE2ALLELE.value]
+                                                }, # subject props
+                                  lambda line: {}, # object props
+                                  lambda line: {
+                                                    'p-value': line[COSTANZA_GENEINTERACTIONS.PVALUE.value],
+                                                    'sgaScore': line[COSTANZA_GENEINTERACTIONS.SGASCORE.value],
+                                                    'evidencePMIDs': line[COSTANZA_GENEINTERACTIONS.EVIDENCEPMID.value],
+                                                    PRIMARY_KNOWLEDGE_SOURCE: "CostanzaGeneticInteractions"
+                                                }, #edgeprops
+                                  comment_character=None,
+                                  delim=',',
+                                  has_header_row=True)
+
+        # Costanza Genetic Interactions Parser. Genotype to Gene 1 edge.
+        costanza_genetic_interactions: str = os.path.join(self.data_path, self.costanza_genetic_interactions_file_name)
+        with open(costanza_genetic_interactions, 'r') as fp:
+            extractor.csv_extract(fp,
+                                  lambda line: line[COSTANZA_GENEINTERACTIONS.GENE1.value]+"-"+line[COSTANZA_GENEINTERACTIONS.GENE2.value].replace("SGD:",""),  # subject id
+                                  lambda line: line[COSTANZA_GENEINTERACTIONS.GENE1.value],  # object id
+                                  lambda line: "biolink:has_part",  # predicate extractor
+                                  lambda line: {}, # subject props
+                                  lambda line: {}, # object props
+                                  lambda line: {
+                                                    'gene1_allele': line[COSTANZA_GENEINTERACTIONS.GENE1ALLELE.value],
+                                                    'evidencePMIDs': line[COSTANZA_GENEINTERACTIONS.EVIDENCEPMID.value],
+                                                    PRIMARY_KNOWLEDGE_SOURCE: "CostanzaGeneticInteractions"
+
+                                  }, #edgeprops
+                                  comment_character=None,
+                                  delim=',',
+                                  has_header_row=True)
+            
+        # Costanza Genetic Interactions Parser. Genotype to Gene 2 edge.
+        costanza_genetic_interactions: str = os.path.join(self.data_path, self.costanza_genetic_interactions_file_name)
+        with open(costanza_genetic_interactions, 'r') as fp:
+            extractor.csv_extract(fp,
+                                  lambda line: line[COSTANZA_GENEINTERACTIONS.GENE1.value]+"-"+line[COSTANZA_GENEINTERACTIONS.GENE2.value].replace("SGD:",""),  # subject id
+                                  lambda line: line[COSTANZA_GENEINTERACTIONS.GENE2.value],  # object id
+                                  lambda line: "biolink:has_part",  # predicate extractor
+                                  lambda line: {}, # subject props
+                                  lambda line: {}, # object props
+                                  lambda line: {
+                                                    'gene1_allele': line[COSTANZA_GENEINTERACTIONS.GENE2ALLELE.value],
+                                                    'evidencePMIDs': line[COSTANZA_GENEINTERACTIONS.EVIDENCEPMID.value],
+                                                    PRIMARY_KNOWLEDGE_SOURCE: "CostanzaGeneticInteractions"
+
+                                  }, #edgeprops
+                                  comment_character=None,
+                                  delim=',',
+                                  has_header_row=True)        
         self.final_node_list = extractor.nodes
         self.final_edge_list = extractor.edges
         return extractor.load_metadata

@@ -183,6 +183,8 @@ class EXPNUC_EDGEUMAN(enum.IntEnum):
     HTZ1_30 = 166
     HTZ1_60 = 167
 
+    
+
 # Maps Nucleosomes located_on Gene edge
 class NUCGENE_EDGEUMAN(enum.IntEnum):
     NUCLEOSOME = 1
@@ -306,6 +308,11 @@ class YeastGSE61888Loader(SourceDataLoader):
             print(os.path.join(self.data_path,source))
             dataset.to_csv(os.path.join(self.data_path,source), encoding="utf-8-sig", index=False)
             mergedf = dataset.merge(binned_histones,how='inner',on='loci')
+            for col in reversed(binned_histones.columns):
+                inserted = mergedf[col]
+                mergedf = mergedf.drop(columns=[col])
+                mergedf.insert(loc=0, column=col, value=inserted)
+            mergedf = mergedf.drop(columns=['loci'])
             print(f"Histone Modifications Mapping Complete!")
             csv_f3name = "HistoneMod2GSE61888.csv"
             mergedf.to_csv(os.path.join(self.data_path,csv_f3name), encoding="utf-8-sig", index=False)
@@ -326,7 +333,6 @@ class YeastGSE61888Loader(SourceDataLoader):
         #In this case, handles only "GSE61888 High resolution chromatin dynamics during a yeast stress response" data
         histone_mods_2_stressor_file: str = os.path.join(self.data_path, "HistoneMod2GSE61888.csv")
         with open(histone_mods_2_stressor_file, 'r') as fp:
-
             extractor.csv_extract(fp,
                                   lambda line: "PUBCHEM.COMPOUND:5353800", #subject id #In this case, it is set as "Diamide", the stressor used in GSE61888
                                   lambda line: line[EXPNUC_EDGEUMAN.HISMODID.value],  # object id
@@ -336,8 +342,8 @@ class YeastGSE61888Loader(SourceDataLoader):
                                   lambda line: {'dataset':'GSE61888',
                                                 'dataComment': "Occupancy represented as coverage measured in reads per million (rpm). \
                                                     Histone modifications measured as log2FC over unmodified state and measured at 0,4,8,15,30 and 60 minutes after diamide exposure.",
-                                                'coverage(rpm)':float(line[EXPNUC_EDGEUMAN.COVERAGE_RPM.value]),
-                                                f"{line[EXPNUC_EDGEUMAN.HISMOD.value]}(log2FC)":[val for key,val in 
+                                                'coverage':float(line[EXPNUC_EDGEUMAN.COVERAGE_RPM.value]),
+                                                f"{line[EXPNUC_EDGEUMAN.HISMOD.value]}TimeSeries":[val for key,val in 
                                                 {'H2AK5ac': [float(line[EXPNUC_EDGEUMAN.H2AK5AC_0.value]),float(line[EXPNUC_EDGEUMAN.H2AK5AC_4.value]),float(line[EXPNUC_EDGEUMAN.H2AK5AC_8.value]),float(line[EXPNUC_EDGEUMAN.H2AK5AC_15.value]),float(line[EXPNUC_EDGEUMAN.H2AK5AC_30.value]),float(line[EXPNUC_EDGEUMAN.H2AK5AC_60.value])],
                                                 'H2AS129ph': [float(line[EXPNUC_EDGEUMAN.H2AS129PH_0.value]),float(line[EXPNUC_EDGEUMAN.H2AS129PH_4.value]),float(line[EXPNUC_EDGEUMAN.H2AS129PH_8.value]),float(line[EXPNUC_EDGEUMAN.H2AS129PH_15.value]),float(line[EXPNUC_EDGEUMAN.H2AS129PH_30.value]),float(line[EXPNUC_EDGEUMAN.H2AS129PH_60.value])],
                                                 'H3K14ac': [float(line[EXPNUC_EDGEUMAN.H3K14AC_0.value]),float(line[EXPNUC_EDGEUMAN.H3K14AC_4.value]),float(line[EXPNUC_EDGEUMAN.H3K14AC_8.value]),float(line[EXPNUC_EDGEUMAN.H3K14AC_15.value]),float(line[EXPNUC_EDGEUMAN.H3K14AC_30.value]),float(line[EXPNUC_EDGEUMAN.H3K14AC_60.value])],
@@ -364,7 +370,8 @@ class YeastGSE61888Loader(SourceDataLoader):
                                                 'H4R3me': [float(line[EXPNUC_EDGEUMAN.H4R3ME_0.value]),float(line[EXPNUC_EDGEUMAN.H4R3ME_4.value]),float(line[EXPNUC_EDGEUMAN.H4R3ME_8.value]),float(line[EXPNUC_EDGEUMAN.H4R3ME_15.value]),float(line[EXPNUC_EDGEUMAN.H4R3ME_30.value]),float(line[EXPNUC_EDGEUMAN.H4R3ME_60.value])],
                                                 'H4R3me2s': [float(line[EXPNUC_EDGEUMAN.H4R3ME2S_0.value]),float(line[EXPNUC_EDGEUMAN.H4R3ME2S_4.value]),float(line[EXPNUC_EDGEUMAN.H4R3ME2S_8.value]),float(line[EXPNUC_EDGEUMAN.H4R3ME2S_15.value]),float(line[EXPNUC_EDGEUMAN.H4R3ME2S_30.value]),float(line[EXPNUC_EDGEUMAN.H4R3ME2S_60.value])],
                                                 'HTZ1': [float(line[EXPNUC_EDGEUMAN.HTZ1_0.value]),float(line[EXPNUC_EDGEUMAN.HTZ1_4.value]),float(line[EXPNUC_EDGEUMAN.HTZ1_8.value]),float(line[EXPNUC_EDGEUMAN.HTZ1_15.value]),float(line[EXPNUC_EDGEUMAN.HTZ1_30.value]),float(line[EXPNUC_EDGEUMAN.HTZ1_60.value])]
-                                  }.items() if line[EXPNUC_EDGEUMAN.HISMOD.value] in key][0]}, #edgeprops
+                                                }.items() if line[EXPNUC_EDGEUMAN.HISMOD.value] == key],
+                                                PRIMARY_KNOWLEDGE_SOURCE: "WeinerEpigenomics"}, #edgeprops
                                   comment_character=None,
                                   delim=',',
                                   has_header_row=True)

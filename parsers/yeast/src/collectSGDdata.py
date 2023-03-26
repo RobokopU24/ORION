@@ -9,6 +9,7 @@ def main(resolution, source_data_path):
 
     res = resolution
     path = source_data_path
+    SGDCostanza2016GeneticInteractions(path)
     SGDAllGenes(path)
     createLociWindows(res, path)
     SGDComplex2GOTerm(path)
@@ -266,6 +267,88 @@ def SGDComplex2GOTerm(data_directory):
     print(os.path.join(storage_dir,csv_fname))
     complex2gotermdf.to_csv(os.path.join(storage_dir,csv_fname), encoding="utf-8-sig", index=False)
 
+def SGDCostanza2016GeneticInteractions(data_directory):
+    #Collects all data for complexes with GO Term annotations in SGD.
+    print("---------------------------------------------------\nCollecting all Costanza 2016 dataset of yeast genetic interactions...\n---------------------------------------------------\n")
+    from intermine.webservice import Service
+    service = Service("https://yeastmine.yeastgenome.org/yeastmine/service")
+    query = service.new_query("Gene")
+    query.add_constraint("interactions.participant2", "Gene")
+    query.add_view(
+        "primaryIdentifier", "secondaryIdentifier", "symbol", "name", "sgdAlias",
+        "interactions.details.annotationType", "interactions.details.phenotype",
+        "interactions.details.role1",
+        "interactions.details.experiment.publication.pubMedId",
+        "interactions.details.experiment.publication.citation",
+        "interactions.details.experiment.publication.title",
+        "interactions.details.experiment.publication.journal",
+        "interactions.participant2.symbol",
+        "interactions.participant2.secondaryIdentifier",
+        "interactions.details.experiment.interactionDetectionMethods.identifier",
+        "interactions.details.experiment.name",
+        "interactions.details.relationshipType",
+        "interactions.alleleinteractions.pvalue",
+        "interactions.alleleinteractions.sgaScore",
+        "interactions.alleleinteractions.allele1.name",
+        "interactions.alleleinteractions.allele2.name",
+        "interactions.participant2.primaryIdentifier"
+    )
+    query.add_constraint("interactions.details.experiment.publication", "LOOKUP", "27708008", code="A")
+    query.outerjoin("interactions.alleleinteractions")
+
+    view= [
+            "primaryIdentifier", "secondaryIdentifier", "symbol", "name", "sgdAlias",
+            "interactions.details.annotationType", "interactions.details.phenotype",
+            "interactions.details.role1",
+            "interactions.details.experiment.publication.pubMedId",
+            "interactions.details.experiment.publication.citation",
+            "interactions.details.experiment.publication.title",
+            "interactions.details.experiment.publication.journal",
+            "interactions.participant2.symbol",
+            "interactions.participant2.secondaryIdentifier",
+            "interactions.details.experiment.interactionDetectionMethods.identifier",
+            "interactions.details.experiment.name",
+            "interactions.details.relationshipType",
+            "interactions.alleleinteractions.pvalue",
+            "interactions.alleleinteractions.sgaScore",
+            "interactions.alleleinteractions.allele1.name",
+            "interactions.alleleinteractions.allele2.name",
+            "interactions.participant2.primaryIdentifier"
+        ]
+
+    data = dict.fromkeys(view, [])
+    total=query.size()
+    idx=0
+    for row in query.rows():
+        if (idx%10000)==0:
+            print(f"{idx} of {total}")
+            #####
+            if idx != 0:
+                break
+            #####
+        for col in range(len(view)):
+            key = view[col]
+            if key == "primaryIdentifier":
+                value = "SGD:" + str(row[key])
+            elif key == "interactions.participant2.primaryIdentifier":
+                value = "SGD:" + str(row[key])
+            elif key == "interactions.details.experiment.interactionDetectionMethods.identifier":
+                if str(row["interactions.details.experiment.interactionDetectionMethods.identifier"]) == "Negative Genetic":
+                    value = "biolink:negatively_correlated_with"
+                elif str(row["interactions.details.experiment.interactionDetectionMethods.identifier"]) == "Positive Genetic":
+                    value = "biolink:positively_correlated_with"
+            else:
+                value = str(row[key])
+            data[key] = data[key] + [value]
+        idx+=1
+    Costanza2016GeneticInteractions = pd.DataFrame(data)
+    Costanza2016GeneticInteractions.fillna("?",inplace=True)
+    print('SGD Costanza2016GeneticInteractions Data Collected!')
+    csv_fname = 'Costanza2016GeneticInteractions.csv'
+    storage_dir = data_directory
+    print(os.path.join(storage_dir,csv_fname))
+    Costanza2016GeneticInteractions.to_csv(os.path.join(storage_dir,csv_fname), encoding="utf-8-sig", index=False)
+
 def createLociWindows(resolution, data_directory):
     #Creates sliding windows of hypothetical genome locations of all Histone PTMs. 
     n = int(resolution) #Sets sliding window resolution.
@@ -296,66 +379,85 @@ def createLociWindows(resolution, data_directory):
                 'H4K8ac':None,'H4R3me':None,'H4R3me2s':None,'HTZ1':None}
     
     # Will continue to work on this mapping.
-    '''
-    histonePTM2GO={'ptm':[],'GOid':[],'GOname':[]}
+    #Get descendants of GO term "histone modification" (GO:0016570)
+    HisModDescendants = rq.get(f"https://www.ebi.ac.uk/QuickGO/services/ontology/go/terms/{'GO:0016570'}/descendants").json()
+    descendants = str(HisModDescendants['results'][0]['descendants']).replace("'","").replace(" ","").replace("[","").replace("]","")
+    descendantNames = rq.get(f"https://www.ebi.ac.uk/QuickGO/services/ontology/go/terms/{descendants}").json()
+    descendant_dict = {}
+    for result in descendantNames['results']:
+        descendant_dict.update({result['name']:result['id']})
+
+    histonePTM2GO={'ptm':[],'predicate':[],'GOid':[],'GOname':[]}
     for ptm in histonePTMs:
         if 'ac' in ptm:
-            mod = ['acetylation','acetyltransferase activity']
-            ptm = ptm.replace('ac','')
+            mod = ['acetyl']
+            notmod = []
+            ptmloc = ptm.replace('ac','')
         elif 'me2s' in ptm:
-            mod = ['methylation','methyltransferase activity']
-            ptm = ptm.replace('me2s','')
+            mod = ['methyl','dimethyl']
+            notmod = ['monomethyl','trimethyl']
+            ptmloc = ptm.replace('me2s','')
         elif 'me2' in ptm:
-            mod = ['methylation','methyltransferase activity']
-            ptm = ptm.replace('me2','')
+            mod = ['methyl','dimethyl']
+            notmod = ['monomethyl','trimethyl']
+            ptmloc = ptm.replace('me2','')
         elif 'me3' in ptm:
-            mod = ['methylation','methyltransferase activity']
-            ptm = ptm.replace('me3','') 
+            mod = ['methyl','trimethyl']
+            notmod = ['monomethyl','dimethyl']
+            ptmloc = ptm.replace('me3','') 
         elif 'me' in ptm:
-            mod = ['methylation','methyltransferase activity']
-            ptm = ptm.replace('me','') 
+            mod = ['methyl']
+            notmod = ['dimethyl','trimethyl']
+            ptmloc = ptm.replace('me','') 
         elif 'ph' in ptm:
-            mod = ['phosphorylation','phosphotase activity']
-            ptm = ptm.replace('ph','')
+            mod = ['phosph','kinase']
+            notmod = []
+            ptmloc = ptm.replace('ph','')
         else:
-            pass
-        if 'H2A' in ptm:
-            query_process = f"histone {ptm[0:3]}-{ptm[3:]} {mod[0]}"
-            query_activity = f"histone {ptm[0:3]}{ptm[3:]} {mod[1]}"
+            continue
+        
+        if 'H2A' in ptm or 'H2B' in ptm:
+            query_process = f"histone {ptmloc[0:3]}-{ptmloc[3:]}"
+            query_activity = f"histone {ptmloc[0:3]}{ptmloc[3:]}"
         else:
-            query_process = f"histone {ptm[0:2]}-{ptm[2:]} {mod[0]}"
-            query_activity = f"histone {ptm[0:2]}{ptm[2:]} {mod[1]}"
-        search_result_process = rq.get(f"https://www.ebi.ac.uk/QuickGO/services/ontology/go/search?query={query_process}").json()
-        search_result_activity = rq.get(f"https://www.ebi.ac.uk/QuickGO/services/ontology/go/search?query={query_activity}").json()
-    print(search_result_process['results'][0]['name'])
-    print(query_process)
-    if search_result_process['results'][0]['name'] == query_process:
-        histonePTM2GO['ptm'].append(ptm)
-        histonePTM2GO['GOid'].append(search_result_process['results'][0]['id'])
-        histonePTM2GO['GOname'].append(search_result_process['results'][0]['name'])
-        print(search_result_process['results'][0]['name'])
-        print(search_result_process['results'][0]['id'])
-    if search_result_activity['results'][0]['name'] == query_activity:
-        histonePTM2GO['ptm'].append(ptm)
-        histonePTM2GO['GOid'].append(search_result_process['results'][0]['id'])
-        histonePTM2GO['GOname'].append(search_result_process['results'][0]['name'])
-        print(search_result_activity['results'][0]['name'])
-        print(search_result_activity['results'][0]['id'])
-    
+            query_process = f"histone {ptmloc[0:2]}-{ptmloc[2:]}"
+            query_activity = f"histone {ptmloc[0:2]}{ptmloc[2:]}"
+
+        pred_dict = {
+            "CTD:affects_abundance_of":["regulation"],
+            "CTD:increases_abundance_of":["positive regulation"],
+            "CTD:decreases_abundance_of":["negative regulation"," de"],
+        }
+        for name in descendant_dict.keys():
+            if query_process in name or query_activity in name:
+                if any(x in name for x in mod):
+                    if not any(x in name for x in notmod):
+                        histonePTM2GO['ptm'] = histonePTM2GO['ptm'] + ["HisPTM:"+ptm]
+                        histonePTM2GO['GOname'] = histonePTM2GO['GOname'] + [name]
+                        histonePTM2GO['GOid'] = histonePTM2GO['GOid'] + [descendant_dict[name]]
+                        if any(x in name for x in pred_dict["CTD:decreases_abundance_of"]):
+                            histonePTM2GO['predicate'] = histonePTM2GO['predicate'] + ["CTD:decreases_abundance_of"]
+                        elif any(x in name for x in pred_dict["CTD:affects_abundance_of"]):
+                            if any(x in name for x in pred_dict["CTD:increases_abundance_of"]):
+                                histonePTM2GO['predicate'] = histonePTM2GO['predicate'] + ["CTD:increases_abundance_of"]
+                            else:
+                                histonePTM2GO['predicate'] = histonePTM2GO['predicate'] + ["CTD:affects_abundance_of"]
+                        else:
+                            histonePTM2GO['predicate'] = histonePTM2GO['predicate'] + ["CTD:increases_abundance_of"]
+                            
     print('Histone Modifications Mapped to GO Terms!')
     csv_fname = f"HistonePTM2GO.csv"
     storage_dir = data_directory
     histonePTM2GO_df = pd.DataFrame.from_dict(histonePTM2GO)
     histonePTM2GO_df.to_csv(os.path.join(storage_dir,csv_fname), encoding="utf-8-sig", index=False)
     print(os.path.join(storage_dir,csv_fname))
-    '''
 
     for chr in chromosome_lengths.keys():
         m = int(chromosome_lengths[chr])
         for i in range(m): #Create loci nodes for chromosomes
             if i!= 0 and i % n == 0:
                 for ptm in histonePTMs:
-                    data['hisPTMid'].append("HisPTM:" + chr + "(" + str(i-(n-1)) + "-" + str(i) + ")" + ";" + ptm)
+                    data['hisPTMid'].append("BinHisPTM:" + chr + "(" + str(i-(n-1)) + "-" + str(i) + ")" + ";" + ptm)
                     data['chromosomeID'].append(str(chr))
                     data['start'].append(i-(n-1))
                     data['end'].append(i)
@@ -365,7 +467,7 @@ def createLociWindows(resolution, data_directory):
             #Handles the tail end of chromosomes.
             if i == m-1:
                 for ptm in histonePTMs:
-                    data['hisPTMid'].append("HisPTM:" + chr + "(" + str(((m//9)*9)+1) + "-" + str(m) + ")" + ";" + ptm)
+                    data['hisPTMid'].append("BinHisPTM:" + chr + "(" + str(((m//9)*9)+1) + "-" + str(m) + ")" + ";" + ptm)
                     data['chromosomeID'].append(str(chr))
                     data['start'].append(((m//9)*9)+1)
                     data['end'].append(m)
@@ -409,4 +511,4 @@ def createLociWindows(resolution, data_directory):
     genomelocidf.to_csv(os.path.join(storage_dir,csv_f3name), encoding="utf-8-sig", index=False)
     
 if __name__ == "__main__":
-    main(150,"Data_services/parsers/yeast/src/SGD_Data_Storage")
+    main(150,"Data_services_storage/YeastSGDInfo")
