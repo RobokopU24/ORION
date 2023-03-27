@@ -21,8 +21,8 @@ def test_nodes():
         {"id": "ENSEMBL:ENSG00000184933", "name": "OR6A2_", NODE_TYPES: [GENE, INVALID_NODE_TYPE]},
         {"id": "ENSEMBL:testing_id", "name": "broken gene", NODE_TYPES: [GENE, GENE, INVALID_NODE_TYPE]},
         {"id": "TESTING:testing_id", "name": "broken gene 2", NODE_TYPES: [INVALID_NODE_TYPE]},
-        {"id": "TESTING:nameless", "name": "", NODE_TYPES: [INVALID_NODE_TYPE], "test_prop": 1}
-
+        {"id": "TESTING:nameless", "name": "", NODE_TYPES: [INVALID_NODE_TYPE], "test_prop": 1},
+        {"id": "CHEBI:33551", NODE_TYPES: [ROOT_ENTITY]}
     ]
     return nodes
 
@@ -41,6 +41,11 @@ def test_node_norm(test_nodes):
     assert ROOT_ENTITY in normalized_node[NODE_TYPES]
     assert CUSTOM_NODE_TYPES not in normalized_node
     assert normalized_node['test_prop'] == 1
+
+    correct_normalized_id = 'CHEBI:33551'
+    normalized_id = node_normalizer.node_normalization_lookup['CHEBI:33551'][0]
+    assert normalized_id == correct_normalized_id
+    normalized_node = get_node_from_list(normalized_id, test_nodes)
     assert INFORMATION_CONTENT in normalized_node and normalized_node[INFORMATION_CONTENT] > 0
 
     normalized_id = node_normalizer.node_normalization_lookup['HGNC:15301'][0]
