@@ -12,6 +12,7 @@ from Common.loader_interface import SourceDataBrokenError, SourceDataFailedError
 from Common.supplementation import SequenceVariantSupplementation, SupplementationFailedError
 from parsers.yeast.src.loadYeastSGDInfo import YeastSGDLoader
 from parsers.yeast.src.loadYeastNucleosomesGSE61888 import YeastGSE61888Loader
+from parsers.yeast.src.loadYeastGeneExpressionGasch import YeastGaschDiamideLoader
 from parsers.GWASCatalog.src.loadGWASCatalog import GWASCatalogLoader
 from parsers.CTD.src.loadCTD import CTDLoader
 from parsers.cord19.src.loadCord19 import Cord19Loader
@@ -57,9 +58,9 @@ UNIREF = 'UniRef'
 SCENT = 'Scent'
 ONTOLOGICAL_HIERARCHY = 'OntologicalHierarchy'
 YEASTSGD = 'YeastSGDInfo'
-YEASTHISTONEANDEXPRESSION = 'YeastHistoneAndExpression'
-YEAST_NUCLEOSOMES = 'YeastNucleosomes'
 YEAST_GSE61888 = 'YeastGSE61888'
+YEAST_GASCHDIAMIDE = 'YeastGaschDiamideGeneExpression'
+YEAST_STRING_DB = 'Yeast-STRING-DB'
 GENOME_ALLIANCE_ORTHOLOGS = 'GenomeAllianceOrthologs'
 STRING_DB = 'STRING-DB'
 CHEBI_PROPERTIES = 'CHEBIProps'
@@ -90,6 +91,8 @@ SOURCE_DATA_LOADER_CLASSES = {
     SCENT: ScentLoader,
     YEASTSGD: YeastSGDLoader,
     YEAST_GSE61888: YeastGSE61888Loader,
+    YEAST_GASCHDIAMIDE: YeastGaschDiamideLoader,
+    YEAST_STRING_DB: STRINGDBLoader,
     GENOME_ALLIANCE_ORTHOLOGS: GenomeAllianceOrthologLoader,
     STRING_DB: STRINGDBLoader,
     CHEBI_PROPERTIES: ChebiPropertiesLoader,
