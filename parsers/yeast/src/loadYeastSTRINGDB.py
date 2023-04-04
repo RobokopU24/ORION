@@ -51,7 +51,7 @@ class PPI_PHYSICAL_EDGEUMAN(enum.IntEnum):
 ##############
 class STRINGDBLoader(SourceDataLoader):
 
-    source_id: str = 'STRING-DB'
+    source_id: str = 'Yeast-STRING-DB'
     provenance_id: str = 'infores:STRING'
     parsing_version = '1.0'
 

@@ -27,10 +27,10 @@ TEXT_MINING_KP = 'textminingkp'
 UBERGRAPH = 'UberGraph'
 UNIREF = 'UniRef'
 VP = 'ViralProteome'
-YEASTHISTONEANDEXPRESSION = 'YeastHistoneAndExpression'
 YEASTSGD = 'YeastSGDInfo'
 YEAST_GSE61888 = 'YeastGSE61888'
-YEAST_NUCLEOSOMES = 'YeastNucleosomes'
+YEAST_GASCHDIAMIDE = 'YeastGaschDiamideGeneExpression'
+YEAST_STRING_DB = 'Yeast-STRING-DB'
 
 RESOURCE_HOGS = [GTEX, GWAS_CATALOG, UNIREF, ONTOLOGICAL_HIERARCHY, YEASTSGD, STRING_DB]
 
@@ -61,7 +61,8 @@ SOURCE_DATA_LOADER_CLASS_IMPORTS = {
     UNIREF: ("parsers.ViralProteome.src.loadUniRef", "UniRefSimLoader"),
     VP: ("parsers.ViralProteome.src.loadVP", "VPLoader"),
     YEASTSGD: ("parsers.yeast.src.loadYeastSGDInfo", "YeastSGDLoader"),
-    YEAST_GSE61888: ("parsers.yeast.src.loadYeastNucleosomesGSE61888", "YeastGSE61888Loader"),
+    YEAST_GASCHDIAMIDE: ("parsers.yeast.src.loadYeastGeneExpressionGasch.py", "YeastGaschDiamideLoader"),
+    YEAST_STRING_DB: ("parsers.yeast.src.loadYeastGSTRINGDB.py", "STRINGDBLoader")
 }
 
 
