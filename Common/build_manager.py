@@ -71,6 +71,7 @@ class GraphBuilder:
             graph_metadata.set_graph_version(graph_version)
             graph_metadata.set_graph_name(graph_spec.graph_name)
             graph_metadata.set_graph_description(graph_spec.graph_description)
+            graph_metadata.set_graph_url(graph_spec.graph_url)
             graph_metadata.set_graph_spec(graph_spec.get_metadata_representation())
 
             # merge the sources and write the finalized graph kgx files
@@ -494,8 +495,9 @@ class GraphBuilder:
         try:
             for graph_yaml in graph_spec_yaml['graphs']:
                 graph_id = graph_yaml['graph_id']
-                graph_name = graph_yaml['graph_name'] if 'graph_name' in graph_yaml else None
-                graph_description = graph_yaml['graph_description'] if 'graph_description' in graph_yaml else None
+                graph_name = graph_yaml['graph_name'] if 'graph_name' in graph_yaml else ""
+                graph_description = graph_yaml['graph_description'] if 'graph_description' in graph_yaml else ""
+                graph_url = graph_yaml['graph_url'] if 'graph_url' in graph_yaml else ""
 
                 # parse the list of data sources
                 data_sources = [self.parse_data_source_spec(data_source) for data_source in graph_yaml['sources']] \
@@ -538,6 +540,7 @@ class GraphBuilder:
                 current_graph_spec = GraphSpec(graph_id=graph_id,
                                                graph_name=graph_name,
                                                graph_description=graph_description,
+                                               graph_url=graph_url,
                                                graph_version=None,  # this will get populated later
                                                graph_output_format=graph_output_format,
                                                subgraphs=subgraph_sources,

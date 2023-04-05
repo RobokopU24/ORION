@@ -46,6 +46,7 @@ class GraphMetadata(Metadata):
         self.metadata['graph_id'] = self.graph_id
         self.metadata['graph_name'] = self.graph_id
         self.metadata['graph_description'] = ""
+        self.metadata['graph_url'] = ""
         self.metadata['graph_version'] = None
         self.metadata['sources'] = []
         self.metadata['subgraphs'] = []
@@ -68,6 +69,11 @@ class GraphMetadata(Metadata):
     def set_graph_description(self, graph_description: str):
         if graph_description:
             self.metadata['graph_description'] = graph_description
+            self.save_metadata()
+
+    def set_graph_url(self, graph_url: str):
+        if graph_url:
+            self.metadata['graph_url'] = graph_url
             self.save_metadata()
 
     def set_graph_spec(self, graph_spec: dict):
