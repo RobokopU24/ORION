@@ -61,6 +61,8 @@ class NormalizationScheme:
 @dataclass
 class GraphSpec:
     graph_id: str
+    graph_name: str
+    graph_description: str
     graph_version: str
     graph_output_format: str
     sources: list = None

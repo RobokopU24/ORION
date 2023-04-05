@@ -24,5 +24,9 @@ export DATA_SERVICES_GRAPH_SPEC=testing-graph-spec.yml
 
 export DATA_SERVICES_NEO4J_PASSWORD=insecurepasswordexample
 
+export DATA_SERVICES_OUTPUT_URL=https://localhost/
+
+#The following environment variables are optional
 export EDGE_NORMALIZATION_ENDPOINT=https://bl-lookup-sri.renci.org/
 export NODE_NORMALIZATION_ENDPOINT=https://nodenormalization-sri.renci.org/
+

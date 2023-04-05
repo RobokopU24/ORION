@@ -9,7 +9,7 @@ import Common.kgx_file_converter as kgx_file_converter
 from xxhash import xxh64_hexdigest
 from collections import defaultdict
 from Common.biolink_utils import BiolinkUtils
-from Common.utils import LoggingUtil
+from Common.utils import LoggingUtil, quick_jsonl_file_iterator
 from Common.data_sources import get_available_data_sources
 from Common.load_manager import SourceDataManager
 from Common.kgx_file_merger import KGXFileMerger
@@ -17,7 +17,7 @@ from Common.neo4j_tools import Neo4jTools
 from Common.kgxmodel import GraphSpec, SubGraphSource, DataSource, NormalizationScheme
 from Common.metadata import Metadata, GraphMetadata, SourceMetadata
 from Common.supplementation import SequenceVariantSupplementation
-from Common.node_types import ROOT_ENTITY
+from Common.node_types import ROOT_ENTITY, PRIMARY_KNOWLEDGE_SOURCE, PREDICATE, AGGREGATOR_KNOWLEDGE_SOURCES
 
 NODES_FILENAME = 'nodes.jsonl'
 EDGES_FILENAME = 'edges.jsonl'
@@ -40,7 +40,7 @@ class GraphBuilder:
         self.build_results = {}
         self.bl_utils = BiolinkUtils()
 
-    def build_graph(self, graph_id: str, create_neo4j_dump: bool = False):
+    def build_graph(self, graph_id: str):
 
         self.logger.info(f'Building graph {graph_id}. Checking dependencies...')
         graph_spec = self.get_graph_spec(graph_id)
@@ -69,6 +69,8 @@ class GraphBuilder:
             self.logger.info(f'Building graph {graph_id} version {graph_version}. Merging sources...')
             graph_metadata.set_build_status(Metadata.IN_PROGRESS)
             graph_metadata.set_graph_version(graph_version)
+            graph_metadata.set_graph_name(graph_spec.graph_name)
+            graph_metadata.set_graph_description(graph_spec.graph_description)
             graph_metadata.set_graph_spec(graph_spec.get_metadata_representation())
 
             # merge the sources and write the finalized graph kgx files
@@ -92,12 +94,21 @@ class GraphBuilder:
             self.logger.info(f'Graph {graph_id} version {graph_version} was already built.')
             self.build_results[graph_id] = {'version': graph_version, 'success': False}
 
-        self.run_qc(graph_id, graph_version, graph_directory=graph_output_dir)
+        if not graph_metadata.has_qc():
+            self.logger.info(f'Running QC for graph {graph_id}...')
+            qc_results = self.run_qc(graph_id, graph_version, graph_directory=graph_output_dir)
+            graph_metadata.set_qc_results(qc_results)
+            self.logger.info(f'QC complete for graph {graph_id}.')
 
-        if create_neo4j_dump:
+        if 'neo4j' in graph_spec.graph_output_format.lower():
             self.logger.info(f'Starting Neo4j dump pipeline for {graph_id}...')
-            self.create_neo4j_dump(graph_id=graph_id,
-                                   graph_directory=graph_output_dir)
+            dump_success = self.create_neo4j_dump(graph_id=graph_id,
+                                                  graph_directory=graph_output_dir)
+            if dump_success:
+                graph_output_url = self.get_graph_output_URL(graph_id, graph_version)
+                graph_metadata.set_dump_url(f'{graph_output_url}graph_{graph_version}.db.dump')
+                # graph_metadata.set_metakg_url(f'{graph_output_url}{META_KG_FILENAME}')
+                # graph_metadata.set_test_data_url(f'{graph_output_url}{SRI_TESTING_FILENAME}')
 
     def build_dependencies(self, graph_spec: GraphSpec):
         for subgraph_source in graph_spec.subgraphs:
@@ -170,7 +181,25 @@ class GraphBuilder:
                graph_id: str,
                graph_version: str,
                graph_directory: str):
-        pass
+
+        knowledge_sources = set()
+        edge_properties = set()
+        predicate_counts = defaultdict(int)
+        graph_edges_file_path = os.path.join(graph_directory, EDGES_FILENAME)
+        for edge_json in quick_jsonl_file_iterator(graph_edges_file_path):
+            knowledge_sources.add(edge_json[PRIMARY_KNOWLEDGE_SOURCE])
+            for key in edge_json.keys():
+                if (key is not PRIMARY_KNOWLEDGE_SOURCE and
+                        key is not AGGREGATOR_KNOWLEDGE_SOURCES and
+                        key is not PREDICATE):
+                    edge_properties.add(key)
+                predicate_counts[edge_json[PREDICATE]] += 1
+        qc_metadata = {
+            'primary_knowledge_sources': list(knowledge_sources),
+            'edge_properties': list(edge_properties),
+            'predicate_counts': {k: v for k, v in predicate_counts.items()}
+        }
+        return qc_metadata
 
     def create_neo4j_dump(self,
                           graph_id: str,
@@ -198,47 +227,48 @@ class GraphBuilder:
         graph_dump_file_path = os.path.join(graph_directory, f'graph_{graph_version}.db.dump')
         if os.path.exists(graph_dump_file_path):
             self.logger.info(f'Neo4j dump already exists for {graph_id}({graph_version})')
-            return
+            return True
 
         neo4j_access = Neo4jTools(graph_id=graph_id, graph_version=graph_version)
         try:
             password_exit_code = neo4j_access.set_initial_password()
             if password_exit_code != 0:
-                return
+                return False
 
             import_exit_code = neo4j_access.import_csv_files(graph_directory=graph_directory,
                                                              csv_nodes_filename=nodes_csv_filename,
                                                              csv_edges_filename=edges_csv_filename)
             if import_exit_code != 0:
-                return
+                return False
 
             start_exit_code = neo4j_access.start_neo4j()
             if start_exit_code != 0:
-                return
+                return False
 
             waiting_exit_code = neo4j_access.wait_for_neo4j_initialization()
             if waiting_exit_code != 0:
-                return
+                return False
 
             indexes_exit_code = neo4j_access.add_db_indexes()
             if indexes_exit_code != 0:
-                return
+                return False
 
             self.generate_meta_kg_and_sri_test_data(neo4j_access=neo4j_access,
                                                     output_directory=graph_directory)
 
             stop_exit_code = neo4j_access.stop_neo4j()
             if stop_exit_code != 0:
-                return
+                return False
 
             dump_exit_code = neo4j_access.create_backup_dump(graph_dump_file_path)
             if dump_exit_code != 0:
-                return
+                return False
 
         finally:
             neo4j_access.close()
 
         self.logger.info(f'Success! Neo4j dump created with indexes for {graph_id}({graph_version})')
+        return True
 
     def __convert_kgx_to_csv(self,
                              graph_id: str,
@@ -460,9 +490,12 @@ class GraphBuilder:
 
     def parse_graph_spec(self, graph_spec_yaml):
         graph_specs = []
+        graph_id = ""
         try:
             for graph_yaml in graph_spec_yaml['graphs']:
                 graph_id = graph_yaml['graph_id']
+                graph_name = graph_yaml['graph_name'] if 'graph_name' in graph_yaml else None
+                graph_description = graph_yaml['graph_description'] if 'graph_description' in graph_yaml else None
 
                 # parse the list of data sources
                 data_sources = [self.parse_data_source_spec(data_source) for data_source in graph_yaml['sources']] \
@@ -501,10 +534,10 @@ class GraphBuilder:
                     if graph_wide_strict_norm is not None:
                         data_source.normalization_scheme.strict = graph_wide_strict_norm
 
-                # we don't support other output formats yet
-                # graph_output_format = graph_yaml['output_format'] if 'output_format' in graph_yaml else 'jsonl'
-                graph_output_format = 'jsonl'
+                graph_output_format = graph_yaml['output_format'] if 'output_format' in graph_yaml else ""
                 current_graph_spec = GraphSpec(graph_id=graph_id,
+                                               graph_name=graph_name,
+                                               graph_description=graph_description,
                                                graph_version=None,  # this will get populated later
                                                graph_output_format=graph_output_format,
                                                subgraphs=subgraph_sources,
@@ -580,6 +613,12 @@ class GraphBuilder:
     def get_graph_dir_path(self, graph_id: str, graph_version: str):
         return os.path.join(self.graphs_dir, graph_id, graph_version)
 
+    def get_graph_output_URL(self, graph_id: str, graph_version: str):
+        graph_output_url = os.environ['DATA_SERVICES_OUTPUT_URL']
+        if graph_output_url[-1] != '/':
+            graph_output_url += '/'
+        return f'{graph_output_url}{graph_id}/{graph_version}/'
+
     def get_graph_nodes_file_path(self, graph_output_dir: str):
         return os.path.join(graph_output_dir, NODES_FILENAME)
 
@@ -628,16 +667,12 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="Merge data source files into complete graphs.")
     parser.add_argument('graph_id',
                         help='ID of the graph to build. Must match an ID from the configured Graph Spec.')
-    parser.add_argument('-n', '--neo4j_dump',
-                        action='store_true',
-                        help='Flag that indicates a neo4j database dump should also be created.')
     parser.add_argument('-v', '--version',
                         action='store_true',
-                        help='Only retrieve the current version of the graph.')
+                        help='Only retrieve a generated version for graphs from the graph spec.')
     args = parser.parse_args()
     graph_id_arg = args.graph_id
     retrieve_version = args.version
-    neo4j_dump_bool = args.neo4j_dump
 
     graph_builder = GraphBuilder()
     if graph_id_arg == "all":
@@ -646,14 +681,14 @@ if __name__ == '__main__':
             print('\n'.join(graph_versions))
         else:
             for g_id in [graph_spec.graph_id for graph_spec in graph_builder.graph_specs]:
-                graph_builder.build_graph(g_id, create_neo4j_dump=neo4j_dump_bool)
+                graph_builder.build_graph(g_id)
     else:
         graph_spec = graph_builder.get_graph_spec(graph_id_arg)
         if graph_spec:
             if retrieve_version:
                 print(graph_spec.graph_version)
             else:
-                graph_builder.build_graph(graph_id_arg, create_neo4j_dump=neo4j_dump_bool)
+                graph_builder.build_graph(graph_id_arg)
         else:
             print(f'Invalid graph spec requested: {graph_id_arg}')
     for results_graph_id, results in graph_builder.build_results.items():
