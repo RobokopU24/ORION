@@ -323,7 +323,7 @@ class SourceMetadata(Metadata):
                 "normalization_version": normalization_version,
                 "supplementation_version": supplementation_version
             }
-            self.metadata["releases"][release_version].update(source_meta_information)
+        self.metadata["releases"][release_version].update(source_meta_information)
         self.save_metadata()
 
     def get_release_info(self, release_version: str):
