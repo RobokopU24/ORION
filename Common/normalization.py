@@ -329,7 +329,7 @@ class EdgeNormalizer:
     Class that contains methods relating to edge normalization.
     """
 
-    DEFAULT_EDGE_NORM_ENDPOINT = f'https://biolink-lookup.transltr.io/'
+    DEFAULT_EDGE_NORM_ENDPOINT = f'https://bl-lookup-sri.renci.org/'
 
     def __init__(self,
                  edge_normalization_version: str = 'latest',
