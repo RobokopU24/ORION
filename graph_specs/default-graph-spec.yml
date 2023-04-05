@@ -73,7 +73,7 @@ graphs:
 
   - graph_id: CTD_Automat
     graph_name: ctd
-    graph_description: 'The Comparative Toxicogenomics Database (CTD) is an open-source database that provides manually curated information about chemical–gene/protein, chemical–disease, and gene–disease relationships, with additional support for the curated relationships provided by functional and pathway data.'
+    graph_description: 'The Comparative Toxicogenomics Database (CTD) is an open-source database that provides manually curated information about chemical-gene/protein, chemical-disease, and gene-disease relationships, with additional support for the curated relationships provided by functional and pathway data.'
     graph_url: http://ctdbase.org/about/
     output_format: neo4j
     sources:
