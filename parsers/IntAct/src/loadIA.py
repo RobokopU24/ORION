@@ -71,7 +71,7 @@ class IALoader(SourceDataLoader):
 
     source_id: str = 'IntAct'
     provenance_id: str = 'infores:intact'
-    description = "Molecular (Gene-Gene) interactions from EBI IntAct (https://www.ebi.ac.uk/intact/)"
+    description = "The IntAct Molecular Interaction Database provides open access to molecular interactions data derived from literature curation or direct user submission."
     source_data_url = "https://www.ebi.ac.uk/intact/"
     license = "https://www.ebi.ac.uk/about/terms-of-use/"
     attribution = "http://europepmc.org/article/MED/24234451"

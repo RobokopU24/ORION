@@ -3,6 +3,7 @@ graphs:
   - graph_id: Testing_Baseline
     graph_name: Testing Baseline
     graph_description: 'A fake description for the testing baseline!'
+    graph_url: 'http://localhost/fake_graph_url_for_tesing_baseline'
     output_format: none
     sources:
       - source_id: CTD
@@ -17,8 +18,9 @@ graphs:
       - source_id: PANTHER
 
   - graph_id: Testing_Graph_2
-    graph_name: Testing Baseline 2
-    graph_description: 'Another fake description for testing baseline 2!'
+    graph_name: Testing Graph 2
+    graph_description: 'Another fake description for testing graph 2!'
+    graph_url: 'http://localhost/fake_graph_url_for_tesing_graph_2'
     output_format: neo4j
     subgraphs:
       - graph_id: Testing_Baseline

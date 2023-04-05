@@ -194,7 +194,7 @@ def get_goa_subject_props(line: list):
 class HumanGOALoader(GOALoader):
 
     source_id = 'HumanGOA'
-    description = 'Human Gene Ontology Annotations from the GO consortium.'
+    description = 'The Gene Ontology (GO) Consortium’s Human Gene Ontologies Annotations (Human GOA) resource provides open access to curated assignment of GO terms to proteins in the UniProt KnowledgeBase (UniProtKB), RNA molecules from RNACentral, and protein complexes from the Complex Portal.'
 
     def __init__(self, test_mode: bool = False, source_data_dir: str = None):
         super().__init__(test_mode=test_mode, source_data_dir=source_data_dir)

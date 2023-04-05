@@ -18,7 +18,7 @@ from parsers.UberGraph.src.ubergraph import UberGraphTools
 ##############
 class UGLoader(SourceDataLoader):
 
-    source_id = 'UberGraph'
+    source_id = 'Ubergraph'
     provenance_id = 'infores:ubergraph'
     description = ""
     source_data_url = ""
@@ -51,10 +51,6 @@ class UGLoader(SourceDataLoader):
         return latest_source_version
 
     def get_data(self):
-        """
-        Gets the uberon graph data.
-
-        """
         archive_url = f'{self.data_url}{self.data_file}'
         gd = GetData(self.logger.level)
         gd.pull_via_http(archive_url,

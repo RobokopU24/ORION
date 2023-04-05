@@ -19,7 +19,7 @@ class HGNCLoader(SourceDataLoader):
 
     source_id: str = HGNC
     provenance_id: str = 'infores:hgnc'
-    description = "HGNC gene family and gene relationships"
+    description = "The HUGO Gene Nomenclature Committee (HGNC) database provides open access to HGNC-approved unique symbols and names for human genes, gene groups, and associated resources, including links to genomic, proteomic and phenotypic information."
     source_data_url = "ftp://ftp.ebi.ac.uk/pub/databases/genenames/hgnc/archive/"
     license = "https://www.genenames.org/about/"
     attribution = "https://www.genenames.org/about/"

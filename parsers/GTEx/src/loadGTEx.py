@@ -15,7 +15,7 @@ class GTExLoader(SourceDataLoader):
 
     source_id = 'GTEx'
     provenance_id = 'infores:gtex'
-    description = "A graph containing eqtl and sqtl information from the GTEx Portal. Also includes genes that the variants lie within or near."
+    description = "The Genotype-Tissue Expression (GTEx) portal provides open access to data on tissue-specific gene expression and regulation, derived from molecular assays (e.g., WGS, WES, RNA-Seq) on 54 non-diseased tissue sites across nearly 1000 individuals."
     source_data_url = "https://storage.googleapis.com/gtex_analysis_v8/single_tissue_qtl_data/"
     license = "https://www.gtexportal.org/home/documentationPage"
     attribution = "https://www.gtexportal.org/home/documentationPage"

@@ -35,7 +35,7 @@ class PLoader(SourceDataLoader):
     source_id: str = 'PANTHER'
     source_db: str = 'Protein ANalysis THrough Evolutionary Relationships'
     provenance_id: str = 'infores:panther'
-    description = "Gene families and pathways from PANTHER"
+    description = "The Protein ANalysis THrough Evolutionary Relationships (PANTHER) classification system provides an openly available annotation library of gene family phylogenetic trees, with persistent identifiers attached to all nodes in the trees and annotation of each protein member of the family by its family and protein class, subfamily, orthologs, paralogs, GO Phylogenetic Annotation Project function and Reactome pathways."
     source_data_url = "ftp.pantherdb.org/sequence_classifications/"
     license = "http://pantherdb.org/tou.jsp"
     attribution = "http://pantherdb.org/publications.jsp#HowToCitePANTHER"

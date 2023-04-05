@@ -24,7 +24,7 @@ class HMDBLoader(SourceDataLoader):
 
     source_id: str = 'HMDB'
     provenance_id: str = 'infores:hmdb'
-    description = "A graph based on the Human Metabolome DataBase (hmdb.org)"
+    description = "The Human Metabolome Database (HMDB) is an openly accessible database containing detailed information about small molecule metabolites found in the human body, with links between chemical data, clinical data, and molecular biology/biochemistry data, including protein sequences (enzymes and transporters)."
     source_data_url = "https://translator.ncats.io/hmdb-knowledge-beacon"
     license = "https://hmdb.ca/about"
     attribution = "https://hmdb.ca/about#cite"

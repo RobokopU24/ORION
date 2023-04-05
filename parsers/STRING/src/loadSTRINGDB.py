@@ -52,10 +52,10 @@ class STRINGDBLoader(SourceDataLoader):
 
     source_id: str = 'STRING-DB'
     provenance_id: str = 'infores:STRING'
-    description = ""
-    source_data_url = ""
-    license = ""
-    attribution = ""
+    description = "The Search Tool for the Retrieval of Interacting Genes/Proteins (STRING) database provides information on known and predicted protein-protein interactions (both direct and indirect) derived from genomic context predictions, high-throughput laboratory experiments, conserved co-expression, automated text mining, and aggregated knowledge from primary data sources."
+    source_data_url = "https://string-db.org"
+    license = "All data and download files in STRING are freely available under a 'Creative Commons BY 4.0' license."
+    attribution = "https://string-db.org/cgi/about?footer_active_subpage=references"
     parsing_version = '1.0'
 
     taxon_id: str = '9606' # Human taxon
