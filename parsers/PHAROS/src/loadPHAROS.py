@@ -19,9 +19,9 @@ class PHAROSLoader(SourceDataLoader):
     source_data_url = "https://pharos.nih.gov/"
     license = "Data accessed from Pharos and TCRD is publicly available from the primary sources listed above. Please respect their individual licenses regarding proper use and redistribution."
     attribution = 'Sheils, T., Mathias, S. et al, "TCRD and Pharos 2021: mining the human proteome for disease biology", Nucl. Acids Res., 2021. DOI: 10.1093/nar/gkaa993'
-    parsing_version: str = '1.3'
+    parsing_version: str = '1.4'
 
-    GENE_TO_DISEASE_QUERY: str = """select distinct x.value, d.did, d.name, p.sym, d.dtype
+    GENE_TO_DISEASE_QUERY: str = """select distinct x.value, d.did, d.name, p.sym, d.dtype, d.score
                                 from disease d 
                                 join xref x on x.protein_id = d.protein_id 
                                 join protein p on p.id=x.protein_id
@@ -166,6 +166,7 @@ class PHAROSLoader(SourceDataLoader):
             disease_id = item['did']
             disease_name = self.sanitize_name(item['name'])
             edge_provenance = self.PHAROS_INFORES_MAPPING[item['dtype']]
+            edge_properties = {'score': float(item['score'])} if item['score'] else {}
 
             # move along, no disease id
             if disease_id is None:
@@ -194,12 +195,14 @@ class PHAROSLoader(SourceDataLoader):
                     gene_to_disease_edge = kgxedge(subject_id=gene_id,
                                                    object_id=disease_id,
                                                    predicate=self.genetic_association_predicate,
+                                                   edgeprops=edge_properties,
                                                    primary_knowledge_source=edge_provenance,
                                                    aggregator_knowledge_sources=[self.provenance_id])
                 else:
                     gene_to_disease_edge = kgxedge(subject_id=gene_id,
                                                    object_id=disease_id,
                                                    predicate=self.genetic_association_predicate,
+                                                   edgeprops=edge_properties,
                                                    primary_knowledge_source=self.provenance_id)
                 self.output_file_writer.write_kgx_edge(gene_to_disease_edge)
 
