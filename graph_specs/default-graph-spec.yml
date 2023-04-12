@@ -8,8 +8,6 @@ graphs:
     # graph_name: Robokop Baseline
     # graph_description: 'The baseline graph from which RobokopKG and other graphs are built.'
     # conflation: True # (whether to conflate node types like Genes and Proteins)
-
-  - graph_id: Baseline
     graph_name: ROBOKOP Baseline
     graph_description: 'ROBOKOP Knowledge Graph (KG) is an open-source biomedical knowledge graph that supports the ROBOKOP application. This is the baseline version of that graph, which does not include knowledge sources with specific genetic variants.'
     graph_url: https://robokop.renci.org/
