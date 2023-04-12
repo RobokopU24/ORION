@@ -580,6 +580,11 @@ class GraphBuilder:
 
         source_version = source_yml['source_version'] if 'source_version' in source_yml \
             else self.source_data_manager.get_latest_source_version(source_id)
+        if source_version is None:
+            # TODO it would be great if we could default to the last stable version already built somehow
+            error_message = f'Data source {source_id} could not determine the latest version. The service may be down.'
+            raise Exception(error_message)
+
         parsing_version = source_yml['parsing_version'] if 'parsing_version' in source_yml \
             else self.source_data_manager.get_latest_parsing_version(source_id)
         merge_strategy = source_yml['merge_strategy'] if 'merge_strategy' in source_yml else 'default'
