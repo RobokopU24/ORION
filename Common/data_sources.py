@@ -50,7 +50,7 @@ SOURCE_DATA_LOADER_CLASS_IMPORTS = {
     HUMAN_GOA: ("parsers.GOA.src.loadGOA", "HumanGOALoader"),
     INTACT: ("parsers.IntAct.src.loadIA", "IALoader"),
     MONDO_PROPS: ("parsers.MONDOProperties.src.loadMP", "MPLoader"),
-    ONTOLOGICAL_HIERARCHY: ("parsers.OntologicalHierarchy.src.loadOH", "OHLoader"),
+    ONTOLOGICAL_HIERARCHY: ("parsers.UberGraph.src.loadOH", "OHLoader"),
     PANTHER: ("parsers.panther.src.loadPanther", "PLoader"),
     PHAROS: ("parsers.PHAROS.src.loadPHAROS", "PHAROSLoader"),
     PLANT_GOA: ("parsers.GOA.src.loadGOA", "PlantGOALoader"),

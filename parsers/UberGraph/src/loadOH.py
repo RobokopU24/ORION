@@ -1,12 +1,10 @@
 import os
 import argparse
-import pyoxigraph
 import tarfile
 from io import TextIOWrapper
 
 from Common.utils import GetData
 from Common.loader_interface import SourceDataLoader, SourceDataBrokenError
-from Common.kgxmodel import kgxnode, kgxedge
 from parsers.UberGraph.src.ubergraph import UberGraphTools
 
 
@@ -20,12 +18,12 @@ from parsers.UberGraph.src.ubergraph import UberGraphTools
 class OHLoader(SourceDataLoader):
 
     source_id: str = 'OntologicalHierarchy'
-    provenance_id: str = 'infores:ubergraph'
+    provenance_id: str = 'infores:sri-ontology'
     description = "Subclass relationships from the redundant version of Ubergraph. The redundant version of Ubergraph is the complete inference closure for all subclass and existential relations. This includes all transitive, reflexive subclass relations."
     source_data_url = "https://github.com/INCATools/ubergraph"
     license = "https://raw.githubusercontent.com/INCATools/ubergraph/master/LICENSE.txt"
     attribution = "https://github.com/INCATools/ubergraph"
-    parsing_version: str = '1.2'
+    parsing_version: str = '1.3'
 
     def __init__(self, test_mode: bool = False, source_data_dir: str = None):
         """
