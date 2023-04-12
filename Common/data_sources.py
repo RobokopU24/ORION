@@ -2,6 +2,7 @@ from collections import defaultdict
 import importlib
 
 BIOLINK = 'Biolink'
+CAM_KP = 'CAM-KP'
 CHEBI_PROPERTIES = 'CHEBIProps'
 CORD19 = 'Cord19'
 CTD = 'CTD'
@@ -36,6 +37,7 @@ RESOURCE_HOGS = [GTEX, GWAS_CATALOG, UNIREF, ONTOLOGICAL_HIERARCHY, YEASTSGD, ST
 
 SOURCE_DATA_LOADER_CLASS_IMPORTS = {
     BIOLINK: ("parsers.biolink.src.loadBL", "BLLoader"),
+    CAM_KP: ("parsers.camkp.src.loadCAMKP", "CAMKPLoader"),
     CHEBI_PROPERTIES: ("parsers.chebi.src.loadChebiProperties", "ChebiPropertiesLoader"),
     CORD19: ("parsers.cord19.src.loadCord19", "Cord19Loader"),
     CTD: ("parsers.CTD.src.loadCTD", "CTDLoader"),
