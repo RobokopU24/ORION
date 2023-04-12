@@ -15,11 +15,11 @@ class PHAROSLoader(SourceDataLoader):
 
     source_id = 'PHAROS'
     provenance_id = 'infores:pharos'
-    description = ""
-    source_data_url = ""
-    license = ""
-    attribution = ""
-    parsing_version: str = '1.3'
+    description = "Pharos is the openly accessible user interface to the Illuminating the Druggable Genome (IDG) program’s Knowledge Management Center (KMC), which aims to develop a comprehensive, integrated knowledge-base for the Druggable Genome (DG) to illuminate the uncharacterized and/or poorly annotated portion of the DG, focusing on three of the most commonly drug-targeted protein families: G-protein-coupled receptors; ion channels; and kinases."
+    source_data_url = "https://pharos.nih.gov/"
+    license = "https://pharos.nih.gov/about"
+    attribution = "https://pharos.nih.gov/about"
+    parsing_version: str = '1.4'
 
     GENE_TO_DISEASE_QUERY: str = """select distinct x.value, d.did, d.name, p.sym, d.dtype, d.score
                                 from disease d 
@@ -166,7 +166,7 @@ class PHAROSLoader(SourceDataLoader):
             disease_id = item['did']
             disease_name = self.sanitize_name(item['name'])
             edge_provenance = self.PHAROS_INFORES_MAPPING[item['dtype']]
-            edge_properties = {'score':item['score'] if item['score'] is not None else ''}
+            edge_properties = {'score': float(item['score'])} if item['score'] else {}
 
             # move along, no disease id
             if disease_id is None:
@@ -195,14 +195,14 @@ class PHAROSLoader(SourceDataLoader):
                     gene_to_disease_edge = kgxedge(subject_id=gene_id,
                                                    object_id=disease_id,
                                                    predicate=self.genetic_association_predicate,
-                                                   edgeprops=edge_properties
+                                                   edgeprops=edge_properties,
                                                    primary_knowledge_source=edge_provenance,
                                                    aggregator_knowledge_sources=[self.provenance_id])
                 else:
                     gene_to_disease_edge = kgxedge(subject_id=gene_id,
                                                    object_id=disease_id,
                                                    predicate=self.genetic_association_predicate,
-                                                   edgeprops=edge_properties
+                                                   edgeprops=edge_properties,
                                                    primary_knowledge_source=self.provenance_id)
                 self.output_file_writer.write_kgx_edge(gene_to_disease_edge)
 
