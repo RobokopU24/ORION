@@ -66,6 +66,15 @@ graphs:
       - source_id: OntologicalHierarchy
         merge_strategy: connected_edge_subset
 
+  - graph_id: CAMKP_Automat
+    graph_name: CAM KP
+    graph_description: 'CAMs (Causal Activity Models) are small knowledge graphs built using the Web Ontology Language (OWL). The CAM database combines many CAM graphs along with a large merged bio-ontology containing the full vocabulary of concepts referenced within the individual CAMs. Each CAM describes an instantiation of some of those concepts in a particular context, modeling the interactions between those instances as an interlinked representation of a complex biological or environmental process.'
+    graph_url:
+    conflation: False
+    output_format: neo4j
+    sources:
+      - source_id: CAM-KP
+
   - graph_id: CTD_Automat
     graph_name: CTD
     graph_description: 'The Comparative Toxicogenomics Database (CTD) is an open-source database that provides manually curated information about chemical-gene/protein, chemical-disease, and gene-disease relationships, with additional support for the curated relationships provided by functional and pathway data.'

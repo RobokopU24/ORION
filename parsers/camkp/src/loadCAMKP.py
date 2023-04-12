@@ -96,7 +96,7 @@ class CAMKPLoader(SourceDataLoader):
                 predicate = line[CAMDATACOLS.PREDICATE.value]
                 edge_provenance_id = line[CAMDATACOLS.PROVENANCE_ID.value]
                 edge_provenance_url = line[CAMDATACOLS.PROVENANCE_URL.value]
-                edge_properties = {'knowledge_source_url': edge_provenance_url}
+                edge_properties = {'biolink:xref': [edge_provenance_url]}
                 new_edge = kgxedge(subject_id=subject_id,
                                    object_id=object_id,
                                    predicate=predicate,
