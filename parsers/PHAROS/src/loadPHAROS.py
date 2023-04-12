@@ -17,8 +17,8 @@ class PHAROSLoader(SourceDataLoader):
     provenance_id = 'infores:pharos'
     description = "Pharos is the openly accessible user interface to the Illuminating the Druggable Genome (IDG) program’s Knowledge Management Center (KMC), which aims to develop a comprehensive, integrated knowledge-base for the Druggable Genome (DG) to illuminate the uncharacterized and/or poorly annotated portion of the DG, focusing on three of the most commonly drug-targeted protein families: G-protein-coupled receptors; ion channels; and kinases."
     source_data_url = "https://pharos.nih.gov/"
-    license = "https://pharos.nih.gov/about"
-    attribution = "https://pharos.nih.gov/about"
+    license = "Data accessed from Pharos and TCRD is publicly available from the primary sources listed above. Please respect their individual licenses regarding proper use and redistribution."
+    attribution = 'Sheils, T., Mathias, S. et al, "TCRD and Pharos 2021: mining the human proteome for disease biology", Nucl. Acids Res., 2021. DOI: 10.1093/nar/gkaa993'
     parsing_version: str = '1.4'
 
     GENE_TO_DISEASE_QUERY: str = """select distinct x.value, d.did, d.name, p.sym, d.dtype, d.score

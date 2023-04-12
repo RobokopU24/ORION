@@ -35,7 +35,7 @@ class GWASCatalogLoader(SourceDataLoader):
 
     source_id = 'GWASCatalog'
     provenance_id = 'infores:gwas-catalog'
-    description = "A graph containing the NHGRI-EBI Catalog of human genome-wide association studies."
+    description = "The Genome-Wide Association Studies (GWAS) Catalog provides a curated, searchable, visualisable, and openly available database of single nucleotide polymorphism (SNP)-trait associations, derived from all GWAS publications identified by curators, who then extract the reported trait, significant SNP-trait associations, and sample metadata."
     source_data_url = "https://www.ebi.ac.uk/gwas/docs/file-downloads"
     license = "https://www.ebi.ac.uk/gwas/"
     attribution = "https://www.ebi.ac.uk/gwas/"

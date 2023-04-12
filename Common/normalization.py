@@ -63,7 +63,7 @@ class NodeNormalizer:
         self.sequence_variant_normalizer = None
         self.variant_node_types = None
 
-    def normalize_node_data(self, node_list: list, block_size: int = 5000) -> list:
+    def normalize_node_data(self, node_list: list, block_size: int = 1000) -> list:
         """
         This method calls the NodeNormalization web service to get the normalized identifier and name of the node.
         the data comes in as a node list.
@@ -329,7 +329,7 @@ class EdgeNormalizer:
     Class that contains methods relating to edge normalization.
     """
 
-    DEFAULT_EDGE_NORM_ENDPOINT = f'https://biolink-lookup.transltr.io/'
+    DEFAULT_EDGE_NORM_ENDPOINT = f'https://bl-lookup-sri.renci.org/'
 
     def __init__(self,
                  edge_normalization_version: str = 'latest',

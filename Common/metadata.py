@@ -44,6 +44,9 @@ class GraphMetadata(Metadata):
     def init_metadata(self):
         self.metadata = dict()
         self.metadata['graph_id'] = self.graph_id
+        self.metadata['graph_name'] = self.graph_id
+        self.metadata['graph_description'] = ""
+        self.metadata['graph_url'] = ""
         self.metadata['graph_version'] = None
         self.metadata['sources'] = []
         self.metadata['subgraphs'] = []
@@ -58,9 +61,38 @@ class GraphMetadata(Metadata):
         self.metadata['graph_version'] = graph_version
         self.save_metadata()
 
+    def set_graph_name(self, graph_name: str):
+        if graph_name:
+            self.metadata['graph_name'] = graph_name
+            self.save_metadata()
+
+    def set_graph_description(self, graph_description: str):
+        if graph_description:
+            self.metadata['graph_description'] = graph_description
+            self.save_metadata()
+
+    def set_graph_url(self, graph_url: str):
+        if graph_url:
+            self.metadata['graph_url'] = graph_url
+            self.save_metadata()
+
     def set_graph_spec(self, graph_spec: dict):
         self.metadata['sources'] = graph_spec['sources']
         self.metadata['subgraphs'] = graph_spec['subgraphs']
+        self.save_metadata()
+
+    def set_dump_url(self, dump_url: str):
+        self.metadata['neo4j_dump'] = dump_url
+        self.save_metadata()
+
+    def has_qc(self):
+        if 'qc_results' in self.metadata and self.metadata['qc_results']:
+            return True
+        else:
+            return False
+
+    def set_qc_results(self, qc_results: dict):
+        self.metadata['qc_results'] = qc_results
         self.save_metadata()
 
     def set_build_status(self, status: str):
@@ -291,7 +323,7 @@ class SourceMetadata(Metadata):
                 "normalization_version": normalization_version,
                 "supplementation_version": supplementation_version
             }
-            self.metadata["releases"][release_version].update(source_meta_information)
+        self.metadata["releases"][release_version].update(source_meta_information)
         self.save_metadata()
 
     def get_release_info(self, release_version: str):

@@ -58,6 +58,8 @@ spec:
               value: /Data_services_logs
             - name: DATA_SERVICES_NEO4J_PASSWORD
               value: ds-password
+            - name: DATA_SERVICES_OUTPUT_URL
+              value: {{ .Values.dataServices.outputURL }}
             {{- if .Values.dataServices.httpsProxy.useProxy }}
             - name: HTTPS_PROXY
               value: {{ .Values.dataServices.httpsProxy.proxyURL }}
@@ -97,7 +99,7 @@ spec:
         - name: ds-graph-builder
           image: {{ .Values.dataServices.image.repository }}:{{ .Values.dataServices.image.tag }}
           imagePullPolicy: {{ .Values.dataServices.image.pullPolicy }}
-          args: ["python", "/Data_services/Common/build_manager.py", {{ .Values.dataServices.graphID }}, "-n" ]
+          args: ["python", "/Data_services/Common/build_manager.py", {{ .Values.dataServices.graphID }} ]
           volumeMounts:
             - mountPath: /Data_services_storage
               name: ds-sources-volume
@@ -130,6 +132,8 @@ spec:
               value: /Data_services_logs
             - name: DATA_SERVICES_NEO4J_PASSWORD
               value: ds-password
+            - name: DATA_SERVICES_OUTPUT_URL
+              value: {{ .Values.dataServices.outputURL }}
             {{- if .Values.dataServices.httpsProxy.useProxy }}
             - name: HTTPS_PROXY
               value: {{ .Values.dataServices.httpsProxy.proxyURL }}

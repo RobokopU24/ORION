@@ -21,9 +21,7 @@ class VPLoader(SourceDataLoader):
 
     source_id = 'ViralProteome'
     provenance_id = 'infores:goa'
-    description = "The GO annotation program aims to provide high-quality Gene Ontology (GO) annotations to " \
-                  "proteins in the UniProt Knowledgebase (UniProtKB). Viral Proteome is a set of GO annotation " \
-                  "proteome relationships for all NCBI Taxon considered viruses."
+    description = "The Gene Ontology (GO) Consortium’s Viral Proteome resource provides open access to curated assignment of GO terms to proteins and proteome relationships derived from the UniProt KnowledgeBase for all NCBI Taxa considered viruses."
     source_data_url = "https://www.ebi.ac.uk/GOA/proteomes"
     license = "https://www.ebi.ac.uk/about/terms-of-use"
     attribution = "https://www.ebi.ac.uk/about/terms-of-use"

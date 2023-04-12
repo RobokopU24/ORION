@@ -61,6 +61,9 @@ class NormalizationScheme:
 @dataclass
 class GraphSpec:
     graph_id: str
+    graph_name: str
+    graph_description: str
+    graph_url: str
     graph_version: str
     graph_output_format: str
     sources: list = None
@@ -69,8 +72,10 @@ class GraphSpec:
     def get_metadata_representation(self):
         return {
             'graph_id': self.graph_id,
+            'graph_name': self.graph_name,
+            'graph_description': self.graph_description,
+            'graph_url': self.graph_url,
             'graph_version': self.graph_version,
-            'graph_output_format': self.graph_output_format,
             'subgraphs': [subgraph.get_metadata_representation() for subgraph in self.subgraphs] if self.subgraphs else [],
             'sources': [source.get_metadata_representation() for source in self.sources] if self.sources else []
         }

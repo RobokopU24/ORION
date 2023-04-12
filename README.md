@@ -73,6 +73,9 @@ TODO: explain options available in the graph spec (normalization version, source
 ```
 graphs:
   - graph_id: Example_Graph_ID
+    graph_name: Example Graph
+    graph_description: This is a description of what is in the graph.
+    output_format: neo4j
     sources:
       - source_id: Biolink
       - source_id: HGNC
@@ -87,10 +90,6 @@ docker-compose up
 If you want to specify an individual graph you can override the default command with a graph id from your Spec.
 ```
 docker-compose run --rm data_services python /Data_services/Common/build_manager.py Example_Graph_ID
-```
-To also create a Neo4j backup dump of the graph, add the -n (--neo4j_dump) flag.
-```
-docker-compose run --rm data_services python /Data_services/Common/build_manager.py Example_Graph_ID -n
 ```
 To run the ORION pipeline for a single data source, you can use:
 ```

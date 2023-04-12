@@ -514,16 +514,14 @@ class SourceDataManager:
         # source data QC here
         source_metadata = self.get_source_metadata(source_id, source_version)
         normalization_version = normalization_scheme.get_composite_normalization_version()
-        if not source_metadata.get_release_version(parsing_version=parsing_version,
-                                                   supplementation_version=supplementation_version,
-                                                   normalization_version=normalization_version):
-            self.logger.info(f'Generating new release for {source_id}')
-            loader = SOURCE_DATA_LOADER_CLASSES[source_id](test_mode=self.test_mode)
-            source_meta_information = loader.get_source_meta_information()
-            source_metadata.generate_release_metadata(parsing_version=parsing_version,
-                                                      supplementation_version=supplementation_version,
-                                                      normalization_version=normalization_version,
-                                                      source_meta_information=source_meta_information)
+
+        self.logger.info(f'Generating release for {source_id}')
+        loader = SOURCE_DATA_LOADER_CLASSES[source_id](test_mode=self.test_mode)
+        source_meta_information = loader.get_source_meta_information()
+        source_metadata.generate_release_metadata(parsing_version=parsing_version,
+                                                  supplementation_version=supplementation_version,
+                                                  normalization_version=normalization_version,
+                                                  source_meta_information=source_meta_information)
         return source_metadata.get_release_version(parsing_version=parsing_version,
                                                    supplementation_version=supplementation_version,
                                                    normalization_version=normalization_version)

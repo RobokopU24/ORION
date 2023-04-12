@@ -23,7 +23,7 @@ class GtoPdbLoader(SourceDataLoader):
 
     source_id: str = 'GtoPdb'
     provenance_id = 'infores:gtopdb'
-    description = "A graph based on the IUPHAR Guide to Pharmacology (https://www.guidetopharmacology.org/)"
+    description = "The International Union of Basic and Clinical Pharmacology (IUPHAR) / British Pharmacological Society (BPS) Guide to Pharmacology database (GtoPdb) provides searchable open-source quantitative information on drug targets and the prescription medicines and experimental drugs that act on them."
     source_data_url = "http://www.guidetopharmacology.org/"
     license = "https://www.guidetopharmacology.org/about.jsp#license"
     attribution = "https://www.guidetopharmacology.org/citing.jsp"

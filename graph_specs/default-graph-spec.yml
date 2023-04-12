@@ -5,7 +5,16 @@ graphs:
     # optional parameters to be applied to the entire graph - see README for more info
     # node_normalization_version: latest
     # edge_normalization_version: latest
-    conflation: True # (whether to conflate node types like Genes and Proteins)
+    # graph_name: Robokop Baseline
+    # graph_description: 'The baseline graph from which RobokopKG and other graphs are built.'
+    # conflation: True # (whether to conflate node types like Genes and Proteins)
+
+  - graph_id: Baseline
+    graph_name: ROBOKOP Baseline
+    graph_description: 'ROBOKOP Knowledge Graph (KG) is an open-source biomedical knowledge graph that supports the ROBOKOP application. This is the baseline version of that graph, which does not include knowledge sources with specific genetic variants.'
+    graph_url: https://robokop.renci.org/
+    conflation: True
+    output_format: jsonl
     sources:
       - source_id: Biolink
         # optional parameters for each data source - see README for more info
@@ -29,128 +38,193 @@ graphs:
       - source_id: OntologicalHierarchy
       - source_id: PANTHER
       - source_id: PHAROS
+      - source_id: textminingkp
       - source_id: STRING-DB
-      - source_id: UberGraph
+      - source_id: Ubergraph
 
-# using an older version of GWASCatalog because EFO terms are not normalizing right now
   - graph_id: RobokopKG
+    graph_name: ROBOKOP KG
+    graph_description: 'ROBOKOP Knowledge Graph (KG) is an open-source biomedical knowledge graph that supports the ROBOKOP application and currently contains ~ 10M nodes and ~ 250M edges drawn from ~30 integrated and harmonized biological data sources and bio-ontologies.'
+    graph_url: https://robokop.renci.org/
     conflation: True
+    output_format: neo4j
     subgraphs:
       - graph_id: Baseline
     sources:
+        # using an older version of GWASCatalog because EFO terms are not normalizing right now
       - source_id: GWASCatalog
         source_version: '8_23_2022'
         edge_normalization_version: 'v.2.4.4'
         node_normalization_version: '2.0.9'
       - source_id: GTEx
 
-  - graph_id: RobokopPlus
-    conflation: True
-    subgraphs:
-      - graph_id: RobokopKG
-    sources:
-      - source_id: Cord19
-      - source_id: textminingkp
-
   - graph_id: Biolink_Automat
+    graph_name: RENCI SRI Reference KG
+    graph_description: 'A subset of the SRI Reference KG, a combination of the integrated Monarch KG and other relevant data sources.'
+    graph_url: https://github.com/Knowledge-Graph-Hub/sri-reference-kg
+    output_format: neo4j
     sources:
       - source_id: Biolink
       - source_id: OntologicalHierarchy
         merge_strategy: connected_edge_subset
 
   - graph_id: CTD_Automat
+    graph_name: CTD
+    graph_description: 'The Comparative Toxicogenomics Database (CTD) is an open-source database that provides manually curated information about chemical-gene/protein, chemical-disease, and gene-disease relationships, with additional support for the curated relationships provided by functional and pathway data.'
+    graph_url: http://ctdbase.org/about/
+    output_format: neo4j
     sources:
       - source_id: CTD
       - source_id: OntologicalHierarchy
         merge_strategy: connected_edge_subset
 
   - graph_id: DrugCentral_Automat
+    graph_name: DrugCentral
+    graph_description: 'DrugCentral provides open-source data on active ingredients, chemical entities, pharmaceutical products, drug mode of action, indications, and pharmacologic action for approved drugs, derived from information provided by the US Food & Drug Administration, the European Medicines Agency, and the Pharmaceutical and Medical Devices Agency. Caveat: DrugCentral provides limited information on discontinued and drugs approved outside of the US, but users should be aware that that information has not been validated.'
+    graph_url: https://drugcentral.org/
+    output_format: neo4j
     sources:
       - source_id: DrugCentral
       - source_id: OntologicalHierarchy
         merge_strategy: connected_edge_subset
 
   - graph_id: GTEx_Automat
+    graph_name: GTEx
+    graph_description: 'The Genotype-Tissue Expression (GTEx) portal provides open access to data on tissue-specific gene expression and regulation, derived from molecular assays (e.g., WGS, WES, RNA-Seq) on 54 non-diseased tissue sites across nearly 1000 individuals.'
+    graph_url: https://gtexportal.org/home/
+    output_format: neo4j
     sources:
       - source_id: GTEx
       - source_id: OntologicalHierarchy
         merge_strategy: connected_edge_subset
 
   - graph_id: GtoPdb_Automat
+    graph_name: GtoPdb
+    graph_description: 'The International Union of Basic and Clinical Pharmacology (IUPHAR) / British Pharmacological Society (BPS) Guide to Pharmacology database (GtoPdb) provides searchable open-source quantitative information on drug targets and the prescription medicines and experimental drugs that act on them.'
+    graph_url: http://www.guidetopharmacology.org/
+    output_format: neo4j
     sources:
       - source_id: GtoPdb
       - source_id: OntologicalHierarchy
         merge_strategy: connected_edge_subset
 
-  # - graph_id: GWASCatalog_Automat
-  #  sources:
-  #    - source_id: GWASCatalog
-  #    - source_id: OntologicalHierarchy
-  #      merge_strategy: connected_edge_subset
+  - graph_id: GWASCatalog_Automat
+    graph_name: GWAS Catalog
+    graph_description: 'The Genome-Wide Association Studies (GWAS) Catalog provides a curated, searchable, visualisable, and openly available database of single nucleotide polymorphism (SNP)-trait associations, derived from all GWAS publications identified by curators, who then extract the reported trait, significant SNP-trait associations, and sample metadata.'
+    graph_url: https://www.ebi.ac.uk/gwas/
+    output_format: neo4j
+    sources:
+      - source_id: GWASCatalog
+        source_version: '8_23_2022'
+        edge_normalization_version: 'v.2.4.4'
+        node_normalization_version: '2.0.9'
+      - source_id: OntologicalHierarchy
+        merge_strategy: connected_edge_subset
 
   - graph_id: Hetio_Automat
+    graph_name: Hetionet
+    graph_description: "Hetionet is an open-source biomedical heterogeneous information network (hetnet) or graph-based resource describing relationships uncovered by millions of biomedical research studies over the past fifty years."
+    graph_url: https://het.io/
+    output_format: neo4j
     sources:
       - source_id: Hetio
       - source_id: OntologicalHierarchy
         merge_strategy: connected_edge_subset
 
   - graph_id: HGNC_Automat
+    graph_name: HGNC
+    graph_description: "The HUGO Gene Nomenclature Committee (HGNC) database provides open access to HGNC-approved unique symbols and names for human genes, gene groups, and associated resources, including links to genomic, proteomic and phenotypic information."
+    graph_url: https://www.genenames.org/
+    output_format: neo4j
     sources:
       - source_id: HGNC
       - source_id: OntologicalHierarchy
         merge_strategy: connected_edge_subset
 
   - graph_id: HMDB_Automat
+    graph_name: HMDB
+    graph_description: "The Human Metabolome Database (HMDB) is an openly accessible database containing detailed information about small molecule metabolites found in the human body, with links between chemical data, clinical data, and molecular biology/biochemistry data, including protein sequences (enzymes and transporters)."
+    graph_url: https://hmdb.ca/
+    output_format: neo4j
     sources:
       - source_id: HMDB
       - source_id: OntologicalHierarchy
         merge_strategy: connected_edge_subset
 
   - graph_id: HumanGOA_Automat
+    graph_name: Human GOA
+    graph_description: "The Gene Ontology (GO) Consortium’s Human Gene Ontologies Annotations (Human GOA) resource provides open access to curated assignment of GO terms to proteins in the UniProt KnowledgeBase (UniProtKB), RNA molecules from RNACentral, and protein complexes from the Complex Portal."
+    graph_url: https://www.ebi.ac.uk/GOA/index
+    output_format: neo4j
     sources:
       - source_id: HumanGOA
       - source_id: OntologicalHierarchy
         merge_strategy: connected_edge_subset
 
   - graph_id: IntAct_Automat
+    graph_name: InTact
+    graph_description: "The IntAct Molecular Interaction Database provides open access to molecular interactions data derived from literature curation or direct user submission."
+    graph_url: https://www.ebi.ac.uk/intact/home
+    output_format: neo4j
     sources:
       - source_id: IntAct
       - source_id: OntologicalHierarchy
         merge_strategy: connected_edge_subset
 
   - graph_id: OntologicalHierarchy_Automat
+    graph_name: Ubergraph Redundant
+    graph_description: "Subclass relationships from the redundant version of Ubergraph. The redundant version of Ubergraph is the complete inference closure for all subclass and existential relations. This includes all transitive, reflexive subclass relations."
+    graph_url: https://github.com/INCATools/ubergraph
+    output_format: neo4j
     sources:
       - source_id: OntologicalHierarchy
 
   - graph_id: PANTHER_Automat
+    graph_name: PANTHER
+    graph_description: "The Protein ANalysis THrough Evolutionary Relationships (PANTHER) classification system provides an openly available annotation library of gene family phylogenetic trees, with persistent identifiers attached to all nodes in the trees and annotation of each protein member of the family by its family and protein class, subfamily, orthologs, paralogs, GO Phylogenetic Annotation Project function and Reactome pathways."
+    graph_url: http://pantherdb.org/
+    output_format: neo4j
     sources:
       - source_id: PANTHER
       - source_id: OntologicalHierarchy
         merge_strategy: connected_edge_subset
 
   - graph_id: PHAROS_Automat
+    graph_name: Pharos
+    graph_description: "Pharos is the openly accessible user interface to the Illuminating the Druggable Genome (IDG) program’s Knowledge Management Center (KMC), which aims to develop a comprehensive, integrated knowledge-base for the Druggable Genome (DG) to illuminate the uncharacterized and/or poorly annotated portion of the DG, focusing on three of the most commonly drug-targeted protein families: G-protein-coupled receptors; ion channels; and kinases."
+    graph_url: https://pharos.nih.gov/
+    output_format: neo4j
     sources:
       - source_id: PHAROS
       - source_id: OntologicalHierarchy
         merge_strategy: connected_edge_subset
 
   - graph_id: STRING-DB_Automat
+    graph_name: STRING
+    graph_description: "The Search Tool for the Retrieval of Interacting Genes/Proteins (STRING) database provides information on known and predicted protein-protein interactions (both direct and indirect) derived from genomic context predictions, high-throughput laboratory experiments, conserved co-expression, automated text mining, and aggregated knowledge from primary data sources."
+    graph_url: https://string-db.org/
+    output_format: neo4j
     sources:
       - source_id: STRING-DB
       - source_id: OntologicalHierarchy
         merge_strategy: connected_edge_subset
 
-  - graph_id: UberGraph_Automat
+  - graph_id: Ubergraph_Automat
+    graph_name: Ubergraph
+    graph_description: "Ubergraph is an open-source graph database containing integrated ontologies, including GO, CHEBI, HPO, and Uberon’s anatomical ontology."
+    graph_url: https://github.com/INCATools/ubergraph
+    output_format: neo4j
     sources:
-      - source_id: UberGraph
+      - source_id: Ubergraph
       - source_id: OntologicalHierarchy
         merge_strategy: connected_edge_subset
 
   - graph_id: ViralProteome_Automat
+    graph_name: Viral Proteome
+    graph_description: "The Gene Ontology (GO) Consortium’s Viral Proteome resource provides open access to curated assignment of GO terms to proteins and proteome relationships derived from the UniProt KnowledgeBase for all NCBI Taxa considered viruses."
+    graph_url: https://www.ebi.ac.uk/GOA/proteomes
+    output_format: neo4j
     sources:
       - source_id: ViralProteome
       - source_id: OntologicalHierarchy
         merge_strategy: connected_edge_subset
-
-
-

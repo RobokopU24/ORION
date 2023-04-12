@@ -20,11 +20,11 @@ from parsers.UberGraph.src.ubergraph import UberGraphTools
 class OHLoader(SourceDataLoader):
 
     source_id: str = 'OntologicalHierarchy'
-    provenance_id: str = 'infores:ontological-hierarchy'
-    description = ""
-    source_data_url = ""
-    license = ""
-    attribution = ""
+    provenance_id: str = 'infores:ubergraph'
+    description = "Subclass relationships from the redundant version of Ubergraph. The redundant version of Ubergraph is the complete inference closure for all subclass and existential relations. This includes all transitive, reflexive subclass relations."
+    source_data_url = "https://github.com/INCATools/ubergraph"
+    license = "https://raw.githubusercontent.com/INCATools/ubergraph/master/LICENSE.txt"
+    attribution = "https://github.com/INCATools/ubergraph"
     parsing_version: str = '1.2'
 
     def __init__(self, test_mode: bool = False, source_data_dir: str = None):

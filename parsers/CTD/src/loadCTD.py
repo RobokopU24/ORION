@@ -26,7 +26,7 @@ class CTDLoader(SourceDataLoader):
 
     source_id = 'CTD'
     provenance_id = 'infores:ctd'
-    description = "A subset of data from the Comparative Toxicogenomics Database"
+    description = "The Comparative Toxicogenomics Database (CTD) is an open-source database that provides manually curated information about chemical-gene/protein, chemical-disease, and gene-disease relationships, with additional support for the curated relationships provided by functional and pathway data."
     source_data_url = "http://ctdbase.org/reports/"
     license = "http://ctdbase.org/about/publications/#citing"
     attribution = "http://ctdbase.org/about/"
