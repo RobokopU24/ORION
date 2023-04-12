@@ -76,7 +76,8 @@ class OHLoader(SourceDataLoader):
 
         ubergraph_archive_path = os.path.join(self.data_path, self.data_file)
         ubergraph_tools = UberGraphTools(ubergraph_archive_path,
-                                         graph_base_path=self.redundant_graph_path)
+                                         graph_base_path=self.redundant_graph_path,
+                                         logger=self.logger)
         with tarfile.open(ubergraph_archive_path, 'r') as tar_files:
 
             self.logger.info(f'Parsing Ubergraph for Ontological Hierarchy..')

@@ -36,7 +36,8 @@ class UberGraphTools:
         self.convert_iris_to_curies()
 
     def convert_iris_to_curies(self):
-        self.logger.info(f'Converting all Ubergraph iris to curies..')
+        if self.logger:
+            self.logger.info(f'Converting all Ubergraph iris to curies..')
         biolink_prefix_map = self.get_biolink_prefix_map()
         iri_to_biolink_curie_converter = curies.Converter.from_prefix_map(biolink_prefix_map)
         iri_to_obo_curie_converter = curies.get_obo_converter()
