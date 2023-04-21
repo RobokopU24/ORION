@@ -67,9 +67,9 @@ SYNONYMS = 'equivalent_identifiers'
 INFORMATION_CONTENT = 'information_content'
 
 FALLBACK_EDGE_PREDICATE = 'biolink:related_to'
-FALLBACK_EDGE_PREDICATE_LABEL = 'related to'
 
 PRIMARY_KNOWLEDGE_SOURCE = 'biolink:primary_knowledge_source'
 AGGREGATOR_KNOWLEDGE_SOURCES = 'biolink:aggregator_knowledge_source'
 PUBLICATIONS = 'publications'
+XREFS = 'xref'
 

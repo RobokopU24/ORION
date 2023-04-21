@@ -1,10 +1,12 @@
 import os
 import argparse
 import enum
+import requests
+import yaml
 
 from Common.utils import GetData
 from Common.kgxmodel import kgxnode, kgxedge
-from Common.node_types import ROOT_ENTITY
+from Common.node_types import ROOT_ENTITY, XREFS
 from Common.loader_interface import SourceDataLoader
 
 from gzip import GzipFile
@@ -41,25 +43,27 @@ class CAMKPLoader(SourceDataLoader):
         super().__init__(test_mode=test_mode, source_data_dir=source_data_dir)
 
         self.source_db: str = 'CAM KP'
-        self.cam_kp_data_url: str = 'https://stars.renci.org/var/cam-kp/'
-        self.cam_kp_data_file: str = 'cam-kg.tsv.gz'
-
-        self.data_file = self.cam_kp_data_file
+        self.data_url: str = 'https://stars.renci.org/var/cam-kp/'
+        self.data_file: str = 'cam-kg.tsv.gz'
+        self.version_file = 'cam-kg.yaml'
 
     def get_latest_source_version(self) -> str:
         """
         gets the version of the data
-
         :return:
         """
-        return "cam_kp_v1"
+        version_file_url = f"{self.data_url}{self.version_file}"
+        r = requests.get(version_file_url)
+        version_yaml = yaml.full_load(r.text)
+        build_version = str(version_yaml['build'])
+        return build_version
 
     def get_data(self) -> int:
         """
         Gets the TextMiningKP data.
         """
         data_puller = GetData()
-        source_url = f"{self.cam_kp_data_url}{self.cam_kp_data_file}"
+        source_url = f"{self.data_url}{self.data_file}"
         data_puller.pull_via_http(source_url, self.data_path)
         return True
 
@@ -73,7 +77,7 @@ class CAMKPLoader(SourceDataLoader):
         record_counter = 0
         skipped_record_counter = 0
         
-        node_file_path: str = os.path.join(self.data_path, self.cam_kp_data_file)
+        node_file_path: str = os.path.join(self.data_path, self.data_file)
         with GzipFile(node_file_path) as zf:
             for bytesline in zf:
                 lines = bytesline.decode('utf-8')
@@ -96,7 +100,7 @@ class CAMKPLoader(SourceDataLoader):
                 predicate = line[CAMDATACOLS.PREDICATE.value]
                 edge_provenance_id = line[CAMDATACOLS.PROVENANCE_ID.value]
                 edge_provenance_url = line[CAMDATACOLS.PROVENANCE_URL.value]
-                edge_properties = {'biolink:xref': [edge_provenance_url]}
+                edge_properties = {XREFS: [edge_provenance_url]}
                 new_edge = kgxedge(subject_id=subject_id,
                                    object_id=object_id,
                                    predicate=predicate,
@@ -114,10 +118,12 @@ class CAMKPLoader(SourceDataLoader):
 
         return load_metadata
 
+
     def sanitize_cam_node_id(self, node_id):
         if node_id.startswith("MGI:"):
             node_id = node_id[4:]
         return node_id
+
 
 if __name__ == '__main__':
     # create a command line parser
