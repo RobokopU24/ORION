@@ -13,7 +13,7 @@ dataServices:
   image:
     repository: ghcr.io/robokopu24/orion
     pullPolicy: IfNotPresent
-    tag: v1.0.7
+    tag: v1.0.7-2
   graphsVolume:
     use_nfs: true
     nfs_server: na-projects.edc.renci.org
@@ -40,9 +40,6 @@ dataServices:
       cpu: "2500m"
       memory: 32Gi
       ephemeral-storage: 1Gi
-  httpsProxy:
-    useProxy: true
-    proxyURL: http://proxy.renci.org:8080/
   securityContext:
     runAsUser: 30000
     runAsGroup: 1000

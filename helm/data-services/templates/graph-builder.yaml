@@ -60,10 +60,6 @@ spec:
               value: ds-password
             - name: DATA_SERVICES_OUTPUT_URL
               value: {{ .Values.dataServices.outputURL }}
-            {{- if .Values.dataServices.httpsProxy.useProxy }}
-            - name: HTTPS_PROXY
-              value: {{ .Values.dataServices.httpsProxy.proxyURL }}
-            {{- end }}
             {{- if .Values.dataServices.normalization.nodeNormEndpoint }}
             - name: NODE_NORMALIZATION_ENDPOINT
               value: {{ .Values.dataServices.normalization.nodeNormEndpoint }}
@@ -134,10 +130,6 @@ spec:
               value: ds-password
             - name: DATA_SERVICES_OUTPUT_URL
               value: {{ .Values.dataServices.outputURL }}
-            {{- if .Values.dataServices.httpsProxy.useProxy }}
-            - name: HTTPS_PROXY
-              value: {{ .Values.dataServices.httpsProxy.proxyURL }}
-            {{- end }}
             {{- if .Values.dataServices.normalization.nodeNormEndpoint }}
             - name: NODE_NORMALIZATION_ENDPOINT
               value: {{ .Values.dataServices.normalization.nodeNormEndpoint }}
