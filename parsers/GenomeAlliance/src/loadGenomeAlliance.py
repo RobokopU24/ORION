@@ -34,8 +34,10 @@ class GenomeAllianceOrthologLoader(SourceDataLoader):
         """
         super().__init__(test_mode=test_mode, source_data_dir=source_data_dir)
 
-        self.genome_alliance_url = 'https://download.alliancegenome.org/5.0.0/ORTHOLOGY-ALLIANCE/COMBINED/'
-        self.genome_alliance_ortholog_file = 'ORTHOLOGY-ALLIANCE_COMBINED_1.tsv.gz'
+        self.latest_version = None
+        self.latest_version = self.get_latest_source_version()
+        self.genome_alliance_url = f'https://download.alliancegenome.org/{self.get_latest_source_version()}/ORTHOLOGY-ALLIANCE/COMBINED/'
+        self.genome_alliance_ortholog_file = 'ORTHOLOGY-ALLIANCE_COMBINED_25.tsv.gz'
         self.data_files = [self.genome_alliance_ortholog_file]
 
     def get_latest_source_version(self) -> str:
@@ -44,7 +46,9 @@ class GenomeAllianceOrthologLoader(SourceDataLoader):
 
         :return:
         """
-        return '5.0.0'
+        if not self.latest_version:
+            self.latest_version = '5.3.0'
+        return self.latest_version
 
     def get_data(self) -> int:
         """
@@ -67,9 +71,7 @@ class GenomeAllianceOrthologLoader(SourceDataLoader):
         :return: ret_val: load_metadata
         """
 
-        extractor = Extractor()
-
-        # parse the orthologs file
+        extractor = Extractor(file_writer=self.output_file_writer)
         orthologs_file: str = os.path.join(self.data_path, self.genome_alliance_ortholog_file)
         with gzip.open(orthologs_file, 'rt') as fp:
             extractor.csv_extract(fp,
@@ -83,6 +85,4 @@ class GenomeAllianceOrthologLoader(SourceDataLoader):
                                   delim='\t',
                                   has_header_row=True)
 
-        self.final_node_list = extractor.nodes
-        self.final_edge_list = extractor.edges
         return extractor.load_metadata
