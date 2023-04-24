@@ -41,7 +41,7 @@ class TMKPLoader(SourceDataLoader):
 
     source_id: str = "text-mining-provider-targeted"
     provenance_id: str = "infores:textminingkp"
-    description = ""
+    description = "The Text Mining Provider KG contains subject-predicate-object assertions derived from the application of natural language processing (NLP) algorithms to the PubMedCentral Open Access collection of publications plus additional titles and abstracts from PubMed."
     source_data_url = ""
     license = ""
     attribution = ""
