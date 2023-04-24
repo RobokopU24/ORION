@@ -24,6 +24,7 @@ OBO_MISSING_MAPPINGS = {
 class UberGraphTools:
 
     def __init__(self,
+                 ubergraph_url: str = None,
                  ubergraph_archive_path: str = None,
                  graph_base_path: str = None,
                  logger=None):
@@ -33,30 +34,20 @@ class UberGraphTools:
         self.ubergraph_archive_path = ubergraph_archive_path
         self.graph_base_path = graph_base_path
         self.logger = logger
+        self.curie_to_iri_converter = self.init_curie_converter()
+        self.node_descriptions = self.get_node_descriptions(ubergraph_url)
         self.convert_iris_to_curies()
 
     def convert_iris_to_curies(self):
         if self.logger:
             self.logger.info(f'Converting all Ubergraph iris to curies..')
-        biolink_prefix_map = self.get_biolink_prefix_map()
-        iri_to_biolink_curie_converter = curies.Converter.from_prefix_map(biolink_prefix_map)
-        iri_to_obo_curie_converter = curies.get_obo_converter()
-        custom_converter = curies.Converter.from_prefix_map(OBO_MISSING_MAPPINGS)
-        
-        # A chain combines several converters in a row
-        chain_converter = curies.chain([
-            iri_to_biolink_curie_converter,
-            iri_to_obo_curie_converter,
-            custom_converter,
-        ])
-
         with tarfile.open(self.ubergraph_archive_path, 'r') as tar_files:
             self.node_curies = {}
             node_mapping_failures = []
             with tar_files.extractfile(f'{self.graph_base_path}/node-labels.tsv') as node_labels_file:
                 for line in TextIOWrapper(node_labels_file):
                     node_id, node_iri = tuple(line.rstrip().split('\t'))
-                    node_curie = chain_converter.compress(node_iri)
+                    node_curie = self.curie_to_iri_converter.compress(node_iri)
                     if node_curie is None:
                         node_mapping_failures.append(node_iri)
                         # print(f'Could not find prefix mapping for: {node_iri}')
@@ -67,7 +58,7 @@ class UberGraphTools:
             with tar_files.extractfile(f'{self.graph_base_path}/edge-labels.tsv') as edge_labels_file:
                 for line in TextIOWrapper(edge_labels_file):
                     edge_id, edge_iri = tuple(line.rstrip().split('\t'))
-                    edge_curie = chain_converter.compress(edge_iri)
+                    edge_curie = self.curie_to_iri_converter.compress(edge_iri)
                     if edge_curie is None:
                         edge_mapping_failures.append(edge_iri)
                         # print(f'No prefix mapping found for: {edge_iri}')
@@ -81,6 +72,46 @@ class UberGraphTools:
                 self.logger.info(f'Edges: {len(self.edge_curies)} successfully converted, {len(edge_mapping_failures)} failures.')
                 if node_mapping_failures:
                     self.logger.info(f'Edge conversion failure examples: {edge_mapping_failures[:10]}')
+
+    def init_curie_converter(self):
+        biolink_prefix_map = self.get_biolink_prefix_map()
+        iri_to_biolink_curie_converter = curies.Converter.from_prefix_map(biolink_prefix_map)
+        iri_to_obo_curie_converter = curies.get_obo_converter()
+        custom_converter = curies.Converter.from_prefix_map(OBO_MISSING_MAPPINGS)
+
+        # A chain combines several converters in a row
+        chain_converter = curies.chain([
+            iri_to_biolink_curie_converter,
+            iri_to_obo_curie_converter,
+            custom_converter,
+        ])
+        return chain_converter
+
+    def get_node_descriptions(self, ubergraph_url: str):
+        if self.logger:
+            self.logger.info(f'Fetching node descriptions from Ubergraph with SPARQL..')
+        sparql_url = f'{ubergraph_url}/sparql'
+        sparql_query = 'SELECT DISTINCT ?term (STR(?def) as ?definition) WHERE { ?term <http://purl.obolibrary.org/obo/IAO_0000115> ?def . FILTER(isIRI(?term)) }'
+        headers = {'Accept': 'text/tab-separated-values'}
+        payload = {'query': sparql_query}
+        response = requests.get(sparql_url, headers=headers, params=payload)
+        if response.status_code != 200:
+            response.raise_for_status()
+
+        node_descriptions = {}
+        node_curie = None
+        for response_line in response.content.decode('utf-8').splitlines():
+            if '\t' not in response_line:
+                # a newline character inside a description can break the tsv format
+                if node_curie:
+                    # append the line to the previous description where it should've been
+                    node_descriptions[node_curie] += response_line
+                continue
+            node_iri, node_description = response_line.split('\t')
+            node_iri = node_iri.strip('<>')
+            node_curie = self.curie_to_iri_converter.compress(node_iri)
+            node_descriptions[node_curie] = node_description
+        return node_descriptions
 
     def get_curie_for_node_id(self, node_id):
         return self.node_curies[node_id]

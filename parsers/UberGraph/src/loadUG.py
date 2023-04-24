@@ -1,20 +1,12 @@
 import os
-import argparse
 import tarfile
 
 from io import TextIOWrapper
 from Common.utils import GetData
-from Common.loader_interface import SourceDataLoader, SourceDataBrokenError, SourceDataFailedError
+from Common.loader_interface import SourceDataLoader
 from parsers.UberGraph.src.ubergraph import UberGraphTools
 
 
-##############
-# Class: UberGraph data loader
-#
-# By: Phil Owen
-# Date: 6/12/2020
-# Desc: Class that loads the UberGraph data and creates KGX files for importing into a Neo4j graph.
-##############
 class UGLoader(SourceDataLoader):
 
     source_id = 'Ubergraph'
@@ -36,7 +28,8 @@ class UGLoader(SourceDataLoader):
         self.base_url = 'https://ubergraph.apps.renci.org'
         self.data_file = 'nonredundant-graph-table.tgz'
         self.data_url: str = f'{self.base_url}/downloads/current/'
-        self.nonredundant_graph_path = 'nonredundant-graph-table'
+        self.only_subclass_edges = False
+        self.subclass_predicate = 'rdfs:subClassOf'
 
     def get_latest_source_version(self):
         """
@@ -66,14 +59,16 @@ class UGLoader(SourceDataLoader):
         skipped_record_counter: int = 0
 
         ubergraph_archive_path = os.path.join(self.data_path, self.data_file)
-        ubergraph_tools = UberGraphTools(ubergraph_archive_path,
-                                         graph_base_path=self.nonredundant_graph_path,
+        ubergraph_graph_path = self.data_file.split('.tgz')[0]
+        ubergraph_tools = UberGraphTools(ubergraph_url=self.base_url,
+                                         ubergraph_archive_path=ubergraph_archive_path,
+                                         graph_base_path=ubergraph_graph_path,
                                          logger=self.logger)
 
         with tarfile.open(ubergraph_archive_path, 'r') as tar_files:
 
             self.logger.info(f'Parsing Ubergraph..')
-            with tar_files.extractfile(f'{self.nonredundant_graph_path}/edges.tsv') as edges_file:
+            with tar_files.extractfile(f'{ubergraph_graph_path}/edges.tsv') as edges_file:
                 for line in TextIOWrapper(edges_file):
                     record_counter += 1
                     subject_id, predicate_id, object_id = tuple(line.rstrip().split('\t'))
@@ -86,16 +81,23 @@ class UGLoader(SourceDataLoader):
                         skipped_record_counter += 1
                         continue
                     predicate_curie = ubergraph_tools.get_curie_for_edge_id(predicate_id)
-                    if not predicate_curie:
+                    if (not predicate_curie) or \
+                            (self.only_subclass_edges and predicate_curie != self.subclass_predicate):
                         skipped_record_counter += 1
                         continue
-                    self.output_file_writer.write_node(node_id=subject_curie)
-                    self.output_file_writer.write_node(node_id=object_curie)
+                    subject_description = ubergraph_tools.node_descriptions.get(subject_curie, None)
+                    subject_properties = {'description': subject_description} if subject_description else {}
+                    self.output_file_writer.write_node(node_id=subject_curie, node_properties=subject_properties)
+
+                    object_description = ubergraph_tools.node_descriptions.get(object_curie, None)
+                    object_properties = {'description': object_description} if object_description else {}
+                    self.output_file_writer.write_node(node_id=object_curie, node_properties=object_properties)
+
                     self.output_file_writer.write_edge(subject_id=subject_curie,
                                                        object_id=object_curie,
                                                        predicate=predicate_curie,
                                                        primary_knowledge_source=self.provenance_id)
-                    if self.test_mode and record_counter == 5000:
+                    if self.test_mode and record_counter == 10_000:
                         break
 
         # load up the metadata
@@ -108,21 +110,52 @@ class UGLoader(SourceDataLoader):
         return load_metadata
 
 
-if __name__ == '__main__':
-    # create a command line parser
-    ap = argparse.ArgumentParser(description='Load IntAct virus interaction data file and create KGX import files.')
+class UGRedundantLoader(UGLoader):
 
-    # command line should be like: python loadIA.py -d E:/Data_services/IntAct_data
-    ap.add_argument('-u', '--data_dir', required=True, help='The UberGraph data file directory.')
+    source_id: str = 'UbergraphRedundant'
+    provenance_id: str = 'infores:sri-ontology'
+    description = "The redundant version of Ubergraph contains the complete inference closure for all subclass and existential relations, including transitive, reflexive subclass relations."
+    source_data_url = "https://github.com/INCATools/ubergraph"
+    license = "https://raw.githubusercontent.com/INCATools/ubergraph/master/LICENSE.txt"
+    attribution = "https://github.com/INCATools/ubergraph"
+    parsing_version: str = '1.0'
 
-    # parse the arguments
-    args = vars(ap.parse_args())
+    def __init__(self, test_mode: bool = False, source_data_dir: str = None):
+        """
+        :param test_mode - sets the run into test mode
+        :param source_data_dir - the specific storage directory to save files in
+        """
+        super().__init__(test_mode=test_mode, source_data_dir=source_data_dir)
 
-    # UG_data_dir = 'E:/Data_services/UberGraph'
-    UG_data_dir = args['data_dir']
+        # this is the name of the archive file the source files will come from
+        self.base_url = 'https://ubergraph.apps.renci.org'
+        self.data_file = 'redundant-graph-table.tgz'
+        self.data_url: str = f'{self.base_url}/downloads/current/'
+        self.only_subclass_edges = False
 
-    # get a reference to the processor logging.DEBUG
-    ug = UGLoader()
 
-    # load the data files and create KGX output files
-    ug.load(UG_data_dir, UG_data_dir)
+class OHLoader(UGLoader):
+
+    source_id: str = 'OntologicalHierarchy'
+    provenance_id: str = 'infores:sri-ontology'
+    description = "Subclass relationships from the redundant version of Ubergraph."
+    source_data_url = "https://github.com/INCATools/ubergraph"
+    license = "https://raw.githubusercontent.com/INCATools/ubergraph/master/LICENSE.txt"
+    attribution = "https://github.com/INCATools/ubergraph"
+    parsing_version: str = '1.4'
+
+    def __init__(self, test_mode: bool = False, source_data_dir: str = None):
+        """
+        :param test_mode - sets the run into test mode
+        :param source_data_dir - the specific storage directory to save files in
+        """
+        super().__init__(test_mode=test_mode, source_data_dir=source_data_dir)
+
+        # this is the name of the archive file the source files will come from
+        self.base_url = 'https://ubergraph.apps.renci.org'
+        self.data_file = 'redundant-graph-table.tgz'
+        self.data_url: str = f'{self.base_url}/downloads/current/'
+        self.only_subclass_edges = True
+
+
+

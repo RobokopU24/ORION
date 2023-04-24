@@ -26,6 +26,7 @@ SCENT = 'Scent'
 STRING_DB = 'STRING-DB'
 TEXT_MINING_KP = 'textminingkp'
 UBERGRAPH = 'Ubergraph'
+UBERGRAPH_REDUNDANT = 'UbergraphRedundant'
 UNIREF = 'UniRef'
 VP = 'ViralProteome'
 YEASTSGD = 'YeastSGDInfo'
@@ -33,7 +34,7 @@ YEAST_GSE61888 = 'YeastGSE61888'
 YEAST_GASCHDIAMIDE = 'YeastGaschDiamideGeneExpression'
 YEAST_STRING_DB = 'Yeast-STRING-DB'
 
-RESOURCE_HOGS = [GTEX, GWAS_CATALOG, UNIREF, ONTOLOGICAL_HIERARCHY, YEASTSGD, STRING_DB, CAM_KP]
+RESOURCE_HOGS = [GTEX, GWAS_CATALOG, UNIREF, ONTOLOGICAL_HIERARCHY, UBERGRAPH, UBERGRAPH_REDUNDANT, YEASTSGD, STRING_DB, CAM_KP]
 
 SOURCE_DATA_LOADER_CLASS_IMPORTS = {
     BIOLINK: ("parsers.biolink.src.loadBL", "BLLoader"),
@@ -52,7 +53,7 @@ SOURCE_DATA_LOADER_CLASS_IMPORTS = {
     HUMAN_GOA: ("parsers.GOA.src.loadGOA", "HumanGOALoader"),
     INTACT: ("parsers.IntAct.src.loadIA", "IALoader"),
     MONDO_PROPS: ("parsers.MONDOProperties.src.loadMP", "MPLoader"),
-    ONTOLOGICAL_HIERARCHY: ("parsers.UberGraph.src.loadOH", "OHLoader"),
+    ONTOLOGICAL_HIERARCHY: ("parsers.UberGraph.src.loadUG", "OHLoader"),
     PANTHER: ("parsers.panther.src.loadPanther", "PLoader"),
     PHAROS: ("parsers.PHAROS.src.loadPHAROS", "PHAROSLoader"),
     PLANT_GOA: ("parsers.GOA.src.loadGOA", "PlantGOALoader"),
@@ -60,6 +61,7 @@ SOURCE_DATA_LOADER_CLASS_IMPORTS = {
     STRING_DB: ("parsers.STRING.src.loadSTRINGDB", "STRINGDBLoader"),
     TEXT_MINING_KP: ("parsers.textminingkp.src.loadTMKP", "TMKPLoader"),
     UBERGRAPH: ("parsers.UberGraph.src.loadUG", "UGLoader"),
+    UBERGRAPH_REDUNDANT: ("parsers.UberGraph.src.loadUG", "UGRedundantLoader"),
     UNIREF: ("parsers.ViralProteome.src.loadUniRef", "UniRefSimLoader"),
     VP: ("parsers.ViralProteome.src.loadVP", "VPLoader"),
     YEASTSGD: ("parsers.yeast.src.loadYeastSGDInfo", "YeastSGDLoader"),
