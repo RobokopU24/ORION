@@ -15,7 +15,7 @@ class UGLoader(SourceDataLoader):
     source_data_url = "https://github.com/INCATools/ubergraph#downloads"
     license = "https://raw.githubusercontent.com/INCATools/ubergraph/master/LICENSE.txt"
     attribution = "https://github.com/INCATools/ubergraph"
-    parsing_version: str = '1.3'
+    parsing_version: str = '1.4'
 
     def __init__(self, test_mode: bool = False, source_data_dir: str = None):
         """
