@@ -6,7 +6,7 @@ from Common.node_types import *
 from Common.utils import quick_json_loads, quick_json_dumps, chunk_iterator
 
 NODE_PROPERTIES_THAT_SHOULD_BE_SETS = {SYNONYMS, NODE_TYPES}
-EDGE_PROPERTIES_THAT_SHOULD_BE_SETS = {AGGREGATOR_KNOWLEDGE_SOURCES, PUBLICATIONS}
+EDGE_PROPERTIES_THAT_SHOULD_BE_SETS = {AGGREGATOR_KNOWLEDGE_SOURCES, PUBLICATIONS, XREFS}
 
 
 def edge_key_function(edge):
@@ -180,17 +180,16 @@ class MemoryGraphMerger(GraphMerger):
             node_key = node['id']
             if node_key in self.nodes:
                 self.merged_node_counter += 1
-                previous_node = quick_json_loads(self.nodes[node_key])
+                previous_node = self.nodes[node_key]
                 merged_node = entity_merging_function(previous_node,
                                                       node,
                                                       NODE_PROPERTIES_THAT_SHOULD_BE_SETS)
-                self.nodes[node_key] = quick_json_dumps(merged_node)
+                self.nodes[node_key] = merged_node
             else:
-                self.nodes[node_key] = quick_json_dumps(node)
+                self.nodes[node_key] = node
         return node_count
 
     # merge a list of edges (dictionaries not kgxedge objects!) into the existing list
-    # throw_out_duplicates will throw out duplicates, otherwise merge their attributes
     def merge_edges(self, edges):
         edge_count = 0
         for edge in edges:
@@ -208,7 +207,7 @@ class MemoryGraphMerger(GraphMerger):
 
     def get_merged_nodes_jsonl(self):
         for node in self.nodes.values():
-            yield f'{node}\n'
+            yield f'{quick_json_dumps(node)}\n'
 
     def get_merged_edges_jsonl(self):
         for edge in self.edges.values():
