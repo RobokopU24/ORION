@@ -190,11 +190,8 @@ class GraphBuilder:
         for edge_json in quick_jsonl_file_iterator(graph_edges_file_path):
             knowledge_sources.add(edge_json[PRIMARY_KNOWLEDGE_SOURCE])
             for key in edge_json.keys():
-                if (key is not PRIMARY_KNOWLEDGE_SOURCE and
-                        key is not AGGREGATOR_KNOWLEDGE_SOURCES and
-                        key is not PREDICATE):
-                    edge_properties.add(key)
-                predicate_counts[edge_json[PREDICATE]] += 1
+                edge_properties.add(key)
+            predicate_counts[edge_json[PREDICATE]] += 1
         qc_metadata = {
             'primary_knowledge_sources': list(knowledge_sources),
             'edge_properties': list(edge_properties),
