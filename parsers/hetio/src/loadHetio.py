@@ -19,7 +19,7 @@ class HetioLoader(SourceDataLoader):
     source_data_url = "https://github.com/hetio/hetionet/blob/master/hetnet/json/hetionet-v1.0.json.bz2"
     license = "https://het.io/about/"
     attribution = "https://het.io/about/"
-    parsing_version: str = '1.3'
+    parsing_version: str = '1.4'
 
     def __init__(self, test_mode: bool = False, source_data_dir: str = None):
         """
@@ -72,7 +72,7 @@ class HetioLoader(SourceDataLoader):
         #with open(hetnet_metadata_file_path, "r") as hetnet_meta_file:
         #    het_meta_json = json.load(hetnet_meta_file)
 
-        extractor = Extractor()
+        extractor = Extractor(file_writer=self.output_file_writer)
 
         hetnet_file_path = os.path.join(self.data_path, self.data_file)
         with bz2.open(hetnet_file_path, "r") as hetnet_json_file:
@@ -115,10 +115,6 @@ class HetioLoader(SourceDataLoader):
                                    lambda edge: {},  # subject props
                                    lambda edge: {},  # object props
                                    lambda edge: get_edge_properties(edge)) # edge props)
-
-            # return to the caller
-            self.final_node_list = extractor.nodes
-            self.final_edge_list = extractor.edges
 
             self.logger.debug(f'Parsing data file complete.')
 
@@ -183,6 +179,19 @@ hetio_abbrev_to_curie_lookup = {
 
 def get_predicate_from_edge(edge, kind_to_abbrev_lookup):
     hetio_abbrev = get_hetio_abbrev(edge, kind_to_abbrev_lookup)
+
+    # MEDLINE cooccurrence edges of this type get assigned "has phenotye" but often have the wrong directionality
+    # throw them out
+    if hetio_abbrev == 'DpS':
+        edge_sources = None
+        edge_data = edge['data']
+        if 'source' in edge_data:
+            edge_sources = [edge_data['source']]
+        elif 'sources' in edge_data:
+            edge_sources = edge_data['sources']
+        if edge_sources and 'MEDLINE cooccurrence' in edge_sources:
+            return None
+
     curie = hetio_abbrev_to_curie_lookup.get(hetio_abbrev, None)
     if curie:
         return curie
