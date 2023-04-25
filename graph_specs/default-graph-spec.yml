@@ -33,6 +33,7 @@ graphs:
       - source_id: HumanGOA
       - source_id: IntAct
       - source_id: MONDOProps
+        source_version: '3_23_2023'
       - source_id: OntologicalHierarchy
       - source_id: PANTHER
       - source_id: PHAROS
@@ -235,8 +236,6 @@ graphs:
     output_format: neo4j
     sources:
       - source_id: Ubergraph
-      - source_id: OntologicalHierarchy
-        merge_strategy: connected_edge_subset
 
   - graph_id: UbergraphRedundant_Automat
     graph_name: Ubergraph Redundant
