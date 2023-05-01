@@ -35,6 +35,7 @@ graphs:
       - source_id: MONDOProps
         source_version: '3_23_2023'
       - source_id: OntologicalHierarchy
+        merge_strategy: connected_edge_subset
       - source_id: PANTHER
       - source_id: PHAROS
       - source_id: textminingkp
@@ -97,7 +98,7 @@ graphs:
         merge_strategy: connected_edge_subset
 
   - graph_id: GenomeAllianceOrthologs_Automat
-    graph_name: Alliance of Genome Resources Orthology
+    graph_name: Alliance of Genome Resources
     graph_description: 'The Alliance of Genome Resources is a consortium of 7 model organism databases (MODs) and the Gene Ontology (GO) Consortium whose goal is to provide an integrated view of their data to all biologists, clinicians and other interested parties. The Alliance provides the results of all methods that have been benchmarked by the Quest for Orthologs Consortium (QfO), as well as curated ortholog inferences from HGNC (for human, mouse and rat genes).'
     graph_url: https://www.alliancegenome.org/
     output_format: neo4j
@@ -222,7 +223,7 @@ graphs:
   - graph_id: TMKP_Automat
     graph_name: Text Mining Provider KG
     graph_description: 'The Text Mining Provider KG contains subject-predicate-object assertions derived from the application of natural language processing (NLP) algorithms to the PubMedCentral Open Access collection of publications plus additional titles and abstracts from PubMed. Caveat: Text-mined assertions must be interpreted with caution, as NLP algorithms may introduce false assertions.'
-    graph_url:
+    graph_url: https://github.com/NCATSTranslator/Translator-All/wiki/Text-Mining-Provider
     output_format: neo4j
     sources:
       - source_id: textminingkp
