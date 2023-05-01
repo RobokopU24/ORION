@@ -1,0 +1,12 @@
+graphs:
+  - graph_id: BINDING-DB_Automat
+    graph_name: BINDING
+    graph_description: 'A public,  web-accessible database of measured binding affinities, focusing chiefly on the interactions of proteins considered to be candidate drug-targets with ligands that are small, drug-like molecules'
+    graph_url: https://www.bindingdb.org/rwd/bind/chemsearch/marvin/SDFdownload.jsp?all_download=yes
+    output_format: neo4j
+    sources:
+      - source_id: BINDING-DB
+      - source_id: OntologicalHierarchy
+        merge_strategy: connected_edge_subset
+
+ 
