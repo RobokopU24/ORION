@@ -17,11 +17,12 @@ from Common.neo4j_tools import Neo4jTools
 from Common.kgxmodel import GraphSpec, SubGraphSource, DataSource, NormalizationScheme
 from Common.metadata import Metadata, GraphMetadata, SourceMetadata
 from Common.supplementation import SequenceVariantSupplementation
-from Common.node_types import ROOT_ENTITY, PRIMARY_KNOWLEDGE_SOURCE, PREDICATE, AGGREGATOR_KNOWLEDGE_SOURCES
+from Common.node_types import ROOT_ENTITY, PRIMARY_KNOWLEDGE_SOURCE, PREDICATE
+from Common.meta_kg import MetaKnowledgeGraphBuilder
 
 NODES_FILENAME = 'nodes.jsonl'
 EDGES_FILENAME = 'edges.jsonl'
-META_KG_FILENAME = 'meta_kg.json'
+META_KG_FILENAME = 'meta_knowledge_graph.json'
 SRI_TESTING_FILENAME = 'sri_testing_data.json'
 
 
@@ -99,7 +100,12 @@ class GraphBuilder:
             self.logger.info(f'Running QC for graph {graph_id}...')
             qc_results = self.run_qc(graph_id, graph_version, graph_directory=graph_output_dir)
             graph_metadata.set_qc_results(qc_results)
+            # TODO - bail if qc fails
             self.logger.info(f'QC complete for graph {graph_id}.')
+
+        if not self.has_meta_kg(graph_directory=graph_output_dir):
+            self.logger.info(f'Generating MetaKG for {graph_id}...')
+            self.generate_meta_kg(graph_directory=graph_output_dir)
 
         if 'neo4j' in graph_spec.graph_output_format.lower():
             self.logger.info(f'Starting Neo4j dump pipeline for {graph_id}...')
@@ -178,6 +184,24 @@ class GraphBuilder:
                                                                                    data_source.supplementation_version)
         return True
 
+    def has_meta_kg(self, graph_directory: str):
+        if os.path.exists(os.path.join(graph_directory, META_KG_FILENAME)):
+            return True
+        else:
+            return False
+
+    def generate_meta_kg(self,
+                         graph_directory: str):
+        graph_nodes_file_path = os.path.join(graph_directory, NODES_FILENAME)
+        graph_edges_file_path = os.path.join(graph_directory, EDGES_FILENAME)
+        mkgb = MetaKnowledgeGraphBuilder(nodes_file_path=graph_nodes_file_path,
+                                         edges_file_path=graph_edges_file_path,
+                                         logger=self.logger)
+        meta_kg = mkgb.get_meta_kg()
+        meta_kg_file_path = os.path.join(graph_directory, META_KG_FILENAME)
+        with open(meta_kg_file_path, 'w') as meta_kg_file:
+            meta_kg_file.write(json.dumps(meta_kg, indent=4))
+
     def run_qc(self,
                graph_id: str,
                graph_version: str,
@@ -198,6 +222,7 @@ class GraphBuilder:
             'predicate_counts': {k: v for k, v in predicate_counts.items()}
         }
         return qc_metadata
+
 
     def create_neo4j_dump(self,
                           graph_id: str,
@@ -297,7 +322,7 @@ class GraphBuilder:
 
         schema = defaultdict(lambda: defaultdict(set))
         #  avoids adding nodes with only a ROOT_ENTITY label (currently NamedThing)
-        filter_named_thing = lambda x: list(filter(lambda y: y != ROOT_ENTITY, x))
+        filter_named_thing = lambda x: set(filter(lambda y: y != ROOT_ENTITY, x))
         for schema_result in schema_query_results:
             source_labels, predicate, target_labels = \
                 self.bl_utils.find_biolink_leaves(filter_named_thing(schema_result['source_labels'])), \
@@ -394,7 +419,7 @@ class GraphBuilder:
             "nodes": meta_kg_nodes,
             "edges": meta_kg_edges
         }
-        meta_kg_file_path = os.path.join(output_directory, META_KG_FILENAME)
+        meta_kg_file_path = os.path.join(output_directory, 'neo4j_generated_meta_kg.json')
         with open(meta_kg_file_path, 'w') as meta_kg_file:
             meta_kg_file.write(json.dumps(meta_kg, indent=4))
 
