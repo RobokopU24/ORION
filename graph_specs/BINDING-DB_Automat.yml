@@ -6,7 +6,7 @@ graphs:
     output_format: neo4j
     sources:
       - source_id: BINDING-DB
-      - source_id: OntologicalHierarchy
+#      - source_id: OntologicalHierarchy
         merge_strategy: connected_edge_subset
 
  
