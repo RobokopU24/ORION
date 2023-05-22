@@ -1,12 +1,13 @@
 import os
-import json
 import enum
 import argparse
-from gzip import GzipFile
 import requests
+from collections import defaultdict
 from bs4 import BeautifulSoup
 import re
 from neo4j import GraphDatabase
+# drr = '/Users/olawumiolasunkanmi/Data_services_root/Data_services'
+# os.sys.path.insert(0, drr)
 
 from collections import defaultdict
 from Common.utils import GetData
@@ -17,12 +18,11 @@ from Common.prefixes import REACTOME
 
 SUBJECT_COLUMN = 0
 PREDICATE_COLUMN = 1
-PREDICATE_PROP_COLUMN = 2
-OBJECT_COLUMN = -1
+OBJECT_COLUMN = 2
+INCLUDE_COLUMN = 3
 
 
-TRIPLE_TO_INCLUDE_COLUMN = 4
-CYPHER_COLUMN = 2
+PREDICATE_PROP_COLUMN = -1
 ##############
 # Class: Reactome loader
 #
@@ -33,7 +33,7 @@ CYPHER_COLUMN = 2
 class ReactomeLoader(SourceDataLoader):
 
     # Setting the class level variables for the source ID and provenance
-    source_id: str = 'ReactomeProperties'
+    source_id: str = 'Reactome'
     provenance_id: str = 'infores:reactome-properties'
     description = "Reactome is a free, open-source, curated and peer-reviewed pathway database"
     source_data_url = "https://reactome.org/"
@@ -53,9 +53,8 @@ class ReactomeLoader(SourceDataLoader):
         self.data_user: str = 'neo4j'
         self.database: str = 'reactome'
         self.password: str = 'qwerty1234'
-
         self.driver = GraphDatabase.driver(self.data_url, auth=(self.data_user, self.password), database=self.database)
-        self.triple_file: str = 'reactomeContents.txt'
+        self.triple_file: str = 'reactomeContents - triple.csv'
         
 
     def get_latest_source_version(self) -> str:
@@ -107,12 +106,14 @@ class ReactomeLoader(SourceDataLoader):
         """
 
         nodes, relations = self.get_triple()
+
+        # iterate through the compounds file and create a dictionary of chebi_id -> name
         
         # init the record counters
         record_counter: int = 0
         skipped_record_counter: int = 0
 
-        # Iterate through the reactome IDs and properties and create the nodes
+        # walk through the chebi IDs and names from the compounds file and create the chebi property nodes
         for node, props in nodes.items():
 
             # increment the record counter
@@ -124,15 +125,15 @@ class ReactomeLoader(SourceDataLoader):
             output_node = kgxnode(node,
                                     nodeprops=props)
             if not output_node:
+                skipped_record_counter += 1
                 continue
             self.final_node_list.append(output_node)
         
-         # Iterate through the reactome edges and properties and create the nodes
         for rel in relations:
             subjectid = rel[SUBJECT_COLUMN]
             objectid = rel[OBJECT_COLUMN]
-            property = rel[PREDICATE_PROP_COLUMN]
             predicate = rel[PREDICATE_COLUMN]
+            property = rel[PREDICATE_PROP_COLUMN]
         
             output_edge = kgxedge(
                 subject_id=subjectid,
@@ -156,16 +157,6 @@ class ReactomeLoader(SourceDataLoader):
         return load_metadata
     
     def filterProps(self, record):
-        # Some nodes stores additional properties of other nodes
-        # eg 1. (CatalystActivity)-[]-(Complex)
-        #    2. (Complex)-[summation]-(Summation)
-        # CatalystActivity describes the Catalytiic Activity the complex 
-        # Summation is the description of where the complex was Infered from
-        
-        # Also, Go_Term nodes has no stID and the Node Id can be filtered from either
-        # Databasename + ':' + Accession OR spliting the url to select the llast slice
-        # eg "url": "https://www.ebi.ac.uk/QuickGO/term/GO:0005765"
-        
         supposeProperties = ["CatalystActivity", "Summation"]
         record = {'a': {k: v for k, v in record['a'].items()},
                 'b': {k: v for k, v in record['b'].items()}}
@@ -173,88 +164,78 @@ class ReactomeLoader(SourceDataLoader):
         b_id = None
 
         if 'stId' in record["a"]:
-            a_id = f'REACT:{record["a"]["stId"]}'
-        elif 'url' in record["a"] and record["a"]['schemaClass'] not in supposeProperties:
-            a_ = record["a"]["url"].split("/")[-1]
-            if len(a_.split(':')) == 2: # GO:1234 or EBI-12333
-                a_id = a_
-        else:
-            if record["a"]['schemaClass'] in supposeProperties:
+            a_id = f'{REACTOME}:{record["a"]["stId"]}'
+        
+        elif 'databaseName' in record["a"] and 'accession' in record["a"]:
+            a_id = f'{record["a"]["databaseName"]}:{record["a"]["accession"]}'
+        
+        elif record["a"]['schemaClass'] in supposeProperties:
                 new_key = record["a"]["schemaClass"].lower()
                 record["b"][new_key] = record["a"]['displayName']
                 a_id = None
+        else:
+            a_id = record["a"]['schemaClass']
 
         if 'stId' in record["b"]:
-            b_id = f'REACT:{record["b"]["stId"]}'
-        elif 'url' in record["b"] and record["b"]['schemaClass'] not in supposeProperties:
-            b_ = record["b"]["url"].split("/")[-1]
-            if len(b_.split(':')) == 2: # GO:1234 or EBI-12333
-                b_id = b_
-        else:
-            if record["b"]["schemaClass"] in supposeProperties:
+            b_id = f'{REACTOME}:{record["b"]["stId"]}'
+        elif 'databaseName' in record["b"] and 'accession' in record["b"]:
+            b_id = f'{record["b"]["databaseName"]}:{record["b"]["accession"]}'
+        elif record["b"]["schemaClass"] in supposeProperties:
                 new_key = record["b"]["schemaClass"].lower()
                 record["a"][new_key] = record["b"]["displayName"]
-                b_id = None      
+                b_id = None 
+        else:
+            a_id = record["b"]['schemaClass']
+
         return record, a_id, b_id
 
-       
+    
+
     def get_triple(self) -> list:
         queries_to_include = []
+        lines_to_process = []
+
         with open(self.triple_file, 'r') as inf:
-            next(inf)
-            for line in inf:
-                line= line.split('\t')
-                if line[TRIPLE_TO_INCLUDE_COLUMN] == 'Include':
-                    cypher_query = line[CYPHER_COLUMN].strip()
-                    cypher_query = cypher_query.replace('"', "")
-                    queries_to_include.append(cypher_query)
-   
-        # Execute the query and retrieve the results
+            lines = inf.readlines()
+            lines_to_process = lines[1:]
+        
+        for line in lines_to_process:
+            line = line.strip().split(',')
+            if line[INCLUDE_COLUMN] == 'Include':
+                cypher_query = f"MATCH (a:{line[SUBJECT_COLUMN]})-[r:{line[PREDICATE_COLUMN]}]->(b:{line[OBJECT_COLUMN]}) RETURN a, r, b"
+                queries_to_include.append(cypher_query)
+
+        # Execute the queries and retrieve the results
         with self.driver.session() as session:
             results = []
             for cypher_query in queries_to_include:
                 result = session.run(cypher_query)
                 results.append(list(result))
 
-        
+
         # Extract the node properties and relation information
         nodes = defaultdict(dict)
         relations = []
-        notnormalize = {}
-        for _, result in enumerate(results):
-            for _, record in enumerate(result):
+
+        for result in results:
+            for record in result:
                 records, a_id, b_id = self.filterProps(record)
-                # Add the subject and object nodes to the dictionary if they don't exist
-                if not a_id:
-                    continue
-                if a_id in nodes[a_id]:
+                
+                if not a_id or a_id in nodes[a_id]:
                     continue
                 nodes[a_id].update(dict(records["a"].items()))
-                
-                if not b_id:
-                    continue
-                if b_id in nodes[b_id]:
+
+                if not b_id or b_id in nodes[b_id]:
                     continue
                 nodes[b_id].update(dict(records["b"].items()))
 
-                # Add relation properties to the corresponding dictionaries
-                if not (a_id and b_id):
-                    notnormalize.update({f'{record["r"].type}':[record['a']['schemaClass'], record['b']['schemaClass']]})
-                    continue
-                rl = dict(record["r"])
-                rll = [a_id, record["r"].type, rl, b_id]
-                relations.append(rll)
-                
-        
-        #wanna track the unnormalized nodes and edges
-        json_ = json.dumps(notnormalize, indent=4)
-        f = open("unnormalized.json","w")
-        # write json object to file
-        f.write(json_)
-        f.close()
+                if a_id and b_id:
+                    rl = dict(record["r"])
+                    rll = [a_id, record["r"].type, b_id, rl]
+                    relations.append(rll)
+
         return nodes, relations
-
-
+    
 
 if __name__ == '__main__':
         # create a command line parser
