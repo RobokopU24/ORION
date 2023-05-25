@@ -9,7 +9,7 @@ graphs:
     # graph_description: 'The baseline graph from which RobokopKG and other graphs are built.'
     # conflation: True # (whether to conflate node types like Genes and Proteins)
     graph_name: ROBOKOP Baseline
-    graph_description: 'ROBOKOP (KG) is an open-source biomedical KG that supports the ROBOKOP application. This is the baseline version of that graph, which does not include knowledge sources with specific genetic variants.'
+    graph_description: 'The ROBOKOP Knowledge Graph (ROBOKOP KG) is an open-source biomedical KG that supports the ROBOKOP application and currently contains millions of biomedical relationships derived from dozens of integrated and harmonized biological knowledge sources and bio-ontologies. The ROBOKOP KG includes curated components of most of the Automat KGs, as well as other knowledge sources. Most of the ROBOKOP knowledge sources are curated. However, the ROBOKOP KG also includes text-mined assertions from PubMed and PubMed Central that have been derived from natural language processing (NLP). Note that text-based assertions, while providing valuable information, must be interpreted with caution, as NLP algorithms may introduce false assertions.'
     graph_url: http://robokopkg.renci.org/browser/
     conflation: True
     output_format: jsonl
@@ -69,8 +69,8 @@ graphs:
         merge_strategy: connected_edge_subset
 
   - graph_id: CAMKP_Automat
-    graph_name: CAM KP
-    graph_description: 'CAMs (Causal Activity Models) are small knowledge graphs built using the Web Ontology Language (OWL). The CAM database combines many CAM graphs along with a large merged bio-ontology containing the full vocabulary of concepts referenced within the individual CAMs. Each CAM describes an instantiation of some of those concepts in a particular context, modeling the interactions between those instances as an interlinked representation of a complex biological or environmental process.'
+    graph_name: CAM Provider KG
+    graph_description: 'The CAMP Provider KG contains data on CAMs (Causal Activity Models), which are small knowledge graphs built using the Web Ontology Language (OWL). The CAM database combines many CAM graphs, along with a large merged bio-ontology containing the full vocabulary of concepts referenced within the individual CAMs. Each CAM describes an instantiation of some of those concepts in a particular context, modeling the interactions between those instances as an interlinked representation of a complex biological or environmental process.'
     graph_url:
     conflation: False
     output_format: neo4j
@@ -89,7 +89,7 @@ graphs:
 
   - graph_id: DrugCentral_Automat
     graph_name: DrugCentral
-    graph_description: 'DrugCentral provides open-source data on active ingredients, chemical entities, pharmaceutical products, drug mode of action, indications, and pharmacologic action for approved drugs, derived from information provided by the US Food & Drug Administration, the European Medicines Agency, and the Pharmaceutical and Medical Devices Agency. Caveat: DrugCentral provides limited information on discontinued drugs and drugs approved outside of the US, but that information has not been validated.'
+    graph_description: 'DrugCentral provides open-source data on active ingredients, chemical entities, pharmaceutical products, drug mode of action, indications, and pharmacologic action for approved drugs, derived from information provided by the US Food & Drug Administration, the European Medicines Agency, and the Pharmaceutical and Medical Devices Agency. Note that DrugCentral provides limited information on discontinued drugs and drugs approved outside of the US, but that information has not been validated.'
     graph_url: https://drugcentral.org/
     output_format: neo4j
     sources:
@@ -99,7 +99,7 @@ graphs:
 
   - graph_id: GenomeAllianceOrthologs_Automat
     graph_name: Alliance of Genome Resources
-    graph_description: 'The Alliance of Genome Resources is a consortium of 7 model organism databases (MODs) and the Gene Ontology (GO) Consortium whose goal is to provide an integrated view of their data to all biologists, clinicians and other interested parties. The Alliance provides the results of all methods that have been benchmarked by the Quest for Orthologs Consortium (QfO), as well as curated ortholog inferences from HGNC (for human, mouse and rat genes).'
+    graph_description: 'The Alliance of Genome Resources is a consortium of the owners of seven model organism databases (MODs) and the Gene Ontology (GO) Consortium, whose goal is to provide an integrated view of their data to all biologists, clinicians, and other interested parties. The Alliance provides the results of all methods that have been benchmarked by the Quest for Orthologs Consortium (QfO), as well as curated ortholog inferences from HGNC (human, mouse, rat genes).'
     graph_url: https://www.alliancegenome.org/
     output_format: neo4j
     sources:
@@ -192,7 +192,7 @@ graphs:
 
   - graph_id: PANTHER_Automat
     graph_name: PANTHER
-    graph_description: 'The Protein ANalysis THrough Evolutionary Relationships (PANTHER) classification system provides an openly available annotation library of gene family phylogenetic trees, with persistent identifiers attached to all nodes in the trees and annotation of each protein member of the family by its family and protein class, subfamily, orthologs, paralogs, GO Phylogenetic Annotation Project function and Reactome pathways.'
+    graph_description: 'The Protein ANalysis THrough Evolutionary Relationships (PANTHER) classification system provides an openly available annotation library of gene family phylogenetic trees, with persistent identifiers attached to all nodes in the trees and annotation of each protein member of the family by its family and protein class, subfamily, orthologs, paralogs, GO Phylogenetic Annotation Project function, and Reactome pathways.'
     graph_url: http://pantherdb.org/
     output_format: neo4j
     sources:
@@ -222,7 +222,7 @@ graphs:
 
   - graph_id: TMKP_Automat
     graph_name: Text Mining Provider KG
-    graph_description: 'The Text Mining Provider KG contains subject-predicate-object assertions derived from the application of natural language processing (NLP) algorithms to the PubMedCentral Open Access collection of publications plus additional titles and abstracts from PubMed. Caveat: Text-mined assertions must be interpreted with caution, as NLP algorithms may introduce false assertions.'
+    graph_description: 'The Text Mining Provider KG contains subject-predicate-object assertions derived from the application of natural language processing (NLP) algorithms to the PubMedCentral Open Access collection of publications plus additional titles and abstracts from PubMed. Note thattext-mined assertions, while providing valuable information, must be interpreted with caution, as NLP algorithms may introduce false assertions.'
     graph_url: https://github.com/NCATSTranslator/Translator-All/wiki/Text-Mining-Provider
     output_format: neo4j
     sources:
@@ -232,7 +232,7 @@ graphs:
 
   - graph_id: Ubergraph_Automat
     graph_name: Ubergraph
-    graph_description: 'Ubergraph is an open-source graph database containing integrated ontologies, including Gene Ontology (GO), Chemical Entities of Biological Interest (ChEBI), Human Phenotype Ontology (HPO), and the Uber-anatomy ontology (Uberon).'
+    graph_description: 'Ubergraph is an open-source graph database containing integrated ontologies, including Gene Ontology (GO), Chemical Entities of Biological Interest (ChHEBI), Human Phenotype Ontology (HPO), and the Uber-anatomy ontology (Uberon)’s anatomical ontology.'
     graph_url: https://github.com/INCATools/ubergraph
     output_format: neo4j
     sources:
