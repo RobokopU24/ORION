@@ -58,7 +58,17 @@ graphs:
         node_normalization_version: '2.0.9'
       - source_id: GTEx
 
-  - graph_id: Biolink_Automat
+ # graph_id: 
+ #  graph_name: BidingDB
+ #  graph_description: 'Binding DataBase (BindingDB) openly exposes curated data on chemical entities and their molecular targets.'
+ #  graph_url: 
+ #  output_format: 
+ #  sources:
+ #    - source_id: 
+ #    - source_id: 
+ #      merge_strategy: 
+ 
+ - graph_id: Biolink_Automat
     graph_name: RENCI SRI Reference KG
     graph_description: 'The RENCI Standards and Reference Implementation (SRI) Reference KG represents a subset of the SRI Reference KG.'
     graph_url: https://github.com/Knowledge-Graph-Hub/sri-reference-kg
@@ -86,6 +96,16 @@ graphs:
       - source_id: CTD
       - source_id: OntologicalHierarchy
         merge_strategy: connected_edge_subset
+
+ #- graph_id: 
+ #  graph_name: DisGeNET
+ #  graph_description: 'Disease – Gene Network (DisGeNET) is an open-source database on genes and variants associated with human disease. The integrated data are derived from curated repositories, GWAS catalogs, animal models, and the scientific literature.'
+ #  graph_url: 
+ #  output_format: 
+ #  sources:
+ #    - source_id:
+ #    - source_id:
+ #      merge_strategy:
 
   - graph_id: DrugCentral_Automat
     graph_name: DrugCentral
@@ -210,6 +230,16 @@ graphs:
       - source_id: OntologicalHierarchy
         merge_strategy: connected_edge_subset
 
+  #- graph_id: 
+  #  graph_name: SRI Reference KG
+  #  graph_description: 'The Standards and Reference Implementation (SRI) Reference KG represents a combination of the integrated Monarch KG and several other biomedical knowledge sources.'
+  #  graph_url: 
+  #  output_format: 
+  #  sources:
+  #    - source_id: 
+  #    - source_id: 
+  #     merge_strategy: 
+  
   - graph_id: STRING-DB_Automat
     graph_name: STRING
     graph_description: 'The Search Tool for the Retrieval of INteracting Genes/proteins (STRING) database provides information on known and predicted protein-protein interactions (both direct and indirect) derived from genomic context predictions, high-throughput laboratory experiments, conserved co-expression, automated text mining, and aggregated knowledge from primary data sources.'
@@ -240,7 +270,7 @@ graphs:
 
   - graph_id: UbergraphRedundant_Automat
     graph_name: Ubergraph Redundant
-    graph_description: 'The redundant version of Ubergraph contains the complete inference closure for all subclass and existential relations, including transitive, reflexive subclass relations.'
+    graph_description: 'Ubergraph is an open-source graph database containing integrated ontologies, including Gene Ontology (GO), Chemical Entities of Biological Interest (ChHEBI), Human Phenotype Ontology (HPO), and the Uber-anatomy ontology (Uberon)’s anatomical ontology. The redundant version '
     graph_url: https://github.com/INCATools/ubergraph
     output_format: neo4j
     sources:
