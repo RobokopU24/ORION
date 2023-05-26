@@ -1,18 +1,24 @@
 import json
+import argparse
+import os
 from collections import defaultdict
 
-from node_types import NODE_TYPES, SUBJECT_ID, OBJECT_ID, PREDICATE, PRIMARY_KNOWLEDGE_SOURCE, AGGREGATOR_KNOWLEDGE_SOURCES
-from utils import quick_jsonl_file_iterator
-from biolink_utils import BiolinkUtils
+from Common.node_types import NODE_TYPES, SUBJECT_ID, OBJECT_ID, PREDICATE, PRIMARY_KNOWLEDGE_SOURCE, AGGREGATOR_KNOWLEDGE_SOURCES
+from Common.utils import quick_jsonl_file_iterator
+from Common.biolink_utils import BiolinkUtils
 
 BL_ATTRIBUTE_MAP = {
     "equivalent_identifiers": "biolink:same_as",
     "endogenous": "aragorn:endogenous"
 }
 
+META_KG_FILENAME = 'meta_knowledge_graph.json'
+TEST_DATA_FILENAME = 'testing_data.json'
+
 
 ####
-# This class is responsible for creating a meta knowledge graph, as defined by the NCATSTranslator ReasonerAPI
+# This class is responsible for generating a meta knowledge graph, as defined by the NCATSTranslator ReasonerAPI
+# It also generates sample testing data (specific examples for each edge type) for usage by the SRI testing harness.
 ####
 class MetaKnowledgeGraphBuilder:
 
@@ -25,15 +31,16 @@ class MetaKnowledgeGraphBuilder:
         self.bl_utils = BiolinkUtils()
 
         self.node_id_to_leaf_types = None
-        node_metadata = self.analyze_nodes(nodes_file_path)
-        edge_metadata = self.analyze_edges(edges_file_path)
         self.meta_kg = {
-            'nodes': node_metadata,
-            'edges': edge_metadata
+            "nodes": {},
+            "edges": []
         }
-
-    def get_meta_kg(self):
-        return self.meta_kg
+        self.testing_data = {
+            "source_type": "primary",
+            "edges": []
+        }
+        self.analyze_nodes(nodes_file_path)
+        self.analyze_edges(edges_file_path)
 
     ####
     # Walk through the nodes to find metadata about each node type.
@@ -79,12 +86,11 @@ class MetaKnowledgeGraphBuilder:
 
         self.node_id_to_leaf_types = node_id_to_leaf_types
 
-        node_metadata = {
+        self.meta_kg['nodes'] = {
             node_type: {'id_prefixes': list(node_type_to_curie_prefixes[node_type]),
                         'attributes': [node_attribute_to_metadata[attribute]
                                        for attribute in node_type_to_attributes[node_type]]}
             for node_type in node_type_to_curie_prefixes.keys()}
-        return node_metadata
 
     def analyze_edges(self, edges_file_path: str):
 
@@ -94,6 +100,7 @@ class MetaKnowledgeGraphBuilder:
         edge_attribute_to_metadata = {}
         edge_type_key_to_attributes = defaultdict(set)
         edge_type_key_to_qualifiers = defaultdict(lambda: defaultdict(set))
+        edge_type_key_to_example = {}
         edge_types = defaultdict(lambda: defaultdict(set))  # subject_id to object_id to set of predicates
 
         for edge in quick_jsonl_file_iterator(edges_file_path):
@@ -106,7 +113,8 @@ class MetaKnowledgeGraphBuilder:
                                       f'Make sure the nodes are present in the nodes file. KeyError: {e}')
                 continue
 
-            non_core_edge_attributes = [key for key in edge.keys() if key not in core_attributes]
+            non_core_edge_attributes = [key for key in edge.keys()
+                                        if key not in core_attributes and edge[key] is not None]
             edge_attributes = [key for key in non_core_edge_attributes if 'qualifie' not in key]
             for edge_attribute in edge_attributes:
                 if edge_attribute not in edge_attribute_to_metadata:
@@ -130,7 +138,22 @@ class MetaKnowledgeGraphBuilder:
                     for qual, qual_val in edge_qualifier_values.items():
                         edge_type_key_to_qualifiers[edge_type_key][qual].add(qual_val)
 
-        all_edge_metadata = []
+                    if edge_type_key not in edge_type_key_to_example:
+                        example_edge = {
+                            "subject_category": subject_type,
+                            "object_category": object_type,
+                            "predicate": predicate,
+                            "subject_id": edge[SUBJECT_ID],
+                            "object_id": edge[OBJECT_ID]
+                        }
+                        if edge_qualifier_values:
+                            example_edge['qualifiers'] = [
+                                {"qualifier_type_id": f"biolink:{qualifier}" if not qualifier.startswith("biolink:") else qualifier,
+                                 "qualifier_value": qualifier_value}
+                                for qualifier, qualifier_value in edge_qualifier_values.items()
+                            ]
+                        edge_type_key_to_example[edge_type_key] = example_edge
+
         for subject_node_type, object_types_to_predicates in edge_types.items():
             for object_node_type, predicates in object_types_to_predicates.items():
                 for predicate in predicates:
@@ -145,8 +168,9 @@ class MetaKnowledgeGraphBuilder:
                                         'applicable_values': list(qual_vals)}
                                        for qualifier, qual_vals in edge_type_key_to_qualifiers[edge_type_key].items()]
                     }
-                    all_edge_metadata.append(edge_metadata)
-        return all_edge_metadata
+                    self.meta_kg['edges'].append(edge_metadata)
+                    if edge_type_key in edge_type_key_to_example:
+                        self.testing_data['edges'].append(edge_type_key_to_example[edge_type_key])
 
     def get_meta_attribute(self, attribute_name):
         original_attribute_name = attribute_name
@@ -166,5 +190,10 @@ class MetaKnowledgeGraphBuilder:
         }
         return meta_attribute
 
+    def write_meta_kg_to_file(self, output_file_path: str):
+        with open(output_file_path, 'w') as meta_kg_file:
+            meta_kg_file.write(json.dumps(self.meta_kg, indent=4))
 
-
+    def write_test_data_to_file(self, output_file_path: str):
+        with open(output_file_path, 'w') as test_data_file:
+            test_data_file.write(json.dumps(self.testing_data, indent=4))
