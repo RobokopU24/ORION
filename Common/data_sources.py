@@ -30,6 +30,8 @@ UBERGRAPH_REDUNDANT = 'UbergraphRedundant'
 UNIREF = 'UniRef'
 VP = 'ViralProteome'
 YEASTSGD = 'YeastSGDInfo'
+YEAST_HISTONES = "YeastHistoneMapping"
+YEAST_COSTANZA = "Costanza2016Data"
 YEAST_GSE61888 = 'YeastGSE61888'
 YEAST_GASCHDIAMIDE = 'YeastGaschDiamideGeneExpression'
 YEAST_STRING_DB = 'Yeast-STRING-DB'
@@ -65,6 +67,8 @@ SOURCE_DATA_LOADER_CLASS_IMPORTS = {
     UNIREF: ("parsers.ViralProteome.src.loadUniRef", "UniRefSimLoader"),
     VP: ("parsers.ViralProteome.src.loadVP", "VPLoader"),
     YEASTSGD: ("parsers.yeast.src.loadYeastSGDInfo", "YeastSGDLoader"),
+    YEAST_HISTONES: ("parsers.yeast.src.loadHistoneMap", "YeastHistoneMapLoader"),
+    YEAST_COSTANZA: ("parsers.yeast.src.loadCostanza2016", "Costanza2016Loader"),
     YEAST_GASCHDIAMIDE: ("parsers.yeast.src.loadYeastGeneExpressionGasch.py", "YeastGaschDiamideLoader"),
     YEAST_STRING_DB: ("parsers.yeast.src.loadYeastGSTRINGDB.py", "STRINGDBLoader")
 }
