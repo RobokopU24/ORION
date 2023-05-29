@@ -71,5 +71,7 @@ FALLBACK_EDGE_PREDICATE = 'biolink:related_to'
 PRIMARY_KNOWLEDGE_SOURCE = 'biolink:primary_knowledge_source'
 AGGREGATOR_KNOWLEDGE_SOURCES = 'biolink:aggregator_knowledge_source'
 PUBLICATIONS = 'publications'
+AFFINITY = 'affinity'
+AFFINITY_PARAMETER = 'affinityParameter'
 XREFS = 'xref'
 
