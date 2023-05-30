@@ -34,8 +34,7 @@ class Neo4jTools:
                           graph_version: str,
                           graph_directory: str,
                           nodes_filename: str = 'nodes.jsonl',
-                          edges_filename: str = 'edges.jsonl',
-                          generate_meta_kg_and_test_data: bool = False):
+                          edges_filename: str = 'edges.jsonl'):
 
         graph_nodes_file_path = os.path.join(graph_directory, nodes_filename)
         graph_edges_file_path = os.path.join(graph_directory, edges_filename)
