@@ -16,7 +16,6 @@ from Common.metadata import Metadata, GraphMetadata, SourceMetadata
 from Common.supplementation import SequenceVariantSupplementation
 from Common.node_types import PRIMARY_KNOWLEDGE_SOURCE, PREDICATE
 from Common.meta_kg import MetaKnowledgeGraphBuilder, META_KG_FILENAME, TEST_DATA_FILENAME
-from Common.neo4j_meta_kg import Neo4jMetaKGGenerator
 
 NODES_FILENAME = 'nodes.jsonl'
 EDGES_FILENAME = 'edges.jsonl'
@@ -108,9 +107,13 @@ class GraphBuilder:
 
         if 'neo4j' in graph_spec.graph_output_format.lower():
             self.logger.info(f'Starting Neo4j dump pipeline for {graph_id}...')
-            dump_success = self.create_neo4j_dump(graph_id=graph_id,
-                                                  graph_version=graph_version,
-                                                  graph_directory=graph_output_dir)
+            neo4j_tools = Neo4jTools(graph_id=graph_id,
+                                     graph_version=graph_version)
+            dump_success = neo4j_tools.create_neo4j_dump(graph_id=graph_id,
+                                                         graph_version=graph_version,
+                                                         graph_directory=graph_output_dir,
+                                                         nodes_filename=NODES_FILENAME,
+                                                         edges_filename=EDGES_FILENAME)
             if dump_success:
                 graph_output_url = self.get_graph_output_URL(graph_id, graph_version)
                 graph_metadata.set_dump_url(f'{graph_output_url}graph_{graph_version}.db.dump')
