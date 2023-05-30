@@ -70,7 +70,8 @@ SOURCE_DATA_LOADER_CLASS_IMPORTS = {
     VP: ("parsers.ViralProteome.src.loadVP", "VPLoader"),
     YEAST_HISTONES: ("parsers.yeast.src.loadHistoneMap", "YeastHistoneMapLoader"),
     YEAST_COSTANZA: ("parsers.yeast.src.loadCostanza2016", "Costanza2016Loader"),
-    YEAST_GASCHDIAMIDE: ("parsers.yeast.src.loadYeastGeneExpressionGasch.py", "YeastGaschDiamideLoader"),
+    YEAST_GASCHDIAMIDE: ("parsers.yeast.src.loadYeastGeneExpressionGasch", "YeastGaschDiamideLoader"),
+    YEAST_GSE61888: ("parsers.yeast.src.loadYeastNucleosomesGSE61888", "YeastGSE61888Loader"),
     YEAST_STRING: ("parsers.STRING.src.loadSTRINGDB", "YeastSTRINGDBLoader")
 }
 
