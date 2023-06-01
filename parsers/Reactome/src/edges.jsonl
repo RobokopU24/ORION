@@ -1,3 +1,0 @@
-{"subject": "REACT:R-CFA-432696", "predicate": "compartment", "object": "GO:0005765", "biolink:primary_knowledge_source": "infores:reactome-properties", "stoichiometry": 1, "order": 0}
-{"subject": "REACT:R-RNO-432696", "predicate": "compartment", "object": "GO:0005765", "biolink:primary_knowledge_source": "infores:reactome-properties", "stoichiometry": 1, "order": 0}
-{"subject": "REACT:R-DRE-432696", "predicate": "compartment", "object": "GO:0005765", "biolink:primary_knowledge_source": "infores:reactome-properties", "stoichiometry": 1, "order": 0}
