@@ -1,0 +1,4 @@
+[
+    "MATCH (a:EntityWithAccessionedSequence)-[r:referenceEntity]->(b:ReferenceSequence) SET a.ids = b.databaseName+'KB:'+b.identifier",
+    "MATCH (a:SimpleEntity)-[r:referenceEntity]->(b:ReferenceMolecule) SET a.ids = REPLACE(b.databaseName, ' ', '.')+':'+b.identifier"
+]

@@ -1,0 +1,7 @@
+# yeast graph spec
+graphs:
+  - graph_id: Reactome_Test_Graph
+    conflation: False
+    strict_normalization: False
+    sources:
+      - source_id: REACTOME-DB
