@@ -1,15 +1,11 @@
-import gzip
 import os
 import enum
-import gzip
 import pandas as pd
-import numpy as np
 
-from parsers.yeast.src.collectSGDdata import createLociWindows
-from Common.utils import GetData
+from parsers.SGD.src.sgd_source_retriever import SGDAllGenes
 from Common.loader_interface import SourceDataLoader
 from Common.extractor import Extractor
-from Common.node_types import AGGREGATOR_KNOWLEDGE_SOURCES, PRIMARY_KNOWLEDGE_SOURCE
+from Common.node_types import PRIMARY_KNOWLEDGE_SOURCE
 
 
 # Maps Experimental Condition affects Nucleosome edge.
@@ -67,11 +63,13 @@ class YeastGaschDiamideLoader(SourceDataLoader):
 
         self.yeast_data_url = 'https://stars.renci.org/var/data_services/yeast/'
 
-        self.genes_file = f"{self.data_path}/../../../YeastSGDInfo/yeast_v1/source/SGDAllGenes.csv"
-        self.GASCH_diamide_gene_expression = "Gasch_Diamide_Gene_Expression.csv"
+        self.sgd_genes_file = "SGDAllGenes.csv"
+        self.GASCH_diamide_gene_expression_file = "Gasch_Diamide_Gene_Expression.csv"
+        self.GASCH_diamide_gene_expression_to_genes_file = "GaschDiamideGeneExpression2Genes.csv"
         
         self.data_files = [
-            self.GASCH_diamide_gene_expression
+            self.GASCH_diamide_gene_expression_to_genes_file,
+            self.sgd_genes_file
         ]
 
     def get_latest_source_version(self) -> str:
@@ -82,49 +80,23 @@ class YeastGaschDiamideLoader(SourceDataLoader):
         """
         return 'yeast_v1_5'
 
-    def int_to_Roman(self, num):
-        val = [
-            1000, 900, 500, 400,
-            100, 90, 50, 40,
-            10, 9, 5, 4,
-            1
-            ]
-        syb = [
-            "M", "CM", "D", "CD",
-            "C", "XC", "L", "XL",
-            "X", "IX", "V", "IV",
-            "I"
-            ]
-        roman_num = ''
-        i = 0
-        while  num > 0:
-            for _ in range(num // val[i]):
-                roman_num += syb[i]
-                num -= val[i]
-            i += 1
-        return roman_num
-
     def get_data(self) -> int:
         """
         Gets the GEO datasets.
         """
-        all_genes = pd.read_csv(self.genes_file)
-        
-        data_puller = GetData()
-        for source in self.data_files:
-            source_url = f"{self.yeast_data_url}{source}"
-            data_puller.pull_via_http(source_url, self.data_path)
-            dataset = pd.read_csv(source_url)
-            means = []
-            for row,idx in dataset.iterrows():
-                means = means + [dataset.iloc[row,3:11].to_numpy().mean()]
-            dataset['Mean Expression'] = means
-            mergedf = dataset.merge(all_genes, how='inner',left_on='YORF',right_on='secondaryIdentifier')
-            print(f"Diamide Gene Expression Mapping Complete!")
-            csv_f3name = "GaschDiamideGeneExpression2Genes.csv"
-            mergedf.to_csv(os.path.join(self.data_path,csv_f3name), encoding="utf-8-sig", index=False)
-            print(os.path.join(self.data_path,csv_f3name))
-    
+        SGDAllGenes(data_directory=self.data_path)
+        sgd_genes_path = os.path.join(self.data_path, self.sgd_genes_file)
+        all_genes = pd.read_csv(sgd_genes_path)
+
+        source_url = f"{self.yeast_data_url}{self.GASCH_diamide_gene_expression_file}"
+        dataset = pd.read_csv(source_url)
+        means = []
+        for row,idx in dataset.iterrows():
+            means = means + [dataset.iloc[row,3:11].to_numpy().mean()]
+        dataset['Mean Expression'] = means
+        mergedf = dataset.merge(all_genes, how='inner',left_on='YORF',right_on='secondaryIdentifier')
+        self.logger.debug(f"Diamide Gene Expression Mapping Complete!")
+        mergedf.to_csv(os.path.join(self.data_path, self.GASCH_diamide_gene_expression_to_genes_file), encoding="utf-8-sig", index=False)
         return True
     
     def parse_data(self) -> dict:
@@ -138,7 +110,7 @@ class YeastGaschDiamideLoader(SourceDataLoader):
 
         #Experimental conditions to Gene Expression edges. Edges contain expression fold change as propoerties.
         #In this case, handles data from "Genomic expression programs in the response of yeast cells to environmental changes" (Gasch, 2010)
-        gene_expresion_file: str = os.path.join(self.data_path, "GaschDiamideGeneExpression2Genes.csv")
+        gene_expresion_file: str = os.path.join(self.data_path, self.GASCH_diamide_gene_expression_to_genes_file)
         with open(gene_expresion_file, 'r') as fp:
 
             extractor.csv_extract(fp,
