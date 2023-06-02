@@ -250,7 +250,7 @@ class YeastGSE61888Loader(SourceDataLoader):
         histone_loader.fetch_histone_data(genome_resolution=self.genome_resolution,
                                           output_directory=self.data_path,
                                           generate_gene_mapping=False)
-        binned_histones = pd.read_csv(self.binned_histone_mods_file)
+        binned_histones = pd.read_csv(os.path.join(self.data_path, self.binned_histone_mods_file))
         
         data_puller = GetData()
         for source in self.data_files:
