@@ -4,6 +4,7 @@ import requests as rq
 import pandas as pd
 
 from parsers.SGD.src.sgd_source_retriever import SGDAllGenes
+from parsers.yeast.src.yeast_constants import YEAST_GENOME_RESOLUTION, SGD_ALL_GENES_FILE, HISTONE_LOCI_FILE
 from Common.loader_interface import SourceDataLoader
 from Common.extractor import Extractor
 from Common.node_types import PRIMARY_KNOWLEDGE_SOURCE
@@ -53,9 +54,10 @@ class YeastHistoneMapLoader(SourceDataLoader):
         # call the super
         super().__init__(test_mode=test_mode, source_data_dir=source_data_dir)
 
-        self.genome_resolution = 150
+        self.genome_resolution = YEAST_GENOME_RESOLUTION
+
         #self.yeast_data_url = 'https://stars.renci.org/var/data_services/yeast/'
-        self.histone_mod_list_file_name = f"Res{self.genome_resolution}HistoneModLoci.csv"
+        self.histone_mod_list_file_name = HISTONE_LOCI_FILE
         self.histone_mod_to_gene_file_name = "HistoneMod2Gene.csv"
         self.histone_mod_to_go_term_file_name = "HistonePTM2GO.csv"
         
@@ -78,9 +80,10 @@ class YeastHistoneMapLoader(SourceDataLoader):
         Gets the yeast data.
 
         """
-        genome_resolution = 150
         SGDAllGenes(data_directory=self.data_path)
-        self.fetch_histone_data(genome_resolution=genome_resolution)
+        self.fetch_histone_data(genome_resolution=self.genome_resolution,
+                                output_directory=self.data_path,
+                                generate_gene_mapping=True)
 
         return True
 
@@ -160,7 +163,10 @@ class YeastHistoneMapLoader(SourceDataLoader):
 
         return extractor.load_metadata
 
-    def fetch_histone_data(self, genome_resolution: int):
+    def fetch_histone_data(self,
+                           genome_resolution: int,
+                           output_directory: str,
+                           generate_gene_mapping: bool = True):
 
         # Creates sliding windows of hypothetical genome locations of all Histone PTMs.
         n = int(genome_resolution)  # Sets sliding window resolution.
@@ -270,7 +276,7 @@ class YeastHistoneMapLoader(SourceDataLoader):
         self.logger.debug('Histone Modifications Mapped to GO Terms!')
         csv_fname = f"HistonePTM2GO.csv"
         histonePTM2GO_df = pd.DataFrame.from_dict(histonePTM2GO)
-        histonePTM2GO_df.to_csv(os.path.join(self.data_path, csv_fname), encoding="utf-8-sig", index=False)
+        histonePTM2GO_df.to_csv(os.path.join(output_directory, csv_fname), encoding="utf-8-sig", index=False)
         for chr in chromosome_lengths.keys():
             m = int(chromosome_lengths[chr])
             for i in range(m):  # Create loci nodes for chromosomes
@@ -296,10 +302,12 @@ class YeastHistoneMapLoader(SourceDataLoader):
                         data['histoneMod'].append(ptm)
         genomelocidf = pd.DataFrame(data)
         self.logger.debug('Histone Modifications Loci Collected!')
-        csv_f1name = f"Res{n}HistoneModLoci.csv"
-        genomelocidf.to_csv(os.path.join(self.data_path, csv_f1name), encoding="utf-8-sig", index=False)
+        genomelocidf.to_csv(os.path.join(output_directory, HISTONE_LOCI_FILE), encoding="utf-8-sig", index=False)
 
-        allgenesdf = pd.read_csv(self.data_path + '/SGDAllGenes.csv')
+        if not generate_gene_mapping:
+            return
+
+        allgenesdf = pd.read_csv(os.path.join(output_directory, SGD_ALL_GENES_FILE))
         chrome_dict = {}
         for uc in chromosome_lengths.keys():
             chrome_dict.update({uc: allgenesdf.loc[(allgenesdf['chromosome.primaryIdentifier'] == uc)]})
@@ -328,4 +336,4 @@ class YeastHistoneMapLoader(SourceDataLoader):
 
         self.logger.debug(f"Histone Modifications Mapping Complete!")
         csv_f3name = f"HistoneMod2Gene.csv"
-        genomelocidf.to_csv(os.path.join(self.data_path, csv_f3name), encoding="utf-8-sig", index=False)
+        genomelocidf.to_csv(os.path.join(output_directory, csv_f3name), encoding="utf-8-sig", index=False)
