@@ -1,17 +1,13 @@
 import os
-import logging
 import enum
+import pandas as pd
 
-from copy import deepcopy
-
-import numpy
-from parsers.yeast.src.collectCostanza2016Data import main
-from Common.utils import LoggingUtil, GetData
 from Common.loader_interface import SourceDataLoader
 from Common.extractor import Extractor
-from Common.node_types import AGGREGATOR_KNOWLEDGE_SOURCES, PRIMARY_KNOWLEDGE_SOURCE
+from Common.node_types import PRIMARY_KNOWLEDGE_SOURCE, PUBLICATIONS
+from Common.prefixes import PUBMED
+from intermine.webservice import Service
 
-from Common.kgxmodel import kgxnode, kgxedge
 
 # Costanza 2016 Yeast Genetic Interactions
 class COSTANZA_GENEINTERACTIONS(enum.IntEnum):
@@ -23,6 +19,7 @@ class COSTANZA_GENEINTERACTIONS(enum.IntEnum):
     SGASCORE = 18
     GENE1ALLELE = 19
     GENE2ALLELE = 20
+
 
 ##############
 # Class: Mapping Costanza 2016 Genetic Interaction Data to Phenotypes
@@ -40,10 +37,7 @@ class Costanza2016Loader(SourceDataLoader):
         constructor
         :param test_mode - sets the run into test mode
         """
-        # call the super
         super().__init__(test_mode=test_mode, source_data_dir=source_data_dir)
-
-        #self.yeast_data_url = 'https://stars.renci.org/var/data_services/yeast/'
 
         self.costanza_genetic_interactions_file_name = "Costanza2016GeneticInteractions.csv"
         
@@ -64,8 +58,87 @@ class Costanza2016Loader(SourceDataLoader):
         Gets the yeast data.
 
         """
-        main(self.data_path)
+        # Collects all data for complexes with GO Term annotations in SGD.
+        self.logger.debug(
+            "---------------------------------------------------\nCollecting all Costanza 2016 dataset of yeast genetic interactions...\n---------------------------------------------------\n")
+        service = Service("https://yeastmine.yeastgenome.org/yeastmine/service")
+        query = service.new_query("Gene")
+        query.add_constraint("interactions.participant2", "Gene")
+        query.add_view(
+            "primaryIdentifier", "secondaryIdentifier", "symbol", "name", "sgdAlias",
+            "interactions.details.annotationType", "interactions.details.phenotype",
+            "interactions.details.role1",
+            "interactions.details.experiment.publication.pubMedId",
+            "interactions.details.experiment.publication.citation",
+            "interactions.details.experiment.publication.title",
+            "interactions.details.experiment.publication.journal",
+            "interactions.participant2.symbol",
+            "interactions.participant2.secondaryIdentifier",
+            "interactions.details.experiment.interactionDetectionMethods.identifier",
+            "interactions.details.experiment.name",
+            "interactions.details.relationshipType",
+            "interactions.alleleinteractions.pvalue",
+            "interactions.alleleinteractions.sgaScore",
+            "interactions.alleleinteractions.allele1.name",
+            "interactions.alleleinteractions.allele2.name",
+            "interactions.participant2.primaryIdentifier"
+        )
+        query.add_constraint("interactions.details.experiment.publication", "LOOKUP", "27708008", code="A")
+        query.outerjoin("interactions.alleleinteractions")
 
+        view = [
+            "primaryIdentifier", "secondaryIdentifier", "symbol", "name", "sgdAlias",
+            "interactions.details.annotationType", "interactions.details.phenotype",
+            "interactions.details.role1",
+            "interactions.details.experiment.publication.pubMedId",
+            "interactions.details.experiment.publication.citation",
+            "interactions.details.experiment.publication.title",
+            "interactions.details.experiment.publication.journal",
+            "interactions.participant2.symbol",
+            "interactions.participant2.secondaryIdentifier",
+            "interactions.details.experiment.interactionDetectionMethods.identifier",
+            "interactions.details.experiment.name",
+            "interactions.details.relationshipType",
+            "interactions.alleleinteractions.pvalue",
+            "interactions.alleleinteractions.sgaScore",
+            "interactions.alleleinteractions.allele1.name",
+            "interactions.alleleinteractions.allele2.name",
+            "interactions.participant2.primaryIdentifier"
+        ]
+
+        data = dict.fromkeys(view, [])
+        total = query.size()
+        idx = 0
+        for row in query.rows():
+
+            """
+            if (idx % 10000) == 0:
+                print(f"{idx} of {total}")
+                #####
+                if idx != 0:
+                    break
+                #####
+            """
+            for col in range(len(view)):
+                key = view[col]
+                if key == "primaryIdentifier":
+                    value = "SGD:" + str(row[key])
+                elif key == "interactions.participant2.primaryIdentifier":
+                    value = "SGD:" + str(row[key])
+                elif key == "interactions.details.experiment.interactionDetectionMethods.identifier":
+                    if str(row[
+                               "interactions.details.experiment.interactionDetectionMethods.identifier"]) == "Negative Genetic":
+                        value = "biolink:negatively_correlated_with"
+                    elif str(row[
+                                 "interactions.details.experiment.interactionDetectionMethods.identifier"]) == "Positive Genetic":
+                        value = "biolink:positively_correlated_with"
+                else:
+                    value = str(row[key])
+                data[key] = data[key] + [value]
+            idx += 1
+        Costanza2016GeneticInteractions = pd.DataFrame(data)
+        Costanza2016GeneticInteractions.fillna("?", inplace=True)
+        Costanza2016GeneticInteractions.to_csv(os.path.join(self.data_path, self.costanza_genetic_interactions_file_name), encoding="utf-8-sig", index=False)
         return True
 
     def parse_data(self) -> dict:
@@ -94,7 +167,7 @@ class Costanza2016Loader(SourceDataLoader):
                                   lambda line: {
                                                     'p-value': line[COSTANZA_GENEINTERACTIONS.PVALUE.value],
                                                     'sgaScore': line[COSTANZA_GENEINTERACTIONS.SGASCORE.value],
-                                                    'evidencePMIDs': line[COSTANZA_GENEINTERACTIONS.EVIDENCEPMID.value],
+                                                    PUBLICATIONS: [f'{PUBMED}:{line[COSTANZA_GENEINTERACTIONS.EVIDENCEPMID.value]}'],
                                                     PRIMARY_KNOWLEDGE_SOURCE: "CostanzaGeneticInteractions"
                                                 }, #edgeprops
                                   comment_character=None,
@@ -112,7 +185,7 @@ class Costanza2016Loader(SourceDataLoader):
                                   lambda line: {}, # object props
                                   lambda line: {
                                                     'gene1_allele': line[COSTANZA_GENEINTERACTIONS.GENE1ALLELE.value],
-                                                    'evidencePMIDs': line[COSTANZA_GENEINTERACTIONS.EVIDENCEPMID.value],
+                                                    PUBLICATIONS: [f'{PUBMED}:{line[COSTANZA_GENEINTERACTIONS.EVIDENCEPMID.value]}'],
                                                     PRIMARY_KNOWLEDGE_SOURCE: "CostanzaGeneticInteractions"
 
                                   }, #edgeprops
@@ -131,7 +204,7 @@ class Costanza2016Loader(SourceDataLoader):
                                   lambda line: {}, # object props
                                   lambda line: {
                                                     'gene1_allele': line[COSTANZA_GENEINTERACTIONS.GENE2ALLELE.value],
-                                                    'evidencePMIDs': line[COSTANZA_GENEINTERACTIONS.EVIDENCEPMID.value],
+                                                    PUBLICATIONS: [f'{PUBMED}:{line[COSTANZA_GENEINTERACTIONS.EVIDENCEPMID.value]}'],
                                                     PRIMARY_KNOWLEDGE_SOURCE: "CostanzaGeneticInteractions"
 
                                   }, #edgeprops
