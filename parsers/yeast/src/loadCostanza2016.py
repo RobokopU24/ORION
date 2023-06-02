@@ -1,7 +1,6 @@
 import os
 import enum
-import pandas as pd
-
+import csv
 from Common.loader_interface import SourceDataLoader
 from Common.extractor import Extractor
 from Common.node_types import PRIMARY_KNOWLEDGE_SOURCE, PUBLICATIONS
@@ -64,29 +63,8 @@ class Costanza2016Loader(SourceDataLoader):
         service = Service("https://yeastmine.yeastgenome.org/yeastmine/service")
         query = service.new_query("Gene")
         query.add_constraint("interactions.participant2", "Gene")
-        query.add_view(
-            "primaryIdentifier", "secondaryIdentifier", "symbol", "name", "sgdAlias",
-            "interactions.details.annotationType", "interactions.details.phenotype",
-            "interactions.details.role1",
-            "interactions.details.experiment.publication.pubMedId",
-            "interactions.details.experiment.publication.citation",
-            "interactions.details.experiment.publication.title",
-            "interactions.details.experiment.publication.journal",
-            "interactions.participant2.symbol",
-            "interactions.participant2.secondaryIdentifier",
-            "interactions.details.experiment.interactionDetectionMethods.identifier",
-            "interactions.details.experiment.name",
-            "interactions.details.relationshipType",
-            "interactions.alleleinteractions.pvalue",
-            "interactions.alleleinteractions.sgaScore",
-            "interactions.alleleinteractions.allele1.name",
-            "interactions.alleleinteractions.allele2.name",
-            "interactions.participant2.primaryIdentifier"
-        )
-        query.add_constraint("interactions.details.experiment.publication", "LOOKUP", "27708008", code="A")
-        query.outerjoin("interactions.alleleinteractions")
 
-        view = [
+        fields = [
             "primaryIdentifier", "secondaryIdentifier", "symbol", "name", "sgdAlias",
             "interactions.details.annotationType", "interactions.details.phenotype",
             "interactions.details.role1",
@@ -106,39 +84,17 @@ class Costanza2016Loader(SourceDataLoader):
             "interactions.participant2.primaryIdentifier"
         ]
 
-        data = dict.fromkeys(view, [])
-        total = query.size()
-        idx = 0
-        for row in query.rows():
+        query.add_view(" ".join(fields))
+        query.add_constraint("interactions.details.experiment.publication", "LOOKUP", "27708008", code="A")
+        query.outerjoin("interactions.alleleinteractions")
 
-            """
-            if (idx % 10000) == 0:
-                print(f"{idx} of {total}")
-                #####
-                if idx != 0:
-                    break
-                #####
-            """
-            for col in range(len(view)):
-                key = view[col]
-                if key == "primaryIdentifier":
-                    value = "SGD:" + str(row[key])
-                elif key == "interactions.participant2.primaryIdentifier":
-                    value = "SGD:" + str(row[key])
-                elif key == "interactions.details.experiment.interactionDetectionMethods.identifier":
-                    if str(row[
-                               "interactions.details.experiment.interactionDetectionMethods.identifier"]) == "Negative Genetic":
-                        value = "biolink:negatively_correlated_with"
-                    elif str(row[
-                                 "interactions.details.experiment.interactionDetectionMethods.identifier"]) == "Positive Genetic":
-                        value = "biolink:positively_correlated_with"
-                else:
-                    value = str(row[key])
-                data[key] = data[key] + [value]
-            idx += 1
-        Costanza2016GeneticInteractions = pd.DataFrame(data)
-        Costanza2016GeneticInteractions.fillna("?", inplace=True)
-        Costanza2016GeneticInteractions.to_csv(os.path.join(self.data_path, self.costanza_genetic_interactions_file_name), encoding="utf-8-sig", index=False)
+        output_file_path = os.path.join(self.data_path, self.costanza_genetic_interactions_file_name)
+        with open(output_file_path, 'w', newline='') as csvfile:
+            output_writer = csv.DictWriter(csvfile, fieldnames=fields)
+            output_writer.writeheader()
+            for row in query.rows():
+                output_writer.writerow({key: row[key] for key in fields})
+
         return True
 
     def parse_data(self) -> dict:
@@ -149,6 +105,21 @@ class Costanza2016Loader(SourceDataLoader):
         """
 
         extractor = Extractor()
+
+        """
+        TODO
+        This stuff should be incporated into the parsing phase
+        if key == "primaryIdentifier":
+            value = "SGD:" + str(row[key])
+        elif key == "interactions.participant2.primaryIdentifier":
+            value = "SGD:" + str(row[key])
+        elif key == "interactions.details.experiment.interactionDetectionMethods.identifier":
+            if str(row[
+                       "interactions.details.experiment.interactionDetectionMethods.identifier"]) == "Negative Genetic":
+                value = "biolink:negatively_correlated_with"
+            elif str(row[
+                         "interactions.details.experiment.interaction
+        """
 
         # Costanza Genetic Interactions Parser. Add edges between "fitness" and the yeast genotype.
         costanza_genetic_interactions: str = os.path.join(self.data_path, self.costanza_genetic_interactions_file_name)
