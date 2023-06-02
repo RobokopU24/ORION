@@ -4,7 +4,9 @@ import enum
 from parsers.SGD.src.sgd_source_retriever import retrieve_sgd_files
 from Common.loader_interface import SourceDataLoader
 from Common.extractor import Extractor
-from Common.node_types import PRIMARY_KNOWLEDGE_SOURCE, NODE_TYPES
+from Common.prefixes import PUBMED
+from Common.node_types import PRIMARY_KNOWLEDGE_SOURCE, NODE_TYPES, PUBLICATIONS
+from parsers.yeast.src.yeast_constants import SGD_ALL_GENES_FILE
 
 # Maps Genes to GO Terms.
 class GENEGOTERMS_EDGEUMAN(enum.IntEnum):
@@ -71,7 +73,7 @@ class SGDLoader(SourceDataLoader):
         # call the super
         super().__init__(test_mode=test_mode, source_data_dir=source_data_dir)
 
-        self.sgd_gene_list_file_name = "SGDAllGenes.csv"
+        self.sgd_gene_list_file_name = SGD_ALL_GENES_FILE
         self.genes_to_go_term_edges_file_name = "SGDGene2GOTerm.csv"
         self.genes_to_pathway_edges_file_name = "SGDGene2Pathway.csv"
         self.genes_to_phenotype_edges_file_name = "SGDGene2Phenotype.csv"
@@ -209,25 +211,6 @@ class SGDLoader(SourceDataLoader):
                                   delim=',',
                                   has_header_row=True)
 
-        """
-        #This file is a list of histone modification genomic loci.
-        histone_modification_file: str = os.path.join(self.data_path, self.histone_mod_list_file_name)
-        with open(histone_modification_file, 'r') as fp:
-            extractor.csv_extract(fp,
-                                  lambda line: line[HISTONEMODBINS_EDGEUMAN.ID.value],  # subject id
-                                  lambda line: None,  # object id
-                                  lambda line: None,  # predicate extractor
-                                  lambda line: {'name': f"{line[HISTONEMODBINS_EDGEUMAN.MODIFICATION.value]} ({line[HISTONEMODBINS_EDGEUMAN.CHROMOSOME.value]}:{line[HISTONEMODBINS_EDGEUMAN.STARTLOCATION.value]}-{line[HISTONEMODBINS_EDGEUMAN.ENDLOCATION.value]})",
-                                                'categories': ['biolink:NucleosomeModification','biolink:PosttranslationalModification'],
-                                                'histoneModification': line[HISTONEMODBINS_EDGEUMAN.MODIFICATION.value],
-                                                'chromosomeLocation': line[HISTONEMODBINS_EDGEUMAN.LOCI.value]}, # subject props
-                                  lambda line: {},  # object props
-                                  lambda line: {},#edgeprops
-                                  comment_character=None,
-                                  delim=',',
-                                  has_header_row=True)
-        """
-
         #Genes to GO Annotations. Evidence and annotation type as edge properties.
         gene_to_go_term_edges_file: str = os.path.join(self.data_path, self.genes_to_go_term_edges_file_name)
         with open(gene_to_go_term_edges_file, 'r') as fp:
@@ -240,7 +223,7 @@ class SGDLoader(SourceDataLoader):
                                   lambda line: {'evidenceCode': line[GENEGOTERMS_EDGEUMAN.EVIDENCECODE.value],
                                                 'evidenceCodeText': line[GENEGOTERMS_EDGEUMAN.EVIDENCECODETEXT.value],
                                                 'annotationType': line[GENEGOTERMS_EDGEUMAN.ANNOTATIONTYPE.value],
-                                                'evidencePMIDs': line[GENEGOTERMS_EDGEUMAN.EVIDENCEPMID.value],
+                                                PUBLICATIONS: [f'{PUBMED}:{line[GENEGOTERMS_EDGEUMAN.EVIDENCEPMID.value]}'],
                                                 PRIMARY_KNOWLEDGE_SOURCE: self.provenance_id
                                              }, #edgeprops
                                   comment_character=None,
@@ -281,7 +264,7 @@ class SGDLoader(SourceDataLoader):
                                                 'yeastStrainBackground': line[GENEPHENOTYPES_EDGEUMAN.STRAINBACKGROUND.value],
                                                 'chemicalExposure': line[GENEPHENOTYPES_EDGEUMAN.CHEMICAL.value],
                                                 'experimentalCondition': line[GENEPHENOTYPES_EDGEUMAN.CONDITION.value],
-                                                'evidencePMIDs': line[GENEPHENOTYPES_EDGEUMAN.EVIDENCEPMID.value],
+                                                PUBLICATIONS: [f'{PUBMED}:{line[GENEPHENOTYPES_EDGEUMAN.EVIDENCEPMID.value]}'],
                                                 PRIMARY_KNOWLEDGE_SOURCE: self.provenance_id}, #edgeprops
                                   comment_character=None,
                                   delim=',',
