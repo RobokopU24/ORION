@@ -1,5 +1,6 @@
 import os
 import enum
+import json
 import argparse
 import requests
 from collections import defaultdict
@@ -8,10 +9,9 @@ import re
 from neo4j import GraphDatabase
 drr = '/Users/olawumiolasunkanmi/Data_services_root/Data_services'
 os.sys.path.insert(0, drr)
-
 from collections import defaultdict
 from Common.utils import GetData
-from Common.loader_interface import SourceDataLoader
+from Common.loader_interface import SourceDataLoader, SourceDataFailedError
 from Common.kgxmodel import kgxnode, kgxedge
 from Common.prefixes import REACTOME, NCBITAXON
 
@@ -24,17 +24,23 @@ INCLUDE_COLUMN = 3
 
 PREDICATE_PROP_COLUMN = -1
 
-SUPPOSE_PROPERTIES = ("CatalystActivity", "Summation", "Publication", "EntityFunctionalStatus", "GeneticallyModifiedResidue")
 
-ON_NODE_MAPPING = ("GO_Term", "Compartment", "GO_BiologicalProcess", "GO_MolecularFunction", "Disease",
-                 "Species", "ExternalOntology")#databaseName+:+identifier
-UNIPROT_ID_MAPPING = ("ReferenceSequence") #databaseName+KB:+identifier
+SUPPOSE_PROPERTIES = ("CatalystActivity", "Summation", "Publication", "EntityFunctionalStatus", "GeneticallyModifiedResidue", "AbstractModifiedResidue")
+NORMALIZED_NODES = ("Pathway", "Event", "BlackboxEvent", "FailedReaction", "Depolymerisation", "Polymerisation")
+ON_NODE_MAPPING = ("GO_Term", "Compartment", "GO_BiologicalProcess", "GO_MolecularFunction", "GO_CellularComponent", "Disease", 
+                "Species", "ExternalOntology", "ReferenceRNASequence", "ReferenceDNASequence", "CellType")#databaseName+:+identifier
+ALL_ON_NODE_MAPPING = NORMALIZED_NODES + ON_NODE_MAPPING
+
+#Entity
+UNIPROT_ID_MAPPING = ("ReferenceSequence", "ReferenceIsoform") #databaseName+KB:+identifier
 OTHER_ID_MAPPING = ("ReferenceMolecule", "DatabaseIdentifier")
 
-
 TO_WRITE = ['Provenance/Include', 'Provenance/Maybe', 'Attribute/Include'] #Descriptive features of other existing nodes eg Summation
-TO_MAP = ['SpeciesMapping/Include', 'IDMapping/Include', 'IDMapping/Maybe'] # Maps the external identifier of a node from another node
+TO_MAP = ['IDMapping/Include', 'IDMapping/Maybe'] # Maps the external identifier of a node from another node
 TO_INCLUDE = ['Include']
+
+NODE_NOT_WORKING = set()
+EDGE_NOT_WORKING = set()
 ##############
 # Class: Reactome loader
 #
@@ -61,13 +67,16 @@ class ReactomeLoader(SourceDataLoader):
         """
         super().__init__(test_mode=test_mode, source_data_dir=source_data_dir)
         self.version_url: str = 'https://reactome.org/about/news'
-        self.data_url: str = 'bolt://localhost:7688/'
+        self.driver = None
+        self.data_url: str = 'bolt://localhost:7688/'#"bolt://127.0.0.1:7688" #
         self.data_user: str = 'neo4j'
-        self.password: str = 'reactomebegood'
+        self.password: str = 'reactomepleasebegood'
+        # self.dbase: str = 'reactomes'
         self.driver = GraphDatabase.driver(self.data_url, auth=(self.data_user, self.password))
-        self.triple_file: str = 'reactomeContents - triple.csv'
-        # self.data_files = [self.triple_file]
-        
+        self.triple_file: str = 'reactomeContents_triple.csv'
+        self.triple_path = os.path.dirname(os.path.abspath(__file__))
+        self.data_files = []
+
 
     def get_latest_source_version(self) -> str:
         """
@@ -105,11 +114,11 @@ class ReactomeLoader(SourceDataLoader):
 
         """
         # get a reference to the data gatherer
-        gd: GetData = GetData(self.logger.level)
-        for dt_file in self.data_files:
-            gd.pull_via_http(f'{self.data_url}{dt_file}',
-                             self.data_path)
-        
+        # gd: GetData = GetData(self.logger.level)
+        # for dt_file in self.data_files:
+        #     gd.pull_via_http(f'{self.data_url}{dt_file}',
+        #                      self.data_path)
+
         return True
  
     def parse_data(self):
@@ -137,6 +146,7 @@ class ReactomeLoader(SourceDataLoader):
             output_node = kgxnode(node,
                                     nodeprops=props)
             if not output_node:
+                NODE_NOT_WORKING.update((node, props))
                 skipped_record_counter += 1
                 continue
             self.final_node_list.append(output_node)
@@ -156,6 +166,7 @@ class ReactomeLoader(SourceDataLoader):
             )
             
             if not output_edge:
+                EDGE_NOT_WORKING.update((subjectid, predicate, objectid))
                 continue
             self.final_edge_list.append(output_edge)
 
@@ -166,6 +177,11 @@ class ReactomeLoader(SourceDataLoader):
             'unusable_source_lines': skipped_record_counter
             }
 
+        with open('No_edges.txt', 'w') as nw:
+            nw.write(json.dumps(list(EDGE_NOT_WORKING), indent=4))
+        with open('No_nodes.txt', 'w') as nw:
+            nw.write(json.dumps(list(NODE_NOT_WORKING), indent=4))
+
         return load_metadata
     
     
@@ -174,9 +190,8 @@ class ReactomeLoader(SourceDataLoader):
         queries_to_include = []
         queries_to_map = []
         queries_to_write = []
-        lines_to_process = []
-   
-        with open(self.triple_file, 'r') as inf:
+
+        with open(os.path.join(self.triple_path, self.triple_file), 'r') as inf:
             lines = inf.readlines()
             lines_to_process = lines[1:]
         
@@ -192,7 +207,7 @@ class ReactomeLoader(SourceDataLoader):
                 if line[INCLUDE_COLUMN] in TO_WRITE:
                     queries_to_write.append(self.write_properties(line[SUBJECT_COLUMN], line[PREDICATE_COLUMN], line[OBJECT_COLUMN]))
 
-        #Temporary saves to know what kind of cypher queries are being run
+        # Temporary saves to know what kind of cypher queries are being run
         import json
         with open('Mapqueries.txt', 'w') as qw:
             qw.write(json.dumps(queries_to_map, indent=4))
@@ -200,14 +215,15 @@ class ReactomeLoader(SourceDataLoader):
             qw.write(json.dumps(queries_to_include, indent=4))
         with open('Writequeries.txt', 'w') as qw:
             qw.write(json.dumps(queries_to_write, indent=4))
-        
+
 
         with self.driver.session() as session:
             results = []
+            # node_labels = session.run("MATCH (n) RETURN DISTINCT labels(n) AS nodeTypes")
+            # node_types = [record["nodeTypes"][0] for record in node_labels]
+
             #Map the id from the nodes databaseName+:+identifier
-            for node in ON_NODE_MAPPING:
-                if not node:
-                    continue
+            for node in ALL_ON_NODE_MAPPING:
                 session.run(self.on_node_mapping(node))
             
             #Map other propersties from the nodes summation catalystactivity ...
@@ -236,11 +252,13 @@ class ReactomeLoader(SourceDataLoader):
                 a_id = records.get('a', {}).get('ids')
                 b_id = records.get('b', {}).get('ids')
 
-                if not a_id or a_id in nodes:
+                if not a_id:
+                    NODE_NOT_WORKING.add(records.get('a', {}).get('schemaClass'))
                     continue
                 nodes[a_id].update(dict(records["a"].items()))
 
-                if not b_id or b_id in nodes:
+                if not b_id:
+                    NODE_NOT_WORKING.add(records.get('b', {}).get('schemaClass'))
                     continue
                 nodes[b_id].update(dict(records["b"].items()))
 
@@ -248,6 +266,10 @@ class ReactomeLoader(SourceDataLoader):
                     rl = dict(records["r"])
                     rll = [a_id, records["r"].type, b_id, rl]
                     relations.append(rll)
+                else:
+                    EDGE_NOT_WORKING.update(dict(records))
+
+
         return nodes, relations
 
 
@@ -270,19 +292,23 @@ class ReactomeLoader(SourceDataLoader):
         return cypher
     
     def on_node_mapping(self, node):
-        #On-node ID Mapping eg GO, Disease ...
-        if node == 'Disease':
+        #On-node/Same node ID Mapping eg GO, Disease ...
+        if node == "Disease" or node=="CellType":
             cypher = f"MATCH (a:{node}) SET a.ids = a.databaseName+':'+a.identifier"
         elif node =="Species":
             cypher = f"MATCH (a:{node}) SET a.ids ='{NCBITAXON}:'+a.taxId"
         elif node =="ReferenceDNASequence":
-            cypher = f"MATCH (a:{node}) SET a.ids =REPLACE(a.databaseName, ' ', '.')+a.identifier"
+            cypher = f"MATCH (a:{node}) SET a.ids =REPLACE(a.databaseName, ' ', '.')+':'+a.identifier"
+        elif node in NORMALIZED_NODES:
+            #Biolink normalized reactome ids eg pathways, events ......
+            cypher = f"MATCH (a:{node}) SET a.ids ='{REACTOME}:'+a.stId"
         else:
+            # GO .......
             cypher = f"MATCH (a:{node}) SET a.ids = a.databaseName+':'+a.accession"
         return cypher
 
     def map_ids(self, s, p, o):
-        #Cross ID Mapping
+        #Cross ID Mappings eg EntityWithAccessionedSequence ->ReferenceSequence ......
         cypher = None
         # OBJECT
         if o in OTHER_ID_MAPPING:
