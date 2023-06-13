@@ -1,6 +1,7 @@
 from collections import defaultdict
 import importlib
 
+BINDING_DB = 'BINDING-DB'
 BIOLINK = 'Biolink'
 CAM_KP = 'CAM-KP'
 CHEBI_PROPERTIES = 'CHEBIProps'
@@ -30,8 +31,6 @@ UBERGRAPH_REDUNDANT = 'UbergraphRedundant'
 UNIREF = 'UniRef'
 VP = 'ViralProteome'
 YEASTSGD = 'YeastSGDInfo'
-YEAST_HISTONES = "YeastHistoneMapping"
-YEAST_COSTANZA = "Costanza2016Data"
 YEAST_GSE61888 = 'YeastGSE61888'
 YEAST_GASCHDIAMIDE = 'YeastGaschDiamideGeneExpression'
 YEAST_STRING_DB = 'Yeast-STRING-DB'
@@ -39,6 +38,7 @@ YEAST_STRING_DB = 'Yeast-STRING-DB'
 RESOURCE_HOGS = [GTEX, GWAS_CATALOG, UNIREF, ONTOLOGICAL_HIERARCHY, UBERGRAPH, UBERGRAPH_REDUNDANT, YEASTSGD, STRING_DB, CAM_KP]
 
 SOURCE_DATA_LOADER_CLASS_IMPORTS = {
+    BINDING_DB: {"parsers.BINDING.src.loadBINDINGDB","BINDINGDBLoader"},
     BIOLINK: ("parsers.biolink.src.loadBL", "BLLoader"),
     CAM_KP: ("parsers.camkp.src.loadCAMKP", "CAMKPLoader"),
     CHEBI_PROPERTIES: ("parsers.chebi.src.loadChebiProperties", "ChebiPropertiesLoader"),
@@ -67,8 +67,6 @@ SOURCE_DATA_LOADER_CLASS_IMPORTS = {
     UNIREF: ("parsers.ViralProteome.src.loadUniRef", "UniRefSimLoader"),
     VP: ("parsers.ViralProteome.src.loadVP", "VPLoader"),
     YEASTSGD: ("parsers.yeast.src.loadYeastSGDInfo", "YeastSGDLoader"),
-    YEAST_HISTONES: ("parsers.yeast.src.loadHistoneMap", "YeastHistoneMapLoader"),
-    YEAST_COSTANZA: ("parsers.yeast.src.loadCostanza2016", "Costanza2016Loader"),
     YEAST_GASCHDIAMIDE: ("parsers.yeast.src.loadYeastGeneExpressionGasch.py", "YeastGaschDiamideLoader"),
     YEAST_STRING_DB: ("parsers.yeast.src.loadYeastGSTRINGDB.py", "STRINGDBLoader")
 }
