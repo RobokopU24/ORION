@@ -9,7 +9,7 @@ from decimal import Decimal
 import numpy as np
 #import codecs
 
-
+from parsers.BINDING.src.bindingdb_constraints import LOG_SCALE_AFFINITY_THRESHOLD #Change the binding affinity threshold here. Default is 10 uM Ki,Kd,EC50,orIC50
 from Common.utils import GetData
 from Common.loader_interface import SourceDataLoader
 from Common.extractor import Extractor
@@ -58,19 +58,14 @@ class BINDINGDBLoader(SourceDataLoader):
         super().__init__(test_mode=test_mode, source_data_dir=source_data_dir)
 #6 is the stand in threshold value until a better value can be determined
 #We may not even use the thresholds, that way all data can be captured.
-        self.KI_score_threshold = 6
-        self.IC50_score_threshold = 6
-        self.KD_score_threshold = 6
-        self.EC50_score_threshold = 6
-        self.KON_score_threshold = 6
-        self.KOFF_score_threshold = 6
+        self.affinity_threshold = LOG_SCALE_AFFINITY_THRESHOLD
 
-        self.KI_predicate = 'biolink:binds'
-        self.IC50_predicate = 'biolink:negatively_regulates_activity_of'
-        self.KD_predicate = 'biolink:binds'
-        self.EC50_predicate = 'biolink:regulates_activity_of'
-        self.KON_predicate = 'biolink:binds'
-        self.KOFF_predicate = 'biolink:binds'
+        # self.KI_predicate = 'biolink:binds'
+        # self.IC50_predicate = 'biolink:negatively_regulates_activity_of'
+        # self.KD_predicate = 'biolink:binds'
+        # self.EC50_predicate = 'biolink:regulates_activity_of'
+        # self.KON_predicate = 'biolink:binds'
+        # self.KOFF_predicate = 'biolink:binds'
 
         self.bindingdb_version = None
         self.bindingdb_version = self.get_latest_source_version()
@@ -153,11 +148,15 @@ class BINDINGDBLoader(SourceDataLoader):
         table = table.dropna(subset=["UniProt (SwissProt) Primary ID of Target Chain"])
         table = table.dropna(subset=["PubChem CID"])
         table = table.groupby(["PubChem CID","UniProt (SwissProt) Primary ID of Target Chain"]).agg(list).reset_index()
+        
+        table = table.head(1000) #Only keep for testing.
 
         measurements_list = []
+        does_it_bind_list = []
         for idx,row in table.iterrows():
             if idx%10000 == 0:
                 print(idx,":",len(table))
+            does_it_bind = False
             measurements_dict = {}
             pKi_measurements = []
             pKd_measurements = []
@@ -171,6 +170,8 @@ class BINDINGDBLoader(SourceDataLoader):
                     measurement = {}
                     try:
                         value = round(negative_log(float(Decimal(str(row["Ki (nM)"][i]).replace('>','').replace('<','')))),3)
+                        if value > self.affinity_threshold:
+                            does_it_bind = True
                     except:
                         value = "undefined"
                     measurement.update({"VALUE":value})
@@ -189,6 +190,8 @@ class BINDINGDBLoader(SourceDataLoader):
                     measurement = {}
                     try:
                         value = round(negative_log(float(Decimal(str(row["Kd (nM)"][i]).replace('>','').replace('<','')))),3)
+                        if value > self.affinity_threshold:
+                            does_it_bind = True
                     except:
                         value = "undefined"
                     measurement.update({"VALUE":value})
@@ -207,6 +210,8 @@ class BINDINGDBLoader(SourceDataLoader):
                     measurement = {}
                     try:
                         value = round(negative_log(float(Decimal(str(row["IC50 (nM)"][i]).replace('>','').replace('<','')))),3)
+                        if value > self.affinity_threshold:
+                            does_it_bind = True
                     except:
                         value = "undefined"
                     measurement.update({"VALUE":value})
@@ -225,6 +230,8 @@ class BINDINGDBLoader(SourceDataLoader):
                     measurement = {}
                     try:
                         value = round(negative_log(float(Decimal(str(row["EC50 (nM)"][i]).replace('>','').replace('<','')))),3)
+                        if value > self.affinity_threshold:
+                            does_it_bind = True
                     except:
                         value = "undefined"
                     measurement.update({"VALUE":value})
@@ -289,10 +296,22 @@ class BINDINGDBLoader(SourceDataLoader):
                 measurements_dict.update({"koff(s-1)":pKi_measurements})
             
             measurements_list = measurements_list + [measurements_dict]
+            if does_it_bind == True:
+                does_it_bind_list = does_it_bind_list + ["True"]
+            else:
+                does_it_bind_list = does_it_bind_list + ["False"]
 
         table['measurements'] = measurements_list
+        table['does_it_bind'] = does_it_bind_list
+        table = table[table['does_it_bind'] == "True"]
+
         filename = f"BindingDB_All.tsv"
         table.to_csv(os.path.join(self.data_path, filename),sep="\t",index=False)
+
+        # def does_it_bind_filter(infile):
+        #     yield next(infile)
+        #     for line in infile:
+        #        if(line.split('\t')[12])=="True": yield line
 
         with open(os.path.join(self.data_path, filename), 'r') as fp:
             extractor.csv_extract(fp,
