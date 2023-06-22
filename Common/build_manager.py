@@ -4,11 +4,8 @@ import argparse
 import datetime
 import requests
 import json
-import time
-import Common.kgx_file_converter as kgx_file_converter
 from xxhash import xxh64_hexdigest
 from collections import defaultdict
-from Common.biolink_utils import BiolinkUtils
 from Common.utils import LoggingUtil, quick_jsonl_file_iterator
 from Common.data_sources import get_available_data_sources
 from Common.load_manager import SourceDataManager
@@ -17,12 +14,11 @@ from Common.neo4j_tools import Neo4jTools
 from Common.kgxmodel import GraphSpec, SubGraphSource, DataSource, NormalizationScheme
 from Common.metadata import Metadata, GraphMetadata, SourceMetadata
 from Common.supplementation import SequenceVariantSupplementation
-from Common.node_types import ROOT_ENTITY, PRIMARY_KNOWLEDGE_SOURCE, PREDICATE, AGGREGATOR_KNOWLEDGE_SOURCES
+from Common.node_types import PRIMARY_KNOWLEDGE_SOURCE, PREDICATE
+from Common.meta_kg import MetaKnowledgeGraphBuilder, META_KG_FILENAME, TEST_DATA_FILENAME
 
 NODES_FILENAME = 'nodes.jsonl'
 EDGES_FILENAME = 'edges.jsonl'
-META_KG_FILENAME = 'meta_kg.json'
-SRI_TESTING_FILENAME = 'sri_testing_data.json'
 
 
 class GraphBuilder:
@@ -38,7 +34,6 @@ class GraphBuilder:
         self.source_data_manager = SourceDataManager()  # access to the data sources and their metadata
         self.graph_specs = self.load_graph_specs()  # list of graphs to build (GraphSpec objects)
         self.build_results = {}
-        self.bl_utils = BiolinkUtils()
 
     def build_graph(self, graph_id: str):
 
@@ -99,17 +94,29 @@ class GraphBuilder:
             self.logger.info(f'Running QC for graph {graph_id}...')
             qc_results = self.run_qc(graph_id, graph_version, graph_directory=graph_output_dir)
             graph_metadata.set_qc_results(qc_results)
+            # TODO - bail if qc fails
             self.logger.info(f'QC complete for graph {graph_id}.')
+
+        needs_meta_kg = not self.has_meta_kg(graph_directory=graph_output_dir)
+        needs_test_data = not self.has_test_data(graph_directory=graph_output_dir)
+        if needs_meta_kg or needs_test_data:
+            self.logger.info(f'Generating MetaKG and test data for {graph_id}...')
+            self.generate_meta_kg_and_test_data(graph_directory=graph_output_dir,
+                                                generate_meta_kg=needs_meta_kg,
+                                                generate_test_data=needs_test_data)
 
         if 'neo4j' in graph_spec.graph_output_format.lower():
             self.logger.info(f'Starting Neo4j dump pipeline for {graph_id}...')
-            dump_success = self.create_neo4j_dump(graph_id=graph_id,
-                                                  graph_directory=graph_output_dir)
+            neo4j_tools = Neo4jTools(graph_id=graph_id,
+                                     graph_version=graph_version)
+            dump_success = neo4j_tools.create_neo4j_dump(graph_id=graph_id,
+                                                         graph_version=graph_version,
+                                                         graph_directory=graph_output_dir,
+                                                         nodes_filename=NODES_FILENAME,
+                                                         edges_filename=EDGES_FILENAME)
             if dump_success:
                 graph_output_url = self.get_graph_output_URL(graph_id, graph_version)
                 graph_metadata.set_dump_url(f'{graph_output_url}graph_{graph_version}.db.dump')
-                # graph_metadata.set_metakg_url(f'{graph_output_url}{META_KG_FILENAME}')
-                # graph_metadata.set_test_data_url(f'{graph_output_url}{SRI_TESTING_FILENAME}')
 
     def build_dependencies(self, graph_spec: GraphSpec):
         for subgraph_source in graph_spec.subgraphs:
@@ -178,6 +185,34 @@ class GraphBuilder:
                                                                                    data_source.supplementation_version)
         return True
 
+    def has_meta_kg(self, graph_directory: str):
+        if os.path.exists(os.path.join(graph_directory, META_KG_FILENAME)):
+            return True
+        else:
+            return False
+
+    def has_test_data(self, graph_directory: str):
+        if os.path.exists(os.path.join(graph_directory, TEST_DATA_FILENAME)):
+            return True
+        else:
+            return False
+
+    def generate_meta_kg_and_test_data(self,
+                                       graph_directory: str,
+                                       generate_meta_kg: bool = True,
+                                       generate_test_data: bool = True):
+        graph_nodes_file_path = os.path.join(graph_directory, NODES_FILENAME)
+        graph_edges_file_path = os.path.join(graph_directory, EDGES_FILENAME)
+        mkgb = MetaKnowledgeGraphBuilder(nodes_file_path=graph_nodes_file_path,
+                                         edges_file_path=graph_edges_file_path,
+                                         logger=self.logger)
+        if generate_meta_kg:
+            meta_kg_file_path = os.path.join(graph_directory, META_KG_FILENAME)
+            mkgb.write_meta_kg_to_file(meta_kg_file_path)
+        if generate_test_data:
+            test_data_file_path = os.path.join(graph_directory, TEST_DATA_FILENAME)
+            mkgb.write_test_data_to_file(test_data_file_path)
+
     def run_qc(self,
                graph_id: str,
                graph_version: str,
@@ -198,270 +233,6 @@ class GraphBuilder:
             'predicate_counts': {k: v for k, v in predicate_counts.items()}
         }
         return qc_metadata
-
-    def create_neo4j_dump(self,
-                          graph_id: str,
-                          graph_directory: str):
-
-        graph_spec = self.get_graph_spec(graph_id)
-        graph_version = graph_spec.graph_version
-
-        nodes_csv_filename = f'{NODES_FILENAME}.csv'
-        edges_csv_filename = f'{EDGES_FILENAME}.csv'
-        graph_nodes_file_path = os.path.join(graph_directory, NODES_FILENAME)
-        graph_edges_file_path = os.path.join(graph_directory, EDGES_FILENAME)
-        csv_nodes_file_path = os.path.join(graph_directory, nodes_csv_filename)
-        csv_edges_file_path = os.path.join(graph_directory, edges_csv_filename)
-        if os.path.exists(csv_nodes_file_path) and os.path.exists(csv_edges_file_path):
-            self.logger.info(f'CSV files were already created for {graph_id}({graph_version})')
-        else:
-            self.__convert_kgx_to_csv(graph_id=graph_id,
-                                      graph_version=graph_version,
-                                      nodes_input_file=graph_nodes_file_path,
-                                      edges_input_file=graph_edges_file_path,
-                                      nodes_output_file=csv_nodes_file_path,
-                                      edges_output_file=csv_edges_file_path)
-
-        graph_dump_file_path = os.path.join(graph_directory, f'graph_{graph_version}.db.dump')
-        if os.path.exists(graph_dump_file_path):
-            self.logger.info(f'Neo4j dump already exists for {graph_id}({graph_version})')
-            return True
-
-        neo4j_access = Neo4jTools(graph_id=graph_id, graph_version=graph_version)
-        try:
-            password_exit_code = neo4j_access.set_initial_password()
-            if password_exit_code != 0:
-                return False
-
-            import_exit_code = neo4j_access.import_csv_files(graph_directory=graph_directory,
-                                                             csv_nodes_filename=nodes_csv_filename,
-                                                             csv_edges_filename=edges_csv_filename)
-            if import_exit_code != 0:
-                return False
-
-            start_exit_code = neo4j_access.start_neo4j()
-            if start_exit_code != 0:
-                return False
-
-            waiting_exit_code = neo4j_access.wait_for_neo4j_initialization()
-            if waiting_exit_code != 0:
-                return False
-
-            indexes_exit_code = neo4j_access.add_db_indexes()
-            if indexes_exit_code != 0:
-                return False
-
-            self.generate_meta_kg_and_sri_test_data(neo4j_access=neo4j_access,
-                                                    output_directory=graph_directory)
-
-            stop_exit_code = neo4j_access.stop_neo4j()
-            if stop_exit_code != 0:
-                return False
-
-            dump_exit_code = neo4j_access.create_backup_dump(graph_dump_file_path)
-            if dump_exit_code != 0:
-                return False
-
-        finally:
-            neo4j_access.close()
-
-        self.logger.info(f'Success! Neo4j dump created with indexes for {graph_id}({graph_version})')
-        return True
-
-    def __convert_kgx_to_csv(self,
-                             graph_id: str,
-                             graph_version: str,
-                             nodes_input_file: str,
-                             edges_input_file: str,
-                             nodes_output_file: str,
-                             edges_output_file: str):
-        self.logger.info(f'Creating CSV files for {graph_id}({graph_version})...')
-        kgx_file_converter.convert_jsonl_to_neo4j_csv(nodes_input_file=nodes_input_file,
-                                                      edges_input_file=edges_input_file,
-                                                      nodes_output_file=nodes_output_file,
-                                                      edges_output_file=edges_output_file)
-        self.logger.info(f'CSV files created for {graph_id}({graph_version})...')
-
-    # This was mostly adapted (stolen) from Plater
-    def generate_meta_kg_and_sri_test_data(self, neo4j_access: Neo4jTools, output_directory: str):
-
-        # used to keep track of derived inverted predicates
-        inverted_predicate_tracker = defaultdict(lambda: defaultdict(set))
-
-        schema_query = """ MATCH (a)-[x]->(b) RETURN DISTINCT labels(a) as source_labels, type(x) as predicate, labels(b) as target_labels"""
-        self.logger.info(f"Starting schema query {schema_query} on graph... this might take a few.")
-        before_time = time.time()
-        schema_query_results = neo4j_access.execute_read_cypher_query(schema_query)
-        after_time = time.time()
-        self.logger.info(f"Completed schema query ({after_time - before_time} seconds). Preparing initial schema.")
-
-        schema = defaultdict(lambda: defaultdict(set))
-        #  avoids adding nodes with only a ROOT_ENTITY label (currently NamedThing)
-        filter_named_thing = lambda x: list(filter(lambda y: y != ROOT_ENTITY, x))
-        for schema_result in schema_query_results:
-            source_labels, predicate, target_labels = \
-                self.bl_utils.find_biolink_leaves(filter_named_thing(schema_result['source_labels'])), \
-                schema_result['predicate'], \
-                self.bl_utils.find_biolink_leaves(filter_named_thing(schema_result['target_labels']))
-            for source_label in source_labels:
-                for target_label in target_labels:
-                    schema[source_label][target_label].add(predicate)
-
-        # find and add the inverse for each predicate if there is one,
-        # keep track of inverted predicates we added so we don't query the graph for them
-        for source_label in list(schema.keys()):
-            for target_label in list(schema[source_label].keys()):
-                inverted_predicates = set()
-                for predicate in schema[source_label][target_label]:
-                    inverse_predicate = self.bl_utils.invert_predicate(predicate)
-                    if inverse_predicate is not None and \
-                            inverse_predicate not in schema[target_label][source_label]:
-                        inverted_predicates.add(inverse_predicate)
-                        inverted_predicate_tracker[target_label][source_label].add(inverse_predicate)
-                schema[target_label][source_label].update(inverted_predicates)
-
-        meta_kg_nodes = {}
-        meta_kg_edges = []
-        test_edges = []
-        self.logger.info(f"Starting curie prefix and example edge queries...")
-        before_time = time.time()
-        for subject_node_type in schema:
-            if subject_node_type not in meta_kg_nodes:
-                curies, attributes = self.get_curie_prefixes_by_node_type(neo4j_access,
-                                                                          subject_node_type)
-                meta_kg_nodes[subject_node_type] = {'id_prefixes': curies, "attributes": attributes}
-            for object_node_type in schema[subject_node_type]:
-                if object_node_type not in meta_kg_nodes:
-                    curies, attributes = self.get_curie_prefixes_by_node_type(neo4j_access,
-                                                                              object_node_type)
-                    meta_kg_nodes[object_node_type] = {'id_prefixes': curies, "attributes": attributes}
-                for predicate in schema[subject_node_type][object_node_type]:
-                    meta_kg_edges.append({
-                        'subject': subject_node_type,
-                        'object': object_node_type,
-                        'predicate': predicate
-                    })
-                    if predicate not in inverted_predicate_tracker[subject_node_type][object_node_type]:
-                        has_qualifiers = self.bl_utils.predicate_has_qualifiers(predicate)
-                        example_edges = self.get_examples(neo4j_access=neo4j_access,
-                                                          subject_node_type=subject_node_type,
-                                                          object_node_type=object_node_type,
-                                                          predicate=predicate,
-                                                          num_examples=1,
-                                                          use_qualifiers=has_qualifiers)
-
-                        # sometimes a predicate could have qualifiers but there is not an example of one
-                        if not example_edges and has_qualifiers:
-                            example_edges = self.get_examples(neo4j_access=neo4j_access,
-                                                              subject_node_type=subject_node_type,
-                                                              object_node_type=object_node_type,
-                                                              predicate=predicate,
-                                                              num_examples=1,
-                                                              use_qualifiers=False)
-
-                        if example_edges:
-                            neo4j_subject = example_edges[0]['subject']
-                            neo4j_object = example_edges[0]['object']
-                            neo4j_edge = example_edges[0]['edge']
-                            test_edge = {
-                                "subject_category": subject_node_type,
-                                "object_category": object_node_type,
-                                "predicate": predicate,
-                                "subject_id": neo4j_subject['id'],
-                                "object_id": neo4j_object['id']
-                            }
-                            if has_qualifiers:
-                                qualifiers = []
-                                for prop in neo4j_edge:
-                                    if 'qualifie' in prop:
-                                        qualifiers.append({
-                                            "qualifier_type_id": f"biolink:{prop}" if not prop.startswith(
-                                                "biolink:") else prop,
-                                            "qualifier_value": neo4j_edge[prop]
-                                        })
-                                if qualifiers:
-                                    test_edge["qualifiers"] = qualifiers
-                            test_edges.append(test_edge)
-                        else:
-                            self.logger.info(f'Failed to find an example for '
-                                             f'{subject_node_type}->{predicate}->{object_node_type}')
-
-        after_time = time.time()
-        self.logger.info(f"Completed curie prefix and example queries ({after_time - before_time} seconds).")
-        self.logger.info(f'Meta KG and SRI Testing data complete. Generated {len(test_edges)} test edges. Writing to file..')
-
-        meta_kg = {
-            "nodes": meta_kg_nodes,
-            "edges": meta_kg_edges
-        }
-        meta_kg_file_path = os.path.join(output_directory, META_KG_FILENAME)
-        with open(meta_kg_file_path, 'w') as meta_kg_file:
-            meta_kg_file.write(json.dumps(meta_kg, indent=4))
-
-        sri_testing_data = {
-            "source_type": "primary",
-            "edges": test_edges
-        }
-        sri_testing_file_path = os.path.join(output_directory, SRI_TESTING_FILENAME)
-        with open(sri_testing_file_path, 'w') as sri_testing_file:
-            sri_testing_file.write(json.dumps(sri_testing_data, indent=4))
-
-    def get_curie_prefixes_by_node_type(self, neo4j_access: Neo4jTools, node_type: str):
-        curies_query = f"""
-        MATCH (n:`{node_type}`) return collect(n.id) as ids , collect(keys(n)) as attributes
-        """
-        self.logger.debug(f"Starting {node_type} curies query... this might take a few.")
-        before_time = time.time()
-        curie_query_results = neo4j_access.execute_read_cypher_query(curies_query)
-        after_time = time.time()
-        self.logger.debug(f"Completed {node_type} curies query ({after_time - before_time} seconds).")
-
-        curie_prefixes = set()
-        for i in curie_query_results[0]['ids']:
-            curie_prefixes.add(i.split(':')[0])
-        # sort according to bl model - this can throw an exception if id_prefixes are not found, default to empty
-        try:
-            node_bl_def = self.bl_utils.toolkit.get_element(node_type)
-            id_prefixes = node_bl_def.id_prefixes
-            sorted_curie_prefixes = [i for i in id_prefixes if i in curie_prefixes]  # gives precedence to what's in BL
-        except Exception as e:
-            sorted_curie_prefixes = []
-        # add other ids even if not in BL next
-        sorted_curie_prefixes += [i for i in curie_prefixes if i not in sorted_curie_prefixes]
-        all_keys = set()
-        for keys in curie_query_results[0]['attributes']:
-            for k in keys:
-                all_keys.add(k)
-
-        attributes_as_bl_types = []
-        for key in all_keys:
-            attr_data = self.bl_utils.get_attribute_bl_info(key)
-            if attr_data:
-                attr_data['original_attribute_names'] = [key]
-                attributes_as_bl_types.append(attr_data)
-        return sorted_curie_prefixes, attributes_as_bl_types
-
-    def get_examples(self,
-                     neo4j_access: Neo4jTools,
-                     subject_node_type,
-                     object_node_type,
-                     predicate=None,
-                     num_examples=1,
-                     use_qualifiers=False):
-        """
-        return example edges
-        """
-        qualifiers_check = " WHERE edge.qualified_predicate IS NOT NULL " if use_qualifiers else ""
-        if object_node_type and predicate:
-            query = f"MATCH (subject:`{subject_node_type}`)-[edge:`{predicate}`]->(object:`{object_node_type}`) " \
-                    f"{qualifiers_check} return subject, edge, object limit {num_examples}"
-            response = neo4j_access.execute_read_cypher_query(query)
-            return response
-        elif object_node_type:
-            query = f"MATCH (subject:`{subject_node_type}`)-[edge]->(object:`{object_node_type}`) " \
-                    f"{qualifiers_check} return subject, edge, object limit {num_examples}"
-            response = neo4j_access.execute_read_cypher_query(query)
-            return response
 
     def load_graph_specs(self):
         if 'DATA_SERVICES_GRAPH_SPEC' in os.environ and os.environ['DATA_SERVICES_GRAPH_SPEC']:
@@ -699,5 +470,3 @@ if __name__ == '__main__':
     for results_graph_id, results in graph_builder.build_results.items():
         if results['success']:
             print(f'{results_graph_id}\t{results["version"]}')
-
-

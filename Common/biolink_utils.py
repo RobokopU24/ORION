@@ -26,24 +26,21 @@ class BiolinkUtils:
     def __init__(self):
         self.toolkit = Toolkit()
 
-    def find_biolink_leaves(self, biolink_concepts: list):
+    def find_biolink_leaves(self, biolink_concepts: set):
         """
         Given a list of biolink concepts, returns the leaves removing any parent concepts.
         :param biolink_concepts: list of biolink concepts
         :return: leave concepts.
         """
-        ancestry_set = set()
-        all_concepts = set(biolink_concepts)
-        # Keep track of things like "MacromolecularMachine" in current datasets.
-        unknown_elements = set()
-
-        for x in all_concepts:
+        ancestry_set = set()  # the set of concepts that are parents to concepts in the set
+        unknown_elements = set()  # concepts not found in the biolink model
+        for x in biolink_concepts:
             current_element = self.toolkit.get_element(x)
             if not current_element:
                 unknown_elements.add(x)
             ancestors = set(self.toolkit.get_ancestors(x, mixin=True, reflexive=False, formatted=True))
             ancestry_set = ancestry_set.union(ancestors)
-        leaf_set = all_concepts - ancestry_set - unknown_elements
+        leaf_set = biolink_concepts - ancestry_set - unknown_elements
         return leaf_set
 
     def invert_predicate(self, biolink_predicate):
@@ -51,15 +48,37 @@ class BiolinkUtils:
         element = self.toolkit.get_element(biolink_predicate)
         if element is None:
             return None
-        # If its symmetric
+        # If its symmetric return itself
         if 'symmetric' in element and element.symmetric:
             return biolink_predicate
-        # if neither symmetric nor an inverse is found
+        # If no inverse is found return None
         if 'inverse' not in element or not element['inverse']:
             return None
-        # if an inverse is found
+        # Return the predicate's inverse
         return self.toolkit.get_element(element['inverse']).slot_uri
 
+    def get_attribute_type_id(self, attribute_name):
+
+        # the default if the real biolink attribute type id is not found
+        attribute_type_id = "biolink:Attribute"
+
+        # TODO - this part might not work, it was stolen from plater but may not be helpful
+        # lookup the biolink info for this attribute
+        bl_info = self.toolkit.get_element(attribute_name)
+        if not bl_info:
+            # check for predicates that should start with biolink curies but don't
+            if not attribute_name.startswith('biolink:'):
+                bl_info = self.toolkit.get_element(f'biolink:{attribute_name}')
+        if bl_info is not None:
+            if 'slot_uri' in bl_info:
+                attribute_type_id = bl_info['slot_uri']
+            elif 'class_uri' in bl_info:
+                attribute_type_id = bl_info['class_uri']
+
+        return attribute_type_id
+
+    # !!! DEPRECATED !!!
+    # keeping around for neo4j meta kg creation but this was really code geared towards generating TRAPI for plater
     def get_attribute_bl_info(self, attribute_name):
         # set defaults
         new_attr_meta_data = {

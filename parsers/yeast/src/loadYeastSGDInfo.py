@@ -13,17 +13,6 @@ from Common.node_types import AGGREGATOR_KNOWLEDGE_SOURCES, PRIMARY_KNOWLEDGE_SO
 
 from Common.kgxmodel import kgxnode, kgxedge
 
-# Costanza 2016 Yeast Genetic Interactions
-class COSTANZA_GENEINTERACTIONS(enum.IntEnum):
-    GENE1 = 0
-    GENE2 = 21
-    EVIDENCEPMID = 8
-    PREDICATE = 14
-    PVALUE = 17
-    SGASCORE = 18
-    GENE1ALLELE = 19
-    GENE2ALLELE = 20
-
 # Maps Genes to GO Terms.
 class GENEGOTERMS_EDGEUMAN(enum.IntEnum):
     GENE = 0
@@ -69,32 +58,6 @@ class COMPLEXEGO_EDGEUMAN(enum.IntEnum):
     PREDICATE = 3
     COMPLEXNAME = 2
 
-#List of Binned Histone Modifications
-class HISTONEMODBINS_EDGEUMAN(enum.IntEnum):
-    ID = 0
-    CHROMOSOME = 1
-    STARTLOCATION = 2
-    ENDLOCATION = 3
-    LOCI = 4
-    MODIFICATION = 5
-
-# Maps Histone Modifications to Genes
-class HISTONEMODGENE_EDGEUMAN(enum.IntEnum):
-    ID = 0
-    CHROMOSOME = 1
-    STARTLOCATION = 2
-    ENDLOCATION = 3
-    LOCI = 4
-    MODIFICATION = 5
-    GENE = 6
-
-# Maps Histone Modifications to GO Terms
-class HISTONEMODGOTERMS_EDGEUMAN(enum.IntEnum):
-    ID = 0
-    PRED = 1
-    GOID = 2
-    GONAME = 3
-
 ##############
 # Class: Mapping SGD Genes to SGD Associations
 #
@@ -115,8 +78,6 @@ class YeastSGDLoader(SourceDataLoader):
         # call the super
         super().__init__(test_mode=test_mode, source_data_dir=source_data_dir)
 
-        self.cos_dist_threshold = 1.0
-        self.genome_resolution = 150
         #self.yeast_data_url = 'https://stars.renci.org/var/data_services/yeast/'
 
         self.sgd_gene_list_file_name = "SGDAllGenes.csv"
@@ -125,11 +86,6 @@ class YeastSGDLoader(SourceDataLoader):
         self.genes_to_phenotype_edges_file_name = "SGDGene2Phenotype.csv"
         self.genes_to_complex_edges_file_name = "SGDGene2Complex.csv"
         self.complex_to_go_term_edges_file_name = "SGDComplex2GOTerm.csv"
-        self.histone_mod_list_file_name = f"Res{self.genome_resolution}HistoneModLoci.csv"
-        self.histone_mod_to_gene_file_name = "HistoneMod2Gene.csv"
-        self.histone_mod_to_go_term_file_name = "HistonePTM2GO.csv"
-        self.costanza_genetic_interactions_file_name = "Costanza2016GeneticInteractions.csv"
-        
         
         self.data_files = [
             self.sgd_gene_list_file_name,
@@ -137,11 +93,8 @@ class YeastSGDLoader(SourceDataLoader):
             self.genes_to_pathway_edges_file_name,
             self.genes_to_phenotype_edges_file_name,
             self.genes_to_complex_edges_file_name,
-            self.complex_to_go_term_edges_file_name,
-            self.histone_mod_list_file_name,
-            self.histone_mod_to_gene_file_name,
-            self.histone_mod_to_go_term_file_name,
-            self.costanza_genetic_interactions_file_name]
+            self.complex_to_go_term_edges_file_name
+        ]
 
     def get_latest_source_version(self) -> str:
         """
@@ -156,8 +109,7 @@ class YeastSGDLoader(SourceDataLoader):
         Gets the yeast data.
 
         """
-        genome_resolution = 150
-        main(genome_resolution, self.data_path)
+        main(self.data_path)
 
         return True
 
@@ -375,116 +327,6 @@ class YeastSGDLoader(SourceDataLoader):
                                   comment_character=None,
                                   delim=',',
                                   has_header_row=True)
-
-        #Genes to BinnedHistonePTMs.
-        gene_to_histone_mod_edges_file: str = os.path.join(self.data_path, self.histone_mod_to_gene_file_name)
-        with open(gene_to_histone_mod_edges_file, 'r') as fp:
-            extractor.csv_extract(fp,
-                                  lambda line: line[HISTONEMODGENE_EDGEUMAN.ID.value], #subject id
-                                  lambda line: line[HISTONEMODGENE_EDGEUMAN.GENE.value],  # object id
-                                  lambda line: "biolink:located_in",  # predicate extractor
-                                  lambda line: {},  # subject props
-                                  lambda line: {},  # object props
-                                  lambda line: {
-                                                PRIMARY_KNOWLEDGE_SOURCE: "Epigenomics"
-                                  }, #edgeprops
-                                  comment_character=None,
-                                  delim=',',
-                                  has_header_row=True)
-        
-        #Binned Histone PTMS to general PTMs.
-        histone_modification_file: str = os.path.join(self.data_path, self.histone_mod_list_file_name)
-        with open(histone_modification_file, 'r') as fp:
-            extractor.csv_extract(fp,
-                                  lambda line: line[HISTONEMODBINS_EDGEUMAN.ID.value],  # subject id
-                                  lambda line: "HisPTM:"+line[HISTONEMODBINS_EDGEUMAN.MODIFICATION.value],  # object id
-                                  lambda line: "biolink:subclass_of",  # predicate extractor
-                                  lambda line: {}, # subject props
-                                  lambda line: {}, # object props
-                                  lambda line: {
-                                                PRIMARY_KNOWLEDGE_SOURCE: "Epigenomics"
-                                                },#edgeprops
-                                  comment_character=None,
-                                  delim=',',
-                                  has_header_row=True)
-        
-        #General PTMs to GO Terms.
-        histone_mod2go_term_file: str = os.path.join(self.data_path, self.histone_mod_to_go_term_file_name)
-        with open(histone_mod2go_term_file, 'r') as fp:
-            extractor.csv_extract(fp,
-                                  lambda line: line[HISTONEMODGOTERMS_EDGEUMAN.ID.value],  # subject id
-                                  lambda line: line[HISTONEMODGOTERMS_EDGEUMAN.GOID.value],  # object id
-                                  lambda line: line[HISTONEMODGOTERMS_EDGEUMAN.PRED.value],  # predicate extractor
-                                  lambda line: {}, # subject props
-                                  lambda line: {}, # object props
-                                  lambda line: {
-                                                PRIMARY_KNOWLEDGE_SOURCE: "Epigenomics"
-                                                }, #edgeprops
-                                  comment_character=None,
-                                  delim=',',
-                                  has_header_row=True)
-        
-        # Costanza Genetic Interactions Parser. Add edges between "Cell Growth" and the yeast genotype.
-        costanza_genetic_interactions: str = os.path.join(self.data_path, self.costanza_genetic_interactions_file_name)
-        with open(costanza_genetic_interactions, 'r') as fp:
-            extractor.csv_extract(fp,
-                                  lambda line: line[COSTANZA_GENEINTERACTIONS.GENE1.value]+"-"+line[COSTANZA_GENEINTERACTIONS.GENE2.value].replace("SGD:",""),  # subject id
-                                  lambda line: "GO:0016049",  # object id
-                                  lambda line: line[COSTANZA_GENEINTERACTIONS.PREDICATE.value],  # predicate extractor
-                                  lambda line: {
-                                                    'name': line[COSTANZA_GENEINTERACTIONS.GENE1ALLELE.value]+"-"+line[COSTANZA_GENEINTERACTIONS.GENE2ALLELE.value],
-                                                    'categories': ['biolink:Genotype'],
-                                                    'gene1_allele': line[COSTANZA_GENEINTERACTIONS.GENE1ALLELE.value],
-                                                    'gene2_allele': line[COSTANZA_GENEINTERACTIONS.GENE2ALLELE.value]
-                                                }, # subject props
-                                  lambda line: {}, # object props
-                                  lambda line: {
-                                                    'p-value': line[COSTANZA_GENEINTERACTIONS.PVALUE.value],
-                                                    'sgaScore': line[COSTANZA_GENEINTERACTIONS.SGASCORE.value],
-                                                    'evidencePMIDs': line[COSTANZA_GENEINTERACTIONS.EVIDENCEPMID.value],
-                                                    PRIMARY_KNOWLEDGE_SOURCE: "CostanzaGeneticInteractions"
-                                                }, #edgeprops
-                                  comment_character=None,
-                                  delim=',',
-                                  has_header_row=True)
-
-        # Costanza Genetic Interactions Parser. Genotype to Gene 1 edge.
-        costanza_genetic_interactions: str = os.path.join(self.data_path, self.costanza_genetic_interactions_file_name)
-        with open(costanza_genetic_interactions, 'r') as fp:
-            extractor.csv_extract(fp,
-                                  lambda line: line[COSTANZA_GENEINTERACTIONS.GENE1.value]+"-"+line[COSTANZA_GENEINTERACTIONS.GENE2.value].replace("SGD:",""),  # subject id
-                                  lambda line: line[COSTANZA_GENEINTERACTIONS.GENE1.value],  # object id
-                                  lambda line: "biolink:has_part",  # predicate extractor
-                                  lambda line: {}, # subject props
-                                  lambda line: {}, # object props
-                                  lambda line: {
-                                                    'gene1_allele': line[COSTANZA_GENEINTERACTIONS.GENE1ALLELE.value],
-                                                    'evidencePMIDs': line[COSTANZA_GENEINTERACTIONS.EVIDENCEPMID.value],
-                                                    PRIMARY_KNOWLEDGE_SOURCE: "CostanzaGeneticInteractions"
-
-                                  }, #edgeprops
-                                  comment_character=None,
-                                  delim=',',
-                                  has_header_row=True)
-            
-        # Costanza Genetic Interactions Parser. Genotype to Gene 2 edge.
-        costanza_genetic_interactions: str = os.path.join(self.data_path, self.costanza_genetic_interactions_file_name)
-        with open(costanza_genetic_interactions, 'r') as fp:
-            extractor.csv_extract(fp,
-                                  lambda line: line[COSTANZA_GENEINTERACTIONS.GENE1.value]+"-"+line[COSTANZA_GENEINTERACTIONS.GENE2.value].replace("SGD:",""),  # subject id
-                                  lambda line: line[COSTANZA_GENEINTERACTIONS.GENE2.value],  # object id
-                                  lambda line: "biolink:has_part",  # predicate extractor
-                                  lambda line: {}, # subject props
-                                  lambda line: {}, # object props
-                                  lambda line: {
-                                                    'gene1_allele': line[COSTANZA_GENEINTERACTIONS.GENE2ALLELE.value],
-                                                    'evidencePMIDs': line[COSTANZA_GENEINTERACTIONS.EVIDENCEPMID.value],
-                                                    PRIMARY_KNOWLEDGE_SOURCE: "CostanzaGeneticInteractions"
-
-                                  }, #edgeprops
-                                  comment_character=None,
-                                  delim=',',
-                                  has_header_row=True)        
         self.final_node_list = extractor.nodes
         self.final_edge_list = extractor.edges
         return extractor.load_metadata

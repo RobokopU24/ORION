@@ -1,4 +1,4 @@
-from prefixes import *
+from Common.prefixes import *
 
 # these are predicates from DGIDB as well as drug and chemical activity types from drug central
 DGIDB_PREDICATE_MAPPING = {
