@@ -135,119 +135,20 @@ class BINDINGDBLoader(SourceDataLoader):
 
 
 
-#code that works locally 
-
-#import enum
-#import pandas as pd
-#import math
-#import csv
-#import os
-#import numpy as np
-
-
-#makes the out file of th eTSV with just hte important things
-#BD_full_file = 'C:/Users/GameCenter/Data_services_root/Data_services_storage/BINDING-DB/202305/source/BindingDB_All.tsv'
+        table = table.rename(columns={'UniProt (SwissProt) Entry Name of Target Chain':'UNIPROT_TARGET_CHAIN','PubChem CID':'PubChem_CID','Ki (nM)':'Ki','IC50 (nM)':'IC50','Kd (nM)':'Kd','koff (s-1)':'Koff','EC50 (nM)':'EC50','kon (M-1-s-1)':'Kon'})
+        table = table[table.UNIPROT_TARGET_CHAIN.notnull()]        
+        table = table[table.PubChem_CID.notnull()]
 
 
 
-
-#with open(BD_full_file, 'r',encoding="utf-8") as fin, open('out.tsv', 'w',encoding= "utf-8") as fout:
-#    reader = csv.reader(fin, dialect='excel-tab')
-#    writer = csv.writer(fout, dialect='excel-tab')
-    
-#    for row in reader:
-#    # delete indices in reverse order to avoid shifting earlier indices
-#        del row[41:213]
-#        del row[29:40]
-#        del row[14:28]
-#        del row[0:8]
-#        writer.writerow(row)
-    
-
-            
-#table = pd.read_table("C:/Users/GameCenter/Documents/Python Scripts/out.tsv", sep='\t',error_bad_lines=False, low_memory=False)
-
-#def negative_log(score):
-#    return math.log10(abs(float(score)))*-10**-9
-
-#need to figure out why there is a domain error
-
-
-
-#table = table.rename(columns={'UniProt (SwissProt) Entry Name of Target Chain':'UNIPROT_TARGET_CHAIN','PubChem CID':'PubChem_CID','Ki (nM)':'Ki','IC50 (nM)':'IC50','Kd (nM)':'Kd','koff (s-1)':'Koff','EC50 (nM)':'EC50','kon (M-1-s-1)':'Kon'})
-#table = table[table.UNIPROT_TARGET_CHAIN.notnull()]        
-#table = table[table.PubChem_CID.notnull()]
-
-
-
-#table_Ki = table[table.Ki.notnull()]
-#table_Ki['Ki'] = table_Ki['Ki'].str.replace('>','')
-#table_Ki['Ki'] = table_Ki['Ki'].str.replace('<','')
-#table_Ki['Ki'] = table_Ki['Ki'].astype('float')
-#table_Ki = table_Ki[table_Ki.Ki > 0]
-#table_Ki = table_Ki[['PubChem_CID','UNIPROT_TARGET_CHAIN','Ki']]
-#table_Ki['Ki'] = table_Ki['Ki'].apply(negative_log)
-#table_Ki.to_csv('table_Ki_out.csv')
-
-
-
-#table_IC50 = table[table.IC50.notnull()]
-#table_IC50['IC50'] = table_IC50['IC50'].str.replace('>','')
-#table_IC50['IC50'] = table_IC50['IC50'].str.replace('<','')
-#table_IC50['IC50'] = table_IC50['IC50'].astype('float')
-#table_IC50 = table_IC50[table_IC50.IC50 > 0]
-#table_IC50 = table_IC50[['PubChem_CID','UNIPROT_TARGET_CHAIN','IC50']]
-#table_IC50['IC50'] = table_IC50['IC50'].apply(negative_log)
-#table_IC50.to_csv('table_IC50_out.csv')
-
-
-
-#table_Kd = table[table.Kd.notnull()]
-#table_Kd['Kd'] = table_Kd['Kd'].str.replace('>','')
-#table_Kd['Kd'] = table_Kd['Kd'].str.replace('<','')
-#table_Kd['Kd'] = table_Kd['Kd'].astype('float')
-#table_Kd = table_Kd[table_Kd.Kd > 0]
-#table_Kd = table_Kd[['PubChem_CID','UNIPROT_TARGET_CHAIN','Kd']]
-#table_Kd['Kd'] = table_Kd['Kd'].apply(negative_log)
-#table_Kd.to_csv('table_Kd.csv')
-
-
-
-#table_EC50 = table[table.EC50.notnull()]
-#table_EC50['EC50'] = table_EC50['EC50'].str.replace('>','')
-#table_EC50['EC50'] = table_EC50['EC50'].str.replace('<','')
-#table_EC50['EC50'] = table_EC50['EC50'].astype('float')
-#table_EC50 = table_EC50[table_EC50.EC50 > 0]
-#table_EC50 = table_EC50[['PubChem_CID','UNIPROT_TARGET_CHAIN','EC50']]
-#table_EC50['EC50']=table_EC50['EC50'].apply(negative_log)
-#table_EC50.to_csv('table_EC50.csv')
-
-
-
-#table_Kon = table[table.Kon.notnull()]
-#table_Kon['Kon'] = table_Kon['Kon'].str.replace('>','')
-#table_Kon['Kon'] = table_Kon['Kon'].str.replace('<','')
-#table_Kon['Kon'] = table_Kon['Kon'].astype('float')
-#table_Kon = table_Kon[table_Kon.Kon >0]
-#table_Kon = table_Kon[['PubChem_CID','UNIPROT_TARGET_CHAIN','Kon']]
-#table_Kon.to_csv('table_Kon.csv')
-
-
-
-#table_Koff = table[table.Koff.notnull()]
-#table_Koff['Koff'] = table_Koff['Koff'].str.replace('>','')
-#table_Koff['Koff'] = table_Koff['Koff'].str.replace('<','')
-#table_Koff['Koff'] = table_Koff['Koff'].astype('float')
-#table_Koff = table_Koff[table_Koff.Koff > 0]
-#table_Koff = table_Koff[['PubChem_CID','UNIPROT_TARGET_CHAIN','Koff']]
-#table_Koff.to_csv('table_Koff.csv')
-
-
-
-
-
-
-
+        table_Ki = table[table.Ki.notnull()]
+        table_Ki['Ki'] = table_Ki['Ki'].str.replace('>','')
+        table_Ki['Ki'] = table_Ki['Ki'].str.replace('<','')
+        table_Ki['Ki'] = table_Ki['Ki'].astype('float')
+        table_Ki = table_Ki[table_Ki.Ki > 0]
+        table_Ki = table_Ki[['PubChem_CID','UNIPROT_TARGET_CHAIN','Ki']]
+        table_Ki['Ki'] = table_Ki['Ki'].apply(negative_log)
+        table_Ki.to_csv('table_Ki_out.csv')
 
 
         extractor.csv_extract(BD_full_file,

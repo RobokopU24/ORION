@@ -1,7 +1,6 @@
 from collections import defaultdict
 import importlib
 
-BINDING_DB = 'BINDING-DB'
 BIOLINK = 'Biolink'
 CAM_KP = 'CAM-KP'
 CHEBI_PROPERTIES = 'CHEBIProps'
@@ -17,6 +16,7 @@ HETIO = 'Hetio'
 HGNC = 'HGNC'
 HMDB = 'HMDB'
 HUMAN_GOA = 'HumanGOA'
+HVPPI = 'HVPPI'
 INTACT = 'IntAct'
 MONDO_PROPS = 'MONDOProps'
 ONTOLOGICAL_HIERARCHY = 'OntologicalHierarchy'
@@ -38,7 +38,6 @@ YEAST_STRING_DB = 'Yeast-STRING-DB'
 RESOURCE_HOGS = [GTEX, GWAS_CATALOG, UNIREF, ONTOLOGICAL_HIERARCHY, UBERGRAPH, UBERGRAPH_REDUNDANT, YEASTSGD, STRING_DB, CAM_KP]
 
 SOURCE_DATA_LOADER_CLASS_IMPORTS = {
-    BINDING_DB: {"parsers.BINDING.src.loadBINDINGDB","BINDINGDBLoader"},
     BIOLINK: ("parsers.biolink.src.loadBL", "BLLoader"),
     CAM_KP: ("parsers.camkp.src.loadCAMKP", "CAMKPLoader"),
     CHEBI_PROPERTIES: ("parsers.chebi.src.loadChebiProperties", "ChebiPropertiesLoader"),
@@ -53,6 +52,7 @@ SOURCE_DATA_LOADER_CLASS_IMPORTS = {
     HGNC: ("parsers.hgnc.src.loadHGNC", "HGNCLoader"),
     HMDB: ("parsers.hmdb.src.loadHMDB", "HMDBLoader"),
     HUMAN_GOA: ("parsers.GOA.src.loadGOA", "HumanGOALoader"),
+    HVPPI: ("parsers.HVPPI.src.loadHVPPI","HVPPILoader"),
     INTACT: ("parsers.IntAct.src.loadIA", "IALoader"),
     MONDO_PROPS: ("parsers.MONDOProperties.src.loadMP", "MPLoader"),
     ONTOLOGICAL_HIERARCHY: ("parsers.UberGraph.src.loadUG", "OHLoader"),
