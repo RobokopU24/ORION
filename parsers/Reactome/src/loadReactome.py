@@ -13,7 +13,7 @@ from collections import defaultdict
 from Common.utils import GetData
 from Common.loader_interface import SourceDataLoader, SourceDataFailedError
 from Common.kgxmodel import kgxnode, kgxedge
-from Common.prefixes import REACTOME, NCBITAXON
+from Common.prefixes import REACTOME, NCBITAXON, GTOPDB
 
 
 SUBJECT_COLUMN = 0
@@ -28,11 +28,13 @@ PREDICATE_MAPPING = {"compartment":"biolink:located_in","output":"biolink:has_ou
 SUPPOSE_PROPERTIES = ("Summation", "EntityFunctionalStatus", "GeneticallyModifiedResidue", "AbstractModifiedResidue")
 
 # Normalized node are normalized once formatted as curie
-NORMALIZED_NODES = ("Pathway", "Event", "BlackboxEvent", "FailedReaction", "Depolymerisation", "Polymerisation")
+NORMALIZED_NODES = ("ReactionLikeEvent",)#("Pathway", "Event", "BlackboxEvent", "FailedReaction", "Depolymerisation", "Polymerisation")
 
 # These nodes has no reactome ID, however their ID is the combination of two attributes on them
-ON_NODE_MAPPING = ("GO_Term", "Compartment", "GO_BiologicalProcess", "GO_MolecularFunction", "GO_CellularComponent", "Disease",
-                "Species", "ExternalOntology", "CellType")#databaseName+:+identifier
+ON_NODE_MAPPING = ("GO_Term", "Species", "ExternalOntology")#databaseName+:+identifier
+                    # "Compartment", "GO_BiologicalProcess", "GO_MolecularFunction", "GO_CellularComponent",
+                    # "Disease", "CellType"
+ID_MAPPING = ("ReferenceMolecule", "ReferenceTherapeutic", "ReferenceSequence") #databaseName+KB:+identifier or databaseName+:+identifier
 
 # Combination of attributes on the following nodes makes the ID. Also, they are rather the referenceID for certain other nodes
 # ReferenceIsoform is the reference ID for EntityWITHACCESSIONEDSEQUENCE(PROTEIN)
@@ -40,8 +42,7 @@ ID_MAPPING = ("ReferenceMolecule", "ReferenceTherapeutic", "ReferenceSequence") 
 
 ALL_ON_NODE_MAPPING = NORMALIZED_NODES + ON_NODE_MAPPING + ID_MAPPING
 
-
-
+CROSS_MAPPING = ('GenomeEncodedEntity', 'SimpleEntity')
 
 TO_WRITE = ('Provenance/Include', 'Attribute/Include') #Descriptive features of other existing nodes eg Summation
 TO_MAP = ('IDMapping/Include', ) # Maps the external identifier of a node from another node
@@ -82,7 +83,7 @@ class ReactomeLoader(SourceDataLoader):
         self.password: str = 'reactomepleasebegood'
         # self.dbase: str = 'reactomes'
         self.driver = GraphDatabase.driver(self.data_url, auth=(self.data_user, self.password))
-        self.triple_file: str = 'reactomeContents_triple.csv'
+        self.triple_file: str = 'reactomeContents_CriticalTriples.csv'
         self.triple_path = os.path.dirname(os.path.abspath(__file__))
         self.data_files = []
 
@@ -90,10 +91,8 @@ class ReactomeLoader(SourceDataLoader):
     def get_latest_source_version(self) -> str:
         """
         gets the latest available version of the data
-
         :return:
         """
-
         # load the web page for CTD
         html_page: requests.Response = requests.get(self.version_url)
         
@@ -185,11 +184,12 @@ class ReactomeLoader(SourceDataLoader):
             'num_source_lines': record_counter,
             'unusable_source_lines': skipped_record_counter
             }
-
-        with open('No_edges.txt', 'w') as nw:
-            nw.write(json.dumps(list(EDGE_NOT_WORKING), indent=4))
-        with open('No_nodes.txt', 'w') as nw:
-            nw.write(json.dumps(list(NODE_NOT_WORKING), indent=4))
+        # if EDGE_NOT_WORKING:
+        #     with open('No_edges.txt', 'w') as nw:
+        #         nw.write(json.dumps(list(EDGE_NOT_WORKING), indent=4))
+        # if NODE_NOT_WORKING:
+        #     with open('No_nodes.txt', 'w') as nw:
+        #         nw.write(json.dumps(list(NODE_NOT_WORKING), indent=4))
 
         return load_metadata
     
@@ -304,11 +304,14 @@ class ReactomeLoader(SourceDataLoader):
         #On-node/Same node ID Mapping eg GO, Disease ...
         if node =="Species":
             cypher = f"MATCH (a:{node}) SET a.ids ='{NCBITAXON}:'+a.taxId"
-        elif node in ID_MAPPING or node in ("Disease", "CellType"):
+        elif node in ID_MAPPING or node =="ExternalOntology":
+            if node == "ReferenceTherapeutic":
+               cypher = f"MATCH (a:{node}) SET  a.ids ='{GTOPDB}:'+a.identifier"
             # Some are NCBI Entrez Gene or NCBI Nucleotide or uniprot or ensembl etc
             # The split is necessary becase of some funny looking curies:
             # NCBI Gene:324=>NCBIGene:324; KEGG Gene (Homo sapiens)=>KEGGGene
-            cypher = f"MATCH (a:{node}) SET a.ids = CASE WHEN SIZE(SPLIT(a.databaseName, ' ')) >= 2 THEN SPLIT(a.databaseName, ' ')[0] + 'Gene' + ':' + SPLIT(a.identifier, '.')[0] WHEN a.databaseName = 'UniProt' THEN REPLACE(a.databaseName, ' ', '') + 'KB:' + SPLIT(a.identifier, '.')[0] ELSE REPLACE(a.databaseName, ' ', '') + ':' + SPLIT(a.identifier, '.')[0] END"
+            else:
+                cypher = f"MATCH (a:{node}) SET a.ids = CASE WHEN SIZE(SPLIT(a.databaseName, ' ')) >= 2 THEN SPLIT(a.databaseName, ' ')[0] + 'Gene' + ':' + SPLIT(a.identifier, '.')[0] WHEN a.databaseName = 'UniProt' THEN REPLACE(a.databaseName, ' ', '') + 'KB:' + SPLIT(a.identifier, '.')[0] ELSE REPLACE(a.databaseName, ' ', '') + ':' + SPLIT(a.identifier, '.')[0] END"
         elif node in NORMALIZED_NODES:
             #Biolink normalized reactome ids eg pathways, events ......
             cypher = f"MATCH (a:{node}) SET a.ids ='{REACTOME}:'+a.stId"
@@ -321,11 +324,10 @@ class ReactomeLoader(SourceDataLoader):
         # ReferenceID Mappings eg EntityWithAccessionedSequence ->ReferenceSequence ......
         cypher = None
         # OBJECT
-        if o in ID_MAPPING:
-            # CHEBI, RHEA ...
-            cypher = f"MATCH (a:{s})-[r:{p}]->(b:{o}) SET a.ids = b.ids"
+        if s in CROSS_MAPPING:
+            cypher = f"MATCH (a:{s})-[r:referenceEntity]->(b:{o}) SET a.ids = b.ids"
         if not cypher:
-            if s in ID_MAPPING:
+            if o in CROSS_MAPPING:
                 # CHEBI ...
                 cypher = f"MATCH (a:{s})-[r:{p}]->(b:{o}) SET b.ids = a.ids"
             if not cypher:
