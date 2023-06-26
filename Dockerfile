@@ -16,4 +16,5 @@ COPY . /Data_services/.
 
 RUN chmod -R 777 /Data_services
 
+
 ENV PYTHONPATH "$PYTHONPATH:/Data_services"

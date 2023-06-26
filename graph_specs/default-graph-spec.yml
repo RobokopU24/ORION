@@ -23,7 +23,7 @@ graphs:
         # conflation: False
         # strict_normalization: True (whether or not data should be discarded when it can not be normalized)
         # merge_strategy: default (used to specify alternative merge strategies)
-      - source_id: REACTOME
+      - source_id: REACTOME-DB
       - source_id: CHEBIProps
       - source_id: CTD
       - source_id: DrugCentral
@@ -69,14 +69,6 @@ graphs:
       - source_id: Biolink
       - source_id: OntologicalHierarchy
         merge_strategy: connected_edge_subset
-
-  - graph_id: Reactome_Automat
-    graph_name: Reactome KP
-    graph_description: 'REACTOME is an open-source, open access, manually curated and peer-reviewed pathway database. Our goal is to provide intuitive bioinformatics tools for the visualization, interpretation and analysis of pathway knowledge to support basic and clinical research, genome analysis, modeling, systems biology and education.'
-    graph_url: https://reactome.org/
-    output_format: neo4j
-    sources:
-      - source_id: REACTOME-DB
 
   - graph_id: CAMKP_Automat
     graph_name: CAM KP

@@ -1,7 +1,7 @@
 Subject,Predicate,Object,Decision,Notes
 DatabaseIdentifier,referenceDatabase,ReferenceDatabase,Maybe,Taxonomy to Reference Database; Might be useful if provenance is to be written on the node
 InstanceEdit,created,DatabaseIdentifier,Exclude,"provenance are writtien on edges, right now, and if it's necesary to include, we might need to carefully decide which author to include"
-ReferenceSequence,crossReference,DatabaseIdentifier,IDMapping/-,Maps protein ref sequences to external DBs
+ReferenceSequence,crossReference,DatabaseIdentifier,IDMapping/Exclude,Maps protein ref sequences to external DBs
 ReferenceDNASequence,referenceDatabase,ReferenceDatabase,IDMapping/Exclude,Maps DNA sequences (genes?) to external DBs. Probably Exclude
 ReferenceDNASequence,species,Species,Include,"Relates Genes to Species. Use ""NCBITaxon:""+taxon property to normalize"
 InstanceEdit,created,ReferenceDNASequence,Exclude,Manual edits to genes made by Reactome curators
@@ -33,7 +33,7 @@ InstanceEdit,modified,ReferenceSequence,Exclude,Manual edit
 Complex,inferredTo,Complex,Maybe,Cross-species protein complex orthologs. Not clear how inference is made.
 Complex,summation,Summation,Attribute/Include,Summary text for protein complexes. May be useful as a property of complex nodes.
 Pathway,hasEvent,Reaction,Include,Important triple. Describes ReactionLikeEvents that take place within a pathway.
-Reaction,species,Species,SpeciesMapping/Maybe,"Describes species where reaction occurs. Use ""NCBITaxon:""+taxon property to normalize."
+Reaction,species,Species,Include,"Describes species where reaction occurs. Use ""NCBITaxon:""+taxon property to normalize."
 Reaction,summation,Summation,Attribute/Include,"Summary text for the meaning of a reaction event. Could be modelled as a ""reaction"" node property."
 InstanceEdit,created,Reaction,Exclude,Manual Edit
 Reaction,inferredTo,Reaction,Maybe,Species-to-species reaction mapping. Not sure if it would be useful.
@@ -45,30 +45,30 @@ Reaction,precedingEvent,Reaction,Include,A chain of these triples describes that
 Interaction,referenceDatabase,ReferenceDatabase,Provenance/Exclude,Describes source database for PPIs. Usually IntAct
 InstanceEdit,created,Interaction,Exclude,Manual edit
 Reaction,output,Complex,Include,Important triple. Describes protein complexes as the output of reaction events.
-Reaction,catalystActivity,CatalystActivity,Attribute/Include,Describes the general type of catalysis going on in a reaction event.
+Reaction,catalystActivity,CatalystActivity,RDF_edge/Exclude,Describes the general type of catalysis going on in a reaction event.
 Reaction,input,Complex,Include,Important triple. Describes protein complexes as the input to reaction events.
-CatalystActivity,activity,GO_MolecularFunction,Attribute/Include,Maps GO molecular activity nodes to REACTOME Catalytic activities description. Could be useful for querying.
+CatalystActivity,activity,GO_MolecularFunction,RDF_edge/Include,Maps GO molecular activity nodes to REACTOME Catalytic activities description. Could be useful for querying.
 InstanceEdit,created,CatalystActivity,Exclude,Manual edit
 DefinedSet,compartment,GO_Term,Maybe,Describes cellular compartment of proteins sets sharing characteristics
 InstanceEdit,created,DefinedSet,Exclude,Manual edit
 DefinedSet,species,Species,Maybe,Defined sets of proteins linked to species.
 InstanceEdit,created,Publication,Exclude,Manual edit
 AbstractModifiedResidue,referenceSequence,ReferenceSequence,Exclude,location of lysine. Meaning of relationship is unclear
-AbstractModifiedResidue,psiMod,ExternalOntology,IDMapping/Exclude,Maps general concept of phosphorylated residues to individual instances.
+AbstractModifiedResidue,psiMod,ExternalOntology,Attribute/Exclude,Maps general concept of phosphorylated residues to individual instances.
 InstanceEdit,created,AbstractModifiedResidue,Exclude,Manual edit
-Reaction,literatureReference,Publication,Provenance/Include,Links reaction event to literature source. Use as property of the reaction node.
+Reaction,literatureReference,Publication,Provenance/Exclude,Links reaction event to literature source. Use as property of the reaction node.
 CandidateSet,hasCandidate,EntityWithAccessionedSequence,Maybe,Set of a group of related. Not immediately interesting.
 Reaction,input,EntityWithAccessionedSequence,Include,Important triple. Describes the proteins which are input to a reaction event.
 Complex,hasComponent,DefinedSet,Maybe,Describes protein complexes which are part of a larger defined set of protein.
 InstanceEdit,modified,EntityWithAccessionedSequence,Exclude,Manual edit
 Pathway,summation,Summation,Attribute/Include,Text summary of pathway. Put this information on the pathway node as node property
-Pathway,species,Species,Provenance/Exclude,"Describes species in which pathway takes place. Use ""NCBITaxon:""+taxon property to normalize."
+Pathway,species,Species,Include,"Describes species in which pathway takes place. Use ""NCBITaxon:""+taxon property to normalize."
 InstanceEdit,created,Pathway,Exclude,Manual edit
 Summation,literatureReference,Publication,Exclude,Text summary of publication. Not immediately useful
 Pathway,hasEvent,Pathway,Include,"Important triple. Describes pathway hierarchy, with top level pathways connecting to more specific ones."
 DefinedSet,inferredTo,DefinedSet,Exclude,Inferred that defined set for one species is related to a set in another species.
 DefinedSet,hasMember,Complex,Maybe,Describes protein complex members in a defined set.
-CatalystActivity,physicalEntity,Complex,Attribute/Include,Describes the catalytic activity of a protein complex.
+CatalystActivity,physicalEntity,Complex,RDF_edge/Maybe,Describes the catalytic activity of a protein complex.
 Pathway,inferredTo,Pathway,Exclude,Inferrence of pathway in one species to pathway in another
 Pathway,evidenceType,EvidenceType,Exclude,"Everything links to ""Inferred by electronic annotation"""
 InstanceEdit,created,Summation,Exclude,Manual edit
@@ -89,11 +89,11 @@ Pathway,goBiologicalProcess,GO_BiologicalProcess,Include,Important triple. Links
 GroupModifiedResidue,referenceSequence,ReferenceSequence,Maybe,Links PTMs to protein sequences
 GroupModifiedResidue,psiMod,ExternalOntology,Exclude,Maps PTMs to external db refererence
 InstanceEdit,created,GroupModifiedResidue,Exclude,Manual edit
-Pathway,literatureReference,Publication,Provenance/Maybe,Links pathways to publications describing them.
+Pathway,literatureReference,Publication,Provenance/Exclude,Links pathways to publications describing them.
 CandidateSet,hasMember,EntityWithAccessionedSequence,Exclude,Unclear what this means
 InstanceEdit,modified,Complex,Exclude,Manual edit
 EntityWithAccessionedSequence,disease,Disease,Maybe,Links specific protein sequences (maybe mutations) to diseases
-CatalystActivity,physicalEntity,EntityWithAccessionedSequence,Maybe,"Links protein sequences to catalytic activity, only dbId on CatalystActivity nodes."
+CatalystActivity,physicalEntity,EntityWithAccessionedSequence,RDF_edge/Maybe,"Links protein sequences to catalytic activity, only dbId on CatalystActivity nodes."
 DefinedSet,hasMember,DefinedSet,Exclude,Describes membership of a set of proteins to another set
 CandidateSet,compartment,GO_Term,Maybe,Describes cellular compartments of candidate entity sets
 BlackBoxEvent,summation,Summation,Attribute/Include,Text summary of BlackBoxEvents. Maybe include as node property on BBE
@@ -107,23 +107,23 @@ Complex,hasComponent,CandidateSet,Maybe,Links candidate protein sets to protein 
 GroupModifiedResidue,modification,ReferenceGroup,Maybe,Modified residue type to reference type
 CandidateSet,inferredTo,CandidateSet,Exclude,Inference across species
 Reaction,output,DefinedSet,Maybe,Describes defined sets that are outputs of Reactions
-BlackBoxEvent,literatureReference,Publication,Provenance/Include,Use as node property. Publication source for black box events
+BlackBoxEvent,literatureReference,Publication,Provenance/Exclude,Use as node property. Publication source for black box events
 Complex,includedLocation,GO_Term,Include,Complex to cellular component
 BlackBoxEvent,inferredTo,BlackBoxEvent,Exclude,Inference across species
-CatalystActivity,physicalEntity,DefinedSet,Attribute/Include,Describes catalytic activity shared by defined sets of entities
+CatalystActivity,physicalEntity,DefinedSet,RDF_edge/Maybe,Describes catalytic activity shared by defined sets of entities
 BlackBoxEvent,evidenceType,EvidenceType,Exclude,"Everything maps to ""inferred by electronic annotation"""
 GenomeEncodedEntity,compartment,GO_Term,Include,Describe cellular localization of genomic entity
-GenomeEncodedEntity,species,Species,Species Mapping/Include,"Map Entities to Taxon. Could be useful. Use ""NCBITaxon:""+taxon property to normalize"
+GenomeEncodedEntity,species,Species,Include,"Map Entities to Taxon. Could be useful. Use ""NCBITaxon:""+taxon property to normalize"
 InstanceEdit,created,GenomeEncodedEntity,Exclude,Manual edit
-CatalystActivity,activeUnit,EntityWithAccessionedSequence,Maybe,Describes catalyst activity of proteins. Only dbId on catalyst activity node.
+CatalystActivity,activeUnit,EntityWithAccessionedSequence,RDF_edge/Maybe,Describes catalyst activity of proteins. Only dbId on catalyst activity node.
 BlackBoxEvent,input,Complex,Include,BlackBoxEvents has protein complex as input
 InstanceEdit,modified,CatalystActivity,Exclude,Manual edit
 Reaction,precedingEvent,BlackBoxEvent,Include,Important triple. Describes reaction events preceding black box events
 BlackBoxEvent,output,Complex,Include,Important triple. Shows protein complexes that are outputs of blackbox events.
 BlackBoxEvent,precedingEvent,Reaction,Include,Important triple. Describes black box events preceeding reaction events
 Pathway,hasEncapsulatedEvent,Pathway,Include,Shows pathways that occur as part of larger pathways
-Complex,literatureReference,Publication,Provenance/Maybe,Include as a node property for referencing protein complexes
-EntityWithAccessionedSequence,crossReference,DatabaseIdentifier,IDMapping/-,May be necessary to normalize EntityWithAccessionedSequences
+Complex,literatureReference,Publication,Provenance/Exclude,Include as a node property for referencing protein complexes
+EntityWithAccessionedSequence,crossReference,DatabaseIdentifier,IDMapping/Exclude,May be necessary to normalize EntityWithAccessionedSequences
 InstanceEdit,modified,Publication,Exclude,Manual edit
 BlackBoxEvent,output,EntityWithAccessionedSequence,Include,Important triple. Shows proteins as an output of black box events
 GroupModifiedResidue,modification,Polymer,Maybe,Molecular modifications of polymer biomolecules
@@ -134,10 +134,10 @@ SimpleEntity,referenceEntity,ReferenceMolecule,IDMapping/Include,"Maps ""simple 
 SimpleEntity,compartment,GO_Term,Include,Describes subcellular location of SimpleEntity nodes
 EntityWithAccessionedSequence,inferredTo,GenomeEncodedEntity,Include,Maps Accessioned protein entities to genes. Should be handled by conflation already
 Reaction,input,CandidateSet,Maybe,Describes reactions as input to candidate set of proteins. Confusing directionality of edge
-ReferenceMolecule,crossReference,DatabaseIdentifier,IDMapping/-,Maps molecule IDs across different ontologies. Could be useful for normalization
+ReferenceMolecule,crossReference,DatabaseIdentifier,IDMapping/Exclude,Maps molecule IDs across different ontologies. Could be useful for normalization
 InstanceEdit,modified,SimpleEntity,Exclude,Manual edit
 BlackBoxEvent,input,EntityWithAccessionedSequence,Include,Describes accessioned entities as inputs to black box events
-EntityWithAccessionedSequence,literatureReference,Publication,Provenance/Maybe,Describes literature referencing accessioned entities. Maybe too much detail
+EntityWithAccessionedSequence,literatureReference,Publication,Provenance/Exclude,Describes literature referencing accessioned entities. Maybe too much detail
 InstanceEdit,created,SimpleEntity,Exclude,Manual edit
 DefinedSet,inferredTo,EntityWithAccessionedSequence,Maybe,Defined set of proteins inferred to individual accessioned entities
 InstanceEdit,reviewed,Pathway,Exclude,Manual edit
@@ -156,7 +156,7 @@ InstanceEdit,modified,BlackBoxEvent,Exclude,Manual edit
 InstanceEdit,created,NegativeRegulation,Exclude,Manual edit
 Reaction,regulatedBy,Regulation,Maybe,"Reaction event is regulated by some other process. Could be useful, but abstracted to an edge directly between Reaction and the thing being regulated."
 InstanceEdit,edited,Pathway,Exclude,Manual edit
-BlackBoxEvent,catalystActivity,CatalystActivity,Maybe,"Describes catalyst activity important in black box events, but catalyst activity nodes only have dbId"
+BlackBoxEvent,catalystActivity,CatalystActivity,RDF_edge/Exclude,"Describes catalyst activity important in black box events, but catalyst activity nodes only have dbId"
 InstanceEdit,modified,DatabaseIdentifier,Exclude,Manual edit
 EntityWithAccessionedSequence,hasModifiedResidue,GeneticallyModifiedResidue,Attribute/Include,Describes modified residues of accessioned protein entities. Maybe too much detail
 Complex,disease,Disease,Include,"Disease associated complexes. ""databaseName""+"":""+""identifier""==Robokop Disease Node id, however, it seems that complex IDs do not normalize as of 05/2023"
@@ -165,7 +165,7 @@ ControlReference,literatureReference,Publication,Provenance/Exclude,Not needed
 InstanceEdit,created,Regulation,Exclude,Manual edit
 Drug,disease,Disease,Include,"Could be useful treats edges, but may be redundant. Hopefully ORION would sort out any duplicates in the resulting KGX. Another issue is that Drug Reactome IDs do not normalize, so mapping must occur"
 ReferenceMolecule,referenceDatabase,ReferenceDatabase,IDMapping/Exclude,Maps all ChEBI molecules to a single node representing the ChEBI ontology
-CatalystActivity,physicalEntity,CandidateSet,Maybe,Links catalyst activity to candidate set
+CatalystActivity,physicalEntity,CandidateSet,RDF_edge/Maybe,Links catalyst activity to candidate set
 InstanceEdit,modified,ReferenceMolecule,Exclude,Manual edit
 BlackBoxEvent,output,SimpleEntity,Include,Important triple. Describes simple molecular entities as output of black box events
 InstanceEdit,created,GeneticallyModifiedResidue,Exclude,Manual edit
@@ -175,48 +175,48 @@ EntityWithAccessionedSequence,hasModifiedResidue,FragmentReplacedModification,Ma
 InstanceEdit,created,FragmentReplacedModification,Exclude,Manual edit
 FragmentReplacedModification,referenceSequence,ReferenceSequence,Maybe,Links a fragment modification to the reference sequence of the modified protein
 BlackBoxEvent,input,SimpleEntity,Include,Important triple. Describes simple molecular entities as input to black box events
-Pathway,crossReference,DatabaseIdentifier,IDMapping/-,Maps Pathways to EBI BioModels IDs. Not needed since REACT pathways normalize.
+Pathway,crossReference,DatabaseIdentifier,IDMapping/Exclude,Maps Pathways to EBI BioModels IDs. Not needed since REACT pathways normalize.
 InstanceEdit,modified,AbstractModifiedResidue,Exclude,Manual edit
 InstanceEdit,created,InstanceEdit,Exclude,Manual edit
 NegativeRegulation,regulator,Complex,Maybe,Links complexes to the concept that they can be negative regulators. Unclear on usefulness
 BlackBoxEvent,output,DefinedSet,Maybe,Links black box events to defined sets of proteins
 BlackBoxEvent,precedingEvent,BlackBoxEvent,Include,Important triple. Describes sequential order of black box events.
-FailedReaction,literatureReference,Publication,Provenance/Maybe,Description of failed reaction event due to some error. Links to to a publication
-EntityWithAccessionedSequence,referenceEntity,ReferenceDNASequence,IDMapping/-,Links entity with accession sequence to a reference DNA sequence with ENSEMBL ID
+FailedReaction,literatureReference,Publication,Provenance/Exclude,Description of failed reaction event due to some error. Links to to a publication
+EntityWithAccessionedSequence,referenceEntity,ReferenceDNASequence,IDMapping/Maybe,Links entity with accession sequence to a reference DNA sequence with ENSEMBL ID
 GO_MolecularFunction,referenceDatabase,ReferenceDatabase,Exclude,Just maps all GO terms to a node represention GO ontology
 InstanceEdit,modified,GO_MolecularFunction,Exclude,Manual edit
 Polymer,compartment,GO_Term,Include,Describes cellular compartment localization of Polymer entities
 InstanceEdit,created,Polymer,Exclude,Manual edit
-Polymer,species,Species,SpeciesMapping/Exclude,Links polymers to the species they are found in
-CatalystActivity,activeUnit,Complex,Maybe,Links protein complexes to their catalyst activities
+Polymer,species,Species,Include,Links polymers to the species they are found in
+CatalystActivity,activeUnit,Complex,RDF_edge/Maybe,Links protein complexes to their catalyst activities
 InstanceEdit,created,ReferenceMolecule,Exclude,Manual edit
 InstanceEdit,created,ControlReference,Exclude,Manual edit
 Complex,hasComponent,Polymer,Include,Polymers as members of a complex
 Reaction,output,CandidateSet,Maybe,Candidate sets as outputs of reactions
-Reaction,crossReference,DatabaseIdentifier,IDMapping/-,Could be useful. It links REACTOME reactions to RHEA db identifiers
+Reaction,crossReference,DatabaseIdentifier,IDMapping/Exclude,Could be useful. It links REACTOME reactions to RHEA db identifiers
 BlackBoxEvent,input,DefinedSet,Maybe,
 Polymer,inferredTo,Polymer,Exclude,
-CatalystActivityReference,literatureReference,Publication,Provenance/Exclude,
-SimpleEntity,crossReference,DatabaseIdentifier,IDMapping/-,Could be useful. Links SimpleEntities to KEGG.COMPOUND IDs. May be needed for normalization.
+CatalystActivityReference,literatureReference,Publication,Exclude,
+SimpleEntity,crossReference,DatabaseIdentifier,IDMapping/Exclude,Could be useful. Links SimpleEntities to KEGG.COMPOUND IDs. May be needed for normalization.
 Polymer,summation,Summation,Maybe,Could be useful as a node property
 Pathway,precedingEvent,Pathway,Include,Important triple. Shows sequential order of pathways
 Reaction,disease,Disease,Maybe,"Seems extremely useful at first glance, but every pathway just connects to ""cancer"", so less interesting than initially thought."
 Regulation,regulator,Complex,Maybe,Describes concept of regulation by a complex. Unsure if useful
 EntityWithAccessionedSequence,hasModifiedResidue,NonsenseMutation,Maybe,Describes possible nonsense mutations of accessioned sequences
 InstanceEdit,created,NonsenseMutation,Exclude,Manual edit
-NonsenseMutation,referenceSequence,ReferenceSequence,,
-NonsenseMutation,psiMod,ExternalOntology,,
-Reaction,catalystActivityReference,CatalystActivityReference,,
-BlackBoxEvent,regulationReference,ControlReference,,
-Reaction,input,OtherEntity,,
+NonsenseMutation,referenceSequence,ReferenceSequence,Exclude,Links mutations to proteins where they occur.
+NonsenseMutation,psiMod,ExternalOntology,Exclude,
+Reaction,catalystActivityReference,CatalystActivityReference,Exclude,
+BlackBoxEvent,regulationReference,ControlReference,Exclude,
+Reaction,input,OtherEntity,Maybe,Maps reactions to entities that are involved (DNA ds break repair reactions mapped to the concept of DNA ds breaks)
 InstanceEdit,created,ReferenceTherapeutic,Exclude,Manual edit
-ReferenceTherapeutic,referenceDatabase,ReferenceDatabase,,
-Drug,compartment,GO_Term,Include,
-Drug,referenceEntity,ReferenceTherapeutic,,
+ReferenceTherapeutic,referenceDatabase,ReferenceDatabase,IDMapping/Exclude,Maps drugs to database they are identified by
+Drug,compartment,GO_Term,Include,Describes localization of drugs to cellular components
+Drug,referenceEntity,ReferenceTherapeutic,IDMapping/Include,"Important triple. Links drugs to reference IDs (GtoP,PubChem,etc.)"
 InstanceEdit,created,Drug,Exclude,Manual edit
 InstanceEdit,modified,ReferenceTherapeutic,Exclude,Manual edit
-EntityFunctionalStatus,functionalStatus,FunctionalStatus,,
-Reaction,relatedSpecies,Species,,
+EntityFunctionalStatus,functionalStatus,FunctionalStatus,Maybe,
+Reaction,relatedSpecies,Species,Include,
 DefinedSet,hasMember,Polymer,Maybe,
 DefinedSet,literatureReference,Publication,Attribute/Exclude,description of defined set from a literature source
 InstanceEdit,revised,Reaction,Exclude,Manual edit
@@ -226,15 +226,15 @@ InstanceEdit,modified,GO_BiologicalProcess,Exclude,Manual edit
 GO_BiologicalProcess,referenceDatabase,ReferenceDatabase,,
 BlackBoxEvent,regulatedBy,PositiveGeneExpressionRegulation,,
 EntityWithAccessionedSequence,hasModifiedResidue,CrosslinkedResidue,,
-CatalystActivity,activeUnit,DefinedSet,Attribute/Exclude,
+CatalystActivity,activeUnit,DefinedSet,RDF_edge/Maybe,
 InstanceEdit,created,PositiveGeneExpressionRegulation,Exclude,Manual edit
 InstanceEdit,authored,EntityWithAccessionedSequence,Exclude,Manual edit
-CatalystActivityReference,catalystActivity,CatalystActivity,,
+CatalystActivityReference,catalystActivity,CatalystActivity,Exclude,
 InstanceEdit,created,CatalystActivityReference,Exclude,Manual edit
-ReferenceTherapeutic,crossReference,DatabaseIdentifier,IDMapping/-,
+ReferenceTherapeutic,crossReference,DatabaseIdentifier,IDMapping/Exclude,
 CandidateSet,hasMember,DefinedSet,Maybe,
-GenomeEncodedEntity,crossReference,DatabaseIdentifier,IDMapping/-,
-Complex,crossReference,DatabaseIdentifier,IDMapping/-,
+GenomeEncodedEntity,crossReference,DatabaseIdentifier,IDMapping/Exclude,
+Complex,crossReference,DatabaseIdentifier,IDMapping/Exclude,
 InstanceEdit,created,Figure,Exclude,Manual edit
 Reaction,input,Polymer,Include,
 Pathway,disease,Disease,Include,
@@ -272,14 +272,14 @@ Polymer,repeatedUnit,Complex,,
 NegativeRegulation,regulator,EntityWithAccessionedSequence,,
 BlackBoxEvent,regulatedBy,NegativeRegulation,,
 InstanceEdit,modified,Drug,Exclude,Manual edit
-Drug,literatureReference,Publication,Provenance/Include,Description of drugs from a literature source
+Drug,literatureReference,Publication,Provenance/Exclude,Description of drugs from a literature source
 DefinedSet,disease,Disease,,
 Reaction,output,OtherEntity,,
 BlackBoxEvent,regulatedBy,Requirement,,
 ControlReference,regulation,PositiveGeneExpressionRegulation,,
 GO_Term,instanceOf,GO_Term,,
 InstanceEdit,modified,EntityFunctionalStatus,Exclude,Manual edit
-EntityWithAccessionedSequence,referenceEntity,ReferenceRNASequence,IDMapping/-,
+EntityWithAccessionedSequence,referenceEntity,ReferenceRNASequence,IDMapping/Maybe,
 FailedReaction,input,SimpleEntity,,
 FailedReaction,disease,Disease,,
 DefinedSet,inferredTo,GenomeEncodedEntity,,
@@ -291,7 +291,7 @@ InstanceEdit,modified,GO_Term,Exclude,Manual edit
 InstanceEdit,authored,FailedReaction,Exclude,Manual edit
 Pathway,hasEvent,FailedReaction,,
 Reaction,figure,Figure,,
-FailedReaction,species,Species,,
+FailedReaction,species,Species,Include,
 FailedReaction,entityFunctionalStatus,EntityFunctionalStatus,,
 InstanceEdit,modified,FailedReaction,Exclude,Manual edit
 InstanceEdit,created,FailedReaction,Exclude,Manual edit
@@ -302,7 +302,7 @@ Pathway,normalPathway,Pathway,,
 FailedReaction,normalReaction,Reaction,,
 DefinedSet,hasMember,CandidateSet,Maybe,
 TopLevelPathway,summation,Summation,,
-TopLevelPathway,species,Species,,
+TopLevelPathway,species,Species,Include,
 InstanceEdit,created,TopLevelPathway,Exclude,Manual edit
 Pathway,figure,Figure,,
 InstanceEdit,created,IntraChainCrosslinkedResidue,Exclude,Manual edit
@@ -315,20 +315,20 @@ InstanceEdit,created,GO_BiologicalProcess,Exclude,Manual edit
 TopLevelPathway,inferredTo,TopLevelPathway,Exclude,Inference across species
 TopLevelPathway,evidenceType,EvidenceType,,
 ReferenceSequence,isoformParent,ReferenceSequence,,
-Drug,crossReference,DatabaseIdentifier,IDMapping/-,
+Drug,crossReference,DatabaseIdentifier,IDMapping/Exclude,
 Polymer,repeatedUnit,EntityWithAccessionedSequence,,
 Pathway,precedingEvent,Reaction,,
-OtherEntity,crossReference,DatabaseIdentifier,IDMapping/-,
-CandidateSet,literatureReference,Publication,,
+OtherEntity,crossReference,DatabaseIdentifier,IDMapping/Exclude,
+CandidateSet,literatureReference,Publication,Provenance/Exclude,
 OtherEntity,compartment,GO_Term,,
 BlackBoxEvent,output,CandidateSet,,
 ControlReference,regulation,Regulation,,
-EntityWithAccessionedSequence,summation,Summation,Provenance/Include,
-Reaction,entityFunctionalStatus,EntityFunctionalStatus,,
+EntityWithAccessionedSequence,summation,Summation,Attribute/Include,
+Reaction,entityFunctionalStatus,EntityFunctionalStatus,Attribute/Exclude,
 EntityWithAccessionedSequence,hasModifiedResidue,FragmentInsertionModification,,
 InstanceEdit,authored,Complex,Exclude,Manual edit
 InstanceEdit,modified,Figure,Exclude,Manual edit
-Interaction,interactor,ReferenceMolecule,,
+Interaction,interactor,ReferenceMolecule,Maybe,
 InstanceEdit,modified,OtherEntity,Exclude,Manual edit
 InstanceEdit,created,OtherEntity,Exclude,Manual edit
 InstanceEdit,created,Affiliation,Exclude,Manual edit
@@ -336,24 +336,24 @@ Person,author,Book,Exclude,Book authorship
 Complex,hasComponent,Drug,,
 DefinedSet,hasMember,GenomeEncodedEntity,Maybe,
 InstanceEdit,created,NegativePrecedingEvent,Exclude,Manual edit
-Taxon,crossReference,DatabaseIdentifier,IDMapping/-,
+Taxon,crossReference,DatabaseIdentifier,IDMapping/Exclude,crossreference not equivalent to the equivalent ids
 InstanceEdit,revised,Pathway,Exclude,Manual edit
 Taxon,superTaxon,Taxon,,
 TopLevelPathway,goBiologicalProcess,GO_BiologicalProcess,,
 BlackBoxEvent,input,CandidateSet,,
 NegativePrecedingEvent,reason,ControlledVocabulary,,
-EntityFunctionalStatus,normalEntity,Complex,,
+EntityFunctionalStatus,normalEntity,Complex,Attribute/Exclude,
 CandidateSet,disease,Disease,,
-Pathway,relatedSpecies,Species,,
+Pathway,relatedSpecies,Species,Include,
 Polymerisation,compartment,GO_Term,Include,
 Reaction,negativePrecedingEvent,NegativePrecedingEvent,,
-EntityFunctionalStatus,diseaseEntity,Complex,,
+EntityFunctionalStatus,diseaseEntity,Complex,Attribute/Include,
 GO_Term,componentOf,GO_Term,,
 InstanceEdit,created,Taxon,Exclude,Manual edit
 InstanceEdit,created,GO_MolecularFunction,Exclude,Manual edit
-CatalystActivity,activeUnit,CandidateSet,,
+CatalystActivity,activeUnit,CandidateSet,RDF_edge/Maybe,
 InstanceEdit,created,GO_Term,Exclude,Manual edit
-FailedReaction,catalystActivity,CatalystActivity,,
+FailedReaction,catalystActivity,CatalystActivity,RDF_edge/Exclude,
 Complex,goCellularComponent,GO_Term,,
 CandidateSet,inferredTo,DefinedSet,,
 BlackBoxEvent,goBiologicalProcess,GO_BiologicalProcess,,
@@ -362,7 +362,7 @@ EntityFunctionalStatus,diseaseEntity,DefinedSet,,
 Person,crossReference,DatabaseIdentifier,Exclude,Author's ORCID account
 Reaction,normalReaction,Reaction,,
 BlackBoxEvent,disease,Disease,,
-BlackBoxEvent,relatedSpecies,Species,,
+BlackBoxEvent,relatedSpecies,Species,Include,
 Pathway,hasEvent,Polymerisation,Include,
 InstanceEdit,modified,Polymer,Exclude,Manual edit
 EntityWithAccessionedSequence,goCellularComponent,GO_Term,Include,
@@ -371,12 +371,12 @@ InstanceEdit,created,Polymerisation,Exclude,Manual edit
 Polymerisation,summation,Summation,Attribute/Include,
 Polymerisation,species,Species,Include,the spacies name is already written on the Polymerization
 Regulation,regulator,DefinedSet,,
-Polymer,crossReference,DatabaseIdentifier,IDMapping/-,
+Polymer,crossReference,DatabaseIdentifier,IDMapping/Exclude,crossreference not equivalent to the equivalent ids
 Requirement,regulator,Complex,,
 Reaction,output,Drug,,
 Reaction,input,GenomeEncodedEntity,,
 Polymerisation,inferredTo,Polymerisation,Exclude,More like an equivalent identifiers for polymerisation
-Polymerisation,evidenceType,EvidenceType,Provenance/Maybe,Describe the source from where the polymerization was derived
+Polymerisation,evidenceType,EvidenceType,Provenance/Include,Describe the source from where the polymerization was derived
 IntraChainCrosslinkedResidue,modification,ReferenceGroup,,
 EntityFunctionalStatus,normalEntity,EntityWithAccessionedSequence,,
 PositiveGeneExpressionRegulation,activeUnit,EntityWithAccessionedSequence,,
@@ -409,8 +409,8 @@ CandidateSet,hasCandidate,Drug,,
 FailedReaction,input,Complex,,
 Reaction,precedingEvent,Polymerisation,Include,
 Reaction,reverseReaction,Reaction,,
-BlackBoxEvent,catalystActivityReference,CatalystActivityReference,,
-CatalystActivity,physicalEntity,GenomeEncodedEntity,,
+BlackBoxEvent,catalystActivityReference,CatalystActivityReference,Exclude,
+CatalystActivity,physicalEntity,GenomeEncodedEntity,RDF_edge/Maybe,
 Summation,literatureReference,Book,Exclude,
 ReferenceGroup,referenceDatabase,ReferenceDatabase,,
 InstanceEdit,modified,Affiliation,Exclude,Manual edit
@@ -431,20 +431,20 @@ Complex,hasComponent,ProteinDrug,,
 DefinedSet,inferredTo,CandidateSet,,
 BlackBoxEvent,input,OtherEntity,,
 NegativeRegulation,activeUnit,Complex,,
-Polymerisation,literatureReference,Publication,Provenance/Maybe,Literature reference for the polymerization
+Polymerisation,literatureReference,Publication,Provenance/Exclude,Literature reference for the polymerization
 EntityWithAccessionedSequence,hasModifiedResidue,TranscriptionalModification,,
 TopLevelPathway,compartment,GO_Term,,
 InstanceEdit,modified,Book,Exclude,Manual edit
 InstanceEdit,authored,CandidateSet,Exclude,Manual edit
 Book,publisher,Affiliation,Exclude,Authorship
-ReferenceSequence,species,Taxon,,
+ReferenceSequence,species,Taxon,Include,
 InstanceEdit,authored,DefinedSet,Exclude,Manual edit
 InstanceEdit,modified,CatalystActivityReference,Exclude,Manual edit
-ProteinDrug,compartment,GO_Term,,
-ProteinDrug,referenceEntity,ReferenceTherapeutic,,
+ProteinDrug,compartment,GO_Term,Include,
+ProteinDrug,referenceEntity,ReferenceTherapeutic,IDMapping/Include,
 InstanceEdit,created,ProteinDrug,Exclude,Manual edit
 BlackBoxEvent,output,OtherEntity,,
-Species,crossReference,DatabaseIdentifier,IDMapping/-,
+Species,crossReference,DatabaseIdentifier,IDMapping/Exclude,crossreference not equivalent to the equivalent ids
 InstanceEdit,modified,Species,Exclude,Manual edit
 Reaction,entityOnOtherCell,DefinedSet,,
 InstanceEdit,created,FragmentModification,Exclude,Manual edit
@@ -452,17 +452,17 @@ ControlReference,regulation,Requirement,,
 Polymerisation,input,Complex,Include,
 FragmentModification,referenceSequence,ReferenceSequence,,
 FailedReaction,input,EntityWithAccessionedSequence,,
-DefinedSet,summation,Summation,Attribute/Exclude,Descriptive summary of a definedset 
+DefinedSet,summation,Summation,Attribute/Maybe,Descriptive summary of a definedset 
 EntityFunctionalStatus,normalEntity,DefinedSet,Attribute/Exclude,Descriptive functional status of a definedset 
 CandidateSet,literatureReference,URL,,
 Reaction,input,ProteinDrug,,
 EntityFunctionalStatus,diseaseEntity,CandidateSet,,
-Species,superTaxon,Taxon,,
+Species,superTaxon,Taxon,Include,
 NegativeRegulation,regulator,SimpleEntity,,
-TopLevelPathway,literatureReference,Publication,,
+TopLevelPathway,literatureReference,Publication,Provenance/Exclude,
 CandidateSet,hasMember,Polymer,Maybe,
 InstanceEdit,modified,CrosslinkedResidue,Exclude,Manual edit
-ReferenceMolecule,species,Taxon,,
+ReferenceMolecule,species,Taxon,Include,
 Regulation,regulator,CandidateSet,,
 InstanceEdit,edited,CandidateSet,Exclude,Manual edit
 PositiveGeneExpressionRegulation,activeUnit,CandidateSet,,
@@ -473,8 +473,8 @@ Complex,entityOnOtherCell,DefinedSet,,
 InstanceEdit,modified,ReferenceGroup,Exclude,Manual edit
 NegativeRegulation,activeUnit,CandidateSet,,
 NegativeRegulation,regulator,CandidateSet,,
-Polymerisation,catalystActivity,CatalystActivity,Provenance/Maybe,Catalyst activity of the polymerization
-CatalystActivity,physicalEntity,Polymer,,
+Polymerisation,catalystActivity,CatalystActivity,RDF_edge/Exclude,Catalyst activity of the polymerization
+CatalystActivity,physicalEntity,Polymer,RDF_edge/Maybe,
 InstanceEdit,modified,ReferenceDatabase,Exclude,Manual edit
 InstanceEdit,modified,Disease,Exclude,Manual edit
 EntityFunctionalStatus,diseaseEntity,EntityWithAccessionedSequence,,
@@ -499,11 +499,11 @@ BlackBoxEvent,figure,Figure,,
 Polymerisation,output,DefinedSet,Include,
 InstanceEdit,authored,Polymerisation,Exclude,Manual edit
 InstanceEdit,edited,Polymerisation,Exclude,Manual edit
-Polymer,literatureReference,Publication,,
+Polymer,literatureReference,Publication,Provenance/Exclude,
 ReferenceRNASequence,referenceGene,ReferenceDNASequence,,
 Pathway,precedingEvent,BlackBoxEvent,,
 InstanceEdit,modified,Polymerisation,Exclude,Manual edit
-ProteinDrug,literatureReference,Publication,,
+ProteinDrug,literatureReference,Publication,Provenance/Exclude,
 InstanceEdit,modified,ProteinDrug,Exclude,Manual edit
 Polymer,repeatedUnit,CandidateSet,,
 SimpleEntity,cellType,CellType,Include,
@@ -523,8 +523,8 @@ EntityFunctionalStatus,normalEntity,CandidateSet,,
 GO_Term,hasPart,GO_Term,,
 Complex,entityOnOtherCell,Complex,,
 InstanceEdit,created,Depolymerisation,Exclude,Manual edit
-Depolymerisation,summation,Summation,Provenance/Maybe,
-Depolymerisation,species,Species,,
+Depolymerisation,summation,Summation,Attribute/Include,
+Depolymerisation,species,Species,Include,
 InstanceEdit,reviewed,TopLevelPathway,Exclude,Manual edit
 CandidateSet,hasCandidate,SimpleEntity,,
 BlackBoxEvent,output,GenomeEncodedEntity,,
@@ -538,12 +538,12 @@ DefinedSet,goCellularComponent,GO_Term,,
 TopLevelPathway,hasEvent,Reaction,,
 TopLevelPathway,figure,Figure,,
 InstanceEdit,created,FunctionalStatus,Exclude,Manual edit
-OtherEntity,literatureReference,Publication,,
+OtherEntity,literatureReference,Publication,Provenance/Exclude,
 Depolymerisation,input,SimpleEntity,,
-Depolymerisation,catalystActivity,CatalystActivity,,
+Depolymerisation,catalystActivity,CatalystActivity,RDF_edge/Exclude,
 FunctionalStatus,functionalStatusType,FunctionalStatusType,,
 FunctionalStatus,structuralVariant,SequenceOntology,,
-GenomeEncodedEntity,literatureReference,Publication,,
+GenomeEncodedEntity,literatureReference,Publication,Provenance/Exclude,
 Polymerisation,output,SimpleEntity,,
 Polymerisation,precedingEvent,Polymerisation,,
 Depolymerisation,inferredTo,Depolymerisation,Exclude,Inference across species
@@ -566,8 +566,8 @@ Pathway,literatureReference,URL,,
 DefinedSet,inferredTo,Polymer,,
 BlackBoxEvent,literatureReference,Book,Exclude,Authorship
 InstanceEdit,modified,URL,Exclude,Manual edit
-DefinedSet,relatedSpecies,Species,,
-DefinedSet,crossReference,DatabaseIdentifier,IDMapping/-,
+DefinedSet,relatedSpecies,Species,Include,
+DefinedSet,crossReference,DatabaseIdentifier,IDMapping/Exclude,crossreference not equivalent to the equivalent ids
 FailedReaction,normalReaction,BlackBoxEvent,,
 BlackBoxEvent,negativePrecedingEvent,NegativePrecedingEvent,,
 Polymerisation,input,Polymer,,
@@ -579,7 +579,7 @@ SequenceOntology,referenceDatabase,ReferenceDatabase,,
 Reaction,reactionType,ReactionType,,
 TopLevelPathway,hasEvent,BlackBoxEvent,,
 TopLevelPathway,hasEncapsulatedEvent,TopLevelPathway,,
-Depolymerisation,literatureReference,Publication,,
+Depolymerisation,literatureReference,Publication,Provenance/Exclude,
 Polymer,repeatedUnit,GenomeEncodedEntity,,
 InstanceEdit,revised,Complex,Exclude,Manual edit
 BlackBoxEvent,inferredTo,Reaction,,
@@ -594,32 +594,32 @@ CellType,referenceDatabase,ReferenceDatabase,,
 InstanceEdit,created,CellType,Exclude,Manual edit
 Requirement,activity,GO_MolecularFunction,,
 Reaction,requiredInputComponent,EntityWithAccessionedSequence,,
-Polymerisation,relatedSpecies,Species,,
+Polymerisation,relatedSpecies,Species,Include,
 Regulation,activity,GO_MolecularFunction,,
 InstanceEdit,authored,ProteinDrug,Exclude,Manual edit
 TranscriptionalModification,referenceSequence,ReferenceRNASequence,,
 TranscriptionalModification,modification,ReferenceGroup,,
-SimpleEntity,literatureReference,Publication,Provenance/Maybe,
+SimpleEntity,literatureReference,Publication,Provenance/Exclude,
 InstanceEdit,modified,TranscriptionalModification,Exclude,Manual edit
 Reaction,literatureReference,URL,,
 Complex,entityOnOtherCell,SimpleEntity,,
 Depolymerisation,output,CandidateSet,,
 FailedReaction,precedingEvent,Reaction,,
-CandidateSet,relatedSpecies,Species,,
+CandidateSet,relatedSpecies,Species,Include,
 Reaction,entityOnOtherCell,OtherEntity,,
-Species,superTaxon,Species,,
+Species,superTaxon,Species,Include,
 EntityWithAccessionedSequence,literatureReference,Book,Exclude,Authorship
 Reaction,requiredInputComponent,Complex,,
 InstanceEdit,modified,SequenceOntology,Exclude,Manual edit
 InstanceEdit,modified,FragmentInsertionModification,Exclude,Manual edit
 BlackBoxEvent,entityFunctionalStatus,EntityFunctionalStatus,,
-FailedReaction,relatedSpecies,Species,,
+FailedReaction,relatedSpecies,Species,Include,
 OtherEntity,disease,Disease,,
 NegativeRegulation,goBiologicalProcess,GO_BiologicalProcess,,
 Reaction,precedingEvent,Depolymerisation,,
 InstanceEdit,edited,DefinedSet,Exclude,Manual edit
 CandidateSet,hasMember,SimpleEntity,,
-FailedReaction,catalystActivityReference,CatalystActivityReference,,
+FailedReaction,catalystActivityReference,CatalystActivityReference,Exclude,
 Depolymerisation,output,Polymer,,
 FailedReaction,input,GenomeEncodedEntity,,
 InstanceEdit,reviewed,Depolymerisation,Exclude,Manual edit
@@ -651,7 +651,7 @@ InstanceEdit,created,FunctionalStatusType,Exclude,Manual edit
 InstanceEdit,modified,FunctionalStatus,Exclude,Manual edit
 Complex,entityOnOtherCell,Polymer,,
 Polymer,goCellularComponent,GO_Term,,
-ProteinDrug,crossReference,DatabaseIdentifier,IDMapping/-,
+ProteinDrug,crossReference,DatabaseIdentifier,IDMapping/Exclude,crossreference not equivalent to the equivalent ids
 Complex,cellType,CellType,,
 FailedReaction,regulatedBy,Regulation,,
 Reaction,normalReaction,BlackBoxEvent,,
@@ -675,7 +675,7 @@ Drug,cellType,CellType,,
 Depolymerisation,output,Complex,,
 Polymerisation,inferredTo,BlackBoxEvent,Include,
 NegativeRegulation,regulator,GenomeEncodedEntity,,
-ReferenceRNASequence,crossReference,DatabaseIdentifier,IDMapping/-,
+ReferenceRNASequence,crossReference,DatabaseIdentifier,IDMapping/Exclude,crossreference not equivalent to the equivalent ids
 BlackBoxEvent,literatureReference,URL,,
 Reaction,requiredInputComponent,SimpleEntity,,
 BlackBoxEvent,entityOnOtherCell,DefinedSet,,
@@ -685,23 +685,23 @@ InstanceEdit,reviewed,EntityWithAccessionedSequence,Exclude,Manual edit
 PositiveGeneExpressionRegulation,regulator,SimpleEntity,,
 SimpleEntity,literatureReference,Book,Exclude,Authorship
 InstanceEdit,reviewed,Complex,Exclude,Manual edit
-CatalystActivity,physicalEntity,OtherEntity,,
+CatalystActivity,physicalEntity,OtherEntity,RDF_edge/Maybe,
 Polymerisation,regulatedBy,NegativeRegulation,,
 Regulation,activeUnit,DefinedSet,,
 Requirement,activeUnit,EntityWithAccessionedSequence,,
 ControlReference,literatureReference,Book,Exclude,Authorship
-Depolymerisation,relatedSpecies,Species,,
+Depolymerisation,relatedSpecies,Species,Include,
 Depolymerisation,disease,Disease,,
 FragmentModification,referenceSequence,ReferenceDNASequence,,
 InstanceEdit,modified,FragmentModification,Exclude,Manual edit
 FailedReaction,input,ProteinDrug,,
-CandidateSet,crossReference,DatabaseIdentifier,IDMapping/-,
+CandidateSet,crossReference,DatabaseIdentifier,IDMapping/Exclude,crossreference not equivalent to the equivalent ids
 EntityFunctionalStatus,normalEntity,Polymer,,
 FailedReaction,input,Polymer,,
 TranscriptionalModification,referenceSequence,ReferenceDNASequence,,
 TranscriptionalModification,modification,ReferenceMolecule,,
 FailedReaction,literatureReference,URL,,
-CatalystActivity,physicalEntity,SimpleEntity,,
+CatalystActivity,physicalEntity,SimpleEntity,RDF_edge/Maybe,
 InstanceEdit,created,EvidenceType,Exclude,Manual edit
 InstanceEdit,authored,Polymer,Exclude,Manual edit
 InstanceEdit,reviewed,DefinedSet,Exclude,Manual edit
@@ -714,7 +714,7 @@ BlackBoxEvent,normalReaction,Reaction,,
 Requirement,activeUnit,DefinedSet,,
 Requirement,regulator,CandidateSet,,
 InstanceEdit,revised,Polymerisation,Exclude,Manual edit
-ReferenceGroup,crossReference,DatabaseIdentifier,IDMapping/-,
+ReferenceGroup,crossReference,DatabaseIdentifier,IDMapping/Exclude,crossreference not equivalent to the equivalent ids
 InstanceEdit,modified,ControlledVocabulary,Exclude,Manual edit
 BlackBoxEvent,entityOnOtherCell,Polymer,,
 PositiveGeneExpressionRegulation,goBiologicalProcess,GO_BiologicalProcess,,
@@ -734,9 +734,9 @@ DefinedSet,figure,Figure,,
 Regulation,regulator,OtherEntity,,
 OtherEntity,cellType,CellType,,
 Regulation,regulator,Drug,,
-ReferenceDNASequence,crossReference,DatabaseIdentifier,IDMapping/-,
-Depolymerisation,catalystActivityReference,CatalystActivityReference,,
+ReferenceDNASequence,crossReference,DatabaseIdentifier,IDMapping/Exclude,crossreference not equivalent to the equivalent ids
+Depolymerisation,catalystActivityReference,CatalystActivityReference,Exclude,
 DefinedSet,literatureReference,URL,,
-Taxon,superTaxon,Species,,
-CatalystActivity,activeUnit,GenomeEncodedEntity,,
-Interaction,interactor,ReferenceGroup,,
+Taxon,superTaxon,Species,Include,
+CatalystActivity,activeUnit,GenomeEncodedEntity,RDF_edge/Maybe,
+Interaction,interactor,ReferenceGroup,Maybe,

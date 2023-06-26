@@ -24,20 +24,29 @@ INCLUDE_COLUMN = 3
 
 PREDICATE_PROP_COLUMN = -1
 
+PREDICATE_MAPPING = {"compartment":"biolink:located_in","output":"biolink:has_output","input":"biolink:has_input","hasEvent":"biolink:contains_process","precedingEvent":"biolink:precedes","activeUnit":"biolink:actively_involves","hasComponent":"biolink:has_part","catalystActivity":"biolink:actively_involves"}
+SUPPOSE_PROPERTIES = ("Summation", "EntityFunctionalStatus", "GeneticallyModifiedResidue", "AbstractModifiedResidue")
 
-SUPPOSE_PROPERTIES = ("CatalystActivity", "Summation", "Publication", "EntityFunctionalStatus", "GeneticallyModifiedResidue", "AbstractModifiedResidue")
+# Normalized node are normalized once formatted as curie
 NORMALIZED_NODES = ("Pathway", "Event", "BlackboxEvent", "FailedReaction", "Depolymerisation", "Polymerisation")
-ON_NODE_MAPPING = ("GO_Term", "Compartment", "GO_BiologicalProcess", "GO_MolecularFunction", "GO_CellularComponent", "Disease", 
-                "Species", "ExternalOntology", "ReferenceRNASequence", "ReferenceDNASequence", "CellType")#databaseName+:+identifier
-ALL_ON_NODE_MAPPING = NORMALIZED_NODES + ON_NODE_MAPPING
 
-#Entity
-UNIPROT_ID_MAPPING = ("ReferenceSequence", "ReferenceIsoform") #databaseName+KB:+identifier
-OTHER_ID_MAPPING = ("ReferenceMolecule", "DatabaseIdentifier")
+# These nodes has no reactome ID, however their ID is the combination of two attributes on them
+ON_NODE_MAPPING = ("GO_Term", "Compartment", "GO_BiologicalProcess", "GO_MolecularFunction", "GO_CellularComponent", "Disease",
+                "Species", "ExternalOntology", "CellType")#databaseName+:+identifier
 
-TO_WRITE = ['Provenance/Include', 'Provenance/Maybe', 'Attribute/Include'] #Descriptive features of other existing nodes eg Summation
-TO_MAP = ['IDMapping/Include', 'IDMapping/Maybe'] # Maps the external identifier of a node from another node
-TO_INCLUDE = ['Include']
+# Combination of attributes on the following nodes makes the ID. Also, they are rather the referenceID for certain other nodes
+# ReferenceIsoform is the reference ID for EntityWITHACCESSIONEDSEQUENCE(PROTEIN)
+ID_MAPPING = ("ReferenceMolecule", "ReferenceTherapeutic", "ReferenceSequence") #databaseName+KB:+identifier or databaseName+:+identifier
+
+ALL_ON_NODE_MAPPING = NORMALIZED_NODES + ON_NODE_MAPPING + ID_MAPPING
+
+
+
+
+TO_WRITE = ('Provenance/Include', 'Attribute/Include') #Descriptive features of other existing nodes eg Summation
+TO_MAP = ('IDMapping/Include', ) # Maps the external identifier of a node from another node
+TO_INCLUDE = ('Include',)
+RDF_EDGES_TO_INCLUDE = ('RDF_edges/Include',)
 
 NODE_NOT_WORKING = set()
 EDGE_NOT_WORKING = set()
@@ -160,7 +169,7 @@ class ReactomeLoader(SourceDataLoader):
             output_edge = kgxedge(
                 subject_id=subjectid,
                 object_id=objectid,
-                predicate=predicate,
+                predicate=PREDICATE_MAPPING.get(predicate, predicate),
                 primary_knowledge_source=self.provenance_id,
                 edgeprops=property
             )
@@ -197,10 +206,13 @@ class ReactomeLoader(SourceDataLoader):
         
         for line in lines_to_process:
             line = line.strip().split(',')
-            if line[INCLUDE_COLUMN] in TO_INCLUDE:
+            if line[INCLUDE_COLUMN] in RDF_EDGES_TO_INCLUDE:
+                queries_to_include.append(
+                    self.rdf_edge_mapping(line[SUBJECT_COLUMN], line[PREDICATE_COLUMN], line[OBJECT_COLUMN]))
+
+            elif line[INCLUDE_COLUMN] in TO_INCLUDE:
                 cypher_query = f"MATCH (a:{line[SUBJECT_COLUMN]})-[r:{line[PREDICATE_COLUMN]}]->(b:{line[OBJECT_COLUMN]}) RETURN a, r, b"
                 queries_to_include.append(cypher_query)
-
             elif line[INCLUDE_COLUMN] in TO_MAP:
                 queries_to_map.append(self.map_ids(line[SUBJECT_COLUMN], line[PREDICATE_COLUMN], line[OBJECT_COLUMN]))
             else:
@@ -253,16 +265,16 @@ class ReactomeLoader(SourceDataLoader):
                 b_id = records.get('b', {}).get('ids')
 
                 if not a_id:
-                    NODE_NOT_WORKING.add(records.get('a', {}).get('schemaClass'))
+                    NODE_NOT_WORKING.add(records.get('a', {}))
                     continue
                 nodes[a_id].update(dict(records["a"].items()))
 
                 if not b_id:
-                    NODE_NOT_WORKING.add(records.get('b', {}).get('schemaClass'))
+                    NODE_NOT_WORKING.add(records.get('b', {}))
                     continue
                 nodes[b_id].update(dict(records["b"].items()))
 
-                if a_id and b_id:
+                if (a_id and b_id):
                     rl = dict(records["r"])
                     rll = [a_id, records["r"].type, b_id, rl]
                     relations.append(rll)
@@ -274,31 +286,29 @@ class ReactomeLoader(SourceDataLoader):
 
 
     def write_properties(self, s, p, o):
+        def repl_func(match):
+            return match.group(1).lower()
+
         cypher = None
-        #Cross Property Mapping eg Summation CatalystActivity
+        #Cross Property Mapping eg Summation
         mapp = {'a':s, 'b': o}
         if o in SUPPOSE_PROPERTIES:
-            if o=='Publication':
-                cypher = f"MATCH (a:{s})-[r:{p}]->(b:{o}) SET a.{mapp.get('b').lower()} = b.displayName+'. '+b.journal+'. '+b.year+', '+b.volume+', '+b.pages"
-            else:
-                cypher = f"MATCH (a:{s})-[r:{p}]->(b:{o}) SET a.{mapp.get('b').lower()} = b.displayName"
+            cypher = f"MATCH (a:{s})-[r:{p}]->(b:{o}) SET a.{re.sub(r'^(.)', repl_func, mapp.get('b'))} = b.displayName"
 
         elif s in SUPPOSE_PROPERTIES:
-            if s =='Publication':
-                cypher = f"MATCH (a:{s})-[r:{p}]->(b:{o}) SET b.{mapp.get('b').lower()} = a.displayName+'. '+a.journal+'. '+a.year+', '+a.volume+', '+a.pages"
-            else:
-                cypher = f"MATCH (a:{s})-[r:{p}]->(b:{o}) SET b.{mapp.get('a').lower()} = a.displayName"
+            cypher = f"MATCH (a:{s})-[r:{p}]->(b:{o}) SET b.{re.sub(r'^(.)', repl_func, mapp.get('a'))} = a.displayName"
         
         return cypher
     
     def on_node_mapping(self, node):
         #On-node/Same node ID Mapping eg GO, Disease ...
-        if node == "Disease" or node=="CellType":
-            cypher = f"MATCH (a:{node}) SET a.ids = a.databaseName+':'+a.identifier"
-        elif node =="Species":
+        if node =="Species":
             cypher = f"MATCH (a:{node}) SET a.ids ='{NCBITAXON}:'+a.taxId"
-        elif node =="ReferenceDNASequence":
-            cypher = f"MATCH (a:{node}) SET a.ids =REPLACE(a.databaseName, ' ', '.')+':'+a.identifier"
+        elif node in ID_MAPPING or node in ("Disease", "CellType"):
+            # Some are NCBI Entrez Gene or NCBI Nucleotide or uniprot or ensembl etc
+            # The split is necessary becase of some funny looking curies:
+            # NCBI Gene:324=>NCBIGene:324; KEGG Gene (Homo sapiens)=>KEGGGene
+            cypher = f"MATCH (a:{node}) SET a.ids = CASE WHEN SIZE(SPLIT(a.databaseName, ' ')) >= 2 THEN SPLIT(a.databaseName, ' ')[0] + 'Gene' + ':' + SPLIT(a.identifier, '.')[0] WHEN a.databaseName = 'UniProt' THEN REPLACE(a.databaseName, ' ', '') + 'KB:' + SPLIT(a.identifier, '.')[0] ELSE REPLACE(a.databaseName, ' ', '') + ':' + SPLIT(a.identifier, '.')[0] END"
         elif node in NORMALIZED_NODES:
             #Biolink normalized reactome ids eg pathways, events ......
             cypher = f"MATCH (a:{node}) SET a.ids ='{REACTOME}:'+a.stId"
@@ -308,30 +318,64 @@ class ReactomeLoader(SourceDataLoader):
         return cypher
 
     def map_ids(self, s, p, o):
-        #Cross ID Mappings eg EntityWithAccessionedSequence ->ReferenceSequence ......
+        # ReferenceID Mappings eg EntityWithAccessionedSequence ->ReferenceSequence ......
         cypher = None
         # OBJECT
-        if o in OTHER_ID_MAPPING:
+        if o in ID_MAPPING:
             # CHEBI, RHEA ...
-            cypher = f"MATCH (a:{s})-[r:{p}]->(b:{o}) SET a.ids = REPLACE(b.databaseName, ' ', '.')+':'+b.identifier"
-        elif o in UNIPROT_ID_MAPPING:
-            # UNIPROTKB ...
-            cypher = f"MATCH (a:{s})-[r:{p}]->(b:{o}) SET a.ids = b.databaseName+'KB:'+b.identifier"
-   
+            cypher = f"MATCH (a:{s})-[r:{p}]->(b:{o}) SET a.ids = b.ids"
         if not cypher:
-            if s in OTHER_ID_MAPPING:
+            if s in ID_MAPPING:
                 # CHEBI ...
-                cypher = f"MATCH (a:{s})-[r:{p}]->(b:{o}) SET b.ids=REPLACE(a.databaseName, ' ', '.')+':'+a.identifier"
-            elif s in UNIPROT_ID_MAPPING:
-                # UNIPROTKB ...
-                cypher = f"MATCH (a:{s})-[r:{p}]->(b:{o}) SET b.ids = a.databaseName+'KB:'+a.identifier"
-
+                cypher = f"MATCH (a:{s})-[r:{p}]->(b:{o}) SET b.ids = a.ids"
             if not cypher:
-                #None of the s or object has external mapping file
+                # None of the s or object has external mapping file
                 cypher = f"MATCH (a:{s})-[r:{p}]->(b:{o}) SET a.ids ='{REACTOME}:'+a.stId, b.ids='{REACTOME}:'+b.stId"
         return cypher
 
+    # def map_ids(self, s, p, o):
+    #     #ReferenceID Mappings eg EntityWithAccessionedSequence ->ReferenceSequence ......
+    #     cypher = None
+    #     # OBJECT
+    #     if o in OTHER_ID_MAPPING:
+    #         # CHEBI, RHEA ...
+    #         cypher = f"MATCH (a:{s})-[r:{p}]->(b:{o}) SET a.ids = REPLACE(b.databaseName, ' ', '')+':'+b.identifier"
+    #     elif o in UNIPROT_ID_MAPPING:
+    #         # UNIPROTKB ...
+    #         cypher = f"MATCH (a:{s})-[r:{p}]->(b:{o}) SET a.ids = b.databaseName+'KB:'+b.identifier"
+    #     elif o in OTHER_SEQUENCE_MAPPING:
+    #         # RNA and DNA ...
+    #         cypher = f"MATCH (a:{s})-[r:{p}]->(b:{o}) SET a.ids = b.ids"
+    #
+    #     if not cypher:
+    #         if s in OTHER_ID_MAPPING:
+    #             # CHEBI ...
+    #             cypher = f"MATCH (a:{s})-[r:{p}]->(b:{o}) SET b.ids=REPLACE(a.databaseName, ' ', '')+':'+a.identifier"
+    #         elif s in UNIPROT_ID_MAPPING:
+    #             # UNIPROTKB ...
+    #             cypher = f"MATCH (a:{s})-[r:{p}]->(b:{o}) SET b.ids = a.databaseName+'KB:'+a.identifier"
+    #         elif s in OTHER_SEQUENCE_MAPPING:
+    #             # UNIPROTKB ...
+    #             cypher = f"MATCH (a:{s})-[r:{p}]->(b:{o}) SET b.ids = a.ids"
+    #
+    #         if not cypher:
+    #             #None of the s or object has external mapping file
+    #             cypher = f"MATCH (a:{s})-[r:{p}]->(b:{o}) SET a.ids ='{REACTOME}:'+a.stId, b.ids='{REACTOME}:'+b.stId"
+    #     return cypher
 
+    def rdf_edge_mapping(self, s, p, o):
+        cypher = None
+        # For any triple like
+            # CatalystActivity-[activity]->Go_MolecularFunction and,
+            # Reaction-[catalystActivity]->CatalystActivity
+                # Collapse the 2 hops and get: Reaction-[activity]-Go_MolecularFunction
+        # CatalystActivity to catalystActivity
+        if s =='CatalystActivity':
+            cypher= f"MATCH (x)-[rx:catalystActivity]->(a:{s})-[r:activity]->(b:{o}) return x, r, b"
+        elif o =='CatalystActivity':
+            cypher = f"MATCH (a:{s})-[r:{p}]-(b:{o})-[rx:catalystActivity]-(x) return a, r, x"
+
+        return cypher
 
 if __name__ == '__main__':
         # create a command line parser
