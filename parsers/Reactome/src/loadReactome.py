@@ -9,6 +9,7 @@ import re
 from neo4j import GraphDatabase
 drr = '/Users/olawumiolasunkanmi/Data_services_root/Data_services'
 os.sys.path.insert(0, drr)
+
 from collections import defaultdict
 from Common.utils import GetData
 from Common.loader_interface import SourceDataLoader, SourceDataFailedError
@@ -24,25 +25,25 @@ INCLUDE_COLUMN = 3
 
 PREDICATE_PROP_COLUMN = -1
 
-PREDICATE_MAPPING = {"compartment":"biolink:located_in","output":"biolink:has_output","input":"biolink:has_input","hasEvent":"biolink:contains_process","precedingEvent":"biolink:precedes","activeUnit":"biolink:actively_involves","hasComponent":"biolink:has_part","catalystActivity":"biolink:actively_involves"}
+PREDICATE_MAPPING = {"compartment":"biolink:occurs_in","output":"biolink:has_output","input":"biolink:has_input","hasEvent":"biolink:contains_process","precedingEvent":"biolink:precedes","activeUnit":"biolink:actively_involves","hasComponent":"biolink:has_part","catalystActivity":"biolink:actively_involves","cellType":"biolink:located_in","goBiologicalProcess":"biolink:same_as"}
 SUPPOSE_PROPERTIES = ("Summation", "EntityFunctionalStatus", "GeneticallyModifiedResidue", "AbstractModifiedResidue")
+
 
 # Normalized node are normalized once formatted as curie
 NORMALIZED_NODES = ("ReactionLikeEvent",)#("Pathway", "Event", "BlackboxEvent", "FailedReaction", "Depolymerisation", "Polymerisation")
 
-# These nodes has no reactome ID, however their ID is the combination of two attributes on them
-ON_NODE_MAPPING = ("GO_Term", "Species", "ExternalOntology")#databaseName+:+identifier
-                    # "Compartment", "GO_BiologicalProcess", "GO_MolecularFunction", "GO_CellularComponent",
-                    # "Disease", "CellType"
-ID_MAPPING = ("ReferenceMolecule", "ReferenceTherapeutic", "ReferenceSequence") #databaseName+KB:+identifier or databaseName+:+identifier
+# These nodes has no reactome stID, however their ID is the combination of two attributes on them
+ON_NODE_MAPPING = ("GO_Term", "Species", "ExternalOntology", "ReferenceTherapeutic",)#databaseName+:+identifier
+                    # GO_Term: "Compartment", "GO_BiologicalProcess", "GO_MolecularFunction", "GO_CellularComponent",
+                    # ExternalOntology: "Disease", "CellType"
 
-# Combination of attributes on the following nodes makes the ID. Also, they are rather the referenceID for certain other nodes
+ON_NODE_ID_MAPPING = ("ReferenceMolecule",  "ReferenceSequence") #databaseName+KB:+identifier or databaseName+:+identifier
+ALL_ON_NODE_MAPPING = NORMALIZED_NODES + ON_NODE_MAPPING + ON_NODE_ID_MAPPING
+
+
 # ReferenceIsoform is the reference ID for EntityWITHACCESSIONEDSEQUENCE(PROTEIN)
-ID_MAPPING = ("ReferenceMolecule", "ReferenceTherapeutic", "ReferenceSequence") #databaseName+KB:+identifier or databaseName+:+identifier
-
-ALL_ON_NODE_MAPPING = NORMALIZED_NODES + ON_NODE_MAPPING + ID_MAPPING
-
-CROSS_MAPPING = ('GenomeEncodedEntity', 'SimpleEntity')
+# GenomeEncodedEntity: EntityWITHACCESSIONEDSEQUENCE(Protein), EntityWITHACCESSIONEDSEQUENCE(Gene and transcript), EntityWITHACCESSIONEDSEQUENCE(DNA), EntityWITHACCESSIONEDSEQUENCE(RNA)
+CROSS_MAPPING = ('GenomeEncodedEntity', 'SimpleEntity', 'Drug')
 
 TO_WRITE = ('Provenance/Include', 'Attribute/Include') #Descriptive features of other existing nodes eg Summation
 TO_MAP = ('IDMapping/Include', ) # Maps the external identifier of a node from another node
@@ -207,15 +208,19 @@ class ReactomeLoader(SourceDataLoader):
         for line in lines_to_process:
             line = line.strip().split(',')
             if line[INCLUDE_COLUMN] in RDF_EDGES_TO_INCLUDE:
+              # Not in use now
                 queries_to_include.append(
                     self.rdf_edge_mapping(line[SUBJECT_COLUMN], line[PREDICATE_COLUMN], line[OBJECT_COLUMN]))
-
+              
             elif line[INCLUDE_COLUMN] in TO_INCLUDE:
                 cypher_query = f"MATCH (a:{line[SUBJECT_COLUMN]})-[r:{line[PREDICATE_COLUMN]}]->(b:{line[OBJECT_COLUMN]}) RETURN a, r, b"
                 queries_to_include.append(cypher_query)
+              
             elif line[INCLUDE_COLUMN] in TO_MAP:
+              # Not in use now
                 queries_to_map.append(self.map_ids(line[SUBJECT_COLUMN], line[PREDICATE_COLUMN], line[OBJECT_COLUMN]))
             else:
+              # Not in use now
                 if line[INCLUDE_COLUMN] in TO_WRITE:
                     queries_to_write.append(self.write_properties(line[SUBJECT_COLUMN], line[PREDICATE_COLUMN], line[OBJECT_COLUMN]))
 
@@ -231,20 +236,23 @@ class ReactomeLoader(SourceDataLoader):
 
         with self.driver.session() as session:
             results = []
-            # node_labels = session.run("MATCH (n) RETURN DISTINCT labels(n) AS nodeTypes")
-            # node_types = [record["nodeTypes"][0] for record in node_labels]
 
             #Map the id from the nodes databaseName+:+identifier
             for node in ALL_ON_NODE_MAPPING:
                 session.run(self.on_node_mapping(node))
-            
-            #Map other propersties from the nodes summation catalystactivity ...
+
+            for node in CROSS_MAPPING:
+                session.run(self.cross_map_ids(node))
+
+            #Map other propersties from the nodes summation ...
+            # PS: Not currently in use since the content file contains only 'include'
             for cypher_query in queries_to_write:
                 if not cypher_query:
                     continue
                 session.run(cypher_query)
 
             #Map the id from the other nodes respectively
+            # PS: Not currently in use since the content file contains only 'include'
             for cypher_query in queries_to_map:
                 if not cypher_query:
                     continue
@@ -304,14 +312,13 @@ class ReactomeLoader(SourceDataLoader):
         #On-node/Same node ID Mapping eg GO, Disease ...
         if node =="Species":
             cypher = f"MATCH (a:{node}) SET a.ids ='{NCBITAXON}:'+a.taxId"
-        elif node in ID_MAPPING or node =="ExternalOntology":
-            if node == "ReferenceTherapeutic":
-               cypher = f"MATCH (a:{node}) SET  a.ids ='{GTOPDB}:'+a.identifier"
+        elif node == "ReferenceTherapeutic":
+            cypher = f"MATCH (a:{node}) SET  a.ids ='{GTOPDB}:'+a.identifier"
+        elif node in ON_NODE_ID_MAPPING or node =="ExternalOntology":
+            cypher = f"MATCH (a:{node}) SET a.ids = CASE WHEN SIZE(SPLIT(a.databaseName, ' ')) >= 2 THEN SPLIT(a.databaseName, ' ')[0] + 'Gene' + ':' + SPLIT(a.identifier, '.')[0] WHEN a.databaseName = 'UniProt' THEN REPLACE(a.databaseName, ' ', '') + 'KB:' + SPLIT(a.identifier, '.')[0] ELSE REPLACE(a.databaseName, ' ', '') + ':' + SPLIT(a.identifier, '.')[0] END"
             # Some are NCBI Entrez Gene or NCBI Nucleotide or uniprot or ensembl etc
-            # The split is necessary becase of some funny looking curies:
-            # NCBI Gene:324=>NCBIGene:324; KEGG Gene (Homo sapiens)=>KEGGGene
-            else:
-                cypher = f"MATCH (a:{node}) SET a.ids = CASE WHEN SIZE(SPLIT(a.databaseName, ' ')) >= 2 THEN SPLIT(a.databaseName, ' ')[0] + 'Gene' + ':' + SPLIT(a.identifier, '.')[0] WHEN a.databaseName = 'UniProt' THEN REPLACE(a.databaseName, ' ', '') + 'KB:' + SPLIT(a.identifier, '.')[0] ELSE REPLACE(a.databaseName, ' ', '') + ':' + SPLIT(a.identifier, '.')[0] END"
+            # The split is necessary because of some funny looking curies:
+            # NCBI Gene:324=>NCBIGene:324; KEGG Gene (Homo sapiens):123=>KEGGGene:123
         elif node in NORMALIZED_NODES:
             #Biolink normalized reactome ids eg pathways, events ......
             cypher = f"MATCH (a:{node}) SET a.ids ='{REACTOME}:'+a.stId"
@@ -325,45 +332,19 @@ class ReactomeLoader(SourceDataLoader):
         cypher = None
         # OBJECT
         if s in CROSS_MAPPING:
+            # Cross Property Mapping eg Summation
             cypher = f"MATCH (a:{s})-[r:referenceEntity]->(b:{o}) SET a.ids = b.ids"
+        elif o in CROSS_MAPPING:
+            cypher = f"MATCH (a:{s})-[r:{p}]->(b:{o}) SET b.ids = a.ids"
         if not cypher:
-            if o in CROSS_MAPPING:
-                # CHEBI ...
-                cypher = f"MATCH (a:{s})-[r:{p}]->(b:{o}) SET b.ids = a.ids"
-            if not cypher:
-                # None of the s or object has external mapping file
-                cypher = f"MATCH (a:{s})-[r:{p}]->(b:{o}) SET a.ids ='{REACTOME}:'+a.stId, b.ids='{REACTOME}:'+b.stId"
+            # None of the s or object has external mapping file
+            cypher = f"MATCH (a:{s})-[r:{p}]->(b:{o}) SET a.ids ='{REACTOME}:'+a.stId, b.ids='{REACTOME}:'+b.stId"
         return cypher
 
-    # def map_ids(self, s, p, o):
-    #     #ReferenceID Mappings eg EntityWithAccessionedSequence ->ReferenceSequence ......
-    #     cypher = None
-    #     # OBJECT
-    #     if o in OTHER_ID_MAPPING:
-    #         # CHEBI, RHEA ...
-    #         cypher = f"MATCH (a:{s})-[r:{p}]->(b:{o}) SET a.ids = REPLACE(b.databaseName, ' ', '')+':'+b.identifier"
-    #     elif o in UNIPROT_ID_MAPPING:
-    #         # UNIPROTKB ...
-    #         cypher = f"MATCH (a:{s})-[r:{p}]->(b:{o}) SET a.ids = b.databaseName+'KB:'+b.identifier"
-    #     elif o in OTHER_SEQUENCE_MAPPING:
-    #         # RNA and DNA ...
-    #         cypher = f"MATCH (a:{s})-[r:{p}]->(b:{o}) SET a.ids = b.ids"
-    #
-    #     if not cypher:
-    #         if s in OTHER_ID_MAPPING:
-    #             # CHEBI ...
-    #             cypher = f"MATCH (a:{s})-[r:{p}]->(b:{o}) SET b.ids=REPLACE(a.databaseName, ' ', '')+':'+a.identifier"
-    #         elif s in UNIPROT_ID_MAPPING:
-    #             # UNIPROTKB ...
-    #             cypher = f"MATCH (a:{s})-[r:{p}]->(b:{o}) SET b.ids = a.databaseName+'KB:'+a.identifier"
-    #         elif s in OTHER_SEQUENCE_MAPPING:
-    #             # UNIPROTKB ...
-    #             cypher = f"MATCH (a:{s})-[r:{p}]->(b:{o}) SET b.ids = a.ids"
-    #
-    #         if not cypher:
-    #             #None of the s or object has external mapping file
-    #             cypher = f"MATCH (a:{s})-[r:{p}]->(b:{o}) SET a.ids ='{REACTOME}:'+a.stId, b.ids='{REACTOME}:'+b.stId"
-    #     return cypher
+    def cross_map_ids(self, node):
+        # Cross Property Mapping eg  ReferenceID Mappings for EntityWithAccessionedSequence ->ReferenceSequence ......
+        cypher = f"MATCH (a:{node})-[r:referenceEntity]->(b) SET a.ids = b.ids"
+        return cypher
 
     def rdf_edge_mapping(self, s, p, o):
         cypher = None
