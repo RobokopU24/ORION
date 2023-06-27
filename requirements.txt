@@ -15,5 +15,4 @@ pyoxigraph==0.3.18
 curies>=0.4.0
 prefixmaps>=0.1.4
 bmt==1.0.15
-curies==0.5.5
 # line-profiler
