@@ -30,3 +30,4 @@ export DATA_SERVICES_OUTPUT_URL=https://localhost/
 export EDGE_NORMALIZATION_ENDPOINT=https://bl-lookup-sri.renci.org/
 export NODE_NORMALIZATION_ENDPOINT=https://nodenormalization-sri.renci.org/
 
+export PYTHONPATH="$PYTHONPATH:$PWD"
