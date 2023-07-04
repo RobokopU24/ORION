@@ -12,7 +12,7 @@ graphs:
     graph_description: 'ROBOKOP (KG) is an open-source biomedical KG that supports the ROBOKOP application. This is the baseline version of that graph, which does not include knowledge sources with specific genetic variants.'
     graph_url: http://robokopkg.renci.org/browser/
     conflation: True
-    output_format: jsonl
+    output_format: neo4j
     sources:
       - source_id: Biolink
         # optional parameters for each data source - see README for more info
@@ -39,7 +39,7 @@ graphs:
       - source_id: PANTHER
       - source_id: PHAROS
       - source_id: textminingkp
-      - source_id: STRING-DB
+      - source_id: STRING-DB-Human
       - source_id: Ubergraph
 
   - graph_id: RobokopKG

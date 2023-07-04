@@ -1,17 +1,12 @@
 import os
-import logging
 import enum
 
-from copy import deepcopy
-
-import numpy
-from parsers.yeast.src.collectSGDdata import main
-from Common.utils import LoggingUtil, GetData
+from parsers.SGD.src.sgd_source_retriever import retrieve_sgd_files
 from Common.loader_interface import SourceDataLoader
 from Common.extractor import Extractor
-from Common.node_types import AGGREGATOR_KNOWLEDGE_SOURCES, PRIMARY_KNOWLEDGE_SOURCE
-
-from Common.kgxmodel import kgxnode, kgxedge
+from Common.prefixes import PUBMED
+from Common.node_types import PRIMARY_KNOWLEDGE_SOURCE, NODE_TYPES, PUBLICATIONS
+from parsers.yeast.src.yeast_constants import SGD_ALL_GENES_FILE
 
 # Maps Genes to GO Terms.
 class GENEGOTERMS_EDGEUMAN(enum.IntEnum):
@@ -65,10 +60,10 @@ class COMPLEXEGO_EDGEUMAN(enum.IntEnum):
 # Date: 03/14/2022
 # Desc: Class that loads/parses the unique data for yeast genes to SGD associations.
 ##############
-class YeastSGDLoader(SourceDataLoader):
+class SGDLoader(SourceDataLoader):
 
-    source_id: str = 'YeastSGDAssociations'
-    provenance_id: str = 'infores:Yeast'
+    source_id: str = 'SGD'
+    provenance_id: str = 'infores:sgd'
 
     def __init__(self, test_mode: bool = False, source_data_dir: str = None):
         """
@@ -78,9 +73,7 @@ class YeastSGDLoader(SourceDataLoader):
         # call the super
         super().__init__(test_mode=test_mode, source_data_dir=source_data_dir)
 
-        #self.yeast_data_url = 'https://stars.renci.org/var/data_services/yeast/'
-
-        self.sgd_gene_list_file_name = "SGDAllGenes.csv"
+        self.sgd_gene_list_file_name = SGD_ALL_GENES_FILE
         self.genes_to_go_term_edges_file_name = "SGDGene2GOTerm.csv"
         self.genes_to_pathway_edges_file_name = "SGDGene2Pathway.csv"
         self.genes_to_phenotype_edges_file_name = "SGDGene2Phenotype.csv"
@@ -102,15 +95,14 @@ class YeastSGDLoader(SourceDataLoader):
 
         :return:
         """
-        return 'yeast_v1'
+        return 'SGD_v1'
 
     def get_data(self) -> int:
         """
         Gets the yeast data.
 
         """
-        main(self.data_path)
-
+        retrieve_sgd_files(download_destination_path=self.data_path)
         return True
 
     def parse_data(self) -> dict:
@@ -120,7 +112,7 @@ class YeastSGDLoader(SourceDataLoader):
         :return: ret_val: load_metadata
         """
 
-        extractor = Extractor()
+        extractor = Extractor(self.output_file_writer)
 
         #This file contains yeast genes and properties to define gene nodes.
         sgd_gene_file: str = os.path.join(self.data_path, self.sgd_gene_list_file_name)
@@ -129,7 +121,7 @@ class YeastSGDLoader(SourceDataLoader):
                                   lambda line: line[0].replace(" ","_").strip(),  # subject id
                                   lambda line: None,  # object id
                                   lambda line: None,  # predicate extractor
-                                  lambda line: {'categories': ['biolink:Gene'],
+                                  lambda line: {NODE_TYPES: ['biolink:Gene'],
                                   'secondaryID': line[1],
                                   'name': line[2] if line[2] != "?" else line[1],
                                   'namesake': line[3],
@@ -140,7 +132,7 @@ class YeastSGDLoader(SourceDataLoader):
                                   'chromosomeLocation': f"{line[6]}:{line[7]}-{line[8]}, strand: {line[9]}",
                                   'referenceLink': line[12]}, # subject props
                                   lambda line: {},  # object props
-                                  lambda line: {},#edgeprops
+                                  lambda line: {PRIMARY_KNOWLEDGE_SOURCE: self.provenance_id},  #edgeprops
                                   comment_character=None,
                                   delim=',',
                                   has_header_row=True)
@@ -153,10 +145,10 @@ class YeastSGDLoader(SourceDataLoader):
                                   lambda line: None,  # object id
                                   lambda line: None,  # predicate extractor
                                   lambda line: {'name': line[6],
-                                                'categories': [line[7]]
+                                                NODE_TYPES: [line[7]]
                                                 }, #subject props
                                   lambda line: {},  # object props
-                                  lambda line: {},#edgeprops
+                                  lambda line: {PRIMARY_KNOWLEDGE_SOURCE: self.provenance_id},#edgeprops
                                   comment_character=None,
                                   delim=',',
                                   has_header_row=True)
@@ -169,12 +161,12 @@ class YeastSGDLoader(SourceDataLoader):
                                   lambda line: None,  # object id
                                   lambda line: None,  # predicate extractor
                                   lambda line: {'name': line[3],
-                                                'categories': ['biolink:Pathway'],
+                                                NODE_TYPES: ['biolink:Pathway'],
                                                 'taxon': 'NCBI_Taxon:559292',
                                                 'organism': line[1],
                                                 'referenceLink': line[4]},  # subject props
                                   lambda line: {},  # object props
-                                  lambda line: {}, #edgeprops
+                                  lambda line: {PRIMARY_KNOWLEDGE_SOURCE: self.provenance_id}, #edgeprops
                                   comment_character=None,
                                   delim=',',
                                   has_header_row=True)
@@ -187,12 +179,12 @@ class YeastSGDLoader(SourceDataLoader):
                                   lambda line: None,  # object id
                                   lambda line: None,  # predicate extractor
                                   lambda line: {'name': line[7],
-                                                'categories': ['biolink:PhenotypicFeature'],
+                                                NODE_TYPES: ['biolink:PhenotypicFeature'],
                                                 'taxon': 'NCBITaxon:559292',
                                                 'organism': "S. cerevisiae",
                                                 'referenceLink': line[19]}, # subject props
                                   lambda line: {},  # object props
-                                  lambda line: {},#edgeprops
+                                  lambda line: {PRIMARY_KNOWLEDGE_SOURCE: self.provenance_id},#edgeprops
                                   comment_character=None,
                                   delim=',',
                                   has_header_row=True)
@@ -205,7 +197,7 @@ class YeastSGDLoader(SourceDataLoader):
                                   lambda line: None,  # object id
                                   lambda line: None,  # predicate extractor
                                   lambda line: {'name': line[0],
-                                                'categories': ['biolink:MacromolecularComplexMixin'],
+                                                NODE_TYPES: ['biolink:MacromolecularComplexMixin'],
                                                 'function': line[1],
                                                 'systematicName': line[2],
                                                 'properties': line[9],
@@ -214,24 +206,7 @@ class YeastSGDLoader(SourceDataLoader):
                                                 'organism': "S. cerevisiae",
                                                 'referenceLink': line[12]}, # subject props
                                   lambda line: {},  # object props
-                                  lambda line: {},#edgeprops
-                                  comment_character=None,
-                                  delim=',',
-                                  has_header_row=True)
-
-        #This file is a list of histone modification genomic loci.
-        histone_modification_file: str = os.path.join(self.data_path, self.histone_mod_list_file_name)
-        with open(histone_modification_file, 'r') as fp:
-            extractor.csv_extract(fp,
-                                  lambda line: line[HISTONEMODBINS_EDGEUMAN.ID.value],  # subject id
-                                  lambda line: None,  # object id
-                                  lambda line: None,  # predicate extractor
-                                  lambda line: {'name': f"{line[HISTONEMODBINS_EDGEUMAN.MODIFICATION.value]} ({line[HISTONEMODBINS_EDGEUMAN.CHROMOSOME.value]}:{line[HISTONEMODBINS_EDGEUMAN.STARTLOCATION.value]}-{line[HISTONEMODBINS_EDGEUMAN.ENDLOCATION.value]})",
-                                                'categories': ['biolink:NucleosomeModification','biolink:PosttranslationalModification'],
-                                                'histoneModification': line[HISTONEMODBINS_EDGEUMAN.MODIFICATION.value],
-                                                'chromosomeLocation': line[HISTONEMODBINS_EDGEUMAN.LOCI.value]}, # subject props
-                                  lambda line: {},  # object props
-                                  lambda line: {},#edgeprops
+                                  lambda line: {PRIMARY_KNOWLEDGE_SOURCE: self.provenance_id},#edgeprops
                                   comment_character=None,
                                   delim=',',
                                   has_header_row=True)
@@ -248,8 +223,8 @@ class YeastSGDLoader(SourceDataLoader):
                                   lambda line: {'evidenceCode': line[GENEGOTERMS_EDGEUMAN.EVIDENCECODE.value],
                                                 'evidenceCodeText': line[GENEGOTERMS_EDGEUMAN.EVIDENCECODETEXT.value],
                                                 'annotationType': line[GENEGOTERMS_EDGEUMAN.ANNOTATIONTYPE.value],
-                                                'evidencePMIDs': line[GENEGOTERMS_EDGEUMAN.EVIDENCEPMID.value],
-                                                PRIMARY_KNOWLEDGE_SOURCE: "SGD"
+                                                PUBLICATIONS: [f'{PUBMED}:{line[GENEGOTERMS_EDGEUMAN.EVIDENCEPMID.value]}'],
+                                                PRIMARY_KNOWLEDGE_SOURCE: self.provenance_id
                                              }, #edgeprops
                                   comment_character=None,
                                   delim=',',
@@ -265,7 +240,7 @@ class YeastSGDLoader(SourceDataLoader):
                                   lambda line: {},  # subject props
                                   lambda line: {},  # object props
                                   lambda line: {
-                                                PRIMARY_KNOWLEDGE_SOURCE: "SGD"
+                                                PRIMARY_KNOWLEDGE_SOURCE: self.provenance_id
                                                 }, #edgeprops
                                   comment_character=None,
                                   delim=',',
@@ -289,8 +264,8 @@ class YeastSGDLoader(SourceDataLoader):
                                                 'yeastStrainBackground': line[GENEPHENOTYPES_EDGEUMAN.STRAINBACKGROUND.value],
                                                 'chemicalExposure': line[GENEPHENOTYPES_EDGEUMAN.CHEMICAL.value],
                                                 'experimentalCondition': line[GENEPHENOTYPES_EDGEUMAN.CONDITION.value],
-                                                'evidencePMIDs': line[GENEPHENOTYPES_EDGEUMAN.EVIDENCEPMID.value],
-                                                PRIMARY_KNOWLEDGE_SOURCE: "SGD"}, #edgeprops
+                                                PUBLICATIONS: [f'{PUBMED}:{line[GENEPHENOTYPES_EDGEUMAN.EVIDENCEPMID.value]}'],
+                                                PRIMARY_KNOWLEDGE_SOURCE: self.provenance_id}, #edgeprops
                                   comment_character=None,
                                   delim=',',
                                   has_header_row=True)
@@ -307,7 +282,7 @@ class YeastSGDLoader(SourceDataLoader):
                                   lambda line: {'geneBiologicalRole': line[GENECOMPLEXES_EDGEUMAN.ROLE.value],
                                                 'geneStoichiometry': line[GENECOMPLEXES_EDGEUMAN.STOICHIOMETRY.value],
                                                 'interactorType': line[GENECOMPLEXES_EDGEUMAN.TYPE.value],
-                                                PRIMARY_KNOWLEDGE_SOURCE: "SGD"}, #edgeprops
+                                                PRIMARY_KNOWLEDGE_SOURCE: self.provenance_id}, #edgeprops
                                   comment_character=None,
                                   delim=',',
                                   has_header_row=True)
@@ -322,11 +297,10 @@ class YeastSGDLoader(SourceDataLoader):
                                   lambda line: {},  # subject props
                                   lambda line: {},  # object props
                                   lambda line: {
-                                                PRIMARY_KNOWLEDGE_SOURCE: "SGD"
+                                                PRIMARY_KNOWLEDGE_SOURCE: self.provenance_id
                                                 }, #edgeprops
                                   comment_character=None,
                                   delim=',',
                                   has_header_row=True)
-        self.final_node_list = extractor.nodes
-        self.final_edge_list = extractor.edges
+
         return extractor.load_metadata

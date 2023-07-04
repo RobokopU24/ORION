@@ -1,15 +1,13 @@
-import gzip
 import os
 import enum
-import gzip
 import pandas as pd
-import numpy as np
 
-from parsers.yeast.src.collectSGDdata import createLociWindows
-from Common.utils import GetData
+from Common.utils import GetData, int_to_roman_numeral
 from Common.loader_interface import SourceDataLoader
 from Common.extractor import Extractor
-from Common.node_types import AGGREGATOR_KNOWLEDGE_SOURCES, PRIMARY_KNOWLEDGE_SOURCE
+from Common.node_types import PRIMARY_KNOWLEDGE_SOURCE
+from parsers.yeast.src.yeast_constants import HISTONE_LOCI_FILE, YEAST_GENOME_RESOLUTION
+from parsers.yeast.src.loadHistoneMap import YeastHistoneMapLoader
 
 
 # Maps Experimental Condition affects Nucleosome edge.
@@ -212,7 +210,6 @@ class YeastGSE61888Loader(SourceDataLoader):
     source_id: str = 'YeastGSE61888'
     provenance_id: str = 'infores:Yeast'
 
-
     def __init__(self, test_mode: bool = False, source_data_dir: str = None):
         """
         constructor
@@ -225,8 +222,13 @@ class YeastGSE61888Loader(SourceDataLoader):
 
         self.yeast_data_url = 'https://stars.renci.org/var/data_services/yeast/'
 
-        self.binned_histone_mods_file = f"{self.data_path}/../../../YeastSGDInfo/yeast_v1/source/Res150HistoneModLoci.csv"
+        self.binned_histone_mods_file = HISTONE_LOCI_FILE
+
+        self.genome_resolution = YEAST_GENOME_RESOLUTION
+
         self.GSE61888_ChIPseq = "GSE61888_nucs_normed.csv"
+
+        self.histone_mod_to_GSE61888_file = "HistoneMod2GSE61888.csv"
         
         self.data_files = [
             self.GSE61888_ChIPseq
@@ -240,33 +242,15 @@ class YeastGSE61888Loader(SourceDataLoader):
         """
         return 'yeast_v1_5'
 
-    def int_to_Roman(self, num):
-        val = [
-            1000, 900, 500, 400,
-            100, 90, 50, 40,
-            10, 9, 5, 4,
-            1
-            ]
-        syb = [
-            "M", "CM", "D", "CD",
-            "C", "XC", "L", "XL",
-            "X", "IX", "V", "IV",
-            "I"
-            ]
-        roman_num = ''
-        i = 0
-        while  num > 0:
-            for _ in range(num // val[i]):
-                roman_num += syb[i]
-                num -= val[i]
-            i += 1
-        return roman_num
-
     def get_data(self) -> int:
         """
         Gets the GEO datasets.
         """
-        binned_histones = pd.read_csv(self.binned_histone_mods_file)
+        histone_loader = YeastHistoneMapLoader()
+        histone_loader.fetch_histone_data(genome_resolution=self.genome_resolution,
+                                          output_directory=self.data_path,
+                                          generate_gene_mapping=False)
+        binned_histones = pd.read_csv(os.path.join(self.data_path, self.binned_histone_mods_file))
         
         data_puller = GetData()
         for source in self.data_files:
@@ -275,13 +259,13 @@ class YeastGSE61888Loader(SourceDataLoader):
             dataset = pd.read_csv(source_url)
             chromes = []
             for x in dataset['chr'].tolist():
-                if x != None:
-                    chrome = 'chr'+self.int_to_Roman(int(x))
+                if x is not None:
+                    chrome = 'chr'+int_to_roman_numeral(int(x))
                 else:
                     chrome = ""
                 chromes.append(chrome)
             dataset['chr'] = chromes
-            print("----Mapping GEO Datasets to Binned Histone Modifications----")
+            self.logger.debug("----Mapping GEO Datasets to Binned Histone Modifications----")
             chrome_dict = {}
             unique_chromes = dataset['chr'].unique()
 
@@ -291,7 +275,7 @@ class YeastGSE61888Loader(SourceDataLoader):
             total = len(dataset.index)
             for idx,row in dataset.iterrows():
                 if (idx%10000)==0:
-                    print(f"{idx} of {total}")
+                    self.logger.debug(f"{idx} of {total}")
                 
                 binned = chrome_dict[row['chr']].loc[(row['center'] >= chrome_dict[row['chr']]['start']) & (row['center'] <= chrome_dict[row['chr']]['end'])]
 
@@ -305,18 +289,17 @@ class YeastGSE61888Loader(SourceDataLoader):
 
             dataset['loci'] = dataset_bins
             dataset = dataset[dataset.loci.isin(["None"]) == False]
-            print(os.path.join(self.data_path,source))
-            dataset.to_csv(os.path.join(self.data_path,source), encoding="utf-8-sig", index=False)
+            # print(os.path.join(self.data_path, source))
+            dataset.to_csv(os.path.join(self.data_path, source), encoding="utf-8-sig", index=False)
             mergedf = dataset.merge(binned_histones,how='inner',on='loci')
             for col in reversed(binned_histones.columns):
                 inserted = mergedf[col]
                 mergedf = mergedf.drop(columns=[col])
                 mergedf.insert(loc=0, column=col, value=inserted)
             mergedf = mergedf.drop(columns=['loci'])
-            print(f"Histone Modifications Mapping Complete!")
-            csv_f3name = "HistoneMod2GSE61888.csv"
-            mergedf.to_csv(os.path.join(self.data_path,csv_f3name), encoding="utf-8-sig", index=False)
-            print(os.path.join(self.data_path,csv_f3name))
+            self.logger.debug(f"Histone Modifications Mapping Complete!")
+            mergedf.to_csv(os.path.join(self.data_path, self.histone_mod_to_GSE61888_file), encoding="utf-8-sig", index=False)
+            # print(os.path.join(self.data_path, csv_f3name))
     
         return True
     
@@ -331,7 +314,7 @@ class YeastGSE61888Loader(SourceDataLoader):
 
         #Experimental conditions to nucleosomes edges. Edges contain nucleosome occupancy and histone PTMs/Variants as properties.
         #In this case, handles only "GSE61888 High resolution chromatin dynamics during a yeast stress response" data
-        histone_mods_2_stressor_file: str = os.path.join(self.data_path, "HistoneMod2GSE61888.csv")
+        histone_mods_2_stressor_file: str = os.path.join(self.data_path, self.histone_mod_to_GSE61888_file)
         with open(histone_mods_2_stressor_file, 'r') as fp:
             extractor.csv_extract(fp,
                                   lambda line: "PUBCHEM.COMPOUND:5353800", #subject id #In this case, it is set as "Diamide", the stressor used in GSE61888
