@@ -3,8 +3,9 @@ import json
 import argparse
 import enum
 
+from Common.node_types import PUBLICATIONS
 from Common.utils import GetData
-from Common.kgxmodel import kgxnode, kgxedge
+from Common.kgxmodel import kgxedge
 from Common.loader_interface import SourceDataLoader
 
 from gzip import GzipFile
@@ -40,12 +41,12 @@ class TMKPEDGE(enum.IntEnum):
 class TMKPLoader(SourceDataLoader):
 
     source_id: str = "text-mining-provider-targeted"
-    provenance_id: str = "infores:textminingkp"
+    provenance_id: str = "infores:text-mining-provider-targeted"
     description = "The Text Mining Provider KG contains subject-predicate-object assertions derived from the application of natural language processing (NLP) algorithms to the PubMedCentral Open Access collection of publications plus additional titles and abstracts from PubMed."
     source_data_url = ""
     license = ""
     attribution = ""
-    parsing_version = "1.0"
+    parsing_version = "1.1"
 
     # this is not the right way to do this, ideally all predicates would be normalized later in the pipeline,
     # but this handles some complications with certain biolink 2 predicates (failing to) normalizing to biolink 3
@@ -64,17 +65,19 @@ class TMKPLoader(SourceDataLoader):
         """
         super().__init__(test_mode=test_mode, source_data_dir=source_data_dir)
 
-        self.data_file: str = ''
-        self.source_db: str = 'Text Mining KP'
-        self.textmine_data_url: str = 'https://stars.renci.org/var/data_services/textmining/v1/'
+        self.source_db: str = 'textminingkp'
 
-        self.node_file_name: str = 'kgx_UniProt_nodes.tsv.gz'
-        self.edge_file_name: str = "kgx_UniProt_edges.tsv.gz"
-        #https://storage.cloud.google.com/translator-text-workflow-dev-public/kgx/UniProt/edges.tsv.gz
-        #https://storage.cloud.google.com/translator-text-workflow-dev-public/kgx/UniProt/nodes.tsv.gz
+        self.textmine_data_url: str = 'https://stars.renci.org/var/data_services/textmining/v1/'
+        # self.node_file_name: str = 'kgx_UniProt_nodes.tsv.gz'
+        self.edge_file_name: str = 'kgx_UniProt_edges.tsv.gz'
+
+        # this is what should be used but qualifiers were added and more needs to be done to handle those
+        # self.textmine_data_url = 'https://storage.googleapis.com/translator-text-workflow-dev-public/kgx/UniProt/'
+        # self.node_file_name: str = 'nodes.tsv.gz'
+        # self.edge_file_name: str = 'edges.tsv.gz'
 
         self.data_files = [
-            self.node_file_name,
+            # self.node_file_name,
             self.edge_file_name
         ]
 
@@ -84,7 +87,9 @@ class TMKPLoader(SourceDataLoader):
 
         :return:
         """
-        return "tmkg_v1"
+        data_puller = GetData()
+        data_file_date = data_puller.get_http_file_modified_date(f'{self.textmine_data_url}{self.edge_file_name}')
+        return data_file_date
 
     def get_data(self) -> int:
         """
@@ -95,7 +100,6 @@ class TMKPLoader(SourceDataLoader):
         for source in self.data_files:
             source_url = f"{self.textmine_data_url}{source}"
             data_puller.pull_via_http(source_url, self.data_path)
-
         return True
 
     def parse_data(self) -> dict:
@@ -107,7 +111,8 @@ class TMKPLoader(SourceDataLoader):
 
         record_counter = 0
         skipped_record_counter = 0
-        
+
+        """
         node_file_path: str = os.path.join(self.data_path, self.node_file_name)
         with GzipFile(node_file_path) as zf:
             for bytesline in zf:
@@ -121,17 +126,20 @@ class TMKPLoader(SourceDataLoader):
                                    categories=[node_category],
                                    nodeprops=None)
                 self.output_file_writer.write_kgx_node(new_node)
+        """
 
         edge_file_path: str = os.path.join(self.data_path, self.edge_file_name)
-        with GzipFile(edge_file_path) as zf:
+        with GzipFile(edge_file_path, 'rb') as zf:
             for bytesline in zf:
 
                 lines = bytesline.decode('utf-8')
                 line = lines.strip().split('\t')
 
                 subject_id=line[TMKPEDGE.SUBJECT_ID.value]
+                self.output_file_writer.write_node(subject_id)
                 predicate=self.convert_tmkp_predicate(line[TMKPEDGE.EDGE_PRED.value])
                 object_id=line[TMKPEDGE.OBJECT_ID.value]
+                self.output_file_writer.write_node(object_id)
                 edge_idx=line[TMKPEDGE.EDGE_IDX.value]
                 general_predicate=line[TMKPEDGE.EDGE_PRED_HIGHER.value]
                 confidence=line[TMKPEDGE.CONFIDENCE.value]
@@ -153,7 +161,7 @@ class TMKPLoader(SourceDataLoader):
                         sentences.append(supporting_text)
                         sentences.append(paper)
 
-                edge_props = {"publications": [paper_id for paper_id in paper_idxs.split('|')],
+                edge_props = {PUBLICATIONS: [paper_id for paper_id in paper_idxs.split('|')],
                               "biolink:tmkp_confidence_score": confidence,
                               "sentences": "|".join(sentences),
                               "tmkp_ids": [tmkp_id for tmkp_id in tmpk_idxs.split('|')]}
@@ -162,7 +170,7 @@ class TMKPLoader(SourceDataLoader):
                                    predicate=predicate,
                                    object_id=object_id,
                                    edgeprops=edge_props,
-                                   primary_knowledge_source='infores:textminingkp')
+                                   primary_knowledge_source=self.provenance_id)
                 self.output_file_writer.write_kgx_edge(new_edge)
                 record_counter += 1
                 if self.test_mode and record_counter >= 20000:
@@ -172,8 +180,7 @@ class TMKPLoader(SourceDataLoader):
         # load up the metadata
         load_metadata: dict = {
             'num_source_lines': record_counter,
-            'unusable_source_lines': skipped_record_counter
-            }
+            'unusable_source_lines': skipped_record_counter}
 
         return load_metadata
 
