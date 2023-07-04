@@ -14,6 +14,7 @@ graphs:
     conflation: True
     output_format: neo4j
     sources:
+      - source_id: BINDING-DB
       - source_id: Biolink
         # optional parameters for each data source - see README for more info
         # source_version: latest (the version of the source data)
@@ -57,6 +58,16 @@ graphs:
         edge_normalization_version: 'v.2.4.4'
         node_normalization_version: '2.0.9'
       - source_id: GTEx
+
+  - graph_id: BINDING-DB_Automat
+    graph_name: BINDING
+    graph_description: 'A public,  web-accessible database of measured binding affinities, focusing chiefly on the interactions of proteins considered to be candidate drug-targets with ligands that are small, drug-like molecules'
+    graph_url: https://www.bindingdb.org/rwd/bind/chemsearch/marvin/SDFdownload.jsp?all_download=yes
+    output_format: neo4j
+    sources:
+      - source_id: BINDING-DB
+      - source_id: OntologicalHierarchy
+        merge_strategy: connected_edge_subset
 
   - graph_id: Biolink_Automat
     graph_name: RENCI SRI Reference KG
