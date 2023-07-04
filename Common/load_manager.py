@@ -357,7 +357,9 @@ class SourceDataManager:
                                                           normalization_info=normalization_info)
             return True
         except NormalizationBrokenError as broken_error:
-            error_message = f"{source_id} NormalizationBrokenError: {broken_error.error_message} - {broken_error.actual_error}"
+            error_message = f"{source_id} NormalizationBrokenError: {broken_error.error_message}"
+            if broken_error.actual_error:
+                error_message += f" - {broken_error.actual_error}"
             self.logger.error(error_message)
             source_metadata.update_normalization_metadata(parsing_version,
                                                           composite_normalization_version,
@@ -366,7 +368,9 @@ class SourceDataManager:
                                                           normalization_time=current_time)
             return False
         except NormalizationFailedError as failed_error:
-            error_message = f"{source_id} NormalizationFailedError: {failed_error.error_message} - {failed_error.actual_error}"
+            error_message = f"{source_id} NormalizationFailedError: {failed_error.error_message}"
+            if failed_error.actual_error:
+                error_message += f" - {failed_error.actual_error}"
             self.logger.error(error_message)
             source_metadata.update_normalization_metadata(parsing_version,
                                                           composite_normalization_version,
