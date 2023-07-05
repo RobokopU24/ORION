@@ -56,8 +56,8 @@ class BINDINGDBLoader(SourceDataLoader):
         """
         # call the super
         super().__init__(test_mode=test_mode, source_data_dir=source_data_dir)
-#6 is the stand in threshold value until a better value can be determined
-#We may not even use the thresholds, that way all data can be captured.
+        #6 is the stand in threshold value until a better value can be determined
+        #We may not even use the thresholds, that way all data can be captured.
         self.affinity_threshold = LOG_SCALE_AFFINITY_THRESHOLD
 
         # self.KI_predicate = 'biolink:binds'
@@ -128,7 +128,7 @@ class BINDINGDBLoader(SourceDataLoader):
                     BD_EDGEUMAN.PUBCHEM_CID.value:str,
                     BD_EDGEUMAN.UNIPROT_TARGET_CHAIN.value:str}
         
-        table = pd.read_csv(f"/Data_services_storage/BINDING-DB/{self.bindingdb_version}/source/BindingDB_All.tsv",
+        table = pd.read_csv(f"{self.data_path}{self.BD_full_file_name.split('.zip')[0]}",
                 usecols=[
                     BD_EDGEUMAN.KI.value, #From now on, it is position 0
                     BD_EDGEUMAN.IC50.value, #From now on, it is position 1
@@ -149,14 +149,16 @@ class BINDINGDBLoader(SourceDataLoader):
         table = table.dropna(subset=["UniProt (SwissProt) Primary ID of Target Chain"])
         table = table.dropna(subset=["PubChem CID"])
         table = table.groupby(["PubChem CID","UniProt (SwissProt) Primary ID of Target Chain"]).agg(list).reset_index()
-        
-        table = table.head(1000) #Only keep for testing.
+
+        # only keep 1000 entries for test mode
+        if self.test_mode:
+            table = table.head(1000)
 
         measurements_list = []
         does_it_bind_list = []
         for idx,row in table.iterrows():
             if idx%10000 == 0:
-                print(idx,":",len(table))
+                self.logger.debug(idx,":",len(table))
             does_it_bind = False
             measurements_dict = {}
             pKi_measurements = []
