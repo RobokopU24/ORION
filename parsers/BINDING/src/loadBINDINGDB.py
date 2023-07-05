@@ -82,8 +82,9 @@ class BINDINGDBLoader(SourceDataLoader):
         if self.bindingdb_version:
             return self.bindingdb_version
         ### The method below gets the database version from the html, but this may be subject to change. ###
-        version_index = rq.get('https://www.bindingdb.org/rwd/bind/chemsearch/marvin/SDFdownload.jsp?all_download=yes').text.index('BindingDB_All_2D_') + 17
-        bindingdb_version = rq.get('https://www.bindingdb.org/rwd/bind/chemsearch/marvin/SDFdownload.jsp?all_download=yes').text[version_index:version_index + 6]
+        binding_db_download_page_response = rq.get('https://www.bindingdb.org/rwd/bind/chemsearch/marvin/Download.jsp')
+        version_index = binding_db_download_page_response.text.index('BindingDB_All_2D_') + 17
+        bindingdb_version = binding_db_download_page_response.text[version_index:version_index + 6]
 
         return f"{bindingdb_version}"
 
