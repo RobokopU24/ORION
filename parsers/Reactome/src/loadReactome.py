@@ -25,19 +25,24 @@ INCLUDE_COLUMN = 3
 
 PREDICATE_PROP_COLUMN = -1
 
-PREDICATE_MAPPING = {"compartment":"biolink:occurs_in","output":"biolink:has_output","input":"biolink:has_input","hasEvent":"biolink:contains_process","precedingEvent":"biolink:precedes","activeUnit":"biolink:actively_involves","hasComponent":"biolink:has_part","catalystActivity":"biolink:actively_involves","cellType":"biolink:located_in","goBiologicalProcess":"biolink:same_as"}
-SUPPOSE_PROPERTIES = ("Summation", "EntityFunctionalStatus", "GeneticallyModifiedResidue", "AbstractModifiedResidue")
+PREDICATE_MAPPING = {"compartment":"biolink:occurs_in","output":"biolink:has_output","input":"biolink:has_input","hasEvent":"biolink:contains_process","precedingEvent":"biolink:precedes","activeUnit":"biolink:actively_involves","hasComponent":"biolink:has_part","catalystActivity":"biolink:actively_involves","cellType":"biolink:located_in","goBiologicalProcess":"biolink:subclass_of","disease":"biolink:disease_has_basis_in"}
 
+
+SUPPOSE_PROPERTIES = ("Summation",)
 
 # Normalized node are normalized once formatted as curie
-NORMALIZED_NODES = ("ReactionLikeEvent",)#("Pathway", "Event", "BlackboxEvent", "FailedReaction", "Depolymerisation", "Polymerisation")
+# ReactionLikeEvent: ("Pathway", "Event", "BlackboxEvent", "FailedReaction", "Depolymerisation", "Polymerisation")
+NORMALIZED_NODES = ("ReactionLikeEvent",)
 
-# These nodes has no reactome stID, however their ID is the combination of two attributes on them
+# These nodes have no reactome stID, however their ID is the combination of two attributes on them
+# GO_Term: "Compartment", "GO_BiologicalProcess", "GO_MolecularFunction", "GO_CellularComponent",
+# ExternalOntology: "Disease", "CellType"
 ON_NODE_MAPPING = ("GO_Term", "Species", "ExternalOntology", "ReferenceTherapeutic",)#databaseName+:+identifier
-                    # GO_Term: "Compartment", "GO_BiologicalProcess", "GO_MolecularFunction", "GO_CellularComponent",
-                    # ExternalOntology: "Disease", "CellType"
 
-ON_NODE_ID_MAPPING = ("ReferenceMolecule",  "ReferenceSequence") #databaseName+KB:+identifier or databaseName+:+identifier
+# Normalized using databaseName+KB:+identifier or databaseName+:+identifier
+ON_NODE_ID_MAPPING = ("ReferenceMolecule",  "ReferenceSequence")
+
+
 ALL_ON_NODE_MAPPING = NORMALIZED_NODES + ON_NODE_MAPPING + ON_NODE_ID_MAPPING
 
 
@@ -49,6 +54,7 @@ TO_WRITE = ('Provenance/Include', 'Attribute/Include') #Descriptive features of 
 TO_MAP = ('IDMapping/Include', ) # Maps the external identifier of a node from another node
 TO_INCLUDE = ('Include',)
 RDF_EDGES_TO_INCLUDE = ('RDF_edges/Include',)
+TO_SWITCH = ('Include/SwitchSO', )
 
 NODE_NOT_WORKING = set()
 EDGE_NOT_WORKING = set()
@@ -208,19 +214,17 @@ class ReactomeLoader(SourceDataLoader):
         for line in lines_to_process:
             line = line.strip().split(',')
             if line[INCLUDE_COLUMN] in RDF_EDGES_TO_INCLUDE:
-              # Not in use now
                 queries_to_include.append(
                     self.rdf_edge_mapping(line[SUBJECT_COLUMN], line[PREDICATE_COLUMN], line[OBJECT_COLUMN]))
-              
+            elif line[INCLUDE_COLUMN] in TO_SWITCH:
+                cypher_query = f"MATCH (x:{line[SUBJECT_COLUMN]})-[r:{line[PREDICATE_COLUMN]}]->(y:{line[OBJECT_COLUMN]}) RETURN y AS a, r, x AS b"
+                queries_to_include.append(cypher_query)
             elif line[INCLUDE_COLUMN] in TO_INCLUDE:
                 cypher_query = f"MATCH (a:{line[SUBJECT_COLUMN]})-[r:{line[PREDICATE_COLUMN]}]->(b:{line[OBJECT_COLUMN]}) RETURN a, r, b"
                 queries_to_include.append(cypher_query)
-              
             elif line[INCLUDE_COLUMN] in TO_MAP:
-              # Not in use now
                 queries_to_map.append(self.map_ids(line[SUBJECT_COLUMN], line[PREDICATE_COLUMN], line[OBJECT_COLUMN]))
             else:
-              # Not in use now
                 if line[INCLUDE_COLUMN] in TO_WRITE:
                     queries_to_write.append(self.write_properties(line[SUBJECT_COLUMN], line[PREDICATE_COLUMN], line[OBJECT_COLUMN]))
 
@@ -236,6 +240,8 @@ class ReactomeLoader(SourceDataLoader):
 
         with self.driver.session() as session:
             results = []
+            # node_labels = session.run("MATCH (n) RETURN DISTINCT labels(n) AS nodeTypes")
+            # node_types = [record["nodeTypes"][0] for record in node_labels]
 
             #Map the id from the nodes databaseName+:+identifier
             for node in ALL_ON_NODE_MAPPING:
@@ -244,7 +250,7 @@ class ReactomeLoader(SourceDataLoader):
             for node in CROSS_MAPPING:
                 session.run(self.cross_map_ids(node))
 
-            #Map other propersties from the nodes summation ...
+            #Map other propersties from the nodes summation catalystactivity ...
             # PS: Not currently in use since the content file contains only 'include'
             for cypher_query in queries_to_write:
                 if not cypher_query:
@@ -294,9 +300,9 @@ class ReactomeLoader(SourceDataLoader):
 
 
     def write_properties(self, s, p, o):
+        # TwoWords -> twoWords
         def repl_func(match):
             return match.group(1).lower()
-
         cypher = None
         #Cross Property Mapping eg Summation
         mapp = {'a':s, 'b': o}
@@ -324,7 +330,10 @@ class ReactomeLoader(SourceDataLoader):
             cypher = f"MATCH (a:{node}) SET a.ids ='{REACTOME}:'+a.stId"
         else:
             # GO .......
-            cypher = f"MATCH (a:{node}) SET a.ids = a.databaseName+':'+a.accession"
+            # If any GO_Term have an equivalent displayname as Pathway/Reaction etc then map the GO ID from the Pathway/Reaction ID
+            # ELSE map the ID by combining the Go DatabaseName and accession
+            cypher = f"MATCH (a:{node})-[r:goBiologicalProcess]-(other) SET a.ids = CASE WHEN REPLACE(toLower(a.displayName), '-', ' ') = REPLACE(toLower(other.displayName), '-', ' ') THEN 'REACT:' + other.stId ELSE a.databaseName + ':' + a.accession END"
+            # cypher = f"MATCH (a:{node}) SET a.ids = a.databaseName+':'+a.accession"
         return cypher
 
     def map_ids(self, s, p, o):
