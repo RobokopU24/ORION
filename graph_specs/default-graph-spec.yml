@@ -39,6 +39,7 @@ graphs:
         merge_strategy: connected_edge_subset
       - source_id: PANTHER
       - source_id: PHAROS
+        source_version: 'v6_13_4'
       - source_id: textminingkp
       - source_id: STRING-DB-Human
       - source_id: Ubergraph

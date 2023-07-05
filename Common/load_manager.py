@@ -130,10 +130,10 @@ class SourceDataManager:
             return self.latest_source_version_lookup[source_id]
 
         loader = SOURCE_DATA_LOADER_CLASSES[source_id](test_mode=self.test_mode)
-        self.logger.debug(f"Retrieving latest source version for {source_id}...")
+        self.logger.info(f"Retrieving latest source version for {source_id}...")
         try:
             latest_source_version = loader.get_latest_source_version()
-            self.logger.debug(f"Found latest source version for {source_id}: {latest_source_version}")
+            self.logger.info(f"Found latest source version for {source_id}: {latest_source_version}")
             self.latest_source_version_lookup[source_id] = latest_source_version
             return latest_source_version
         except GetDataPullError as failed_error:
