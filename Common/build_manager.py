@@ -15,7 +15,7 @@ from Common.neo4j_tools import Neo4jTools
 from Common.kgxmodel import GraphSpec, SubGraphSource, DataSource, NormalizationScheme
 from Common.metadata import Metadata, GraphMetadata, SourceMetadata
 from Common.supplementation import SequenceVariantSupplementation
-from Common.node_types import PRIMARY_KNOWLEDGE_SOURCE, AGGREGATOR_KNOWLEDGE_SOURCES, PREDICATE
+from Common.node_types import PRIMARY_KNOWLEDGE_SOURCE, AGGREGATOR_KNOWLEDGE_SOURCES, PREDICATE, PUBLICATIONS
 from Common.meta_kg import MetaKnowledgeGraphBuilder, META_KG_FILENAME, TEST_DATA_FILENAME
 
 NODES_FILENAME = 'nodes.jsonl'
@@ -228,6 +228,7 @@ class GraphBuilder:
         aggregator_knowledge_sources = set()
         edge_properties = set()
         predicate_counts = defaultdict(int)
+        edges_with_publications = defaultdict(int)
         graph_edges_file_path = os.path.join(graph_directory, EDGES_FILENAME)
         for edge_json in quick_jsonl_file_iterator(graph_edges_file_path):
             primary_knowledge_sources.add(edge_json[PRIMARY_KNOWLEDGE_SOURCE])
@@ -237,6 +238,8 @@ class GraphBuilder:
             for key in edge_json.keys():
                 edge_properties.add(key)
             predicate_counts[edge_json[PREDICATE]] += 1
+            if PUBLICATIONS in edge_json and edge_json[PUBLICATIONS]:
+                edges_with_publications[edge_json[PREDICATE]] += 1
 
         # validate the knowledge sources with the biolink model
         bl_inforesources = BiolinkInformationResources()
@@ -266,6 +269,7 @@ class GraphBuilder:
             'aggregator_knowledge_sources': list(aggregator_knowledge_sources),
             'predicates': {k: v for k, v in predicate_counts.items()},
             'node_curie_prefixes': {k: v for k, v in node_curie_prefixes.items()},
+            'edges_with_publications': {k: v for k, v in edges_with_publications.items()},
             'edge_properties': list(edge_properties),
             'warnings': {}
         }
