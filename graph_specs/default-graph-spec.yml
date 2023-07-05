@@ -14,7 +14,6 @@ graphs:
     conflation: True
     output_format: neo4j
     sources:
-      - source_id: BINDING-DB
       - source_id: Biolink
         # optional parameters for each data source - see README for more info
         # source_version: latest (the version of the source data)
