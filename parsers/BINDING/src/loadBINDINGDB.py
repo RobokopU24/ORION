@@ -324,7 +324,8 @@ class BINDINGDBLoader(SourceDataLoader):
                                     lambda line: {}, #Node 1 props
                                     lambda line: {}, #Node 2 props
                                     lambda line: {
-                                            "measurements":line[11]
+                                            "measurements":line[11],
+                                            "publications":[x for x in line[6] if type(x) == str]
                                         },
                                     comment_character=None,
                                     delim="\t",
