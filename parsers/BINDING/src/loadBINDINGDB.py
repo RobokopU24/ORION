@@ -1,18 +1,16 @@
 import os
-import csv
 import enum
 import math
 import zipfile as z
 import requests as rq
 import pandas as pd
 from decimal import Decimal
-import numpy as np
-#import codecs
 
 from parsers.BINDING.src.bindingdb_constraints import LOG_SCALE_AFFINITY_THRESHOLD #Change the binding affinity threshold here. Default is 10 uM Ki,Kd,EC50,orIC50
 from Common.utils import GetData
 from Common.loader_interface import SourceDataLoader
 from Common.extractor import Extractor
+from Common.node_types import PUBLICATIONS
 
 # Full Binding Data.
 
@@ -47,7 +45,7 @@ class BINDINGDBLoader(SourceDataLoader):
     source_data_url = "https://www.bindingdb.org/rwd/bind/chemsearch/marvin/SDFdownload.jsp?all_download=yes"
     license = "All data and download files in bindingDB are freely available under a 'Creative Commons BY 3.0' license.'"
     attribution = 'https://www.bindingdb.org/rwd/bind/info.jsp'
-    parsing_version = '1.0'
+    parsing_version = '1.1'
 
     def __init__(self, test_mode: bool = False, source_data_dir: str = None):
         """
@@ -325,7 +323,7 @@ class BINDINGDBLoader(SourceDataLoader):
                                     lambda line: {}, #Node 2 props
                                     lambda line: {
                                             "measurements":line[11],
-                                            "publications":[x for x in line[6] if type(x) == str]
+                                            PUBLICATIONS:[x for x in line[6] if type(x) == str]
                                         },
                                     comment_character=None,
                                     delim="\t",
