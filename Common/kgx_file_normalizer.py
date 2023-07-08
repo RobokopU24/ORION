@@ -356,8 +356,8 @@ class KGXFileNormalizer:
                 invalid_infores_ids.append(knowledge_source)
                 warning_message = f'Normalization found an invalid infores identifier: {knowledge_source}'
                 self.logger.warning(warning_message)
-                #if self.normalization_scheme.strict:
-                #    raise NormalizationFailedError(warning_message)
+                if self.normalization_scheme.strict:
+                    raise NormalizationFailedError(warning_message)
 
         try:
             self.logger.debug(f'Writing normalized edges to file...')
