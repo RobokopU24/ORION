@@ -59,15 +59,15 @@ graphs:
         node_normalization_version: '2.0.9'
       - source_id: GTEx
 
-  #- graph_id: BINDING-DB_Automat
-  #  graph_name: BINDING
-  #  graph_description: 'Binding DataBase (BindingDB) openly exposes curated data on chemical entities and their molecular targets.'
-  #  graph_url: https://www.bindingdb.org/
-  #  output_format: neo4j
-  #  sources:
-  #    - source_id: BINDING-DB
-  #    - source_id: OntologicalHierarchy
-  #      merge_strategy: connected_edge_subset
+  - graph_id: BINDING_Automat
+    graph_name: BINDING
+    graph_description: 'Binding DataBase (BindingDB) openly exposes curated data on chemical entities and their molecular targets.'
+    graph_url: https://www.bindingdb.org/
+    output_format: neo4j
+    sources:
+      - source_id: BINDING-DB
+      - source_id: OntologicalHierarchy
+        merge_strategy: connected_edge_subset
 
   - graph_id: Biolink_Automat
     graph_name: RENCI SRI Reference KG
