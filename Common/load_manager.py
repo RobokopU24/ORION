@@ -130,10 +130,10 @@ class SourceDataManager:
             return self.latest_source_version_lookup[source_id]
 
         loader = SOURCE_DATA_LOADER_CLASSES[source_id](test_mode=self.test_mode)
-        self.logger.debug(f"Retrieving latest source version for {source_id}...")
+        self.logger.info(f"Retrieving latest source version for {source_id}...")
         try:
             latest_source_version = loader.get_latest_source_version()
-            self.logger.debug(f"Found latest source version for {source_id}: {latest_source_version}")
+            self.logger.info(f"Found latest source version for {source_id}: {latest_source_version}")
             self.latest_source_version_lookup[source_id] = latest_source_version
             return latest_source_version
         except GetDataPullError as failed_error:
@@ -357,7 +357,9 @@ class SourceDataManager:
                                                           normalization_info=normalization_info)
             return True
         except NormalizationBrokenError as broken_error:
-            error_message = f"{source_id} NormalizationBrokenError: {broken_error.error_message} - {broken_error.actual_error}"
+            error_message = f"{source_id} NormalizationBrokenError: {broken_error.error_message}"
+            if broken_error.actual_error:
+                error_message += f" - {broken_error.actual_error}"
             self.logger.error(error_message)
             source_metadata.update_normalization_metadata(parsing_version,
                                                           composite_normalization_version,
@@ -366,7 +368,9 @@ class SourceDataManager:
                                                           normalization_time=current_time)
             return False
         except NormalizationFailedError as failed_error:
-            error_message = f"{source_id} NormalizationFailedError: {failed_error.error_message} - {failed_error.actual_error}"
+            error_message = f"{source_id} NormalizationFailedError: {failed_error.error_message}"
+            if failed_error.actual_error:
+                error_message += f" - {failed_error.actual_error}"
             self.logger.error(error_message)
             source_metadata.update_normalization_metadata(parsing_version,
                                                           composite_normalization_version,

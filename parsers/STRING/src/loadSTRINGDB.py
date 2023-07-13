@@ -53,7 +53,7 @@ class PPI_PHYSICAL_EDGEUMAN(enum.IntEnum):
 class STRINGDBLoader(SourceDataLoader):
 
     source_id: str = 'STRING-DB'
-    provenance_id: str = 'infores:STRING'
+    provenance_id: str = 'infores:string'
     description = "The Search Tool for the Retrieval of Interacting Genes/Proteins (STRING) database provides information on known and predicted protein-protein interactions (both direct and indirect) derived from genomic context predictions, high-throughput laboratory experiments, conserved co-expression, automated text mining, and aggregated knowledge from primary data sources."
     source_data_url = "https://string-db.org"
     license = "All data and download files in STRING are freely available under a 'Creative Commons BY 4.0' license."
@@ -257,11 +257,11 @@ class STRINGDBLoader(SourceDataLoader):
 
 class HumanSTRINGDBLoader(STRINGDBLoader):
     source_id: str = 'STRING-DB-Human'
-    parsing_version = '1.0'
+    parsing_version = '1.1'
     taxon_id: str = '9606'  # Human taxon
 
 
 class YeastSTRINGDBLoader(STRINGDBLoader):
     source_id: str = 'STRING-DB-Yeast'
-    parsing_version = '1.0'
+    parsing_version = '1.1'
     taxon_id: str = '4932'  # Saccharomyces cerevisiae taxon

@@ -2,6 +2,7 @@ import os
 import json
 import jsonlines
 import logging
+from Common.biolink_utils import BiolinkInformationResources, INFORES_STATUS_INVALID, INFORES_STATUS_DEPRECATED
 from Common.node_types import SEQUENCE_VARIANT, PRIMARY_KNOWLEDGE_SOURCE, AGGREGATOR_KNOWLEDGE_SOURCES, \
     PUBLICATIONS, OBJECT_ID, SUBJECT_ID, PREDICATE
 from Common.normalization import NodeNormalizer, EdgeNormalizer, EdgeNormalizationResult
@@ -12,13 +13,13 @@ from Common.merging import MemoryGraphMerger, DiskGraphMerger
 
 
 class NormalizationBrokenError(Exception):
-    def __init__(self, error_message: str, actual_error: Exception):
+    def __init__(self, error_message: str, actual_error: Exception=None):
         self.error_message = error_message
         self.actual_error = actual_error
 
 
 class NormalizationFailedError(Exception):
-    def __init__(self, error_message: str, actual_error: Exception):
+    def __init__(self, error_message: str, actual_error: Exception=None):
         self.error_message = error_message
         self.actual_error = actual_error
 
@@ -58,6 +59,7 @@ class KGXFileNormalizer:
                  preserve_unconnected_nodes: bool = False):
         if not normalization_scheme:
             normalization_scheme = NormalizationScheme()
+        self.normalization_scheme = normalization_scheme
         self.source_nodes_file_path = source_nodes_file_path
         self.nodes_output_file_path = nodes_output_file_path
         self.node_norm_map_file_path = node_norm_map_file_path
@@ -83,9 +85,9 @@ class KGXFileNormalizer:
         # strict normalization flag tells normalizer to throw away any nodes that don't normalize
         try:
             self.node_normalizer = NodeNormalizer(node_normalization_version=normalization_scheme.node_normalization_version,
-                                                 strict_normalization=normalization_scheme.strict,
-                                                 conflate_node_types=normalization_scheme.conflation,
-                                                 biolink_version=normalization_scheme.edge_normalization_version)
+                                                  strict_normalization=normalization_scheme.strict,
+                                                  conflate_node_types=normalization_scheme.conflation,
+                                                  biolink_version=normalization_scheme.edge_normalization_version)
             self.edge_normalizer = EdgeNormalizer(edge_normalization_version=normalization_scheme.edge_normalization_version)
         except Exception as e:
             raise NormalizationFailedError(error_message=repr(e), actual_error=e)
@@ -248,6 +250,7 @@ class KGXFileNormalizer:
         node_norm_lookup = self.node_normalizer.node_normalization_lookup
         edge_norm_lookup = self.edge_normalizer.edge_normalization_lookup
         edge_norm_failures = set()
+        knowledge_sources = set()
 
         try:
             with jsonlines.open(self.source_edges_file_path) as source_json_reader:
@@ -297,8 +300,17 @@ class KGXFileNormalizer:
                                 edge_inverted_by_normalization = False
 
                             edge_count = 0
+
+                            # ensure edge has a primary knowledge source
                             if PRIMARY_KNOWLEDGE_SOURCE not in edge:
                                 edge[PRIMARY_KNOWLEDGE_SOURCE] = self.default_provenance
+                                knowledge_sources.add(self.default_provenance)
+                            else:
+                                knowledge_sources.add(edge[PRIMARY_KNOWLEDGE_SOURCE])
+                                if AGGREGATOR_KNOWLEDGE_SOURCES in edge:
+                                    for knowledge_source in edge[AGGREGATOR_KNOWLEDGE_SOURCES]:
+                                        knowledge_sources.add(knowledge_source)
+
                             for norm_subject_id in normalized_subject_ids:
                                 for norm_object_id in normalized_object_ids:
                                     edge_count += 1
@@ -332,13 +344,27 @@ class KGXFileNormalizer:
             norm_error_msg = f'Error normalizing edges file {self.source_edges_file_path}'
             raise NormalizationFailedError(error_message=norm_error_msg, actual_error=e)
 
+        bl_inforesources = BiolinkInformationResources()
+        deprecated_infores_ids = []
+        invalid_infores_ids = []
+        for knowledge_source in knowledge_sources:
+            infores_status = bl_inforesources.get_infores_status(knowledge_source)
+            if infores_status == INFORES_STATUS_DEPRECATED:
+                deprecated_infores_ids.append(knowledge_source)
+                self.logger.warning(f'Normalization found a deprecated infores identifier: {knowledge_source}')
+            elif infores_status == INFORES_STATUS_INVALID:
+                invalid_infores_ids.append(knowledge_source)
+                warning_message = f'Normalization found an invalid infores identifier: {knowledge_source}'
+                self.logger.warning(warning_message)
+                if self.normalization_scheme.strict:
+                    raise NormalizationFailedError(warning_message)
+
         try:
             self.logger.debug(f'Writing normalized edges to file...')
             with open(self.edges_output_file_path, 'w') as edges_out:
                 for edge_line in graph_merger.get_merged_edges_jsonl():
                     edges_out.write(edge_line)
                     normalized_edge_count += 1
-
         except OSError as e:
             norm_error_msg = f'Error writing edges file {self.edges_output_file_path}'
             raise NormalizationFailedError(error_message=norm_error_msg, actual_error=e)
@@ -367,6 +393,11 @@ class KGXFileNormalizer:
             'edge_splits': edge_splits,
             'final_normalized_edges': normalized_edge_count
         })
+        if deprecated_infores_ids:
+            self.normalization_metadata['deprecated_infores_ids'] = deprecated_infores_ids
+        if invalid_infores_ids:
+            self.normalization_metadata['invalid_infores_ids'] = invalid_infores_ids
+
 
 
 """

@@ -1,3 +1,5 @@
+import requests
+import yaml
 
 from bmt import Toolkit
 
@@ -132,3 +134,30 @@ class BiolinkUtils:
         if predicate in ['biolink:affects', 'biolink:regulates']:
             return True
         return False
+
+
+INFORES_STATUS_INVALID = 'invalid'
+INFORES_STATUS_DEPRECATED = 'deprecated'
+INFORES_STATUS_VALID = 'valid'
+
+
+class BiolinkInformationResources:
+
+    infores_catalog_url = 'https://raw.githubusercontent.com/biolink/biolink-model/master/infores_catalog.yaml'
+
+    def __init__(self):
+        # Fetch the infores catalog from the biolink model
+        infores_catalog_yaml = requests.get(self.infores_catalog_url).text
+        infores_catalog = yaml.safe_load(infores_catalog_yaml)
+        # store the information as a dictionary with the infores ids as keys
+        self.infores_lookup = {infores['id']: infores for infores in infores_catalog['information_resources']}
+
+    def get_infores_status(self, infores_id):
+        if infores_id in self.infores_lookup:
+            infores_status = self.infores_lookup[infores_id]['status']
+            if infores_status == INFORES_STATUS_DEPRECATED:
+                return INFORES_STATUS_DEPRECATED
+            else:
+                return INFORES_STATUS_VALID
+        else:
+            return INFORES_STATUS_INVALID

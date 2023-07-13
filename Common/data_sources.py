@@ -1,6 +1,7 @@
 from collections import defaultdict
 import importlib
 
+BINDING_DB = 'BINDING-DB'
 BIOLINK = 'Biolink'
 CAM_KP = 'CAM-KP'
 CHEBI_PROPERTIES = 'CHEBIProps'
@@ -40,6 +41,7 @@ RESOURCE_HOGS = [GTEX, GWAS_CATALOG, UNIREF, ONTOLOGICAL_HIERARCHY, UBERGRAPH_RE
                  SGD, HUMAN_STRING, CAM_KP]
 
 SOURCE_DATA_LOADER_CLASS_IMPORTS = {
+    BINDING_DB: ("parsers.BINDING.src.loadBINDINGDB", "BINDINGDBLoader"),
     BIOLINK: ("parsers.biolink.src.loadBL", "BLLoader"),
     CAM_KP: ("parsers.camkp.src.loadCAMKP", "CAMKPLoader"),
     CHEBI_PROPERTIES: ("parsers.chebi.src.loadChebiProperties", "ChebiPropertiesLoader"),
