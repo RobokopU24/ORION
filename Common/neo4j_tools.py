@@ -13,13 +13,15 @@ class Neo4jTools:
                  neo4j_host: str = '0.0.0.0',
                  http_port: int = 7474,
                  https_port: int = 7473,
-                 bolt_port: int = 7687):
+                 bolt_port: int = 7687,
+                 password: str = None):
         self.host = neo4j_host
         self.http_port = http_port
         self.https_port = https_port
         self.bolt_port = bolt_port
+        self.password = password if password else os.environ['DATA_SERVICES_NEO4J_PASSWORD']
         self.graph_db_uri = f'bolt://{neo4j_host}:{bolt_port}'
-        self.graph_db_auth = ("neo4j", os.environ['DATA_SERVICES_NEO4J_PASSWORD'])
+        self.graph_db_auth = ("neo4j", self.password)
         self.neo4j_driver = neo4j.GraphDatabase.driver(self.graph_db_uri, auth=self.graph_db_auth)
         self.logger = LoggingUtil.init_logging("Data_services.Common.neo4j_tools",
                                                line_format='medium',
@@ -115,7 +117,7 @@ class Neo4jTools:
     def load_backup_dump(self,
                          dump_file_path: str = None):
         self.logger.info(f'Loading a neo4j backup dump {dump_file_path}...')
-        neo4j_load_cmd = ['neo4j-admin', 'load', f'--from={dump_file_path}']
+        neo4j_load_cmd = ['neo4j-admin', 'load', f'--from={dump_file_path}', '--force=true']
         load_results: subprocess.CompletedProcess = subprocess.run(neo4j_load_cmd,
                                                                    stderr=subprocess.PIPE)
         load_results_return_code = load_results.returncode
@@ -158,7 +160,7 @@ class Neo4jTools:
         return neo4j_results_return_code
 
     def set_initial_password(self):
-        neo4j_cmd = ['neo4j-admin', 'set-initial-password', os.environ['DATA_SERVICES_NEO4J_PASSWORD']]
+        neo4j_cmd = ['neo4j-admin', 'set-initial-password', self.password]
         neo4j_results: subprocess.CompletedProcess = subprocess.run(neo4j_cmd,
                                                                     stderr=subprocess.PIPE)
         neo4j_results_return_code = neo4j_results.returncode

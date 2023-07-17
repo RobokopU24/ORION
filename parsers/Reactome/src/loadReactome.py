@@ -138,6 +138,7 @@ class ReactomeLoader(SourceDataLoader):
         """
 
         neo4j_tools = Neo4jTools()
+        neo4j_tools.set_initial_password()
         neo4j_tools.load_backup_dump(f'{self.data_path}/{self.neo4j_dump_file}')
         neo4j_tools.start_neo4j()
         neo4j_tools.wait_for_neo4j_initialization()
