@@ -111,13 +111,14 @@ class GraphBuilder:
 
         if 'neo4j' in graph_spec.graph_output_format.lower():
             self.logger.info(f'Starting Neo4j dump pipeline for {graph_id}...')
-            neo4j_tools = Neo4jTools(graph_id=graph_id,
-                                     graph_version=graph_version)
+            neo4j_tools = Neo4jTools()
             dump_success = neo4j_tools.create_neo4j_dump(graph_id=graph_id,
                                                          graph_version=graph_version,
                                                          graph_directory=graph_output_dir,
                                                          nodes_filename=NODES_FILENAME,
                                                          edges_filename=EDGES_FILENAME)
+            neo4j_tools.close()
+
             if dump_success:
                 graph_output_url = self.get_graph_output_URL(graph_id, graph_version)
                 graph_metadata.set_dump_url(f'{graph_output_url}graph_{graph_version}.db.dump')

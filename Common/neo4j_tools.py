@@ -53,7 +53,7 @@ class Neo4jTools:
             self.logger.info(f'Neo4j dump already exists for {graph_id}({graph_version})')
             return True
 
-        neo4j_access = Neo4jTools(graph_id=graph_id, graph_version=graph_version)
+        neo4j_access = Neo4jTools()
         try:
             password_exit_code = neo4j_access.set_initial_password()
             if password_exit_code != 0:
