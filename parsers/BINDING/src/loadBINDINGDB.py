@@ -65,7 +65,7 @@ class BINDINGDBLoader(SourceDataLoader):
         # self.KON_predicate = 'biolink:binds'
         # self.KOFF_predicate = 'biolink:binds'
 
-        self.bindingdb_version = None
+        self.bindingdb_version = '202307'  # TODO temporarily hard coded until renci connection bug is resolved
         self.bindingdb_version = self.get_latest_source_version()
         self.bindingdb_data_url = [f"https://www.bindingdb.org/bind/downloads/"]
 
