@@ -263,10 +263,10 @@ class ReactomeLoader(SourceDataLoader):
 
             #Finally, run the cypher to get results - nodes and edges
             for cypher_query in queries_to_include:
-                result = session.run(cypher_query)
+                result = list(session.run(cypher_query))
                 self.logger.info(f'Cypher query ({cypher_query}) complete, found {len(result)} results')
                 self.logger.info(f'Sample results: {result[:5]}')
-                results.append(list(result))
+                results.append(result)
        
         # # Extract the node properties and relation information
         nodes = defaultdict(dict)
