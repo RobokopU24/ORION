@@ -145,8 +145,8 @@ class ReactomeLoader(SourceDataLoader):
         self.driver = neo4j_tools.neo4j_driver
 
         nodes, relations = self.get_triple()
-
-        # iterate through the compounds file and create a dictionary of chebi_id -> name
+        self.driver.close()
+        neo4j_tools.stop_neo4j()
         
         # init the record counters
         record_counter: int = 0
