@@ -147,12 +147,11 @@ class ReactomeLoader(SourceDataLoader):
         nodes, relations = self.get_triple()
         self.driver.close()
         neo4j_tools.stop_neo4j()
-        
+
         # init the record counters
         record_counter: int = 0
         skipped_record_counter: int = 0
 
-        # walk through the chebi IDs and names from the compounds file and create the chebi property nodes
         for node, props in nodes.items():
 
             # increment the record counter
@@ -167,7 +166,7 @@ class ReactomeLoader(SourceDataLoader):
                 NODE_NOT_WORKING.update((node, props))
                 skipped_record_counter += 1
                 continue
-            self.final_node_list.append(output_node)
+            self.output_file_writer.write_kgx_node(output_node)
         
         for rel in relations:
             subjectid = rel[SUBJECT_COLUMN]
@@ -186,7 +185,7 @@ class ReactomeLoader(SourceDataLoader):
             if not output_edge:
                 EDGE_NOT_WORKING.update((subjectid, predicate, objectid))
                 continue
-            self.final_edge_list.append(output_edge)
+            self.output_file_writer.write_kgx_edge(output_edge)
 
         self.logger.debug(f'Parsing data file complete.')
         # load up the metadata
@@ -241,10 +240,14 @@ class ReactomeLoader(SourceDataLoader):
 
             #Map the id from the nodes databaseName+:+identifier
             for node in ALL_ON_NODE_MAPPING:
-                session.run(self.on_node_mapping(node))
+                node_mapping_cypher = self.on_node_mapping(node)
+                self.logger.info(f'Running query {node_mapping_cypher}')
+                session.run(node_mapping_cypher)
 
             for node in CROSS_MAPPING:
-                session.run(self.cross_map_ids(node))
+                cross_mapping_cypher = self.cross_map_ids(node)
+                self.logger.info(f'Running query {cross_mapping_cypher}')
+                session.run(cross_mapping_cypher)
 
             #Map other propersties from the nodes summation catalystactivity ...
             # PS: Not currently in use since the content file contains only 'include'
@@ -261,6 +264,8 @@ class ReactomeLoader(SourceDataLoader):
             #Finally, run the cypher to get results - nodes and edges
             for cypher_query in queries_to_include:
                 result = session.run(cypher_query)
+                self.logger.info(f'Cypher query ({cypher_query}) complete, found {len(result)} results')
+                self.logger.info(f'Sample results: {result[:5]}')
                 results.append(list(result))
        
         # # Extract the node properties and relation information
