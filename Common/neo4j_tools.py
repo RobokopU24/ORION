@@ -246,7 +246,7 @@ class Neo4jTools:
         self.logger.info(f"Adding indexes successful. {indexes_added} indexes created.")
         return 0
 
-    def wait_for_neo4j_initialization(self, counter: int = 1, max_retries: int = 8):
+    def wait_for_neo4j_initialization(self, counter: int = 1, max_retries: int = 10):
         try:
             with self.neo4j_driver.session() as session:
                 session.run("return 1")
