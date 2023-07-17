@@ -69,8 +69,9 @@ class BINDINGDBLoader(SourceDataLoader):
         self.bindingdb_version = self.get_latest_source_version()
         self.bindingdb_data_url = [f"https://www.bindingdb.org/bind/downloads/"]
 
-        self.BD_full_file_name = f"BindingDB_All_{self.bindingdb_version}.tsv.zip"
-        self.data_files = [self.BD_full_file_name]
+        self.BD_archive_file_name = f"BindingDB_All_{self.bindingdb_version}.tsv.zip"
+        self.BD_data_file = 'BindingDB_All.tsv'
+        self.data_files = [self.BD_archive_file_name]
 
     def get_latest_source_version(self) -> str:
         """
@@ -106,12 +107,6 @@ class BINDINGDBLoader(SourceDataLoader):
         :return: ret_val: load_metadata
         """
 
-        BD_full_file: str = os.path.join(self.data_path, self.BD_full_file_name)
-        if ".zip" in BD_full_file:
-                with z.ZipFile(BD_full_file, 'r') as fp:
-                    fp.extractall(self.data_path)
-                os.remove(BD_full_file)
-                BD_full_file: str = os.path.join(self.data_path, self.BD_full_file_name.replace(".zip",""))
         extractor = Extractor(file_writer=self.output_file_writer)
 
         dtype_dict= {BD_EDGEUMAN.KI.value:str,
@@ -125,8 +120,13 @@ class BINDINGDBLoader(SourceDataLoader):
                     BD_EDGEUMAN.PATENT_NUMEBR.value:str,
                     BD_EDGEUMAN.PUBCHEM_CID.value:str,
                     BD_EDGEUMAN.UNIPROT_TARGET_CHAIN.value:str}
-        
-        table = pd.read_csv(f"{self.data_path}/{self.BD_full_file_name.split('.zip')[0]}",
+
+        bd_archive_path = os.path.join(self.data_path, self.BD_archive_file_name)
+        with z.ZipFile(bd_archive_path, 'r') as fp:
+            fp.extractall(self.data_path)
+
+        bd_data_path = os.path.join(self.data_path, self.BD_data_file)
+        table = pd.read_csv(bd_data_path,
                 usecols=[
                     BD_EDGEUMAN.KI.value, #From now on, it is position 0
                     BD_EDGEUMAN.IC50.value, #From now on, it is position 1
@@ -308,6 +308,7 @@ class BINDINGDBLoader(SourceDataLoader):
 
         filename = f"BindingDB_All.tsv"
         table.to_csv(os.path.join(self.data_path, filename),sep="\t",index=False)
+        os.remove(bd_data_path)
 
         # def does_it_bind_filter(infile):
         #     yield next(infile)
