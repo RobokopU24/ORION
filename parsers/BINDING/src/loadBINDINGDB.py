@@ -126,7 +126,7 @@ class BINDINGDBLoader(SourceDataLoader):
                     BD_EDGEUMAN.PUBCHEM_CID.value:str,
                     BD_EDGEUMAN.UNIPROT_TARGET_CHAIN.value:str}
         
-        table = pd.read_csv(f"{self.data_path}{self.BD_full_file_name.split('.zip')[0]}",
+        table = pd.read_csv(f"{self.data_path}/{self.BD_full_file_name.split('.zip')[0]}",
                 usecols=[
                     BD_EDGEUMAN.KI.value, #From now on, it is position 0
                     BD_EDGEUMAN.IC50.value, #From now on, it is position 1
