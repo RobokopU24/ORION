@@ -9,14 +9,10 @@ from Common.utils import LoggingUtil
 class Neo4jTools:
 
     def __init__(self,
-                 graph_id: str,
-                 graph_version: str,
                  neo4j_host: str = '0.0.0.0',
                  http_port: int = 7474,
                  https_port: int = 7473,
                  bolt_port: int = 7687):
-        self.graph_id = graph_id
-        self.graph_version = graph_version
         self.host = neo4j_host
         self.http_port = http_port
         self.https_port = https_port
@@ -32,6 +28,7 @@ class Neo4jTools:
                          graph_directory: str,
                          csv_nodes_filename: str = None,
                          csv_edges_filename: str = None):
+
         self.logger.info(f'Importing csv files to neo4j...')
         neo4j_import_cmd = ["neo4j-admin", "import", f"--nodes={csv_nodes_filename}",
                             f"--relationships={csv_edges_filename}",
@@ -47,6 +44,19 @@ class Neo4jTools:
                             f'{import_results.stderr.decode("UTF-8")}'
             self.logger.error(error_message)
         return import_results_return_code
+
+    def load_backup_dump(self,
+                         dump_file_path: str = None):
+        self.logger.info(f'Loading a neo4j backup dump {dump_file_path}...')
+        neo4j_load_cmd = ['neo4j-admin', 'load', f'--from={dump_file_path}']
+        load_results: subprocess.CompletedProcess = subprocess.run(neo4j_load_cmd,
+                                                                   stderr=subprocess.PIPE)
+        load_results_return_code = load_results.returncode
+        if load_results_return_code != 0:
+            error_message = f'Neo4j load subprocess error (ExitCode {load_results_return_code}): ' \
+                            f'{load_results.stderr.decode("UTF-8")}'
+            self.logger.error(error_message)
+        return load_results_return_code
 
     def create_backup_dump(self,
                            dump_file_path: str = None):
@@ -169,7 +179,7 @@ class Neo4jTools:
         self.logger.info(f"Adding indexes successful. {indexes_added} indexes created.")
         return 0
 
-    def wait_for_neo4j_initialization(self, counter: int = 1):
+    def wait_for_neo4j_initialization(self, counter: int = 1, max_retries: int = 8):
         try:
             with self.neo4j_driver.session() as session:
                 session.run("return 1")
@@ -178,7 +188,7 @@ class Neo4jTools:
         except neo4j.exceptions.AuthError as e:
             raise e
         except Exception as e:
-            if counter > 8:
+            if counter > max_retries:
                 self.logger.error(f'Waited too long for Neo4j initialization... giving up..')
                 return 1
             self.logger.info(f'Waiting for Neo4j container to finish initialization... {repr(e)}')

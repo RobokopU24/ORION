@@ -4,7 +4,7 @@ import importlib
 BIOLINK = 'Biolink'
 CAM_KP = 'CAM-KP'
 CHEBI_PROPERTIES = 'CHEBIProps'
-REACTOME = 'REACTOME-DB'
+REACTOME = 'Reactome'
 CORD19 = 'Cord19'
 CTD = 'CTD'
 DRUG_CENTRAL = 'DrugCentral'

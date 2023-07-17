@@ -1,20 +1,16 @@
 import os
-import enum
-import json
 import argparse
 import requests
-from collections import defaultdict
-from bs4 import BeautifulSoup
 import re
-from neo4j import GraphDatabase
-drr = '/Users/olawumiolasunkanmi/Data_services_root/Data_services'
-os.sys.path.insert(0, drr)
+import json
 
+from bs4 import BeautifulSoup
 from collections import defaultdict
-from Common.utils import GetData
-from Common.loader_interface import SourceDataLoader, SourceDataFailedError
+from Common.loader_interface import SourceDataLoader
 from Common.kgxmodel import kgxnode, kgxedge
+from Common.neo4j_tools import Neo4jTools
 from Common.prefixes import REACTOME, NCBITAXON, GTOPDB
+from Common.utils import GetData
 
 
 SUBJECT_COLUMN = 0
@@ -25,7 +21,17 @@ INCLUDE_COLUMN = 3
 
 PREDICATE_PROP_COLUMN = -1
 
-PREDICATE_MAPPING = {"compartment":"biolink:occurs_in","output":"biolink:has_output","input":"biolink:has_input","hasEvent":"biolink:contains_process","precedingEvent":"biolink:precedes","activeUnit":"biolink:actively_involves","hasComponent":"biolink:has_part","catalystActivity":"biolink:actively_involves","cellType":"biolink:located_in","goBiologicalProcess":"biolink:subclass_of","disease":"biolink:disease_has_basis_in"}
+PREDICATE_MAPPING = {"compartment": "biolink:occurs_in",
+                     "output": "biolink:has_output",
+                     "input": "biolink:has_input",
+                     "hasEvent": "biolink:contains_process",
+                     "precedingEvent": "biolink:precedes",
+                     "activeUnit": "biolink:actively_involves",
+                     "hasComponent": "biolink:has_part",
+                     "catalystActivity": "biolink:actively_involves",
+                     "cellType": "biolink:located_in",
+                     "goBiologicalProcess": "biolink:subclass_of",
+                     "disease": "biolink:disease_has_basis_in"}
 
 
 SUPPOSE_PROPERTIES = ("Summation",)
@@ -68,14 +74,13 @@ EDGE_NOT_WORKING = set()
 class ReactomeLoader(SourceDataLoader):
 
     # Setting the class level variables for the source ID and provenance
-    source_id: str = 'REACTOME-DB'
+    source_id: str = 'Reactome'
     provenance_id: str = 'infores:reactome'
     description = "Reactome is a free, open-source, curated and peer-reviewed pathway database"
     source_data_url = "https://reactome.org/"
     license = "https://reactome.org/license"
     attribution = "https://academic.oup.com/nar/article/50/D1/D687/6426058?login=false"
     parsing_version = 'V8'
-    preserve_unconnected_nodes = True
 
     def __init__(self, test_mode: bool = False, source_data_dir: str = None):
         """
@@ -84,16 +89,15 @@ class ReactomeLoader(SourceDataLoader):
         """
         super().__init__(test_mode=test_mode, source_data_dir=source_data_dir)
         self.version_url: str = 'https://reactome.org/about/news'
-        self.driver = None
-        self.data_url: str = 'bolt://localhost:7688/'#"bolt://127.0.0.1:7688" #
-        self.data_user: str = 'neo4j'
-        self.password: str = 'reactomepleasebegood'
-        # self.dbase: str = 'reactomes'
-        self.driver = GraphDatabase.driver(self.data_url, auth=(self.data_user, self.password))
+
+        self.neo4j_dump_file = 'reactome.graphdb.dump'
+        self.data_url = 'https://reactome.org/download/current/'
+        self.data_files = [self.neo4j_dump_file]
+
         self.triple_file: str = 'reactomeContents_CriticalTriples.csv'
         self.triple_path = os.path.dirname(os.path.abspath(__file__))
-        self.data_files = []
 
+        self.driver = None
 
     def get_latest_source_version(self) -> str:
         """
@@ -102,44 +106,41 @@ class ReactomeLoader(SourceDataLoader):
         """
         # load the web page for CTD
         html_page: requests.Response = requests.get(self.version_url)
-        
         if html_page.status_code == 200:
             # get the html into a parsable object
             resp: BeautifulSoup = BeautifulSoup(html_page.content, 'html.parser')
 
-            # set the search text
-
             # find the version tag
             a_tag: BeautifulSoup.Tag = resp.find_all()
-
             for tag in a_tag:
                 match = re.search(r'V\d+', tag.get_text())
                 if match:
-                    version  = f'{match.group(0)!r}'
-                    date_tag = tag.find('time').get('datetime')
-                
-                    break 
-            return (f'Version: {str(version + date_tag)}')
+                    version = f'{match.group(0)!r}'
+                    return version.strip("'")
+            return 'version_broken'
         else:
-            return (f"Last Known Version: {self.parsing_version}")
+            html_page.raise_for_status()
 
     def get_data(self) -> bool:
         """
         Gets the chebi-properties data.
 
         """
-        # get a reference to the data gatherer
-        # gd: GetData = GetData(self.logger.level)
-        # for dt_file in self.data_files:
-        #     gd.pull_via_http(f'{self.data_url}{dt_file}',
-        #                      self.data_path)
-
+        gd: GetData = GetData(self.logger.level)
+        for dt_file in self.data_files:
+            gd.pull_via_http(f'{self.data_url}{dt_file}',
+                             self.data_path)
         return True
  
     def parse_data(self):
         """
         Parses the data file for graph nodes/edges
         """
+
+        neo4j_tools = Neo4jTools()
+        neo4j_tools.load_backup_dump(f'{self.data_path}/{self.neo4j_dump_file}')
+        neo4j_tools.wait_for_neo4j_initialization(max_retries=20)
+        self.driver = neo4j_tools.neo4j_driver
 
         nodes, relations = self.get_triple()
 
@@ -159,7 +160,7 @@ class ReactomeLoader(SourceDataLoader):
 
                 # create a node with the properties
             output_node = kgxnode(node,
-                                    nodeprops=props)
+                                  nodeprops=props)
             if not output_node:
                 NODE_NOT_WORKING.update((node, props))
                 skipped_record_counter += 1
@@ -170,14 +171,14 @@ class ReactomeLoader(SourceDataLoader):
             subjectid = rel[SUBJECT_COLUMN]
             objectid = rel[OBJECT_COLUMN]
             predicate = rel[PREDICATE_COLUMN]
-            property = rel[PREDICATE_PROP_COLUMN]
+            edge_props = rel[PREDICATE_PROP_COLUMN]
         
             output_edge = kgxedge(
                 subject_id=subjectid,
                 object_id=objectid,
                 predicate=PREDICATE_MAPPING.get(predicate, predicate),
                 primary_knowledge_source=self.provenance_id,
-                edgeprops=property
+                edgeprops=edge_props
             )
             
             if not output_edge:
@@ -199,8 +200,7 @@ class ReactomeLoader(SourceDataLoader):
         #         nw.write(json.dumps(list(NODE_NOT_WORKING), indent=4))
 
         return load_metadata
-    
-    
+
     def get_triple(self) -> list:
         #These Mapping files contains the Ids that normalizes, so instead of the triples alone, we include the mapping too
         queries_to_include = []
@@ -217,7 +217,7 @@ class ReactomeLoader(SourceDataLoader):
                 queries_to_include.append(
                     self.rdf_edge_mapping(line[SUBJECT_COLUMN], line[PREDICATE_COLUMN], line[OBJECT_COLUMN]))
             elif line[INCLUDE_COLUMN] in TO_SWITCH:
-                cypher_query = f"MATCH (x:{line[SUBJECT_COLUMN]})-[r:{line[PREDICATE_COLUMN]}]->(y:{line[OBJECT_COLUMN]}) RETURN y AS a, r, x AS b"
+                cypher_query = f"MATCH (b:{line[SUBJECT_COLUMN]})-[r:{line[PREDICATE_COLUMN]}]->(a:{line[OBJECT_COLUMN]}) RETURN a, r, b"
                 queries_to_include.append(cypher_query)
             elif line[INCLUDE_COLUMN] in TO_INCLUDE:
                 cypher_query = f"MATCH (a:{line[SUBJECT_COLUMN]})-[r:{line[PREDICATE_COLUMN]}]->(b:{line[OBJECT_COLUMN]}) RETURN a, r, b"
@@ -228,15 +228,9 @@ class ReactomeLoader(SourceDataLoader):
                 if line[INCLUDE_COLUMN] in TO_WRITE:
                     queries_to_write.append(self.write_properties(line[SUBJECT_COLUMN], line[PREDICATE_COLUMN], line[OBJECT_COLUMN]))
 
-        # Temporary saves to know what kind of cypher queries are being run
-        import json
-        with open('Mapqueries.txt', 'w') as qw:
-            qw.write(json.dumps(queries_to_map, indent=4))
-        with open('includequeries.txt', 'w') as qw:
-            qw.write(json.dumps(queries_to_include, indent=4))
-        with open('Writequeries.txt', 'w') as qw:
-            qw.write(json.dumps(queries_to_write, indent=4))
-
+        self.logger.info(f'mapped queries: {json.dumps(queries_to_map, indent=4)}')
+        self.logger.info(f'include queries: {json.dumps(queries_to_include, indent=4)}')
+        self.logger.info(f'write queries: {json.dumps(queries_to_write, indent=4)}')
 
         with self.driver.session() as session:
             results = []
@@ -253,16 +247,14 @@ class ReactomeLoader(SourceDataLoader):
             #Map other propersties from the nodes summation catalystactivity ...
             # PS: Not currently in use since the content file contains only 'include'
             for cypher_query in queries_to_write:
-                if not cypher_query:
-                    continue
-                session.run(cypher_query)
+                if cypher_query:
+                    session.run(cypher_query)
 
             #Map the id from the other nodes respectively
             # PS: Not currently in use since the content file contains only 'include'
             for cypher_query in queries_to_map:
-                if not cypher_query:
-                    continue
-                session.run(cypher_query)
+                if cypher_query:
+                    session.run(cypher_query)
 
             #Finally, run the cypher to get results - nodes and edges
             for cypher_query in queries_to_include:
@@ -295,9 +287,7 @@ class ReactomeLoader(SourceDataLoader):
                 else:
                     EDGE_NOT_WORKING.update(dict(records))
 
-
         return nodes, relations
-
 
     def write_properties(self, s, p, o):
         # TwoWords -> twoWords
