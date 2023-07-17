@@ -1,13 +1,62 @@
 # yeast graph spec
 graphs:
-  - graph_id: Yeast_Test_Graph
-    conflation: False
-    strict_normalization: False
+
+  - graph_id: Baseline
+    # optional parameters to be applied to the entire graph - see README for more info
+    # node_normalization_version: latest
+    # edge_normalization_version: latest
+    # graph_name: Robokop Baseline
+    # graph_description: 'The baseline graph from which RobokopKG and other graphs are built.'
+    # conflation: True # (whether to conflate node types like Genes and Proteins)
+    graph_name: ROBOKOP Baseline
+    graph_description: 'ROBOKOP (KG) is an open-source biomedical KG that supports the ROBOKOP application. This is the baseline version of that graph, which does not include knowledge sources with specific genetic variants.'
+    graph_url: http://robokopkg.renci.org/browser/
+    conflation: True
+    output_format: neo4j
     sources:
-      - source_id: YeastSGDInfo
+      - source_id: Biolink
+        # optional parameters for each data source - see README for more info
+        # source_version: latest (the version of the source data)
+        # parsing_version: latest (the version of the parser used to parse the data)
+        # node_normalization_version: latest
+        # edge_normalization_version: latest
+        # conflation: False
+        # strict_normalization: True (whether or not data should be discarded when it can not be normalized)
+        # merge_strategy: default (used to specify alternative merge strategies)
+      - source_id: CHEBIProps
+      - source_id: CTD
+      - source_id: DrugCentral
+      - source_id: GtoPdb
+      - source_id: Hetio
+      - source_id: HGNC
+      - source_id: HMDB
+      - source_id: HumanGOA
+      - source_id: IntAct
+      - source_id: MONDOProps
+        source_version: '3_23_2023'
+      - source_id: PANTHER
+      - source_id: PHAROS
+      - source_id: textminingkp
+      - source_id: STRING-DB-Human
+      - source_id: Ubergraph
+
+  - graph_id: YobokopKG
+    conflation: True
+    output_format: neo4j
+    subgraphs:
+      - graph_id: Baseline
+    sources:
+      - source_id: SGD
+        strict_normalization: False
+      - source_id: YeastHistoneMapping
+        strict_normalization: False
+      - source_id: Costanza2016Data
+        strict_normalization: False
       - source_id: YeastGSE61888
+        strict_normalization: False
       - source_id: YeastGaschDiamideGeneExpression
-      - source_id: Yeast-STRING-DB
+        strict_normalization: False
+      - source_id: STRING-DB-Yeast
       - source_id: GenomeAllianceOrthologs
       - source_id: OntologicalHierarchy
         merge_strategy: connected_edge_subset

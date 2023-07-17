@@ -3,17 +3,47 @@ import csv
 import argparse
 import requests
 import re
+import enum
 
 from bs4 import BeautifulSoup
 from Common.utils import GetData, snakify
 from Common.loader_interface import SourceDataLoader, SourceDataFailedError, SourceDataBrokenError
-from Common.prefixes import GTOPDB, HGNC, ENSEMBL
+from Common.prefixes import GTOPDB, HGNC, ENSEMBL, PUBMED
 from Common.kgxmodel import kgxnode, kgxedge
 from Common.predicates import DGIDB_PREDICATE_MAPPING
+from Common.node_types import PUBLICATIONS, AFFINITY, AFFINITY_PARAMETER
 
+
+class INTERACTIONS_COLS(enum.Enum):
+    LIGAND_ID = 'Ligand ID'  # The GtP ligand identifier
+    LIGAND_NAME = 'Ligand'  # The name of the GtP ligand
+    LIGAND_SPECIES = 'Ligand Species'  # The name of the ligand species (if peptide)
+    LIGAND_GENE_SYMBOL = 'Ligand Gene Symbol'
+    TARGET_SPECIES = 'Target Species'  # The name of the target species
+    TARGET_ENSEMBL_GENE_ID = 'Target Ensembl Gene ID'  # The target ligand's Ensembl gene ID (if endogenous peptide)
+    TARGET_GENE_SYMBOLS = 'Target Gene Symbol'  # The target gene symbol
+    INTERACTION_TYPE = 'Type'  # Type of interaction
+    PRIMARY_TARGET = 'Primary Target'  # Boolean; true if the target can be considered the primary target of the ligand
+    AFFINITY_UNITS = 'Affinity Units'  # The experimental parameter measured in the study e.g. IC50
+    AFFINITY_MEDIAN = 'Affinity Median'  # This is either the median or a single negative logarithm to base 10 affinity value
+    ENDOGENOUS = 'Endogenous'  # Boolean; true if the ligand is endogenous in the target organism under study
+    PUBMED_ID = 'PubMed ID'  # PubMed ids for cited publications
+
+
+class PEPTIDES_COLS(enum.Enum):
+    SPECIES = "Species"
+    SUBUNIT_IDS = "Subunit ids"
+    SUBUNIT_NAMES = "Subunit names"
+    LIGAND_ID = "Ligand id"
+    LIGAND_NAME = "Name"
+
+
+class GTP_TO_HGNC_COLS(enum.Enum):
+    HGNC_SYMBOL = 'HGNC Symbol'
+    HGNC_ID = 'HGNC ID'
 
 ##############
-# Class: CTD loader
+# Class: GtoPdb loader
 #
 # By: Phil Owen
 # Date: 2/3/2021
@@ -27,7 +57,7 @@ class GtoPdbLoader(SourceDataLoader):
     source_data_url = "http://www.guidetopharmacology.org/"
     license = "https://www.guidetopharmacology.org/about.jsp#license"
     attribution = "https://www.guidetopharmacology.org/citing.jsp"
-    parsing_version: str = '1.1'
+    parsing_version: str = '1.2'
 
     def __init__(self, test_mode: bool = False, source_data_dir: str = None):
         """
@@ -36,12 +66,17 @@ class GtoPdbLoader(SourceDataLoader):
         """
         super().__init__(test_mode=test_mode, source_data_dir=source_data_dir)
 
-        self.data_files: list = ['interactions.tsv', 'peptides.tsv', 'GtP_to_HGNC_mapping.tsv', 'ligands.tsv']
+        self.gene_mapping_file = 'GtP_to_HGNC_mapping.tsv'
+        self.interactions_file = 'interactions.tsv'
+        self.peptides_file = 'peptides.tsv'
+
+        self.data_url = f'https://www.guidetopharmacology.org/DATA/'
+        self.data_files: list = [self.interactions_file, self.peptides_file, self.gene_mapping_file]
 
         self.source_db: str = 'Guide to Pharmacology database'
 
-        self.gene_map: dict = {}
-        self.ligands: list = []
+        self.has_gene_product_predicate = 'RO:0002205'
+        self.has_part_predicate = 'BFO:0000051'
 
     def get_latest_source_version(self) -> str:
         """
@@ -74,50 +109,12 @@ class GtoPdbLoader(SourceDataLoader):
             raise SourceDataFailedError('Failed to parse guidetopharmacology html for the latest source version.')
 
     def get_data(self):
-        """
-        Gets the GtoPdb data files.
-
-        """
-        # and get a reference to the data gatherer
         gd: GetData = GetData(self.logger.level)
+        for data_file in self.data_files:
+            data_file_url = self.data_url + data_file
+            gd.pull_via_http(url=data_file_url, data_dir=self.data_path)
 
-        # get all the files noted above
-        file_count: int = gd.get_gtopdb_http_files(self.data_path, self.data_files)
-
-        # abort if we didnt get all the files
-        if file_count != len(self.data_files):
-            raise SourceDataFailedError(f'One or more of the GtoPdb files were not retrieved.')
-
-        # otherwise return success
         return True
-
-    def get_gene_map(self, file_path):
-        """
-        gets the gene map from the input file
-
-        :param file_path: the input file including path
-        :return:
-        """
-        # open up the file
-        with open(file_path, 'r', encoding="utf-8") as fp:
-            # the list of columns in the data
-            cols = ['hgnc_symbol', 'hgnc_id', 'iuphar_name', 'iuphar_id', 'gtp_url']
-
-            # set a flag to indicate first time in
-            first = True
-
-            # get a handle on the input data
-            data = csv.DictReader(filter(lambda row: row[0] != '?', fp), delimiter='\t', fieldnames=cols)
-
-            # for each record
-            for r in data:
-                # first record
-                if first:
-                    # set the flag and skip this record
-                    first = False
-                    continue
-
-                self.gene_map.update({r['hgnc_symbol']: r['hgnc_id']})
 
     def parse_data(self) -> dict:
         """
@@ -125,18 +122,16 @@ class GtoPdbLoader(SourceDataLoader):
         :return:
         """
 
-        # process disease to exposure
-        node_list, edge_list, records, skipped = self.process_interactions(os.path.join(self.data_path, 'interactions.tsv'))
-        self.final_node_list.extend(node_list)
-        self.final_edge_list.extend(edge_list)
+        gene_mapping_file_path = os.path.join(self.data_path, self.gene_mapping_file)
+        gene_symbol_to_id_map = self.parse_gene_map(gene_mapping_file_path)
 
+        interactions_file_path = os.path.join(self.data_path, 'interactions.tsv')
+        records, skipped = self.process_interactions(file_path=interactions_file_path,
+                                                     gene_symbol_to_id_map=gene_symbol_to_id_map)
         final_record_count: int = records
         final_skipped_count: int = skipped
 
-        node_list, edge_list, records, skipped = self.process_peptides(os.path.join(self.data_path, 'peptides.tsv'))
-        self.final_node_list.extend(node_list)
-        self.final_edge_list.extend(edge_list)
-
+        records, skipped = self.process_peptides(os.path.join(self.data_path, 'peptides.tsv'))
         final_record_count += records
         final_skipped_count += skipped
 
@@ -149,8 +144,25 @@ class GtoPdbLoader(SourceDataLoader):
         # return the metadata to the caller
         return load_metadata
 
-    @staticmethod
-    def process_peptides(file_path: str) -> (list, list, int, int):
+    def parse_gene_map(self, file_path):
+        """
+        parses the gene map from the input file
+
+        :param file_path: the input file including path
+        :return: a dictionary mapping gene symbols to gene ids
+        """
+        gene_symbol_to_id_map = {}
+        with open(file_path, 'r', encoding="utf-8") as fp:
+
+            # get a handle on the input data
+            data = csv.DictReader(filter(lambda row: row[0:2] != '"#', fp), delimiter='\t')
+            for r in data:
+                hgnc_symbol = r[GTP_TO_HGNC_COLS.HGNC_SYMBOL.value]
+                hgnc_id = r[GTP_TO_HGNC_COLS.HGNC_ID.value]
+                gene_symbol_to_id_map[hgnc_symbol] = hgnc_id
+        return gene_symbol_to_id_map
+
+    def process_peptides(self, file_path: str) -> (int, int):
         """
         Parses the peptides data file to create nodes and edge relationships for sub units
 
@@ -158,102 +170,63 @@ class GtoPdbLoader(SourceDataLoader):
         :return: a node list and an edge list with invalid records count
         """
 
-        # init the returned data
-        node_list: list = []
-        edge_list: list = []
-
-        # open up the file
         with open(file_path, 'r', encoding="utf-8") as fp:
-            # the list of columns in the data
-            cols = ["Ligand id", "Name", "Species", "Type", "Subunit ids", "Subunit names", "Approved", "Withdrawn",
-                    "Labelled", "Radioactive", "PubChem SID", "PubChem CID", "UniProt id", "Ensembl id",
-                    "Subunit UniProt IDs", "Subunit Ensembl IDs", "INN", "Single letter amino acid sequence",
-                    "Three letter amino acid sequence", "Post-translational modification", "Chemical modification",
-                    "SMILES", "InChIKey"]
-
-            # get a handle on the input data
-            data = csv.DictReader(filter(lambda row: row[0] != '?', fp), delimiter='\t', fieldnames=cols)
+            data = csv.DictReader(filter(lambda row: row[0:2] != '"#', fp), delimiter='\t')
 
             # init the record counters
             record_counter: int = 0
             skipped_record_counter: int = 0
-
-            # for each record
             for r in data:
-                # increment the record counter
                 record_counter += 1
 
                 # only process human records
-                if r['Species'] and r['Species'].upper().find('HUMAN') > -1 and r['Subunit ids'] != '':
-                    # (GTOPDB:<ligand_id>, name=<ligand>)
+                subunit_ids = r[PEPTIDES_COLS.SUBUNIT_IDS.value]
+                if "Human" in r[PEPTIDES_COLS.SPECIES.value] and subunit_ids != '':
 
                     # create a ligand node
-                    ligand_id = f'{GTOPDB}:' + r['Ligand id']
-                    ligand_name = r['Name'].encode('ascii',errors='ignore').decode(encoding="utf-8")
+                    ligand_id = f'{GTOPDB}:{r[PEPTIDES_COLS.LIGAND_ID.value]}'
+                    ligand_name = r[PEPTIDES_COLS.LIGAND_NAME.value].encode('ascii',errors='ignore').decode(encoding="utf-8")
                     ligand_node = kgxnode(ligand_id, name=ligand_name)
+                    self.output_file_writer.write_kgx_node(ligand_node)
 
-                    # save the ligand node
-                    node_list.append(ligand_node)
-
-                    # get the sub-unit ids into a list
-                    subunit_ids = r['Subunit ids'].split('|')
-
+                    # get the list of gene names
+                    subunit_names = r[PEPTIDES_COLS.SUBUNIT_NAMES.value].split('|')
                     # go through each sub-unit
-                    for idx, subunit_id in enumerate(subunit_ids):
-                        # get the list of gene names
-                        subunit_name = r['Subunit names'].split('|')
+                    for idx, subunit_id in enumerate(subunit_ids.split('|')):
 
-                        # create the node
                         part_node_id = f'{GTOPDB}:{subunit_id}'
-                        part_node_name = subunit_name[idx].encode('ascii',errors='ignore').decode(encoding="utf-8")
+                        part_node_name = subunit_names[idx].encode('ascii',errors='ignore').decode(encoding="utf-8")
                         part_node = kgxnode(part_node_id, name=part_node_name)
+                        self.output_file_writer.write_kgx_node(part_node)
 
-                        # save the node
-                        node_list.append(part_node)
-
-                        # save the edge
                         new_edge = kgxedge(ligand_id,
                                            part_node_id,
-                                           predicate='BFO:0000051',
-                                           primary_knowledge_source=GtoPdbLoader.provenance_id)
-                        edge_list.append(new_edge)
+                                           predicate=self.has_part_predicate,
+                                           primary_knowledge_source=self.provenance_id)
+                        self.output_file_writer.write_kgx_edge(new_edge)
                 else:
                     skipped_record_counter += 1
 
-        # return the node/edge lists and the record counters to the caller
-        return node_list, edge_list, record_counter, skipped_record_counter
+        return record_counter, skipped_record_counter
 
-    def process_interactions(self, file_path: str) -> (list, list, int, int):
+    def process_interactions(self, file_path: str, gene_symbol_to_id_map: dict) -> (int, int):
         """
         Parses the interactions data file to create nodes and edge relationships
 
         :param file_path: the path to the data file
+        :param gene_symbol_to_id_map: a dictionary of gene symbol to gene id mappings
         :return: a node list and an edge list with invalid records count
         """
 
-        # init the returned data
-        node_list: list = []
-        edge_list: list = []
-
-        # open up the file
         with open(file_path, 'r', encoding="utf-8") as fp:
-            # the list of columns in the data
-            cols = ["Target", "Target ID", "Target Subunit IDs", "Target Gene Symbol", "Target UniProt ID",
-                    "Target Ensembl Gene ID", "Target Ligand", "Target Ligand ID", "Target Ligand Subunit IDs",
-                    "Target Ligand Gene Symbol", "Target Ligand UniProt ID", "Target Ligand Ensembl Gene ID",
-                    "Target Ligand PubChem SID", "Target Species", "Ligand", "Ligand ID", "Ligand Subunit IDs",
-                    "Ligand Gene Symbol", "Ligand Species", "Ligand PubChem SID", "Approved", "Type", "Action",
-                    "Action comment", "Selectivity", "Endogenous", "Primary Target", "concentration Range",
-                    "Affinity Units", "Affinity High", "Affinity Median", "Affinity Low", "Original Affinity Units",
-                    "Original Affinity Low nm", "Original Affinity Median nm", "Original Affinity High nm",
-                    "Original Affinity Relation", "Assay Description", "Receptor Site", "Ligand Context", "PubMed ID"]
-
-            # get a handle on the input data
-            data = csv.DictReader(filter(lambda row: row[0] != '?', fp), delimiter='\t', fieldnames=cols)
+            # this looks wrong but the comment line does start with a double quote "# GtoPdb Version:
+            data = csv.DictReader(filter(lambda row: row[0:2] != '"#', fp), delimiter='\t')
 
             # init the record counters
             record_counter: int = 0
             skipped_record_counter: int = 0
+
+            bad_interaction_types = ['None', 'Fusion protein']
 
             # for each record
             for r in data:
@@ -261,113 +234,78 @@ class GtoPdbLoader(SourceDataLoader):
                 record_counter += 1
 
                 # do the ligand to gene nodes/edges
-                if r['Target Species'] and r['Target Species'].startswith('Human') \
-                        and r['Target Ensembl Gene ID'] != '' and r['Target'] != '':  # and r['ligand_id'] in self.ligands
-                    # did we get a good predicate
-                    if r['Type'].startswith('None') or r['Type'] == 'Fusion protein':
+                if "Human" in r[INTERACTIONS_COLS.TARGET_SPECIES.value] \
+                        and r[INTERACTIONS_COLS.TARGET_ENSEMBL_GENE_ID.value] != '':  # and r['ligand_id'] in self.ligands
+
+                    # find a predicate from the interaction type if possible
+                    if r[INTERACTIONS_COLS.INTERACTION_TYPE.value] in bad_interaction_types:
                         continue
                     else:
-                        snakified_predicate = snakify(r['Type'])
-                        # look up a standardized predicate we want to use
+                        snakified_predicate = snakify(r[INTERACTIONS_COLS.INTERACTION_TYPE.value])
                         try:
                             predicate: str = DGIDB_PREDICATE_MAPPING[snakified_predicate]
                         except KeyError:
-                            # if we don't have a mapping for a predicate consider the parser broken
-                            raise SourceDataBrokenError(f'Predicate mapping for {predicate} not found')
+                            self.logger.error(f'Predicate mapping for {snakified_predicate} not found')
+                            continue
 
-                    # create a ligand node
-                    ligand_id = f'{GTOPDB}:' + r['Ligand ID']
-                    ligand_name = r['Ligand'].encode('ascii',errors='ignore').decode(encoding="utf-8")
+                    ligand_id = f'{GTOPDB}:{r[INTERACTIONS_COLS.LIGAND_ID.value]}'
+                    ligand_name = r[INTERACTIONS_COLS.LIGAND_NAME.value].encode('ascii',errors='ignore').decode(encoding="utf-8")
                     ligand_node = kgxnode(ligand_id, name=ligand_name)
+                    self.output_file_writer.write_kgx_node(ligand_node)
 
-                    # save the ligand node
-                    node_list.append(ligand_node)
+                    props: dict = {'primaryTarget': True if r[INTERACTIONS_COLS.PRIMARY_TARGET.value] == 'true' else False,
+                                   AFFINITY_PARAMETER: r[INTERACTIONS_COLS.AFFINITY_UNITS.value],
+                                   'endogenous': True if r[INTERACTIONS_COLS.ENDOGENOUS.value] == 'true' else False}
 
-                    # get all the properties
-                    props: dict = {'primaryTarget': r['Primary Target'].lower().startswith('t'),
-                                   'affinityParameter': r['Affinity Units'],
-                                   'endogenous': r['Endogenous'].lower().startswith('t')}
-
-                    # check the affinity and insure it is a float
-                    if r['Affinity Median'] != '':
-                        props.update({'affinity': float(r['Affinity Median'])})
+                    # check the affinity median and ensure it is a float
+                    if r[INTERACTIONS_COLS.AFFINITY_MEDIAN.value] != '':
+                        props.update({AFFINITY: float(r[INTERACTIONS_COLS.AFFINITY_MEDIAN.value])})
 
                     # if there are publications add them in
-                    if r['PubMed ID'] != '':
-                        props.update({'publications': [f'PMID:{x}' for x in r['PubMed ID'].split('|')]})
+                    if r[INTERACTIONS_COLS.PUBMED_ID.value] != '':
+                        props.update({PUBLICATIONS: [f'{PUBMED}:{x}' for x in r[INTERACTIONS_COLS.PUBMED_ID.value].split('|')]})
 
-                    # get the list of gene ids (ENSEMBL ids)
-                    genes = r['Target Ensembl Gene ID'].split('|')
-
-                    # get the list of gene names
-                    gene_names = r['Target Gene Symbol'].split('|')
-
-                    # for each gene listed
-                    for idx, g in enumerate(genes):
-                        # strip off the errant ';'
-                        gene_id = g.replace(';', '')
-
-                        # create the node
+                    genes = r[INTERACTIONS_COLS.TARGET_ENSEMBL_GENE_ID.value].split('|')
+                    gene_names = r[INTERACTIONS_COLS.TARGET_GENE_SYMBOLS.value].split('|')
+                    for idx, gene_id in enumerate(genes):
                         gene_id = f'{ENSEMBL}:{gene_id}'
-                        gene_name = gene_names[idx].encode('ascii',errors='ignore').decode(encoding="utf-8")
+                        gene_name = gene_names[idx].encode('ascii', errors='ignore').decode(encoding="utf-8")
                         gene_node = kgxnode(gene_id, gene_name)
-                        node_list.append(gene_node)
+                        self.output_file_writer.write_kgx_node(gene_node)
 
-                        # create the edge
                         new_edge = kgxedge(ligand_id,
                                            gene_id,
                                            predicate=predicate,
                                            primary_knowledge_source=self.provenance_id,
                                            edgeprops=props)
+                        self.output_file_writer.write_kgx_edge(new_edge)
 
-                        # save the edge
-                        edge_list.append(new_edge)
+                    if "Human" in r[INTERACTIONS_COLS.LIGAND_SPECIES.value] \
+                            and r[INTERACTIONS_COLS.LIGAND_GENE_SYMBOL.value] != '':
 
-                    # do the chem to precursor node/edges if it exists
-                    if r['Ligand Species'].startswith('Human') and r['Ligand Gene Symbol'] != '':
-                        # increment the record counter
-                        record_counter += 1
-
-                        # split the genes into an array
-                        gene_symbols = r['Ligand Gene Symbol'].upper().split('|')
-
-                        # go through all the listed genes
+                        gene_symbols = r[INTERACTIONS_COLS.LIGAND_GENE_SYMBOL.value].upper().split('|')
                         for gene_symbol in gene_symbols:
-                            # get the gene id
-                            gene_id = self.gene_map.get(gene_symbol)
+                            gene_id = gene_symbol_to_id_map.get(gene_symbol, None)
+                            if gene_id:
+                                gene_id = f'{HGNC}:{gene_id}'
+                                gene_node = kgxnode(gene_id, name=gene_symbol)
+                                self.output_file_writer.write_kgx_node(gene_node)
 
-                            # do we have a lookup value
-                            if gene_id is not None:
-                                # get the right value to normalize
-                                gene_id = f'{HGNC}:' + gene_id
-
-                                # create the nodes
-                                gene_node = kgxnode(gene_id, name=r['Ligand Gene Symbol'].encode('ascii',errors='ignore').decode(encoding="utf-8"))
-
-                                # save the gene node
-                                node_list.append(gene_node)
-
-                                # init the properties
                                 props: dict = {}
+                                if r[INTERACTIONS_COLS.PUBMED_ID.value] != '':
+                                    props.update({PUBLICATIONS: [f'{PUBMED}:{x}' for x in r[INTERACTIONS_COLS.PUBMED_ID.value].split('|')]})
 
-                                # check the pubmed id and insure they are ints
-                                if r['PubMed ID'] != '':
-                                    props.update({'publications': [f'PMID:{x}' for x in r['pubmed_id'].split('|')]})
-
-                                # create the edge
                                 new_edge = kgxedge(gene_id,
                                                    ligand_id,
-                                                   predicate='RO:0002205',
+                                                   predicate=self.has_gene_product_predicate,
                                                    primary_knowledge_source=self.provenance_id,
                                                    edgeprops=props)
-
-                                # save the edge
-                                edge_list.append(new_edge)
+                                self.output_file_writer.write_kgx_edge(new_edge)
                 else:
                     skipped_record_counter += 1
 
-        # return the node/edge lists and the record counters to the caller
-        return node_list, edge_list, record_counter, skipped_record_counter
+        # return record counters to the caller
+        return record_counter, skipped_record_counter
 
 
     '''

@@ -58,6 +58,8 @@ Next create or select a Graph Spec yaml file where the content of knowledge grap
 
 Use either of the following options, but not both:
 
+Note that running the setup script set_up_test_env.sh will perform Option 1 for you.
+
 Option 1: DATA_SERVICES_GRAPH_SPEC - the name of a Graph Spec file located in the graph_specs directory of Data_services
 ```
 export DATA_SERVICES_GRAPH_SPEC=testing-graph-spec.yml
@@ -132,9 +134,9 @@ Implement get_data(). This function should retrieve any source data files. The f
 
 Implement parse_data(). This function should parse the data files and populate lists of node and edge objects: self.final_node_list (kgxnode), self.final_edge_list (kgxedge).
 
-Finally, add your source to the list of sources at the top of Common/load_manager.py. The source ID string here should match the one specified in the new parser. Also add your source to the SOURCE_DATA_LOADER_CLASSES dictionary, mapping the new parser class.
+Finally, add your source to the list of sources in Common/data_sources.py. The source ID string here should match the one specified in the new parser. Also add your source to the SOURCE_DATA_LOADER_CLASS_IMPORTS dictionary, mapping it to the new parser class.
 
-Now you can use that source ID in a graph spec to include your new source in a graph.
+Now you can use that source ID in a graph spec to include your new source in a graph, or as the source id using load_manager.py.
 
 #### Testing and Troubleshooting
 

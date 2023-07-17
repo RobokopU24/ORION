@@ -421,37 +421,6 @@ class GetData:
         # return the list
         return file_count, foodb_dir, name[0]
 
-    def get_gtopdb_http_files(self, data_dir: str, file_list: list) -> int:
-        """
-        gets the gtopdb files via HTTP.
-
-        :param data_dir: the location where the data should be saved
-        :param file_list: the files to get
-        :return int: the number of files retrieved
-        """
-        self.logger.debug(f'Start of GtoPdb file retrieval.')
-
-        # unit a file counter
-        file_counter: int = 0
-
-        for data_file in file_list:
-            if os.path.isfile(os.path.join(data_dir, data_file)):
-                byte_count = 1
-            else:
-                # get the rest of the files
-                byte_count: int = self.pull_via_http(f'https://www.guidetopharmacology.org/DATA/{data_file}', data_dir)
-
-            # did re get some good file data
-            if byte_count > 0:
-                file_counter += 1
-            else:
-                error_message = f'GetDataPullError get_gtopdb_http_files() failed to download file {data_file}.'
-                self.logger.error(error_message)
-                raise GetDataPullError(error_message)
-
-        # return to the caller
-        return file_counter
-
     @staticmethod
     def format_normalization_failures(data_set_name: str, node_norm_failures: list, edge_norm_failures: list):
         """
@@ -621,3 +590,16 @@ def snakify(text):
     snakified_text = lowercase_text.replace(',', '_').replace('-', '_')  # replace commas and dashes with underscores
     snakified_text = '_'.join(snakified_text.split())  # replace whitespace with underscores
     return snakified_text
+
+
+def int_to_roman_numeral(num):
+    val = [1000, 900, 500, 400, 100, 90, 50, 40, 10, 9, 5, 4, 1]
+    syb = ["M", "CM", "D", "CD","C", "XC", "L", "XL", "X", "IX", "V", "IV", "I"]
+    roman_num = ''
+    i = 0
+    while num > 0:
+        for _ in range(num // val[i]):
+            roman_num += syb[i]
+            num -= val[i]
+        i += 1
+    return roman_num
