@@ -103,7 +103,7 @@ class Neo4jTools:
                             f"--relationships={csv_edges_filename}",
                             '--delimiter=TAB',
                             '--array-delimiter=U+001F',
-                            '--force=true']
+                            '--force']
         import_results: subprocess.CompletedProcess = subprocess.run(neo4j_import_cmd,
                                                                      cwd=graph_directory,
                                                                      stderr=subprocess.PIPE)
@@ -117,7 +117,7 @@ class Neo4jTools:
     def load_backup_dump(self,
                          dump_file_path: str = None):
         self.logger.info(f'Loading a neo4j backup dump {dump_file_path}...')
-        neo4j_load_cmd = ['neo4j-admin', 'load', f'--from={dump_file_path}', '--force=true']
+        neo4j_load_cmd = ['neo4j-admin', 'load', f'--from={dump_file_path}', '--force']
         load_results: subprocess.CompletedProcess = subprocess.run(neo4j_load_cmd,
                                                                    stderr=subprocess.PIPE)
         load_results_return_code = load_results.returncode
@@ -189,17 +189,6 @@ class Neo4jTools:
         index_names = []
         try:
             with self.neo4j_driver.session() as session:
-
-                # edge id index
-                cypher_result = list(session.run("CALL db.relationshipTypes()"))
-                rel_types = [result['relationshipType'] for result in cypher_result]
-                self.logger.info(f'Adding edge indexes for rel types: {rel_types}')
-                for i, rel_type in enumerate(rel_types):
-                    index_name = f'edge_id_{i}'
-                    edge_id_index_cypher = f'CREATE INDEX {index_name} FOR ()-[r:`{rel_type}`]-() ON (r.id)'
-                    session.run(edge_id_index_cypher).consume()
-                    indexes_added += 1
-                    index_names.append(index_name)
 
                 # node name index
                 node_name_index_cypher = f'CREATE INDEX node_name_index FOR (n:`{NAMED_THING}`) on (n.name)'
