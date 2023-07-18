@@ -121,12 +121,8 @@ class BINDINGDBLoader(SourceDataLoader):
                     BD_EDGEUMAN.PUBCHEM_CID.value:str,
                     BD_EDGEUMAN.UNIPROT_TARGET_CHAIN.value:str}
 
-        bd_archive_path = os.path.join(self.data_path, self.BD_archive_file_name)
-        with z.ZipFile(bd_archive_path, 'r') as fp:
-            fp.extractall(self.data_path)
-
-        bd_data_path = os.path.join(self.data_path, self.BD_data_file)
-        table = pd.read_csv(bd_data_path,
+        data_archivce_path = os.path.join(self.data_path, self.BD_archive_file_name)
+        table = pd.read_csv(data_archivce_path,
                 usecols=[
                     BD_EDGEUMAN.KI.value, #From now on, it is position 0
                     BD_EDGEUMAN.IC50.value, #From now on, it is position 1
@@ -141,6 +137,7 @@ class BINDINGDBLoader(SourceDataLoader):
                     BD_EDGEUMAN.UNIPROT_TARGET_CHAIN.value, #From now on, it is position 10
                 ],
                 sep="\t",
+                compression='zip',
                 dtype=dtype_dict
             )
         
@@ -306,16 +303,15 @@ class BINDINGDBLoader(SourceDataLoader):
         table['does_it_bind'] = does_it_bind_list
         table = table[table['does_it_bind'] == "True"]
 
-        filename = f"BindingDB_All.tsv"
-        table.to_csv(os.path.join(self.data_path, filename),sep="\t",index=False)
-        os.remove(bd_data_path)
+        pandas_output_file_path = os.path.join(self.data_path, f"BindingDB_temp_table.tsv")
+        table.to_csv(pandas_output_file_path, sep="\t",index=False)
 
         # def does_it_bind_filter(infile):
         #     yield next(infile)
         #     for line in infile:
         #        if(line.split('\t')[12])=="True": yield line
 
-        with open(os.path.join(self.data_path, filename), 'r') as fp:
+        with open(pandas_output_file_path, 'r') as fp:
             extractor.csv_extract(fp,
                                     lambda line: f'PUBCHEM.COMPOUND:{line[0]}',  # subject id
                                     lambda line: f'UniProtKB:{line[1]}',  # object id
@@ -329,5 +325,7 @@ class BINDINGDBLoader(SourceDataLoader):
                                     comment_character=None,
                                     delim="\t",
                                     has_header_row=True)
+
+        os.remove(pandas_output_file_path)
 
         return extractor.load_metadata
