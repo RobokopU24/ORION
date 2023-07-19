@@ -8,7 +8,7 @@ import requests
 from io import TextIOWrapper
 from bs4 import BeautifulSoup
 from operator import itemgetter
-from Common.utils import GetData
+from Common.utils import GetData, GetDataPullError
 from Common.loader_interface import SourceDataLoader, SourceDataFailedError
 from Common.kgxmodel import kgxnode, kgxedge
 from Common.prefixes import CTD, NCBITAXON, MESH
@@ -74,26 +74,23 @@ class CTDLoader(SourceDataLoader):
 
         :return:
         """
+        try:
+            # load the web page for CTD
+            html_page: requests.Response = requests.get('http://ctdbase.org/about/dataStatus.go')
 
-        # init the return
-        ret_val: str = 'Not found'
+            # get the html into a parsable object
+            resp: BeautifulSoup = BeautifulSoup(html_page.content, 'html.parser')
 
-        # load the web page for CTD
-        html_page: requests.Response = requests.get('http://ctdbase.org/about/dataStatus.go')
+            # find the version string
+            version: BeautifulSoup.Tag = resp.find(id='pgheading')
 
-        # get the html into a parsable object
-        resp: BeautifulSoup = BeautifulSoup(html_page.content, 'html.parser')
-
-        # find the version string
-        version: BeautifulSoup.Tag = resp.find(id='pgheading')
-
-        # was the version found
-        if version is not None:
-            # save the value
-            ret_val = version.text.split(':')[1].strip().replace(' ', '_')
-
-        # return to the caller
-        return ret_val
+            # was the version found
+            if version is not None:
+                # save the value
+                return version.text.split(':')[1].strip().replace(' ', '_')
+        except Exception as e:
+            pass
+        raise GetDataPullError(error_message=f'Unable to determine latest version for CTD')
 
     def get_data(self):
         """
