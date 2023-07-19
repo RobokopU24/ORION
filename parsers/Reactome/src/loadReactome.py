@@ -3,13 +3,13 @@ import argparse
 import requests
 import re
 import json
+import neo4j
 
 from bs4 import BeautifulSoup
-from collections import defaultdict
 from Common.loader_interface import SourceDataLoader
 from Common.kgxmodel import kgxnode, kgxedge
 from Common.neo4j_tools import Neo4jTools
-from Common.prefixes import REACTOME, NCBITAXON, GTOPDB
+from Common.prefixes import REACTOME, NCBITAXON, GTOPDB, UNIPROTKB
 from Common.utils import GetData
 
 
@@ -34,6 +34,14 @@ PREDICATE_MAPPING = {"compartment": "biolink:occurs_in",
                      "disease": "biolink:disease_has_basis_in"}
 
 
+# TODO - use something like this instead of manipulating strings for individual cases
+#  reactome databaseName: normalizer preferred curie prefix
+CURIE_PREFIX_MAPPING = {
+    'UniProt': UNIPROTKB,
+    'Guide to Pharmacology': GTOPDB
+}
+
+
 SUPPOSE_PROPERTIES = ("Summation",)
 
 # Normalized node are normalized once formatted as curie
@@ -49,7 +57,7 @@ ON_NODE_MAPPING = ("GO_Term", "Species", "ExternalOntology", "ReferenceTherapeut
 ON_NODE_ID_MAPPING = ("ReferenceMolecule",  "ReferenceSequence")
 
 
-ALL_ON_NODE_MAPPING = NORMALIZED_NODES + ON_NODE_MAPPING + ON_NODE_ID_MAPPING
+ALL_ON_NODE_MAPPING = ON_NODE_MAPPING + ON_NODE_ID_MAPPING
 
 
 # ReferenceIsoform is the reference ID for EntityWITHACCESSIONEDSEQUENCE(PROTEIN)
@@ -62,8 +70,6 @@ TO_INCLUDE = ('Include',)
 RDF_EDGES_TO_INCLUDE = ('RDF_edges/Include',)
 TO_SWITCH = ('Include/SwitchSO', )
 
-NODE_NOT_WORKING = set()
-EDGE_NOT_WORKING = set()
 ##############
 # Class: Reactome loader
 #
@@ -80,7 +86,7 @@ class ReactomeLoader(SourceDataLoader):
     source_data_url = "https://reactome.org/"
     license = "https://reactome.org/license"
     attribution = "https://academic.oup.com/nar/article/50/D1/D687/6426058?login=false"
-    parsing_version = 'V8'
+    parsing_version = '1.1'
 
     def __init__(self, test_mode: bool = False, source_data_dir: str = None):
         """
@@ -97,7 +103,7 @@ class ReactomeLoader(SourceDataLoader):
         self.triple_file: str = 'reactomeContents_CriticalTriples.csv'
         self.triple_path = os.path.dirname(os.path.abspath(__file__))
 
-        self.driver = None
+        self.dbid_to_node_id_lookup = {}
 
     def get_latest_source_version(self) -> str:
         """
@@ -122,10 +128,6 @@ class ReactomeLoader(SourceDataLoader):
             html_page.raise_for_status()
 
     def get_data(self) -> bool:
-        """
-        Gets the chebi-properties data.
-
-        """
         gd: GetData = GetData(self.logger.level)
         for dt_file in self.data_files:
             gd.pull_via_http(f'{self.data_url}{dt_file}',
@@ -133,76 +135,19 @@ class ReactomeLoader(SourceDataLoader):
         return True
  
     def parse_data(self):
-        """
-        Parses the data file for graph nodes/edges
-        """
-
         neo4j_tools = Neo4jTools()
-        neo4j_tools.set_initial_password()
         neo4j_tools.load_backup_dump(f'{self.data_path}/{self.neo4j_dump_file}')
         neo4j_tools.start_neo4j()
         neo4j_tools.wait_for_neo4j_initialization()
-        self.driver = neo4j_tools.neo4j_driver
+        neo4j_driver = neo4j_tools.neo4j_driver
 
-        nodes, relations = self.get_triple()
-        self.driver.close()
+        parse_metadata = self.extract_data(neo4j_driver=neo4j_driver)
+
+        neo4j_driver.close()
         neo4j_tools.stop_neo4j()
+        return parse_metadata
 
-        # init the record counters
-        record_counter: int = 0
-        skipped_record_counter: int = 0
-
-        for node, props in nodes.items():
-
-            # increment the record counter
-            record_counter += 1
-            if self.test_mode and record_counter == 2000:
-                break
-
-                # create a node with the properties
-            output_node = kgxnode(node,
-                                  nodeprops=props)
-            if not output_node:
-                NODE_NOT_WORKING.update((node, props))
-                skipped_record_counter += 1
-                continue
-            self.output_file_writer.write_kgx_node(output_node)
-        
-        for rel in relations:
-            subjectid = rel[SUBJECT_COLUMN]
-            objectid = rel[OBJECT_COLUMN]
-            predicate = rel[PREDICATE_COLUMN]
-            edge_props = rel[PREDICATE_PROP_COLUMN]
-        
-            output_edge = kgxedge(
-                subject_id=subjectid,
-                object_id=objectid,
-                predicate=PREDICATE_MAPPING.get(predicate, predicate),
-                primary_knowledge_source=self.provenance_id,
-                edgeprops=edge_props
-            )
-            
-            if not output_edge:
-                EDGE_NOT_WORKING.update((subjectid, predicate, objectid))
-                continue
-            self.output_file_writer.write_kgx_edge(output_edge)
-
-        self.logger.debug(f'Parsing data file complete.')
-        # load up the metadata
-        load_metadata: dict = {
-            'num_source_lines': record_counter,
-            'unusable_source_lines': skipped_record_counter
-            }
-        # if EDGE_NOT_WORKING:
-        #     with open('No_edges.txt', 'w') as nw:
-        #         nw.write(json.dumps(list(EDGE_NOT_WORKING), indent=4))
-        # if NODE_NOT_WORKING:
-        #     with open('No_nodes.txt', 'w') as nw:
-        #         nw.write(json.dumps(list(NODE_NOT_WORKING), indent=4))
-
-        return load_metadata
-
-    def get_triple(self) -> list:
+    def extract_data(self, neo4j_driver) -> dict:
         #These Mapping files contains the Ids that normalizes, so instead of the triples alone, we include the mapping too
         queries_to_include = []
         queries_to_map = []
@@ -218,10 +163,12 @@ class ReactomeLoader(SourceDataLoader):
                 queries_to_include.append(
                     self.rdf_edge_mapping(line[SUBJECT_COLUMN], line[PREDICATE_COLUMN], line[OBJECT_COLUMN]))
             elif line[INCLUDE_COLUMN] in TO_SWITCH:
-                cypher_query = f"MATCH (b:{line[SUBJECT_COLUMN]})-[r:{line[PREDICATE_COLUMN]}]->(a:{line[OBJECT_COLUMN]}) RETURN a, r, b"
+                cypher_query = f"MATCH (b:{line[SUBJECT_COLUMN]})-[r:{line[PREDICATE_COLUMN]}]->(a:{line[OBJECT_COLUMN]}) " \
+                               f"RETURN a, labels(a) as a_labels, type(r) as r_type, b, labels(b) as b_labels"
                 queries_to_include.append(cypher_query)
             elif line[INCLUDE_COLUMN] in TO_INCLUDE:
-                cypher_query = f"MATCH (a:{line[SUBJECT_COLUMN]})-[r:{line[PREDICATE_COLUMN]}]->(b:{line[OBJECT_COLUMN]}) RETURN a, r, b"
+                cypher_query = f"MATCH (a:{line[SUBJECT_COLUMN]})-[r:{line[PREDICATE_COLUMN]}]->(b:{line[OBJECT_COLUMN]}) " \
+                               f"RETURN a, labels(a) as a_labels, type(r) as r_type, b, labels(b) as b_labels"
                 queries_to_include.append(cypher_query)
             elif line[INCLUDE_COLUMN] in TO_MAP:
                 queries_to_map.append(self.map_ids(line[SUBJECT_COLUMN], line[PREDICATE_COLUMN], line[OBJECT_COLUMN]))
@@ -233,10 +180,13 @@ class ReactomeLoader(SourceDataLoader):
         self.logger.info(f'include queries: {json.dumps(queries_to_include, indent=4)}')
         self.logger.info(f'write queries: {json.dumps(queries_to_write, indent=4)}')
 
-        with self.driver.session() as session:
-            results = []
-            # node_labels = session.run("MATCH (n) RETURN DISTINCT labels(n) AS nodeTypes")
-            # node_types = [record["nodeTypes"][0] for record in node_labels]
+        record_counter: int = 0
+        skipped_record_counter: int = 0
+        with neo4j_driver.session() as session:
+
+            # TODO Suggested implementation
+            # reference_entity_lookup = self.get_reference_entity_mapping(neo4j_session=session)
+            # self.dbid_to_node_id_lookup.update(reference_entity_lookup)
 
             #Map the id from the nodes databaseName+:+identifier
             for node in ALL_ON_NODE_MAPPING:
@@ -263,38 +213,111 @@ class ReactomeLoader(SourceDataLoader):
 
             #Finally, run the cypher to get results - nodes and edges
             for cypher_query in queries_to_include:
-                result = list(session.run(cypher_query))
-                self.logger.info(f'Cypher query ({cypher_query}) complete, found {len(result)} results')
-                self.logger.info(f'Sample results: {result[:5]}')
-                results.append(result)
-       
-        # # Extract the node properties and relation information
-        nodes = defaultdict(dict)
-        relations = []
+                self.logger.info(f'Running query ({cypher_query})...')
+                result: neo4j.Result = session.run(cypher_query)
+                self.logger.info(f'Cypher query ({cypher_query}) complete.')
+                # self.logger.info(f'Sample results: {result[:5]}')
+                record_count, skipped_record_count = self.write_neo4j_result_to_file(result)
+                record_counter += record_count
+                skipped_record_counter += skipped_record_count
 
-        for result in results:
-            for records in result:
-                a_id = records.get('a', {}).get('ids')
-                b_id = records.get('b', {}).get('ids')
+        parse_metadata = {
+            'num_source_lines': record_counter,
+            'unusable_source_lines': skipped_record_counter
+        }
+        return parse_metadata
 
-                if not a_id:
-                    NODE_NOT_WORKING.add(records.get('a', {}))
-                    continue
-                nodes[a_id].update(dict(records["a"].items()))
+    # TODO Suggested implementation
+    #  this has not been tested but I would make a cypher call like this to find all of the reference entity mappings
+    """
+    def get_reference_entity_mapping(self, neo4j_session):
+        reference_entity_mapping = {}
+        reference_entity_query = 'MATCH (a)-[:referenceEntity]->(b) return a,b'
+        reference_entity_result = neo4j_session.run(reference_entity_query)
+        for record in reference_entity_result:
+            # do all reference entities have databaseName and identifier? if so it's easy -
+            record_data = record.data()
+            curie_prefix = CURIE_PREFIX_MAPPING[record_data['b']['databaseName']]
+            reference_entity_mapping[record_data['a']['dbId']] = f'{curie_prefix}:{record_data['b']['identifier']
+        return reference_entity_mapping
+    """
 
-                if not b_id:
-                    NODE_NOT_WORKING.add(records.get('b', {}))
-                    continue
-                nodes[b_id].update(dict(records["b"].items()))
+    def write_neo4j_result_to_file(self, result: neo4j.Result):
+        record_count = 0
+        skipped_record_count = 0
+        for record in result:
+            record_data = record.data()
+            node_a_id = self.process_node_from_neo4j(record_data['a'], record_data['a_labels'])
+            node_b_id = self.process_node_from_neo4j(record_data['b'], record_data['b_labels'])
+            if node_a_id and node_b_id:
+                self.process_edge_from_neo4j(node_a_id, record_data['r_type'], node_b_id)
+                record_count += 1
+            else:
+                skipped_record_count += 1
+        return record_count, skipped_record_count
 
-                if (a_id and b_id):
-                    rl = dict(records["r"])
-                    rll = [a_id, records["r"].type, b_id, rl]
-                    relations.append(rll)
+    def process_node_from_neo4j(self, node: dict, node_labels: list = None):
+        self.logger.info(f'processing node: {node}')
+        node_id = node['ids'] if 'ids' in node else None
+        # TODO we should replace the previous line with a consolidated node identifier mapping section, and remove
+        #  the in-neo4j mapping cypher calls. This should follow a hierarchy of preferred identifier mappings,
+        #  based on which will normalize the best etc, something like this:
+        """
+        # did we map this node already?
+        if node['dbId'] in self.dbid_to_node_id_lookup:
+            node_id = self.dbid_to_node_id_lookup[node['dbId']]
+        else:
+            # if the node has a databaseName and identifier can we map it easily? - which cases does this not work for?
+            if 'databaseName' in node:
+                curie_prefix = CURIE_PREFIX_MAPPING.get(node['databaseName'], None)
+                if curie_prefix is None:
+                    self.logger.warning(f'Could not find a curie prefix mapping for databaseName {node["databaseName"]}')
                 else:
-                    EDGE_NOT_WORKING.update(dict(records))
+                    node_id = f'{curie_prefix}{node["identifier"]}'
+            # if no databaseName mapping see if we can use a different way?
+            if node_id is None:
+                if node['dbId'] in self.reference_entity_lookup:   # from the suggested implementation above
+                    node_id = self.reference_entity_lookup[node['dbId']]    
+                elif some other identifier or condition:
+                    # for example do we need to use stdId?
+                    node_id = xxxxxxxxx
+                elif GO Term mapping:
+                    node_id = xxxxxxxxx
+                else if node_labels:
+                    if 'Species' in node_labels:
+                        node_id = f'{NCBITAXON}:{node["taxId"]}':
+                    elif other node type based mappings?
+                else:
+                    self.logger.warning('uh oh - couldn't find an identifier for node {node}')
+                    return None
+        # add whatever we found to the lookup map
+        self.dbid_to_node_id_lookup[node['dbId']] = node_id
+        """
+        if not node_id:
+            self.logger.warning(f'A node ID could not be mapped for: {node} (labels: {node_labels})')
+            return None
+        node_properties = {}
+        if 'definition' in node:
+            node_properties['definition'] = node['definition']
+        if 'url' in node:
+            node_properties['url'] = node['url']
+        node_name = node['displayName'] if 'displayName' in node else ''
+        node_to_write = kgxnode(node_id, name=node_name, nodeprops=node_properties)
+        self.output_file_writer.write_kgx_node(node_to_write)
+        return node_id
 
-        return nodes, relations
+    def process_edge_from_neo4j(self, subject_id: str, relationship_type: str, object_id: str):
+        predicate = PREDICATE_MAPPING.get(relationship_type, None)
+        if predicate:
+            output_edge = kgxedge(
+                subject_id=subject_id,
+                object_id=object_id,
+                predicate=predicate,
+                primary_knowledge_source=self.provenance_id
+            )
+            self.output_file_writer.write_kgx_edge(output_edge)
+        else:
+            self.logger.warning(f'A predicate could not be mapped for relationship type {relationship_type}')
 
     def write_properties(self, s, p, o):
         # TwoWords -> twoWords
@@ -360,9 +383,11 @@ class ReactomeLoader(SourceDataLoader):
                 # Collapse the 2 hops and get: Reaction-[activity]-Go_MolecularFunction
         # CatalystActivity to catalystActivity
         if s =='CatalystActivity':
-            cypher= f"MATCH (x)-[rx:catalystActivity]->(a:{s})-[r:activity]->(b:{o}) return x, r, b"
+            cypher= f"MATCH (a)-[:catalystActivity]->(x:{s})-[r:activity]->(b:{o}) " \
+                    f"RETURN a, labels(a) as a_labels, type(r) as r_type, b, labels(b) as b_labels"
         elif o =='CatalystActivity':
-            cypher = f"MATCH (a:{s})-[r:{p}]-(b:{o})-[rx:catalystActivity]-(x) return a, r, x"
+            cypher = f"MATCH (a:{s})-[r:{p}]-(x:{o})-[rx:catalystActivity]-(b) return a, r, b" \
+                     f"RETURN a, labels(a) as a_labels, type(r) as r_type, b, labels(b) as b_labels"
 
         return cypher
 
