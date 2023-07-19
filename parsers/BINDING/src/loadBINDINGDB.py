@@ -70,7 +70,6 @@ class BINDINGDBLoader(SourceDataLoader):
         self.bindingdb_data_url = [f"https://www.bindingdb.org/bind/downloads/"]
 
         self.BD_archive_file_name = f"BindingDB_All_{self.bindingdb_version}.tsv.zip"
-        self.BD_data_file = 'BindingDB_All.tsv'
         self.data_files = [self.BD_archive_file_name]
 
     def get_latest_source_version(self) -> str:
@@ -121,8 +120,8 @@ class BINDINGDBLoader(SourceDataLoader):
                     BD_EDGEUMAN.PUBCHEM_CID.value:str,
                     BD_EDGEUMAN.UNIPROT_TARGET_CHAIN.value:str}
 
-        data_archivce_path = os.path.join(self.data_path, self.BD_archive_file_name)
-        table = pd.read_csv(data_archivce_path,
+        data_archive_path = os.path.join(self.data_path, self.BD_archive_file_name)
+        table = pd.read_csv(data_archive_path,
                 usecols=[
                     BD_EDGEUMAN.KI.value, #From now on, it is position 0
                     BD_EDGEUMAN.IC50.value, #From now on, it is position 1
