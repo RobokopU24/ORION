@@ -57,7 +57,7 @@ ON_NODE_MAPPING = ("GO_Term", "Species", "ExternalOntology", "ReferenceTherapeut
 ON_NODE_ID_MAPPING = ("ReferenceMolecule",  "ReferenceSequence")
 
 
-ALL_ON_NODE_MAPPING = ON_NODE_MAPPING + ON_NODE_ID_MAPPING
+ALL_ON_NODE_MAPPING = NORMALIZED_NODES + ON_NODE_MAPPING + ON_NODE_ID_MAPPING
 
 
 # ReferenceIsoform is the reference ID for EntityWITHACCESSIONEDSEQUENCE(PROTEIN)
@@ -163,7 +163,7 @@ class ReactomeLoader(SourceDataLoader):
                 queries_to_include.append(
                     self.rdf_edge_mapping(line[SUBJECT_COLUMN], line[PREDICATE_COLUMN], line[OBJECT_COLUMN]))
             elif line[INCLUDE_COLUMN] in TO_SWITCH:
-                cypher_query = f"MATCH (b:{line[SUBJECT_COLUMN]})-[r:{line[PREDICATE_COLUMN]}]->(a:{line[OBJECT_COLUMN]}) " \
+                cypher_query = f"MATCH (a:{line[OBJECT_COLUMN]})-[r:{line[PREDICATE_COLUMN]}]->(b:{line[SUBJECT_COLUMN]}) " \
                                f"RETURN a, labels(a) as a_labels, type(r) as r_type, b, labels(b) as b_labels"
                 queries_to_include.append(cypher_query)
             elif line[INCLUDE_COLUMN] in TO_INCLUDE:
