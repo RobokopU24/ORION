@@ -115,7 +115,8 @@ class GraphBuilder:
                                              graph_version=graph_version,
                                              graph_directory=graph_output_dir,
                                              nodes_filename=NODES_FILENAME,
-                                             edges_filename=EDGES_FILENAME)
+                                             edges_filename=EDGES_FILENAME,
+                                             logger=self.logger)
 
             if dump_success:
                 graph_output_url = self.get_graph_output_URL(graph_id, graph_version)
