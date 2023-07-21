@@ -257,7 +257,7 @@ class ReactomeLoader(SourceDataLoader):
         return record_count, skipped_record_count
 
     def process_node_from_neo4j(self, node: dict, node_labels: list = None):
-        self.logger.info(f'processing node: {node}')
+        # self.logger.debug(f'processing node: {node}')
         node_id = node['ids'] if 'ids' in node else None
         # TODO we should replace the previous line with a consolidated node identifier mapping section, and remove
         #  the in-neo4j mapping cypher calls. This should follow a hierarchy of preferred identifier mappings,
