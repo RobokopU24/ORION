@@ -182,7 +182,7 @@ class GetData:
             # did we get something
             if len(date_val) > 0:
                 # return the parsed date
-                return dp.parse(date_val[1]).strftime('%-m_%-d_%Y')
+                return dp.parse(date_val[1]).strftime('%-m_%Y')
         except Exception as e:
             error_message = f'Error getting modification date for ftp file: {ftp_site}{ftp_dir}{ftp_file}. {e}'
             self.logger.error(error_message)
