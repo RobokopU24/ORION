@@ -9,7 +9,7 @@ from bs4 import BeautifulSoup
 from Common.loader_interface import SourceDataLoader
 from Common.kgxmodel import kgxnode, kgxedge
 from Common.neo4j_tools import Neo4jTools
-from Common.prefixes import REACTOME, NCBITAXON, GTOPDB, UNIPROTKB
+from Common.prefixes import REACTOME, NCBITAXON, GTOPDB, UNIPROTKB, CHEBI, KEGG_COMPOUND, KEGG_GLYCAN, PUBCHEM_COMPOUND, NCBIGENE, CLINVAR
 from Common.utils import GetData
 
 
@@ -38,31 +38,35 @@ PREDICATE_MAPPING = {"compartment": "biolink:occurs_in",
 #  reactome databaseName: normalizer preferred curie prefix
 CURIE_PREFIX_MAPPING = {
     'UniProt': UNIPROTKB,
-    'Guide to Pharmacology': GTOPDB
+    'Guide to Pharmacology': GTOPDB,
+    'ChEBI': CHEBI,
+    'REACT': REACTOME,
+    'COMPOUND': KEGG_COMPOUND,
+    'PubChem Compound': PUBCHEM_COMPOUND,
+    'PubChem Substance': PUBCHEM_COMPOUND,
+    'KEGG Glycan': KEGG_GLYCAN,
+    'NCBI Entrez Gene': NCBIGENE,
+    'ClinVar': CLINVAR
+
 }
 
-
+#TODO Make SUPPOSE_PROPERTIES into a place to write nodes that should recieve extra properties.
+#Then create different ones for different types, like Summation, CatalystActivity, etc.
 SUPPOSE_PROPERTIES = ("Summation",)
 
 # Normalized node are normalized once formatted as curie
 # ReactionLikeEvent: ("Pathway", "Event", "BlackboxEvent", "FailedReaction", "Depolymerisation", "Polymerisation")
-NORMALIZED_NODES = ("ReactionLikeEvent",)
+NORMALIZED_NODES = ("ReactionLikeEvent","Pathway", "Event", "BlackboxEvent", "FailedReaction", "Depolymerisation", "Polymerisation")
 
 # These nodes have no reactome stID, however their ID is the combination of two attributes on them
 # GO_Term: "Compartment", "GO_BiologicalProcess", "GO_MolecularFunction", "GO_CellularComponent",
 # ExternalOntology: "Disease", "CellType"
-ON_NODE_MAPPING = ("GO_Term", "Species", "ExternalOntology", "ReferenceTherapeutic",)#databaseName+:+identifier
+ON_NODE_MAPPING = ("GO_Term", "Species", "ExternalOntology","ReferenceTherapeutic","ReferenceMolecule","ReferenceSequence","Disease")#databaseName+:+identifier
 
-# Normalized using databaseName+KB:+identifier or databaseName+:+identifier
-ON_NODE_ID_MAPPING = ("ReferenceMolecule",  "ReferenceSequence")
-
-
-ALL_ON_NODE_MAPPING = ON_NODE_MAPPING + ON_NODE_ID_MAPPING
-
-
+# Cross mapping nodes require looking for a second node with a normalizable database identifier.
 # ReferenceIsoform is the reference ID for EntityWITHACCESSIONEDSEQUENCE(PROTEIN)
 # GenomeEncodedEntity: EntityWITHACCESSIONEDSEQUENCE(Protein), EntityWITHACCESSIONEDSEQUENCE(Gene and transcript), EntityWITHACCESSIONEDSEQUENCE(DNA), EntityWITHACCESSIONEDSEQUENCE(RNA)
-CROSS_MAPPING = ('GenomeEncodedEntity', 'SimpleEntity', 'Drug')
+CROSS_MAPPING = ('EntityWithAccessionedSequence','GenomeEncodedEntity', 'SimpleEntity', 'Drug', 'Complex', 'Polymer')
 
 TO_WRITE = ('Provenance/Include', 'Attribute/Include') #Descriptive features of other existing nodes eg Summation
 TO_MAP = ('IDMapping/Include', ) # Maps the external identifier of a node from another node
@@ -73,8 +77,8 @@ TO_SWITCH = ('Include/SwitchSO', )
 ##############
 # Class: Reactome loader
 #
-# By: 
-# Date: 
+# By: Ola Olasunkanmi, Jon-Michael Beasley, and Evan Morris
+# Date: 7/20/2023
 # Desc: Class that loads/parses the reactome data.
 ##############
 class ReactomeLoader(SourceDataLoader):
@@ -163,18 +167,18 @@ class ReactomeLoader(SourceDataLoader):
                 queries_to_include.append(
                     self.rdf_edge_mapping(line[SUBJECT_COLUMN], line[PREDICATE_COLUMN], line[OBJECT_COLUMN]))
             elif line[INCLUDE_COLUMN] in TO_SWITCH:
-                cypher_query = f"MATCH (b:{line[SUBJECT_COLUMN]})-[r:{line[PREDICATE_COLUMN]}]->(a:{line[OBJECT_COLUMN]}) " \
-                               f"RETURN a, labels(a) as a_labels, type(r) as r_type, b, labels(b) as b_labels"
+                cypher_query = self.map_ids(line[SUBJECT_COLUMN], line[PREDICATE_COLUMN], line[OBJECT_COLUMN], switch=True)
                 queries_to_include.append(cypher_query)
             elif line[INCLUDE_COLUMN] in TO_INCLUDE:
-                cypher_query = f"MATCH (a:{line[SUBJECT_COLUMN]})-[r:{line[PREDICATE_COLUMN]}]->(b:{line[OBJECT_COLUMN]}) " \
-                               f"RETURN a, labels(a) as a_labels, type(r) as r_type, b, labels(b) as b_labels"
+                cypher_query = self.map_ids(line[SUBJECT_COLUMN], line[PREDICATE_COLUMN], line[OBJECT_COLUMN], switch=False)
                 queries_to_include.append(cypher_query)
             elif line[INCLUDE_COLUMN] in TO_MAP:
                 queries_to_map.append(self.map_ids(line[SUBJECT_COLUMN], line[PREDICATE_COLUMN], line[OBJECT_COLUMN]))
             else:
                 if line[INCLUDE_COLUMN] in TO_WRITE:
-                    queries_to_write.append(self.write_properties(line[SUBJECT_COLUMN], line[PREDICATE_COLUMN], line[OBJECT_COLUMN]))
+                    pass
+                    #TODO Fix the write properties function used in the line below to write properties like support publications and summations.
+                    #queries_to_write.append(self.write_properties(line[SUBJECT_COLUMN], line[PREDICATE_COLUMN], line[OBJECT_COLUMN]))
 
         self.logger.info(f'mapped queries: {json.dumps(queries_to_map, indent=4)}')
         self.logger.info(f'include queries: {json.dumps(queries_to_include, indent=4)}')
@@ -189,17 +193,17 @@ class ReactomeLoader(SourceDataLoader):
             # self.dbid_to_node_id_lookup.update(reference_entity_lookup)
 
             #Map the id from the nodes databaseName+:+identifier
-            for node in ALL_ON_NODE_MAPPING:
-                node_mapping_cypher = self.on_node_mapping(node)
-                self.logger.info(f'Running query {node_mapping_cypher}')
-                session.run(node_mapping_cypher)
+            # for node in ALL_ON_NODE_MAPPING:
+            #     node_mapping_cypher = self.on_node_mapping(node)
+            #     self.logger.info(f'Running query {node_mapping_cypher}')
+            #     session.run(node_mapping_cypher)
 
-            for node in CROSS_MAPPING:
-                cross_mapping_cypher = self.cross_map_ids(node)
-                self.logger.info(f'Running query {cross_mapping_cypher}')
-                session.run(cross_mapping_cypher)
+            # for node in CROSS_MAPPING:
+            #     cross_mapping_cypher = self.cross_map_ids(node)
+            #     self.logger.info(f'Running query {cross_mapping_cypher}')
+            #     session.run(cross_mapping_cypher)
 
-            #Map other propersties from the nodes summation catalystactivity ...
+            #Map other properties from the nodes summation catalystactivity ...
             # PS: Not currently in use since the content file contains only 'include'
             for cypher_query in queries_to_write:
                 if cypher_query:
@@ -232,33 +236,63 @@ class ReactomeLoader(SourceDataLoader):
     """
     def get_reference_entity_mapping(self, neo4j_session):
         reference_entity_mapping = {}
-        reference_entity_query = 'MATCH (a)-[:referenceEntity]->(b) return a,b'
+        reference_entity_query = 'MATCH (a)-[:referenceEntity|crossReference]->(b) return a,b'
         reference_entity_result = neo4j_session.run(reference_entity_query)
         for record in reference_entity_result:
             # do all reference entities have databaseName and identifier? if so it's easy -
             record_data = record.data()
             curie_prefix = CURIE_PREFIX_MAPPING[record_data['b']['databaseName']]
-            reference_entity_mapping[record_data['a']['dbId']] = f'{curie_prefix}:{record_data['b']['identifier']
+            reference_entity_mapping[record_data['a']['identity']] = f"{curie_prefix}:{record_data['b']['identifier']}"
         return reference_entity_mapping
     """
-
     def write_neo4j_result_to_file(self, result: neo4j.Result):
         record_count = 0
         skipped_record_count = 0
         for record in result:
             record_data = record.data()
-            node_a_id = self.process_node_from_neo4j(record_data['a'], record_data['a_labels'])
-            node_b_id = self.process_node_from_neo4j(record_data['b'], record_data['b_labels'])
+
+            node_a_id = self.process_node_from_neo4j(record_data['a_id'], record_data['a'], record_data['a_labels'])
+            node_b_id = self.process_node_from_neo4j(record_data['b_id'], record_data['b'], record_data['b_labels'])
             if node_a_id and node_b_id:
                 self.process_edge_from_neo4j(node_a_id, record_data['r_type'], node_b_id)
                 record_count += 1
             else:
                 skipped_record_count += 1
         return record_count, skipped_record_count
+    
+    def process_node_from_neo4j(self, node_identity, node: dict, node_labels: list = None):
+        #self.logger.info(f'processing node: {node_identity}')
+        node_id = None
+        if any(x in ON_NODE_MAPPING for x in node_labels) or any(x in CROSS_MAPPING for x in node_labels):
+            #On-node/Same node ID Mapping eg GO, Disease ...
+            if "Species" in node_labels:
+                node_id = f"{NCBITAXON}:{node['taxId']}"
+            elif "GO_Term" in node_labels:
+                try:
+                    node_id = f"{CURIE_PREFIX_MAPPING[node['databaseName']]}:{node['accession']}"
+                except: #Allow the mapping to fail so we can see what isn't normalizing in failure logs.
+                    node_id = f"{node['databaseName']}:{node['accession']}"
+            else:
+                try:
+                    node_id = f"{CURIE_PREFIX_MAPPING[node['databaseName']]}:{node['identifier']}"
+                except: #Allow the mapping to fail so we can see what isn't normalizing in failure logs.
+                    node_id = f"{node['databaseName']}:{node['identifier']}"
+        elif any(x in NORMALIZED_NODES for x in node_labels): 
+            node_id = f"{REACTOME}:{node['stId']}"
+        if not node_id:
+            self.logger.warning(f'A node ID could not be mapped for: {node_identity} (ref_map_labels: {node_labels})')
+            return None
+        
+        node_properties = {}
+        if 'definition' in node:
+            node_properties['definition'] = node['definition']
+        if 'url' in node:
+            node_properties['url'] = node['url']
+        node_name = node['displayName'] if 'displayName' in node else ''
+        node_to_write = kgxnode(node_id, name=node_name, nodeprops=node_properties)
+        self.output_file_writer.write_kgx_node(node_to_write)
+        return node_id
 
-    def process_node_from_neo4j(self, node: dict, node_labels: list = None):
-        self.logger.info(f'processing node: {node}')
-        node_id = node['ids'] if 'ids' in node else None
         # TODO we should replace the previous line with a consolidated node identifier mapping section, and remove
         #  the in-neo4j mapping cypher calls. This should follow a hierarchy of preferred identifier mappings,
         #  based on which will normalize the best etc, something like this:
@@ -293,18 +327,6 @@ class ReactomeLoader(SourceDataLoader):
         # add whatever we found to the lookup map
         self.dbid_to_node_id_lookup[node['dbId']] = node_id
         """
-        if not node_id:
-            self.logger.warning(f'A node ID could not be mapped for: {node} (labels: {node_labels})')
-            return None
-        node_properties = {}
-        if 'definition' in node:
-            node_properties['definition'] = node['definition']
-        if 'url' in node:
-            node_properties['url'] = node['url']
-        node_name = node['displayName'] if 'displayName' in node else ''
-        node_to_write = kgxnode(node_id, name=node_name, nodeprops=node_properties)
-        self.output_file_writer.write_kgx_node(node_to_write)
-        return node_id
 
     def process_edge_from_neo4j(self, subject_id: str, relationship_type: str, object_id: str):
         predicate = PREDICATE_MAPPING.get(relationship_type, None)
@@ -325,54 +347,83 @@ class ReactomeLoader(SourceDataLoader):
             return match.group(1).lower()
         cypher = None
         #Cross Property Mapping eg Summation
-        mapp = {'a':s, 'b': o}
-        if o in SUPPOSE_PROPERTIES:
-            cypher = f"MATCH (a:{s})-[r:{p}]->(b:{o}) SET a.{re.sub(r'^(.)', repl_func, mapp.get('b'))} = b.displayName"
+        #TODO Need to work on this function to correctly get properties for certain nodes, like Summations or reference publications.
+        if (s in SUPPOSE_PROPERTIES) & (o in SUPPOSE_PROPERTIES):
+            if (o == "Summation") & (s == "Summation"):
+                cypher = f"MATCH (props)<-[r0:summation]-(a:{s})-[r1:{p}]->(b:{o})-[r2:summation]-" \
+                        f"RETURN ref as a, labels(a) as a_labels, id(a) as a_id, type(r1) as r_type, b, labels(b) as b_labels, id(b) as b_id"
+
+        elif o in SUPPOSE_PROPERTIES:
+            if o == "Summation":
+                cypher = f"MATCH (a:{s})-[r1:{p}]->(b:{o})-[r0:summation]->(props) " \
+                        f"RETURN ref as a, labels(a) as a_labels, id(a) as a_id, type(r1) as r_type, b, labels(b) as b_labels, id(b) as b_id"
 
         elif s in SUPPOSE_PROPERTIES:
-            cypher = f"MATCH (a:{s})-[r:{p}]->(b:{o}) SET b.{re.sub(r'^(.)', repl_func, mapp.get('a'))} = a.displayName"
+            if s == "Summation":
+                cypher = f"MATCH (props)<-[r0:summation]-(a:{s})-[r1:{p}]->(b:{o}) " \
+                        f"RETURN ref as a, labels(a) as a_labels, id(a) as a_id, type(r1) as r_type, b, labels(b) as b_labels, id(b) as b_id"
         
         return cypher
     
-    def on_node_mapping(self, node):
+    #TODO Either delete the following function or use it in process_nodes_from_neo4j to do on-node mapping.
+    """
+    def on_node_mapping(self, node_identity, node, node_labels):
         #On-node/Same node ID Mapping eg GO, Disease ...
-        if node =="Species":
-            cypher = f"MATCH (a:{node}) SET a.ids ='{NCBITAXON}:'+a.taxId"
-        elif node == "ReferenceTherapeutic":
-            cypher = f"MATCH (a:{node}) SET  a.ids ='{GTOPDB}:'+a.identifier"
-        elif node in ON_NODE_ID_MAPPING or node =="ExternalOntology":
-            cypher = f"MATCH (a:{node}) SET a.ids = CASE WHEN SIZE(SPLIT(a.databaseName, ' ')) >= 2 THEN SPLIT(a.databaseName, ' ')[0] + 'Gene' + ':' + SPLIT(a.identifier, '.')[0] WHEN a.databaseName = 'UniProt' THEN REPLACE(a.databaseName, ' ', '') + 'KB:' + SPLIT(a.identifier, '.')[0] ELSE REPLACE(a.databaseName, ' ', '') + ':' + SPLIT(a.identifier, '.')[0] END"
-            # Some are NCBI Entrez Gene or NCBI Nucleotide or uniprot or ensembl etc
-            # The split is necessary because of some funny looking curies:
-            # NCBI Gene:324=>NCBIGene:324; KEGG Gene (Homo sapiens):123=>KEGGGene:123
-        elif node in NORMALIZED_NODES:
-            #Biolink normalized reactome ids eg pathways, events ......
-            cypher = f"MATCH (a:{node}) SET a.ids ='{REACTOME}:'+a.stId"
-        else:
-            # GO .......
-            # If any GO_Term have an equivalent displayname as Pathway/Reaction etc then map the GO ID from the Pathway/Reaction ID
-            # ELSE map the ID by combining the Go DatabaseName and accession
-            cypher = f"MATCH (a:{node})-[r:goBiologicalProcess]-(other) SET a.ids = CASE WHEN REPLACE(toLower(a.displayName), '-', ' ') = REPLACE(toLower(other.displayName), '-', ' ') THEN 'REACT:' + other.stId ELSE a.databaseName + ':' + a.accession END"
-            # cypher = f"MATCH (a:{node}) SET a.ids = a.databaseName+':'+a.accession"
-        return cypher
-
-    def map_ids(self, s, p, o):
+        #self.logger.info(f'processing node: {node_identity}')
+        node_id = None
+        if any(x in ON_NODE_MAPPING for x in node_labels) or any(x in CROSS_MAPPING for x in node_labels):
+            #On-node/Same node ID Mapping eg GO, Disease ...
+            if "Species" in node_labels:
+                node_id = f"{NCBITAXON}:{node['taxId']}"
+            elif "GO_Term" in node_labels:
+                try:
+                    node_id = f"{CURIE_PREFIX_MAPPING[node['databaseName']]}:{node['accession']}"
+                except: #Allow the mapping to fail so we can see what isn't normalizing in failure logs.
+                    node_id = f"{node['databaseName']}:{node['accession']}"
+            else:
+                try:
+                    node_id = f"{CURIE_PREFIX_MAPPING[node['databaseName']]}:{node['identifier']}"
+                except: #Allow the mapping to fail so we can see what isn't normalizing in failure logs.
+                    node_id = f"{node['databaseName']}:{node['identifier']}"
+        elif any(x in NORMALIZED_NODES for x in node_labels): 
+            node_id = f"{REACTOME}:{node['stId']}"
+        if not node_id:
+            self.logger.warning(f'A node ID could not be mapped for: {node_identity} (ref_map_labels: {node_labels})')
+            return None
+    """
+    def map_ids(self, s, p, o, switch=False):
         # ReferenceID Mappings eg EntityWithAccessionedSequence ->ReferenceSequence ......
         cypher = None
         # OBJECT
-        if s in CROSS_MAPPING:
-            # Cross Property Mapping eg Summation
-            cypher = f"MATCH (a:{s})-[r:referenceEntity]->(b:{o}) SET a.ids = b.ids"
+        if (s in CROSS_MAPPING) & (o in CROSS_MAPPING):
+            if switch == True:
+                cypher = f"MATCH (refa)-[r0:referenceEntity|crossReference]-(b:{s})-[r1:{p}]->(a:{o})-[r0:referenceEntity|crossReference]-(refb) " \
+                        f"RETURN refa as a, labels(a) as a_labels, id(a) as a_id, type(r1) as r_type, refb as b, labels(b) as b_labels, id(b) as b_id"
+            else:
+                cypher = f"MATCH (refa)-[r0:referenceEntity|crossReference]-(a:{s})-[r1:{p}]->(b:{o})-[r0:referenceEntity|crossReference]-(refb) " \
+                        f"RETURN refa as a, labels(a) as a_labels, id(a) as a_id, type(r1) as r_type, refb as b, labels(b) as b_labels, id(b) as b_id"
+        elif s in CROSS_MAPPING:
+            if switch == True:
+                cypher = f"MATCH (ref)-[r0:referenceEntity|crossReference]-(b:{s})-[r1:{p}]->(a:{o}) " \
+                        f"RETURN ref as a, labels(a) as a_labels, id(a) as a_id, type(r1) as r_type, b, labels(b) as b_labels, id(b) as b_id"
+            else:
+                cypher = f"MATCH (ref)-[r0:referenceEntity|crossReference]-(a:{s})-[r1:{p}]->(b:{o}) " \
+                        f"RETURN ref as a, labels(a) as a_labels, id(a) as a_id, type(r1) as r_type, b, labels(b) as b_labels, id(b) as b_id"
         elif o in CROSS_MAPPING:
-            cypher = f"MATCH (a:{s})-[r:{p}]->(b:{o}) SET b.ids = a.ids"
+            if switch == True:
+                cypher = f"MATCH (b:{s})-[r1:{p}]->(a:{o})-[r0:referenceEntity|crossReference]-(ref) " \
+                        f"RETURN a, labels(a) as a_labels, id(a) as a_id, type(r1) as r_type, ref as b, labels(b) as b_labels, id(b) as b_id"
+            else:
+                cypher = f"MATCH (a:{s})-[r1:{p}]->(b:{o})-[r0:referenceEntity|crossReference]-(ref) " \
+                        f"RETURN a, labels(a) as a_labels, id(a) as a_id, type(r1) as r_type, ref as b, labels(b) as b_labels, id(b) as b_id"
         if not cypher:
             # None of the s or object has external mapping file
-            cypher = f"MATCH (a:{s})-[r:{p}]->(b:{o}) SET a.ids ='{REACTOME}:'+a.stId, b.ids='{REACTOME}:'+b.stId"
-        return cypher
-
-    def cross_map_ids(self, node):
-        # Cross Property Mapping eg  ReferenceID Mappings for EntityWithAccessionedSequence ->ReferenceSequence ......
-        cypher = f"MATCH (a:{node})-[r:referenceEntity]->(b) SET a.ids = b.ids"
+            if switch == True:
+                cypher = f"MATCH (b:{s})-[r:{p}]->(a:{o}) " \
+                        f"RETURN a, labels(a) as a_labels, id(a) as a_id, type(r) as r_type, b, labels(b) as b_labels, id(b) as b_id"
+            else:
+                cypher = f"MATCH (a:{s})-[r:{p}]->(b:{o}) " \
+                        f"RETURN a, labels(a) as a_labels, id(a) as a_id, type(r) as r_type, b, labels(b) as b_labels, id(b) as b_id"
         return cypher
 
     def rdf_edge_mapping(self, s, p, o):
@@ -384,10 +435,10 @@ class ReactomeLoader(SourceDataLoader):
         # CatalystActivity to catalystActivity
         if s =='CatalystActivity':
             cypher= f"MATCH (a)-[:catalystActivity]->(x:{s})-[r:activity]->(b:{o}) " \
-                    f"RETURN a, labels(a) as a_labels, type(r) as r_type, b, labels(b) as b_labels"
+                    f"RETURN a, labels(a) as a_labels, id(a) as a_id, type(r) as r_type, b, labels(b) as b_labels, id(b) as b_id"
         elif o =='CatalystActivity':
             cypher = f"MATCH (a:{s})-[r:{p}]-(x:{o})-[rx:catalystActivity]-(b) return a, r, b" \
-                     f"RETURN a, labels(a) as a_labels, type(r) as r_type, b, labels(b) as b_labels"
+                     f"RETURN a, labels(a) as a_labels, id(a) as a_id, type(r) as r_type, b, labels(b) as b_labels, id(b) as b_id"
 
         return cypher
 
