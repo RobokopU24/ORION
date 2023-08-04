@@ -167,10 +167,16 @@ class ReactomeLoader(SourceDataLoader):
                 queries_to_include.append(
                     self.rdf_edge_mapping(line[SUBJECT_COLUMN], line[PREDICATE_COLUMN], line[OBJECT_COLUMN]))
             elif line[INCLUDE_COLUMN] in TO_SWITCH:
-                cypher_query = self.map_ids(line[SUBJECT_COLUMN], line[PREDICATE_COLUMN], line[OBJECT_COLUMN], switch=True)
+                cypher_query = f"MATCH (b:{line[SUBJECT_COLUMN]})-[r:{line[PREDICATE_COLUMN]}]->(a:{line[OBJECT_COLUMN]}) " \
+                        f"RETURN a, labels(a) as a_labels, id(a) as a_id, type(r) as r_type, b, labels(b) as b_labels, id(b) as b_id"
+                # Remove if map_ids is not needed.
+                #cypher_query = self.map_ids(line[SUBJECT_COLUMN], line[PREDICATE_COLUMN], line[OBJECT_COLUMN], switch=True)
                 queries_to_include.append(cypher_query)
             elif line[INCLUDE_COLUMN] in TO_INCLUDE:
-                cypher_query = self.map_ids(line[SUBJECT_COLUMN], line[PREDICATE_COLUMN], line[OBJECT_COLUMN], switch=False)
+                cypher_query = f"MATCH (a:{line[SUBJECT_COLUMN]})-[r:{line[PREDICATE_COLUMN]}]->(b:{line[OBJECT_COLUMN]}) " \
+                        f"RETURN a, labels(a) as a_labels, id(a) as a_id, type(r) as r_type, b, labels(b) as b_labels, id(b) as b_id"
+                # Remove if map_ids is not needed.
+                #cypher_query = self.map_ids(line[SUBJECT_COLUMN], line[PREDICATE_COLUMN], line[OBJECT_COLUMN], switch=False)
                 queries_to_include.append(cypher_query)
             elif line[INCLUDE_COLUMN] in TO_MAP:
                 queries_to_map.append(self.map_ids(line[SUBJECT_COLUMN], line[PREDICATE_COLUMN], line[OBJECT_COLUMN]))
@@ -189,20 +195,8 @@ class ReactomeLoader(SourceDataLoader):
         with neo4j_driver.session() as session:
 
             # TODO Suggested implementation
-            # reference_entity_lookup = self.get_reference_entity_mapping(neo4j_session=session)
-            # self.dbid_to_node_id_lookup.update(reference_entity_lookup)
-
-            #Map the id from the nodes databaseName+:+identifier
-            # for node in ALL_ON_NODE_MAPPING:
-            #     node_mapping_cypher = self.on_node_mapping(node)
-            #     self.logger.info(f'Running query {node_mapping_cypher}')
-            #     session.run(node_mapping_cypher)
-
-            # for node in CROSS_MAPPING:
-            #     cross_mapping_cypher = self.cross_map_ids(node)
-            #     self.logger.info(f'Running query {cross_mapping_cypher}')
-            #     session.run(cross_mapping_cypher)
-
+            reference_entity_mapping = self.get_reference_entity_mapping(neo4j_session=session)
+    
             #Map other properties from the nodes summation catalystactivity ...
             # PS: Not currently in use since the content file contains only 'include'
             for cypher_query in queries_to_write:
@@ -221,7 +215,7 @@ class ReactomeLoader(SourceDataLoader):
                 result: neo4j.Result = session.run(cypher_query)
                 self.logger.info(f'Cypher query ({cypher_query}) complete.')
                 # self.logger.info(f'Sample results: {result[:5]}')
-                record_count, skipped_record_count = self.write_neo4j_result_to_file(result)
+                record_count, skipped_record_count = self.write_neo4j_result_to_file(result, reference_entity_mapping)
                 record_counter += record_count
                 skipped_record_counter += skipped_record_count
 
@@ -233,26 +227,53 @@ class ReactomeLoader(SourceDataLoader):
 
     # TODO Suggested implementation
     #  this has not been tested but I would make a cypher call like this to find all of the reference entity mappings
-    """
+ 
     def get_reference_entity_mapping(self, neo4j_session):
         reference_entity_mapping = {}
-        reference_entity_query = 'MATCH (a)-[:referenceEntity|crossReference]->(b) return a,b'
+        reference_entity_query = "MATCH (a)-[:referenceEntity|crossReference]->(b) return id(a) as identity, b as reference, labels(b) as ref_labels"
         reference_entity_result = neo4j_session.run(reference_entity_query)
         for record in reference_entity_result:
-            # do all reference entities have databaseName and identifier? if so it's easy -
             record_data = record.data()
-            curie_prefix = CURIE_PREFIX_MAPPING[record_data['b']['databaseName']]
-            reference_entity_mapping[record_data['a']['identity']] = f"{curie_prefix}:{record_data['b']['identifier']}"
+            ref_labels = record_data['ref_labels']
+            curie = None
+            if any(x in ON_NODE_MAPPING for x in ref_labels) or any(x in CROSS_MAPPING for x in ref_labels):
+                #On-node/Same node ID Mapping eg GO, Disease ...
+                if "Species" in ref_labels:
+                    curie = f"{NCBITAXON}:{record_data['reference']['taxId']}"
+                elif "GO_Term" in ref_labels:
+                    try:
+                        curie = f"{CURIE_PREFIX_MAPPING[record_data['reference']['databaseName']]}:{record_data['reference']['accession']}"
+                    except: #Allow the mapping to fail so we can see what isn't normalizing in failure logs.
+                        curie = f"{record_data['reference']['databaseName']}:{record_data['reference']['accession']}"
+                else:
+                    try:
+                        curie = f"{CURIE_PREFIX_MAPPING[record_data['reference']['databaseName']]}:{record_data['reference']['identifier']}"
+                    except: #Allow the mapping to fail so we can see what isn't normalizing in failure logs.
+                        curie = f"{record_data['reference']['databaseName']}:{record_data['reference']['identifier']}"
+            elif any(x in NORMALIZED_NODES for x in ref_labels): 
+                curie = f"{REACTOME}:{record_data['reference']['stId']}"
+            elif ref_labels == ['DatabaseObject', 'DatabaseIdentifier']:
+                    try:
+                        curie = f"{CURIE_PREFIX_MAPPING[record_data['reference']['databaseName']]}:{record_data['reference']['identifier']}"
+                    except: #Allow the mapping to fail so we can see what isn't normalizing in failure logs.
+                        curie = f"{record_data['reference']['databaseName']}:{record_data['reference']['identifier']}"
+            if not curie:
+                self.logger.warning(f"A node ID could not be mapped for: {record_data['identity']} (ref_map_labels: {record_data['ref_labels']})")
+                continue
+            if record_data['identity'] in reference_entity_mapping.keys():
+                reference_entity_mapping[record_data['identity']].append(curie)
+            else:
+                reference_entity_mapping[record_data['identity']] = [curie]
         return reference_entity_mapping
-    """
-    def write_neo4j_result_to_file(self, result: neo4j.Result):
+
+    def write_neo4j_result_to_file(self, result: neo4j.Result, reference_entity_mapping):
         record_count = 0
         skipped_record_count = 0
         for record in result:
             record_data = record.data()
 
-            node_a_id = self.process_node_from_neo4j(record_data['a_id'], record_data['a'], record_data['a_labels'])
-            node_b_id = self.process_node_from_neo4j(record_data['b_id'], record_data['b'], record_data['b_labels'])
+            node_a_id = self.process_node_from_neo4j(reference_entity_mapping, record_data['a_id'], record_data['a'], record_data['a_labels'])
+            node_b_id = self.process_node_from_neo4j(reference_entity_mapping, record_data['b_id'], record_data['b'], record_data['b_labels'])
             if node_a_id and node_b_id:
                 self.process_edge_from_neo4j(node_a_id, record_data['r_type'], node_b_id)
                 record_count += 1
@@ -260,10 +281,10 @@ class ReactomeLoader(SourceDataLoader):
                 skipped_record_count += 1
         return record_count, skipped_record_count
     
-    def process_node_from_neo4j(self, node_identity, node: dict, node_labels: list = None):
+    def process_node_from_neo4j(self, reference_entity_mapping, node_identity, node: dict, node_labels: list = None):
         #self.logger.info(f'processing node: {node_identity}')
         node_id = None
-        if any(x in ON_NODE_MAPPING for x in node_labels) or any(x in CROSS_MAPPING for x in node_labels):
+        if any(x in ON_NODE_MAPPING for x in node_labels):
             #On-node/Same node ID Mapping eg GO, Disease ...
             if "Species" in node_labels:
                 node_id = f"{NCBITAXON}:{node['taxId']}"
@@ -279,6 +300,11 @@ class ReactomeLoader(SourceDataLoader):
                     node_id = f"{node['databaseName']}:{node['identifier']}"
         elif any(x in NORMALIZED_NODES for x in node_labels): 
             node_id = f"{REACTOME}:{node['stId']}"
+        elif any(x in CROSS_MAPPING for x in node_labels):
+            if node_identity in reference_entity_mapping.keys():
+            # Below it is setting the first reference ID found for each ID.
+            # We could update this in the future to use a preferred prefix or something to choose the ID more intelligently if there are multiple.
+                node_id = reference_entity_mapping[node_identity][0]
         if not node_id:
             self.logger.warning(f'A node ID could not be mapped for: {node_identity} (ref_map_labels: {node_labels})')
             return None
