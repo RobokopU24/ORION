@@ -83,8 +83,8 @@ class STRINGDBLoader(SourceDataLoader):
 
         self.stringdb_version = None
         self.stringdb_version = self.get_latest_source_version()
-        self.string_db_full_file_url = f"https://stringdb-static.org/download/protein.links.full.{self.stringdb_version}/"
-        self.string_db_physical_subnetwork_file_url = f"https://stringdb-static.org/download/protein.physical.links.full.{self.stringdb_version}/"
+        self.string_db_full_file_url = f"https://stringdb-downloads.org/download/protein.links.full.{self.stringdb_version}/"
+        self.string_db_physical_subnetwork_file_url = f"https://stringdb-downloads.org/download/protein.physical.links.full.{self.stringdb_version}/"
 
         self.ppi_full_file_name = self.taxon_id+f".protein.links.full.{self.stringdb_version}.txt.gz"
         self.ppi_physical_subnetwork_file_name = self.taxon_id+f".protein.physical.links.full.{self.stringdb_version}.txt.gz"
