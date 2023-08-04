@@ -11,7 +11,7 @@ psycopg2-binary>=2.9.3
 orjson==3.8.10
 xxhash==3.0.0
 mysql-connector-python==8.0.28
-neo4j==5.5.0
+neo4j==5.10.0
 pyoxigraph==0.3.6
 curies>=0.4.0
 prefixmaps>=0.1.4

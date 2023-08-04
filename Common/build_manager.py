@@ -11,7 +11,7 @@ from Common.utils import LoggingUtil, quick_jsonl_file_iterator
 from Common.data_sources import get_available_data_sources
 from Common.load_manager import SourceDataManager
 from Common.kgx_file_merger import KGXFileMerger
-from Common.neo4j_tools import Neo4jTools
+from Common.neo4j_tools import create_neo4j_dump
 from Common.kgxmodel import GraphSpec, SubGraphSource, DataSource, NormalizationScheme
 from Common.metadata import Metadata, GraphMetadata, SourceMetadata
 from Common.supplementation import SequenceVariantSupplementation
@@ -111,13 +111,13 @@ class GraphBuilder:
 
         if 'neo4j' in graph_spec.graph_output_format.lower():
             self.logger.info(f'Starting Neo4j dump pipeline for {graph_id}...')
-            neo4j_tools = Neo4jTools(graph_id=graph_id,
-                                     graph_version=graph_version)
-            dump_success = neo4j_tools.create_neo4j_dump(graph_id=graph_id,
-                                                         graph_version=graph_version,
-                                                         graph_directory=graph_output_dir,
-                                                         nodes_filename=NODES_FILENAME,
-                                                         edges_filename=EDGES_FILENAME)
+            dump_success = create_neo4j_dump(graph_id=graph_id,
+                                             graph_version=graph_version,
+                                             graph_directory=graph_output_dir,
+                                             nodes_filename=NODES_FILENAME,
+                                             edges_filename=EDGES_FILENAME,
+                                             logger=self.logger)
+
             if dump_success:
                 graph_output_url = self.get_graph_output_URL(graph_id, graph_version)
                 graph_metadata.set_dump_url(f'{graph_output_url}graph_{graph_version}.db.dump')

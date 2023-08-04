@@ -65,12 +65,12 @@ class BINDINGDBLoader(SourceDataLoader):
         # self.KON_predicate = 'biolink:binds'
         # self.KOFF_predicate = 'biolink:binds'
 
-        self.bindingdb_version = None
+        self.bindingdb_version = '202307'  # TODO temporarily hard coded until renci connection bug is resolved
         self.bindingdb_version = self.get_latest_source_version()
         self.bindingdb_data_url = [f"https://www.bindingdb.org/bind/downloads/"]
 
-        self.BD_full_file_name = f"BindingDB_All_{self.bindingdb_version}.tsv.zip"
-        self.data_files = [self.BD_full_file_name]
+        self.BD_archive_file_name = f"BindingDB_All_{self.bindingdb_version}.tsv.zip"
+        self.data_files = [self.BD_archive_file_name]
 
     def get_latest_source_version(self) -> str:
         """
@@ -106,12 +106,6 @@ class BINDINGDBLoader(SourceDataLoader):
         :return: ret_val: load_metadata
         """
 
-        BD_full_file: str = os.path.join(self.data_path, self.BD_full_file_name)
-        if ".zip" in BD_full_file:
-                with z.ZipFile(BD_full_file, 'r') as fp:
-                    fp.extractall(self.data_path)
-                os.remove(BD_full_file)
-                BD_full_file: str = os.path.join(self.data_path, self.BD_full_file_name.replace(".zip",""))
         extractor = Extractor(file_writer=self.output_file_writer)
 
         dtype_dict= {BD_EDGEUMAN.KI.value:str,
@@ -125,8 +119,9 @@ class BINDINGDBLoader(SourceDataLoader):
                     BD_EDGEUMAN.PATENT_NUMEBR.value:str,
                     BD_EDGEUMAN.PUBCHEM_CID.value:str,
                     BD_EDGEUMAN.UNIPROT_TARGET_CHAIN.value:str}
-        
-        table = pd.read_csv(f"{self.data_path}{self.BD_full_file_name.split('.zip')[0]}",
+
+        data_archive_path = os.path.join(self.data_path, self.BD_archive_file_name)
+        table = pd.read_csv(data_archive_path,
                 usecols=[
                     BD_EDGEUMAN.KI.value, #From now on, it is position 0
                     BD_EDGEUMAN.IC50.value, #From now on, it is position 1
@@ -141,6 +136,7 @@ class BINDINGDBLoader(SourceDataLoader):
                     BD_EDGEUMAN.UNIPROT_TARGET_CHAIN.value, #From now on, it is position 10
                 ],
                 sep="\t",
+                compression='zip',
                 dtype=dtype_dict
             )
         
@@ -306,15 +302,15 @@ class BINDINGDBLoader(SourceDataLoader):
         table['does_it_bind'] = does_it_bind_list
         table = table[table['does_it_bind'] == "True"]
 
-        filename = f"BindingDB_All.tsv"
-        table.to_csv(os.path.join(self.data_path, filename),sep="\t",index=False)
+        pandas_output_file_path = os.path.join(self.data_path, f"BindingDB_temp_table.tsv")
+        table.to_csv(pandas_output_file_path, sep="\t",index=False)
 
         # def does_it_bind_filter(infile):
         #     yield next(infile)
         #     for line in infile:
         #        if(line.split('\t')[12])=="True": yield line
 
-        with open(os.path.join(self.data_path, filename), 'r') as fp:
+        with open(pandas_output_file_path, 'r') as fp:
             extractor.csv_extract(fp,
                                     lambda line: f'PUBCHEM.COMPOUND:{line[0]}',  # subject id
                                     lambda line: f'UniProtKB:{line[1]}',  # object id
@@ -328,5 +324,7 @@ class BINDINGDBLoader(SourceDataLoader):
                                     comment_character=None,
                                     delim="\t",
                                     has_header_row=True)
+
+        os.remove(pandas_output_file_path)
 
         return extractor.load_metadata

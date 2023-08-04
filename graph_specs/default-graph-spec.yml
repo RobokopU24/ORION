@@ -14,7 +14,7 @@ graphs:
     conflation: True
     output_format: neo4j
     sources:
-      - source_id: Biolink
+      - source_id: BINDING-DB
         # optional parameters for each data source - see README for more info
         # source_version: latest (the version of the source data)
         # parsing_version: latest (the version of the parser used to parse the data)
@@ -23,6 +23,7 @@ graphs:
         # conflation: False
         # strict_normalization: True (whether or not data should be discarded when it can not be normalized)
         # merge_strategy: default (used to specify alternative merge strategies)
+      - source_id: Biolink
       - source_id: CHEBIProps
       - source_id: CTD
       - source_id: DrugCentral
@@ -39,6 +40,7 @@ graphs:
       - source_id: PANTHER
       - source_id: PHAROS
         source_version: 'v6_13_4'
+      - source_id: Reactome
       - source_id: textminingkp
       - source_id: STRING-DB-Human
       - source_id: Ubergraph
@@ -230,7 +232,17 @@ graphs:
       - source_id: PHAROS
       - source_id: OntologicalHierarchy
         merge_strategy: connected_edge_subset
-  
+
+  - graph_id: Reactome_Automat
+    graph_name: Reactome
+    graph_description: 'REACTOME is an open-source, open access, manually curated and peer-reviewed pathway database. Our goal is to provide intuitive bioinformatics tools for the visualization, interpretation and analysis of pathway knowledge to support basic and clinical research, genome analysis, modeling, systems biology and education.'
+    graph_url: https://reactome.org/
+    output_format: neo4j
+    sources:
+      - source_id: Reactome
+      - source_id: OntologicalHierarchy
+        merge_strategy: connected_edge_subset
+
   - graph_id: STRING-DB_Automat
     graph_name: STRING
     graph_description: 'The Search Tool for the Retrieval of INteracting Genes/proteins (STRING) database provides information on known and predicted protein-protein interactions (both direct and indirect) derived from genomic context predictions, high-throughput laboratory experiments, conserved co-expression, automated text mining, and aggregated knowledge from primary data sources.'
@@ -276,3 +288,4 @@ graphs:
       - source_id: ViralProteome
       - source_id: OntologicalHierarchy
         merge_strategy: connected_edge_subset
+

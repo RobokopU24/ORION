@@ -31,3 +31,5 @@ services:
       - "${DATA_SERVICES_GRAPHS}:/Data_services_graphs"
       - "${DATA_SERVICES_LOGS}:/Data_services_logs"
     user: 7474:7474
+    
+
