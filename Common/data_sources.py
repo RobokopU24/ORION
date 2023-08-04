@@ -16,6 +16,7 @@ HETIO = 'Hetio'
 HGNC = 'HGNC'
 HMDB = 'HMDB'
 HUMAN_GOA = 'HumanGOA'
+HVPPI = 'HVPPI'
 INTACT = 'IntAct'
 MONDO_PROPS = 'MONDOProps'
 ONTOLOGICAL_HIERARCHY = 'OntologicalHierarchy'
@@ -53,6 +54,7 @@ SOURCE_DATA_LOADER_CLASS_IMPORTS = {
     HGNC: ("parsers.hgnc.src.loadHGNC", "HGNCLoader"),
     HMDB: ("parsers.hmdb.src.loadHMDB", "HMDBLoader"),
     HUMAN_GOA: ("parsers.GOA.src.loadGOA", "HumanGOALoader"),
+    HVPPI: ("parsers.HVPPI.src.loadHVPPI","HVPPILoader"),
     INTACT: ("parsers.IntAct.src.loadIA", "IALoader"),
     MONDO_PROPS: ("parsers.MONDOProperties.src.loadMP", "MPLoader"),
     ONTOLOGICAL_HIERARCHY: ("parsers.UberGraph.src.loadUG", "OHLoader"),

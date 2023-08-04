@@ -1,0 +1,10 @@
+graphs:
+  - graph_id: HVPPI_Automate
+    graph_name: HVPPI
+    graph_description: 'HVPPI (Human-Virus Protein-Protein Interactions) provide a comprehensively annotated human-virus protein interactions as well as online tools for functional analysis of PPIs'
+    graph_url: http://bio-bigdata.hrbmu.edu.cn/HVPPI/download.jsp
+    output_format: neo4j
+    sources:
+      - source_id: HVPPI
+#      - source_id: OntologicalHierarchy
+        merge_strategy: connected_edge_subset
