@@ -31,7 +31,10 @@ PREDICATE_MAPPING = {"compartment": "biolink:occurs_in",
                      "catalystActivity": "biolink:actively_involves",
                      "cellType": "biolink:located_in",
                      "goBiologicalProcess": "biolink:subclass_of",
-                     "disease": "biolink:disease_has_basis_in"}
+                     "disease": "biolink:disease_has_basis_in",
+                     "regulator":"biolink:regulates",
+                     "species":"biolink:in_taxon",
+                     "includedLocation":"biolink:located_in"}
 
 
 # TODO - use something like this instead of manipulating strings for individual cases
@@ -164,8 +167,12 @@ class ReactomeLoader(SourceDataLoader):
         for line in lines_to_process:
             line = line.strip().split(',')
             if line[INCLUDE_COLUMN] in RDF_EDGES_TO_INCLUDE:
-                queries_to_include.append(
-                    self.rdf_edge_mapping(line[SUBJECT_COLUMN], line[PREDICATE_COLUMN], line[OBJECT_COLUMN]))
+                cypher_query = f"MATCH (a:{line[OBJECT_COLUMN]})<-[r:regulator]-(d:Regulation)-[r1:regulatedBy]-(c:ReactionLikeEvent)-[r2:output]-(b) " \
+                        f"WHERE c.displayName CONTAINS 'Expression of' AND any(x in labels(a) WHERE x in " \
+                        f"['Drug','SimpleEntity','Complex','GenomeEncodedEntity','EntityWithAccessionedSequence']) " \
+                        f"AND any(x in labels(b) WHERE x in ['Complex','GenomeEncodedEntity','EntityWithAccessionedSequence']) " \
+                        f"RETURN a, labels(a) as a_labels, id(a) as a_id, type(r) as r_type, b, labels(b) as b_labels, id(b) as b_id, labels(d) as regulationType"
+                queries_to_include.append(cypher_query)
             elif line[INCLUDE_COLUMN] in TO_SWITCH:
                 cypher_query = f"MATCH (b:{line[SUBJECT_COLUMN]})-[r:{line[PREDICATE_COLUMN]}]->(a:{line[OBJECT_COLUMN]}) " \
                         f"RETURN a, labels(a) as a_labels, id(a) as a_id, type(r) as r_type, b, labels(b) as b_labels, id(b) as b_id"
@@ -230,40 +237,45 @@ class ReactomeLoader(SourceDataLoader):
  
     def get_reference_entity_mapping(self, neo4j_session):
         reference_entity_mapping = {}
-        reference_entity_query = "MATCH (a)-[:referenceEntity|crossReference]->(b) return id(a) as identity, b as reference, labels(b) as ref_labels"
+        # The following line excludes Pathways from ID mapping because we only want to map them to GO terms, like 2 lines below.
+        reference_entity_query = "MATCH (a)-[:referenceEntity|crossReference]->(b) WHERE NOT('Pathway' in labels(a)) return id(a) as identity, b as reference, labels(b) as ref_labels"
+        goBioProcess_query = "MATCH (a:Pathway)-[r:goBiologicalProcess]->(b:GO_Term) WHERE replace(toLower(a.displayName),'-',' ') = replace(toLower(b.displayName),'-',' ') return id(a) as identity, b as reference, labels(b) as ref_labels"
         reference_entity_result = neo4j_session.run(reference_entity_query)
-        for record in reference_entity_result:
-            record_data = record.data()
-            ref_labels = record_data['ref_labels']
-            curie = None
-            if any(x in ON_NODE_MAPPING for x in ref_labels) or any(x in CROSS_MAPPING for x in ref_labels):
-                #On-node/Same node ID Mapping eg GO, Disease ...
-                if "Species" in ref_labels:
-                    curie = f"{NCBITAXON}:{record_data['reference']['taxId']}"
-                elif "GO_Term" in ref_labels:
-                    try:
-                        curie = f"{CURIE_PREFIX_MAPPING[record_data['reference']['databaseName']]}:{record_data['reference']['accession']}"
-                    except: #Allow the mapping to fail so we can see what isn't normalizing in failure logs.
-                        curie = f"{record_data['reference']['databaseName']}:{record_data['reference']['accession']}"
+        goBioProcess_query = neo4j_session.run(goBioProcess_query)
+        all_crossmap_id_results = [reference_entity_result, goBioProcess_query]
+        for result_set in all_crossmap_id_results:
+            for record in result_set:
+                record_data = record.data()
+                ref_labels = record_data['ref_labels']
+                curie = None
+                if any(x in ON_NODE_MAPPING for x in ref_labels) or any(x in CROSS_MAPPING for x in ref_labels):
+                    #On-node/Same node ID Mapping eg GO, Disease ...
+                    if "Species" in ref_labels:
+                        curie = f"{NCBITAXON}:{record_data['reference']['taxId']}"
+                    elif "GO_Term" in ref_labels:
+                        try:
+                            curie = f"{CURIE_PREFIX_MAPPING[record_data['reference']['databaseName']]}:{record_data['reference']['accession']}"
+                        except: #Allow the mapping to fail so we can see what isn't normalizing in failure logs.
+                            curie = f"{record_data['reference']['databaseName']}:{record_data['reference']['accession']}"
+                    else:
+                        try:
+                            curie = f"{CURIE_PREFIX_MAPPING[record_data['reference']['databaseName']]}:{record_data['reference']['identifier']}"
+                        except: #Allow the mapping to fail so we can see what isn't normalizing in failure logs.
+                            curie = f"{record_data['reference']['databaseName']}:{record_data['reference']['identifier']}"
+                elif any(x in NORMALIZED_NODES for x in ref_labels): 
+                    curie = f"{REACTOME}:{record_data['reference']['stId']}"
+                elif ref_labels == ['DatabaseObject', 'DatabaseIdentifier']:
+                        try:
+                            curie = f"{CURIE_PREFIX_MAPPING[record_data['reference']['databaseName']]}:{record_data['reference']['identifier']}"
+                        except: #Allow the mapping to fail so we can see what isn't normalizing in failure logs.
+                            curie = f"{record_data['reference']['databaseName']}:{record_data['reference']['identifier']}"
+                if not curie:
+                    self.logger.warning(f"A node ID could not be mapped for: {record_data['identity']} (ref_map_labels: {record_data['ref_labels']})")
+                    continue
+                if record_data['identity'] in reference_entity_mapping.keys():
+                    reference_entity_mapping[record_data['identity']].append(curie)
                 else:
-                    try:
-                        curie = f"{CURIE_PREFIX_MAPPING[record_data['reference']['databaseName']]}:{record_data['reference']['identifier']}"
-                    except: #Allow the mapping to fail so we can see what isn't normalizing in failure logs.
-                        curie = f"{record_data['reference']['databaseName']}:{record_data['reference']['identifier']}"
-            elif any(x in NORMALIZED_NODES for x in ref_labels): 
-                curie = f"{REACTOME}:{record_data['reference']['stId']}"
-            elif ref_labels == ['DatabaseObject', 'DatabaseIdentifier']:
-                    try:
-                        curie = f"{CURIE_PREFIX_MAPPING[record_data['reference']['databaseName']]}:{record_data['reference']['identifier']}"
-                    except: #Allow the mapping to fail so we can see what isn't normalizing in failure logs.
-                        curie = f"{record_data['reference']['databaseName']}:{record_data['reference']['identifier']}"
-            if not curie:
-                self.logger.warning(f"A node ID could not be mapped for: {record_data['identity']} (ref_map_labels: {record_data['ref_labels']})")
-                continue
-            if record_data['identity'] in reference_entity_mapping.keys():
-                reference_entity_mapping[record_data['identity']].append(curie)
-            else:
-                reference_entity_mapping[record_data['identity']] = [curie]
+                    reference_entity_mapping[record_data['identity']] = [curie]
         return reference_entity_mapping
 
     def write_neo4j_result_to_file(self, result: neo4j.Result, reference_entity_mapping):
@@ -275,7 +287,13 @@ class ReactomeLoader(SourceDataLoader):
             node_a_id = self.process_node_from_neo4j(reference_entity_mapping, record_data['a_id'], record_data['a'], record_data['a_labels'])
             node_b_id = self.process_node_from_neo4j(reference_entity_mapping, record_data['b_id'], record_data['b'], record_data['b_labels'])
             if node_a_id and node_b_id:
-                self.process_edge_from_neo4j(node_a_id, record_data['r_type'], node_b_id)
+                if "regulationType" in record_data.keys():
+                    if any("positive" in x.lower() for x in record_data['regulationType']):
+                        self.process_edge_from_neo4j(node_a_id, record_data['r_type'], node_b_id, regulationType='positive')
+                    elif any("negative" in x.lower() for x in record_data['regulationType']):
+                        self.process_edge_from_neo4j(node_a_id, record_data['r_type'], node_b_id, regulationType='negative')
+                else:
+                    self.process_edge_from_neo4j(node_a_id, record_data['r_type'], node_b_id, regulationType=None)
                 record_count += 1
             else:
                 skipped_record_count += 1
@@ -298,13 +316,21 @@ class ReactomeLoader(SourceDataLoader):
                     node_id = f"{CURIE_PREFIX_MAPPING[node['databaseName']]}:{node['identifier']}"
                 except: #Allow the mapping to fail so we can see what isn't normalizing in failure logs.
                     node_id = f"{node['databaseName']}:{node['identifier']}"
-        elif any(x in NORMALIZED_NODES for x in node_labels): 
-            node_id = f"{REACTOME}:{node['stId']}"
+        elif any(x in NORMALIZED_NODES for x in node_labels):
+            if any(x == 'Pathway' for x in node_labels): #This section exists because some of the pathways have completely equivalent GO terms, so we want to use those.
+                if node_identity in reference_entity_mapping.keys():
+                    node_id = reference_entity_mapping[node_identity][0]
+                else: #But some of the pathways do not have identical GO_Terms, so using REACT IDs is preferable.
+                    node_id = f"{REACTOME}:{node['stId']}"
+            else:
+                node_id = f"{REACTOME}:{node['stId']}"
         elif any(x in CROSS_MAPPING for x in node_labels):
             if node_identity in reference_entity_mapping.keys():
             # Below it is setting the first reference ID found for each ID.
             # We could update this in the future to use a preferred prefix or something to choose the ID more intelligently if there are multiple.
                 node_id = reference_entity_mapping[node_identity][0]
+            else: #Allow setting of REACT stIds to unmapped nodes in case they normalize in the future.
+                node_id = f"{REACTOME}:{node['stId']}"
         if not node_id:
             self.logger.warning(f'A node ID could not be mapped for: {node_identity} (ref_map_labels: {node_labels})')
             return None
@@ -354,15 +380,32 @@ class ReactomeLoader(SourceDataLoader):
         self.dbid_to_node_id_lookup[node['dbId']] = node_id
         """
 
-    def process_edge_from_neo4j(self, subject_id: str, relationship_type: str, object_id: str):
+    def process_edge_from_neo4j(self, subject_id: str, relationship_type: str, object_id: str, regulationType=None):
         predicate = PREDICATE_MAPPING.get(relationship_type, None)
         if predicate:
-            output_edge = kgxedge(
-                subject_id=subject_id,
-                object_id=object_id,
-                predicate=predicate,
-                primary_knowledge_source=self.provenance_id
-            )
+            if regulationType == None:
+                output_edge = kgxedge(
+                    subject_id=subject_id,
+                    object_id=object_id,
+                    predicate=predicate,
+                    primary_knowledge_source=self.provenance_id
+                )
+            else:
+                if regulationType == "positive":
+                    direction = 'increases'
+                elif regulationType == "negative":
+                    direction = 'decreases'
+                output_edge = kgxedge(
+                    subject_id=subject_id,
+                    object_id=object_id,
+                    predicate=predicate,
+                    edgeprops={
+                        'qualified_predicate':'biolink:causes',
+                        'object_direction_qualifier':direction,
+                        'object_aspect_qualifier':'expression'
+                    },
+                    primary_knowledge_source=self.provenance_id
+                )
             self.output_file_writer.write_kgx_edge(output_edge)
         else:
             self.logger.warning(f'A predicate could not be mapped for relationship type {relationship_type}')
