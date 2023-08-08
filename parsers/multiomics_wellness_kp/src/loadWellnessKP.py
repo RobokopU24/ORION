@@ -45,7 +45,7 @@ class MWKPLoader(SourceDataLoader):
 
     source_id: str = 'MultiomicsWellnessKP'
     provenance_id: str = 'infores:biothings-multiomics-wellness'
-    parsing_version: str = '1.0'
+    parsing_version: str = '1.2'
 
     def __init__(self, test_mode: bool = False, source_data_dir: str = None):
         """
@@ -54,7 +54,7 @@ class MWKPLoader(SourceDataLoader):
         """
         super().__init__(test_mode=test_mode, source_data_dir=source_data_dir)
 
-        self.wellness_kp_url = 'https://storage.cloud.google.com/multiomics_provider_kp_data/wellness/'
+        self.wellness_kp_url = 'https://storage.googleapis.com/multiomics_provider_kp_data/wellness/'
         self.wellness_edges_file = 'wellness_kg_edges_v1.7.tsv'
         self.data_files = [self.wellness_edges_file]
 
@@ -78,20 +78,27 @@ class MWKPLoader(SourceDataLoader):
 
         extractor = Extractor(file_writer=self.output_file_writer)
         wellness_edges_file_path: str = os.path.join(self.data_path, self.wellness_edges_file)
-        with gzip.open(wellness_edges_file_path, 'rt') as fp:
+        with open(wellness_edges_file_path, 'rt') as fp:
             extractor.csv_extract(fp,
                                   lambda line: line[WELLNESS_EDGES_DATACOLS.SUBJECT_ID.value],  # subject id
-                                  lambda line: line[WELLNESS_EDGES_DATACOLS.SUBJECT_ID.value],  # object id
+                                  lambda line: line[WELLNESS_EDGES_DATACOLS.OBJECT_ID.value],  # object id
                                   # here we use the relation column instead of predicate because the RO:xxxx curie
                                   # is preferred as a way to map to the best biolink predicate in normalization
-                                  lambda line: line[WELLNESS_EDGES_DATACOLS.RELATION.value],  # predicate extractor
+                                  lambda line: self.get_edge_predicate(data_row=line),  # predicate extractor
                                   lambda line: {'name': line[WELLNESS_EDGES_DATACOLS.SUBJECT_NAME.value]},  # subject properties
                                   lambda line: {'name': line[WELLNESS_EDGES_DATACOLS.OBJECT_NAME.value]},  # object properties
-                                  lambda line: self.get_edge_properties(),  # edge properties
+                                  lambda line: self.get_edge_properties(data_row=line),  # edge properties
                                   comment_character='#',
                                   delim='\t',
                                   has_header_row=True)
         return extractor.load_metadata
+
+    def get_edge_predicate(self, data_row):
+        if data_row[WELLNESS_EDGES_DATACOLS.QUALIFIER_DOMAIN] and \
+                data_row[WELLNESS_EDGES_DATACOLS.QUALIFIER_DOMAIN] != 'nan':
+            return None
+        else:
+            return data_row[WELLNESS_EDGES_DATACOLS.PREDICATE.value]
 
     def get_edge_properties(self, data_row):
         edge_properties = {PRIMARY_KNOWLEDGE_SOURCE: self.provenance_id}
@@ -109,20 +116,14 @@ class MWKPLoader(SourceDataLoader):
         # NCIT:C61594 - bonferroni_pval
         edge_properties["NCIT:C61594"] = float(data_row[WELLNESS_EDGES_DATACOLS.PVAL.value])
 
-        # qualifier stuff
         """
-        domain = None if (line[10] == '' or line[10] == 'nan') else line[10]
-            qualifier = None if (line[11] == '' or line[11] == 'nan') else line[11]
-            qualifier_value = None if (line[12] == '' or line[12] == 'nan') else line[12]
-            if not(qualifier is None):
-                edge_attributes.append(
-                    {
-                        "attribute_type_id": qualifier,
-                        "description": domain,
-                        "value": qualifier_value,
-                        #"value_type_id": "XXX ???" # ???
-                    }
-                )
-
+        qualifier = None if (not data_row[WELLNESS_EDGES_DATACOLS.QUALIFIERS.value] or
+                             (data_row[WELLNESS_EDGES_DATACOLS.QUALIFIERS.value] == 'nan')) \
+            else data_row[WELLNESS_EDGES_DATACOLS.QUALIFIERS.value]
+        qualifier_value = None if (not data_row[WELLNESS_EDGES_DATACOLS.QUALIFIER_VALUE.value] or
+                             (data_row[WELLNESS_EDGES_DATACOLS.QUALIFIER_VALUE.value] == 'nan')) \
+            else data_row[WELLNESS_EDGES_DATACOLS.QUALIFIER_VALUE.value]
+        if qualifier and qualifier_value:
+            edge_properties[qualifier] = qualifier_value
         """
         return edge_properties

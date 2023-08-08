@@ -20,6 +20,7 @@ HMDB = 'HMDB'
 HUMAN_GOA = 'HumanGOA'
 INTACT = 'IntAct'
 MONDO_PROPS = 'MONDOProps'
+MULTIOMICS_WELLNESS_KP = 'MultiomicsWellnessKP'
 ONTOLOGICAL_HIERARCHY = 'OntologicalHierarchy'
 PANTHER = 'PANTHER'
 PHAROS = 'PHAROS'
@@ -61,6 +62,7 @@ SOURCE_DATA_LOADER_CLASS_IMPORTS = {
     HUMAN_STRING: ("parsers.STRING.src.loadSTRINGDB", "HumanSTRINGDBLoader"),
     INTACT: ("parsers.IntAct.src.loadIA", "IALoader"),
     MONDO_PROPS: ("parsers.MONDOProperties.src.loadMP", "MPLoader"),
+    MULTIOMICS_WELLNESS_KP: ("parsers.multiomics_wellness_kp.src.loadWellnessKP", "MWKPLoader"),
     ONTOLOGICAL_HIERARCHY: ("parsers.UberGraph.src.loadUG", "OHLoader"),
     PANTHER: ("parsers.panther.src.loadPanther", "PLoader"),
     PHAROS: ("parsers.PHAROS.src.loadPHAROS", "PHAROSLoader"),
