@@ -205,11 +205,11 @@ class Neo4jTools:
         self.neo4j_driver.close()
 
 
-def create_neo4j_dump(graph_id: str,
-                      graph_version: str,
-                      graph_directory: str,
+def create_neo4j_dump(graph_directory: str,
                       nodes_filename: str = 'nodes.jsonl',
                       edges_filename: str = 'edges.jsonl',
+                      graph_id: str = 'graph',
+                      graph_version: str = '',
                       logger=None):
     graph_nodes_file_path = os.path.join(graph_directory, nodes_filename)
     graph_edges_file_path = os.path.join(graph_directory, edges_filename)
