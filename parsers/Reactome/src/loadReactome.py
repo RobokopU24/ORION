@@ -25,6 +25,9 @@ PREDICATE_MAPPING = {"compartment": "biolink:occurs_in",
                      "output": "biolink:has_output",
                      "input": "biolink:has_input",
                      "hasEvent": "biolink:contains_process",
+                     "normalPathway":"biolink:contains_process", #TODO Choose better biolink predicate for normalPathways/Reactions/Etc.
+                     "normalReaction":"biolink:contains_process", #TODO Choose better biolink predicate for normalPathways/Reactions/Etc.
+                     #"normalEntity":"biolink:contains_process", #TODO Choose better biolink predicate for normalPathways/Reactions/Etc.
                      "precedingEvent": "biolink:precedes",
                      "activeUnit": "biolink:actively_involves",
                      "hasComponent": "biolink:has_part",
@@ -336,9 +339,11 @@ class ReactomeLoader(SourceDataLoader):
             return None
         
         node_properties = {}
-        if 'definition' in node:
+        if any(x == 'Complex' for x in node_labels):
+            node_properties['categories'] = ['biolink:MacromolecularComplex']
+        if 'definition' in node.keys():
             node_properties['definition'] = node['definition']
-        if 'url' in node:
+        if 'url' in node.keys():
             node_properties['url'] = node['url']
         node_name = node['displayName'] if 'displayName' in node else ''
         node_to_write = kgxnode(node_id, name=node_name, nodeprops=node_properties)
@@ -392,9 +397,9 @@ class ReactomeLoader(SourceDataLoader):
                 )
             else:
                 if regulationType == "positive":
-                    direction = 'increases'
+                    direction = 'increased'
                 elif regulationType == "negative":
-                    direction = 'decreases'
+                    direction = 'decreased'
                 output_edge = kgxedge(
                     subject_id=subject_id,
                     object_id=object_id,
