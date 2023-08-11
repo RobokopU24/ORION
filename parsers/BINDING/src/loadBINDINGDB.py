@@ -5,6 +5,7 @@ import zipfile as z
 import requests as rq
 import pandas as pd
 from decimal import Decimal
+from numpy import nan
 
 from parsers.BINDING.src.bindingdb_constraints import LOG_SCALE_AFFINITY_THRESHOLD #Change the binding affinity threshold here. Default is 10 uM Ki,Kd,EC50,orIC50
 from Common.utils import GetData
@@ -31,6 +32,30 @@ class BD_EDGEUMAN(enum.IntEnum):
 
 def negative_log(score): ### This function converts nanomolar concentrations into log-scale units (pKi/pKd/pIC50/pEC50). ###
     return -(math.log10(score*(10**-9)))
+
+def string_to_list(input, prefix: str):
+    #li = [prefix+item for item in input_list if not(math.isnan(item)) == True]
+    input = input.replace('[','').replace(']','')
+    li = input.split(", ")
+    li = [prefix+x for x in li if x != "nan"]
+    if li == None:
+        li = []
+    return li
+
+def deduplicate_list(input_list):
+    return list(set(input_list))
+
+def generate_dataframe_rows(df):
+        """Generator function to yield each row of a pandas DataFrame.
+
+        Args:
+            df (pandas.DataFrame): The DataFrame to iterate over.
+
+        Yields:
+            pandas.Series: One row from the DataFrame as a pandas Series.
+        """
+        for idx,row in df.iterrows():
+            yield idx,row
 
 ##############
 # Class: Loading binding affinity measurements and sources from Binding-DB
@@ -142,17 +167,19 @@ class BINDINGDBLoader(SourceDataLoader):
         
         table = table.dropna(subset=["UniProt (SwissProt) Primary ID of Target Chain"])
         table = table.dropna(subset=["PubChem CID"])
+        self.logger.info(f'About to group and aggregate ligand-protein pair data. This could take a while.')
         table = table.groupby(["PubChem CID","UniProt (SwissProt) Primary ID of Target Chain"]).agg(list).reset_index()
-
+        self.logger.info(f'Done grouping data!')
         # only keep 1000 entries for test mode
         if self.test_mode:
             table = table.head(1000)
 
         measurements_list = []
         does_it_bind_list = []
-        for idx,row in table.iterrows():
+        publications_store = []
+        for idx,row in generate_dataframe_rows(table):
             if idx%10000 == 0:
-                self.logger.debug(idx,":",len(table))
+                self.logger.info(f"Processed {idx} of {len(table)} rows so far.")
             does_it_bind = False
             measurements_dict = {}
             pKi_measurements = []
@@ -161,122 +188,177 @@ class BINDINGDBLoader(SourceDataLoader):
             pEC50_measurements = []
             kon_measurements = []
             koff_measurements = []
+            publications_list = []
             for i in range(len(row["Ki (nM)"])):
 
                 if type(row["Ki (nM)"][i]) == str:
                     measurement = {}
                     try:
-                        value = round(negative_log(float(Decimal(str(row["Ki (nM)"][i]).replace('>','').replace('<','')))),3)
+                        value = round(negative_log(float(Decimal(str(row["Ki (nM)"][i]).replace('>','').replace('<','')))),2)
                         if value > self.affinity_threshold:
                             does_it_bind = True
                     except:
                         value = "undefined"
-                    measurement.update({"VALUE":value})
+                    measurement.update({"affinity":value})
                     if type(row["PMID"][i]) == str:
-                        pmid = row["PMID"][i]
-                        measurement.update({"PMID":pmid})
+                        pmid = "PMID:"+row["PMID"][i]
+                        if "publications" not in measurement.keys():
+                            measurement.update({"publications":[]})
+                        measurement["publications"].append(pmid)
+                        publications_list.append(pmid)
                     if type(row["PubChem AID"][i]) == str:
-                        aid = row["PubChem AID"][i]
-                        measurement.update({"PUBCHEM_AID":aid})
+                        aid = "PUBCHEM.AID:"+row["PubChem AID"][i]
+                        if "publications" not in measurement.keys():
+                            measurement.update({"publications":[]})
+                        measurement["publications"].append(aid)
+                        publications_list.append(aid)
                     if type(row["Patent Number"][i]) == str:
-                        patent = row["Patent Number"][i]
-                        measurement.update({"PATENT_NUMBER":patent})
+                        patent = "PATENT:"+row["Patent Number"][i]
+                        if "publications" not in measurement.keys():
+                            measurement.update({"publications":[]})
+                        measurement["publications"].append(patent)
+                        publications_list.append(patent)
                     pKi_measurements = pKi_measurements + [measurement]
 
                 if type(row["Kd (nM)"][i]) == str:
                     measurement = {}
                     try:
-                        value = round(negative_log(float(Decimal(str(row["Kd (nM)"][i]).replace('>','').replace('<','')))),3)
+                        value = round(negative_log(float(Decimal(str(row["Kd (nM)"][i]).replace('>','').replace('<','')))),2)
                         if value > self.affinity_threshold:
                             does_it_bind = True
                     except:
                         value = "undefined"
-                    measurement.update({"VALUE":value})
+                    measurement.update({"affinity":value})
                     if type(row["PMID"][i]) == str:
-                        pmid = row["PMID"][i]
-                        measurement.update({"PMID":pmid})
+                        pmid = "PMID:"+row["PMID"][i]
+                        if "publications" not in measurement.keys():
+                            measurement.update({"publications":[]})
+                        measurement["publications"].append(pmid)
+                        publications_list.append(pmid)
                     if type(row["PubChem AID"][i]) == str:
-                        aid = row["PubChem AID"][i]
-                        measurement.update({"PUBCHEM_AID":aid})
+                        aid = "PUBCHEM.AID:"+row["PubChem AID"][i]
+                        if "publications" not in measurement.keys():
+                            measurement.update({"publications":[]})
+                        measurement["publications"].append(aid)
+                        publications_list.append(aid)
                     if type(row["Patent Number"][i]) == str:
-                        patent = row["Patent Number"][i]
-                        measurement.update({"PATENT_NUMBER":patent})
+                        patent = "PATENT:"+row["Patent Number"][i]
+                        if "publications" not in measurement.keys():
+                            measurement.update({"publications":[]})
+                        measurement["publications"].append(patent)
+                        publications_list.append(patent)
                     pKd_measurements = pKd_measurements + [measurement]
 
                 if type(row["IC50 (nM)"][i]) == str:
                     measurement = {}
                     try:
-                        value = round(negative_log(float(Decimal(str(row["IC50 (nM)"][i]).replace('>','').replace('<','')))),3)
+                        value = round(negative_log(float(Decimal(str(row["IC50 (nM)"][i]).replace('>','').replace('<','')))),2)
                         if value > self.affinity_threshold:
                             does_it_bind = True
                     except:
                         value = "undefined"
-                    measurement.update({"VALUE":value})
+                    measurement.update({"affinity":value})
                     if type(row["PMID"][i]) == str:
-                        pmid = row["PMID"][i]
-                        measurement.update({"PMID":pmid})
+                        pmid =  "PMID:"+row["PMID"][i]
+                        if "publications" not in measurement.keys():
+                            measurement.update({"publications":[]})
+                        measurement["publications"].append(pmid)
+                        publications_list.append(pmid)
                     if type(row["PubChem AID"][i]) == str:
-                        aid = row["PubChem AID"][i]
-                        measurement.update({"PUBCHEM_AID":aid})
+                        aid = "PUBCHEM.AID:"+row["PubChem AID"][i]
+                        if "publications" not in measurement.keys():
+                            measurement.update({"publications":[]})
+                        measurement["publications"].append(aid)
+                        publications_list.append(aid)
                     if type(row["Patent Number"][i]) == str:
-                        patent = row["Patent Number"][i]
-                        measurement.update({"PATENT_NUMBER":patent})
+                        patent = "PATENT:"+row["Patent Number"][i]
+                        if "publications" not in measurement.keys():
+                            measurement.update({"publications":[]})
+                        measurement["publications"].append(patent)
+                        publications_list.append(patent)
                     pIC50_measurements = pIC50_measurements + [measurement]
 
                 if type(row["EC50 (nM)"][i]) == str:
                     measurement = {}
                     try:
-                        value = round(negative_log(float(Decimal(str(row["EC50 (nM)"][i]).replace('>','').replace('<','')))),3)
+                        value = round(negative_log(float(Decimal(str(row["EC50 (nM)"][i]).replace('>','').replace('<','')))),2)
                         if value > self.affinity_threshold:
                             does_it_bind = True
                     except:
                         value = "undefined"
-                    measurement.update({"VALUE":value})
+                    measurement.update({"affinity":value})
                     if type(row["PMID"][i]) == str:
-                        pmid = row["PMID"][i]
-                        measurement.update({"PMID":pmid})
+                        pmid =  "PMID:"+row["PMID"][i]
+                        if "publications" not in measurement.keys():
+                            measurement.update({"publications":[]})
+                        measurement["publications"].append(pmid)
+                        publications_list.append(pmid)
                     if type(row["PubChem AID"][i]) == str:
-                        aid = row["PubChem AID"][i]
-                        measurement.update({"PUBCHEM_AID":aid})
+                        aid = "PUBCHEM.AID:"+row["PubChem AID"][i]
+                        if "publications" not in measurement.keys():
+                            measurement.update({"publications":[]})
+                        measurement["publications"].append(aid)
+                        publications_list.append(aid)
                     if type(row["Patent Number"][i]) == str:
-                        patent = row["Patent Number"][i]
-                        measurement.update({"PATENT_NUMBER":patent})
+                        patent = "PATENT:"+row["Patent Number"][i]
+                        if "publications" not in measurement.keys():
+                            measurement.update({"publications":[]})
+                        measurement["publications"].append(pmid)
+                        publications_list.append(patent)
                     pEC50_measurements = pEC50_measurements + [measurement]
 
                 if type(row["kon (M-1-s-1)"][i]) == str:
                     measurement = {}
                     try:
-                        value = round(float(Decimal(str(row["kon (M-1-s-1)"][i]).replace('>','').replace('<',''))),3)
+                        value = round(float(Decimal(str(row["kon (M-1-s-1)"][i]).replace('>','').replace('<',''))),2)
                     except:
                         value = "undefined"
-                    measurement.update({"VALUE":value})
+                    measurement.update({"affinity":value})
                     if type(row["PMID"][i]) == str:
-                        pmid = row["PMID"][i]
-                        measurement.update({"PMID":pmid})
+                        pmid =  "PMID:"+row["PMID"][i]
+                        if "publications" not in measurement.keys():
+                            measurement.update({"publications":[]})
+                        measurement["publications"].append(pmid)
+                        publications_list.append(pmid)
                     if type(row["PubChem AID"][i]) == str:
-                        aid = row["PubChem AID"][i]
-                        measurement.update({"PUBCHEM_AID":aid})
+                        aid = "PUBCHEM.AID:"+row["PubChem AID"][i]
+                        if "publications" not in measurement.keys():
+                            measurement.update({"publications":[]})
+                        measurement["publications"].append(aid)
+                        publications_list.append(aid)
                     if type(row["Patent Number"][i]) == str:
-                        patent = row["Patent Number"][i]
-                        measurement.update({"PATENT_NUMBER":patent})
+                        patent = "PATENT:"+row["Patent Number"][i]
+                        if "publications" not in measurement.keys():
+                            measurement.update({"publications":[]})
+                        measurement["publications"].append(patent)
+                        publications_list.append(patent)
                     kon_measurements = kon_measurements + [measurement]
 
                 if type(row["koff (s-1)"][i]) == str:
                     measurement = {}
                     try:
-                        value = round(float(Decimal(str(row["koff (s-1)"][i]).replace('>','').replace('<',''))),3)
+                        value = round(float(Decimal(str(row["koff (s-1)"][i]).replace('>','').replace('<',''))),2)
                     except:
                         value = "undefined"
-                    measurement.update({"VALUE":value})
+                    measurement.update({"affinity":value})
                     if type(row["PMID"][i]) == str:
-                        pmid = row["PMID"][i]
-                        measurement.update({"PMID":pmid})
+                        pmid = "PMID:"+row["PMID"][i]
+                        if "publications" not in measurement.keys():
+                            measurement.update({"publications":[]})
+                        measurement["publications"].append(pmid)
+                        publications_list.append(pmid)
                     if type(row["PubChem AID"][i]) == str:
-                        aid = row["PubChem AID"][i]
-                        measurement.update({"PUBCHEM_AID":aid})
+                        aid = "PUBCHEM.AID:"+row["PubChem AID"][i]
+                        if "publications" not in measurement.keys():
+                            measurement.update({"publications":[]})
+                        measurement["publications"].append(aid)
+                        publications_list.append(aid)
                     if type(row["Patent Number"][i]) == str:
-                        patent = row["Patent Number"][i]
-                        measurement.update({"PATENT_NUMBER":patent})
+                        patent = "PATENT:"+row["Patent Number"][i]
+                        if "publications" not in measurement.keys():
+                            measurement.update({"publications":[]})
+                        measurement["publications"].append(patent)
+                        publications_list.append(patent)
                     koff_measurements = koff_measurements + [measurement]
 
             if pKi_measurements != []:
@@ -291,7 +373,7 @@ class BINDINGDBLoader(SourceDataLoader):
                 measurements_dict.update({"kon(M-1-s-1)":pKi_measurements})
             if koff_measurements != []:
                 measurements_dict.update({"koff(s-1)":pKi_measurements})
-            
+            publications_store = publications_store + [deduplicate_list(publications_list)]
             measurements_list = measurements_list + [measurements_dict]
             if does_it_bind == True:
                 does_it_bind_list = does_it_bind_list + ["True"]
@@ -300,6 +382,7 @@ class BINDINGDBLoader(SourceDataLoader):
 
         table['measurements'] = measurements_list
         table['does_it_bind'] = does_it_bind_list
+        table['publications'] = publications_store
         table = table[table['does_it_bind'] == "True"]
 
         pandas_output_file_path = os.path.join(self.data_path, f"BindingDB_temp_table.tsv")
@@ -319,12 +402,12 @@ class BINDINGDBLoader(SourceDataLoader):
                                     lambda line: {}, #Node 2 props
                                     lambda line: {
                                             "measurements":line[11],
-                                            PUBLICATIONS:[x for x in line[6] if type(x) == str]
+                                            PUBLICATIONS:line[13]
                                         },
                                     comment_character=None,
                                     delim="\t",
                                     has_header_row=True)
 
-        os.remove(pandas_output_file_path)
+        #os.remove(pandas_output_file_path)
 
         return extractor.load_metadata
