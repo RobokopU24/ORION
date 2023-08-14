@@ -3,17 +3,18 @@
 replicaCount: 1
 
 dataServices:
-  graphID: "all"
+  graphID: "RuleMiningRobokop"
   # optionally use a remote graph spec by supplying a url
-  # graphSpec: 'https://stars.renci.org/var/data_services/graph_specs/current-graph-spec.yml'
-  graphSpec: 'default-graph-spec.yml'
+  graphSpec: 'https://stars.renci.org/var/data_services/graph_specs/rule-mining.yml'
+  # graphSpec: 'default-graph-spec.yml'
   # useLocalGraphSpec true if the graphSpec is a file in the codebase (mainly for testing), false if a remote URL
-  useLocalGraphSpec: true
+  useLocalGraphSpec: false
   buildMode: true
   image:
     repository: ghcr.io/robokopu24/orion
     pullPolicy: IfNotPresent
-    tag: v1.0.7-2
+  # tag: neo4j-5-testing
+    tag: v1.0.9
   graphsVolume:
     use_nfs: true
     nfs_server: na-projects.edc.renci.org
@@ -27,10 +28,10 @@ dataServices:
   extraVolume:
     use_extra_volume: true
     nfs_server: na-projects.edc.renci.org
-    nfs_path: /stars/Data_services
-    nfs_mount_subpath: sterling/
+    nfs_path: /stars/var/
+    nfs_mount_subpath: plater/
   neo4jScratchVolume:
-    size: 80Gi
+    size: 70Gi
   resources:
     limits:
       cpu: "2500m"
@@ -46,7 +47,7 @@ dataServices:
   normalization:
     nodeNormEndpoint: https://nodenormalization-sri.renci.org/
     edgeNormEndpoint: https://bl-lookup-sri.renci.org/
-  outputURL: https://stars.renci.org/var/plater/bl-3.2.1/
+  outputURL: https://stars.renci.org/var/plater/bl-3.4.3/
 
 pharos:
   host: pod-host-or-ip

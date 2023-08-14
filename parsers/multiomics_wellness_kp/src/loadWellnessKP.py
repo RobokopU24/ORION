@@ -45,7 +45,7 @@ class MWKPLoader(SourceDataLoader):
 
     source_id: str = 'MultiomicsWellnessKP'
     provenance_id: str = 'infores:biothings-multiomics-wellness'
-    parsing_version: str = '1.2'
+    parsing_version: str = '1.3'
 
     def __init__(self, test_mode: bool = False, source_data_dir: str = None):
         """
@@ -80,8 +80,8 @@ class MWKPLoader(SourceDataLoader):
         wellness_edges_file_path: str = os.path.join(self.data_path, self.wellness_edges_file)
         with open(wellness_edges_file_path, 'rt') as fp:
             extractor.csv_extract(fp,
-                                  lambda line: line[WELLNESS_EDGES_DATACOLS.SUBJECT_ID.value],  # subject id
-                                  lambda line: line[WELLNESS_EDGES_DATACOLS.OBJECT_ID.value],  # object id
+                                  lambda line: self.parse_node_id(line[WELLNESS_EDGES_DATACOLS.SUBJECT_ID.value]),  # subject id
+                                  lambda line: self.parse_node_id(line[WELLNESS_EDGES_DATACOLS.OBJECT_ID.value]),  # object id
                                   # here we use the relation column instead of predicate because the RO:xxxx curie
                                   # is preferred as a way to map to the best biolink predicate in normalization
                                   lambda line: self.get_edge_predicate(data_row=line),  # predicate extractor
@@ -92,6 +92,11 @@ class MWKPLoader(SourceDataLoader):
                                   delim='\t',
                                   has_header_row=True)
         return extractor.load_metadata
+
+    def parse_node_id(self, original_node_id):
+        if original_node_id.startswith('HMDB'):
+            return f'HMDB:HMDB00{original_node_id[9:]}'
+        return original_node_id
 
     def get_edge_predicate(self, data_row):
         if data_row[WELLNESS_EDGES_DATACOLS.QUALIFIER_DOMAIN] and \
