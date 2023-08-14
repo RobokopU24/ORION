@@ -45,7 +45,7 @@ class MWKPLoader(SourceDataLoader):
 
     source_id: str = 'MultiomicsWellnessKP'
     provenance_id: str = 'infores:biothings-multiomics-wellness'
-    parsing_version: str = '1.3'
+    parsing_version: str = '1.4'
 
     def __init__(self, test_mode: bool = False, source_data_dir: str = None):
         """
@@ -95,7 +95,9 @@ class MWKPLoader(SourceDataLoader):
 
     def parse_node_id(self, original_node_id):
         if original_node_id.startswith('HMDB'):
-            return f'HMDB:HMDB00{original_node_id[9:]}'
+            hmdb_numerical_id = original_node_id[9:]  # grab the number after HMBD:HMBD from a HMBD curie
+            if len(hmdb_numerical_id) == 5:
+                return f'HMDB:HMDB00{hmdb_numerical_id}'  # prepend 00 to convert 5 digit id to 7
         return original_node_id
 
     def get_edge_predicate(self, data_row):
