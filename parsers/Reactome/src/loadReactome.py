@@ -9,6 +9,7 @@ from bs4 import BeautifulSoup
 from Common.loader_interface import SourceDataLoader
 from Common.kgxmodel import kgxnode, kgxedge
 from Common.neo4j_tools import Neo4jTools
+from Common.node_types import MACROMOLECULAR_COMPLEX, NAMED_THING
 from Common.prefixes import REACTOME, NCBITAXON, GTOPDB, UNIPROTKB, CHEBI, KEGG_COMPOUND, KEGG_GLYCAN, PUBCHEM_COMPOUND, NCBIGENE, CLINVAR
 from Common.utils import GetData
 
@@ -340,13 +341,18 @@ class ReactomeLoader(SourceDataLoader):
         
         node_properties = {}
         if any(x == 'Complex' for x in node_labels):
-            node_properties['category'] = ['biolink:MacromolecularComplex']
+            node_categories = [NAMED_THING, MACROMOLECULAR_COMPLEX]
+        else:
+            node_categories = [NAMED_THING]
         if 'definition' in node.keys():
             node_properties['definition'] = node['definition']
         if 'url' in node.keys():
             node_properties['url'] = node['url']
         node_name = node['displayName'] if 'displayName' in node else ''
-        node_to_write = kgxnode(node_id, name=node_name, nodeprops=node_properties)
+        node_to_write = kgxnode(node_id,
+                                name=node_name,
+                                categories=node_categories,
+                                nodeprops=node_properties)
         self.output_file_writer.write_kgx_node(node_to_write)
         return node_id
 

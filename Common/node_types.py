@@ -25,6 +25,7 @@ UNSPECIFIED = 'biolink:Unspecified'
 GENE_FAMILY = 'biolink:GeneFamily'
 GENOMIC_ENTITY = 'biolink:GenomicEntity'
 FOOD = 'biolink:Food'
+MACROMOLECULAR_COMPLEX = 'biolink:MacromolecularComplex'
 
 # The root of all biolink_model entities
 ROOT_ENTITY = NAMED_THING
@@ -55,7 +56,8 @@ node_types = [
     GENETIC_CONDITION,
     UNSPECIFIED,
     GENE_FAMILY,
-    FOOD
+    FOOD,
+    MACROMOLECULAR_COMPLEX
 ]
 
 # The following are used by edges:
