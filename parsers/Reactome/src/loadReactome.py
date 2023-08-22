@@ -340,7 +340,7 @@ class ReactomeLoader(SourceDataLoader):
         
         node_properties = {}
         if any(x == 'Complex' for x in node_labels):
-            node_properties['categories'] = ['biolink:MacromolecularComplex']
+            node_properties['category'] = ['biolink:MacromolecularComplex']
         if 'definition' in node.keys():
             node_properties['definition'] = node['definition']
         if 'url' in node.keys():
