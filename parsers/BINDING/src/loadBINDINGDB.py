@@ -3,17 +3,12 @@ import enum
 import math
 from zipfile import ZipFile as zipfile
 import requests as rq
-import pandas as pd
-from decimal import Decimal
-import json
-from collections import defaultdict
 
 from parsers.BINDING.src.bindingdb_constraints import LOG_SCALE_AFFINITY_THRESHOLD #Change the binding affinity threshold here. Default is 10 uM Ki,Kd,EC50,orIC50
 from Common.utils import GetData
 from Common.loader_interface import SourceDataLoader
 from Common.extractor import Extractor
-from Common.node_types import PUBLICATIONS
-from Common.kgxmodel import kgxnode, kgxedge
+from Common.node_types import PUBLICATIONS, AFFINITY
 
 # Full Binding Data.
 
@@ -41,17 +36,6 @@ def generate_zipfile_rows(zip_file_path, file_inside_zip, delimiter='\\t'):
                 for line in file:
                     yield str(line).split(delimiter)
 
-def deduplicate_list(input_list):
-    deduplicated_list = []
-    seen_elements = set()
-
-    for item in input_list:
-        if item not in seen_elements:
-            deduplicated_list.append(item)
-            seen_elements.add(item)
-
-    return deduplicated_list
-
 
 ##############
 # Class: Loading binding affinity measurements and sources from Binding-DB
@@ -66,7 +50,7 @@ class BINDINGDBLoader(SourceDataLoader):
     source_data_url = "https://www.bindingdb.org/rwd/bind/chemsearch/marvin/SDFdownload.jsp?all_download=yes"
     license = "All data and download files in bindingDB are freely available under a 'Creative Commons BY 3.0' license.'"
     attribution = 'https://www.bindingdb.org/rwd/bind/info.jsp'
-    parsing_version = '1.1'
+    parsing_version = '1.2'
 
     def __init__(self, test_mode: bool = False, source_data_dir: str = None):
         """
@@ -139,7 +123,7 @@ class BINDINGDBLoader(SourceDataLoader):
                 if n == 1000:
                     break
             if n%100000 == 0:
-                self.logger.info(f'processed {n} rows so far...')
+                self.logger.debug(f'processed {n} rows so far...')
             ligand = row[BD_EDGEUMAN.PUBCHEM_CID.value]
             protein = row[BD_EDGEUMAN.UNIPROT_TARGET_CHAIN.value]
             if (ligand == '') or (protein == ''): # Check if Pubchem or UniProt ID is missing.
@@ -176,15 +160,15 @@ class BINDINGDBLoader(SourceDataLoader):
 
 
                     entry[measure_type].append({
-                        'affinity':value,
-                        'publications':publications
+                        AFFINITY:value,
+                        PUBLICATIONS:publications
                     })
 
-            if "publications" not in entry.keys():
-                entry.update({'publications':[]})
-            entry['publications'] = deduplicate_list(entry['publications'] + publications)
+            if PUBLICATIONS not in entry.keys():
+                entry.update({PUBLICATIONS: []})
+            entry[PUBLICATIONS] = list(set(entry[PUBLICATIONS] + publications))
 
-            if found_key == True:
+            if found_key:
                 data_store[ligand_protein_key] = entry
             else:
                 data_store.update({ligand_protein_key:entry})
