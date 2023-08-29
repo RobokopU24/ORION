@@ -6,7 +6,9 @@ import requests as rq
 from Common.utils import GetData
 from Common.loader_interface import SourceDataLoader
 from Common.extractor import Extractor
-from Common.prefixes import ENSEMBL
+from Common.prefixes import ENSEMBL, NCBITAXON
+from Common.node_types import PRIMARY_KNOWLEDGE_SOURCE
+
 
 # Full PPI Data.
 class PPI_EDGEUMAN(enum.IntEnum):
@@ -20,7 +22,7 @@ class PPI_EDGEUMAN(enum.IntEnum):
     COEXPRESSION = 7
     COEXPRESSION_TRANSFERRED = 8
     EXPERIMENTS = 9
-    EXPERIMENTS_TRANSFERRED	= 10
+    EXPERIMENTS_TRANSFERRED = 10
     DATABASE = 11
     DATABASE_TRANSFERRED = 12
     TEXTMINING = 13
@@ -33,7 +35,7 @@ class PPI_PHYSICAL_EDGEUMAN(enum.IntEnum):
     PROTEIN2 = 1
     HOMOLOGY = 2
     EXPERIMENTS = 3
-    EXPERIMENTS_TRANSFERRED	= 4
+    EXPERIMENTS_TRANSFERRED = 4
     DATABASE = 5
     DATABASE_TRANSFERRED = 6
     TEXTMINING = 7
@@ -51,14 +53,13 @@ class PPI_PHYSICAL_EDGEUMAN(enum.IntEnum):
 class STRINGDBLoader(SourceDataLoader):
 
     source_id: str = 'STRING-DB'
-    provenance_id: str = 'infores:STRING'
+    provenance_id: str = 'infores:string'
     description = "The Search Tool for the Retrieval of Interacting Genes/Proteins (STRING) database provides information on known and predicted protein-protein interactions (both direct and indirect) derived from genomic context predictions, high-throughput laboratory experiments, conserved co-expression, automated text mining, and aggregated knowledge from primary data sources."
     source_data_url = "https://string-db.org"
     license = "All data and download files in STRING are freely available under a 'Creative Commons BY 4.0' license."
     attribution = "https://string-db.org/cgi/about?footer_active_subpage=references"
-    parsing_version = '1.0'
 
-    taxon_id: str = '9606' # Human taxon
+    taxon_id = None  # this is overwritten by classes that inherit from this one
 
     def __init__(self, test_mode: bool = False, source_data_dir: str = None):
         """
@@ -67,7 +68,6 @@ class STRINGDBLoader(SourceDataLoader):
         """
         # call the super
         super().__init__(test_mode=test_mode, source_data_dir=source_data_dir)
-        self.taxon_id = '9606'
         self.cos_dist_threshold = 1.0
         self.coexpression_score_threshold = 1
         self.homologous_score_threshold = 1
@@ -83,8 +83,8 @@ class STRINGDBLoader(SourceDataLoader):
 
         self.stringdb_version = None
         self.stringdb_version = self.get_latest_source_version()
-        self.stringdb_data_url = [f"https://stringdb-static.org/download/protein.links.full.{self.stringdb_version}/",
-                                  f"https://stringdb-static.org/download/protein.physical.links.full.{self.stringdb_version}/"]
+        self.string_db_full_file_url = f"https://stringdb-downloads.org/download/protein.links.full.{self.stringdb_version}/"
+        self.string_db_physical_subnetwork_file_url = f"https://stringdb-downloads.org/download/protein.physical.links.full.{self.stringdb_version}/"
 
         self.ppi_full_file_name = self.taxon_id+f".protein.links.full.{self.stringdb_version}.txt.gz"
         self.ppi_physical_subnetwork_file_name = self.taxon_id+f".protein.physical.links.full.{self.stringdb_version}.txt.gz"
@@ -105,17 +105,14 @@ class STRINGDBLoader(SourceDataLoader):
         return f"v{stringdb_version}"
 
     def get_data(self) -> int:
-        """
-        Gets the yeast data.
-
-        """
         data_puller = GetData()
-        i=0
-        for source in self.data_files:
-            source_url = f"{self.stringdb_data_url[i]}{source}"
-            data_puller.pull_via_http(source_url, self.data_path)
-            i+=1
 
+        full_file_url = f"{self.string_db_full_file_url}{self.ppi_full_file_name}"
+        data_puller.pull_via_http(full_file_url, self.data_path)
+
+        physical_subnetwork_file_url = f"{self.string_db_physical_subnetwork_file_url}" \
+                                       f"{self.ppi_physical_subnetwork_file_name}"
+        data_puller.pull_via_http(physical_subnetwork_file_url, self.data_path)
         return True
     
     def parse_data(self) -> dict:
@@ -126,14 +123,20 @@ class STRINGDBLoader(SourceDataLoader):
         """
 
         extractor = Extractor(file_writer=self.output_file_writer)
-        
-        #This file contains full STRING PPI data for the Human proteome.
+
+        # in the files the protein ids have the taxon prepended to them - we can use this length to remove that part
+        taxon_string_length = len(self.taxon_id) + 1
+
+        # This file contains full STRING PPI data.
         ppi_full_file: str = os.path.join(self.data_path, self.ppi_full_file_name)
         with gzip.open(ppi_full_file, 'rt') as fp:
             extractor.csv_extract(fp,
-                                  lambda line: f'{ENSEMBL}:{line[PPI_EDGEUMAN.PROTEIN1.value].replace(self.taxon_id+".","")}',  # subject id
-                                  lambda line: f'{ENSEMBL}:{line[PPI_EDGEUMAN.PROTEIN2.value].replace(self.taxon_id+".","")}',  # object id
-                                  lambda line: self.coexpression_predicate if int(line[PPI_EDGEUMAN.COEXPRESSION.value]) or int(line[PPI_EDGEUMAN.COEXPRESSION_TRANSFERRED.value]) >= self.coexpression_score_threshold else None, # predicate
+                                  lambda line: f'{ENSEMBL}:{line[PPI_EDGEUMAN.PROTEIN1.value][taxon_string_length:]}',  # subject id
+                                  lambda line: f'{ENSEMBL}:{line[PPI_EDGEUMAN.PROTEIN2.value][taxon_string_length:]}',  # object id
+                                  lambda line: self.coexpression_predicate if ((int(line[PPI_EDGEUMAN.COEXPRESSION.value]) >= self.coexpression_score_threshold)
+                                      or (int(line[PPI_EDGEUMAN.COEXPRESSION_TRANSFERRED.value]) >= self.coexpression_score_threshold)) else None,  # predicate
+                                  lambda line: {},  # subject props
+                                  lambda line: {},  # object props
                                   lambda line: {
                                     "Coexpression":line[PPI_EDGEUMAN.COEXPRESSION.value],
                                     "Coexpression_transferred":line[PPI_EDGEUMAN.COEXPRESSION_TRANSFERRED.value],
@@ -144,17 +147,20 @@ class STRINGDBLoader(SourceDataLoader):
                                     "Textmining":line[PPI_EDGEUMAN.TEXTMINING.value],
                                     "Textmining_transferred":line[PPI_EDGEUMAN.TEXTMINING_TRANSFERRED.value],
                                     "Cooccurance":line[PPI_EDGEUMAN.COOCCURANCE.value],
-                                    "Combined_score":line[PPI_EDGEUMAN.COMBINED_SCORE.value]
-                                  },
+                                    "Combined_score":line[PPI_EDGEUMAN.COMBINED_SCORE.value],
+                                    "species_context_qualifier": f"{NCBITAXON}:{self.taxon_id}",
+                                    PRIMARY_KNOWLEDGE_SOURCE: self.provenance_id
+                                  },  # edge props
                                   comment_character=None,
                                   delim=" ",
                                   has_header_row=True)
-
         with gzip.open(ppi_full_file, 'rt') as fp:
             extractor.csv_extract(fp,
-                                  lambda line: f'{ENSEMBL}:{line[PPI_EDGEUMAN.PROTEIN1.value].replace(self.taxon_id+".","")}',  # subject id
-                                  lambda line: f'{ENSEMBL}:{line[PPI_EDGEUMAN.PROTEIN2.value].replace(self.taxon_id+".","")}',  # object id
+                                  lambda line: f'{ENSEMBL}:{line[PPI_EDGEUMAN.PROTEIN1.value][taxon_string_length:]}',  # subject id
+                                  lambda line: f'{ENSEMBL}:{line[PPI_EDGEUMAN.PROTEIN2.value][taxon_string_length:]}',  # object id
                                   lambda line: self.homologous_predicate if int(line[PPI_EDGEUMAN.HOMOLOGY.value]) >= self.homologous_score_threshold else None, # predicate
+                                  lambda line: {},  # subject props
+                                  lambda line: {},  # object props
                                   lambda line: {
                                     "Homology":line[PPI_EDGEUMAN.HOMOLOGY.value],
                                     "Experiments":line[PPI_EDGEUMAN.EXPERIMENTS.value],
@@ -164,17 +170,21 @@ class STRINGDBLoader(SourceDataLoader):
                                     "Textmining":line[PPI_EDGEUMAN.TEXTMINING.value],
                                     "Textmining_transferred":line[PPI_EDGEUMAN.TEXTMINING_TRANSFERRED.value],
                                     "Cooccurance":line[PPI_EDGEUMAN.COOCCURANCE.value],
-                                    "Combined_score":line[PPI_EDGEUMAN.COMBINED_SCORE.value]
-                                  },
+                                    "Combined_score":line[PPI_EDGEUMAN.COMBINED_SCORE.value],
+                                    "species_context_qualifier": f"{NCBITAXON}:{self.taxon_id}",
+                                    PRIMARY_KNOWLEDGE_SOURCE: self.provenance_id
+                                  },  # edge props
                                   comment_character=None,
                                   delim=" ",
                                   has_header_row=True)
 
         with gzip.open(ppi_full_file, 'rt') as fp:
             extractor.csv_extract(fp,
-                                  lambda line: f'{ENSEMBL}:{line[PPI_EDGEUMAN.PROTEIN1.value].replace(self.taxon_id+".","")}',  # subject id
-                                  lambda line: f'{ENSEMBL}:{line[PPI_EDGEUMAN.PROTEIN2.value].replace(self.taxon_id+".","")}',  # object id
+                                  lambda line: f'{ENSEMBL}:{line[PPI_EDGEUMAN.PROTEIN1.value][taxon_string_length:]}',  # subject id
+                                  lambda line: f'{ENSEMBL}:{line[PPI_EDGEUMAN.PROTEIN2.value][taxon_string_length:]}',  # object id
                                   lambda line: self.gene_fusion_predicate if int(line[PPI_EDGEUMAN.FUSION.value]) >= self.gene_fusion_score_threshold else None, # predicate
+                                  lambda line: {},  # subject props
+                                  lambda line: {},  # object props
                                   lambda line: {
                                     "Fusion":line[PPI_EDGEUMAN.FUSION.value],
                                     "Experiments":line[PPI_EDGEUMAN.EXPERIMENTS.value],
@@ -184,17 +194,21 @@ class STRINGDBLoader(SourceDataLoader):
                                     "Textmining":line[PPI_EDGEUMAN.TEXTMINING.value],
                                     "Textmining_transferred":line[PPI_EDGEUMAN.TEXTMINING_TRANSFERRED.value],
                                     "Cooccurance":line[PPI_EDGEUMAN.COOCCURANCE.value],
-                                    "Combined_score":line[PPI_EDGEUMAN.COMBINED_SCORE.value]
-                                  },
+                                    "Combined_score":line[PPI_EDGEUMAN.COMBINED_SCORE.value],
+                                    "species_context_qualifier": f"{NCBITAXON}:{self.taxon_id}",
+                                    PRIMARY_KNOWLEDGE_SOURCE: self.provenance_id
+                                  },  # edge props
                                   comment_character=None,
                                   delim=" ",
                                   has_header_row=True)
 
         with gzip.open(ppi_full_file, 'rt') as fp:
             extractor.csv_extract(fp,
-                                  lambda line: f'{ENSEMBL}:{line[PPI_EDGEUMAN.PROTEIN1.value].replace(self.taxon_id+".","")}',  # subject id
-                                  lambda line: f'{ENSEMBL}:{line[PPI_EDGEUMAN.PROTEIN2.value].replace(self.taxon_id+".","")}',  # object id
+                                  lambda line: f'{ENSEMBL}:{line[PPI_EDGEUMAN.PROTEIN1.value][taxon_string_length:]}',  # subject id
+                                  lambda line: f'{ENSEMBL}:{line[PPI_EDGEUMAN.PROTEIN2.value][taxon_string_length:]}',  # object id
                                   lambda line: self.genetic_neighborhood_predicate if int(line[PPI_EDGEUMAN.NEIGHBORHOOD.value]) >= self.genetic_neighborhood_score_threshold else None, # predicate
+                                  lambda line: {},  # subject props
+                                  lambda line: {},  # object props
                                   lambda line: {
                                     "Neighborhood":line[PPI_EDGEUMAN.NEIGHBORHOOD.value],
                                     "Neighborhood_transferred":line[PPI_EDGEUMAN.NEIGHBORHOOD_TRANSFERRED.value],
@@ -205,18 +219,20 @@ class STRINGDBLoader(SourceDataLoader):
                                     "Textmining":line[PPI_EDGEUMAN.TEXTMINING.value],
                                     "Textmining_transferred":line[PPI_EDGEUMAN.TEXTMINING_TRANSFERRED.value],
                                     "Cooccurance":line[PPI_EDGEUMAN.COOCCURANCE.value],
-                                    "Combined_score":line[PPI_EDGEUMAN.COMBINED_SCORE.value]
-                                  },
+                                    "Combined_score":line[PPI_EDGEUMAN.COMBINED_SCORE.value],
+                                    "species_context_qualifier": f"{NCBITAXON}:{self.taxon_id}",
+                                    PRIMARY_KNOWLEDGE_SOURCE: self.provenance_id
+                                  },  # edge props
                                   comment_character=None,
                                   delim=" ",
                                   has_header_row=True)
       
-        # This file contains physical subnetwork STRING PPI data for the Human proteome.
+        # This file contains physical subnetwork STRING PPI data.
         ppi_physical_file: str = os.path.join(self.data_path, self.ppi_physical_subnetwork_file_name)
         with gzip.open(ppi_physical_file, 'rt') as fp:
             extractor.csv_extract(fp,
-                                  lambda line: f'{ENSEMBL}:{line[PPI_PHYSICAL_EDGEUMAN.PROTEIN1.value].replace(self.taxon_id+".","")}',  # subject id
-                                  lambda line: f'{ENSEMBL}:{line[PPI_PHYSICAL_EDGEUMAN.PROTEIN2.value].replace(self.taxon_id+".","")}',  # object id
+                                  lambda line: f'{ENSEMBL}:{line[PPI_PHYSICAL_EDGEUMAN.PROTEIN1.value][taxon_string_length:]}',  # subject id
+                                  lambda line: f'{ENSEMBL}:{line[PPI_PHYSICAL_EDGEUMAN.PROTEIN2.value][taxon_string_length:]}',  # object id
                                   lambda line: self.physically_interacts_with_predicate if int(line[PPI_PHYSICAL_EDGEUMAN.COMBINED_SCORE.value]) >= self.physical_interaction_score_threshold else None,  # predicate extractor
                                   lambda line: {},  # subject props
                                   lambda line: {},  # object props
@@ -229,9 +245,23 @@ class STRINGDBLoader(SourceDataLoader):
                                     "Textmining":line[PPI_PHYSICAL_EDGEUMAN.TEXTMINING.value],
                                     "Textmining_transferred":line[PPI_PHYSICAL_EDGEUMAN.TEXTMINING_TRANSFERRED.value],
                                     "Combined_score":line[PPI_PHYSICAL_EDGEUMAN.COMBINED_SCORE.value],
-                                    }, # edge props
+                                    "species_context_qualifier": f"{NCBITAXON}:{self.taxon_id}",
+                                    PRIMARY_KNOWLEDGE_SOURCE: self.provenance_id
+                                  },  # edge props
                                   comment_character=None,
                                   delim=" ",
                                   has_header_row=True)
 
         return extractor.load_metadata
+
+
+class HumanSTRINGDBLoader(STRINGDBLoader):
+    source_id: str = 'STRING-DB-Human'
+    parsing_version = '1.1'
+    taxon_id: str = '9606'  # Human taxon
+
+
+class YeastSTRINGDBLoader(STRINGDBLoader):
+    source_id: str = 'STRING-DB-Yeast'
+    parsing_version = '1.1'
+    taxon_id: str = '4932'  # Saccharomyces cerevisiae taxon

@@ -117,7 +117,7 @@ class GetData:
         :param log_level - overrides default log level
         """
         # create a logger
-        self.logger = LoggingUtil.init_logging("Data_services.Common.GetData", level=log_level, line_format='medium', log_file_path=os.environ['DATA_SERVICES_LOGS'])
+        self.logger = LoggingUtil.init_logging("Data_services.Common.GetData", level=log_level, line_format='medium', log_file_path=os.environ.get('DATA_SERVICES_LOGS'))
 
     @staticmethod
     def pull_via_ftp_binary(ftp_site, ftp_dir, ftp_file):
@@ -590,3 +590,16 @@ def snakify(text):
     snakified_text = lowercase_text.replace(',', '_').replace('-', '_')  # replace commas and dashes with underscores
     snakified_text = '_'.join(snakified_text.split())  # replace whitespace with underscores
     return snakified_text
+
+
+def int_to_roman_numeral(num):
+    val = [1000, 900, 500, 400, 100, 90, 50, 40, 10, 9, 5, 4, 1]
+    syb = ["M", "CM", "D", "CD","C", "XC", "L", "XL", "X", "IX", "V", "IV", "I"]
+    roman_num = ''
+    i = 0
+    while num > 0:
+        for _ in range(num // val[i]):
+            roman_num += syb[i]
+            num -= val[i]
+        i += 1
+    return roman_num

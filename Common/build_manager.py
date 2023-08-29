@@ -6,15 +6,16 @@ import requests
 import json
 from xxhash import xxh64_hexdigest
 from collections import defaultdict
+from Common.biolink_utils import BiolinkInformationResources, INFORES_STATUS_INVALID, INFORES_STATUS_DEPRECATED
 from Common.utils import LoggingUtil, quick_jsonl_file_iterator
 from Common.data_sources import get_available_data_sources
 from Common.load_manager import SourceDataManager
 from Common.kgx_file_merger import KGXFileMerger
-from Common.neo4j_tools import Neo4jTools
+from Common.neo4j_tools import create_neo4j_dump
 from Common.kgxmodel import GraphSpec, SubGraphSource, DataSource, NormalizationScheme
 from Common.metadata import Metadata, GraphMetadata, SourceMetadata
 from Common.supplementation import SequenceVariantSupplementation
-from Common.node_types import PRIMARY_KNOWLEDGE_SOURCE, PREDICATE
+from Common.node_types import PRIMARY_KNOWLEDGE_SOURCE, AGGREGATOR_KNOWLEDGE_SOURCES, PREDICATE, PUBLICATIONS
 from Common.meta_kg import MetaKnowledgeGraphBuilder, META_KG_FILENAME, TEST_DATA_FILENAME
 
 NODES_FILENAME = 'nodes.jsonl'
@@ -94,8 +95,11 @@ class GraphBuilder:
             self.logger.info(f'Running QC for graph {graph_id}...')
             qc_results = self.run_qc(graph_id, graph_version, graph_directory=graph_output_dir)
             graph_metadata.set_qc_results(qc_results)
-            # TODO - bail if qc fails
-            self.logger.info(f'QC complete for graph {graph_id}.')
+            if qc_results['pass']:
+                self.logger.info(f'QC passed for graph {graph_id}.')
+            else:
+                # TODO - bail if qc fails - just need to implement a way to force output regardless
+                self.logger.info(f'QC failed for graph {graph_id}')
 
         needs_meta_kg = not self.has_meta_kg(graph_directory=graph_output_dir)
         needs_test_data = not self.has_test_data(graph_directory=graph_output_dir)
@@ -107,13 +111,13 @@ class GraphBuilder:
 
         if 'neo4j' in graph_spec.graph_output_format.lower():
             self.logger.info(f'Starting Neo4j dump pipeline for {graph_id}...')
-            neo4j_tools = Neo4jTools(graph_id=graph_id,
-                                     graph_version=graph_version)
-            dump_success = neo4j_tools.create_neo4j_dump(graph_id=graph_id,
-                                                         graph_version=graph_version,
-                                                         graph_directory=graph_output_dir,
-                                                         nodes_filename=NODES_FILENAME,
-                                                         edges_filename=EDGES_FILENAME)
+            dump_success = create_neo4j_dump(graph_id=graph_id,
+                                             graph_version=graph_version,
+                                             graph_directory=graph_output_dir,
+                                             nodes_filename=NODES_FILENAME,
+                                             edges_filename=EDGES_FILENAME,
+                                             logger=self.logger)
+
             if dump_success:
                 graph_output_url = self.get_graph_output_URL(graph_id, graph_version)
                 graph_metadata.set_dump_url(f'{graph_output_url}graph_{graph_version}.db.dump')
@@ -218,20 +222,62 @@ class GraphBuilder:
                graph_version: str,
                graph_directory: str):
 
-        knowledge_sources = set()
+        # Edges QC
+        # Iterate through the edges and find all knowledge sources, edge properties, and predicates
+        primary_knowledge_sources = set()
+        aggregator_knowledge_sources = set()
         edge_properties = set()
         predicate_counts = defaultdict(int)
+        edges_with_publications = defaultdict(int)
         graph_edges_file_path = os.path.join(graph_directory, EDGES_FILENAME)
         for edge_json in quick_jsonl_file_iterator(graph_edges_file_path):
-            knowledge_sources.add(edge_json[PRIMARY_KNOWLEDGE_SOURCE])
+            primary_knowledge_sources.add(edge_json[PRIMARY_KNOWLEDGE_SOURCE])
+            if AGGREGATOR_KNOWLEDGE_SOURCES in edge_json:
+                for ks in edge_json[AGGREGATOR_KNOWLEDGE_SOURCES]:
+                    aggregator_knowledge_sources.add(ks)
             for key in edge_json.keys():
                 edge_properties.add(key)
             predicate_counts[edge_json[PREDICATE]] += 1
+            if PUBLICATIONS in edge_json and edge_json[PUBLICATIONS]:
+                edges_with_publications[edge_json[PREDICATE]] += 1
+
+        # validate the knowledge sources with the biolink model
+        bl_inforesources = BiolinkInformationResources()
+        deprecated_infores_ids = []
+        invalid_infores_ids = []
+        all_knowledge_sources = primary_knowledge_sources | aggregator_knowledge_sources
+        for knowledge_source in all_knowledge_sources:
+            infores_status = bl_inforesources.get_infores_status(knowledge_source)
+            if infores_status == INFORES_STATUS_DEPRECATED:
+                deprecated_infores_ids.append(knowledge_source)
+                self.logger.warning(f'QC for graph {graph_id} version {graph_version} found a deprecated infores '
+                                    f'identifier: {knowledge_source}')
+            elif infores_status == INFORES_STATUS_INVALID:
+                invalid_infores_ids.append(knowledge_source)
+                self.logger.warning(f'QC for graph {graph_id} version {graph_version} found an invalid infores '
+                                    f'identifier: {knowledge_source}')
+
+        # nodes QC
+        node_curie_prefixes = defaultdict(int)
+        graph_nodes_file_path = os.path.join(graph_directory, NODES_FILENAME)
+        for node in quick_jsonl_file_iterator(graph_nodes_file_path):
+            node_curie_prefixes[node['id'].split(':')[0]] += 1
+
         qc_metadata = {
-            'primary_knowledge_sources': list(knowledge_sources),
+            'pass': True,
+            'primary_knowledge_sources': list(primary_knowledge_sources),
+            'aggregator_knowledge_sources': list(aggregator_knowledge_sources),
+            'predicates': {k: v for k, v in predicate_counts.items()},
+            'node_curie_prefixes': {k: v for k, v in node_curie_prefixes.items()},
+            'edges_with_publications': {k: v for k, v in edges_with_publications.items()},
             'edge_properties': list(edge_properties),
-            'predicate_counts': {k: v for k, v in predicate_counts.items()}
+            'warnings': {}
         }
+        if deprecated_infores_ids:
+            qc_metadata['warnings']['deprecated_knowledge_sources'] = deprecated_infores_ids
+        if invalid_infores_ids:
+            qc_metadata['pass'] = False
+            qc_metadata['warnings']['invalid_knowledge_sources'] = invalid_infores_ids
         return qc_metadata
 
     def load_graph_specs(self):

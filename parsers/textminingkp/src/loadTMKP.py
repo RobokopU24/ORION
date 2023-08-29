@@ -3,32 +3,49 @@ import json
 import argparse
 import enum
 
+from Common.node_types import PUBLICATIONS
 from Common.utils import GetData
-from Common.kgxmodel import kgxnode, kgxedge
+from Common.kgxmodel import kgxedge
 from Common.loader_interface import SourceDataLoader
 
 from gzip import GzipFile
 
 
-#The TMKP Edge file:
-class TMKPNODE(enum.IntEnum):
-    NODE_ID = 0
-    NODE_NAME = 1
-    NODE_LABEL = 2
-
-
-#The TMKP Edge file:
+# The TMKP Edge file:
 class TMKPEDGE(enum.IntEnum):
-    SUBJECT_ID = 0
-    EDGE_PRED = 1
-    OBJECT_ID = 2
-    EDGE_IDX = 3
-    EDGE_PRED_HIGHER = 4 #A more general category for relationship. So if EDGE_PRED is gene negatively_regulates disease, this field would be ChemicalToGeneAssociation .
-    CONFIDENCE = 5
-    TMPK_IDXS = 6 #list of specific identifiers for each paper where a (s,p,o) relationship is found. One idx per sentence/per paper. "|" seperated.
-    PAPER_IDXS = 7 #list of PMIDs and PMC ids. One idx per paper. "|" seperated.
-    ATTRIBUTE_LIST = 8
+    SUBJECT = 0
+    PREDICATE = 1
+    OBJECT = 2
+    QUALIFIED_PREDICATE = 3
+    SUBJECT_ASPECT_QUALIFIER = 4
+    SUBJECT_DIRECTION_QUALIFIER = 5
+    SUBJECT_PART_QUALIFIER = 6
+    SUBJECT_FORM_OR_VARIANT_QUALIFIER = 7
+    OBJECT_ASPECT_QUALIFIER = 8
+    OBJECT_DIRECTION_QUALIFIER = 9
+    OBJECT_PART_QUALIFIER = 10
+    OBJECT_FORM_OR_VARIANT_QUALIFIER = 11
+    ANATOMICAL_CONTEXT_QUALIFIER = 12
+    ASSERTION_ID = 13
+    ASSOCIATION_CURIE = 14
+    SCORE = 15
+    SUPPORTING_STUDY_RESULTS = 16
+    SUPPORTING_PUBLICATIONS = 17
+    JSON_ATTRIBUTES = 18
 
+
+TMKP_QUALIFIER_ATTRIBUTES = {
+    TMKPEDGE.QUALIFIED_PREDICATE.value: "qualified_predicate",
+    TMKPEDGE.SUBJECT_ASPECT_QUALIFIER.value: "subject_aspect_qualifier",
+    TMKPEDGE.SUBJECT_DIRECTION_QUALIFIER.value: "subject_direction_qualifier",
+    TMKPEDGE.SUBJECT_PART_QUALIFIER.value: "subject_part_qualifier",
+    TMKPEDGE.SUBJECT_FORM_OR_VARIANT_QUALIFIER.value: "subject_form_or_variant_qualifier",
+    TMKPEDGE.OBJECT_ASPECT_QUALIFIER.value: "object_aspect_qualifier",
+    TMKPEDGE.OBJECT_DIRECTION_QUALIFIER.value: "object_direction_qualifier",
+    TMKPEDGE.OBJECT_PART_QUALIFIER.value: "object_part_qualifier",
+    TMKPEDGE.OBJECT_FORM_OR_VARIANT_QUALIFIER.value: "object_form_or_variant_qualifier",
+    TMKPEDGE.ANATOMICAL_CONTEXT_QUALIFIER.value: "anatomical_context_qualifier"
+}
 
 ##############
 # Class: TextMiningKG loader
@@ -40,22 +57,12 @@ class TMKPEDGE(enum.IntEnum):
 class TMKPLoader(SourceDataLoader):
 
     source_id: str = "text-mining-provider-targeted"
-    provenance_id: str = "infores:textminingkp"
+    provenance_id: str = "infores:text-mining-provider-targeted"
     description = "The Text Mining Provider KG contains subject-predicate-object assertions derived from the application of natural language processing (NLP) algorithms to the PubMedCentral Open Access collection of publications plus additional titles and abstracts from PubMed."
     source_data_url = ""
     license = ""
     attribution = ""
-    parsing_version = "1.0"
-
-    # this is not the right way to do this, ideally all predicates would be normalized later in the pipeline,
-    # but this handles some complications with certain biolink 2 predicates (failing to) normalizing to biolink 3
-    tmkp_predicate_map = {
-        "biolink:contributes_to": 'RO:0002326',
-        "biolink:entity_negatively_regulates_entity": 'RO:0002449',
-        "biolink:entity_positively_regulates_entity": 'RO:0002450',
-        "biolink:gain_of_function_contributes_to": 'biolink:contributes_to',  # could not find a better predicate
-        "biolink:loss_of_function_contributes_to": 'biolink:contributes_to'  # could not find a better predicate
-    }
+    parsing_version = "1.2"
 
     def __init__(self, test_mode: bool = False, source_data_dir: str = None):
         """
@@ -64,17 +71,12 @@ class TMKPLoader(SourceDataLoader):
         """
         super().__init__(test_mode=test_mode, source_data_dir=source_data_dir)
 
-        self.data_file: str = ''
-        self.source_db: str = 'Text Mining KP'
-        self.textmine_data_url: str = 'https://stars.renci.org/var/data_services/textmining/v1/'
+        self.source_db: str = 'textminingkp'
 
-        self.node_file_name: str = 'kgx_UniProt_nodes.tsv.gz'
-        self.edge_file_name: str = "kgx_UniProt_edges.tsv.gz"
-        #https://storage.cloud.google.com/translator-text-workflow-dev-public/kgx/UniProt/edges.tsv.gz
-        #https://storage.cloud.google.com/translator-text-workflow-dev-public/kgx/UniProt/nodes.tsv.gz
+        self.textmine_data_url = 'https://storage.googleapis.com/translator-text-workflow-dev-public/kgx/UniProt/'
+        self.edge_file_name: str = 'edges.tsv.gz'
 
         self.data_files = [
-            self.node_file_name,
             self.edge_file_name
         ]
 
@@ -84,7 +86,9 @@ class TMKPLoader(SourceDataLoader):
 
         :return:
         """
-        return "tmkg_v1"
+        data_puller = GetData()
+        data_file_date = data_puller.get_http_file_modified_date(f'{self.textmine_data_url}{self.edge_file_name}')
+        return data_file_date
 
     def get_data(self) -> int:
         """
@@ -95,7 +99,6 @@ class TMKPLoader(SourceDataLoader):
         for source in self.data_files:
             source_url = f"{self.textmine_data_url}{source}"
             data_puller.pull_via_http(source_url, self.data_path)
-
         return True
 
     def parse_data(self) -> dict:
@@ -107,38 +110,24 @@ class TMKPLoader(SourceDataLoader):
 
         record_counter = 0
         skipped_record_counter = 0
-        
-        node_file_path: str = os.path.join(self.data_path, self.node_file_name)
-        with GzipFile(node_file_path) as zf:
-            for bytesline in zf:
-                lines = bytesline.decode('utf-8')
-                line = lines.strip().split('\t')
-                node_idx = line[TMKPNODE.NODE_ID.value]           
-                node_name = line[TMKPNODE.NODE_NAME.value]           
-                node_category = line[TMKPNODE.NODE_LABEL.value]           
-                new_node = kgxnode(node_idx,
-                                   name=node_name,
-                                   categories=[node_category],
-                                   nodeprops=None)
-                self.output_file_writer.write_kgx_node(new_node)
 
         edge_file_path: str = os.path.join(self.data_path, self.edge_file_name)
-        with GzipFile(edge_file_path) as zf:
+        with GzipFile(edge_file_path, 'rb') as zf:
             for bytesline in zf:
+                line = bytesline.decode('utf-8').strip().split('\t')
+                subject_id = line[TMKPEDGE.SUBJECT.value]
+                self.output_file_writer.write_node(subject_id)
+                object_id = line[TMKPEDGE.OBJECT.value]
+                self.output_file_writer.write_node(object_id)
+                predicate = line[TMKPEDGE.PREDICATE.value]
+                if not subject_id and object_id and predicate:
+                    skipped_record_counter += 1
+                    continue
 
-                lines = bytesline.decode('utf-8')
-                line = lines.strip().split('\t')
-
-                subject_id=line[TMKPEDGE.SUBJECT_ID.value]
-                predicate=self.convert_tmkp_predicate(line[TMKPEDGE.EDGE_PRED.value])
-                object_id=line[TMKPEDGE.OBJECT_ID.value]
-                edge_idx=line[TMKPEDGE.EDGE_IDX.value]
-                general_predicate=line[TMKPEDGE.EDGE_PRED_HIGHER.value]
-                confidence=line[TMKPEDGE.CONFIDENCE.value]
-                tmpk_idxs=line[TMKPEDGE.TMPK_IDXS.value]
-                paper_idxs=line[TMKPEDGE.PAPER_IDXS.value]
-                property_json=line[TMKPEDGE.ATTRIBUTE_LIST.value]
-
+                confidence_score = line[TMKPEDGE.SCORE.value]
+                tmpk_idxs = line[TMKPEDGE.SUPPORTING_STUDY_RESULTS.value]
+                paper_idxs = line[TMKPEDGE.SUPPORTING_PUBLICATIONS.value]
+                property_json = line[TMKPEDGE.JSON_ATTRIBUTES.value]
                 attributes = json.loads(property_json)
                 sentences = []
                 for attribute in attributes:
@@ -153,35 +142,31 @@ class TMKPLoader(SourceDataLoader):
                         sentences.append(supporting_text)
                         sentences.append(paper)
 
-                edge_props = {"publications": [paper_id for paper_id in paper_idxs.split('|')],
-                              "biolink:tmkp_confidence_score": confidence,
+                edge_props = {PUBLICATIONS: [paper_id for paper_id in paper_idxs.split('|')],
+                              "biolink:tmkp_confidence_score": float(confidence_score),
                               "sentences": "|".join(sentences),
                               "tmkp_ids": [tmkp_id for tmkp_id in tmpk_idxs.split('|')]}
+
+                # look for any qualifiers and add them to edge_props if they have values
+                for qualifier_index, qualifier_attribute in TMKP_QUALIFIER_ATTRIBUTES.items():
+                    if line[qualifier_index]:
+                        edge_props[qualifier_attribute] = line[qualifier_index]
 
                 new_edge = kgxedge(subject_id=subject_id,
                                    predicate=predicate,
                                    object_id=object_id,
                                    edgeprops=edge_props,
-                                   primary_knowledge_source='infores:textminingkp')
+                                   primary_knowledge_source=self.provenance_id)
                 self.output_file_writer.write_kgx_edge(new_edge)
                 record_counter += 1
                 if self.test_mode and record_counter >= 20000:
                     break
         
-        self.logger.debug(f'Parsing data file complete.')
         # load up the metadata
         load_metadata: dict = {
             'num_source_lines': record_counter,
-            'unusable_source_lines': skipped_record_counter
-            }
-
+            'unusable_source_lines': skipped_record_counter}
         return load_metadata
-
-    def convert_tmkp_predicate(self, predicate: str):
-        if predicate in self.tmkp_predicate_map:
-            return self.tmkp_predicate_map[predicate]
-        else:
-            return predicate
 
 
 if __name__ == '__main__':

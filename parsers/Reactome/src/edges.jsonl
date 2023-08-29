@@ -1,0 +1,9 @@
+{"subject": "REACT:R-HSA-9613829", "predicate": "biolink:contains_process", "object": "REACT:R-HSA-9626253", "biolink:primary_knowledge_source": "infores:reactome", "stoichiometry": 1, "order": 15}
+{"subject": "REACT:R-HSA-9613829", "predicate": "biolink:contains_process", "object": "REACT:R-HSA-9625197", "biolink:primary_knowledge_source": "infores:reactome", "stoichiometry": 1, "order": 5}
+{"subject": "REACT:R-CFA-9727567", "predicate": "biolink:has_output", "object": "GTOPDB:7858", "biolink:primary_knowledge_source": "infores:reactome", "stoichiometry": 1, "order": 0}
+{"subject": "REACT:R-RNO-9727567", "predicate": "biolink:has_output", "object": "GTOPDB:7858", "biolink:primary_knowledge_source": "infores:reactome", "stoichiometry": 1, "order": 0}
+{"subject": "REACT:R-MMU-9727567", "predicate": "biolink:has_output", "object": "GTOPDB:7858", "biolink:primary_knowledge_source": "infores:reactome", "stoichiometry": 1, "order": 0}
+{"subject": "REACT:R-HSA-9727567", "predicate": "biolink:has_output", "object": "GTOPDB:7858", "biolink:primary_knowledge_source": "infores:reactome", "stoichiometry": 1, "order": 0}
+{"subject": "ChEBI:17336", "predicate": "biolink:located_in", "object": "CL:0002586", "biolink:primary_knowledge_source": "infores:reactome", "stoichiometry": 1, "order": 0}
+{"subject": "ChEBI:16066", "predicate": "biolink:located_in", "object": "CL:0002586", "biolink:primary_knowledge_source": "infores:reactome", "stoichiometry": 1, "order": 0}
+{"subject": "ChEBI:17336", "predicate": "biolink:located_in", "object": "CL:0000632", "biolink:primary_knowledge_source": "infores:reactome", "stoichiometry": 1, "order": 0}

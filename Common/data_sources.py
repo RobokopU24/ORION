@@ -1,9 +1,11 @@
 from collections import defaultdict
 import importlib
 
+BINDING_DB = 'BINDING-DB'
 BIOLINK = 'Biolink'
 CAM_KP = 'CAM-KP'
 CHEBI_PROPERTIES = 'CHEBIProps'
+REACTOME = 'Reactome'
 CORD19 = 'Cord19'
 CTD = 'CTD'
 DRUG_CENTRAL = 'DrugCentral'
@@ -23,25 +25,28 @@ PANTHER = 'PANTHER'
 PHAROS = 'PHAROS'
 PLANT_GOA = 'PlantGOA'
 SCENT = 'Scent'
-STRING_DB = 'STRING-DB'
+SGD = 'SGD'
+HUMAN_STRING = 'STRING-DB-Human'
 TEXT_MINING_KP = 'textminingkp'
 UBERGRAPH = 'Ubergraph'
 UBERGRAPH_REDUNDANT = 'UbergraphRedundant'
 UNIREF = 'UniRef'
 VP = 'ViralProteome'
-YEASTSGD = 'YeastSGDInfo'
-YEAST_HISTONES = "YeastHistoneMapping"
-YEAST_COSTANZA = "Costanza2016Data"
+YEAST_HISTONES = 'YeastHistoneMapping'
+YEAST_COSTANZA = 'Costanza2016Data'
 YEAST_GSE61888 = 'YeastGSE61888'
 YEAST_GASCHDIAMIDE = 'YeastGaschDiamideGeneExpression'
-YEAST_STRING_DB = 'Yeast-STRING-DB'
+YEAST_STRING = 'STRING-DB-Yeast'
 
-RESOURCE_HOGS = [GTEX, GWAS_CATALOG, UNIREF, ONTOLOGICAL_HIERARCHY, UBERGRAPH, UBERGRAPH_REDUNDANT, YEASTSGD, STRING_DB, CAM_KP]
+RESOURCE_HOGS = [GTEX, GWAS_CATALOG, UNIREF, ONTOLOGICAL_HIERARCHY, UBERGRAPH_REDUNDANT,
+                 SGD, HUMAN_STRING, CAM_KP]
 
 SOURCE_DATA_LOADER_CLASS_IMPORTS = {
+    BINDING_DB: ("parsers.BINDING.src.loadBINDINGDB", "BINDINGDBLoader"),
     BIOLINK: ("parsers.biolink.src.loadBL", "BLLoader"),
     CAM_KP: ("parsers.camkp.src.loadCAMKP", "CAMKPLoader"),
     CHEBI_PROPERTIES: ("parsers.chebi.src.loadChebiProperties", "ChebiPropertiesLoader"),
+    REACTOME: ("parsers.Reactome.src.loadReactome", "ReactomeLoader"),
     CORD19: ("parsers.cord19.src.loadCord19", "Cord19Loader"),
     CTD: ("parsers.CTD.src.loadCTD", "CTDLoader"),
     DRUG_CENTRAL: ("parsers.drugcentral.src.loaddrugcentral", "DrugCentralLoader"),
@@ -53,6 +58,7 @@ SOURCE_DATA_LOADER_CLASS_IMPORTS = {
     HGNC: ("parsers.hgnc.src.loadHGNC", "HGNCLoader"),
     HMDB: ("parsers.hmdb.src.loadHMDB", "HMDBLoader"),
     HUMAN_GOA: ("parsers.GOA.src.loadGOA", "HumanGOALoader"),
+    HUMAN_STRING: ("parsers.STRING.src.loadSTRINGDB", "HumanSTRINGDBLoader"),
     INTACT: ("parsers.IntAct.src.loadIA", "IALoader"),
     MONDO_PROPS: ("parsers.MONDOProperties.src.loadMP", "MPLoader"),
     ONTOLOGICAL_HIERARCHY: ("parsers.UberGraph.src.loadUG", "OHLoader"),
@@ -60,17 +66,17 @@ SOURCE_DATA_LOADER_CLASS_IMPORTS = {
     PHAROS: ("parsers.PHAROS.src.loadPHAROS", "PHAROSLoader"),
     PLANT_GOA: ("parsers.GOA.src.loadGOA", "PlantGOALoader"),
     SCENT: ("parsers.scent.src.loadScent", "ScentLoader"),
-    STRING_DB: ("parsers.STRING.src.loadSTRINGDB", "STRINGDBLoader"),
+    SGD: ("parsers.SGD.src.loadSGD", "SGDLoader"),
     TEXT_MINING_KP: ("parsers.textminingkp.src.loadTMKP", "TMKPLoader"),
     UBERGRAPH: ("parsers.UberGraph.src.loadUG", "UGLoader"),
     UBERGRAPH_REDUNDANT: ("parsers.UberGraph.src.loadUG", "UGRedundantLoader"),
     UNIREF: ("parsers.ViralProteome.src.loadUniRef", "UniRefSimLoader"),
     VP: ("parsers.ViralProteome.src.loadVP", "VPLoader"),
-    YEASTSGD: ("parsers.yeast.src.loadYeastSGDInfo", "YeastSGDLoader"),
     YEAST_HISTONES: ("parsers.yeast.src.loadHistoneMap", "YeastHistoneMapLoader"),
     YEAST_COSTANZA: ("parsers.yeast.src.loadCostanza2016", "Costanza2016Loader"),
-    YEAST_GASCHDIAMIDE: ("parsers.yeast.src.loadYeastGeneExpressionGasch.py", "YeastGaschDiamideLoader"),
-    YEAST_STRING_DB: ("parsers.yeast.src.loadYeastGSTRINGDB.py", "STRINGDBLoader")
+    YEAST_GASCHDIAMIDE: ("parsers.yeast.src.loadYeastGeneExpressionGasch", "YeastGaschDiamideLoader"),
+    YEAST_GSE61888: ("parsers.yeast.src.loadYeastNucleosomesGSE61888", "YeastGSE61888Loader"),
+    YEAST_STRING: ("parsers.STRING.src.loadSTRINGDB", "YeastSTRINGDBLoader")
 }
 
 
