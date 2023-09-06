@@ -42,7 +42,7 @@ class DrugMechDBLoader(SourceDataLoader):
         super().__init__(test_mode=test_mode, source_data_dir=source_data_dir)
         self.drugmechdb_version = '202307'  # TODO temporarily hard coded
         #self.drugmechdb_version = self.get_latest_source_version()
-        self.bindingdb_data_url = [f"https://github.com/SuLab/DrugMechDB/raw/main/"]
+        self.drugmechdb_data_url = f"https://github.com/SuLab/DrugMechDB/raw/main/"
         self.drugmechdb_file_name = f"indication_paths.json"
         self.data_files = [self.drugmechdb_file_name]
 
@@ -52,12 +52,12 @@ class DrugMechDBLoader(SourceDataLoader):
         gets the latest version of the data
         :return:
         """
-        if self.bindingdb_version:
-            return self.bindingdb_version
+        if self.drugmechdb_version:
+            return self.drugmechdb_version
         ### The method below gets the database version from the html, but this may be subject to change. ###
-        binding_db_download_page_response = rq.get('https://www.bindingdb.org/rwd/bind/chemsearch/marvin/Download.jsp')
-        version_index = binding_db_download_page_response.text.index('BindingDB_All_2D_') + 17
-        bindingdb_version = binding_db_download_page_response.text[version_index:version_index + 6]
+        drugmechdb_download_page_response = rq.get('https://www.bindingdb.org/rwd/bind/chemsearch/marvin/Download.jsp')
+        version_index = drugmechdb_download_page_response.text.index('BindingDB_All_2D_') + 17
+        bindingdb_version = drugmechdb_download_page_response.text[version_index:version_index + 6]
 
         return f"{bindingdb_version}"
     
@@ -68,7 +68,7 @@ class DrugMechDBLoader(SourceDataLoader):
         data_puller = GetData()
         i=0
         for source in self.data_files:
-            source_url = f"{self.bindingdb_data_url[i]}{source}"
+            source_url = f"{self.drugmechdb_data_url}{source}"
             data_puller.pull_via_http(source_url, self.data_path)
             i+=1
         return True
