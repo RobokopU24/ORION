@@ -64,7 +64,7 @@ class BINDINGDBLoader(SourceDataLoader):
         self.affinity_threshold = LOG_SCALE_AFFINITY_THRESHOLD
 
         self.measure_to_predicate = {
-            "pKi": "CTD:decreases_activity_of",
+            "pKi": "biolink:binds",
             "pIC50": "CTD:decreases_activity_of",
             "pKd": "biolink:binds",
             "pEC50": "CTD:increases_activity_of",
@@ -143,6 +143,11 @@ class BINDINGDBLoader(SourceDataLoader):
 
                 if row[column[0]] != '':
                     measure_type = column[1]
+                    if measure_type in ["k_on", "k_off"]:
+                        # JMB says:
+                        # These are just rate terms used to calculate Kd/Ki so each row with a k_on/k_off value
+                        # already has another measurement type in the row, and that other measurement has far more value.
+                        continue
                     ligand_protein_measure_key = f"{ligand}~{protein}~{measure_type}"
                     # The section below checks through all of the previous entry keys and uses
                     if ligand_protein_measure_key in data_store:  # TODO start here
@@ -169,15 +174,6 @@ class BINDINGDBLoader(SourceDataLoader):
                     if publication is not None and publication not in entry["publications"]:
                         entry["publications"].append(publication)
 
-                    #try:
-                    #    if measure_type in ["k_on", "k_off"]:
-                    #        value = round(float(row[column[0]].replace('>','').replace('<','').replace(' ','')),2)
-                    #    elif measure_type in ["pKi", "pKd", "pIC50", "pEC50"]:
-                    #        value = round(negative_log(float(row[column[0]].replace('>','').replace('<','').replace(' ',''))),2)
-                    #except Exception as e:
-                    #    self.logger.info(f"Error:{e} on value: {row[column[0]]} {measure_type}")
-                    #    value = "undefined"
-
             n+=1
 
         bad_entries = set()
@@ -189,12 +185,8 @@ class BINDINGDBLoader(SourceDataLoader):
                 del entry["publications"]
             try:
                 average_affinity = sum(entry["supporting_affinities"])/len(entry["supporting_affinities"])
-                if entry["affinity_parameter"] in ["k_on", "k_off"]:
-                    entry["affinity"] = round(average_affinity,2)
-                    entry["supporting_affinities"] = [round(x,2) for x in entry["supporting_affinities"]]
-                else:
-                    entry["affinity"] = round(negative_log(average_affinity),2)
-                    entry["supporting_affinities"] = [round(negative_log(x),2) for x in entry["supporting_affinities"]]
+                entry["affinity"] = round(negative_log(average_affinity),2)
+                entry["supporting_affinities"] = [round(negative_log(x),2) for x in entry["supporting_affinities"]]
             except:
                 bad_entries.add(key)
 
