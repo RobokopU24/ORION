@@ -67,6 +67,7 @@ PREDICATE = 'predicate'
 NODE_TYPES = 'category'
 SYNONYMS = 'equivalent_identifiers'
 INFORMATION_CONTENT = 'information_content'
+DESCRIPTION = 'description'
 
 FALLBACK_EDGE_PREDICATE = 'biolink:related_to'
 
