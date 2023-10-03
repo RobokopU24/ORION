@@ -243,7 +243,7 @@ graphs:
     graph_url: https://string-db.org/
     output_format: neo4j
     sources:
-      - source_id: STRING-DB
+      - source_id: STRING-DB-Human
       - source_id: OntologicalHierarchy
         merge_strategy: connected_edge_subset
 
