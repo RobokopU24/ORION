@@ -4,6 +4,7 @@ import tarfile
 from io import TextIOWrapper
 from Common.utils import GetData
 from Common.loader_interface import SourceDataLoader
+from Common.node_types import DESCRIPTION
 from parsers.UberGraph.src.ubergraph import UberGraphTools
 
 
@@ -86,11 +87,11 @@ class UGLoader(SourceDataLoader):
                         skipped_record_counter += 1
                         continue
                     subject_description = ubergraph_tools.node_descriptions.get(subject_curie, None)
-                    subject_properties = {'description': subject_description} if subject_description else {}
+                    subject_properties = {DESCRIPTION: subject_description} if subject_description else {}
                     self.output_file_writer.write_node(node_id=subject_curie, node_properties=subject_properties)
 
                     object_description = ubergraph_tools.node_descriptions.get(object_curie, None)
-                    object_properties = {'description': object_description} if object_description else {}
+                    object_properties = {DESCRIPTION: object_description} if object_description else {}
                     self.output_file_writer.write_node(node_id=object_curie, node_properties=object_properties)
 
                     self.output_file_writer.write_edge(subject_id=subject_curie,
