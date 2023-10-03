@@ -56,9 +56,6 @@ graphs:
     sources:
         # using an older version of GWASCatalog because EFO terms are not normalizing right now
       - source_id: GWASCatalog
-        source_version: '8_23_2022'
-        edge_normalization_version: 'v.2.4.4'
-        node_normalization_version: '2.0.9'
       - source_id: GTEx
 
   - graph_id: BINDING_Automat
@@ -157,9 +154,6 @@ graphs:
     output_format: neo4j
     sources:
       - source_id: GWASCatalog
-        source_version: '8_23_2022'
-        edge_normalization_version: 'v.2.4.4'
-        node_normalization_version: '2.0.9'
       - source_id: OntologicalHierarchy
         merge_strategy: connected_edge_subset
 
