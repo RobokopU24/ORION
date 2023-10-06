@@ -75,10 +75,12 @@ ON_NODE_MAPPING = ("GO_Term", "Species", "ExternalOntology","ReferenceTherapeuti
 # GenomeEncodedEntity: EntityWITHACCESSIONEDSEQUENCE(Protein), EntityWITHACCESSIONEDSEQUENCE(Gene and transcript), EntityWITHACCESSIONEDSEQUENCE(DNA), EntityWITHACCESSIONEDSEQUENCE(RNA)
 CROSS_MAPPING = ('EntityWithAccessionedSequence','GenomeEncodedEntity', 'SimpleEntity', 'Drug', 'Complex', 'Polymer')
 
-TO_WRITE = ('Provenance/Include', 'Attribute/Include') #Descriptive features of other existing nodes eg Summation
+TO_WRITE = ('Provenance/Include','Attribute/Include') #Descriptive features of other existing nodes eg Summation
 TO_MAP = ('IDMapping/Include', ) # Maps the external identifier of a node from another node
 TO_INCLUDE = ('Include',)
 RDF_EDGES_TO_INCLUDE = ('RDF_edges/Include',)
+MOLE_COMPLEX = ('Include/Complex',) # 
+TO_SWITCH_MOLE_COMPLEX = ('Include/SwitchSO/Complex',) # 
 TO_SWITCH = ('Include/SwitchSO', )
 
 ##############
@@ -177,6 +179,18 @@ class ReactomeLoader(SourceDataLoader):
                         f"AND any(x in labels(b) WHERE x in ['Complex','GenomeEncodedEntity','EntityWithAccessionedSequence']) " \
                         f"RETURN a, labels(a) as a_labels, id(a) as a_id, type(r) as r_type, b, labels(b) as b_labels, id(b) as b_id, labels(d) as regulationType"
                 queries_to_include.append(cypher_query)
+            elif line[INCLUDE_COLUMN] in TO_SWITCH_MOLE_COMPLEX:
+                cypher_query = f"MATCH (b)<-[r:hasComponent]-(c:{line[SUBJECT_COLUMN]})-[r1:{line[PREDICATE_COLUMN]}]->(a:{line[OBJECT_COLUMN]}) " \
+                        f"RETURN a, labels(a) as a_labels, id(a) as a_id, type(r) as r_type, b, labels(b) as b_labels, id(b) as b_id, c.name as complex_context"
+                # Remove if map_ids is not needed.
+                #cypher_query = self.map_ids(line[SUBJECT_COLUMN], line[PREDICATE_COLUMN], line[OBJECT_COLUMN], switch=True)
+                queries_to_include.append(cypher_query)
+            elif line[INCLUDE_COLUMN] in MOLE_COMPLEX:
+                cypher_query = f"MATCH (a)<-[r:hasComponent]-(c:{line[SUBJECT_COLUMN]})-[r1:{line[PREDICATE_COLUMN]}]->(b:{line[OBJECT_COLUMN]}) " \
+                        f"RETURN a, labels(a) as a_labels, id(a) as a_id, type(r) as r_type, b, labels(b) as b_labels, id(b) as b_id, c.name as complex_context"
+                # Remove if map_ids is not needed.
+                #cypher_query = self.map_ids(line[SUBJECT_COLUMN], line[PREDICATE_COLUMN], line[OBJECT_COLUMN], switch=True)
+                queries_to_include.append(cypher_query)
             elif line[INCLUDE_COLUMN] in TO_SWITCH:
                 cypher_query = f"MATCH (b:{line[SUBJECT_COLUMN]})-[r:{line[PREDICATE_COLUMN]}]->(a:{line[OBJECT_COLUMN]}) " \
                         f"RETURN a, labels(a) as a_labels, id(a) as a_id, type(r) as r_type, b, labels(b) as b_labels, id(b) as b_id"
@@ -242,7 +256,7 @@ class ReactomeLoader(SourceDataLoader):
     def get_reference_entity_mapping(self, neo4j_session):
         reference_entity_mapping = {}
         # The following line excludes Pathways from ID mapping because we only want to map them to GO terms, like 2 lines below.
-        reference_entity_query = "MATCH (a)-[:referenceEntity|crossReference]->(b) WHERE NOT('Pathway' in labels(a)) return id(a) as identity, b as reference, labels(b) as ref_labels"
+        reference_entity_query = "MATCH (a)-[r:referenceEntity|crossReference]->(b) WHERE NOT('Pathway' in labels(a)) return id(a) as identity, b as reference, labels(b) as ref_labels"
         goBioProcess_query = "MATCH (a:Pathway)-[r:goBiologicalProcess]->(b:GO_Term) WHERE replace(toLower(a.displayName),'-',' ') = replace(toLower(b.displayName),'-',' ') return id(a) as identity, b as reference, labels(b) as ref_labels"
         reference_entity_result = neo4j_session.run(reference_entity_query)
         goBioProcess_query = neo4j_session.run(goBioProcess_query)
@@ -293,11 +307,23 @@ class ReactomeLoader(SourceDataLoader):
             if node_a_id and node_b_id:
                 if "regulationType" in record_data.keys():
                     if any("positive" in x.lower() for x in record_data['regulationType']):
-                        self.process_edge_from_neo4j(node_a_id, record_data['r_type'], node_b_id, regulationType='positive')
+                        self.process_edge_from_neo4j(node_a_id,
+                                                     record_data['r_type'],
+                                                     node_b_id,
+                                                     regulationType='positive',
+                                                     complex_context=record_data.get('complex_context', default=None))
                     elif any("negative" in x.lower() for x in record_data['regulationType']):
-                        self.process_edge_from_neo4j(node_a_id, record_data['r_type'], node_b_id, regulationType='negative')
+                        self.process_edge_from_neo4j(node_a_id,
+                                                     record_data['r_type'],
+                                                     node_b_id,
+                                                     regulationType='negative',
+                                                     complex_context=record_data.get('complex_context', default=None))
                 else:
-                    self.process_edge_from_neo4j(node_a_id, record_data['r_type'], node_b_id, regulationType=None)
+                    self.process_edge_from_neo4j(node_a_id,
+                                                 record_data['r_type'],
+                                                 node_b_id,
+                                                 regulationType=None,
+                                                 complex_context=record_data.get('complex_context', default=None))
                 record_count += 1
             else:
                 skipped_record_count += 1
@@ -391,14 +417,15 @@ class ReactomeLoader(SourceDataLoader):
         self.dbid_to_node_id_lookup[node['dbId']] = node_id
         """
 
-    def process_edge_from_neo4j(self, subject_id: str, relationship_type: str, object_id: str, regulationType=None):
+    def process_edge_from_neo4j(self, subject_id: str, relationship_type: str, object_id: str, regulationType=None, complex_context=None):
         predicate = PREDICATE_MAPPING.get(relationship_type, None)
         if predicate:
-            if regulationType == None:
+            if regulationType is None:
                 output_edge = kgxedge(
                     subject_id=subject_id,
                     object_id=object_id,
                     predicate=predicate,
+                    edgeprops={'complex_context': complex_context} if complex_context else None,
                     primary_knowledge_source=self.provenance_id
                 )
             else:
@@ -406,15 +433,18 @@ class ReactomeLoader(SourceDataLoader):
                     direction = 'increased'
                 elif regulationType == "negative":
                     direction = 'decreased'
+                edge_props = {
+                    'qualified_predicate': 'biolink:causes',
+                    'object_direction_qualifier': direction,
+                    'object_aspect_qualifier': 'expression',
+                }
+                if complex_context:
+                    edge_props['complex_context'] = complex_context
                 output_edge = kgxedge(
                     subject_id=subject_id,
                     object_id=object_id,
                     predicate=predicate,
-                    edgeprops={
-                        'qualified_predicate':'biolink:causes',
-                        'object_direction_qualifier':direction,
-                        'object_aspect_qualifier':'expression'
-                    },
+                    edgeprops=edge_props,
                     primary_knowledge_source=self.provenance_id
                 )
             self.output_file_writer.write_kgx_edge(output_edge)
