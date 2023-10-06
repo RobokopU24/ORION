@@ -311,19 +311,19 @@ class ReactomeLoader(SourceDataLoader):
                                                      record_data['r_type'],
                                                      node_b_id,
                                                      regulationType='positive',
-                                                     complex_context=record_data.get('complex_context', default=None))
+                                                     complex_context=record_data.get('complex_context', None))
                     elif any("negative" in x.lower() for x in record_data['regulationType']):
                         self.process_edge_from_neo4j(node_a_id,
                                                      record_data['r_type'],
                                                      node_b_id,
                                                      regulationType='negative',
-                                                     complex_context=record_data.get('complex_context', default=None))
+                                                     complex_context=record_data.get('complex_context', None))
                 else:
                     self.process_edge_from_neo4j(node_a_id,
                                                  record_data['r_type'],
                                                  node_b_id,
                                                  regulationType=None,
-                                                 complex_context=record_data.get('complex_context', default=None))
+                                                 complex_context=record_data.get('complex_context', None))
                 record_count += 1
             else:
                 skipped_record_count += 1
