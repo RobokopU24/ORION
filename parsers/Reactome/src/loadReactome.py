@@ -307,20 +307,23 @@ class ReactomeLoader(SourceDataLoader):
             if node_a_id and node_b_id:
                 if "regulationType" in record_data.keys():
                     if any("positive" in x.lower() for x in record_data['regulationType']):
-                        if "complex_context" in record_data.keys():
-                            self.process_edge_from_neo4j(node_a_id, record_data['r_type'], node_b_id, regulationType='positive', complex_context=record_data['complex_context'])
-                        else:
-                            self.process_edge_from_neo4j(node_a_id, record_data['r_type'], node_b_id, regulationType='positive')
+                        self.process_edge_from_neo4j(node_a_id,
+                                                     record_data['r_type'],
+                                                     node_b_id,
+                                                     regulationType='positive',
+                                                     complex_context=record_data.get('complex_context', default=None))
                     elif any("negative" in x.lower() for x in record_data['regulationType']):
-                        if "complex_context" in record_data.keys():
-                            self.process_edge_from_neo4j(node_a_id, record_data['r_type'], node_b_id, regulationType='negative', complex_context=record_data['complex_context'])
-                        else:
-                            self.process_edge_from_neo4j(node_a_id, record_data['r_type'], node_b_id, regulationType='negative')
+                        self.process_edge_from_neo4j(node_a_id,
+                                                     record_data['r_type'],
+                                                     node_b_id,
+                                                     regulationType='negative',
+                                                     complex_context=record_data.get('complex_context', default=None))
                 else:
-                    if "complex_context" in record_data.keys():
-                        self.process_edge_from_neo4j(node_a_id, record_data['r_type'], node_b_id, regulationType=None, complex_context=record_data['complex_context'])
-                    else:
-                        self.process_edge_from_neo4j(node_a_id, record_data['r_type'], node_b_id, regulationType=None)
+                    self.process_edge_from_neo4j(node_a_id,
+                                                 record_data['r_type'],
+                                                 node_b_id,
+                                                 regulationType=None,
+                                                 complex_context=record_data.get('complex_context', default=None))
                 record_count += 1
             else:
                 skipped_record_count += 1
@@ -417,52 +420,33 @@ class ReactomeLoader(SourceDataLoader):
     def process_edge_from_neo4j(self, subject_id: str, relationship_type: str, object_id: str, regulationType=None, complex_context=None):
         predicate = PREDICATE_MAPPING.get(relationship_type, None)
         if predicate:
-            if regulationType == None:
-                if complex_context != None:
-                    output_edge = kgxedge(
-                        subject_id=subject_id,
-                        object_id=object_id,
-                        predicate=predicate,
-                        edgeprops = {'complex_context':complex_context},
-                        primary_knowledge_source=self.provenance_id
-                    )
-                else:
-                    output_edge = kgxedge(
-                        subject_id=subject_id,
-                        object_id=object_id,
-                        predicate=predicate,
-                        primary_knowledge_source=self.provenance_id
-                    )
+            if regulationType is None:
+                output_edge = kgxedge(
+                    subject_id=subject_id,
+                    object_id=object_id,
+                    predicate=predicate,
+                    edgeprops={'complex_context': complex_context} if complex_context else None,
+                    primary_knowledge_source=self.provenance_id
+                )
             else:
                 if regulationType == "positive":
                     direction = 'increased'
                 elif regulationType == "negative":
                     direction = 'decreased'
-                if complex_context != None:
-                    output_edge = kgxedge(
-                        subject_id=subject_id,
-                        object_id=object_id,
-                        predicate=predicate,
-                        edgeprops={
-                            'qualified_predicate':'biolink:causes',
-                            'object_direction_qualifier':direction,
-                            'object_aspect_qualifier':'expression',
-                            'complex_context':complex_context
-                        },
-                        primary_knowledge_source=self.provenance_id
-                    )
-                else:
-                    output_edge = kgxedge(
-                        subject_id=subject_id,
-                        object_id=object_id,
-                        predicate=predicate,
-                        edgeprops={
-                            'qualified_predicate':'biolink:causes',
-                            'object_direction_qualifier':direction,
-                            'object_aspect_qualifier':'expression',
-                        },
-                        primary_knowledge_source=self.provenance_id
-                    )
+                edge_props = {
+                    'qualified_predicate': 'biolink:causes',
+                    'object_direction_qualifier': direction,
+                    'object_aspect_qualifier': 'expression',
+                }
+                if complex_context:
+                    edge_props['complex_context'] = complex_context
+                output_edge = kgxedge(
+                    subject_id=subject_id,
+                    object_id=object_id,
+                    predicate=predicate,
+                    edgeprops=edge_props,
+                    primary_knowledge_source=self.provenance_id
+                )
             self.output_file_writer.write_kgx_edge(output_edge)
         else:
             self.logger.warning(f'A predicate could not be mapped for relationship type {relationship_type}')
