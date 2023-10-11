@@ -115,7 +115,6 @@ class NodeNormalizer:
                 resp: requests.models.Response = requests.post(f'{self.node_norm_endpoint}get_normalized_nodes',
                                                                json={'curies': data_chunk,
                                                                      'conflate': self.conflate_node_types,
-                                                                     'drug_chemical_conflate': self.conflate_node_types,
                                                                      'description': True})
 
                 # did we get a good status code
