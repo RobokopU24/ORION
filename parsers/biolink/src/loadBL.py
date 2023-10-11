@@ -163,10 +163,42 @@ DESIRED_BL_PREDICATES = {
     'biolink:treats'
 }
 
+PREDICATES_WITH_DISEASE_SUBJECT = {
+    'biolink:disrupts',
+    'biolink:caused_by',
+    'biolink:causes',
+    'biolink:has_participant'
+}
+
+ALLOWABLE_DISEASE_PHENOTYPE_PREFIXES = {
+    'MONDO:',
+    'UMLS:',
+    'OMIA:',
+    'OMIM:',
+    'OMIMPS:',
+    'MESH:',
+    'KEGG-ds:',
+    'HP:',
+    'DOID:',
+    'HGNC:',
+    'GeneReviews:',
+    'ORPHA:',
+    'EFO:',
+    'MP:'
+}
+
 
 def get_bl_edge_predicate(line: list):
     predicate = line[EDGESDATACOLS.PREDICATE.value]
     if predicate == 'biolink:biomarker_for' and not passes_qc_filter(line):
+        return None
+    elif predicate in PREDICATES_WITH_DISEASE_SUBJECT:
+        subject = line[EDGESDATACOLS.SUBJECT.value]
+        for prefix in ALLOWABLE_DISEASE_PHENOTYPE_PREFIXES:
+            if prefix in subject:
+                return predicate
+            else:
+                continue
         return None
     else:
         return predicate if predicate in DESIRED_BL_PREDICATES else None
