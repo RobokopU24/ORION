@@ -9,6 +9,7 @@ from bs4 import BeautifulSoup
 from Common.loader_interface import SourceDataLoader
 from Common.kgxmodel import kgxnode, kgxedge
 from Common.neo4j_tools import Neo4jTools
+from Common.node_types import MACROMOLECULAR_COMPLEX, NAMED_THING
 from Common.prefixes import REACTOME, NCBITAXON, GTOPDB, UNIPROTKB, CHEBI, KEGG_COMPOUND, KEGG_GLYCAN, PUBCHEM_COMPOUND, NCBIGENE, CLINVAR
 from Common.utils import GetData
 
@@ -25,6 +26,9 @@ PREDICATE_MAPPING = {"compartment": "biolink:occurs_in",
                      "output": "biolink:has_output",
                      "input": "biolink:has_input",
                      "hasEvent": "biolink:contains_process",
+                     "normalPathway":"biolink:contains_process", #TODO Choose better biolink predicate for normalPathways/Reactions/Etc.
+                     "normalReaction":"biolink:contains_process", #TODO Choose better biolink predicate for normalPathways/Reactions/Etc.
+                     #"normalEntity":"biolink:contains_process", #TODO Choose better biolink predicate for normalPathways/Reactions/Etc.
                      "precedingEvent": "biolink:precedes",
                      "activeUnit": "biolink:actively_involves",
                      "hasComponent": "biolink:has_part",
@@ -359,12 +363,19 @@ class ReactomeLoader(SourceDataLoader):
             return None
         
         node_properties = {}
-        if 'definition' in node:
+        if any(x == 'Complex' for x in node_labels):
+            node_categories = [NAMED_THING, MACROMOLECULAR_COMPLEX]
+        else:
+            node_categories = [NAMED_THING]
+        if 'definition' in node.keys():
             node_properties['definition'] = node['definition']
-        if 'url' in node:
+        if 'url' in node.keys():
             node_properties['url'] = node['url']
         node_name = node['displayName'] if 'displayName' in node else ''
-        node_to_write = kgxnode(node_id, name=node_name, nodeprops=node_properties)
+        node_to_write = kgxnode(node_id,
+                                name=node_name,
+                                categories=node_categories,
+                                nodeprops=node_properties)
         self.output_file_writer.write_kgx_node(node_to_write)
         return node_id
 
@@ -424,9 +435,9 @@ class ReactomeLoader(SourceDataLoader):
                     )
             else:
                 if regulationType == "positive":
-                    direction = 'increases'
+                    direction = 'increased'
                 elif regulationType == "negative":
-                    direction = 'decreases'
+                    direction = 'decreased'
                 if complex_context != None:
                     output_edge = kgxedge(
                         subject_id=subject_id,
@@ -452,6 +463,7 @@ class ReactomeLoader(SourceDataLoader):
                         },
                         primary_knowledge_source=self.provenance_id
                     )
+              
             self.output_file_writer.write_kgx_edge(output_edge)
         else:
             self.logger.warning(f'A predicate could not be mapped for relationship type {relationship_type}')
