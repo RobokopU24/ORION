@@ -24,6 +24,55 @@ class NodeNormalizer:
 
     DEFAULT_NODE_NORMALIZATION_ENDPOINT = 'https://nodenormalization-sri.renci.org/'
 
+    broken_curies = {"PUBCHEM.COMPOUND:14969",
+                     "PUBCHEM.COMPOUND:5702160",
+    "PUBCHEM.COMPOUND:62816",
+    "PUBCHEM.COMPOUND:2657",
+    "PUBCHEM.COMPOUND:3420",
+    "PUBCHEM.COMPOUND:184933",
+    "PUBCHEM.COMPOUND:16132446",
+    "PUBCHEM.COMPOUND:16158474",
+    "PUBCHEM.COMPOUND:6452712",
+    "PUBCHEM.COMPOUND:121492004",
+    "PUBCHEM.COMPOUND:124220636",
+    "PUBCHEM.COMPOUND:3325",
+    "PUBCHEM.COMPOUND:426756",
+    "PUBCHEM.COMPOUND:64738",
+    "PUBCHEM.COMPOUND:2274",
+    "PUBCHEM.COMPOUND:657250",
+    "PUBCHEM.COMPOUND:20056431",
+    "PUBCHEM.COMPOUND:76943386",
+    "PUBCHEM.COMPOUND:163285897",
+    "PUBCHEM.COMPOUND:24883445",
+    "PUBCHEM.COMPOUND:23666342",
+    "PUBCHEM.COMPOUND:60714",
+    "PUBCHEM.COMPOUND:60754",
+    "PUBCHEM.COMPOUND:72057",
+    "PUBCHEM.COMPOUND:11158972",
+    "PUBCHEM.COMPOUND:22002932",
+    "PUBCHEM.COMPOUND:74763937",
+    "PUBCHEM.COMPOUND:60196433",
+    "PUBCHEM.COMPOUND:118115473",
+    "PUBCHEM.COMPOUND:145722621",
+    "PUBCHEM.COMPOUND:98941",
+    "PUBCHEM.COMPOUND:13730",
+    "PUBCHEM.COMPOUND:440055",
+    "PUBCHEM.COMPOUND:2734019",
+    "PUBCHEM.COMPOUND:2724369",
+    "PUBCHEM.COMPOUND:71587456",
+    "PUBCHEM.COMPOUND:24868287",
+    "PUBCHEM.COMPOUND:21121987",
+    "PUBCHEM.COMPOUND:107488",
+    "PUBCHEM.COMPOUND:135398592",
+    "PUBCHEM.COMPOUND:16218792",
+    "PUBCHEM.COMPOUND:2736435",
+    "PUBCHEM.COMPOUND:5742832",
+    "PUBCHEM.COMPOUND:5353622",
+    "PUBCHEM.COMPOUND:5352133",
+    "PUBCHEM.COMPOUND:162533872",
+    "PUBCHEM.COMPOUND:5284447",
+    "PUBCHEM.COMPOUND:5479530"}
+
     def __init__(self,
                  log_level=logging.INFO,
                  node_normalization_version: str = 'latest',
@@ -77,13 +126,13 @@ class NodeNormalizer:
         self.logger.debug(f'Start of normalize_node_data. items: {len(node_list)}')
 
         # init the cache list - this accumulates all of the results from the node norm service
-        cached_node_norms: dict = {}
+        cached_node_norms: dict = {curie: None for curie in self.broken_curies}
 
         # save the node list count to avoid grabbing it over and over
         node_count: int = len(node_list)
 
         # create a unique set of node ids
-        tmp_normalize: set = set([node['id'] for node in node_list])
+        tmp_normalize: set = set([node['id'] for node in node_list if node['id'] not in self.broken_curies])
 
         # convert the set to a list so we can iterate through it
         to_normalize: list = list(tmp_normalize)
