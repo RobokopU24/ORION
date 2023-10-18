@@ -11,6 +11,29 @@ def load_json(json_data):
         data = json.load(file)
     file.close()
     return data
+
+predicate_mappings = {
+    "biolink:decreases_abundance_of":["biolink:affects","biolink:causes","decreased","abundance"],
+    "biolink:increases_abundance_of":["biolink:affects","biolink:causes","increased","abundance"],
+    "biolink:decreases_activity_of":["biolink:affects","biolink:causes","decreased","activity"],
+    "biolink:increases_activity_of":["biolink:affects","biolink:causes","increased","activity"],
+    "biolink:decreases_expression_of":["biolink:affects","biolink:causes","decreased","expression"],
+    "biolink:increases_expression_of":["biolink:affects","biolink:causes","increased","expression"],
+    "biolink:decreases_synthesis_of":["biolink:affects","biolink:causes","decreased","synthesis"],
+    "biolink:increases_synthesis_of":["biolink:affects","biolink:causes","increased","synthesis"],
+    "biolink:decreases_uptake_of":["biolink:affects","biolink:causes","decreased","uptake"],
+    "biolink:increases_uptake_of":["biolink:affects","biolink:causes","increased","uptake"],
+    "biolink:decreases_degradation_of":["biolink:affects","biolink:causes","decreased","degradation"],
+    "biolink:increases_degradation_of":["biolink:affects","biolink:causes","increased","degradation"],
+    "biolink:decreases_stability_of":["biolink:affects","biolink:causes","decreased","stability"],
+    "biolink:increases_stability_of":["biolink:affects","biolink:causes","increased","stability"],
+    "biolink:decreases_transport_of":["biolink:affects","biolink:causes","decreased","transport"],
+    "biolink:increases_transport_of":["biolink:affects","biolink:causes","increased","transport"],
+    "biolink:negatively_regulates":["biolink:regulates","None","downregulated","None"],
+    "biolink:positively_regulates":["biolink:regulates","None","upregulated","None"],
+    "biolink:directly_interacts_with":["biolink:directly_physically_interacts_with","None","None","None"],
+    "biolink:molecularly_interacts_with":["biolink:directly_physically_interacts_with","None","None","None"],
+}
     
 ##############
 # Class: Load in direct Gene/Protein-[biolink:target_for]->Disease relationships from DrugMechDB
@@ -72,31 +95,22 @@ class DrugMechDBLoader(SourceDataLoader):
         self.output_file_writer.write_kgx_node(node_to_write)
         return node_id
 
-    def process_edge_to_kgx(self, subject_id: str, predicate: str, object_id: str, regulationType=None, complex_context=None):
+    def process_edge_to_kgx(self, subject_id: str, predicate: str, object_id: str, qualified_predicate: None, object_direction_qualifier: None, object_aspect_qualifier: None):
         if predicate:
-            if regulationType == None:
-                output_edge = kgxedge(
-                    subject_id=subject_id,
-                    object_id=object_id,
-                    predicate=predicate,
-                    primary_knowledge_source=self.provenance_id
-                )
-            else:
-                if regulationType == "positively":
-                    direction = 'increased'
-                elif regulationType == "negatively":
-                    direction = 'decreased'
-                output_edge = kgxedge(
-                    subject_id=subject_id,
-                    object_id=object_id,
-                    predicate=predicate,
-                    edgeprops={
-                        'qualified_predicate':'biolink:causes',
-                        'object_direction_qualifier':direction,
-                        'object_aspect_qualifier':'expression',
-                    },
-                    primary_knowledge_source=self.provenance_id
-                )
+            edgeprops={}
+            if qualified_predicate:
+                edgeprops.update({"qualified_predicate":qualified_predicate})
+            if object_direction_qualifier:
+                edgeprops.update({"object_direction_qualifier":object_direction_qualifier})
+            if object_aspect_qualifier:
+                edgeprops.update({"object_aspect_qualifier":object_aspect_qualifier})
+            output_edge = kgxedge(
+                subject_id=subject_id,
+                object_id=object_id,
+                predicate=predicate,
+                edgeprops=edgeprops,
+                primary_knowledge_source=self.provenance_id
+            )
             self.output_file_writer.write_kgx_edge(output_edge)
         else:
             self.logger.warning(f'A predicate could not be mapped for relationship type {predicate}')
@@ -125,8 +139,14 @@ class DrugMechDBLoader(SourceDataLoader):
                 predicate = "biolink:" + triple["key"].replace(" ","_")
                 target = triple["target"]
                 target_id = self.process_node_to_kgx(target)
-                self.process_edge_to_kgx(subject_id=source_id, predicate=predicate, object_id=target_id)
-
+                if predicate in predicate_mappings:
+                    qualified_predicate = predicate_mappings[predicate][1] if predicate_mappings[predicate][1] != "None" else None
+                    object_direction_qualifier = predicate_mappings[predicate][2] if predicate_mappings[predicate][2] != "None" else None
+                    object_aspect_qualifier = predicate_mappings[predicate][3] if predicate_mappings[predicate][3] != "None" else None
+                    predicate = predicate_mappings[predicate][0]
+                    self.process_edge_to_kgx(subject_id=source_id, predicate=predicate, object_id=target_id, qualified_predicate=qualified_predicate, object_direction_qualifier=object_direction_qualifier, object_aspect_qualifier=object_aspect_qualifier)
+                else:
+                    self.process_edge_to_kgx(subject_id=source_id, predicate=predicate, object_id=target_id, qualified_predicate=None, object_direction_qualifier=None, object_aspect_qualifier=None)
                 if source == drug_mesh:
                     nodes = entry["nodes"]
                     for node in nodes:
@@ -135,7 +155,7 @@ class DrugMechDBLoader(SourceDataLoader):
                             drug_target_uniprot = node["id"]
                             drug_target_uniprot_id = self.process_node_to_kgx(drug_target_uniprot)
                             disease_mesh_id = self.process_node_to_kgx(disease_mesh)
-                            self.process_edge_to_kgx(subject_id=drug_target_uniprot_id, predicate="biolink:target_for", object_id=disease_mesh_id)
+                            self.process_edge_to_kgx(subject_id=drug_target_uniprot_id, predicate="biolink:target_for", object_id=disease_mesh_id, qualified_predicate=None, object_direction_qualifier=None, object_aspect_qualifier=None)
                             
                         # The section below checks the "Drug" + 1 node for drug metabolites, which may be the active molecule.
                         # Then, if the next node in the path is a protein, assign that as the target.
@@ -148,7 +168,7 @@ class DrugMechDBLoader(SourceDataLoader):
                                         drug_target_uniprot = node["id"]
                                         drug_target_uniprot_id = self.process_node_to_kgx(drug_target_uniprot)
                                         disease_mesh_id = self.process_node_to_kgx(disease_mesh)
-                                        self.process_edge_to_kgx(subject_id=drug_target_uniprot_id, predicate="biolink:target_for", object_id=disease_mesh_id)
+                                        self.process_edge_to_kgx(subject_id=drug_target_uniprot_id, predicate="biolink:target_for", object_id=disease_mesh_id, qualified_predicate=None, object_direction_qualifier=None, object_aspect_qualifier=None)
 
                         else:
                             continue
