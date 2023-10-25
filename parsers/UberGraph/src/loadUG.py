@@ -248,8 +248,6 @@ class UGRedundantLoader(UGLoader):
             with tar_files.extractfile(f'{ubergraph_graph_path}/edges.tsv') as edges_file:
                 for line in TextIOWrapper(edges_file):
                     record_counter += 1
-                    if record_counter % 1000000 == 0:
-                        self.logger.info(f'Checked {record_counter} edges so far..')
                     subject_id, predicate_id, object_id = tuple(line.rstrip().split('\t'))
                     subject_curie = ubergraph_tools.get_curie_for_node_id(subject_id)
                     if not subject_curie:
