@@ -114,7 +114,8 @@ class NodeNormalizer:
                 # get the data
                 resp: requests.models.Response = requests.post(f'{self.node_norm_endpoint}get_normalized_nodes',
                                                                json={'curies': data_chunk,
-                                                                     'conflate': self.conflate_node_types})
+                                                                     'conflate': self.conflate_node_types,
+                                                                     'description': True})
 
                 # did we get a good status code
                 if resp.status_code == 200:
@@ -198,17 +199,23 @@ class NodeNormalizer:
             current_node_normalization = cached_node_norms[current_node_id]
             if current_node_normalization is not None:
 
+                current_node_id_section = current_node_normalization['id']
+
                 # update the node with the normalized info
-                normalized_id = current_node_normalization['id']['identifier']
+                normalized_id = current_node_id_section['identifier']
                 current_node['id'] = normalized_id
                 current_node[NODE_TYPES] = current_node_normalization['type']
                 current_node[SYNONYMS] = list(item['identifier'] for item in current_node_normalization[SYNONYMS])
-                if INFORMATION_CONTENT in current_node_normalization:
-                    current_node[INFORMATION_CONTENT] = current_node_normalization[INFORMATION_CONTENT]
 
-                # set the name as the label if it exists
-                if 'label' in current_node_normalization['id']:
-                    current_node['name'] = current_node_normalization['id']['label']
+                # set the name as the primary label if it exists
+                if 'label' in current_node_id_section:
+                    current_node['name'] = current_node_id_section['label']
+
+                # set the node description and/or information content if they are present
+                if 'information_content' in current_node_normalization:
+                    current_node[INFORMATION_CONTENT] = current_node_normalization[INFORMATION_CONTENT]
+                if 'description' in current_node_id_section:
+                    current_node[DESCRIPTION] = current_node_id_section['description']
 
                 self.node_normalization_lookup[current_node_id] = [normalized_id]
             else:

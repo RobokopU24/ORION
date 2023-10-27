@@ -144,7 +144,11 @@ class KGXFileNormalizer:
                     regular_nodes_pre_norm += len(regular_nodes)
                     if regular_nodes:
                         self.logger.debug(f'Normalizing {len(regular_nodes)} regular nodes...')
-                        self.node_normalizer.normalize_node_data(regular_nodes)
+                        try:
+                            self.node_normalizer.normalize_node_data(regular_nodes)
+                        except Exception as e:
+                            raise NormalizationFailedError(error_message='Error during node normalization.',
+                                                           actual_error=e)
                     regular_nodes_post_norm += len(regular_nodes)
                     if regular_nodes:
                         self.logger.info(f'Normalized {regular_nodes_pre_norm} regular nodes so far...')
