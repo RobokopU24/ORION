@@ -367,7 +367,7 @@ class EdgeNormalizer:
 
     def normalize_edge_data(self,
                             edge_list: list,
-                            block_size: int = 2500) -> list:
+                            block_size: int = 100) -> list:
         """
         This method calls the EdgeNormalization web service to retrieve information for normalizing edges.
 
@@ -510,3 +510,21 @@ class EdgeNormalizer:
         else:
             # this shouldn't happen, raise an exception
             resp.raise_for_status()
+
+
+NAME_RESOLVER_URL = os.environ.get('NAME_RESOLVER_ENDPOINT', "https://name-resolution-sri.renci.org/") + 'lookup'
+NAME_RESOLVER_HEADERS = {"accept": "application/json"}
+
+
+def call_name_resolution(name: str, biolink_type: str):
+    nameres_payload = {
+        "string": name,
+        "biolink_type": biolink_type if biolink_type else ""
+    }
+    nameres_json = requests.get(NAME_RESOLVER_URL, params=nameres_payload, headers=NAME_RESOLVER_HEADERS).json()
+    # return the first result if there is one
+    if nameres_json:
+        return nameres_json[0]['curie'], nameres_json[0]['label']
+    # if no results return None
+    return None, None
+
