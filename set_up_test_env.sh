@@ -22,12 +22,11 @@ export DATA_SERVICES_GRAPH_SPEC=testing-graph-spec.yml
 #DATA_SERVICES_GRAPH_SPEC_URL - a URL pointing to a Graph Spec file
 #export DATA_SERVICES_GRAPH_SPEC_URL=https://raw.githubusercontent.com/RENCI-AUTOMAT/Data_services/helm_deploy/graph_specs/yeast-graph-spec.yml
 
-export DATA_SERVICES_NEO4J_PASSWORD=insecurepasswordexample
-
-export DATA_SERVICES_OUTPUT_URL=https://localhost/
+export PYTHONPATH="$PYTHONPATH:$PWD"
 
 #The following environment variables are optional
+export DATA_SERVICES_OUTPUT_URL=https://localhost/
 export EDGE_NORMALIZATION_ENDPOINT=https://bl-lookup-sri.renci.org/
 export NODE_NORMALIZATION_ENDPOINT=https://nodenormalization-sri.renci.org/
+export NAME_RESOLVER_ENDPOINT=https://name-resolution-sri.renci.org/
 
-export PYTHONPATH="$PYTHONPATH:$PWD"
