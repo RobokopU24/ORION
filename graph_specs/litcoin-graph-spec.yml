@@ -1,0 +1,7 @@
+# yeast graph spec
+graphs:
+  - graph_id: LitCoin
+    conflation: True
+    strict_normalization: True
+    sources:
+      - source_id: LitCoin

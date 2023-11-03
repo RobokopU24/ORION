@@ -19,6 +19,7 @@ HGNC = 'HGNC'
 HMDB = 'HMDB'
 HUMAN_GOA = 'HumanGOA'
 INTACT = 'IntAct'
+LITCOIN = 'LitCoin'
 MONDO_PROPS = 'MONDOProps'
 ONTOLOGICAL_HIERARCHY = 'OntologicalHierarchy'
 PANTHER = 'PANTHER'
@@ -61,6 +62,7 @@ SOURCE_DATA_LOADER_CLASS_IMPORTS = {
     HUMAN_GOA: ("parsers.GOA.src.loadGOA", "HumanGOALoader"),
     HUMAN_STRING: ("parsers.STRING.src.loadSTRINGDB", "HumanSTRINGDBLoader"),
     INTACT: ("parsers.IntAct.src.loadIA", "IALoader"),
+    LITCOIN: ("parsers.LitCoin.src.loadLitCoin", "LitCoinLoader"),
     MONDO_PROPS: ("parsers.MONDOProperties.src.loadMP", "MPLoader"),
     ONTOLOGICAL_HIERARCHY: ("parsers.UberGraph.src.loadUG", "OHLoader"),
     PANTHER: ("parsers.panther.src.loadPanther", "PLoader"),
