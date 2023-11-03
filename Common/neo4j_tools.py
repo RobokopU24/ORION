@@ -19,7 +19,7 @@ class Neo4jTools:
         self.http_port = http_port
         self.https_port = https_port
         self.bolt_port = bolt_port
-        self.password = password if password else os.environ['DATA_SERVICES_NEO4J_PASSWORD']
+        self.password = password if password else os.environ.get('DATA_SERVICES_NEO4J_PASSWORD', 'orion-password')
         self.graph_db_uri = f'bolt://{neo4j_host}:{bolt_port}'
         self.graph_db_auth = ("neo4j", self.password)
         self.neo4j_driver = neo4j.GraphDatabase.driver(self.graph_db_uri, auth=self.graph_db_auth)
