@@ -1,7 +1,6 @@
 import os
 import logging
 import tarfile
-import csv
 import gzip
 import requests
 import pandas as pd
@@ -569,11 +568,11 @@ def quick_json_loads(item):
     return orjson.loads(item)
 
 
-def quick_jsonl_file_iterator(json_file):
-    with open(json_file, 'r', encoding='utf-8') as stream:
-        for line in stream:
+def quick_jsonl_file_iterator(json_file, is_gzip=False):
+    with gzip.open(json_file, 'rt') if is_gzip \
+            else open(json_file, 'r', encoding='utf-8') as fp:
+        for line in fp:
             yield orjson.loads(line)
-
 
 def chunk_iterator(iterable, chunk_size):
     iterator = iter(iterable)
