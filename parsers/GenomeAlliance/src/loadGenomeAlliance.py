@@ -34,9 +34,6 @@ class GenomeAllianceOrthologLoader(SourceDataLoader):
         :param source_data_dir - the specific storage directory to save files in
         """
         super().__init__(test_mode=test_mode, source_data_dir=source_data_dir)
-
-        self.latest_version = None
-        self.latest_version = self.get_latest_source_version()
         self.genome_alliance_url = f'https://fms.alliancegenome.org/download/'
         self.genome_alliance_ortholog_file = 'ORTHOLOGY-ALLIANCE_COMBINED.tsv.gz'
         self.data_files = [self.genome_alliance_ortholog_file]
