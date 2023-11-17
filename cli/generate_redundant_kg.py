@@ -3,7 +3,7 @@ import sys
 import re
 import argparse
 from itertools import product
-from Common.utils import quick_jsonl_file_iterator
+from Common.utils import quick_jsonl_file_iterator, snakify
 from Common.kgx_file_writer import KGXFileWriter
 
 from bmt import Toolkit
@@ -19,7 +19,7 @@ DIRECTION_QUALIFIER = 'object_direction_qualifier'
 
 def get_ancestor_predicates_biolink(predicate):
     cur_predicate = predicate.split(':')[-1]
-    return set(bmt.get_ancestors(cur_predicate))
+    return set([f'biolink:{snakify(curie)}' for curie in bmt.get_ancestors(cur_predicate)])
 
 def check_qualifier(ed):
     qfs = []
