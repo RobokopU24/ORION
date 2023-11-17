@@ -22,6 +22,7 @@ INTACT = 'IntAct'
 MONDO_PROPS = 'MONDOProps'
 ONTOLOGICAL_HIERARCHY = 'OntologicalHierarchy'
 PANTHER = 'PANTHER'
+PFOCR = 'PFOCR'
 PHAROS = 'PHAROS'
 PLANT_GOA = 'PlantGOA'
 REACTOME = 'Reactome'
@@ -64,6 +65,7 @@ SOURCE_DATA_LOADER_CLASS_IMPORTS = {
     MONDO_PROPS: ("parsers.MONDOProperties.src.loadMP", "MPLoader"),
     ONTOLOGICAL_HIERARCHY: ("parsers.UberGraph.src.loadUG", "OHLoader"),
     PANTHER: ("parsers.panther.src.loadPanther", "PLoader"),
+    PFOCR: ("parsers.pfocr.src.loadPFOCR", "PFOCRLoader"),
     PHAROS: ("parsers.PHAROS.src.loadPHAROS", "PHAROSLoader"),
     PLANT_GOA: ("parsers.GOA.src.loadGOA", "PlantGOALoader"),
     REACTOME: ("parsers.Reactome.src.loadReactome", "ReactomeLoader"),
