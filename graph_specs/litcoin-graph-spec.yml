@@ -1,7 +1,10 @@
-# yeast graph spec
+# litcoin graph spec
 graphs:
   - graph_id: LitCoin
+    graph_name: LitCoin
+    graph_description: A graph for the LitCoin project
     conflation: True
     strict_normalization: True
+    output_format: neo4j
     sources:
       - source_id: LitCoin
