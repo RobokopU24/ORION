@@ -3,6 +3,8 @@ import sys
 import re
 import argparse
 from itertools import product
+from tqdm import tqdm
+
 from Common.utils import quick_jsonl_file_iterator
 from Common.kgx_file_writer import KGXFileWriter
 
@@ -15,6 +17,7 @@ bmt = Toolkit()
 QUALIFIER_KEYS = ['object_aspect_qualifier', 'object_direction_qualifier', 'qualified_predicate', 'species_context_qualifier']
 ASPECT_QUALIFIER = 'object_aspect_qualifier'
 DIRECTION_QUALIFIER = 'object_direction_qualifier'
+QUALIFIED_PREDICATE = 'qualified_predicate'
 
 
 def get_ancestor_predicates_biolink(predicate):
@@ -30,9 +33,10 @@ def check_qualifier(ed):
 
 def write_edge_no_q(ed, predicate):
     tmp_edge = dict(ed) # Not sure if it's still tied to original edge dictionary
-    tmp_edge['predicate'] = predicate
+    tmp_edge['predicate'] = f"biolink:{predicate}"
     tmp_edge.pop(DIRECTION_QUALIFIER, None)
     tmp_edge.pop(ASPECT_QUALIFIER, None)
+    tmp_edge.pop(QUALIFIED_PREDICATE, None)
     return tmp_edge
 
 def generate_redundant_kg(infile, edges_file_path):
@@ -42,16 +46,16 @@ def generate_redundant_kg(infile, edges_file_path):
     num_other_edges = 0
     non_biolink_predicates = set()
     with KGXFileWriter(edges_output_file_path=edges_file_path) as kgx_file_writer:
-        for edge in quick_jsonl_file_iterator(infile):
+        for edge in tqdm(quick_jsonl_file_iterator(infile)):
             ancestor_predicates = set()
             # qual_predicate = 'No_qualified_predicate'
             aspect_values = []
             direction_values = [None]
             try:
                 num_edges +=1
-                if re.match('biolink.*', edge['predicate']):
+                if re.match('biolink.*', edge['predicate']): # bmt may already conform all edges to this format. Conditional statement could be omitted once confirmed.
                     ancestor_predicates = ancestor_predicates.union(get_ancestor_predicates_biolink(edge['predicate']))
-                    num_bio_edges+=1
+                    num_bio_edges+=1 
                     
                 else:   #(f"predicate does not have biolink prefix: {edge['predicate']}")
                     non_biolink_predicates.add(edge['predicate']) 
@@ -81,6 +85,7 @@ def generate_redundant_kg(infile, edges_file_path):
                             q_edge = dict(edge)
                             if d == None:
                                 q_edge.pop(DIRECTION_QUALIFIER, None)
+
                             else:
                                 q_edge[DIRECTION_QUALIFIER] = d
                                 
@@ -96,7 +101,7 @@ def generate_redundant_kg(infile, edges_file_path):
                 
             except KeyError:
                 print("There is no key named predicate in the dictionary. This does not look like an edge object")
-                
+         
 
         
 if __name__ == '__main__':
