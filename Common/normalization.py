@@ -524,7 +524,7 @@ def call_name_resolution(name: str, biolink_type: str):
     nameres_json = requests.get(NAME_RESOLVER_URL, params=nameres_payload, headers=NAME_RESOLVER_HEADERS).json()
     # return the first result if there is one
     if nameres_json:
-        return nameres_json[0]['curie'], nameres_json[0]['label']
+        return nameres_json[0]
     # if no results return None
-    return None, None
+    return None
 

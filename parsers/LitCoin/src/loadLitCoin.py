@@ -2,8 +2,10 @@ import time
 import os
 import json
 import re
+import requests
 from collections import defaultdict
 
+from Common.biolink_utils import BiolinkUtils
 from Common.loader_interface import SourceDataLoader
 from Common.kgxmodel import kgxnode, kgxedge
 from Common.node_types import PRIMARY_KNOWLEDGE_SOURCE, PUBLICATIONS
@@ -65,7 +67,7 @@ class LitCoinLoader(SourceDataLoader):
 
     source_id: str = 'LitCoin'
     provenance_id: str = 'infores:robokop'  # TODO - change this to a LitCoin infores when it exists
-    parsing_version: str = '1.1'
+    parsing_version: str = '1.2'
 
     def __init__(self, test_mode: bool = False, source_data_dir: str = None):
         """
@@ -80,9 +82,10 @@ class LitCoinLoader(SourceDataLoader):
         # dicts of name to id lookups organized by node type (node_name_to_id_lookup[node_type] = dict of names -> id)
         self.node_name_to_id_lookup = defaultdict(dict)
         self.name_res_stats = []
+        self.bl_utils = BiolinkUtils()
 
     def get_latest_source_version(self) -> str:
-        latest_version = 'v1.1'
+        latest_version = 'v1.0'
         return latest_version
 
     def get_data(self) -> bool:
@@ -112,27 +115,29 @@ class LitCoinLoader(SourceDataLoader):
                 llm_output = litcoin_object['output']
                 for litcoin_edge in self.parse_llm_output(llm_output):
                     records += 1
-                    self.logger.info(f'processing edge {records}')
-                    subject_id, subject_name = self.process_llm_node(litcoin_edge[LLM_SUBJECT_NAME],
-                                                                     litcoin_edge[LLM_SUBJECT_TYPE])
-                    if not subject_id:
+                    # self.logger.info(f'processing edge {records}')
+                    subject_resolution_results = self.process_llm_node(litcoin_edge[LLM_SUBJECT_NAME],
+                                                                       litcoin_edge[LLM_SUBJECT_TYPE])
+                    if not subject_resolution_results:
                         skipped_records += 1
                         continue
-                    object_id, object_name = self.process_llm_node(litcoin_edge[LLM_OBJECT_NAME],
-                                                                   litcoin_edge[LLM_OBJECT_TYPE])
-                    if not object_id:
+                    object_resolution_results = self.process_llm_node(litcoin_edge[LLM_OBJECT_NAME],
+                                                                      litcoin_edge[LLM_OBJECT_TYPE])
+                    if not object_resolution_results:
                         skipped_records += 1
                         continue
-                    self.output_file_writer.write_node(node_id=subject_id, node_name=subject_name)
-                    self.output_file_writer.write_node(node_id=object_id, node_name=object_name)
+                    self.output_file_writer.write_node(node_id=subject_resolution_results['curie'],
+                                                       node_name=subject_resolution_results['name'])
+                    self.output_file_writer.write_node(node_id=object_resolution_results['curie'],
+                                                       node_name=object_resolution_results['name'])
 
                     predicate = 'biolink:' + snakify(litcoin_edge[LLM_RELATIONSHIP])
                     edge_properties = {
                         PUBLICATIONS: [pubmed_id],
                         LLM_MAIN_FINDING: litcoin_edge[LLM_MAIN_FINDING]
                     }
-                    self.output_file_writer.write_edge(subject_id=subject_id,
-                                                       object_id=object_id,
+                    self.output_file_writer.write_edge(subject_id=subject_resolution_results['curie'],
+                                                       object_id=object_resolution_results['curie'],
                                                        predicate=predicate,
                                                        edge_properties=edge_properties)
 
@@ -140,12 +145,18 @@ class LitCoinLoader(SourceDataLoader):
         with open(os.path.join(self.data_path, "..",
                                f"parsed_{self.parsing_version}",
                                "litcoin_name_res_results.json"), "w") as name_res_results_file:
-            # change the name of the keys of the node name lookup to include the biolink type used to call name res
-            for node_type in list(self.node_name_to_id_lookup.keys()):
-                # print(f'getting {node_type} from mapping, converted to {self.convert_node_type_to_biolink_format(node_type)}')
-                node_type_used_for_name_res = NODE_TYPE_MAPPINGS.get(self.convert_node_type_to_biolink_format(node_type), None)
-                self.node_name_to_id_lookup[f'{node_type} (biolink:{node_type_used_for_name_res})'] = self.node_name_to_id_lookup.pop(node_type)
-            json.dump(self.node_name_to_id_lookup, name_res_results_file, indent=4)
+
+            # include the biolink type used to call name res
+            for node_type, node_name_to_results_dict in self.node_name_to_id_lookup.items():
+                node_type_used_for_name_res = NODE_TYPE_MAPPINGS.get(self.convert_node_type_to_biolink_format(node_type),
+                                                                     None)
+                for results in node_name_to_results_dict.values():
+                    if results:
+                        results['queried_type'] = node_type_used_for_name_res
+            json.dump(self.node_name_to_id_lookup,
+                      name_res_results_file,
+                      indent=4,
+                      sort_keys=True)
 
         # write name res lookup times
         with open(os.path.join(self.data_path, "..",
@@ -161,13 +172,9 @@ class LitCoinLoader(SourceDataLoader):
 
     def process_llm_node(self, node_name: str, node_type: str):
 
-        if node_name == "Protein kinase A":
-            return None, None
-
         # check if we did name resolution for this name and type already and return it if so
         if node_name in self.node_name_to_id_lookup[node_type]:
-            return self.node_name_to_id_lookup[node_type][node_name]['id'], \
-                self.node_name_to_id_lookup[node_type][node_name]['name']
+            return self.node_name_to_id_lookup[node_type][node_name]
 
         # otherwise call the name res service and try to find a match
         # the following node_type string formatting conversion is kind of unnecessary now,
@@ -176,15 +183,14 @@ class LitCoinLoader(SourceDataLoader):
         # but the keys currently use the post-conversion format so this stays for now
         biolink_node_type = self.convert_node_type_to_biolink_format(node_type)
         preferred_biolink_node_type = NODE_TYPE_MAPPINGS.get(biolink_node_type, None)
-
-        self.logger.info(f'calling name res for {node_name} - {preferred_biolink_node_type}')
+        self.logger.debug(f'calling name res for {node_name} - {preferred_biolink_node_type}')
         start_time = time.time()
-        node_id, node_label = call_name_resolution(node_name, preferred_biolink_node_type)
-        end_time = time.time()
-        elapsed_time = end_time - start_time
-        self.name_res_stats.append(f"{node_name}    {preferred_biolink_node_type}   {elapsed_time}\n")
-        self.node_name_to_id_lookup[node_type][node_name] = {"id": node_id, "name": node_label}
-        return node_id, node_label
+        name_resolution_results = self.name_resolution_function(node_name, preferred_biolink_node_type)
+        elapsed_time = time.time() - start_time
+        standardized_name_res_result = self.standardize_name_resolution_results(name_resolution_results)
+        self.name_res_stats.append(f"{node_name}\t{preferred_biolink_node_type}\t{elapsed_time}\n")
+        self.node_name_to_id_lookup[node_type][node_name] = standardized_name_res_result
+        return standardized_name_res_result
 
     @staticmethod
     def convert_node_type_to_biolink_format(node_type):
@@ -216,3 +222,48 @@ class LitCoinLoader(SourceDataLoader):
             else:  # only add the fields which have all the fields
                 valid_responses.append(cur_response_dict)
         return valid_responses
+
+    @staticmethod
+    def name_resolution_function(node_name, preferred_biolink_node_type):
+        return call_name_resolution(node_name, preferred_biolink_node_type)
+
+    def standardize_name_resolution_results(self, name_res_json):
+        if not name_res_json:
+            return None
+        return {
+            "curie": name_res_json['curie'],
+            "name": name_res_json['label'],
+            "types": list(self.bl_utils.find_biolink_leaves(set(name_res_json['types']))),
+            "score": None
+        }
+
+class LitCoinSapBERTLoader(LitCoinLoader):
+    source_id: str = 'LitCoinSapBERT'
+    parsing_version: str = '1.2'
+
+    @staticmethod
+    def name_resolution_function(node_name, preferred_biolink_node_type):
+        sapbert_url = 'https://babel-sapbert.apps.renci.org/annotate/'
+        sapbert_payload = {
+          "text": node_name,
+          "model_name": "sapbert",
+          "count": 1000,
+          "args": {"bl_type": preferred_biolink_node_type}
+        }
+        sapbert_json = requests.post(sapbert_url, json=sapbert_payload).json()
+        # return the first result if there is one
+        if sapbert_json:
+            return sapbert_json[0]
+        # if no results return None
+        return None
+
+    def standardize_name_resolution_results(self, name_res_json):
+        if not name_res_json:
+            return None
+        return {
+            "curie": name_res_json['curie'],
+            "name": name_res_json['name'],
+            "types": [name_res_json['category']],
+            "score": name_res_json['score']
+        }
+

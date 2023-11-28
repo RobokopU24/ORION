@@ -5,6 +5,15 @@ graphs:
     graph_description: A graph for the LitCoin project
     conflation: True
     strict_normalization: True
-    output_format: neo4j
+    output_format: none
     sources:
       - source_id: LitCoin
+
+  - graph_id: LitCoinSapBERT
+    graph_name: LitCoinSapBERT
+    graph_description: A graph for the LitCoin project using SapBERT for name resolution
+    conflation: True
+    strict_normalization: True
+    output_format: none
+    sources:
+      - source_id: LitCoinSapBERT
