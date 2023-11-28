@@ -223,8 +223,7 @@ class LitCoinLoader(SourceDataLoader):
                 valid_responses.append(cur_response_dict)
         return valid_responses
 
-    @staticmethod
-    def name_resolution_function(node_name, preferred_biolink_node_type):
+    def name_resolution_function(self, node_name, preferred_biolink_node_type):
         return call_name_resolution(node_name, preferred_biolink_node_type)
 
     def standardize_name_resolution_results(self, name_res_json):
@@ -241,8 +240,7 @@ class LitCoinSapBERTLoader(LitCoinLoader):
     source_id: str = 'LitCoinSapBERT'
     parsing_version: str = '1.2'
 
-    @staticmethod
-    def name_resolution_function(node_name, preferred_biolink_node_type):
+    def name_resolution_function(self, node_name, preferred_biolink_node_type):
         sapbert_url = 'https://babel-sapbert.apps.renci.org/annotate/'
         sapbert_payload = {
           "text": node_name,
@@ -250,10 +248,14 @@ class LitCoinSapBERTLoader(LitCoinLoader):
           "count": 1000,
           "args": {"bl_type": preferred_biolink_node_type}
         }
-        sapbert_json = requests.post(sapbert_url, json=sapbert_payload).json()
-        # return the first result if there is one
-        if sapbert_json:
-            return sapbert_json[0]
+        sapbert_response = requests.post(sapbert_url, json=sapbert_payload)
+        if sapbert_response.status_code == 200:
+            sapbert_json = sapbert_response.json()
+            # return the first result if there is one
+            if sapbert_json:
+                return sapbert_json[0]
+        else:
+            self.logger.error(f'Non-200 Sapbert result {sapbert_response.status_code} for request {sapbert_payload}')
         # if no results return None
         return None
 
