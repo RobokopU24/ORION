@@ -118,10 +118,9 @@ class BINDINGDBLoader(SourceDataLoader):
         data_store= dict()
 
         columns = [[x.value,x.name] for x in BD_EDGEUMAN if x.name not in ['PMID','PUBCHEM_AID','PATENT_NUMBER','PUBCHEM_CID','UNIPROT_TARGET_CHAIN']]
-        n = 0
-        for row in generate_zipfile_rows(os.path.join(self.data_path,self.BD_archive_file_name), self.BD_file_name):
+        #n = 0
+        for n,row in enumerate(generate_zipfile_rows(os.path.join(self.data_path,self.BD_archive_file_name), self.BD_file_name)):
             if n == 0:
-                n+=1
                 continue
             if self.test_mode:
                 if n == 1000:
@@ -131,13 +130,15 @@ class BINDINGDBLoader(SourceDataLoader):
             ligand = row[BD_EDGEUMAN.PUBCHEM_CID.value]
             protein = row[BD_EDGEUMAN.UNIPROT_TARGET_CHAIN.value]
             if (ligand == '') or (protein == ''): # Check if Pubchem or UniProt ID is missing.
-                n+=1
                 continue
-
-            if row[BD_EDGEUMAN.pKi.value] != '':
-                publication = f"PMID:{row[BD_EDGEUMAN.PMID.value]}"
-            else:
-                publication = None
+            
+            publication = f"PMID:{row[BD_EDGEUMAN.PMID.value]}" if row[BD_EDGEUMAN.PMID.value] != '' else None
+            assay_id = f"PUBCHEM.AID:{row[BD_EDGEUMAN.PUBCHEM_AID.value]}" if row[BD_EDGEUMAN.PUBCHEM_AID.value] != '' else None
+            patent = f"PATENT:{row[BD_EDGEUMAN.PATENT_NUMBER.value]}" if row[BD_EDGEUMAN.PATENT_NUMBER.value] != '' else None
+            # if row[BD_EDGEUMAN.pKi.value] != '':
+            #     publication = f"PMID:{row[BD_EDGEUMAN.PMID.value]}"
+            # else:
+            #     publication = None
 
             for column in columns:
 
@@ -161,6 +162,8 @@ class BINDINGDBLoader(SourceDataLoader):
                         entry.update({'affinity_parameter': measure_type})
                         entry.update({'supporting_affinities': []})
                         entry.update({'publications': []})
+                        entry.update({'pubchem_assay_ids': []})
+                        entry.update({'patent_ids': []})
                         data_store[ligand_protein_measure_key] = entry
                     #If there's a > in the result, it means that this is a dead compound, i.e. it won't bass
                     # our activity/inhibition threshold
@@ -173,8 +176,10 @@ class BINDINGDBLoader(SourceDataLoader):
                     entry["supporting_affinities"].append(sa)
                     if publication is not None and publication not in entry["publications"]:
                         entry["publications"].append(publication)
-
-            n+=1
+                    if assay_id is not None and assay_id not in entry["pubchem_assay_ids"]:
+                        entry["pubchem_assay_ids"].append(assay_id)
+                    if patent is not None and patent not in entry["patent_ids"]:
+                        entry["patent_ids"].append(patent)
 
         bad_entries = set()
         for key, entry in data_store.items():
@@ -183,6 +188,10 @@ class BINDINGDBLoader(SourceDataLoader):
                 continue
             if len(entry["publications"]) == 0:
                 del entry["publications"]
+            if len(entry["pubchem_assay_ids"]) == 0:
+                del entry["pubchem_assay_ids"]
+            if len(entry["patent_ids"]) == 0:
+                del entry["patent_ids"]
             try:
                 average_affinity = sum(entry["supporting_affinities"])/len(entry["supporting_affinities"])
                 entry["affinity"] = round(negative_log(average_affinity),2)
