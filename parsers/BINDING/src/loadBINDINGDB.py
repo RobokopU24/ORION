@@ -50,7 +50,7 @@ class BINDINGDBLoader(SourceDataLoader):
     source_data_url = "https://www.bindingdb.org/rwd/bind/chemsearch/marvin/SDFdownload.jsp?all_download=yes"
     license = "All data and download files in bindingDB are freely available under a 'Creative Commons BY 3.0' license.'"
     attribution = 'https://www.bindingdb.org/rwd/bind/info.jsp'
-    parsing_version = '1.3'
+    parsing_version = '1.4'
 
     def __init__(self, test_mode: bool = False, source_data_dir: str = None):
         """
@@ -72,12 +72,12 @@ class BINDINGDBLoader(SourceDataLoader):
             "k_off": "biolink:binds"
         }
 
-        self.bindingdb_version = '202307'  # TODO temporarily hard coded until renci connection bug is resolved
+        self.bindingdb_version = None
         self.bindingdb_version = self.get_latest_source_version()
-        self.bindingdb_data_url = [f"https://www.bindingdb.org/bind/downloads/"]
+        self.bindingdb_data_url = f"https://www.bindingdb.org/bind/downloads/"
 
-        self.BD_archive_file_name = f"BindingDB_All_{self.bindingdb_version}.tsv.zip"
-        self.BD_file_name = f"BindingDB_All.tsv"
+        self.BD_archive_file_name = f"BindingDB_All_{self.bindingdb_version}_tsv.zip"
+        self.BD_file_name = f"BindingDB_All_{self.bindingdb_version}.tsv"
         self.data_files = [self.BD_archive_file_name]
 
     def get_latest_source_version(self) -> str:
@@ -100,11 +100,9 @@ class BINDINGDBLoader(SourceDataLoader):
 
         """
         data_puller = GetData()
-        i=0
         for source in self.data_files:
-            source_url = f"{self.bindingdb_data_url[i]}{source}"
+            source_url = f"{self.bindingdb_data_url}{source}"
             data_puller.pull_via_http(source_url, self.data_path)
-            i+=1
         return True
 
     def parse_data(self) -> dict:
@@ -118,7 +116,6 @@ class BINDINGDBLoader(SourceDataLoader):
         data_store= dict()
 
         columns = [[x.value,x.name] for x in BD_EDGEUMAN if x.name not in ['PMID','PUBCHEM_AID','PATENT_NUMBER','PUBCHEM_CID','UNIPROT_TARGET_CHAIN']]
-        #n = 0
         for n,row in enumerate(generate_zipfile_rows(os.path.join(self.data_path,self.BD_archive_file_name), self.BD_file_name)):
             if n == 0:
                 continue
@@ -135,13 +132,8 @@ class BINDINGDBLoader(SourceDataLoader):
             publication = f"PMID:{row[BD_EDGEUMAN.PMID.value]}" if row[BD_EDGEUMAN.PMID.value] != '' else None
             assay_id = f"PUBCHEM.AID:{row[BD_EDGEUMAN.PUBCHEM_AID.value]}" if row[BD_EDGEUMAN.PUBCHEM_AID.value] != '' else None
             patent = f"PATENT:{row[BD_EDGEUMAN.PATENT_NUMBER.value]}" if row[BD_EDGEUMAN.PATENT_NUMBER.value] != '' else None
-            # if row[BD_EDGEUMAN.pKi.value] != '':
-            #     publication = f"PMID:{row[BD_EDGEUMAN.PMID.value]}"
-            # else:
-            #     publication = None
 
             for column in columns:
-
                 if row[column[0]] != '':
                     measure_type = column[1]
                     if measure_type in ["k_on", "k_off"]:
