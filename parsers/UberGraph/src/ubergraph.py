@@ -125,8 +125,7 @@ class UberGraphTools:
     @staticmethod
     def get_biolink_prefix_map():
         # TODO - ideally this would be a specific version of the biolink model, that's not supported by parsers yet
-        response = requests.get \
-            ('https://raw.githubusercontent.com/biolink/biolink-model/master/prefix-map/biolink-model-prefix-map.json')
+        response = requests.get('https://raw.githubusercontent.com/biolink/biolink-model/master/project/prefixmap/biolink_model_prefix_map.json')
         if response.status_code != 200:
             response.raise_for_status()
 
