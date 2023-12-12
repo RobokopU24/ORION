@@ -14,7 +14,7 @@ graphs:
     conflation: True
     output_format: neo4j
     sources:
-      - source_id: Biolink
+      - source_id: BINDING-DB
         # optional parameters for each data source - see README for more info
         # source_version: latest (the version of the source data)
         # parsing_version: latest (the version of the parser used to parse the data)
@@ -32,13 +32,17 @@ graphs:
       - source_id: HMDB
       - source_id: HumanGOA
       - source_id: IntAct
+      - source_id: MonarchKG
       - source_id: MONDOProps
-        source_version: '3_23_2023'
+      - source_id: OntologicalHierarchy
+        merge_strategy: connected_edge_subset
       - source_id: PANTHER
       - source_id: PHAROS
+        source_version: 'v6_13_4'
+      - source_id: Reactome
       - source_id: textminingkp
       - source_id: STRING-DB-Human
-      - source_id: Ubergraph
+      - source_id: UbergraphNonredundant
 
   - graph_id: YobokopKG
     conflation: True
