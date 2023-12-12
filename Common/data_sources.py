@@ -29,7 +29,7 @@ SCENT = 'Scent'
 SGD = 'SGD'
 HUMAN_STRING = 'STRING-DB-Human'
 TEXT_MINING_KP = 'textminingkp'
-UBERGRAPH = 'Ubergraph'
+UBERGRAPH_NONREDUNDANT = 'UbergraphNonredundant'
 UBERGRAPH_REDUNDANT = 'UbergraphRedundant'
 UNIREF = 'UniRef'
 VP = 'ViralProteome'
@@ -70,7 +70,7 @@ SOURCE_DATA_LOADER_CLASS_IMPORTS = {
     SCENT: ("parsers.scent.src.loadScent", "ScentLoader"),
     SGD: ("parsers.SGD.src.loadSGD", "SGDLoader"),
     TEXT_MINING_KP: ("parsers.textminingkp.src.loadTMKP", "TMKPLoader"),
-    UBERGRAPH: ("parsers.UberGraph.src.loadUG", "UGLoader"),
+    UBERGRAPH_NONREDUNDANT: ("parsers.UberGraph.src.loadUG", "UGLoader"),
     UBERGRAPH_REDUNDANT: ("parsers.UberGraph.src.loadUG", "UGRedundantLoader"),
     UNIREF: ("parsers.ViralProteome.src.loadUniRef", "UniRefSimLoader"),
     VP: ("parsers.ViralProteome.src.loadVP", "VPLoader"),

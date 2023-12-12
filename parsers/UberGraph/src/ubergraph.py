@@ -27,6 +27,7 @@ class UberGraphTools:
                  ubergraph_url: str = None,
                  ubergraph_archive_path: str = None,
                  graph_base_path: str = None,
+                 load_node_descriptions: bool = False,
                  logger=None):
 
         self.node_curies = {}
@@ -35,8 +36,10 @@ class UberGraphTools:
         self.graph_base_path = graph_base_path
         self.logger = logger
         self.curie_to_iri_converter = self.init_curie_converter()
-        self.node_descriptions = self.get_node_descriptions(ubergraph_url)
         self.convert_iris_to_curies()
+
+        self.node_descriptions = self.get_node_descriptions(ubergraph_url) if load_node_descriptions else None
+
 
     def convert_iris_to_curies(self):
         if self.logger:
