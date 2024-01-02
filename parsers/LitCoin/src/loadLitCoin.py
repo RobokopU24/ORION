@@ -21,6 +21,12 @@ LLM_OBJECT_TYPE = 'entity_2_type'
 LLM_RELATIONSHIP = 'relationship'
 LLM_MAIN_FINDING = 'main_finding'
 
+LLM_SUBJECT_NAME_EDGE_PROP = 'llm_subject'
+LLM_SUBJECT_TYPE_EDGE_PROP = 'llm_subject_type'
+LLM_OBJECT_NAME_EDGE_PROP = 'llm_object'
+LLM_OBJECT_TYPE_EDGE_PROP = 'llm_object_type'
+LLM_RELATIONSHIP_EDGE_PROP = 'llm_relationship'
+LLM_ABSTRACT_SUMMARY_EDGE_PROP = 'llm_summary'
 
 NODE_TYPE_MAPPINGS = {
     "Activity": "Activity",
@@ -67,7 +73,7 @@ class LitCoinLoader(SourceDataLoader):
 
     source_id: str = 'LitCoin'
     provenance_id: str = 'infores:robokop'  # TODO - change this to a LitCoin infores when it exists
-    parsing_version: str = '1.2'
+    parsing_version: str = '1.3'
 
     def __init__(self, test_mode: bool = False, source_data_dir: str = None):
         """
@@ -77,7 +83,7 @@ class LitCoinLoader(SourceDataLoader):
         super().__init__(test_mode=test_mode, source_data_dir=source_data_dir)
 
         self.data_url = 'https://stars.renci.org/var/data_services/litcoin/'
-        self.data_file = 'HEAL_2.7.23_gpt4.json'
+        self.data_file = 'HEAL_2.7.23_gpt4_20231114.json'
         self.data_files = [self.data_file]
         # dicts of name to id lookups organized by node type (node_name_to_id_lookup[node_type] = dict of names -> id)
         self.node_name_to_id_lookup = defaultdict(dict)
@@ -85,7 +91,7 @@ class LitCoinLoader(SourceDataLoader):
         self.bl_utils = BiolinkUtils()
 
     def get_latest_source_version(self) -> str:
-        latest_version = 'v1.0'
+        latest_version = 'v1.1'
         return latest_version
 
     def get_data(self) -> bool:
@@ -114,7 +120,6 @@ class LitCoinLoader(SourceDataLoader):
                 pubmed_id = f'{PUBMED}:{litcoin_object["abstract_id"]}'
                 llm_output = litcoin_object['output']
                 for litcoin_edge in self.parse_llm_output(llm_output):
-                    records += 1
                     # self.logger.info(f'processing edge {records}')
                     subject_resolution_results = self.process_llm_node(litcoin_edge[LLM_SUBJECT_NAME],
                                                                        litcoin_edge[LLM_SUBJECT_TYPE])
@@ -134,12 +139,20 @@ class LitCoinLoader(SourceDataLoader):
                     predicate = 'biolink:' + snakify(litcoin_edge[LLM_RELATIONSHIP])
                     edge_properties = {
                         PUBLICATIONS: [pubmed_id],
-                        LLM_MAIN_FINDING: litcoin_edge[LLM_MAIN_FINDING]
+                        LLM_SUBJECT_NAME_EDGE_PROP: litcoin_edge[LLM_SUBJECT_NAME],
+                        LLM_SUBJECT_TYPE_EDGE_PROP: litcoin_edge[LLM_SUBJECT_TYPE],
+                        LLM_OBJECT_NAME_EDGE_PROP: litcoin_edge[LLM_OBJECT_NAME],
+                        LLM_OBJECT_TYPE_EDGE_PROP: litcoin_edge[LLM_OBJECT_TYPE],
+                        LLM_RELATIONSHIP_EDGE_PROP: litcoin_edge[LLM_RELATIONSHIP],
+                        LLM_ABSTRACT_SUMMARY_EDGE_PROP: litcoin_edge[LLM_ABSTRACT_SUMMARY_EDGE_PROP],
+                        #  LLM_MAIN_FINDING: litcoin_edge[LLM_MAIN_FINDING]
+                        LLM_MAIN_FINDING: True
                     }
                     self.output_file_writer.write_edge(subject_id=subject_resolution_results['curie'],
                                                        object_id=object_resolution_results['curie'],
                                                        predicate=predicate,
                                                        edge_properties=edge_properties)
+                    records += 1
 
         # write out name res results alongside the output
         with open(os.path.join(self.data_path, "..",
@@ -199,25 +212,38 @@ class LitCoinLoader(SourceDataLoader):
                              for node_type_segment in biolink_node_type.split()])  # force Pascal case
         return f'{biolink_node_type}'
 
-    @staticmethod
-    def parse_llm_output(llm_output):
-        # this is from Miles at CoVar, it parses the current format of output from the llm
+    def parse_llm_output(self, llm_output):
+
+        # this attempts to extract the abstract summary from the llm output,
+        # it's not great because the summary is not inside the json part of the output
+        abstract_summary = "Summary not provided or could not be parsed."
+        if "Summary:" in llm_output:
+            if "\n\nBiological Entities:" in llm_output:
+                abstract_summary = llm_output.split("Summary: ")[1].split("Biological Entities:")[0].strip()
+            elif "\n\nEntities:" in llm_output:
+                abstract_summary = llm_output.split("Summary: ")[1].split("Entities:")[0].strip()
+
+        # the rest of the logic is from Miles at CoVar, it parses the current format of output from the llm
         required_fields = [LLM_SUBJECT_NAME,
                            LLM_SUBJECT_TYPE,
                            LLM_OBJECT_NAME,
                            LLM_OBJECT_TYPE,
                            LLM_RELATIONSHIP,
-                           LLM_MAIN_FINDING]
+                           # LLM_MAIN_FINDING  # this isn't coming from the llm output currently
+                           ]
         matches = re.findall(r'\{([^\}]*)\}', llm_output)
         valid_responses = []
         for match in matches:
             cur_response = '{' + match + '}'
             try:
                 cur_response_dict = json.loads(cur_response)
-            except json.decoder.JSONDecodeError:
+                cur_response_dict[LLM_ABSTRACT_SUMMARY_EDGE_PROP] = abstract_summary
+            except json.decoder.JSONDecodeError as e:
+                self.logger.error(f'Error decoding JSON: {e}')
                 continue
             for field in required_fields:
                 if field not in cur_response_dict:
+                    self.logger.info(f'Missing field {field} in response: {cur_response_dict}')
                     break
             else:  # only add the fields which have all the fields
                 valid_responses.append(cur_response_dict)
@@ -236,9 +262,10 @@ class LitCoinLoader(SourceDataLoader):
             "score": None
         }
 
+
 class LitCoinSapBERTLoader(LitCoinLoader):
     source_id: str = 'LitCoinSapBERT'
-    parsing_version: str = '1.2'
+    parsing_version: str = '1.3'
 
     def name_resolution_function(self, node_name, preferred_biolink_node_type):
         sapbert_url = 'https://babel-sapbert.apps.renci.org/annotate/'

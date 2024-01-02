@@ -5,7 +5,7 @@ graphs:
     graph_description: A graph for the LitCoin project using SapBERT for name resolution
     conflation: True
     strict_normalization: True
-    output_format: none
+    output_format: neo4j
     sources:
       - source_id: LitCoinSapBERT
 
@@ -14,7 +14,7 @@ graphs:
     graph_description: A graph for the LitCoin project using Name Resolver for name resolution
     conflation: True
     strict_normalization: True
-    output_format: none
+    output_format: neo4j
     sources:
       - source_id: LitCoin
 
