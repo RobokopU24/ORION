@@ -4,19 +4,19 @@ import tarfile
 from io import TextIOWrapper
 from Common.utils import GetData
 from Common.loader_interface import SourceDataLoader
-from Common.node_types import DESCRIPTION
+# from Common.node_types import DESCRIPTION
 from parsers.UberGraph.src.ubergraph import UberGraphTools
 
 
 class UGLoader(SourceDataLoader):
 
-    source_id = 'Ubergraph'
-    provenance_id = 'infores:sri-ontology'
+    source_id = 'UbergraphNonredundant'
+    provenance_id = 'infores:ubergraph'
     description = "Ubergraph is an open-source graph database containing integrated ontologies, including GO, CHEBI, HPO, and Uberon’s anatomical ontology."
     source_data_url = "https://github.com/INCATools/ubergraph#downloads"
     license = "https://raw.githubusercontent.com/INCATools/ubergraph/master/LICENSE.txt"
     attribution = "https://github.com/INCATools/ubergraph"
-    parsing_version: str = '1.4'
+    parsing_version: str = '1.5'
 
     def __init__(self, test_mode: bool = False, source_data_dir: str = None):
         """
@@ -24,8 +24,6 @@ class UGLoader(SourceDataLoader):
         :param source_data_dir - the specific storage directory to save files in
         """
         super().__init__(test_mode=test_mode, source_data_dir=source_data_dir)
-
-        # this is the name of the archive file the source files will come from
         self.base_url = 'https://ubergraph.apps.renci.org'
         self.data_file = 'nonredundant-graph-table.tgz'
         self.data_url: str = f'{self.base_url}/downloads/current/'
@@ -86,14 +84,15 @@ class UGLoader(SourceDataLoader):
                             (self.only_subclass_edges and predicate_curie != self.subclass_predicate):
                         skipped_record_counter += 1
                         continue
-                    subject_description = ubergraph_tools.node_descriptions.get(subject_curie, None)
-                    subject_properties = {DESCRIPTION: subject_description} if subject_description else {}
-                    self.output_file_writer.write_node(node_id=subject_curie, node_properties=subject_properties)
 
-                    object_description = ubergraph_tools.node_descriptions.get(object_curie, None)
-                    object_properties = {DESCRIPTION: object_description} if object_description else {}
-                    self.output_file_writer.write_node(node_id=object_curie, node_properties=object_properties)
+                    # we get these during normalization now, but this is how you would do it
+                    # subject_description = ubergraph_tools.node_descriptions.get(subject_curie, None)
+                    # subject_properties = {DESCRIPTION: subject_description} if subject_description else {}
+                    # object_description = ubergraph_tools.node_descriptions.get(object_curie, None)
+                    # object_properties = {DESCRIPTION: object_description} if object_description else {}
 
+                    self.output_file_writer.write_node(node_id=subject_curie)
+                    self.output_file_writer.write_node(node_id=object_curie)
                     self.output_file_writer.write_edge(subject_id=subject_curie,
                                                        object_id=object_curie,
                                                        predicate=predicate_curie,
@@ -114,12 +113,12 @@ class UGLoader(SourceDataLoader):
 class UGRedundantLoader(UGLoader):
 
     source_id: str = 'UbergraphRedundant'
-    provenance_id: str = 'infores:sri-ontology'
+    provenance_id: str = 'infores:ubergraph'
     description = "The redundant version of Ubergraph contains the complete inference closure for all subclass and existential relations, including transitive, reflexive subclass relations."
     source_data_url = "https://github.com/INCATools/ubergraph"
     license = "https://raw.githubusercontent.com/INCATools/ubergraph/master/LICENSE.txt"
     attribution = "https://github.com/INCATools/ubergraph"
-    parsing_version: str = '1.0'
+    parsing_version: str = '1.1'
 
     def __init__(self, test_mode: bool = False, source_data_dir: str = None):
         """
@@ -127,8 +126,6 @@ class UGRedundantLoader(UGLoader):
         :param source_data_dir - the specific storage directory to save files in
         """
         super().__init__(test_mode=test_mode, source_data_dir=source_data_dir)
-
-        # this is the name of the archive file the source files will come from
         self.base_url = 'https://ubergraph.apps.renci.org'
         self.data_file = 'redundant-graph-table.tgz'
         self.data_url: str = f'{self.base_url}/downloads/current/'
@@ -138,12 +135,12 @@ class UGRedundantLoader(UGLoader):
 class OHLoader(UGLoader):
 
     source_id: str = 'OntologicalHierarchy'
-    provenance_id: str = 'infores:sri-ontology'
+    provenance_id: str = 'infores:ubergraph'
     description = "Subclass relationships from the redundant version of Ubergraph."
     source_data_url = "https://github.com/INCATools/ubergraph"
     license = "https://raw.githubusercontent.com/INCATools/ubergraph/master/LICENSE.txt"
     attribution = "https://github.com/INCATools/ubergraph"
-    parsing_version: str = '1.4'
+    parsing_version: str = '1.5'
 
     def __init__(self, test_mode: bool = False, source_data_dir: str = None):
         """
@@ -151,8 +148,6 @@ class OHLoader(UGLoader):
         :param source_data_dir - the specific storage directory to save files in
         """
         super().__init__(test_mode=test_mode, source_data_dir=source_data_dir)
-
-        # this is the name of the archive file the source files will come from
         self.base_url = 'https://ubergraph.apps.renci.org'
         self.data_file = 'redundant-graph-table.tgz'
         self.data_url: str = f'{self.base_url}/downloads/current/'

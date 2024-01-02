@@ -131,8 +131,10 @@ class NodeNormalizer:
                         empty_responses = {curie: None for curie in data_chunk}
                         cached_node_norms.update(empty_responses)
                 else:
-                    # the error that is trapped here means that the entire list of nodes didnt get normalized.
+                    # we should never get a legitimate non-200 response from node norm here, just crash with an error
                     error_message = f'Node norm response code: {resp.status_code}'
+                    if resp.status_code == 422:
+                        error_message += f'(curies: {data_chunk})'
                     self.logger.error(error_message)
                     resp.raise_for_status()
 
