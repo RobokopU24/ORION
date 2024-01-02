@@ -72,7 +72,7 @@ NODE_TYPE_MAPPINGS = {
 class LitCoinLoader(SourceDataLoader):
 
     source_id: str = 'LitCoin'
-    provenance_id: str = 'infores:robokop'  # TODO - change this to a LitCoin infores when it exists
+    provenance_id: str = 'infores:robokop-kg'  # TODO - change this to a LitCoin infores when it exists
     parsing_version: str = '1.3'
 
     def __init__(self, test_mode: bool = False, source_data_dir: str = None):
@@ -249,7 +249,7 @@ class LitCoinLoader(SourceDataLoader):
                 valid_responses.append(cur_response_dict)
         return valid_responses
 
-    def name_resolution_function(self, node_name, preferred_biolink_node_type):
+    def name_resolution_function(self, node_name, preferred_biolink_node_type, retries=0):
         return call_name_resolution(node_name, preferred_biolink_node_type)
 
     def standardize_name_resolution_results(self, name_res_json):
@@ -267,7 +267,7 @@ class LitCoinSapBERTLoader(LitCoinLoader):
     source_id: str = 'LitCoinSapBERT'
     parsing_version: str = '1.3'
 
-    def name_resolution_function(self, node_name, preferred_biolink_node_type):
+    def name_resolution_function(self, node_name, preferred_biolink_node_type, retries=0):
         sapbert_url = 'https://babel-sapbert.apps.renci.org/annotate/'
         sapbert_payload = {
           "text": node_name,
@@ -282,7 +282,12 @@ class LitCoinSapBERTLoader(LitCoinLoader):
             if sapbert_json:
                 return sapbert_json[0]
         else:
-            self.logger.error(f'Non-200 Sapbert result {sapbert_response.status_code} for request {sapbert_payload}')
+            error_message = f'Non-200 Sapbert result {sapbert_response.status_code} for request {sapbert_payload}.'
+            if retries < 3:
+                self.logger.error(error_message + f' Retrying (attempt {retries + 1})... ')
+                return self.name_resolution_function(node_name, preferred_biolink_node_type, retries + 1)
+            else:
+                self.logger.error(error_message + f' Giving up...')
         # if no results return None
         return None
 
