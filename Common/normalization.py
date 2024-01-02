@@ -518,15 +518,27 @@ NAME_RESOLVER_URL = os.environ.get('NAME_RESOLVER_ENDPOINT', "https://name-resol
 NAME_RESOLVER_HEADERS = {"accept": "application/json"}
 
 
-def call_name_resolution(name: str, biolink_type: str):
+def call_name_resolution(name: str, biolink_type: str, retries=0, logger=None):
     nameres_payload = {
         "string": name,
         "biolink_type": biolink_type if biolink_type else ""
     }
-    nameres_json = requests.get(NAME_RESOLVER_URL, params=nameres_payload, headers=NAME_RESOLVER_HEADERS).json()
-    # return the first result if there is one
-    if nameres_json:
-        return nameres_json[0]
+    nameres_result = requests.get(NAME_RESOLVER_URL, params=nameres_payload, headers=NAME_RESOLVER_HEADERS)
+    if nameres_result.status_code == 200:
+        # return the first result if there is one
+        nameres_json = nameres_result.json()
+        if nameres_json:
+            return nameres_json[0]
+    else:
+        error_message = f'Non-200 result from name resolution ({NAME_RESOLVER_URL}): ' \
+                        f'Status {nameres_result.status_code} - {nameres_payload}.'
+        if logger:
+            logger.error(error_message)
+        else:
+            print(error_message)
+        if retries < 3:
+            return call_name_resolution(name, biolink_type, retries+1, logger)
+
     # if no results return None
     return None
 

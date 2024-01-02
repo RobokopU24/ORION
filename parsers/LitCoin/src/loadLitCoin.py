@@ -250,7 +250,7 @@ class LitCoinLoader(SourceDataLoader):
         return valid_responses
 
     def name_resolution_function(self, node_name, preferred_biolink_node_type, retries=0):
-        return call_name_resolution(node_name, preferred_biolink_node_type)
+        return call_name_resolution(node_name, preferred_biolink_node_type, retries, logger=self.logger)
 
     def standardize_name_resolution_results(self, name_res_json):
         if not name_res_json:
