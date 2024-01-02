@@ -265,7 +265,7 @@ class LitCoinLoader(SourceDataLoader):
 
 class LitCoinSapBERTLoader(LitCoinLoader):
     source_id: str = 'LitCoinSapBERT'
-    parsing_version: str = '1.3'
+    parsing_version: str = '1.4'
 
     def name_resolution_function(self, node_name, preferred_biolink_node_type, retries=0):
         sapbert_url = 'https://babel-sapbert.apps.renci.org/annotate/'
