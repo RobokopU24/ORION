@@ -25,7 +25,7 @@ mkdir ~/Data_services_root
 Clone the code repository:
 ```
 cd ~/Data_services_root
-git clone https://github.com/RENCI-AUTOMAT/Data_services/
+git clone https://github.com/RobokopU24/ORION.git
 ```
 
 Next create directories where data sources, graphs, and logs will be stored. 
