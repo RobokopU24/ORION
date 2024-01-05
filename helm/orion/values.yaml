@@ -9,7 +9,7 @@ orion:
   useLocalGraphSpec: true
   buildMode: true
   image:
-    repository: ghcr.io/renci-automat/data_services
+    repository: ghcr.io/robokopu24/orion
     pullPolicy: Always
     tag: latest
   graphsVolume:
