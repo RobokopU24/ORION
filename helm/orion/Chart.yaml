@@ -1,6 +1,6 @@
 apiVersion: v2
-name: data-services
-description: A Helm chart for Kubernetes
+name: orion
+description: A Helm chart for running Operational Routine for the Ingest and Output of Networks (ORION)
 
 # A chart can be either an 'application' or a 'library' chart.
 #
