@@ -585,7 +585,7 @@ if __name__ == '__main__':
     # create a command line parser
     ap = argparse.ArgumentParser(description='Load CTD data files and create KGX import files.')
 
-    # command line should be like: python loadVP.py -p /projects/stars/Data_services/ctd_data
+    # command line should be like: python loadVP.py -p /projects/stars/ORION/ctd_data
     ap.add_argument('-c', '--data_path', required=True, help='The location of the CTD data files')
 
     # parse the arguments

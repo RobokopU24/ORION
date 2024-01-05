@@ -19,38 +19,38 @@ ORION will automatically run each data source specified through the necessary pi
 
 Create a parent directory:
 ```
-mkdir ~/Data_services_root
+mkdir ~/ORION_root
 ```
 
 Clone the code repository:
 ```
-cd ~/Data_services_root
+cd ~/ORION_root
 git clone https://github.com/RobokopU24/ORION.git
 ```
 
 Next create directories where data sources, graphs, and logs will be stored. 
 
-DATA_SERVICES_STORAGE - for storing data sources
-DATA_SERVICES_GRAPHS - for storing knowledge graphs
-DATA_SERVICES_LOGS - for storing logs
+ORION_STORAGE - for storing data sources
+ORION_GRAPHS - for storing knowledge graphs
+ORION_LOGS - for storing logs
 
 You can do this manually, or use the script indicated below to set up a standard configuration (Option 1 or 2).
 
 Option 1: Create three directories and set environment variables specifying paths to the locations of those directories.
 ```
-mkdir ~/Data_services_root/storage/
-export DATA_SERVICES_STORAGE=~/Data_services_root/storage/ 
+mkdir ~/ORION_root/storage/
+export ORION_STORAGE=~/ORION_root/storage/ 
 
-mkdir ~/Data_services_root/graphs/
-export DATA_SERVICES_GRAPHS=~/Data_services_root/graphs/
+mkdir ~/ORION_root/graphs/
+export ORION_GRAPHS=~/ORION_root/graphs/
 
-mkdir ~/Data_services_root/logs/
-export DATA_SERVICES_LOGS=~/Data_services_root/logs/
+mkdir ~/ORION_root/logs/
+export ORION_LOGS=~/ORION_root/logs/
 ```
 
 Option 2: Use this script to create the directories and set the environment variables:
 ```
-cd ~/Data_services_root/Data_services/
+cd ~/ORION_root/ORION/
 source ./set_up_test_env.sh
 ```
 
@@ -60,13 +60,13 @@ Use either of the following options, but not both:
 
 Note that running the setup script set_up_test_env.sh will perform Option 1 for you.
 
-Option 1: DATA_SERVICES_GRAPH_SPEC - the name of a Graph Spec file located in the graph_specs directory of Data_services
+Option 1: ORION_GRAPH_SPEC - the name of a Graph Spec file located in the graph_specs directory of ORION
 ```
-export DATA_SERVICES_GRAPH_SPEC=testing-graph-spec.yml
+export ORION_GRAPH_SPEC=testing-graph-spec.yml
 ```
-Option 2: DATA_SERVICES_GRAPH_SPEC_URL - a URL pointing to a Graph Spec file
+Option 2: ORION_GRAPH_SPEC_URL - a URL pointing to a Graph Spec file
 ```
-export DATA_SERVICES_GRAPH_SPEC_URL=https://example.com/example-graph-spec.yml
+export ORION_GRAPH_SPEC_URL=https://example.com/example-graph-spec.yml
 ```
 
 To build a custom graph, alter the Graph Spec file. See the graph_specs directory for examples. 
@@ -85,21 +85,21 @@ graphs:
 
 Install Docker to create and run the necessary containers. 
 
-By default using docker-compose up will build every graph in your Graph Spec. It runs the command: python /Data_services/Common/build_manager.py all.
+By default using docker-compose up will build every graph in your Graph Spec. It runs the command: python /ORION/Common/build_manager.py all.
 ```
 docker-compose up
 ```
 If you want to specify an individual graph you can override the default command with a graph id from your Spec.
 ```
-docker-compose run --rm data_services python /Data_services/Common/build_manager.py Example_Graph_ID
+docker-compose run --rm data_services python /ORION/Common/build_manager.py Example_Graph_ID
 ```
 To run the ORION pipeline for a single data source, you can use:
 ```
-docker-compose run --rm data_services python /Data_services/Common/load_manager.py Example_Source
+docker-compose run --rm data_services python /ORION/Common/load_manager.py Example_Source
 ```
 To see available arguments and a list of supported data sources:
 ```
-python /Data_services/Common/load_manager.py -h
+python /ORION/Common/load_manager.py -h
 ```
 
 ### For Developers
@@ -142,5 +142,5 @@ Now you can use that source ID in a graph spec to include your new source in a g
 
 After you alter the codebase, or if you are experiencing issues or errors you may want to run tests:
 ```
-docker-compose run --rm data_services pytest /Data_services
+docker-compose run --rm data_services pytest /ORION
 ```

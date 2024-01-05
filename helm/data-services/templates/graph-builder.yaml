@@ -21,21 +21,21 @@ spec:
           tty: True
           volumeMounts:
             - name: ds-sources-volume
-              mountPath: /Data_services_storage
+              mountPath: /ORION_storage
               {{- if .Values.dataServices.sourcesVolume.nfs_mount_subpath }}
               subPath: {{ .Values.dataServices.sourcesVolume.nfs_mount_subpath }}
               {{- end }}
             - name: ds-sources-volume
-              mountPath: /Data_services_logs
+              mountPath: /ORION_logs
               subPath: {{ .Values.dataServices.sourcesVolume.nfs_mount_subpath }}logs
             - name: ds-graphs-volume
-              mountPath: /Data_services_graphs
+              mountPath: /ORION_graphs
               {{- if .Values.dataServices.graphsVolume.nfs_mount_subpath }}
               subPath: {{ .Values.dataServices.graphsVolume.nfs_mount_subpath }}
               {{- end }}
             {{- if .Values.dataServices.extraVolume.use_extra_volume }}
             - name: ds-extra-volume
-              mountPath: /Data_services_extra
+              mountPath: /ORION_extra
               {{- if .Values.dataServices.extraVolume.nfs_mount_subpath }}
               subPath: {{ .Values.dataServices.extraVolume.nfs_mount_subpath }}
               {{- end }}
@@ -43,22 +43,22 @@ spec:
             - mountPath: /data
               name: ds-neo4j-scratch-volume
           env:
-            - name: DATA_SERVICES_STORAGE
-              value: /Data_services_storage
-            - name: DATA_SERVICES_GRAPHS
-              value: /Data_services_graphs
+            - name: ORION_STORAGE
+              value: /ORION_storage
+            - name: ORION_GRAPHS
+              value: /ORION_graphs
             {{- if .Values.dataServices.useLocalGraphSpec }}
-            - name: DATA_SERVICES_GRAPH_SPEC
+            - name: ORION_GRAPH_SPEC
               value: {{ .Values.dataServices.graphSpec }}
             {{- else }}
-            - name: DATA_SERVICES_GRAPH_SPEC_URL
+            - name: ORION_GRAPH_SPEC_URL
               value: {{ .Values.dataServices.graphSpec}}
             {{- end }}
-            - name: DATA_SERVICES_LOGS
-              value: /Data_services_logs
-            - name: DATA_SERVICES_NEO4J_PASSWORD
+            - name: ORION_LOGS
+              value: /ORION_logs
+            - name: ORION_NEO4J_PASSWORD
               value: ds-password
-            - name: DATA_SERVICES_OUTPUT_URL
+            - name: ORION_OUTPUT_URL
               value: {{ .Values.dataServices.outputURL }}
             {{- if .Values.dataServices.normalization.nodeNormEndpoint }}
             - name: NODE_NORMALIZATION_ENDPOINT
@@ -95,17 +95,17 @@ spec:
         - name: ds-graph-builder
           image: {{ .Values.dataServices.image.repository }}:{{ .Values.dataServices.image.tag }}
           imagePullPolicy: {{ .Values.dataServices.image.pullPolicy }}
-          args: ["python", "/Data_services/Common/build_manager.py", {{ .Values.dataServices.graphID }} ]
+          args: ["python", "/ORION/Common/build_manager.py", {{ .Values.dataServices.graphID }} ]
           volumeMounts:
-            - mountPath: /Data_services_storage
+            - mountPath: /ORION_storage
               name: ds-sources-volume
               {{- if .Values.dataServices.sourcesVolume.nfs_mount_subpath }}
               subPath: {{ .Values.dataServices.sourcesVolume.nfs_mount_subpath }}
               {{- end }}
-            - mountPath: /Data_services_logs
+            - mountPath: /ORION_logs
               name: ds-sources-volume
               subPath: {{ .Values.dataServices.sourcesVolume.nfs_mount_subpath }}logs
-            - mountPath: /Data_services_graphs
+            - mountPath: /ORION_graphs
               name: ds-graphs-volume
               {{- if .Values.dataServices.graphsVolume.nfs_mount_subpath }}
               subPath: {{ .Values.dataServices.graphsVolume.nfs_mount_subpath }}
@@ -113,22 +113,22 @@ spec:
             - mountPath: /data
               name: ds-neo4j-scratch-volume
           env:
-            - name: DATA_SERVICES_STORAGE
-              value: /Data_services_storage
-            - name: DATA_SERVICES_GRAPHS
-              value: /Data_services_graphs
+            - name: ORION_STORAGE
+              value: /ORION_storage
+            - name: ORION_GRAPHS
+              value: /ORION_graphs
             {{- if .Values.dataServices.useLocalGraphSpec }}
-            - name: DATA_SERVICES_GRAPH_SPEC
+            - name: ORION_GRAPH_SPEC
               value: {{ .Values.dataServices.graphSpec }}
             {{- else }}
-            - name: DATA_SERVICES_GRAPH_SPEC_URL
+            - name: ORION_GRAPH_SPEC_URL
               value: {{ .Values.dataServices.graphSpec }}
             {{- end }}
-            - name: DATA_SERVICES_LOGS
-              value: /Data_services_logs
-            - name: DATA_SERVICES_NEO4J_PASSWORD
+            - name: ORION_LOGS
+              value: /ORION_logs
+            - name: ORION_NEO4J_PASSWORD
               value: ds-password
-            - name: DATA_SERVICES_OUTPUT_URL
+            - name: ORION_OUTPUT_URL
               value: {{ .Values.dataServices.outputURL }}
             {{- if .Values.dataServices.normalization.nodeNormEndpoint }}
             - name: NODE_NORMALIZATION_ENDPOINT

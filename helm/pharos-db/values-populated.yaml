@@ -13,12 +13,12 @@ auth:
 primary:
   extraVolumeMounts:
     - name: pharos-nfs
-      mountPath: /Data_services_storage
+      mountPath: /ORION_storage
   extraVolumes:
     - name: pharos-nfs
       nfs:
         server: na-projects.edc.renci.org
-        path: /stars/Data_services
+        path: /stars/ORION
   resources:
     limits:
       cpu: 2

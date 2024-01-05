@@ -42,7 +42,7 @@ class HMDBLoader(SourceDataLoader):
         self.source_db: str = 'Human Metabolome Database'
 
         # create a logger
-        self.logger = LoggingUtil.init_logging("Data_services.HMDB.HMDBLoader", level=logging.INFO, line_format='medium', log_file_path=os.environ['DATA_SERVICES_LOGS'])
+        self.logger = LoggingUtil.init_logging("ORION.HMDB.HMDBLoader", level=logging.INFO, line_format='medium', log_file_path=os.environ['ORION_LOGS'])
 
     def get_name(self):
         """

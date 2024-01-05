@@ -8,13 +8,13 @@ RUN apt-get update  \
     && apt-get -y install git \
     && apt-get -y install vim
 
-COPY ./requirements.txt /Data_services/requirements.txt
+COPY ./requirements.txt /ORION/requirements.txt
 
-RUN pip3 install -r /Data_services/requirements.txt
+RUN pip3 install -r /ORION/requirements.txt
 
-COPY . /Data_services/.
+COPY . /ORION/.
 
-RUN chmod -R 777 /Data_services
+RUN chmod -R 777 /ORION
 
 
-ENV PYTHONPATH "$PYTHONPATH:/Data_services"
+ENV PYTHONPATH "$PYTHONPATH:/ORION"

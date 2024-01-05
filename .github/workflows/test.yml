@@ -20,8 +20,8 @@ jobs:
           echo "ROBOKOP_HOME=$PWD" >> $GITHUB_ENV
           mkdir -p $PWD/tests/logs
           mkdir -p $PWD/tests/storage
-          echo "DATA_SERVICES_LOGS=$PWD/tests/logs" >> $GITHUB_ENV
-          echo "DATA_SERVICES_STORAGE=$PWD/tests/storage" >> $GITHUB_ENV
+          echo "ORION_LOGS=$PWD/tests/logs" >> $GITHUB_ENV
+          echo "ORION_STORAGE=$PWD/tests/storage" >> $GITHUB_ENV
 
       - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v4
