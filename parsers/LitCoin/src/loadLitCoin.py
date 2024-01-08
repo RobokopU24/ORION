@@ -73,7 +73,7 @@ class LitCoinLoader(SourceDataLoader):
 
     source_id: str = 'LitCoin'
     provenance_id: str = 'infores:robokop-kg'  # TODO - change this to a LitCoin infores when it exists
-    parsing_version: str = '1.3'
+    parsing_version: str = '1.4'
 
     def __init__(self, test_mode: bool = False, source_data_dir: str = None):
         """
@@ -120,7 +120,7 @@ class LitCoinLoader(SourceDataLoader):
                 pubmed_id = f'{PUBMED}:{litcoin_object["abstract_id"]}'
                 llm_output = litcoin_object['output']
                 for litcoin_edge in self.parse_llm_output(llm_output):
-                    # self.logger.info(f'processing edge {records}')
+                    self.logger.info(f'processing edge {records}')
                     subject_resolution_results = self.process_llm_node(litcoin_edge[LLM_SUBJECT_NAME],
                                                                        litcoin_edge[LLM_SUBJECT_TYPE])
                     if not subject_resolution_results:
@@ -196,7 +196,7 @@ class LitCoinLoader(SourceDataLoader):
         # but the keys currently use the post-conversion format so this stays for now
         biolink_node_type = self.convert_node_type_to_biolink_format(node_type)
         preferred_biolink_node_type = NODE_TYPE_MAPPINGS.get(biolink_node_type, None)
-        self.logger.debug(f'calling name res for {node_name} - {preferred_biolink_node_type}')
+        self.logger.info(f'calling name res for {node_name} - {preferred_biolink_node_type}')
         start_time = time.time()
         name_resolution_results = self.name_resolution_function(node_name, preferred_biolink_node_type)
         elapsed_time = time.time() - start_time
@@ -259,7 +259,7 @@ class LitCoinLoader(SourceDataLoader):
             "curie": name_res_json['curie'],
             "name": name_res_json['label'],
             "types": list(self.bl_utils.find_biolink_leaves(set(name_res_json['types']))),
-            "score": None
+            "score": name_res_json['score']
         }
 
 
