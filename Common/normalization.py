@@ -521,7 +521,8 @@ NAME_RESOLVER_HEADERS = {"accept": "application/json"}
 def call_name_resolution(name: str, biolink_type: str, retries=0, logger=None):
     nameres_payload = {
         "string": name,
-        "biolink_type": biolink_type if biolink_type else ""
+        "biolink_type": biolink_type if biolink_type else "",
+        "autocomplete": False
     }
     nameres_result = requests.get(NAME_RESOLVER_URL, params=nameres_payload, headers=NAME_RESOLVER_HEADERS)
     if nameres_result.status_code == 200:
