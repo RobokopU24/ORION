@@ -429,14 +429,15 @@ class ReactomeLoader(SourceDataLoader):
                     primary_knowledge_source=self.provenance_id
                 )
             else:
-                if regulationType == "positive":
-                    direction = 'increased'
-                elif regulationType == "negative":
-                    direction = 'decreased'
+                if regulationType == 'positive':
+                    direction = 'upregulated'
+                elif regulationType == 'negative':
+                    direction = 'downregulated'
+                else:
+                    self.logger.warning(f'Unexpected regulation type encountered: {regulationType}')
+                    return
                 edge_props = {
-                    'qualified_predicate': 'biolink:causes',
                     'object_direction_qualifier': direction,
-                    'object_aspect_qualifier': 'expression',
                 }
                 if complex_context:
                     edge_props['complex_context'] = complex_context
