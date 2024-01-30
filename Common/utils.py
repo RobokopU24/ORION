@@ -157,13 +157,14 @@ class GetData:
         # return the data stream
         return binary
 
-    def get_ftp_file_date(self, ftp_site, ftp_dir, ftp_file) -> str:
+    def get_ftp_file_date(self, ftp_site, ftp_dir, ftp_file, exclude_day=False) -> str:
         """
         gets the modified date of the file from the ftp site
 
         :param ftp_site:
         :param ftp_dir:
         :param ftp_file:
+        :param exclude_day:
         :return:
         """
         # init the return value
@@ -180,8 +181,13 @@ class GetData:
 
             # did we get something
             if len(date_val) > 0:
-                # return the parsed date
-                return dp.parse(date_val[1]).strftime('%-m_%-d_%Y')
+                if exclude_day:
+                    # if exclude_day format to month_year
+                    file_date = dp.parse(date_val[1]).strftime('%-m_%Y')
+                else:
+                    # otherwise return month_day_year
+                    file_date = dp.parse(date_val[1]).strftime('%-m_%-d_%Y')
+                return file_date
         except Exception as e:
             error_message = f'Error getting modification date for ftp file: {ftp_site}{ftp_dir}{ftp_file}. {e}'
             self.logger.error(error_message)
