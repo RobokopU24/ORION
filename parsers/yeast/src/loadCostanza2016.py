@@ -1,6 +1,7 @@
 import os
 import enum
 import csv
+import requests
 from Common.loader_interface import SourceDataLoader
 from Common.extractor import Extractor
 from Common.node_types import PRIMARY_KNOWLEDGE_SOURCE, PUBLICATIONS
@@ -28,7 +29,7 @@ class COSTANZA_GENEINTERACTIONS(enum.IntEnum):
 ##############
 class Costanza2016Loader(SourceDataLoader):
 
-    source_id: str = 'Costanza2016'
+    source_id: str = 'Costanza2016Data'
     provenance_id: str = 'infores:CostanzaGeneticInteractions'
     parsing_version = '1.1'
 
@@ -57,7 +58,11 @@ class Costanza2016Loader(SourceDataLoader):
         :return:
         """
         # TODO - this is actually possible with https://yeastmine.yeastgenome.org/yeastmine/service/version/release
-        return 'yeast_v1'
+        yeastmine_release_response = requests.get('https://yeastmine.yeastgenome.org/yeastmine/service/version/release')
+        release_text = yeastmine_release_response.text
+        print(release_text)
+        release_version = release_text.split('Data Updated on:')[1].split('; GO-Release')[0]
+        return release_version
 
     def get_data(self) -> int:
         # Collects all data for complexes with GO Term annotations in SGD.
