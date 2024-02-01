@@ -71,7 +71,7 @@ NODE_TYPE_MAPPINGS = {
 ##############
 class LitCoinLoader(SourceDataLoader):
 
-    source_id: str = 'LitCoin'
+    source_id: str = 'LitCoin_without_umls'
     provenance_id: str = 'infores:robokop-kg'  # TODO - change this to a LitCoin infores when it exists
     parsing_version: str = '1.4'
 
@@ -264,7 +264,7 @@ class LitCoinLoader(SourceDataLoader):
 
 
 class LitCoinSapBERTLoader(LitCoinLoader):
-    source_id: str = 'LitCoinSapBERT'
+    source_id: str = 'LitCoinSapBERT_without_umls'
     parsing_version: str = '1.4'
 
     def name_resolution_function(self, node_name, preferred_biolink_node_type, retries=0):
@@ -280,7 +280,9 @@ class LitCoinSapBERTLoader(LitCoinLoader):
             sapbert_json = sapbert_response.json()
             # return the first result if there is one
             if sapbert_json:
-                return sapbert_json[0]
+                for result in sapbert_json:
+                    if not result['curie'].startswith('UMLS'):
+                        return result
         else:
             error_message = f'Non-200 Sapbert result {sapbert_response.status_code} for request {sapbert_payload}.'
             if retries < 3:

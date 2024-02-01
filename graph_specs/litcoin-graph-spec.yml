@@ -1,21 +1,21 @@
 # litcoin graph spec
 graphs:
-  - graph_id: LitCoinSapBERT
-    graph_name: LitCoinSapBERT
-    graph_description: A graph for the LitCoin project using SapBERT for name resolution
+  - graph_id: LitCoinSapBERT_without_umls
+    graph_name: LitCoinSapBERT_without_umls
+    graph_description: A graph for the LitCoin project using SapBERT for name resolution without umls identifiers
     conflation: True
     strict_normalization: True
     output_format: neo4j
     sources:
-      - source_id: LitCoinSapBERT
+      - source_id: LitCoinSapBERT_without_umls
 
-  - graph_id: LitCoin
-    graph_name: LitCoin
-    graph_description: A graph for the LitCoin project using Name Resolver for name resolution
+  - graph_id: LitCoin_without_umls
+    graph_name: LitCoin_without_umls
+    graph_description: A graph for the LitCoin project using Name Resolver for name resolution without umls identifiers
     conflation: True
     strict_normalization: True
     output_format: neo4j
     sources:
-      - source_id: LitCoin
+      - source_id: LitCoin_without_umls
 
 

@@ -529,7 +529,9 @@ def call_name_resolution(name: str, biolink_type: str, retries=0, logger=None):
         # return the first result if there is one
         nameres_json = nameres_result.json()
         if nameres_json:
-            return nameres_json[0]
+            for result in nameres_json:
+                if not result['curie'].startswith('UMLS'):
+                    return result
     else:
         error_message = f'Non-200 result from name resolution ({NAME_RESOLVER_URL}): ' \
                         f'Status {nameres_result.status_code} - {nameres_payload}.'
