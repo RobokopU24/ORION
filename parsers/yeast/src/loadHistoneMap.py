@@ -45,6 +45,7 @@ class YeastHistoneMapLoader(SourceDataLoader):
 
     source_id: str = 'YeastHistoneMap'
     provenance_id: str = 'infores:yeasthistones'
+    parsing_version: str = '1.0'
 
     def __init__(self, test_mode: bool = False, source_data_dir: str = None):
         """
@@ -73,7 +74,7 @@ class YeastHistoneMapLoader(SourceDataLoader):
 
         :return:
         """
-        return 'yeast_v1'
+        return 'yeast_v2'
 
     def get_data(self) -> int:
         """
