@@ -57,10 +57,8 @@ class Costanza2016Loader(SourceDataLoader):
 
         :return:
         """
-        # TODO - this is actually possible with https://yeastmine.yeastgenome.org/yeastmine/service/version/release
         yeastmine_release_response = requests.get('https://yeastmine.yeastgenome.org/yeastmine/service/version/release')
         release_text = yeastmine_release_response.text
-        print(release_text)
         release_version = release_text.split('Data Updated on:')[1].split('; GO-Release')[0]
         return release_version
 
