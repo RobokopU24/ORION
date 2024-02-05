@@ -59,7 +59,7 @@ class Costanza2016Loader(SourceDataLoader):
         """
         yeastmine_release_response = requests.get('https://yeastmine.yeastgenome.org/yeastmine/service/version/release')
         release_text = yeastmine_release_response.text
-        release_version = release_text.split('Data Updated on:')[1].split('; GO-Release')[0]
+        release_version = release_text.split('Data Updated on:')[1].split('; GO-Release')[0].strip()
         return release_version
 
     def get_data(self) -> int:

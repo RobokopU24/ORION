@@ -202,9 +202,9 @@ class YeastHistoneMapLoader(SourceDataLoader):
                             'H4K8ac': None, 'H4R3me': None, 'H4R3me2s': None, 'HTZ1': None}
 
         # Will continue to work on this mapping.
-        # Get descendants of GO term "histone modification" (GO:0016570)
+        # Get descendants of GO term "histone modifying activity" (GO:0140993)
         HisModDescendants = rq.get(
-            f"https://www.ebi.ac.uk/QuickGO/services/ontology/go/terms/{'GO:0016570'}/descendants").json()
+            f"https://www.ebi.ac.uk/QuickGO/services/ontology/go/terms/GO:0140993/descendants").json()
         descendants = str(HisModDescendants['results'][0]['descendants']).replace("'", "").replace(" ", "").replace(
             "[", "").replace("]", "")
         descendantNames = rq.get(f"https://www.ebi.ac.uk/QuickGO/services/ontology/go/terms/{descendants}").json()
