@@ -210,23 +210,19 @@ def SGDGene2Complex(data_directory):
             "allInteractors.participant.secondaryIdentifier",
             "allInteractors.biologicalRole", "allInteractors.stoichiometry",
             "allInteractors.type", "identifier", "properties", "accession",
-            "allInteractors.participant.genes.primaryIdentifier", "complex.link"]
+            "allInteractors.participant.genes.primaryIdentifier"]
 
     data = dict.fromkeys(view, [])
-    url = "https://www.yeastgenome.org/complex/"
-
     for row in query.rows():
-        for col in range(len(view)):
-            key = view[col]
-            if key != "complex.link":
-                if key == "identifier":
-                    value = "EBI:" + str(row[key])
-                elif key == "allInteractors.participant.genes.primaryIdentifier":
-                    value = "SGD:" + str(row[key])
-                else:
-                    value = row[key]
-            elif key == "complex.link":
-                value = url + str(row[view[10]])
+        for key in view:
+            if key == "identifier":
+                value = "EBI:" + str(row[key])
+            elif key == "allInteractors.participant.genes.primaryIdentifier":
+                value = "SGD:" + str(row[key])
+            elif key == "properties":
+                value = str(row[key]).replace("\r\n", " ").replace("\n", " ").strip()
+            else:
+                value = row[key]
             data[key] = data[key] + [value]
     gene2complexdf = pd.DataFrame(data)
     gene2complexdf.fillna("?", inplace=True)
@@ -254,16 +250,18 @@ def SGDComplex2GOTerm(data_directory):
 
     for row in query.rows():
         for col in view:
-
             if col == "accession":
-                value = "CPX:" + str(row[col])
+                value = str(row[col])
             elif col == "goAnnotation.qualifier":
-                if str(row["goAnnotation.ontologyTerm.namespace"]) == "molecular_function":
+                ontology_term_namespace = str(row["goAnnotation.ontologyTerm.namespace"])
+                if ontology_term_namespace == "molecular_function":
                     value = "biolink:enables"
-                elif str(row["goAnnotation.ontologyTerm.namespace"]) == "biological_process":
+                elif ontology_term_namespace == "biological_process":
                     value = "biolink:actively_involved_in"
-                elif str(row["goAnnotation.ontologyTerm.namespace"]) == "cellular_component":
+                elif ontology_term_namespace == "cellular_component":
                     value = "biolink:located_in"
+                else:
+                    value = ""
             else:
                 value = str(row[col])
             data[col] = data[col] + [value]
