@@ -68,7 +68,6 @@ class NodeNormalizer:
         resp: requests.models.Response = requests.post(f'{self.node_norm_endpoint}get_normalized_nodes',
                                                        json={'curies': curies,
                                                              'conflate': self.conflate_node_types,
-                                                             'drug_chemical_conflate': self.conflate_node_types,
                                                              'description': True})
         if resp.status_code == 200:
             # if successful return the json as an object
@@ -535,16 +534,14 @@ def call_name_resolution(name: str, biolink_type: str, retries=0, logger=None):
     nameres_payload = {
         "string": name,
         "biolink_type": biolink_type if biolink_type else "",
-        "autocomplete": False
+        "autocomplete": True,
+        "exclude_prefixes": "UMLS"
     }
     nameres_result = requests.get(NAME_RESOLVER_URL, params=nameres_payload, headers=NAME_RESOLVER_HEADERS)
     if nameres_result.status_code == 200:
         # return the first result if there is one
         nameres_json = nameres_result.json()
-        if nameres_json:
-            for result in nameres_json:
-                if not result['curie'].startswith('UMLS'):
-                    return result
+        return nameres_json[0] if nameres_json else None
     else:
         error_message = f'Non-200 result from name resolution ({NAME_RESOLVER_URL}): ' \
                         f'Status {nameres_result.status_code} - {nameres_payload}.'

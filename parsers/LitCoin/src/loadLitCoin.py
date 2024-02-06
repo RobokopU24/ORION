@@ -71,7 +71,7 @@ NODE_TYPE_MAPPINGS = {
 ##############
 class LitCoinLoader(SourceDataLoader):
 
-    source_id: str = 'LitCoin_without_umls'
+    source_id: str = 'LitCoin_without_umls_with_autocomplete'
     provenance_id: str = 'infores:robokop-kg'  # TODO - change this to a LitCoin infores when it exists
     parsing_version: str = '1.4'
 
@@ -250,7 +250,9 @@ class LitCoinLoader(SourceDataLoader):
         return valid_responses
 
     def name_resolution_function(self, node_name, preferred_biolink_node_type, retries=0):
-        return call_name_resolution(node_name, preferred_biolink_node_type, retries, logger=self.logger)
+        return call_name_resolution(node_name,
+                                    preferred_biolink_node_type,
+                                    retries, logger=self.logger)
 
     def standardize_name_resolution_results(self, name_res_json):
         if not name_res_json:

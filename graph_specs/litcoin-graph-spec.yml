@@ -9,13 +9,13 @@ graphs:
     sources:
       - source_id: LitCoinSapBERT_without_umls
 
-  - graph_id: LitCoin_without_umls
-    graph_name: LitCoin_without_umls
+  - graph_id: LitCoin_without_umls_with_autocomplete
+    graph_name: LitCoin_without_umls_with_autocomplete
     graph_description: A graph for the LitCoin project using Name Resolver for name resolution without umls identifiers
     conflation: True
     strict_normalization: True
-    output_format: neo4j
+    output_format: None
     sources:
-      - source_id: LitCoin_without_umls
+      - source_id: LitCoin_without_umls_with_autocomplete
 
 
