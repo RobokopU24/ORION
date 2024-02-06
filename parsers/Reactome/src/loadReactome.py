@@ -99,7 +99,7 @@ class ReactomeLoader(SourceDataLoader):
     source_data_url = "https://reactome.org/"
     license = "https://reactome.org/license"
     attribution = "https://academic.oup.com/nar/article/50/D1/D687/6426058?login=false"
-    parsing_version = '1.1'
+    parsing_version = '1.2'
 
     def __init__(self, test_mode: bool = False, source_data_dir: str = None):
         """
@@ -429,14 +429,15 @@ class ReactomeLoader(SourceDataLoader):
                     primary_knowledge_source=self.provenance_id
                 )
             else:
-                if regulationType == "positive":
-                    direction = 'increased'
-                elif regulationType == "negative":
-                    direction = 'decreased'
+                if regulationType == 'positive':
+                    direction = 'upregulated'
+                elif regulationType == 'negative':
+                    direction = 'downregulated'
+                else:
+                    self.logger.warning(f'Unexpected regulation type encountered: {regulationType}')
+                    return
                 edge_props = {
-                    'qualified_predicate': 'biolink:causes',
                     'object_direction_qualifier': direction,
-                    'object_aspect_qualifier': 'expression',
                 }
                 if complex_context:
                     edge_props['complex_context'] = complex_context

@@ -1,5 +1,6 @@
 import os
 import enum
+import requests
 
 from parsers.SGD.src.sgd_source_retriever import retrieve_sgd_files
 from Common.loader_interface import SourceDataLoader
@@ -12,6 +13,7 @@ from parsers.yeast.src.yeast_constants import SGD_ALL_GENES_FILE
 class GENEGOTERMS_EDGEUMAN(enum.IntEnum):
     GENE = 0
     GOTERM = 5
+    GOTERM_NAME = 6
     PREDICATE = 9
     EVIDENCECODE = 8
     EVIDENCECODETEXT = 10
@@ -21,15 +23,18 @@ class GENEGOTERMS_EDGEUMAN(enum.IntEnum):
 # Maps Genes to Pathways
 class GENEPATHWAYS_EDGEUMAN(enum.IntEnum):
     GENE = 0
+    ORGANISM_NAME = 1
     PATHWAY = 2
+    PATHWAY_NAME = 3
+    PATHWAY_LINK = 4
 
 # Maps Genes to Phenotypes
 class GENEPHENOTYPES_EDGEUMAN(enum.IntEnum):
     GENE = 0
-    PHENOTYPE = 18
-    QUALIFIER = 8
     EXPERIMENTTYPE = 5
     MUTANTTYPE = 6
+    PHENOTYPE_NAME = 7
+    QUALIFIER = 8
     ALLELE = 9
     ALLELEDESCRIPTION = 10
     STRAINBACKGROUND = 11
@@ -37,14 +42,20 @@ class GENEPHENOTYPES_EDGEUMAN(enum.IntEnum):
     CONDITION = 13
     DETAILS = 14
     EVIDENCEPMID = 15
+    PHENOTYPE = 18
+    PHENOTYPE_LINK = 19
 
 # Maps Genes to Complexes
 class GENECOMPLEXES_EDGEUMAN(enum.IntEnum):
-    GENE = 11
-    COMPLEX = 10
+    NAME = 0
+    FUNCTION = 1
+    SYSTEMATIC_NAME = 2
     ROLE = 5
     STOICHIOMETRY = 6
     TYPE = 7
+    PROPERTIES = 9
+    COMPLEX = 10
+    GENE = 11
 
 # Maps Complexes to GO Terms
 class COMPLEXEGO_EDGEUMAN(enum.IntEnum):
@@ -52,6 +63,18 @@ class COMPLEXEGO_EDGEUMAN(enum.IntEnum):
     COMPLEX = 0
     PREDICATE = 3
     COMPLEXNAME = 2
+
+
+def convert_go_qualifier_to_predicate(go_qualifier):
+    # NOTE that there are a lot more values that go_qualifier could be, these are two currently identified as needing
+    # mapping before normalization (the rest will be converted succesfully with biolink lookup in edge normalization)
+    # better long term solution would be to add these two mappings to biolink or to map all the options from GO
+    if go_qualifier == 'involved in':
+        return 'biolink:actively_involved_in'
+    elif go_qualifier == 'is active in':
+        return 'biolink:active_in'
+    else:
+        return go_qualifier
 
 ##############
 # Class: Mapping SGD Genes to SGD Associations
@@ -64,6 +87,7 @@ class SGDLoader(SourceDataLoader):
 
     source_id: str = 'SGD'
     provenance_id: str = 'infores:sgd'
+    parsing_version = '1.1'
 
     def __init__(self, test_mode: bool = False, source_data_dir: str = None):
         """
@@ -89,13 +113,19 @@ class SGDLoader(SourceDataLoader):
             self.complex_to_go_term_edges_file_name
         ]
 
+        self.yeast_complex_base_url = "https://www.yeastgenome.org/complex/"
+
     def get_latest_source_version(self) -> str:
         """
         gets the version of the data
 
         :return:
         """
-        return 'SGD_v1'
+        # not exactly right because we also get data from http://ontologies.berkeleybop.org/apo.obo for this currently
+        yeastmine_release_response = requests.get('https://yeastmine.yeastgenome.org/yeastmine/service/version/release')
+        release_text = yeastmine_release_response.text
+        release_version = release_text.split('Data Updated on:')[1].split('; GO-Release')[0].strip()
+        return release_version
 
     def get_data(self) -> int:
         """
@@ -137,89 +167,15 @@ class SGDLoader(SourceDataLoader):
                                   delim=',',
                                   has_header_row=True)
 
-        #This file contains GO Term annotations for the genes.
-        go_term_file: str = os.path.join(self.data_path, self.genes_to_go_term_edges_file_name)
-        with open(go_term_file, 'r') as fp:
-            extractor.csv_extract(fp,
-                                  lambda line: line[5].replace(" ","_").strip(),  # subject id
-                                  lambda line: None,  # object id
-                                  lambda line: None,  # predicate extractor
-                                  lambda line: {'name': line[6],
-                                                NODE_TYPES: [line[7]]
-                                                }, #subject props
-                                  lambda line: {},  # object props
-                                  lambda line: {PRIMARY_KNOWLEDGE_SOURCE: self.provenance_id},#edgeprops
-                                  comment_character=None,
-                                  delim=',',
-                                  has_header_row=True)
-
-        #This file is a list of pathways in yeast.
-        yeast_pathway_list_file: str = os.path.join(self.data_path, self.genes_to_pathway_edges_file_name)
-        with open(yeast_pathway_list_file, 'r') as fp:
-            extractor.csv_extract(fp,
-                                  lambda line: line[2].replace(" ","_").strip(), # subject id
-                                  lambda line: None,  # object id
-                                  lambda line: None,  # predicate extractor
-                                  lambda line: {'name': line[3],
-                                                NODE_TYPES: ['biolink:Pathway'],
-                                                'taxon': 'NCBI_Taxon:559292',
-                                                'organism': line[1],
-                                                'referenceLink': line[4]},  # subject props
-                                  lambda line: {},  # object props
-                                  lambda line: {PRIMARY_KNOWLEDGE_SOURCE: self.provenance_id}, #edgeprops
-                                  comment_character=None,
-                                  delim=',',
-                                  has_header_row=True)
-
-        #This file is a list of yeast phenotypes.
-        yeast_phenotype_file: str = os.path.join(self.data_path, self.genes_to_phenotype_edges_file_name)
-        with open(yeast_phenotype_file, 'r') as fp:
-            extractor.csv_extract(fp,
-                                  lambda line: line[18].replace(" ","_").strip(),  # subject id
-                                  lambda line: None,  # object id
-                                  lambda line: None,  # predicate extractor
-                                  lambda line: {'name': line[7],
-                                                NODE_TYPES: ['biolink:PhenotypicFeature'],
-                                                'taxon': 'NCBITaxon:559292',
-                                                'organism': "S. cerevisiae",
-                                                'referenceLink': line[19]}, # subject props
-                                  lambda line: {},  # object props
-                                  lambda line: {PRIMARY_KNOWLEDGE_SOURCE: self.provenance_id},#edgeprops
-                                  comment_character=None,
-                                  delim=',',
-                                  has_header_row=True)
-
-        #This file is a list of yeast protein complexes.
-        yeast_complex_file: str = os.path.join(self.data_path, self.genes_to_complex_edges_file_name)
-        with open(yeast_complex_file, 'r') as fp:
-            extractor.csv_extract(fp,
-                                  lambda line: "CPX:" + line[10],  # subject id
-                                  lambda line: None,  # object id
-                                  lambda line: None,  # predicate extractor
-                                  lambda line: {'name': line[0],
-                                                NODE_TYPES: ['biolink:MacromolecularComplexMixin'],
-                                                'function': line[1],
-                                                'systematicName': line[2],
-                                                'properties': line[9],
-                                                'SGDAccessionID': line[10],
-                                                'taxon': 'NCBITaxon:559292',
-                                                'organism': "S. cerevisiae",
-                                                'referenceLink': line[12]}, # subject props
-                                  lambda line: {},  # object props
-                                  lambda line: {PRIMARY_KNOWLEDGE_SOURCE: self.provenance_id},#edgeprops
-                                  comment_character=None,
-                                  delim=',',
-                                  has_header_row=True)
-
         #Genes to GO Annotations. Evidence and annotation type as edge properties.
         gene_to_go_term_edges_file: str = os.path.join(self.data_path, self.genes_to_go_term_edges_file_name)
         with open(gene_to_go_term_edges_file, 'r') as fp:
             extractor.csv_extract(fp,
                                   lambda line: line[GENEGOTERMS_EDGEUMAN.GENE.value], #subject id
-                                  lambda line: line[GENEGOTERMS_EDGEUMAN.GOTERM.value].replace(' ','_'),  # object id
-                                  lambda line: line[GENEGOTERMS_EDGEUMAN.PREDICATE.value] if line[GENEGOTERMS_EDGEUMAN.PREDICATE.value] != "involved in" else "biolink:actively_involved_in",  # predicate extractor
+                                  lambda line: line[GENEGOTERMS_EDGEUMAN.GOTERM.value],  # object id
+                                  lambda line: convert_go_qualifier_to_predicate(line[GENEGOTERMS_EDGEUMAN.PREDICATE.value]),  # predicate extractor
                                   lambda line: {},  # subject props
-                                  lambda line: {},  # object props
+                                  lambda line: {'name': line[GENEGOTERMS_EDGEUMAN.GOTERM_NAME.value]},  # object props
                                   lambda line: {'evidenceCode': line[GENEGOTERMS_EDGEUMAN.EVIDENCECODE.value],
                                                 'evidenceCodeText': line[GENEGOTERMS_EDGEUMAN.EVIDENCECODETEXT.value],
                                                 'annotationType': line[GENEGOTERMS_EDGEUMAN.ANNOTATIONTYPE.value],
@@ -235,13 +191,15 @@ class SGDLoader(SourceDataLoader):
         with open(gene_to_pathway_edges_file, 'r') as fp:
             extractor.csv_extract(fp,
                                   lambda line: line[GENEPATHWAYS_EDGEUMAN.GENE.value], #subject id
-                                  lambda line: line[GENEPATHWAYS_EDGEUMAN.PATHWAY.value].replace(' ','_'),  # object id
+                                  lambda line: line[GENEPATHWAYS_EDGEUMAN.PATHWAY.value], # object id
                                   lambda line: "biolink:participates_in",  # predicate extractor
                                   lambda line: {},  # subject props
-                                  lambda line: {},  # object props
-                                  lambda line: {
-                                                PRIMARY_KNOWLEDGE_SOURCE: self.provenance_id
-                                                }, #edgeprops
+                                  lambda line: {'name': line[GENEPATHWAYS_EDGEUMAN.PATHWAY_NAME.value],
+                                                NODE_TYPES: ['biolink:Pathway'],
+                                                'taxon': 'NCBI_Taxon:559292',
+                                                'organism': line[GENEPATHWAYS_EDGEUMAN.ORGANISM_NAME.value],
+                                                'referenceLink': line[GENEPATHWAYS_EDGEUMAN.PATHWAY_LINK.value]},  # object props
+                                  lambda line: {PRIMARY_KNOWLEDGE_SOURCE: self.provenance_id}, #edgeprops
                                   comment_character=None,
                                   delim=',',
                                   has_header_row=True)
@@ -254,7 +212,11 @@ class SGDLoader(SourceDataLoader):
                                   lambda line: line[GENEPHENOTYPES_EDGEUMAN.PHENOTYPE.value].replace(' ','_'),  # object id
                                   lambda line: "biolink:genetic_association",  # predicate extractor
                                   lambda line: {},  # subject props
-                                  lambda line: {},  # object props
+                                  lambda line: {'name': line[GENEPHENOTYPES_EDGEUMAN.PHENOTYPE_NAME.value],
+                                                NODE_TYPES: ['biolink:PhenotypicFeature'],
+                                                'taxon': 'NCBITaxon:559292',
+                                                'organism': "S. cerevisiae",
+                                                'referenceLink': line[GENEPHENOTYPES_EDGEUMAN.PHENOTYPE_LINK.value]},  # object props
                                   lambda line: {'effectOnPhenotype': line[GENEPHENOTYPES_EDGEUMAN.QUALIFIER.value],
                                                 'phenotypeDetails': line[GENEPHENOTYPES_EDGEUMAN.DETAILS.value],
                                                 'experimentType': line[GENEPHENOTYPES_EDGEUMAN.EXPERIMENTTYPE.value],
@@ -275,10 +237,18 @@ class SGDLoader(SourceDataLoader):
         with open(gene_to_complex_edges_file, 'r') as fp:
             extractor.csv_extract(fp,
                                   lambda line: line[GENECOMPLEXES_EDGEUMAN.GENE.value], #subject id
-                                  lambda line: line[GENECOMPLEXES_EDGEUMAN.COMPLEX.value],  # object id
+                                  lambda line: f"CPX:{line[GENECOMPLEXES_EDGEUMAN.COMPLEX.value]}",  # object id
                                   lambda line: "biolink:in_complex_with",  # predicate extractor
                                   lambda line: {},  # subject props
-                                  lambda line: {},  # object props
+                                  lambda line: {'name': line[GENECOMPLEXES_EDGEUMAN.NAME.value],
+                                                NODE_TYPES: ['biolink:MacromolecularComplexMixin'],
+                                                'function': line[GENECOMPLEXES_EDGEUMAN.FUNCTION.value],
+                                                'systematicName': line[GENECOMPLEXES_EDGEUMAN.SYSTEMATIC_NAME.value],
+                                                'properties': line[GENECOMPLEXES_EDGEUMAN.PROPERTIES.value],
+                                                'SGDAccessionID': line[GENECOMPLEXES_EDGEUMAN.COMPLEX.value],
+                                                'taxon': 'NCBITaxon:559292',
+                                                'organism': "S. cerevisiae",
+                                                'referenceLink': f'{self.yeast_complex_base_url}{line[GENECOMPLEXES_EDGEUMAN.COMPLEX.value]}'},  # object props
                                   lambda line: {'geneBiologicalRole': line[GENECOMPLEXES_EDGEUMAN.ROLE.value],
                                                 'geneStoichiometry': line[GENECOMPLEXES_EDGEUMAN.STOICHIOMETRY.value],
                                                 'interactorType': line[GENECOMPLEXES_EDGEUMAN.TYPE.value],
@@ -291,9 +261,9 @@ class SGDLoader(SourceDataLoader):
         complex_to_go_term_edges_file: str = os.path.join(self.data_path, self.complex_to_go_term_edges_file_name)
         with open(complex_to_go_term_edges_file, 'r') as fp:
             extractor.csv_extract(fp,
-                                  lambda line: line[COMPLEXEGO_EDGEUMAN.COMPLEX.value],#.split(':')[1], #subject id
-                                  lambda line: line[COMPLEXEGO_EDGEUMAN.GOTERM.value],#.replace(' ','_'),  # object id
-                                  lambda line: line[COMPLEXEGO_EDGEUMAN.PREDICATE.value] if line[COMPLEXEGO_EDGEUMAN.PREDICATE.value] != "involved in" else "biolink:actively_involved_in",  # predicate extractor
+                                  lambda line: f"CPX:{line[COMPLEXEGO_EDGEUMAN.COMPLEX.value]}", #subject id
+                                  lambda line: line[COMPLEXEGO_EDGEUMAN.GOTERM.value],  # object id
+                                  lambda line: line[COMPLEXEGO_EDGEUMAN.PREDICATE.value],  # predicate extractor
                                   lambda line: {},  # subject props
                                   lambda line: {},  # object props
                                   lambda line: {
