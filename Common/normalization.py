@@ -522,7 +522,8 @@ def call_name_resolution(name: str, biolink_type: str, retries=0, logger=None):
     nameres_payload = {
         "string": name,
         "biolink_type": biolink_type if biolink_type else "",
-        "autocomplete": False
+        "autocomplete": True,
+        "exclude_prefixes": "UMLS"
     }
     error_message = None
     try:
