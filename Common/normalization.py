@@ -516,7 +516,7 @@ class EdgeNormalizer:
 
 NAME_RESOLVER_URL = os.environ.get('NAME_RESOLVER_ENDPOINT', "https://name-resolution-sri.renci.org/") + 'lookup'
 NAME_RESOLVER_HEADERS = {"accept": "application/json"}
-
+NAME_RESOLVER_API_ERROR = 'api_error'
 
 def call_name_resolution(name: str, biolink_type: str, retries=0, logger=None):
     nameres_payload = {
@@ -524,22 +524,27 @@ def call_name_resolution(name: str, biolink_type: str, retries=0, logger=None):
         "biolink_type": biolink_type if biolink_type else "",
         "autocomplete": False
     }
-    nameres_result = requests.get(NAME_RESOLVER_URL, params=nameres_payload, headers=NAME_RESOLVER_HEADERS)
-    if nameres_result.status_code == 200:
-        # return the first result if there is one
-        nameres_json = nameres_result.json()
-        if nameres_json:
-            return nameres_json[0]
-    else:
-        error_message = f'Non-200 result from name resolution ({NAME_RESOLVER_URL}): ' \
-                        f'Status {nameres_result.status_code} - {nameres_payload}.'
-        if logger:
-            logger.error(error_message)
+    error_message = None
+    try:
+        nameres_result = requests.get(NAME_RESOLVER_URL, params=nameres_payload, headers=NAME_RESOLVER_HEADERS)
+        if nameres_result.status_code == 200:
+            # return the first result if there is one
+            nameres_json = nameres_result.json()
+            return nameres_json[0] if nameres_json else None
         else:
-            print(error_message)
-        if retries < 3:
-            return call_name_resolution(name, biolink_type, retries+1, logger)
+            error_message = f'Non-200 result from name resolution (url: {NAME_RESOLVER_URL}, ' \
+                            f'payload: {nameres_payload}). Status code: {nameres_result.status_code}.'
+    except requests.exceptions.ConnectionError as e:
+        error_message = f'Connection Error calling name resolution (url: {NAME_RESOLVER_URL}, ' \
+                        f'payload: {nameres_payload}). Error: {e}.'
 
-    # if no results return None
-    return None
+    # if we get here something went wrong, log error and retry
+    if logger:
+        logger.error(error_message)
+    else:
+        print(error_message)
+    if retries < 3:
+        return call_name_resolution(name, biolink_type, retries + 1, logger)
 
+    # if retried 3 times already give up and return the last error
+    return {NAME_RESOLVER_API_ERROR: error_message}
