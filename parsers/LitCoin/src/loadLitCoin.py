@@ -7,10 +7,9 @@ from collections import defaultdict
 
 from Common.biolink_utils import BiolinkUtils
 from Common.loader_interface import SourceDataLoader
-from Common.kgxmodel import kgxnode, kgxedge
-from Common.node_types import PRIMARY_KNOWLEDGE_SOURCE, PUBLICATIONS
+from Common.node_types import PUBLICATIONS
 from Common.utils import GetData, snakify
-from Common.normalization import call_name_resolution
+from Common.normalization import call_name_resolution, NAME_RESOLVER_API_ERROR
 from Common.prefixes import PUBMED
 
 
@@ -73,7 +72,7 @@ class LitCoinLoader(SourceDataLoader):
 
     source_id: str = 'LitCoin_without_umls_with_autocomplete'
     provenance_id: str = 'infores:robokop-kg'  # TODO - change this to a LitCoin infores when it exists
-    parsing_version: str = '1.4'
+    parsing_version: str = '1.5'
 
     def __init__(self, test_mode: bool = False, source_data_dir: str = None):
         """
@@ -123,12 +122,14 @@ class LitCoinLoader(SourceDataLoader):
                     self.logger.info(f'processing edge {records}')
                     subject_resolution_results = self.process_llm_node(litcoin_edge[LLM_SUBJECT_NAME],
                                                                        litcoin_edge[LLM_SUBJECT_TYPE])
-                    if not subject_resolution_results:
+                    if not subject_resolution_results or \
+                            NAME_RESOLVER_API_ERROR in subject_resolution_results:
                         skipped_records += 1
                         continue
                     object_resolution_results = self.process_llm_node(litcoin_edge[LLM_OBJECT_NAME],
                                                                       litcoin_edge[LLM_OBJECT_TYPE])
-                    if not object_resolution_results:
+                    if not object_resolution_results or \
+                            NAME_RESOLVER_API_ERROR in object_resolution_results:
                         skipped_records += 1
                         continue
                     self.output_file_writer.write_node(node_id=subject_resolution_results['curie'],
@@ -164,7 +165,7 @@ class LitCoinLoader(SourceDataLoader):
                 node_type_used_for_name_res = NODE_TYPE_MAPPINGS.get(self.convert_node_type_to_biolink_format(node_type),
                                                                      None)
                 for results in node_name_to_results_dict.values():
-                    if results:
+                    if results and NAME_RESOLVER_API_ERROR not in results:
                         results['queried_type'] = node_type_used_for_name_res
             json.dump(self.node_name_to_id_lookup,
                       name_res_results_file,
@@ -256,7 +257,9 @@ class LitCoinLoader(SourceDataLoader):
 
     def standardize_name_resolution_results(self, name_res_json):
         if not name_res_json:
-            return None
+            return {}
+        elif NAME_RESOLVER_API_ERROR in name_res_json:
+            return name_res_json
         return {
             "curie": name_res_json['curie'],
             "name": name_res_json['label'],
