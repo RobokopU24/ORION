@@ -46,9 +46,12 @@ class HGNCLoader(SourceDataLoader):
 
         :return: the data version
         """
-
         data_puller = GetData()
-        data_file_date = data_puller.get_ftp_file_date(self.ftp_site, self.ftp_dir, self.data_files[0])
+        # HGNC files change very frequently, excluding the day makes sure we only update it once per month
+        data_file_date = data_puller.get_ftp_file_date(self.ftp_site,
+                                                       self.ftp_dir,
+                                                       self.data_files[0],
+                                                       exclude_day=True)
         return data_file_date
 
     def get_data(self) -> int:
