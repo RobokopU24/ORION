@@ -442,7 +442,7 @@ class ReactomeLoader(SourceDataLoader):
                     return
                 edge_props = {
                     'qualified_predicate': 'causes',
-                    'object_aspect': 'expression',
+                    'object_aspect_qualifier': 'expression',
                     'object_direction_qualifier': direction,
                 }
                 if complex_context:
