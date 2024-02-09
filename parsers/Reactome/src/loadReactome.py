@@ -36,7 +36,7 @@ PREDICATE_MAPPING = {"compartment": "biolink:occurs_in",
                      "cellType": "biolink:located_in",
                      "goBiologicalProcess": "biolink:subclass_of",
                      "disease": "biolink:disease_has_basis_in",
-                     "regulator": "biolink:regulates",
+                     "regulator": "biolink:affects",
                      "species": "biolink:in_taxon",
                      "includedLocation": "biolink:located_in"}
 
@@ -434,15 +434,15 @@ class ReactomeLoader(SourceDataLoader):
                 )
             else:
                 if regulation_type == 'positive':
-                    direction = 'upregulated'
+                    direction = 'increased'
                 elif regulation_type == 'negative':
-                    direction = 'downregulated'
+                    direction = 'decreased'
                 else:
                     self.logger.warning(f'Unexpected regulation type encountered: {regulation_type}')
                     return
                 edge_props = {
                     'qualified_predicate': 'causes',
-                    'object_aspect': 'activity',
+                    'object_aspect': 'expression',
                     'object_direction_qualifier': direction,
                 }
                 if complex_context:
