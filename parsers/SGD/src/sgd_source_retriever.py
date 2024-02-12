@@ -42,7 +42,7 @@ def SGDGene2GOTerm(data_directory):
                                 quotechar='"', quoting=csv.QUOTE_MINIMAL)
         for row in reader:
             datawriter.writerow(row)
-    gene2gotermdf = pd.read_csv(os.path.join(storage_dir, csv_fname))
+    gene2gotermdf = pd.read_csv(os.path.join(storage_dir, csv_fname), dtype="string")
     gene2gotermdf.columns = view
     gene2gotermdf[view[0]] = gene2gotermdf[view[0]].apply(lambda x: "SGD:" + str(x))
     gene2gotermdf.fillna("?", inplace=True)
@@ -70,7 +70,7 @@ def SGDGene2Phenotype(data_directory):
                 'identifier': identifiers,
                 'reference': references}
 
-    apodf = pd.DataFrame(data=apo_dict)
+    apodf = pd.DataFrame(data=apo_dict, dtype="string")
     print('APO IDs Collected!')
     csv_fname = 'yeast_phenotype_APO_identifiers.csv'
     storage_dir = data_directory
@@ -105,7 +105,7 @@ def SGDGene2Phenotype(data_directory):
 
     # Join SGD data to APO identifiers and save file in current directory
     print("Joining APO IDs and SGD links to gene2phenotype table and saving...")
-    gene2phenotypedf = pd.read_csv(os.path.join(storage_dir, csv_fname))
+    gene2phenotypedf = pd.read_csv(os.path.join(storage_dir, csv_fname), dtype="string")
 
     gene2phenotypedf.columns = view
     gene2phenotypedf[view[0]] = gene2phenotypedf[view[0]].apply(lambda x: "SGD:" + str(x))

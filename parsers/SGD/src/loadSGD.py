@@ -87,7 +87,7 @@ class SGDLoader(SourceDataLoader):
 
     source_id: str = 'SGD'
     provenance_id: str = 'infores:sgd'
-    parsing_version = '1.1'
+    parsing_version = '1.2'
 
     def __init__(self, test_mode: bool = False, source_data_dir: str = None):
         """
@@ -179,7 +179,8 @@ class SGDLoader(SourceDataLoader):
                                   lambda line: {'evidenceCode': line[GENEGOTERMS_EDGEUMAN.EVIDENCECODE.value],
                                                 'evidenceCodeText': line[GENEGOTERMS_EDGEUMAN.EVIDENCECODETEXT.value],
                                                 'annotationType': line[GENEGOTERMS_EDGEUMAN.ANNOTATIONTYPE.value],
-                                                PUBLICATIONS: [f'{PUBMED}:{line[GENEGOTERMS_EDGEUMAN.EVIDENCEPMID.value]}'],
+                                                PUBLICATIONS: [f'{PUBMED}:{line[GENEGOTERMS_EDGEUMAN.EVIDENCEPMID.value]}']
+                                                if line[GENEGOTERMS_EDGEUMAN.EVIDENCEPMID.value] != "?" else [],
                                                 PRIMARY_KNOWLEDGE_SOURCE: self.provenance_id
                                              }, #edgeprops
                                   comment_character=None,
@@ -226,7 +227,8 @@ class SGDLoader(SourceDataLoader):
                                                 'yeastStrainBackground': line[GENEPHENOTYPES_EDGEUMAN.STRAINBACKGROUND.value],
                                                 'chemicalExposure': line[GENEPHENOTYPES_EDGEUMAN.CHEMICAL.value],
                                                 'experimentalCondition': line[GENEPHENOTYPES_EDGEUMAN.CONDITION.value],
-                                                PUBLICATIONS: [f'{PUBMED}:{line[GENEPHENOTYPES_EDGEUMAN.EVIDENCEPMID.value]}'],
+                                                PUBLICATIONS: [f'{PUBMED}:{line[GENEPHENOTYPES_EDGEUMAN.EVIDENCEPMID.value]}']
+                                                if line[GENEPHENOTYPES_EDGEUMAN.EVIDENCEPMID.value] != "?" else [],
                                                 PRIMARY_KNOWLEDGE_SOURCE: self.provenance_id}, #edgeprops
                                   comment_character=None,
                                   delim=',',
