@@ -528,7 +528,10 @@ def call_name_resolution(name: str, biolink_type: str, retries=0, logger=None):
     error_message = None
     try:
         logger.info(f'About to call name res..')
-        nameres_result = requests.get(NAME_RESOLVER_URL, params=nameres_payload, headers=NAME_RESOLVER_HEADERS)
+        nameres_result = requests.get(NAME_RESOLVER_URL,
+                                      params=nameres_payload,
+                                      headers=NAME_RESOLVER_HEADERS,
+                                      timeout=180)
         logger.info(f'Got result from name res {nameres_result.status_code}')
         if nameres_result.status_code == 200:
             # return the first result if there is one
@@ -541,6 +544,9 @@ def call_name_resolution(name: str, biolink_type: str, retries=0, logger=None):
     except requests.exceptions.ConnectionError as e:
         error_message = f'Connection Error calling name resolution (url: {NAME_RESOLVER_URL}, ' \
                         f'payload: {nameres_payload}). Error: {e}.'
+    except requests.exceptions.Timeout as t:
+        error_message = f'Calling name resolution timed out (url: {NAME_RESOLVER_URL}, ' \
+                        f'payload: {nameres_payload}). Error: {t}.'
 
     # if we get here something went wrong, log error and retry
     if logger:
