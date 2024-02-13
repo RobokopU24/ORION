@@ -527,10 +527,13 @@ def call_name_resolution(name: str, biolink_type: str, retries=0, logger=None):
     }
     error_message = None
     try:
+        logger.info(f'About to call name res..')
         nameres_result = requests.get(NAME_RESOLVER_URL, params=nameres_payload, headers=NAME_RESOLVER_HEADERS)
+        logger.info(f'Got result from name res {nameres_result.status_code}')
         if nameres_result.status_code == 200:
             # return the first result if there is one
             nameres_json = nameres_result.json()
+            logger.info(f'Unpacked json..')
             return nameres_json[0] if nameres_json else None
         else:
             error_message = f'Non-200 result from name resolution (url: {NAME_RESOLVER_URL}, ' \
@@ -545,6 +548,7 @@ def call_name_resolution(name: str, biolink_type: str, retries=0, logger=None):
     else:
         print(error_message)
     if retries < 3:
+        logger.info('Retrying name resolution..')
         return call_name_resolution(name, biolink_type, retries + 1, logger)
 
     # if retried 3 times already give up and return the last error
