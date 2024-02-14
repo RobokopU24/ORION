@@ -60,7 +60,7 @@ class LoggingUtil(object):
         stream_handler.setFormatter(formatter)
 
         # set the logging level
-        if 'DATA_SERVICES_TEST_MODE' in os.environ and os.environ['DATA_SERVICES_TEST_MODE']:
+        if 'ORION_TEST_MODE' in os.environ and os.environ['ORION_TEST_MODE']:
             level = logging.DEBUG
         logger.setLevel(level)
 
@@ -116,7 +116,7 @@ class GetData:
         :param log_level - overrides default log level
         """
         # create a logger
-        self.logger = LoggingUtil.init_logging("Data_services.Common.GetData", level=log_level, line_format='medium', log_file_path=os.environ.get('DATA_SERVICES_LOGS'))
+        self.logger = LoggingUtil.init_logging("ORION.Common.GetData", level=log_level, line_format='medium', log_file_path=os.environ.get('ORION_LOGS'))
 
     @staticmethod
     def pull_via_ftp_binary(ftp_site, ftp_dir, ftp_file):
@@ -436,7 +436,7 @@ class GetData:
         :param edge_norm_failures: set of edge predicates
         :return:
         """
-        the_logger = LoggingUtil.init_logging(f"Data_services.Common.NormFailures.{data_set_name}", level=logging.INFO, line_format='medium', log_file_path=os.path.join(Path(__file__).parents[1], 'logs'))
+        the_logger = LoggingUtil.init_logging(f"ORION.Common.NormFailures.{data_set_name}", level=logging.INFO, line_format='medium', log_file_path=os.path.join(Path(__file__).parents[1], 'logs'))
 
         # get the list into a dataframe group
         df = pd.DataFrame(node_norm_failures, columns=['curie'])

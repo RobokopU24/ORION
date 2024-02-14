@@ -277,7 +277,7 @@ if __name__ == '__main__':
     # create a command line parser
     ap = argparse.ArgumentParser(description='Load drugcentral sqlfile and create KGX import files.')
 
-    # command line should be like: python loadGOA.py -p /projects/stars/Data_services/UniProtKB_data -g goa_human.gaf.gz -m json
+    # command line should be like: python loadGOA.py -p /projects/stars/ORION/UniProtKB_data -g goa_human.gaf.gz -m json
     ap.add_argument('-p', '--data_dir', required=True, help='The location of the data files')
 
     # parse the arguments

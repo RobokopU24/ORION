@@ -395,7 +395,7 @@ if __name__ == '__main__':
     # create a command line parser
     ap = argparse.ArgumentParser(description='Loads the PHAROS data from a MySQL DB and creates KGX import files.')
 
-    # command line should be like: python loadPHAROS.py -p D:\Work\Robokop\Data_services\PHAROS_data -m json
+    # command line should be like: python loadPHAROS.py -p D:\Work\Robokop\ORION\PHAROS_data -m json
     ap.add_argument('-s', '--data_dir', required=True, help='The location of the output directory')
 
     # parse the arguments

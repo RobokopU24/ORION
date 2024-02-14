@@ -6,7 +6,7 @@ from pathlib import Path
 
 
 # create a logger
-logger = LoggingUtil.init_logging("Data_services.PHAROS.PHAROSLoader", line_format='medium', log_file_path=os.path.join(Path(__file__).parents[2], 'logs'))
+logger = LoggingUtil.init_logging("ORION.PHAROS.PHAROSLoader", line_format='medium', log_file_path=os.path.join(Path(__file__).parents[2], 'logs'))
 
 class PharosMySQL():
     def __init__(self, context):

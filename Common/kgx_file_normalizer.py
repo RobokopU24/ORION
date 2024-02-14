@@ -35,10 +35,10 @@ EDGE_NORMALIZATION_BATCH_SIZE = 1_000_000
 #
 class KGXFileNormalizer:
 
-    logger = LoggingUtil.init_logging("Data_services.Common.KGXFileNormalizer",
+    logger = LoggingUtil.init_logging("ORION.Common.KGXFileNormalizer",
                                       line_format='medium',
                                       level=logging.INFO,
-                                      log_file_path=os.environ['DATA_SERVICES_LOGS'])
+                                      log_file_path=os.environ['ORION_LOGS'])
 
     def __init__(self,
                  source_nodes_file_path: str,

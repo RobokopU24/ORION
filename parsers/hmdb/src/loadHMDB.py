@@ -35,8 +35,14 @@ class HMDBLoader(SourceDataLoader):
         :param source_data_dir - the specific storage directory to save files in
         """
         super().__init__(test_mode=test_mode, source_data_dir=source_data_dir)
-        self.data_file = 'hmdb_metabolites.zip'
+
+        # set global variables
+        self.data_file: str = 'hmdb_metabolites.zip'
         self.data_url = 'https://hmdb.ca/system/downloads/current/'
+        self.source_db: str = 'Human Metabolome Database'
+
+        # create a logger
+        self.logger = LoggingUtil.init_logging("ORION.HMDB.HMDBLoader", level=logging.INFO, line_format='medium', log_file_path=os.environ['ORION_LOGS'])
 
     def get_latest_source_version(self) -> str:
         """

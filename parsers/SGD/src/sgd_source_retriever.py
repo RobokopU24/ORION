@@ -48,7 +48,7 @@ def SGDGene2GOTerm(data_directory):
     gene2gotermdf.fillna("?", inplace=True)
     print('SGD gene2goterm Data Collected!')
     print(os.path.join(storage_dir, csv_fname))
-    # gene2gotermdf.to_csv(f"//Data_services/parsers/yeast/src/{csv_fname}", encoding="utf-8-sig", index=False)
+    # gene2gotermdf.to_csv(f"//ORION/parsers/yeast/src/{csv_fname}", encoding="utf-8-sig", index=False)
     gene2gotermdf.to_csv(os.path.join(storage_dir, csv_fname), encoding="utf-8-sig", index=False)
 
 

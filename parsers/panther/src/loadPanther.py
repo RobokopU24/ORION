@@ -68,7 +68,7 @@ class PLoader(SourceDataLoader):
         self.__gene_family_data__ = None
 
         # create a logger
-        self.logger = LoggingUtil.init_logging("Data_services.Panther.PLoader", level=logging.INFO, line_format='medium', log_file_path=os.environ['DATA_SERVICES_LOGS'])
+        self.logger = LoggingUtil.init_logging("ORION.Panther.PLoader", level=logging.INFO, line_format='medium', log_file_path=os.environ['ORION_LOGS'])
 
     def get_latest_source_version(self) -> str:
 
