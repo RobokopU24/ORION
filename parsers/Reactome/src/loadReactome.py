@@ -26,8 +26,8 @@ PREDICATE_MAPPING = {"compartment": "biolink:occurs_in",
                      "output": "biolink:has_output",
                      "input": "biolink:has_input",
                      "hasEvent": "biolink:contains_process",
-                     "normalPathway":"biolink:contains_process", #TODO Choose better biolink predicate for normalPathways/Reactions/Etc.
-                     "normalReaction":"biolink:contains_process", #TODO Choose better biolink predicate for normalPathways/Reactions/Etc.
+                     "normalPathway": "biolink:contains_process", #TODO Choose better biolink predicate for normalPathways/Reactions/Etc.
+                     "normalReaction": "biolink:contains_process", #TODO Choose better biolink predicate for normalPathways/Reactions/Etc.
                      #"normalEntity":"biolink:contains_process", #TODO Choose better biolink predicate for normalPathways/Reactions/Etc.
                      "precedingEvent": "biolink:precedes",
                      "activeUnit": "biolink:actively_involves",
@@ -36,9 +36,9 @@ PREDICATE_MAPPING = {"compartment": "biolink:occurs_in",
                      "cellType": "biolink:located_in",
                      "goBiologicalProcess": "biolink:subclass_of",
                      "disease": "biolink:disease_has_basis_in",
-                     "regulator":"biolink:regulates",
-                     "species":"biolink:in_taxon",
-                     "includedLocation":"biolink:located_in"}
+                     "regulator": "biolink:affects",
+                     "species": "biolink:in_taxon",
+                     "includedLocation": "biolink:located_in"}
 
 
 # TODO - use something like this instead of manipulating strings for individual cases
@@ -99,7 +99,7 @@ class ReactomeLoader(SourceDataLoader):
     source_data_url = "https://reactome.org/"
     license = "https://reactome.org/license"
     attribution = "https://academic.oup.com/nar/article/50/D1/D687/6426058?login=false"
-    parsing_version = '1.1'
+    parsing_version = '1.2'
 
     def __init__(self, test_mode: bool = False, source_data_dir: str = None):
         """
@@ -301,7 +301,6 @@ class ReactomeLoader(SourceDataLoader):
         skipped_record_count = 0
         for record in result:
             record_data = record.data()
-
             node_a_id = self.process_node_from_neo4j(reference_entity_mapping, record_data['a_id'], record_data['a'], record_data['a_labels'])
             node_b_id = self.process_node_from_neo4j(reference_entity_mapping, record_data['b_id'], record_data['b'], record_data['b_labels'])
             if node_a_id and node_b_id:
@@ -310,19 +309,19 @@ class ReactomeLoader(SourceDataLoader):
                         self.process_edge_from_neo4j(node_a_id,
                                                      record_data['r_type'],
                                                      node_b_id,
-                                                     regulationType='positive',
+                                                     regulation_type='positive',
                                                      complex_context=record_data.get('complex_context', None))
                     elif any("negative" in x.lower() for x in record_data['regulationType']):
                         self.process_edge_from_neo4j(node_a_id,
                                                      record_data['r_type'],
                                                      node_b_id,
-                                                     regulationType='negative',
+                                                     regulation_type='negative',
                                                      complex_context=record_data.get('complex_context', None))
                 else:
                     self.process_edge_from_neo4j(node_a_id,
                                                  record_data['r_type'],
                                                  node_b_id,
-                                                 regulationType=None,
+                                                 regulation_type=None,
                                                  complex_context=record_data.get('complex_context', None))
                 record_count += 1
             else:
@@ -417,10 +416,15 @@ class ReactomeLoader(SourceDataLoader):
         self.dbid_to_node_id_lookup[node['dbId']] = node_id
         """
 
-    def process_edge_from_neo4j(self, subject_id: str, relationship_type: str, object_id: str, regulationType=None, complex_context=None):
+    def process_edge_from_neo4j(self,
+                                subject_id: str,
+                                relationship_type: str,
+                                object_id: str,
+                                regulation_type=None,
+                                complex_context=None):
         predicate = PREDICATE_MAPPING.get(relationship_type, None)
         if predicate:
-            if regulationType is None:
+            if not regulation_type:
                 output_edge = kgxedge(
                     subject_id=subject_id,
                     object_id=object_id,
@@ -429,14 +433,17 @@ class ReactomeLoader(SourceDataLoader):
                     primary_knowledge_source=self.provenance_id
                 )
             else:
-                if regulationType == "positive":
+                if regulation_type == 'positive':
                     direction = 'increased'
-                elif regulationType == "negative":
+                elif regulation_type == 'negative':
                     direction = 'decreased'
+                else:
+                    self.logger.warning(f'Unexpected regulation type encountered: {regulation_type}')
+                    return
                 edge_props = {
-                    'qualified_predicate': 'biolink:causes',
-                    'object_direction_qualifier': direction,
+                    'qualified_predicate': 'causes',
                     'object_aspect_qualifier': 'expression',
+                    'object_direction_qualifier': direction,
                 }
                 if complex_context:
                     edge_props['complex_context'] = complex_context

@@ -240,7 +240,7 @@ class YeastGSE61888Loader(SourceDataLoader):
 
         :return:
         """
-        return 'yeast_v1_5'
+        return 'yeast_v2'
 
     def get_data(self) -> int:
         """

@@ -1,6 +1,5 @@
 import os
 import argparse
-import logging
 import requests
 import re
 import xml.etree.cElementTree as E_Tree
@@ -25,10 +24,10 @@ class HMDBLoader(SourceDataLoader):
     source_id: str = 'HMDB'
     provenance_id: str = 'infores:hmdb'
     description = "The Human Metabolome Database (HMDB) is an openly accessible database containing detailed information about small molecule metabolites found in the human body, with links between chemical data, clinical data, and molecular biology/biochemistry data, including protein sequences (enzymes and transporters)."
-    source_data_url = "https://translator.ncats.io/hmdb-knowledge-beacon"
+    source_data_url = "https://hmdb.ca/downloads"
     license = "https://hmdb.ca/about"
     attribution = "https://hmdb.ca/about#cite"
-    parsing_version: str = '1.1'
+    parsing_version: str = '1.2'
 
     def __init__(self, test_mode: bool = False, source_data_dir: str = None):
         """
@@ -39,18 +38,11 @@ class HMDBLoader(SourceDataLoader):
 
         # set global variables
         self.data_file: str = 'hmdb_metabolites.zip'
+        self.data_url = 'https://hmdb.ca/system/downloads/current/'
         self.source_db: str = 'Human Metabolome Database'
 
         # create a logger
         self.logger = LoggingUtil.init_logging("ORION.HMDB.HMDBLoader", level=logging.INFO, line_format='medium', log_file_path=os.environ['ORION_LOGS'])
-
-    def get_name(self):
-        """
-        returns the name of the class
-
-        :return: str - the name of the class
-        """
-        return self.__class__.__name__
 
     def get_latest_source_version(self) -> str:
         """
@@ -58,43 +50,23 @@ class HMDBLoader(SourceDataLoader):
 
         :return:
         """
-        # init the return
+        # this grabs the html from the downloads page and searches for the Current Version on it
         ret_val: str = 'Not found'
-
-        # load the web page for CTD
         html_page: requests.Response = requests.get('https://hmdb.ca/downloads')
-
-        # get the html into a parsable object
         resp: BeautifulSoup = BeautifulSoup(html_page.content, 'html.parser')
-
-        # init the search text
         search_text = 'Current Version '
-
-        # find the version div area
         div_tag = resp.find('a', string=re.compile('Current Version'))
-
-        # did we find version data
         if len(div_tag) > 0:
             ret_val = div_tag.text.split(search_text)[1].strip('() ')
-
-        # return to the caller
         return ret_val
 
     def get_data(self) -> int:
         """
         Gets the hmdb data.
-
         """
-        # get a reference to the data gathering class
         gd: GetData = GetData(self.logger.level)
-
-        # do the real thing if we arent in debug mode
-        if not self.test_mode:
-            byte_count: int = gd.pull_via_http('https://hmdb.ca/system/downloads/current/hmdb_metabolites.zip', self.data_path)
-        else:
-            byte_count: int = 1
-
-        # return the file count to the caller
+        byte_count: int = gd.pull_via_http(f'{self.data_url}{self.data_file}',
+                                           self.data_path)
         return byte_count
 
     def parse_data(self) -> dict:
@@ -233,8 +205,8 @@ class HMDBLoader(SourceDataLoader):
                         if protein_type.text.startswith('Enzyme'):
                             # create the edge data
                             props: dict = {}
-                            subject_id: str = protein_id
-                            object_id: str = metabolite_id
+                            subject_id: str = metabolite_id
+                            object_id: str = protein_id
                             predicate: str = f'{CTD}:affects_abundance_of'
                         # else it must be a transport?
                         else:
