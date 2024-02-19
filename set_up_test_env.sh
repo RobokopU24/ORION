@@ -7,7 +7,7 @@ mkdir -p "$PWD/../ORION_storage"
 export ORION_STORAGE="$PWD/../ORION_storage/"
 
 #ORION_GRAPHS - a directory for storing knowledge graphs
-#mkdir -p "$PWD/../ORION_graphs"
+mkdir -p "$PWD/../ORION_graphs"
 export ORION_GRAPHS="$PWD/../ORION_graphs/"
 
 #ORION_LOGS - a directory for storing logs

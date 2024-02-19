@@ -427,40 +427,6 @@ class GetData:
         return file_count, foodb_dir, name[0]
 
     @staticmethod
-    def format_normalization_failures(data_set_name: str, node_norm_failures: list, edge_norm_failures: list):
-        """
-        outputs the nodes/edges that failed normalization
-
-        :param data_set_name: the name of the data source that produced these results
-        :param node_norm_failures: set of node curies
-        :param edge_norm_failures: set of edge predicates
-        :return:
-        """
-        the_logger = LoggingUtil.init_logging(f"ORION.Common.NormFailures.{data_set_name}", level=logging.INFO, line_format='medium', log_file_path=os.path.join(Path(__file__).parents[1], 'logs'))
-
-        # get the list into a dataframe group
-        df = pd.DataFrame(node_norm_failures, columns=['curie'])
-        df_node_grp = df.groupby('curie').size() \
-            .reset_index(name='count') \
-            .sort_values('count', ascending=False)
-
-        # iterate through the groups and create the edge records.
-        for row_index, row in df_node_grp.iterrows():
-            the_logger.info(f'{row["curie"]}\t{data_set_name}')
-            # self.logger.info(f'Failed node CURIE: {row["curie"]}, count: {row["count"]}')
-
-            # get the list into a dataframe group
-        df = pd.DataFrame(edge_norm_failures, columns=['curie'])
-        df_edge_grp = df.groupby('curie').size() \
-            .reset_index(name='count') \
-            .sort_values('count', ascending=False)
-
-        # iterate through the groups and create the edge records.
-        for row_index, row in df_edge_grp.iterrows():
-            the_logger.info(f'{row["curie"]}\t{data_set_name}')
-            # self.logger.info(f'Failed edge predicate: {row["curie"]}, count: {row["count"]}')
-
-    @staticmethod
     def split_file(archive_file_path: str, output_dir: str, data_file_name: str, lines_per_file: int = 500000) -> list:
         """
         splits a file into numerous smaller files.

@@ -1,14 +1,13 @@
 import os
 import argparse
 import enum
-import logging
 import re
 
 from io import TextIOWrapper
 from csv import reader
 from operator import itemgetter
 from zipfile import ZipFile
-from Common.utils import LoggingUtil, GetData
+from Common.utils import GetData
 from Common.loader_interface import SourceDataLoader, SourceDataFailedError
 from Common.prefixes import NCBITAXON, UNIPROTKB
 from Common.kgxmodel import kgxnode, kgxedge
