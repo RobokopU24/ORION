@@ -2,13 +2,12 @@ from collections import defaultdict
 import importlib
 
 BINDING_DB = 'BINDING-DB'
-BIOLINK = 'Biolink'
 CAM_KP = 'CAM-KP'
 CHEBI_PROPERTIES = 'CHEBIProps'
-REACTOME = 'Reactome'
 CORD19 = 'Cord19'
 CTD = 'CTD'
 DRUG_CENTRAL = 'DrugCentral'
+DRUGMECHDB = 'DrugMechDB'
 # FOODB = 'FooDB' # this is on hold, data needs review after latest release of data.
 GENOME_ALLIANCE_ORTHOLOGS = 'GenomeAllianceOrthologs'
 GTEX = 'GTEx'
@@ -19,16 +18,18 @@ HGNC = 'HGNC'
 HMDB = 'HMDB'
 HUMAN_GOA = 'HumanGOA'
 INTACT = 'IntAct'
+MONARCH_KG = 'MonarchKG'
 MONDO_PROPS = 'MONDOProps'
 ONTOLOGICAL_HIERARCHY = 'OntologicalHierarchy'
 PANTHER = 'PANTHER'
 PHAROS = 'PHAROS'
 PLANT_GOA = 'PlantGOA'
+REACTOME = 'Reactome'
 SCENT = 'Scent'
 SGD = 'SGD'
 HUMAN_STRING = 'STRING-DB-Human'
 TEXT_MINING_KP = 'textminingkp'
-UBERGRAPH = 'Ubergraph'
+UBERGRAPH_NONREDUNDANT = 'UbergraphNonredundant'
 UBERGRAPH_REDUNDANT = 'UbergraphRedundant'
 UNIREF = 'UniRef'
 VP = 'ViralProteome'
@@ -39,17 +40,16 @@ YEAST_GASCHDIAMIDE = 'YeastGaschDiamideGeneExpression'
 YEAST_STRING = 'STRING-DB-Yeast'
 
 RESOURCE_HOGS = [GTEX, GWAS_CATALOG, UNIREF, ONTOLOGICAL_HIERARCHY, UBERGRAPH_REDUNDANT,
-                 SGD, HUMAN_STRING, CAM_KP]
+                 SGD, HUMAN_STRING]
 
 SOURCE_DATA_LOADER_CLASS_IMPORTS = {
     BINDING_DB: ("parsers.BINDING.src.loadBINDINGDB", "BINDINGDBLoader"),
-    BIOLINK: ("parsers.biolink.src.loadBL", "BLLoader"),
     CAM_KP: ("parsers.camkp.src.loadCAMKP", "CAMKPLoader"),
     CHEBI_PROPERTIES: ("parsers.chebi.src.loadChebiProperties", "ChebiPropertiesLoader"),
-    REACTOME: ("parsers.Reactome.src.loadReactome", "ReactomeLoader"),
     CORD19: ("parsers.cord19.src.loadCord19", "Cord19Loader"),
     CTD: ("parsers.CTD.src.loadCTD", "CTDLoader"),
     DRUG_CENTRAL: ("parsers.drugcentral.src.loaddrugcentral", "DrugCentralLoader"),
+    DRUGMECHDB: ("parsers.drugmechdb.src.loadDrugMechDB", "DrugMechDBLoader"),
     GENOME_ALLIANCE_ORTHOLOGS: ("parsers.GenomeAlliance.src.loadGenomeAlliance", "GenomeAllianceOrthologLoader"),
     GTEX: ("parsers.GTEx.src.loadGTEx", "GTExLoader"),
     GTOPDB: ("parsers.gtopdb.src.loadGtoPdb", "GtoPdbLoader"),
@@ -60,15 +60,17 @@ SOURCE_DATA_LOADER_CLASS_IMPORTS = {
     HUMAN_GOA: ("parsers.GOA.src.loadGOA", "HumanGOALoader"),
     HUMAN_STRING: ("parsers.STRING.src.loadSTRINGDB", "HumanSTRINGDBLoader"),
     INTACT: ("parsers.IntAct.src.loadIA", "IALoader"),
+    MONARCH_KG: ("parsers.monarchkg.src.loadMonarchKG", "MonarchKGLoader"),
     MONDO_PROPS: ("parsers.MONDOProperties.src.loadMP", "MPLoader"),
     ONTOLOGICAL_HIERARCHY: ("parsers.UberGraph.src.loadUG", "OHLoader"),
     PANTHER: ("parsers.panther.src.loadPanther", "PLoader"),
     PHAROS: ("parsers.PHAROS.src.loadPHAROS", "PHAROSLoader"),
     PLANT_GOA: ("parsers.GOA.src.loadGOA", "PlantGOALoader"),
+    REACTOME: ("parsers.Reactome.src.loadReactome", "ReactomeLoader"),
     SCENT: ("parsers.scent.src.loadScent", "ScentLoader"),
     SGD: ("parsers.SGD.src.loadSGD", "SGDLoader"),
     TEXT_MINING_KP: ("parsers.textminingkp.src.loadTMKP", "TMKPLoader"),
-    UBERGRAPH: ("parsers.UberGraph.src.loadUG", "UGLoader"),
+    UBERGRAPH_NONREDUNDANT: ("parsers.UberGraph.src.loadUG", "UGLoader"),
     UBERGRAPH_REDUNDANT: ("parsers.UberGraph.src.loadUG", "UGRedundantLoader"),
     UNIREF: ("parsers.ViralProteome.src.loadUniRef", "UniRefSimLoader"),
     VP: ("parsers.ViralProteome.src.loadVP", "VPLoader"),

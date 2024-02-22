@@ -23,7 +23,6 @@ graphs:
         # conflation: False
         # strict_normalization: True (whether or not data should be discarded when it can not be normalized)
         # merge_strategy: default (used to specify alternative merge strategies)
-      - source_id: Biolink
       - source_id: CHEBIProps
       - source_id: CTD
       - source_id: DrugCentral
@@ -33,8 +32,8 @@ graphs:
       - source_id: HMDB
       - source_id: HumanGOA
       - source_id: IntAct
+      - source_id: MonarchKG
       - source_id: MONDOProps
-        source_version: '3_23_2023'
       - source_id: OntologicalHierarchy
         merge_strategy: connected_edge_subset
       - source_id: PANTHER
@@ -43,7 +42,7 @@ graphs:
       - source_id: Reactome
       - source_id: textminingkp
       - source_id: STRING-DB-Human
-      - source_id: Ubergraph
+      - source_id: UbergraphNonredundant
 
   - graph_id: RobokopKG
     graph_name: ROBOKOP KG
@@ -56,9 +55,6 @@ graphs:
     sources:
         # using an older version of GWASCatalog because EFO terms are not normalizing right now
       - source_id: GWASCatalog
-        source_version: '8_23_2022'
-        edge_normalization_version: 'v.2.4.4'
-        node_normalization_version: '2.0.9'
       - source_id: GTEx
 
   - graph_id: BINDING_Automat
@@ -71,19 +67,9 @@ graphs:
       - source_id: OntologicalHierarchy
         merge_strategy: connected_edge_subset
 
-  - graph_id: Biolink_Automat
-    graph_name: RENCI SRI Reference KG
-    graph_description: 'The RENCI Standards and Reference Implementation (SRI) Reference KG represents a subset of the SRI Reference KG.'
-    graph_url: https://github.com/Knowledge-Graph-Hub/sri-reference-kg
-    output_format: neo4j
-    sources:
-      - source_id: Biolink
-      - source_id: OntologicalHierarchy
-        merge_strategy: connected_edge_subset
-
   - graph_id: CAMKP_Automat
-    graph_name: CAM Provider KG
-    graph_description: 'The CAMP Provider KG contains data on CAMs (Causal Activity Models), which are small knowledge graphs built using the Web Ontology Language (OWL). The CAM database combines many CAM graphs, along with a large merged bio-ontology containing the full vocabulary of concepts referenced within the individual CAMs. Each CAM describes an instantiation of some of those concepts in a particular context, modeling the interactions between those instances as an interlinked representation of a complex biological or environmental process.'
+    graph_name: CAM KG
+    graph_description: 'The CAM KG contains data on CAMs (Causal Activity Models), which are small knowledge graphs built using the Web Ontology Language (OWL). The CAM database combines many CAM graphs, along with a large merged bio-ontology containing the full vocabulary of concepts referenced within the individual CAMs. Each CAM describes an instantiation of some of those concepts in a particular context, modeling the interactions between those instances as an interlinked representation of a complex biological or environmental process.'
     graph_url:
     conflation: False
     output_format: neo4j
@@ -157,9 +143,6 @@ graphs:
     output_format: neo4j
     sources:
       - source_id: GWASCatalog
-        source_version: '8_23_2022'
-        edge_normalization_version: 'v.2.4.4'
-        node_normalization_version: '2.0.9'
       - source_id: OntologicalHierarchy
         merge_strategy: connected_edge_subset
 
@@ -249,7 +232,7 @@ graphs:
     graph_url: https://string-db.org/
     output_format: neo4j
     sources:
-      - source_id: STRING-DB
+      - source_id: STRING-DB-Human
       - source_id: OntologicalHierarchy
         merge_strategy: connected_edge_subset
 
@@ -263,17 +246,9 @@ graphs:
       - source_id: OntologicalHierarchy
         merge_strategy: connected_edge_subset
 
-  - graph_id: Ubergraph_Automat
+  - graph_id: UbergraphRedundant_Automat
     graph_name: Ubergraph
     graph_description: 'Ubergraph is an open-source graph database containing integrated ontologies, including Gene Ontology (GO), Chemical Entities of Biological Interest (ChHEBI), Human Phenotype Ontology (HPO), and the Uber-anatomy ontology (Uberon)’s anatomical ontology.'
-    graph_url: https://github.com/INCATools/ubergraph
-    output_format: neo4j
-    sources:
-      - source_id: Ubergraph
-
-  - graph_id: UbergraphRedundant_Automat
-    graph_name: Ubergraph Redundant
-    graph_description: 'Ubergraph is an open-source graph database containing integrated ontologies, including Gene Ontology (GO), Chemical Entities of Biological Interest (ChHEBI), Human Phenotype Ontology (HPO), and the Uber-anatomy ontology (Uberon)’s anatomical ontology. The redundant version '
     graph_url: https://github.com/INCATools/ubergraph
     output_format: neo4j
     sources:

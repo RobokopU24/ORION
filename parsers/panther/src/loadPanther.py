@@ -1,13 +1,12 @@
 import os
 import csv
 import argparse
-import logging
 import re
 
 import requests
 
 from bs4 import BeautifulSoup
-from Common.utils import LoggingUtil, GetData
+from Common.utils import GetData
 from Common.loader_interface import SourceDataLoader
 from Common.kgxmodel import kgxnode, kgxedge
 from functools import partial
@@ -66,9 +65,6 @@ class PLoader(SourceDataLoader):
         }
 
         self.__gene_family_data__ = None
-
-        # create a logger
-        self.logger = LoggingUtil.init_logging("Data_services.Panther.PLoader", level=logging.INFO, line_format='medium', log_file_path=os.environ['DATA_SERVICES_LOGS'])
 
     def get_latest_source_version(self) -> str:
 

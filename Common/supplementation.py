@@ -56,10 +56,10 @@ class SequenceVariantSupplementation:
 
     def __init__(self):
 
-        self.logger = LoggingUtil.init_logging("Data_services.Common.SequenceVariantSupplementation",
+        self.logger = LoggingUtil.init_logging("ORION.Common.SequenceVariantSupplementation",
                                                line_format='medium',
-                                               log_file_path=environ['DATA_SERVICES_LOGS'])
-        workspace_dir = environ["DATA_SERVICES_STORAGE"]
+                                               log_file_path=environ['ORION_LOGS'])
+        workspace_dir = environ["ORION_STORAGE"]
 
         # if the snpEff dir exists, assume we already downloaded it
         self.snpeff_dir = path.join(workspace_dir, "snpEff")

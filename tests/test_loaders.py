@@ -225,7 +225,7 @@ def test_foodb_load():
 def test_swiss_prot_against_quickgo():
     from neo4j import GraphDatabase
 
-    # get a reference to the Data_services util
+    # get a reference to the ORION util
     gd = GetData()
 
     # get the uniprot kb ids that were curated by swiss-prot
@@ -269,7 +269,7 @@ def test_swiss_prot_against_quickgo():
 def test_compare_edge_subsets_by_uniprot():
     from neo4j import GraphDatabase
 
-    # get a reference to the Data_services util
+    # get a reference to the ORION util
     gd: GetData = GetData()
 
     # get the uniprot kb ids that were curated by swiss-prot

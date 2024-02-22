@@ -1,7 +1,6 @@
 import os
 import logging
 import tarfile
-import csv
 import gzip
 import requests
 import pandas as pd
@@ -61,7 +60,7 @@ class LoggingUtil(object):
         stream_handler.setFormatter(formatter)
 
         # set the logging level
-        if 'DATA_SERVICES_TEST_MODE' in os.environ and os.environ['DATA_SERVICES_TEST_MODE']:
+        if 'ORION_TEST_MODE' in os.environ and os.environ['ORION_TEST_MODE']:
             level = logging.DEBUG
         logger.setLevel(level)
 
@@ -117,7 +116,7 @@ class GetData:
         :param log_level - overrides default log level
         """
         # create a logger
-        self.logger = LoggingUtil.init_logging("Data_services.Common.GetData", level=log_level, line_format='medium', log_file_path=os.environ.get('DATA_SERVICES_LOGS'))
+        self.logger = LoggingUtil.init_logging("ORION.Common.GetData", level=log_level, line_format='medium', log_file_path=os.environ.get('ORION_LOGS'))
 
     @staticmethod
     def pull_via_ftp_binary(ftp_site, ftp_dir, ftp_file):
@@ -158,13 +157,14 @@ class GetData:
         # return the data stream
         return binary
 
-    def get_ftp_file_date(self, ftp_site, ftp_dir, ftp_file) -> str:
+    def get_ftp_file_date(self, ftp_site, ftp_dir, ftp_file, exclude_day=False) -> str:
         """
         gets the modified date of the file from the ftp site
 
         :param ftp_site:
         :param ftp_dir:
         :param ftp_file:
+        :param exclude_day:
         :return:
         """
         # init the return value
@@ -181,8 +181,13 @@ class GetData:
 
             # did we get something
             if len(date_val) > 0:
-                # return the parsed date
-                return dp.parse(date_val[1]).strftime('%-m_%-d_%Y')
+                if exclude_day:
+                    # if exclude_day format to month_year
+                    file_date = dp.parse(date_val[1]).strftime('%-m_%Y')
+                else:
+                    # otherwise return month_day_year
+                    file_date = dp.parse(date_val[1]).strftime('%-m_%-d_%Y')
+                return file_date
         except Exception as e:
             error_message = f'Error getting modification date for ftp file: {ftp_site}{ftp_dir}{ftp_file}. {e}'
             self.logger.error(error_message)
@@ -422,40 +427,6 @@ class GetData:
         return file_count, foodb_dir, name[0]
 
     @staticmethod
-    def format_normalization_failures(data_set_name: str, node_norm_failures: list, edge_norm_failures: list):
-        """
-        outputs the nodes/edges that failed normalization
-
-        :param data_set_name: the name of the data source that produced these results
-        :param node_norm_failures: set of node curies
-        :param edge_norm_failures: set of edge predicates
-        :return:
-        """
-        the_logger = LoggingUtil.init_logging(f"Data_services.Common.NormFailures.{data_set_name}", level=logging.INFO, line_format='medium', log_file_path=os.path.join(Path(__file__).parents[1], 'logs'))
-
-        # get the list into a dataframe group
-        df = pd.DataFrame(node_norm_failures, columns=['curie'])
-        df_node_grp = df.groupby('curie').size() \
-            .reset_index(name='count') \
-            .sort_values('count', ascending=False)
-
-        # iterate through the groups and create the edge records.
-        for row_index, row in df_node_grp.iterrows():
-            the_logger.info(f'{row["curie"]}\t{data_set_name}')
-            # self.logger.info(f'Failed node CURIE: {row["curie"]}, count: {row["count"]}')
-
-            # get the list into a dataframe group
-        df = pd.DataFrame(edge_norm_failures, columns=['curie'])
-        df_edge_grp = df.groupby('curie').size() \
-            .reset_index(name='count') \
-            .sort_values('count', ascending=False)
-
-        # iterate through the groups and create the edge records.
-        for row_index, row in df_edge_grp.iterrows():
-            the_logger.info(f'{row["curie"]}\t{data_set_name}')
-            # self.logger.info(f'Failed edge predicate: {row["curie"]}, count: {row["count"]}')
-
-    @staticmethod
     def split_file(archive_file_path: str, output_dir: str, data_file_name: str, lines_per_file: int = 500000) -> list:
         """
         splits a file into numerous smaller files.
@@ -569,11 +540,11 @@ def quick_json_loads(item):
     return orjson.loads(item)
 
 
-def quick_jsonl_file_iterator(json_file):
-    with open(json_file, 'r', encoding='utf-8') as stream:
-        for line in stream:
+def quick_jsonl_file_iterator(json_file, is_gzip=False):
+    with gzip.open(json_file, 'rt') if is_gzip \
+            else open(json_file, 'r', encoding='utf-8') as fp:
+        for line in fp:
             yield orjson.loads(line)
-
 
 def chunk_iterator(iterable, chunk_size):
     iterator = iter(iterable)

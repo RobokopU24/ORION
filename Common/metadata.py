@@ -319,6 +319,7 @@ class SourceMetadata(Metadata):
         release_version = xxh64_hexdigest(release_info)
         if release_version not in self.metadata["releases"]:
             self.metadata["releases"][release_version] = {
+                "source_version": self.source_version,
                 "parsing_version": parsing_version,
                 "normalization_version": normalization_version,
                 "supplementation_version": supplementation_version

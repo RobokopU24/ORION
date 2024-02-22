@@ -10,10 +10,10 @@ from Common.node_types import PRIMARY_KNOWLEDGE_SOURCE, AGGREGATOR_KNOWLEDGE_SOU
 
 class KGXFileWriter:
 
-    logger = LoggingUtil.init_logging("Data_services.Common.KGXFileWriter",
+    logger = LoggingUtil.init_logging("ORION.Common.KGXFileWriter",
                                       line_format='medium',
                                       level=logging.DEBUG,
-                                      log_file_path=os.environ.get('DATA_SERVICES_LOGS'))
+                                      log_file_path=os.environ.get('ORION_LOGS'))
     """
     constructor
     :param nodes_output_file_path: the file path for the nodes file

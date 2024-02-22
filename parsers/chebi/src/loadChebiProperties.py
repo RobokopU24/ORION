@@ -1,6 +1,6 @@
 import os
 import argparse
-from gzip import GzipFile
+import gzip
 
 from collections import defaultdict
 from Common.utils import GetData
@@ -30,13 +30,14 @@ CHEBI_ROLES_TO_IGNORE = ["CHEBI:50906",  # role
 class ChebiPropertiesLoader(SourceDataLoader):
 
     # Setting the class level variables for the source ID and provenance
-    source_id: str = 'ChebiProperties'
-    provenance_id: str = 'infores:chebi-properties'
-    description = ""
-    source_data_url = ""
+    source_id: str = 'CHEBIProps'
+    provenance_id: str = None  # there aren't edges coming from this source currently
+    description = "Chemical Entities of Biological Interest (ChEBI) is a freely available dictionary of molecular " \
+                  "entities focused on ‘small’ chemical compounds."
+    source_data_url = "https://www.ebi.ac.uk/chebi/"
     license = ""
     attribution = ""
-    parsing_version = '1.1'
+    parsing_version = '1.2'
     preserve_unconnected_nodes = True
 
     def __init__(self, test_mode: bool = False, source_data_dir: str = None):
@@ -87,18 +88,17 @@ class ChebiPropertiesLoader(SourceDataLoader):
         names = {}
         skipped_header = False
         archive_file_path = os.path.join(self.data_path, self.compounds_file)
-        with GzipFile(archive_file_path) as zf:
-            for bytesline in zf:
+        with gzip.open(archive_file_path, mode="rt", encoding="iso-8859-1") as zf:
+            for line in zf:
 
                 # skip the header
                 if not skipped_header:
                     skipped_header = True
                     continue
 
-                lines = bytesline.decode('utf-8')
-                line = lines.strip().split('\t')
-                chebi_id = line[COMPOUNDS_CHEBI_ID_COLUMN]
-                cname = line[COMPOUNDS_CHEBI_NAME_COLUMN]
+                compounds_line = line.strip().split('\t')
+                chebi_id = compounds_line[COMPOUNDS_CHEBI_ID_COLUMN]
+                cname = compounds_line[COMPOUNDS_CHEBI_NAME_COLUMN]
                 names[chebi_id] = cname
 
         # init the record counters

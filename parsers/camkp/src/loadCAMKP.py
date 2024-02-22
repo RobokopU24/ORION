@@ -3,6 +3,7 @@ import argparse
 import enum
 import requests
 import yaml
+import json
 
 from Common.utils import GetData
 from Common.kgxmodel import kgxnode, kgxedge
@@ -19,6 +20,7 @@ class CAMDATACOLS(enum.IntEnum):
     OBJECT_ID = 2
     PROVENANCE_URL = 3
     PROVENANCE_ID = 4
+    QUALIFIERS = 5
 
 
 ##############
@@ -33,7 +35,7 @@ class CAMKPLoader(SourceDataLoader):
     source_data_url = "https://github.com/ExposuresProvider/cam-kp-api"
     license = "https://github.com/ExposuresProvider/cam-kp-api/blob/master/LICENSE"
     attribution = "https://github.com/ExposuresProvider/cam-kp-api"
-    parsing_version = "1.0"
+    parsing_version = "1.1"
 
     def __init__(self, test_mode: bool = False, source_data_dir: str = None):
         """
@@ -95,12 +97,18 @@ class CAMKPLoader(SourceDataLoader):
                                       name='',
                                       categories=[ROOT_ENTITY],
                                       nodeprops=None)
+
                 self.output_file_writer.write_kgx_node(object_node)
 
                 predicate = line[CAMDATACOLS.PREDICATE.value]
                 edge_provenance_id = line[CAMDATACOLS.PROVENANCE_ID.value]
                 edge_provenance_url = line[CAMDATACOLS.PROVENANCE_URL.value]
-                edge_properties = {XREFS: [edge_provenance_url]}
+                edge_properties = {}
+                if len(line) >= CAMDATACOLS.QUALIFIERS.value + 1:
+                    qualifier_json_strings = line[CAMDATACOLS.QUALIFIERS.value].split('||')
+                    edge_properties = {k.replace('biolink:', ''): v for json_item in qualifier_json_strings
+                                       for k, v in json.loads(json_item).items()}
+                edge_properties[XREFS] = [edge_provenance_url]
                 new_edge = kgxedge(subject_id=subject_id,
                                    object_id=object_id,
                                    predicate=predicate,
@@ -118,8 +126,8 @@ class CAMKPLoader(SourceDataLoader):
 
         return load_metadata
 
-
     def sanitize_cam_node_id(self, node_id):
+        node_id = node_id.strip('\"')
         if node_id.startswith("MGI:"):
             node_id = node_id[4:]
         return node_id

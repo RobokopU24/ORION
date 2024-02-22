@@ -35,10 +35,10 @@ EDGE_NORMALIZATION_BATCH_SIZE = 1_000_000
 #
 class KGXFileNormalizer:
 
-    logger = LoggingUtil.init_logging("Data_services.Common.KGXFileNormalizer",
+    logger = LoggingUtil.init_logging("ORION.Common.KGXFileNormalizer",
                                       line_format='medium',
                                       level=logging.INFO,
-                                      log_file_path=os.environ['DATA_SERVICES_LOGS'])
+                                      log_file_path=os.environ['ORION_LOGS'])
 
     def __init__(self,
                  source_nodes_file_path: str,
@@ -144,7 +144,11 @@ class KGXFileNormalizer:
                     regular_nodes_pre_norm += len(regular_nodes)
                     if regular_nodes:
                         self.logger.debug(f'Normalizing {len(regular_nodes)} regular nodes...')
-                        self.node_normalizer.normalize_node_data(regular_nodes)
+                        try:
+                            self.node_normalizer.normalize_node_data(regular_nodes)
+                        except Exception as e:
+                            raise NormalizationFailedError(error_message='Error during node normalization.',
+                                                           actual_error=e)
                     regular_nodes_post_norm += len(regular_nodes)
                     if regular_nodes:
                         self.logger.info(f'Normalized {regular_nodes_pre_norm} regular nodes so far...')
@@ -354,10 +358,12 @@ class KGXFileNormalizer:
                 self.logger.warning(f'Normalization found a deprecated infores identifier: {knowledge_source}')
             elif infores_status == INFORES_STATUS_INVALID:
                 invalid_infores_ids.append(knowledge_source)
-                warning_message = f'Normalization found an invalid infores identifier: {knowledge_source}'
-                self.logger.warning(warning_message)
-                if self.normalization_scheme.strict:
-                    raise NormalizationFailedError(warning_message)
+
+        if invalid_infores_ids:
+            warning_message = f'Normalization found invalid infores identifiers: {invalid_infores_ids}'
+            self.logger.warning(warning_message)
+            if self.normalization_scheme.strict:
+                raise NormalizationFailedError(warning_message)
 
         try:
             self.logger.debug(f'Writing normalized edges to file...')

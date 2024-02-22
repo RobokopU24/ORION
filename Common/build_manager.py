@@ -26,9 +26,9 @@ class GraphBuilder:
 
     def __init__(self):
 
-        self.logger = LoggingUtil.init_logging("Data_services.Common.GraphBuilder",
+        self.logger = LoggingUtil.init_logging("ORION.Common.GraphBuilder",
                                                line_format='medium',
-                                               log_file_path=os.environ['DATA_SERVICES_LOGS'])
+                                               log_file_path=os.environ['ORION_LOGS'])
 
         self.current_graph_versions = {}
         self.graphs_dir = self.init_graphs_dir()  # path to the graphs output directory
@@ -281,9 +281,9 @@ class GraphBuilder:
         return qc_metadata
 
     def load_graph_specs(self):
-        if 'DATA_SERVICES_GRAPH_SPEC' in os.environ and os.environ['DATA_SERVICES_GRAPH_SPEC']:
+        if 'ORION_GRAPH_SPEC' in os.environ and os.environ['ORION_GRAPH_SPEC']:
             # this is a messy way to find the graph spec path, mainly for testing - URL is preferred
-            graph_spec_file = os.environ['DATA_SERVICES_GRAPH_SPEC']
+            graph_spec_file = os.environ['ORION_GRAPH_SPEC']
             graph_spec_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'graph_specs', graph_spec_file)
             if os.path.exists(graph_spec_path):
                 self.logger.info(f'Loading graph spec: {graph_spec_file}')
@@ -292,15 +292,15 @@ class GraphBuilder:
                     return self.parse_graph_spec(graph_spec_yaml)
             else:
                 raise Exception(f'Configuration Error - Graph Spec could not be found: {graph_spec_file}')
-        elif 'DATA_SERVICES_GRAPH_SPEC_URL' in os.environ:
-            graph_spec_url = os.environ['DATA_SERVICES_GRAPH_SPEC_URL']
+        elif 'ORION_GRAPH_SPEC_URL' in os.environ:
+            graph_spec_url = os.environ['ORION_GRAPH_SPEC_URL']
             graph_spec_request = requests.get(graph_spec_url)
             graph_spec_request.raise_for_status()
             graph_spec_yaml = yaml.full_load(graph_spec_request.text)
             return self.parse_graph_spec(graph_spec_yaml)
         else:
             raise Exception(f'Configuration Error - No Graph Spec was configured. Set the environment variable '
-                            f'DATA_SERVICES_GRAPH_SPEC_URL to a URL with a valid Graph Spec yaml file. '
+                            f'ORION_GRAPH_SPEC_URL to a URL with a valid Graph Spec yaml file. '
                             f'See the README for more info.')
 
     def parse_graph_spec(self, graph_spec_yaml):
@@ -436,7 +436,7 @@ class GraphBuilder:
         return os.path.join(self.graphs_dir, graph_id, graph_version)
 
     def get_graph_output_URL(self, graph_id: str, graph_version: str):
-        graph_output_url = os.environ['DATA_SERVICES_OUTPUT_URL']
+        graph_output_url = os.environ['ORION_OUTPUT_URL']
         if graph_output_url[-1] != '/':
             graph_output_url += '/'
         return f'{graph_output_url}{graph_id}/{graph_version}/'
@@ -475,14 +475,14 @@ class GraphBuilder:
 
     @staticmethod
     def init_graphs_dir():
-        # use the directory specified by the environment variable DATA_SERVICES_GRAPHS
-        if 'DATA_SERVICES_GRAPHS' in os.environ and os.path.isdir(os.environ['DATA_SERVICES_GRAPHS']):
-            return os.environ['DATA_SERVICES_GRAPHS']
+        # use the directory specified by the environment variable ORION_GRAPHS
+        if 'ORION_GRAPHS' in os.environ and os.path.isdir(os.environ['ORION_GRAPHS']):
+            return os.environ['ORION_GRAPHS']
         else:
             # if graph dir is invalid or not specified back out
             raise IOError(
                 'GraphBuilder graphs directory not found. '
-                'Specify a valid directory with environment variable DATA_SERVICES_GRAPHS.')
+                'Specify a valid directory with environment variable ORION_GRAPHS.')
 
 
 if __name__ == '__main__':

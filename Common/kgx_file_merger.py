@@ -18,9 +18,9 @@ class KGXFileMerger:
     def __init__(self,
                  output_directory: str):
         self.output_directory = output_directory
-        self.logger = LoggingUtil.init_logging("Data_services.Common.KGXFileMerger",
+        self.logger = LoggingUtil.init_logging("ORION.Common.KGXFileMerger",
                                                line_format='medium',
-                                               log_file_path=os.environ['DATA_SERVICES_LOGS'])
+                                               log_file_path=os.environ['ORION_LOGS'])
 
     def merge(self,
               graph_spec: GraphSpec,
