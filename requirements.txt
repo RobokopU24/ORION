@@ -8,7 +8,7 @@ jsonlines>=3.1.0
 pyyaml==6.0
 beautifulsoup4==4.11.1
 psycopg2-binary>=2.9.3
-orjson==3.8.10
+orjson==3.9.15
 xxhash==3.0.0
 mysql-connector-python==8.0.28
 neo4j==5.10.0
