@@ -85,52 +85,52 @@ def test_node_norm_lenient(test_nodes):
 def test_variant_node_norm():
 
     variant_nodes = [
+        # should split into CA771890008 and CA14401342
         {"id": "DBSNP:rs12602172", "name": "", NODE_TYPES: ["biolink:SequenceVariant"]},
+        # should split into CA290493185, CA625954562, CA983647756, CA625954561
         {"id": "DBSNP:rs34762051", "name": "", NODE_TYPES: ["biolink:SequenceVariant"]},
-        {"id": "DBSNP:rs146890554", "name": "", NODE_TYPES: ["biolink:SequenceVariant"]},
-        {"id": "HGVS:NC_000011.10:g.68032291C>G", "name": "", NODE_TYPES: ["biolink:SequenceVariant"]},
-        {"id": "HGVS:NC_000023.9:g.32317682G>A", "name": "", NODE_TYPES: ["biolink:SequenceVariant"]},
-        {"id": "HGVS:NC_000017.10:g.43009127delG", "name": "", NODE_TYPES: ["biolink:SequenceVariant"]},
-        {"id": "HGVS:NC_000001.40:fakehgvs.1231234A>C", "name": "", NODE_TYPES: ["biolink:SequenceVariant"]},
-        {"id": "CLINVARVARIANT:18390", "name": "", NODE_TYPES: ["biolink:SequenceVariant"]},
-        {"id": "BOGUS:rs999999999999", "name": "", NODE_TYPES: ["biolink:SequenceVariant"]},
+        {"id": "DBSNP:rs146890554", "name": "", NODE_TYPES: ["biolink:SequenceVariant"]},  # CA290466079
+        {"id": "HGVS:NC_000011.10:g.68032291C>G", "name": "", NODE_TYPES: ["biolink:SequenceVariant"]},  # CA6146346 / rs369602258
+        {"id": "HGVS:NC_000023.9:g.32317682G>A", "name": "", NODE_TYPES: ["biolink:SequenceVariant"]},  # CA267021 / rs398123953
+        {"id": "HGVS:NC_000017.10:g.43009127delG", "name": "", NODE_TYPES: ["biolink:SequenceVariant"]},  # CA8609461 / rs775219016
+        {"id": "HGVS:NC_000001.40:fakehgvs.1231234A>C", "name": "", NODE_TYPES: ["biolink:SequenceVariant"]}, # nothing
+        {"id": "CLINVARVARIANT:18390", "name": "", NODE_TYPES: ["biolink:SequenceVariant"]},  # CA128085 / rs671
+        {"id": "BOGUS:rs999999999999", "name": "", NODE_TYPES: ["biolink:SequenceVariant"]},  # none
     ]
     variant_nodes_2 = variant_nodes.copy()
 
     node_normalizer = NodeNormalizer(strict_normalization=True)
     node_normalizer.normalize_sequence_variants(variant_nodes)
-    assert len(variant_nodes) >= 10
-    assert len(node_normalizer.variant_node_splits) == 1
 
+    assert len(variant_nodes) == 11
+    assert len(node_normalizer.variant_node_splits) == 2
+
+    # these should be removed from the list
+    assert not get_node_from_list('BOGUS:rs999999999999', variant_nodes)
+    assert not get_node_from_list('HGVS:NC_000001.40:fakehgvs.1231234A>C', variant_nodes)
+
+    # the lookup and failed list should reflect failure to normalize
     assert not node_normalizer.node_normalization_lookup['BOGUS:rs999999999999']
     assert 'BOGUS:rs999999999999' in node_normalizer.failed_to_normalize_variant_ids
-    assert node_normalizer.failed_to_normalize_variant_ids['BOGUS:rs999999999999']
+    assert 'HGVS:NC_000001.40:fakehgvs.1231234A>C' in node_normalizer.failed_to_normalize_variant_ids
 
+    # check some lookup mappings
     assert node_normalizer.node_normalization_lookup['HGVS:NC_000011.10:g.68032291C>G'] == ['CAID:CA6146346']
+    assert node_normalizer.node_normalization_lookup['DBSNP:rs12602172'] == ['CAID:CA771890008', 'CAID:CA14401342']
+    assert len(node_normalizer.node_normalization_lookup['DBSNP:rs34762051']) == 4
 
-    it_worked = False
-    for node in variant_nodes:
-        if node['id'] == 'CAID:CA6146346':
-            if node['name'] == 'rs369602258':
-                if ROOT_ENTITY in node[NODE_TYPES]:
-                    if SEQUENCE_VARIANT in node[NODE_TYPES]:
-                        it_worked = True
-    assert it_worked
+    # check name uses dbSNP
+    node = get_node_from_list('CAID:CA6146346', variant_nodes)
+    assert node['name'] == 'rs369602258'
 
+    # make sure nodes aren't thrown out with strict normalization off
     node_normalizer = NodeNormalizer(strict_normalization=False)
     node_normalizer.normalize_sequence_variants(variant_nodes_2)
-
-    assert len(variant_nodes_2) >= 12
-
-    it_worked = False
-    for node in variant_nodes_2:
-        print(node)
-        if node['id'] == 'BOGUS:rs999999999999':
-            if node['name'] == 'BOGUS:rs999999999999':
-                if ROOT_ENTITY in node[NODE_TYPES]:
-                    if SEQUENCE_VARIANT in node[NODE_TYPES]:
-                        it_worked = True
-    assert it_worked
+    assert len(variant_nodes_2) == 13
+    bogus_node_after_normalization = get_node_from_list('BOGUS:rs999999999999', variant_nodes_2)
+    assert bogus_node_after_normalization['name'] == 'BOGUS:rs999999999999'
+    assert ROOT_ENTITY in bogus_node_after_normalization[NODE_TYPES]
+    assert SEQUENCE_VARIANT in bogus_node_after_normalization[NODE_TYPES]
 
 
 def test_edge_normalization():
