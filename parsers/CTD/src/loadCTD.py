@@ -30,11 +30,12 @@ class CTDLoader(SourceDataLoader):
     source_data_url = "http://ctdbase.org/reports/"
     license = "http://ctdbase.org/about/publications/#citing"
     attribution = "http://ctdbase.org/about/"
-    parsing_version: str = '1.2'
+    parsing_version: str = '1.3'
 
     predicate_conversion_map = {
         'CTD:decreases_molecular_interaction_with': 'CTD:decreases_molecular_interaction',
-        'CTD:increases_molecular_interaction_with': 'CTD:increases_molecular_interaction'
+        'CTD:increases_molecular_interaction_with': 'CTD:increases_molecular_interaction',
+        'CTD:ameliorates': 'biolink:treats_or_applied_or_studied_to_treat'
     }
 
     def __init__(self, test_mode: bool = False, source_data_dir: str = None):
@@ -201,7 +202,7 @@ class CTDLoader(SourceDataLoader):
                     continue
 
                 # get the edge predicate
-                predicate = self.normalize_predicate(f"{CTD}:{predicate_label}")
+                predicate = self.convert_predicates(f"{CTD}:{predicate_label}")
 
                 # capitalize the node IDs
                 chemical_id: str = r['chemicalID'].upper()
@@ -274,7 +275,7 @@ class CTDLoader(SourceDataLoader):
                     skipped_record_counter += 1
                     continue
                 else:
-                    predicate: str = self.normalize_predicate(f"{CTD}:{predicate_label}")
+                    predicate: str = self.convert_predicates(f"{CTD}:{predicate_label}")
 
                 # save the disease node
                 disease_id = f'{MESH}:' + r['diseaseid']
@@ -445,6 +446,7 @@ class CTDLoader(SourceDataLoader):
                     self.output_file_writer.write_kgx_node(chemical_node)
 
                     # add the edge
+                    predicate = self.convert_predicates(predicate)
                     new_edge = kgxedge(chemical_id,
                                        cur_disease_id.upper(),
                                        predicate=predicate,
@@ -518,9 +520,10 @@ class CTDLoader(SourceDataLoader):
         return good_row, predicate_label, props
 
     @staticmethod
-    def normalize_predicate(predicate):
+    def convert_predicates(predicate):
         """
         Removes ^ / and ` ` from the predicate id
+        If applicable converts predicates to preferred one according to predicate_conversion_map
 
         :param predicate:
         :return:
