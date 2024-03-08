@@ -3,6 +3,7 @@ import sys
 import re
 import argparse
 from itertools import product
+from tqdm import tqdm
 from Common.utils import quick_jsonl_file_iterator, snakify
 from Common.kgx_file_writer import KGXFileWriter
 
@@ -20,7 +21,7 @@ QUALIFIED_PREDICATE = 'qualified_predicate'
 
 def get_ancestor_predicates_biolink(predicate):
     cur_predicate = predicate.split(':')[-1]
-    return set([f'biolink:{snakify(curie)}' for curie in bmt.get_ancestors(cur_predicate)])
+    return set([f'{snakify(curie)}' for curie in bmt.get_ancestors(cur_predicate, formatted=True)])
 
 def check_qualifier(ed):
     qfs = []
@@ -31,7 +32,7 @@ def check_qualifier(ed):
 
 def write_edge_no_q(ed, predicate):
     tmp_edge = dict(ed) # Not sure if it's still tied to original edge dictionary
-    tmp_edge['predicate'] = f"biolink:{predicate}"
+    tmp_edge['predicate'] = f"{predicate}"
     tmp_edge.pop(DIRECTION_QUALIFIER, None)
     tmp_edge.pop(ASPECT_QUALIFIER, None)
     tmp_edge.pop(QUALIFIED_PREDICATE, None)
@@ -50,15 +51,9 @@ def generate_redundant_kg(infile, edges_file_path):
             aspect_values = []
             direction_values = [None]
             try:
-                num_edges +=1
-                if re.match('biolink.*', edge['predicate']): # bmt may already conform all edges to this format. Conditional statement could be omitted once confirmed.
-                    ancestor_predicates = ancestor_predicates.union(get_ancestor_predicates_biolink(edge['predicate']))
-                    num_bio_edges+=1 
-                    
-                else:   #(f"predicate does not have biolink prefix: {edge['predicate']}")
-                    non_biolink_predicates.add(edge['predicate']) 
-                    num_other_edges+=1
-                    
+                #if re.match('biolink.*', edge['predicate']): # bmt may already conform all edges to this format. Conditional statement could be omitted once confirmed.
+                ancestor_predicates = ancestor_predicates.union(get_ancestor_predicates_biolink(edge['predicate']))
+
                 qualifiers = check_qualifier(edge)
                 
                 if ASPECT_QUALIFIER in qualifiers:
@@ -74,10 +69,11 @@ def generate_redundant_kg(infile, edges_file_path):
                 #        print(k)
     
                 expand_edges = []
-
+                
                 for cur_pre in ancestor_predicates:
                     
-                    if (cur_pre == edge['predicate'].strip('biolink:')) and (len(aspect_values) >0): # There might be a function in bmt that retrieves normalized predicate names that could be updated here.
+                    #if (cur_pre == edge['predicate'].strip('biolink:')) and (len(aspect_values) >0): # There might be a function in bmt that retrieves normalized predicate names that could be updated here.
+                    if (cur_pre == edge['predicate']) and (len(aspect_values) >0): # get_ancestor(formatted=True ) should resolve it.
                         # run tuples and change q_edge, will need another copy to enable popping key:value pairs of qualifiers
                         for (a,d) in product(aspect_values, direction_values):
                             q_edge = dict(edge)
@@ -105,8 +101,8 @@ def generate_redundant_kg(infile, edges_file_path):
 if __name__ == '__main__':
     ap = argparse.ArgumentParser(description='Generate redundant edge files. '
                                              'currently expanding from predicate and qualified_predicate.')
-    ap.add_argument('--infile', help='Input edge file path')
-    ap.add_argument('--outfile', help='Output edge file path')
+    ap.add_argument('-i', '--infile', help='Input edge file path', required=True)
+    ap.add_argument('-o', '--outfile', help='Output edge file path', required=False)
     args = vars(ap.parse_args())
 
     infile =  args['infile'] #"/home/Documents/RENCI/ROBOKOP/generate_redundant_graphs/data/edges.jsonl.10"
