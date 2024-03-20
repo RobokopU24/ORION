@@ -130,18 +130,13 @@ class MoleProLoader(SourceDataLoader):
                     for edge_property in edge_properties_to_split:
                         if edge_property in next_edge:
                             next_edge[edge_property] = next_edge[edge_property].split(delimiter)
+
                     # make sure there aren't multiple primary knowledge sources
-                    primary_ks = next_edge[PRIMARY_KNOWLEDGE_SOURCE].split('|')
-                    if len(primary_ks) > 1:
-                        # if there are split them into multiple edges
-                        for ks in primary_ks:
-                            split_edge = next_edge.copy()
-                            split_edge[PRIMARY_KNOWLEDGE_SOURCE] = ks
-                            self.output_file_writer.write_normalized_edge(split_edge)
-                    else:
-                        # write the edge to file
-                        self.output_file_writer.write_normalized_edge(next_edge)
-                        record_counter += 1
+                    next_edge[PRIMARY_KNOWLEDGE_SOURCE] = next_edge[PRIMARY_KNOWLEDGE_SOURCE].split('|')[0]
+
+                    # write the edge to file
+                    self.output_file_writer.write_normalized_edge(next_edge)
+                    record_counter += 1
 
         # load up the metadata
         load_metadata: dict = {
