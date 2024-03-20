@@ -142,8 +142,8 @@ INFORES_STATUS_VALID = 'valid'
 
 
 class BiolinkInformationResources:
-
-    infores_catalog_url = 'https://raw.githubusercontent.com/biolink/biolink-model/master/infores_catalog.yaml'
+    infores_catalog_url = 'https://raw.githubusercontent.com/biolink/information-resource-registry/main/infores_catalog.yaml'
+    #infores_catalog_url = 'https://raw.githubusercontent.com/biolink/biolink-model/master/infores_catalog.yaml'
 
     def __init__(self):
         # Fetch the infores catalog from the biolink model
