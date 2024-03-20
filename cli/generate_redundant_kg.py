@@ -66,18 +66,24 @@ def generate_redundant_kg(infile, edges_file_path):
             # handling other qualifiers anyway it's faster to just do the following:
             qualifiers = [qualifier for qualifier in QUALIFIER_KEYS if qualifier in edge]
 
-            # get the ancestors for the values for the aspect, else [None] so the permutation code works
-            aspect_values = bmt.get_permissible_value_ancestors(permissible_value=edge[OBJECT_ASPECT_QUALIFIER],
-                                                                enum_name='GeneOrGeneProductOrChemicalEntityAspectEnum') \
-                if OBJECT_ASPECT_QUALIFIER in qualifiers else [None]
+            # The following looks up the permissible values for ancestors of the current qualfier values.
+            # Aspects and directions are handled slightly differently, because when we have aspect AND direction,
+            # you cant remove the aspect, but you can remove the direction.
 
-            # get the ancestors for the values for the direction, else [None] so the permutation code works
-            direction_values = bmt.get_permissible_value_ancestors(permissible_value=edge[OBJECT_DIRECTION_QUALIFIER],
-                                                                   enum_name='DirectionQualifierEnum') \
-                if OBJECT_DIRECTION_QUALIFIER in qualifiers else [None]
+            # for aspect overwrite [None] so that permutations don't include options with no aspect
+            aspect_values = [None]
+            if OBJECT_ASPECT_QUALIFIER in qualifiers:
+                aspect_values = bmt.get_permissible_value_ancestors(permissible_value=edge[OBJECT_ASPECT_QUALIFIER],
+                                                                    enum_name='GeneOrGeneProductOrChemicalEntityAspectEnum')
 
-            edges_to_write = []
+            # for direction include None so permutations include options with no direction
+            direction_values = [None]
+            if OBJECT_DIRECTION_QUALIFIER in qualifiers:
+                direction_values += bmt.get_permissible_value_ancestors(permissible_value=edge[OBJECT_DIRECTION_QUALIFIER],
+                                                                        enum_name='DirectionQualifierEnum')
+
             # permutations of permissible qualifier values and their ancestors, write an edge for each permutation
+            edges_to_write = []
             for (a, d) in product(aspect_values, direction_values):
                 edge_copy = edge.copy()
                 if a:
@@ -90,11 +96,15 @@ def generate_redundant_kg(infile, edges_file_path):
                     edge_copy.pop(OBJECT_DIRECTION_QUALIFIER, None)
                 edges_to_write.append(edge_copy)
 
+            # if there was an aspect qualifier, write the edge with no qualifiers because it hasn't happened yet
+            if OBJECT_ASPECT_QUALIFIER in qualifiers:
+                edges_to_write.append(write_edge_no_q(edge, edge_predicate))
+
             # write an edge for every ancestor predicate of the original predicate, with no qualifiers
             for ancestor_predicate in ancestor_predicates:
                 edges_to_write.append(write_edge_no_q(edge, ancestor_predicate))
 
-            kgx_file_writer.write_normalized_edges(iter(edges_to_write))
+            kgx_file_writer.write_normalized_edges(edges_to_write)
                 
 
 if __name__ == '__main__':
