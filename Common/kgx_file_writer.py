@@ -143,6 +143,9 @@ class KGXFileWriter:
                         aggregator_knowledge_sources=edge.aggregator_knowledge_sources,
                         edge_properties=edge.properties)
 
+    def write_normalized_edge(self, edge: dict):
+        self.__write_edge_to_file(edge)
+
     def write_normalized_edges(self, edges: iter):
         for edge in edges:
             self.__write_edge_to_file(edge)
