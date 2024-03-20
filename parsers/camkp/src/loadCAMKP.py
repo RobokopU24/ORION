@@ -7,7 +7,7 @@ import json
 
 from Common.utils import GetData
 from Common.kgxmodel import kgxnode, kgxedge
-from Common.node_types import ROOT_ENTITY, XREFS
+from Common.biolink_constants import XREFS
 from Common.loader_interface import SourceDataLoader
 
 from gzip import GzipFile
@@ -86,17 +86,11 @@ class CAMKPLoader(SourceDataLoader):
                 line = lines.strip().split('\t')
 
                 subject_id = self.sanitize_cam_node_id(line[CAMDATACOLS.SUBJECT_ID.value])
-                subject_node = kgxnode(subject_id,
-                                       name='',
-                                       categories=[ROOT_ENTITY],
-                                       nodeprops=None)
+                subject_node = kgxnode(subject_id)
                 self.output_file_writer.write_kgx_node(subject_node)
 
                 object_id = self.sanitize_cam_node_id(line[CAMDATACOLS.OBJECT_ID.value])
-                object_node = kgxnode(object_id,
-                                      name='',
-                                      categories=[ROOT_ENTITY],
-                                      nodeprops=None)
+                object_node = kgxnode(object_id)
 
                 self.output_file_writer.write_kgx_node(object_node)
 
