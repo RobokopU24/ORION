@@ -1,9 +1,13 @@
-import os
-import sys
-import re
 import argparse
 from itertools import product
-from tqdm import tqdm
+from functools import cache
+try:
+    from tqdm import tqdm
+    TQDM_AVAILABLE = True
+except ImportError:
+    TQDM_AVAILABLE = False
+from Common.biolink_constants import OBJECT_ASPECT_QUALIFIER, OBJECT_DIRECTION_QUALIFIER, SPECIES_CONTEXT_QUALIFIER, \
+    QUALIFIED_PREDICATE, PREDICATE
 from Common.utils import quick_jsonl_file_iterator, snakify
 from Common.kgx_file_writer import KGXFileWriter
 
@@ -13,15 +17,22 @@ from bmt import Toolkit
 bmt = Toolkit()
 
 
-QUALIFIER_KEYS = ['object_aspect_qualifier', 'object_direction_qualifier', 'qualified_predicate', 'species_context_qualifier']
-ASPECT_QUALIFIER = 'object_aspect_qualifier'
-DIRECTION_QUALIFIER = 'object_direction_qualifier'
-QUALIFIED_PREDICATE = 'qualified_predicate'
+# TODO - really we should get the full list of qualifiers from Common/biolink_constants.py,
+#  but because we currently cannot deduce the association types of edges and/or permissible value enumerators,
+#  we have to hard code qualifier handling anyway, we might as well check against a smaller list
+QUALIFIER_KEYS = [OBJECT_ASPECT_QUALIFIER,
+                  OBJECT_DIRECTION_QUALIFIER]
+# we do have these qualifiers but we cant do any redundancy with them so ignore for now:
+# QUALIFIED_PREDICATE -
+# SPECIES_CONTEXT_QUALIFIER -
 
 
+# bmt does a lot of caching, but because we are doing the string manipulation it's prob a lot faster to cache these
+@cache
 def get_ancestor_predicates_biolink(predicate):
     cur_predicate = predicate.split(':')[-1]
-    return set([f'{snakify(curie)}' for curie in bmt.get_ancestors(cur_predicate, formatted=True)])
+    return set([f'{snakify(curie)}' for curie in bmt.get_ancestors(cur_predicate, formatted=True, reflexive=False)])
+
 
 def check_qualifier(ed):
     qfs = []
@@ -30,74 +41,64 @@ def check_qualifier(ed):
             qfs.append(k)
     return qfs
 
-def write_edge_no_q(ed, predicate):
-    tmp_edge = dict(ed) # Not sure if it's still tied to original edge dictionary
-    tmp_edge['predicate'] = f"{predicate}"
-    tmp_edge.pop(DIRECTION_QUALIFIER, None)
-    tmp_edge.pop(ASPECT_QUALIFIER, None)
+
+def write_edge_no_q(edge, predicate):
+    tmp_edge = edge.copy()
+    tmp_edge[PREDICATE] = f"{predicate}"
+    tmp_edge.pop(OBJECT_DIRECTION_QUALIFIER, None)
+    tmp_edge.pop(OBJECT_ASPECT_QUALIFIER, None)
     tmp_edge.pop(QUALIFIED_PREDICATE, None)
     return tmp_edge
 
+
 def generate_redundant_kg(infile, edges_file_path):
-    
-    num_edges = 0
-    num_bio_edges = 0
-    num_other_edges = 0
-    non_biolink_predicates = set()
+
     with KGXFileWriter(edges_output_file_path=edges_file_path) as kgx_file_writer:
-        for edge in tqdm(quick_jsonl_file_iterator(infile)):
-            ancestor_predicates = set()
-            # qual_predicate = 'No_qualified_predicate'
-            aspect_values = []
-            direction_values = [None]
+        for edge in tqdm(quick_jsonl_file_iterator(infile)) if TQDM_AVAILABLE else quick_jsonl_file_iterator(infile):
+
             try:
-                #if re.match('biolink.*', edge['predicate']): # bmt may already conform all edges to this format. Conditional statement could be omitted once confirmed.
-                ancestor_predicates = ancestor_predicates.union(get_ancestor_predicates_biolink(edge['predicate']))
-
-                qualifiers = check_qualifier(edge)
-                
-                if ASPECT_QUALIFIER in qualifiers:
-                    aspect_values += bmt.get_permissible_value_ancestors(permissible_value=edge[ASPECT_QUALIFIER], enum_name='GeneOrGeneProductOrChemicalEntityAspectEnum')
-                    if DIRECTION_QUALIFIER in qualifiers:
-                        # store tuples that represent all combinations of aspect_qualifier and direction_qualifier
-                        direction_values = [edge[DIRECTION_QUALIFIER], None]
-
-                
-                # Log the uncharted qualifiers here. Ignored, save for future investigation
-                #for k in qualifiers:
-                #    if k not in QUALIFIER_KEYS:
-                #        print(k)
-    
-                expand_edges = []
-                
-                for cur_pre in ancestor_predicates:
-                    
-                    #if (cur_pre == edge['predicate'].strip('biolink:')) and (len(aspect_values) >0): # There might be a function in bmt that retrieves normalized predicate names that could be updated here.
-                    if (cur_pre == edge['predicate']) and (len(aspect_values) >0): # get_ancestor(formatted=True ) should resolve it.
-                        # run tuples and change q_edge, will need another copy to enable popping key:value pairs of qualifiers
-                        for (a,d) in product(aspect_values, direction_values):
-                            q_edge = dict(edge)
-                            if d == None:
-                                q_edge.pop(DIRECTION_QUALIFIER, None)
-
-                            else:
-                                q_edge[DIRECTION_QUALIFIER] = d
-                                
-                            q_edge[ASPECT_QUALIFIER] = a
-                            expand_edges.append(q_edge)
-                    
-                    expand_edges.append(write_edge_no_q(edge, cur_pre))
-                    
-                            
-                #expand_edges.append(dict()) # Just to separate inoput instance for verification purpose. Should be deleted at production runs.
-                kgx_file_writer.write_normalized_edges(iter(expand_edges))
-                
-                
+                edge_predicate = edge['predicate']
             except KeyError:
-                print("There is no key named predicate in the dictionary. This does not look like an edge object")
-         
+                print(f"Redundant Graph Failed - missing predicate on edge: {edge}")
+                break
 
-        
+            ancestor_predicates = get_ancestor_predicates_biolink(edge_predicate)
+
+            # qualifiers = check_qualifier(edge) <- it would be better to do something like this but because we're not
+            # handling other qualifiers anyway it's faster to just do the following:
+            qualifiers = [qualifier for qualifier in QUALIFIER_KEYS if qualifier in edge]
+
+            # get the ancestors for the values for the aspect, else [None] so the permutation code works
+            aspect_values = bmt.get_permissible_value_ancestors(permissible_value=edge[OBJECT_ASPECT_QUALIFIER],
+                                                                enum_name='GeneOrGeneProductOrChemicalEntityAspectEnum') \
+                if OBJECT_ASPECT_QUALIFIER in qualifiers else [None]
+
+            # get the ancestors for the values for the direction, else [None] so the permutation code works
+            direction_values = bmt.get_permissible_value_ancestors(permissible_value=edge[OBJECT_DIRECTION_QUALIFIER],
+                                                                   enum_name='DirectionQualifierEnum') \
+                if OBJECT_DIRECTION_QUALIFIER in qualifiers else [None]
+
+            edges_to_write = []
+            # permutations of permissible qualifier values and their ancestors, write an edge for each permutation
+            for (a, d) in product(aspect_values, direction_values):
+                edge_copy = edge.copy()
+                if a:
+                    edge_copy[OBJECT_ASPECT_QUALIFIER] = a
+                else:
+                    edge_copy.pop(OBJECT_ASPECT_QUALIFIER, None)
+                if d:
+                    edge_copy[OBJECT_DIRECTION_QUALIFIER] = d
+                else:
+                    edge_copy.pop(OBJECT_DIRECTION_QUALIFIER, None)
+                edges_to_write.append(edge_copy)
+
+            # write an edge for every ancestor predicate of the original predicate, with no qualifiers
+            for ancestor_predicate in ancestor_predicates:
+                edges_to_write.append(write_edge_no_q(edge, ancestor_predicate))
+
+            kgx_file_writer.write_normalized_edges(iter(edges_to_write))
+                
+
 if __name__ == '__main__':
     ap = argparse.ArgumentParser(description='Generate redundant edge files. '
                                              'currently expanding from predicate and qualified_predicate.')
@@ -105,7 +106,6 @@ if __name__ == '__main__':
     ap.add_argument('-o', '--outfile', help='Output edge file path', required=False)
     args = vars(ap.parse_args())
 
-    infile =  args['infile'] #"/home/Documents/RENCI/ROBOKOP/generate_redundant_graphs/data/edges.jsonl.10"
-    edges_file_path = args['outfile']  #"/home/Documents/RENCI/ROBOKOP/generate_redundant_graphs/data/edges.redundant.jsonl.10"
-    
+    infile = args['infile']
+    edges_file_path = args['outfile']
     generate_redundant_kg(infile, edges_file_path)
