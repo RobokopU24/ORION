@@ -49,6 +49,15 @@ class CAMKPLoader(SourceDataLoader):
         self.data_file: str = 'cam-kg.tsv.gz'
         self.version_file = 'cam-kg.yaml'
 
+        # Every edge from CAM-KP is being aggregated by
+        # CAM-KP (https://github.com/NCATSTranslator/Translator-All/wiki/CAM-Provider-KG), which
+        # is itself aggregated by Automat-CAM-KP (https://github.com/NCATSTranslator/Translator-All/wiki/Automat).
+        self.aggregator_knowledge_sources = [
+            'infores:cam-kp',
+            'infores:automat-cam-kp'
+        ]
+
+
     def get_latest_source_version(self) -> str:
         """
         gets the version of the data
@@ -113,6 +122,7 @@ class CAMKPLoader(SourceDataLoader):
                                    object_id=object_id,
                                    predicate=predicate,
                                    primary_knowledge_source=edge_provenance_id,
+                                   aggregator_knowledge_sources=self.aggregator_knowledge_sources,
                                    edgeprops=edge_properties)
                 self.output_file_writer.write_kgx_edge(new_edge)
 
