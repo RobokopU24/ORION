@@ -28,25 +28,39 @@ GENOMIC_ENTITY = 'biolink:GenomicEntity'
 FOOD = 'biolink:Food'
 MACROMOLECULAR_COMPLEX = 'biolink:MacromolecularComplex'
 
+# properties on nodes
+NODE_ID = 'id'
+NODE_TYPES = 'category'
+NAME = 'name'
+SYNONYM = 'synonym'
+TRADE_NAME = 'trade_name'
+CHEMICAL_ROLE = 'chemical_role'
+HAS_CHEMICAL_FORMULA = 'has_chemical_formula'
+IN_TAXON = 'in_taxon'
+ROUTES_OF_DELIVERY = 'routes_of_delivery'
+SYMBOL = 'symbol'
+
 
 # properties on edges
 SUBJECT_ID = 'subject'
 OBJECT_ID = 'object'
 PREDICATE = 'predicate'
-NODE_TYPES = 'category'
-PRIMARY_KNOWLEDGE_SOURCE = 'biolink:primary_knowledge_source'
-AGGREGATOR_KNOWLEDGE_SOURCES = 'biolink:aggregator_knowledge_source'
+PRIMARY_KNOWLEDGE_SOURCE = 'primary_knowledge_source'
+AGGREGATOR_KNOWLEDGE_SOURCES = 'aggregator_knowledge_source'
+AGENT_TYPE = 'agent_type'
+KNOWLEDGE_LEVEL = 'knowledge_level'
+P_VALUE = 'p_value'
+ADJUSTED_P_VALUE = 'adjusted_p_value'
+
+# properties that could be on edges or nodes (I think?)
 DESCRIPTION = 'description'
 PUBLICATIONS = 'publications'
 XREFS = 'xref'
-P_VALUE = 'p_value'
-ADJUSTED_P_VALUE = 'adjusted_p_value'
-AGENT_TYPE = 'agent_type'
+
 FDA_APPROVAL_STATUS = 'highest_FDA_approval_status'
-KNOWLEDGE_LEVEL = 'knowledge_level'
 MECHANISM_OF_ACTION = 'mechanism_of_action'
 
-# these aren't in biolink but we use them on edges
+# these aren't in biolink, but we use them on edges
 AFFINITY = 'affinity'
 AFFINITY_PARAMETER = 'affinity_parameter'
 INFORMATION_CONTENT = 'information_content'
@@ -71,8 +85,26 @@ SUBJECT_FORM_OR_VARIANT_QUALIFIER = 'subject_form_or_variant_qualifier'
 SUBJECT_PART_QUALIFIER = 'subject_part_qualifier'
 
 
-# this should probably be changed to a valid biolink synonym property but don't want to break downstream tools yet
+# this should probably be changed to the valid biolink synonym property but don't want to break downstream tools yet
 SYNONYMS = 'equivalent_identifiers'
+
+BIOLINK_NODE_PROPERTIES = [
+    NODE_ID,
+    NODE_TYPES,
+    NAME,
+    DESCRIPTION,
+    PUBLICATIONS,
+    XREFS,
+    SYNONYM,
+    TRADE_NAME,
+    CHEMICAL_ROLE,
+    HAS_CHEMICAL_FORMULA,
+    FDA_APPROVAL_STATUS,
+    MECHANISM_OF_ACTION,
+    IN_TAXON,
+    ROUTES_OF_DELIVERY,
+    SYMBOL
+]
 
 BIOLINK_EDGE_PROPERTIES = [
     SUBJECT_ID,
@@ -109,6 +141,3 @@ BIOLINK_EDGE_PROPERTIES = [
     SUBJECT_FORM_OR_VARIANT_QUALIFIER,
     SUBJECT_PART_QUALIFIER,
 ]
-
-
-
