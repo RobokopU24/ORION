@@ -7,7 +7,7 @@ from Common.loader_interface import SourceDataLoader
 from Common.extractor import Extractor
 from io import TextIOWrapper
 from Common.utils import GetData
-from Common.node_types import PRIMARY_KNOWLEDGE_SOURCE, PUBLICATIONS
+from Common.biolink_constants import PRIMARY_KNOWLEDGE_SOURCE, PUBLICATIONS
 from Common.prefixes import NCBITAXON
 
 

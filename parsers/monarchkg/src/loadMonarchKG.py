@@ -5,7 +5,7 @@ import orjson
 
 from Common.loader_interface import SourceDataLoader
 from Common.kgxmodel import kgxedge
-from Common.node_types import PUBLICATIONS
+from Common.biolink_constants import PUBLICATIONS
 from Common.utils import GetData
 
 

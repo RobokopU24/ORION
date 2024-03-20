@@ -3,7 +3,7 @@ import json
 import jsonlines
 import logging
 from Common.biolink_utils import BiolinkInformationResources, INFORES_STATUS_INVALID, INFORES_STATUS_DEPRECATED
-from Common.node_types import SEQUENCE_VARIANT, PRIMARY_KNOWLEDGE_SOURCE, AGGREGATOR_KNOWLEDGE_SOURCES, \
+from Common.biolink_constants import SEQUENCE_VARIANT, PRIMARY_KNOWLEDGE_SOURCE, AGGREGATOR_KNOWLEDGE_SOURCES, \
     PUBLICATIONS, OBJECT_ID, SUBJECT_ID, PREDICATE
 from Common.normalization import NodeNormalizer, EdgeNormalizer, EdgeNormalizationResult
 from Common.utils import LoggingUtil, chunk_iterator

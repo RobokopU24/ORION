@@ -3,7 +3,7 @@ import os
 import neo4j
 import subprocess
 import Common.kgx_file_converter as kgx_file_converter
-from Common.node_types import NAMED_THING
+from Common.biolink_constants import NAMED_THING
 from Common.utils import LoggingUtil
 
 

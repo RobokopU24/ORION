@@ -2,7 +2,7 @@ import os
 import jsonlines
 import secrets
 from xxhash import xxh64_hexdigest
-from Common.node_types import *
+from Common.biolink_constants import *
 from Common.utils import quick_json_loads, quick_json_dumps, chunk_iterator
 
 NODE_PROPERTIES_THAT_SHOULD_BE_SETS = {SYNONYMS, NODE_TYPES}

@@ -12,7 +12,7 @@ from Common.utils import GetData, GetDataPullError
 from Common.loader_interface import SourceDataLoader, SourceDataFailedError
 from Common.kgxmodel import kgxnode, kgxedge
 from Common.prefixes import CTD, NCBITAXON, MESH
-from Common.node_types import PUBLICATIONS
+from Common.biolink_constants import PUBLICATIONS
 
 
 ##############
