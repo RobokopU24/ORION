@@ -1,7 +1,18 @@
 import requests
 import yaml
+import os
 
 from bmt import Toolkit
+
+
+BIOLINK_MODEL_VERSION = os.environ.get("BL_VERSION", "4.1.6")
+BIOLINK_MODEL_SCHEMA_URL = f"https://raw.githubusercontent.com/biolink/biolink-model/v{BIOLINK_MODEL_VERSION}/biolink-model.yaml"
+PREDICATE_MAP_URL = f"https://raw.githubusercontent.com/biolink/biolink-model/v{BIOLINK_MODEL_VERSION}/predicate_mapping.yaml"
+
+
+def get_biolink_model_toolkit():
+    return Toolkit(schema=BIOLINK_MODEL_SCHEMA_URL, predicate_map=PREDICATE_MAP_URL)
+
 
 map_data = {
   "attribute_type_map": {
@@ -26,7 +37,7 @@ VALUE_TYPES = map_data['value_type_map']
 class BiolinkUtils:
 
     def __init__(self):
-        self.toolkit = Toolkit()
+        self.toolkit = get_biolink_model_toolkit()
 
     def find_biolink_leaves(self, biolink_concepts: set):
         """

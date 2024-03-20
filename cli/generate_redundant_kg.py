@@ -6,16 +6,14 @@ try:
     TQDM_AVAILABLE = True
 except ImportError:
     TQDM_AVAILABLE = False
+
+from Common.biolink_utils import get_biolink_model_toolkit
 from Common.biolink_constants import OBJECT_ASPECT_QUALIFIER, OBJECT_DIRECTION_QUALIFIER, SPECIES_CONTEXT_QUALIFIER, \
     QUALIFIED_PREDICATE, PREDICATE
 from Common.utils import quick_jsonl_file_iterator, snakify
 from Common.kgx_file_writer import KGXFileWriter
 
-from bmt import Toolkit
-
-
-bmt = Toolkit()
-
+bmt = get_biolink_model_toolkit()
 
 # TODO - really we should get the full list of qualifiers from Common/biolink_constants.py,
 #  but because we currently cannot deduce the association types of edges and/or permissible value enumerators,
