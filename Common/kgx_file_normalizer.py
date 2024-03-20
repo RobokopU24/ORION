@@ -355,15 +355,8 @@ class KGXFileNormalizer:
             infores_status = bl_inforesources.get_infores_status(knowledge_source)
             if infores_status == INFORES_STATUS_DEPRECATED:
                 deprecated_infores_ids.append(knowledge_source)
-                self.logger.warning(f'Normalization found a deprecated infores identifier: {knowledge_source}')
             elif infores_status == INFORES_STATUS_INVALID:
                 invalid_infores_ids.append(knowledge_source)
-
-        if invalid_infores_ids:
-            warning_message = f'Normalization found invalid infores identifiers: {invalid_infores_ids}'
-            self.logger.warning(warning_message)
-            if self.normalization_scheme.strict:
-                raise NormalizationFailedError(warning_message)
 
         try:
             self.logger.debug(f'Writing normalized edges to file...')
@@ -401,8 +394,10 @@ class KGXFileNormalizer:
         })
         if deprecated_infores_ids:
             self.normalization_metadata['deprecated_infores_ids'] = deprecated_infores_ids
+            self.logger.warning(f'Normalization found deprecated infores identifiers: {deprecated_infores_ids}')
         if invalid_infores_ids:
             self.normalization_metadata['invalid_infores_ids'] = invalid_infores_ids
+            self.logger.warning(f'Normalization found invalid infores identifiers: {invalid_infores_ids}')
 
 
 
