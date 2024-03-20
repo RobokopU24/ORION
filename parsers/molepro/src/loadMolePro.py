@@ -82,7 +82,7 @@ class MoleProLoader(SourceDataLoader):
                     # make a dictionary with the biolink properties on that line
                     next_node = {
                         node_property.removeprefix('biolink:'): node_file_line[node_property_indexes[node_property]]
-                        for node_property in node_property_indexes
+                        for node_property in node_property_indexes if node_file_line[node_property_indexes[node_property]]
                     }
                     # check and make sure it has all the required node properties (except name could be empty)
                     if any(not next_node[node_property] for node_property in
@@ -91,7 +91,8 @@ class MoleProLoader(SourceDataLoader):
                         continue
                     # convert the properties that should be lists to lists and split on a delimiter
                     for node_property in node_properties_to_split:
-                        next_node[node_property] = next_node[node_property].split(delimiter)
+                        if node_property in next_node:
+                            next_node[node_property] = next_node[node_property].split(delimiter)
                     # write the node to file
                     self.output_file_writer.write_node(node_id=next_node.pop(NODE_ID),
                                                        node_name=next_node.pop(NAME),
@@ -119,7 +120,7 @@ class MoleProLoader(SourceDataLoader):
                     # make a dictionary with the biolink properties on that line
                     next_edge = {
                         edge_property.removeprefix('biolink:'): edge_file_line[edge_property_indexes[edge_property]]
-                        for edge_property in edge_property_indexes
+                        for edge_property in edge_property_indexes if edge_file_line[edge_property_indexes[edge_property]]
                     }
                     # check to make sure it has all the required properties
                     if any(not next_edge[edge_property] for edge_property in REQUIRED_EDGE_PROPERTIES):
@@ -127,10 +128,20 @@ class MoleProLoader(SourceDataLoader):
                         continue
                     # convert the properties that should be lists to lists and split on a delimiter
                     for edge_property in edge_properties_to_split:
-                        next_edge[edge_property] = next_edge[edge_property].split(delimiter)
-                    # write the edge to file
-                    self.output_file_writer.write_normalized_edge(next_edge)
-                    record_counter += 1
+                        if edge_property in next_edge:
+                            next_edge[edge_property] = next_edge[edge_property].split(delimiter)
+                    # make sure there aren't multiple primary knowledge sources
+                    primary_ks = next_edge[PRIMARY_KNOWLEDGE_SOURCE].split('|')
+                    if len(primary_ks) > 1:
+                        # if there are split them into multiple edges
+                        for ks in primary_ks:
+                            split_edge = next_edge.copy()
+                            split_edge[PRIMARY_KNOWLEDGE_SOURCE] = ks
+                            self.output_file_writer.write_normalized_edge(split_edge)
+                    else:
+                        # write the edge to file
+                        self.output_file_writer.write_normalized_edge(next_edge)
+                        record_counter += 1
 
         # load up the metadata
         load_metadata: dict = {
