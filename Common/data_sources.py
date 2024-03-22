@@ -21,6 +21,8 @@ INTACT = 'IntAct'
 KINACE = 'KinAce'
 MONARCH_KG = 'MonarchKG'
 MONDO_PROPS = 'MONDOProps'
+MULTIOMICS_EHRKP = "MultiomicsEHRKP"
+MULTIOMICS_CLINICALTRIALS = "MultiomicsClinicalTrials"
 ONTOLOGICAL_HIERARCHY = 'OntologicalHierarchy'
 PANTHER = 'PANTHER'
 PHAROS = 'PHAROS'
@@ -64,6 +66,8 @@ SOURCE_DATA_LOADER_CLASS_IMPORTS = {
     KINACE: ("parsers.KinAce.src.loadKinAce", "KinAceLoader"),
     MONARCH_KG: ("parsers.monarchkg.src.loadMonarchKG", "MonarchKGLoader"),
     MONDO_PROPS: ("parsers.MONDOProperties.src.loadMP", "MPLoader"),
+    MULTIOMICS_CLINICALTRIALS: ("parsers.src.loadClinicalTrials", "ClinicalTrialsLoader"),
+    MULTIOMICS_EHRKP: ("parsers.src.loadEHRKP", "EHRKPLoader"),
     ONTOLOGICAL_HIERARCHY: ("parsers.UberGraph.src.loadUG", "OHLoader"),
     PANTHER: ("parsers.panther.src.loadPanther", "PLoader"),
     PHAROS: ("parsers.PHAROS.src.loadPHAROS", "PHAROSLoader"),
