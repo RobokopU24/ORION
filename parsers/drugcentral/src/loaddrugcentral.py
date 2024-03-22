@@ -7,7 +7,7 @@ import os
 from Common.extractor import Extractor
 from Common.loader_interface import SourceDataLoader, SourceDataFailedError, SourceDataBrokenError
 from Common.utils import GetData, snakify
-from Common.node_types import PRIMARY_KNOWLEDGE_SOURCE, AGGREGATOR_KNOWLEDGE_SOURCES, PUBLICATIONS
+from Common.biolink_constants import PRIMARY_KNOWLEDGE_SOURCE, AGGREGATOR_KNOWLEDGE_SOURCES, PUBLICATIONS
 from Common.prefixes import DRUGCENTRAL, MEDDRA, UMLS, UNIPROTKB, PUBMED
 from Common.predicates import DGIDB_PREDICATE_MAPPING
 from Common.db_connectors import PostgresConnector

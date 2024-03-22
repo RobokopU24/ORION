@@ -7,7 +7,7 @@ import json
 
 from Common.utils import GetData
 from Common.kgxmodel import kgxnode, kgxedge
-from Common.node_types import ROOT_ENTITY, XREFS
+from Common.biolink_constants import XREFS
 from Common.loader_interface import SourceDataLoader
 
 from gzip import GzipFile
@@ -31,11 +31,12 @@ class CAMKPLoader(SourceDataLoader):
 
     source_id: str = "CAMKP"
     provenance_id: str = "infores:go-cam"
+    aggregator_knowledge_source: str = "infores:cam-kp"
     description = "CAMs (Causal Activity Models) are small knowledge graphs built using the Web Ontology Language (OWL). The CAM database combines many CAM graphs along with a large merged bio-ontology containing the full vocabulary of concepts referenced within the individual CAMs. Each CAM describes an instantiation of some of those concepts in a particular context, modeling the interactions between those instances as an interlinked representation of a complex biological or environmental process."
     source_data_url = "https://github.com/ExposuresProvider/cam-kp-api"
     license = "https://github.com/ExposuresProvider/cam-kp-api/blob/master/LICENSE"
     attribution = "https://github.com/ExposuresProvider/cam-kp-api"
-    parsing_version = "1.1"
+    parsing_version = "1.2"
 
     def __init__(self, test_mode: bool = False, source_data_dir: str = None):
         """
@@ -86,17 +87,11 @@ class CAMKPLoader(SourceDataLoader):
                 line = lines.strip().split('\t')
 
                 subject_id = self.sanitize_cam_node_id(line[CAMDATACOLS.SUBJECT_ID.value])
-                subject_node = kgxnode(subject_id,
-                                       name='',
-                                       categories=[ROOT_ENTITY],
-                                       nodeprops=None)
+                subject_node = kgxnode(subject_id)
                 self.output_file_writer.write_kgx_node(subject_node)
 
                 object_id = self.sanitize_cam_node_id(line[CAMDATACOLS.OBJECT_ID.value])
-                object_node = kgxnode(object_id,
-                                      name='',
-                                      categories=[ROOT_ENTITY],
-                                      nodeprops=None)
+                object_node = kgxnode(object_id)
 
                 self.output_file_writer.write_kgx_node(object_node)
 
@@ -113,6 +108,7 @@ class CAMKPLoader(SourceDataLoader):
                                    object_id=object_id,
                                    predicate=predicate,
                                    primary_knowledge_source=edge_provenance_id,
+                                   aggregator_knowledge_sources=[self.aggregator_knowledge_source],
                                    edgeprops=edge_properties)
                 self.output_file_writer.write_kgx_edge(new_edge)
 

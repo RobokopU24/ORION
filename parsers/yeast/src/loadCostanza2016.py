@@ -4,7 +4,7 @@ import csv
 import requests
 from Common.loader_interface import SourceDataLoader
 from Common.extractor import Extractor
-from Common.node_types import PRIMARY_KNOWLEDGE_SOURCE, PUBLICATIONS
+from Common.biolink_constants import PRIMARY_KNOWLEDGE_SOURCE, PUBLICATIONS
 from Common.prefixes import PUBMED
 from intermine.webservice import Service
 

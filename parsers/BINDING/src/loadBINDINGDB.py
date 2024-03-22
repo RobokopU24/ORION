@@ -8,7 +8,7 @@ from parsers.BINDING.src.bindingdb_constraints import LOG_SCALE_AFFINITY_THRESHO
 from Common.utils import GetData
 from Common.loader_interface import SourceDataLoader
 from Common.extractor import Extractor
-from Common.node_types import PUBLICATIONS, AFFINITY
+from Common.biolink_constants import PUBLICATIONS, AFFINITY, AFFINITY_PARAMETER
 
 # Full Binding Data.
 
@@ -151,9 +151,9 @@ class BINDINGDBLoader(SourceDataLoader):
                         entry.update({'ligand': f"PUBCHEM.COMPOUND:{ligand}"})
                         entry.update({'protein': f"UniProtKB:{protein}"})
                         entry.update({'predicate': self.measure_to_predicate[measure_type]})
-                        entry.update({'affinity_parameter': measure_type})
+                        entry.update({AFFINITY_PARAMETER: measure_type})
                         entry.update({'supporting_affinities': []})
-                        entry.update({'publications': []})
+                        entry.update({PUBLICATIONS: []})
                         entry.update({'pubchem_assay_ids': []})
                         entry.update({'patent_ids': []})
                         data_store[ligand_protein_measure_key] = entry
@@ -166,8 +166,8 @@ class BINDINGDBLoader(SourceDataLoader):
                     if sa == 0:
                         continue
                     entry["supporting_affinities"].append(sa)
-                    if publication is not None and publication not in entry["publications"]:
-                        entry["publications"].append(publication)
+                    if publication is not None and publication not in entry[PUBLICATIONS]:
+                        entry[PUBLICATIONS].append(publication)
                     if assay_id is not None and assay_id not in entry["pubchem_assay_ids"]:
                         entry["pubchem_assay_ids"].append(assay_id)
                     if patent is not None and patent not in entry["patent_ids"]:
@@ -178,17 +178,17 @@ class BINDINGDBLoader(SourceDataLoader):
             if len(entry["supporting_affinities"]) == 0:
                 bad_entries.add(key)
                 continue
-            if len(entry["publications"]) == 0:
-                del entry["publications"]
+            if len(entry[PUBLICATIONS]) == 0:
+                del entry[PUBLICATIONS]
             if len(entry["pubchem_assay_ids"]) == 0:
                 del entry["pubchem_assay_ids"]
             if len(entry["patent_ids"]) == 0:
                 del entry["patent_ids"]
             try:
                 average_affinity = sum(entry["supporting_affinities"])/len(entry["supporting_affinities"])
-                entry["affinity"] = round(negative_log(average_affinity),2)
+                entry[AFFINITY] = round(negative_log(average_affinity),2)
                 entry["supporting_affinities"] = [round(negative_log(x),2) for x in entry["supporting_affinities"]]
-            except:
+            except Exception:
                 bad_entries.add(key)
 
         import json

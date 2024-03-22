@@ -8,7 +8,7 @@ from Common.utils import GetDataPullError
 from Common.loader_interface import SourceDataLoader
 from Common.extractor import Extractor
 from Common.prefixes import NCBIGENE, DRUGBANK, UBERON, DOID, MESH, UMLS
-from Common.node_types import AGGREGATOR_KNOWLEDGE_SOURCES, PRIMARY_KNOWLEDGE_SOURCE
+from Common.biolink_constants import AGGREGATOR_KNOWLEDGE_SOURCES, PRIMARY_KNOWLEDGE_SOURCE
 
 
 class HetioLoader(SourceDataLoader):

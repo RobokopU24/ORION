@@ -11,7 +11,7 @@ from Common.loader_interface import SourceDataLoader, SourceDataFailedError, Sou
 from Common.prefixes import GTOPDB, HGNC, ENSEMBL, PUBMED
 from Common.kgxmodel import kgxnode, kgxedge
 from Common.predicates import DGIDB_PREDICATE_MAPPING
-from Common.node_types import PUBLICATIONS, AFFINITY, AFFINITY_PARAMETER
+from Common.biolink_constants import PUBLICATIONS, AFFINITY, AFFINITY_PARAMETER
 
 
 class INTERACTIONS_COLS(enum.Enum):

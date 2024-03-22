@@ -13,21 +13,21 @@ orion:
   image:
     repository: ghcr.io/robokopu24/orion
     pullPolicy: IfNotPresent
-    tag: v1.0.9
+    tag: v1.0.12d
   graphsVolume:
     use_nfs: true
     nfs_server: na-projects.edc.renci.org
-    nfs_path: /stars/ORION
+    nfs_path: /stars/Data_services
     nfs_mount_subpath: biolink3/graphs/
   sourcesVolume:
     use_nfs: true
     nfs_server: na-projects.edc.renci.org
-    nfs_path: /stars/ORION
+    nfs_path: /stars/Data_services
     nfs_mount_subpath: biolink3/storage/
   extraVolume:
     use_extra_volume: true
     nfs_server: na-projects.edc.renci.org
-    nfs_path: /stars/ORION
+    nfs_path: /stars/Data_services
     nfs_mount_subpath: sterling/
   neo4jScratchVolume:
     size: 80Gi
