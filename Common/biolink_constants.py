@@ -52,7 +52,7 @@ AGENT_TYPE = 'agent_type'
 KNOWLEDGE_LEVEL = 'knowledge_level'
 P_VALUE = 'p_value'
 ADJUSTED_P_VALUE = 'adjusted_p_value'
-
+SUPPORTING_DATA_SOURCE = 'supporting_data_source'
 # properties that could be on edges or nodes (I think?)
 DESCRIPTION = 'description'
 PUBLICATIONS = 'publications'
