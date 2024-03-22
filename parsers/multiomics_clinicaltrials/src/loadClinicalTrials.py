@@ -4,10 +4,9 @@ import enum
 # ct
 from Common.extractor import Extractor
 from Common.loader_interface import SourceDataLoader
-from Common.node_types import PRIMARY_KNOWLEDGE_SOURCE
 from Common.prefixes import UMLS  # only an example, use existing curie prefixes or add your own to the prefixes file
 from Common.utils import GetData
-from Common.node_types import *
+from Common.biolink_constants import PRIMARY_KNOWLEDGE_SOURCE, AGGREGATOR_KNOWLEDGE_SOURCES, KNOWLEDGE_LEVEL, AGENT_TYPE, SUPPORTING_DATA_SOURCE
 
 class CLINICALTRIALS_EDGES_DATACOLS(enum.IntEnum):
     SUBJECT = 0
@@ -86,15 +85,14 @@ class ClinicalTrialsLoader(SourceDataLoader):
 
     def get_edge_properties(self, data_row):
         edge_properties = {PRIMARY_KNOWLEDGE_SOURCE: self.provenance_id_primary}
-        edge_properties[AGGREGATOR_KNOWLEDGE_SOURCE] = self.provenance_id_aggregator
+        edge_properties[AGGREGATOR_KNOWLEDGE_SOURCES] = [self.provenance_id_aggregator]
         edge_properties[SUPPORTING_DATA_SOURCE] = self.provenance_id_supporting
         edge_properties[KNOWLEDGE_LEVEL] = self.knowledge_level
         edge_properties[AGENT_TYPE] = self.agent_type
 
         # NCT ID (the ID # of the Clinical Trial Study associated with the relationship)
-        edge_properties["clinicaltrials_id"] = data_row[CLINICALTRIALS_EDGES_DATACOLS.NCTID.value]
+        edge_properties["clinicaltrials_id"] = [data_row[CLINICALTRIALS_EDGES_DATACOLS.NCTID.value]]
 
         # NCT ID (the ID # of the Clinical Trial Study associated with the relationship, in CURIE form)
-        edge_properties["nctid_curie"] = data_row[CLINICALTRIALS_EDGES_DATACOLS.NCTID_CURIE.value]
-
+        edge_properties["nctid_curie"] = [data_row[CLINICALTRIALS_EDGES_DATACOLS.NCTID_CURIE.value]]
         return edge_properties
