@@ -25,7 +25,7 @@ class CLINICALTRIALS_EDGES_DATACOLS(enum.IntEnum):
 # Class: Multiomics Clinical Trials KP Loader
 # Desc: Class that loads/parses the Multiomics Clinical Trials data.
 ##############
-class ClinicalTrialKPLoader(SourceDataLoader):
+class ClinicalTrialsLoader(SourceDataLoader):
     
     source_id: str = "MultiomicsClinicalTrialsKP"  # what should the string correspond to? is this any name???
     provenance_id_primary: str = "infores:clinicaltrials"
