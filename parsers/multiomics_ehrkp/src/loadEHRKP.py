@@ -1,10 +1,10 @@
 import os
 import enum
-import gzip
+import json
 
 from Common.extractor import Extractor
 from Common.loader_interface import SourceDataLoader
-from Common.node_types import PRIMARY_KNOWLEDGE_SOURCE
+from Common.biolink_constants import PRIMARY_KNOWLEDGE_SOURCE, SUPPORTING_DATA_SOURCE, KNOWLEDGE_LEVEL, AGENT_TYPE
 from Common.utils import GetData
 
 
@@ -20,15 +20,16 @@ class EHRKP_EDGES_DATACOLS(enum.IntEnum):
     CATEGORY = 8
     CLASSIFIER = 9
     AUCROC = 10
-    FEATURE_COEFFICIENT = 11
-    LOWER_95_CI = 12
-    UPPER_95_CI = 13
-    PVAL = 14
-    READABLE_PVAL = 15
-    PATIENT_COUNT_WITH_CONDITION = 16
-    PATIENT_COUNT_WITHOUT_CONDITION = 17
-    READABLE_PATIENT_COUNT_WITH_CONDITION = 18
-    READABLE_PATIENT_COUNT_WITHOUT_CONDITION = 19
+    FEATURE_IMPORTANCE = 11
+    FEATURE_COEFFICIENT = 12
+    LOWER_95_CI = 13
+    UPPER_95_CI = 14
+    PVAL = 15
+    READABLE_PVAL = 16
+    PATIENT_COUNT_WITH_CONDITION = 17
+    PATIENT_COUNT_WITHOUT_CONDITION = 18
+    READABLE_PATIENT_COUNT_WITH_CONDITION = 19
+    READABLE_PATIENT_COUNT_WITHOUT_CONDITION = 20
     
 
 ##############
@@ -89,7 +90,7 @@ class EHRKPLoader(SourceDataLoader):
                       lambda line: {'name': line[EHRKP_EDGES_DATACOLS.OBJECT_NAME.value]},  # object properties
                       lambda line: self.get_edge_properties(data_row=line),  # edge properties
                       comment_character='#',
-                      delim='\t',
+                      delim=',',
                       has_header_row=True)
             return extractor.load_metadata
 
@@ -99,7 +100,7 @@ class EHRKPLoader(SourceDataLoader):
         edge_properties[KNOWLEDGE_LEVEL] = self.knowledge_level
         edge_properties[AGENT_TYPE] = self.agent_type
         
-        edge_properties = {"biolink:has_supporting_study_result" : json.dumps( 
+        edge_properties["biolink:has_supporting_study_result"] = json.dumps(
             {"value": "We train many multivariable, binary logistic regression models on EHR data for each specific condition/disease/outcome. Features include labs, medications, and phenotypes. Directed edges point from risk factors to specific outcomes (diseases, phenotype, or medication exposure).",
              "attributes": [
                 {"attribute_type_id": "biolink:supporting_study_method_type"},
@@ -125,7 +126,7 @@ class EHRKPLoader(SourceDataLoader):
                  # "description": "The total number of patients or participants within a sample population."},
                 {"attribute_type_id": "biolink:log_odds_ratio_95_ci",
                  "value": [float(data_row[EHRKP_EDGES_DATACOLS.LOWER_95_CI.value]), float(data_row[EHRKP_EDGES_DATACOLS.UPPER_95_CI.value])]}
-        ]})}
+        ]})
         return edge_properties
                                                                                    
                                                                                     
