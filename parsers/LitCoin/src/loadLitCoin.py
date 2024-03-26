@@ -233,8 +233,7 @@ class LitCoinLoader(SourceDataLoader):
                            LLM_SUBJECT_TYPE,
                            LLM_OBJECT_NAME,
                            LLM_OBJECT_TYPE,
-                           LLM_RELATIONSHIP,
-                           # LLM_MAIN_FINDING  # this isn't coming from the llm output currently
+                           LLM_RELATIONSHIP
                            ]
         matches = re.findall(r'\{([^\}]*)\}', llm_output)
         valid_responses = []
@@ -248,7 +247,10 @@ class LitCoinLoader(SourceDataLoader):
                 continue
             for field in required_fields:
                 if field not in cur_response_dict:
-                    self.logger.info(f'Missing field {field} in response: {cur_response_dict}')
+                    self.logger.warning(f'Missing field {field} in response: {cur_response_dict}')
+                    break
+                if not isinstance(cur_response_dict[field], str):
+                    self.logger.warning(f'Non-string field {field} in response: {cur_response_dict}')
                     break
             else:  # only add the fields which have all the fields
                 valid_responses.append(cur_response_dict)
