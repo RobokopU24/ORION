@@ -73,7 +73,7 @@ class LitCoinLoader(SourceDataLoader):
 
     source_id: str = 'LitCoin'
     provenance_id: str = 'infores:robokop-kg'  # TODO - change this to a LitCoin infores when it exists
-    parsing_version: str = '1.6'
+    parsing_version: str = '1.7'
 
     def __init__(self, test_mode: bool = False, source_data_dir: str = None):
         """
@@ -276,7 +276,7 @@ class LitCoinLoader(SourceDataLoader):
 
 class LitCoinSapBERTLoader(LitCoinLoader):
     source_id: str = 'LitCoinSapBERT'
-    parsing_version: str = '1.4'
+    parsing_version: str = '1.5'
 
     def name_resolution_function(self, node_name, preferred_biolink_node_type, retries=0):
         sapbert_url = 'https://babel-sapbert.apps.renci.org/annotate/'
@@ -315,7 +315,7 @@ class LitCoinSapBERTLoader(LitCoinLoader):
 
 class LitCoinEntityExtractorLoader(LitCoinLoader):
     source_id: str = 'LitCoinEntityExtractor'
-    parsing_version: str = '1.2'
+    parsing_version: str = '1.3'
 
     def parse_data(self) -> dict:
         litcoin_file_path: str = os.path.join(self.data_path, self.data_file)
