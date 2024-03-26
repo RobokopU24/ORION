@@ -531,3 +531,50 @@ class EdgeNormalizer:
         else:
             # this shouldn't happen, raise an exception
             resp.raise_for_status()
+
+
+NAME_RESOLVER_URL = os.environ.get('NAME_RESOLVER_ENDPOINT', "https://name-resolution-sri.renci.org/") + 'lookup'
+NAME_RESOLVER_HEADERS = {"accept": "application/json"}
+NAME_RESOLVER_API_ERROR = 'api_error'
+
+
+def call_name_resolution(name: str, biolink_type: str, retries=0, logger=None):
+    nameres_payload = {
+        "string": name,
+        "biolink_type": biolink_type if biolink_type else "",
+        "autocomplete": False
+    }
+    try:
+        # logger.info(f'About to call name res..')
+        nameres_result = requests.get(NAME_RESOLVER_URL,
+                                      params=nameres_payload,
+                                      headers=NAME_RESOLVER_HEADERS,
+                                      timeout=45)
+        # logger.info(f'Got result from name res {nameres_result.status_code}')
+        if nameres_result.status_code == 200:
+            # return the first result if there is one
+            nameres_json = nameres_result.json()
+            # logger.info(f'Unpacked json..')
+            return nameres_json[0] if nameres_json else None
+        else:
+            error_message = f'Non-200 result from name resolution (url: {NAME_RESOLVER_URL}, ' \
+                            f'payload: {nameres_payload}). Status code: {nameres_result.status_code}.'
+    except requests.exceptions.ConnectionError as e:
+        error_message = f'Connection Error calling name resolution (url: {NAME_RESOLVER_URL}, ' \
+                        f'payload: {nameres_payload}). Error: {e}.'
+    except requests.exceptions.Timeout as t:
+        error_message = f'Calling name resolution timed out (url: {NAME_RESOLVER_URL}, ' \
+                        f'payload: {nameres_payload}). Error: {t}.'
+
+    # if we get here something went wrong, log error and retry
+    if logger:
+        logger.error(error_message)
+    else:
+        print(error_message)
+    if retries < 2:
+        time.sleep(5)
+        logger.info('Retrying name resolution..')
+        return call_name_resolution(name, biolink_type, retries + 1, logger)
+
+    # if retried 2 times already give up and return the last error
+    return {NAME_RESOLVER_API_ERROR: error_message}
