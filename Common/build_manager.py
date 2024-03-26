@@ -436,7 +436,7 @@ class GraphBuilder:
         return os.path.join(self.graphs_dir, graph_id, graph_version)
 
     def get_graph_output_URL(self, graph_id: str, graph_version: str):
-        graph_output_url = os.environ['ORION_OUTPUT_URL']
+        graph_output_url = os.environ.get('DATA_SERVICES_OUTPUT_URL', "https://localhost/")
         if graph_output_url[-1] != '/':
             graph_output_url += '/'
         return f'{graph_output_url}{graph_id}/{graph_version}/'
