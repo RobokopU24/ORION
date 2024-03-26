@@ -1,10 +1,4 @@
 graphs:
-  - graph_id: LitCoinEntityExtractor
-    graph_name: LitCoinEntityExtractor
-    graph_description: A fake graph that just exists to run the entity extractor with the other builds
-    output_format: none
-    sources:
-      - source_id: LitCoinEntityExtractor
 
   - graph_id: LitCoinSapBERT
     graph_name: LitCoinSapBERT
