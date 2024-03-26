@@ -30,6 +30,7 @@ LLM_ABSTRACT_SUMMARY_EDGE_PROP = 'llm_summary'
 NODE_TYPE_MAPPINGS = {
     "Activity": "Activity",
     "AnatomicalStructure": "AnatomicalEntity",
+    "AnatomicalFeature": "AnatomicalEntity",
     "Antibody": "ChemicalEntity",
     "Behavior": "Behavior",
     "BiologicalStructure": "AnatomicalEntity",
@@ -82,7 +83,7 @@ class LitCoinLoader(SourceDataLoader):
         super().__init__(test_mode=test_mode, source_data_dir=source_data_dir)
 
         self.data_url = 'https://stars.renci.org/var/data_services/litcoin/'
-        self.data_file = 'abstracts_CompAndHeal_gpt4_20240205_train.json'
+        self.data_file = 'abstracts_CompAndHeal_gpt4_20240320_train.json'
         self.data_files = [self.data_file]
         # dicts of name to id lookups organized by node type (node_name_to_id_lookup[node_type] = dict of names -> id)
         self.node_name_to_id_lookup = defaultdict(dict)
@@ -90,7 +91,7 @@ class LitCoinLoader(SourceDataLoader):
         self.bl_utils = BiolinkUtils()
 
     def get_latest_source_version(self) -> str:
-        latest_version = 'v1.2'
+        latest_version = 'v1.3'
         return latest_version
 
     def get_data(self) -> bool:
@@ -206,12 +207,15 @@ class LitCoinLoader(SourceDataLoader):
         self.node_name_to_id_lookup[node_type][node_name] = standardized_name_res_result
         return standardized_name_res_result
 
-    @staticmethod
-    def convert_node_type_to_biolink_format(node_type):
-        biolink_node_type = re.sub("[()/]", "", node_type)  # remove parentheses and forward slash
-        biolink_node_type = "".join([node_type_segment[0].upper() + node_type_segment[1:].lower()
-                             for node_type_segment in biolink_node_type.split()])  # force Pascal case
-        return f'{biolink_node_type}'
+    def convert_node_type_to_biolink_format(self, node_type):
+        try:
+            biolink_node_type = re.sub("[()/]", "", node_type)  # remove parentheses and forward slash
+            biolink_node_type = "".join([node_type_segment[0].upper() + node_type_segment[1:].lower()
+                                 for node_type_segment in biolink_node_type.split()])  # force Pascal case
+            return f'{biolink_node_type}'
+        except TypeError as e:
+            self.logger.error(f'Bad node type provided by llm: {node_type}')
+            return ""
 
     def parse_llm_output(self, llm_output):
 
@@ -309,7 +313,7 @@ class LitCoinSapBERTLoader(LitCoinLoader):
 
 class LitCoinEntityExtractorLoader(LitCoinLoader):
     source_id: str = 'LitCoinEntityExtractor'
-    parsing_version: str = '1.1'
+    parsing_version: str = '1.2'
 
     def parse_data(self) -> dict:
         litcoin_file_path: str = os.path.join(self.data_path, self.data_file)
@@ -317,28 +321,33 @@ class LitCoinEntityExtractorLoader(LitCoinLoader):
         with open(litcoin_file_path) as litcoin_file:
             litcoin_json = json.load(litcoin_file)
             for litcoin_object in litcoin_json:
+                abstract_id = litcoin_object['abstract_id']
                 llm_output = litcoin_object['output']
                 for litcoin_edge in self.parse_llm_output(llm_output):
+
                     subject_name = litcoin_edge[LLM_SUBJECT_NAME]
                     subject_type = litcoin_edge[LLM_SUBJECT_TYPE]
                     subject_mapped_type = NODE_TYPE_MAPPINGS.get(self.convert_node_type_to_biolink_format(subject_type),
                                                                  None)
                     all_entities[f'{subject_name}{subject_type}'] = {'name': subject_name,
                                                                      'llm_type': subject_type,
-                                                                     'name_res_type': subject_mapped_type}
+                                                                     'name_res_type': subject_mapped_type,
+                                                                     'abstract_id': abstract_id}
                     object_name = litcoin_edge[LLM_OBJECT_NAME]
                     object_type = litcoin_edge[LLM_OBJECT_TYPE]
                     object_mapped_type = NODE_TYPE_MAPPINGS.get(self.convert_node_type_to_biolink_format(object_type),
                                                                 None)
                     all_entities[f'{object_name}{object_type}'] = {'name': object_name,
                                                                    'llm_type': object_type,
-                                                                   'name_res_type': object_mapped_type}
+                                                                   'name_res_type': object_mapped_type,
+                                                                   'abstract_id': abstract_id}
 
         with open(os.path.join(self.data_path, "..",
                                f"parsed_{self.parsing_version}",
-                               "name_res_inputs.json"), "w") as name_res_inputs:
-            entities_output = {'all_entities': [entity for entity in all_entities.values()]}
-            name_res_inputs.write(json.dumps(entities_output, indent=4))
+                               "name_res_inputs.csv"), "w") as name_res_inputs:
+            name_res_inputs.write("query,llm_type,biolink_type,abstract_id\n")
+            for entity in all_entities.values():
+                name_res_inputs.write(f'"{entity["name"]}","{entity["llm_type"]}",{entity["name_res_type"]},{entity["abstract_id"]}\n')
         self.logger.info(f'{len(all_entities.values())} unique entities extracted')
         return {}
 
