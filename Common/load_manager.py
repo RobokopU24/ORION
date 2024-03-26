@@ -183,7 +183,7 @@ class SourceDataManager:
                 f"{failed_error.error_message}")
             if retries < 2:
                 self.logger.error(f"Retrying fetching for {source_id}.. (retry {retries + 1})")
-                self.fetch_source(source_id, retries=retries+1)
+                self.fetch_source(source_id=source_id, source_version=source_version, retries=retries+1)
             else:
                 source_metadata.set_fetch_error(failed_error.error_message)
                 source_metadata.set_fetch_status(SourceMetadata.FAILED)
