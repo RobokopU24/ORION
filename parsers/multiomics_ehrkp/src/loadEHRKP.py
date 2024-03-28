@@ -1,6 +1,7 @@
 import os
 import enum
 import json
+import
 
 from Common.extractor import Extractor
 from Common.loader_interface import SourceDataLoader
@@ -60,7 +61,16 @@ class EHRKPLoader(SourceDataLoader):
 
     def get_latest_source_version(self) -> str:
         # if possible go to the source and retrieve a string that is the latest version of the source data
-        latest_version = 'v1.0'
+        # version = we infer the date from the filename of the edges TSVs deployed 
+        edges_file = self.ehr_edges_file
+        
+        try:
+            date_digits = re.findall(r'\d+', edges_file)
+            date_digits = ''.join(date_digits)
+            latest_version = "TSV Date: " + date_digits[:4] + '/' + date_digits[4:6] + '/' + date_digits[6:8]
+        except:
+            latest_version = "1.0"
+
         return latest_version
 
     def get_data(self) -> bool:
