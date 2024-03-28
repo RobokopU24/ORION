@@ -5,7 +5,7 @@ import requests
 
 from Common.loader_interface import SourceDataLoader, SourceDataBrokenError, SourceDataFailedError
 from Common.kgxmodel import kgxnode, kgxedge
-from Common.node_types import GENE, DISEASE_OR_PHENOTYPIC_FEATURE, PUBLICATIONS
+from Common.biolink_constants import GENE, DISEASE_OR_PHENOTYPIC_FEATURE, PUBLICATIONS
 from Common.utils import GetData, snakify
 from Common.db_connectors import MySQLConnector
 from Common.predicates import DGIDB_PREDICATE_MAPPING

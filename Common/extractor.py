@@ -1,7 +1,7 @@
 import csv
 from Common.kgxmodel import kgxnode, kgxedge
 from Common.kgx_file_writer import KGXFileWriter
-from Common.node_types import PRIMARY_KNOWLEDGE_SOURCE, AGGREGATOR_KNOWLEDGE_SOURCES
+from Common.biolink_constants import PRIMARY_KNOWLEDGE_SOURCE, AGGREGATOR_KNOWLEDGE_SOURCES
 
 
 class Extractor:

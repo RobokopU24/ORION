@@ -6,7 +6,7 @@ from urllib import request
 from Common.normalization import NodeNormalizer
 from Common.utils import LoggingUtil
 from Common.loader_interface import SourceDataLoader, SourceDataBrokenError, SourceDataFailedError
-from Common.node_types import SEQUENCE_VARIANT, GENE
+from Common.biolink_constants import SEQUENCE_VARIANT, GENE
 from Common.prefixes import HGVS, UBERON
 from Common.hgvs_utils import convert_variant_to_hgvs
 

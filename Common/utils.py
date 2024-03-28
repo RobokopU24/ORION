@@ -3,7 +3,6 @@ import logging
 import tarfile
 import gzip
 import requests
-import pandas as pd
 import orjson
 from dateutil import parser as dp
 from itertools import islice
@@ -16,7 +15,6 @@ from csv import reader, DictReader
 from ftplib import FTP
 from datetime import datetime
 from logging.handlers import RotatingFileHandler
-from pathlib import Path
 
 
 class LoggingUtil(object):

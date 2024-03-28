@@ -42,6 +42,10 @@ spec:
             {{- end }}
             - mountPath: /data
               name: ds-neo4j-scratch-volume
+              subPath: neo4j_data
+            - mountPath: /logs
+              name: ds-neo4j-scratch-volume
+              subPath: neo4j_logs
           env:
             - name: ORION_STORAGE
               value: /ORION_storage
@@ -112,6 +116,10 @@ spec:
               {{- end }}
             - mountPath: /data
               name: ds-neo4j-scratch-volume
+              subPath: neo4j_data
+            - mountPath: /logs
+              name: ds-neo4j-scratch-volume
+              subPath: neo4j_logs
           env:
             - name: ORION_STORAGE
               value: /ORION_storage

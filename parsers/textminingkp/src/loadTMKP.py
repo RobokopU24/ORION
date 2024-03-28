@@ -3,7 +3,7 @@ import json
 import argparse
 import enum
 
-from Common.node_types import PUBLICATIONS
+from Common.biolink_constants import PUBLICATIONS
 from Common.utils import GetData
 from Common.kgxmodel import kgxedge
 from Common.loader_interface import SourceDataLoader

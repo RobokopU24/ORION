@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from Common.node_types import NAMED_THING
+from Common.biolink_constants import NAMED_THING
 from Common.normalization import NORMALIZATION_CODE_VERSION
 
 class kgxnode:

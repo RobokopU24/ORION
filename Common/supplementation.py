@@ -7,7 +7,8 @@ from io import BytesIO
 from urllib.request import urlopen
 from zipfile import ZipFile
 from collections import defaultdict
-from Common.node_types import SEQUENCE_VARIANT, GENE, FALLBACK_EDGE_PREDICATE
+from Common.biolink_constants import SEQUENCE_VARIANT, GENE
+from Common.normalization import FALLBACK_EDGE_PREDICATE
 from Common.utils import LoggingUtil
 from Common.kgx_file_writer import KGXFileWriter
 from Common.kgx_file_normalizer import KGXFileNormalizer

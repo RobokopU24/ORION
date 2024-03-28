@@ -1,5 +1,5 @@
 from Common.merging import GraphMerger, MemoryGraphMerger, DiskGraphMerger
-from Common.node_types import *
+from Common.biolink_constants import *
 import os
 import json
 

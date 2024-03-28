@@ -19,8 +19,11 @@ HMDB = 'HMDB'
 HUMAN_GOA = 'HumanGOA'
 INTACT = 'IntAct'
 KINACE = 'KinAce'
+MOLEPRO = 'MolePro'
 MONARCH_KG = 'MonarchKG'
 MONDO_PROPS = 'MONDOProps'
+MULTIOMICS_EHRKP = "MultiomicsEHRKP"
+MULTIOMICS_CLINICALTRIALS = "MultiomicsClinicalTrials"
 ONTOLOGICAL_HIERARCHY = 'OntologicalHierarchy'
 PANTHER = 'PANTHER'
 PHAROS = 'PHAROS'
@@ -62,8 +65,11 @@ SOURCE_DATA_LOADER_CLASS_IMPORTS = {
     HUMAN_STRING: ("parsers.STRING.src.loadSTRINGDB", "HumanSTRINGDBLoader"),
     INTACT: ("parsers.IntAct.src.loadIA", "IALoader"),
     KINACE: ("parsers.KinAce.src.loadKinAce", "KinAceLoader"),
+    MOLEPRO: ("parsers.molepro.src.loadMolePro", "MoleProLoader"),
     MONARCH_KG: ("parsers.monarchkg.src.loadMonarchKG", "MonarchKGLoader"),
     MONDO_PROPS: ("parsers.MONDOProperties.src.loadMP", "MPLoader"),
+    MULTIOMICS_CLINICALTRIALS: ("parsers.multiomics_clinicaltrials.src.loadClinicalTrials", "ClinicalTrialsLoader"),
+    MULTIOMICS_EHRKP: ("parsers.multiomics_ehrkp.src.loadEHRKP", "EHRKPLoader"),
     ONTOLOGICAL_HIERARCHY: ("parsers.UberGraph.src.loadUG", "OHLoader"),
     PANTHER: ("parsers.panther.src.loadPanther", "PLoader"),
     PHAROS: ("parsers.PHAROS.src.loadPHAROS", "PHAROSLoader"),

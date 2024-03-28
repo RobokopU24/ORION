@@ -3,7 +3,7 @@ import jsonlines
 from itertools import chain
 from Common.utils import LoggingUtil, quick_jsonl_file_iterator, quick_json_dumps, quick_json_loads
 from Common.kgxmodel import GraphSpec, SubGraphSource, DataSource
-from Common.node_types import SUBJECT_ID, OBJECT_ID
+from Common.biolink_constants import SUBJECT_ID, OBJECT_ID
 from Common.merging import GraphMerger, DiskGraphMerger, MemoryGraphMerger
 from Common.load_manager import RESOURCE_HOGS
 

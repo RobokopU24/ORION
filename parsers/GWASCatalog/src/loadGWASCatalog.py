@@ -9,7 +9,7 @@ from collections import defaultdict
 from Common.utils import LoggingUtil, GetData
 from Common.loader_interface import SourceDataLoader, SourceDataBrokenError, SourceDataFailedError
 from Common.kgxmodel import kgxnode, kgxedge
-from Common.node_types import SEQUENCE_VARIANT, DISEASE_OR_PHENOTYPIC_FEATURE, PUBLICATIONS
+from Common.biolink_constants import SEQUENCE_VARIANT, DISEASE_OR_PHENOTYPIC_FEATURE, PUBLICATIONS
 from Common.prefixes import DBSNP, EFO, ORPHANET, HP, NCIT, MONDO, GO
 
 

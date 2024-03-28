@@ -3,7 +3,7 @@ import os
 import neo4j
 import subprocess
 import Common.kgx_file_converter as kgx_file_converter
-from Common.node_types import NAMED_THING
+from Common.biolink_constants import NAMED_THING
 from Common.utils import LoggingUtil
 
 
@@ -210,13 +210,16 @@ def create_neo4j_dump(graph_directory: str,
                       edges_filename: str = 'edges.jsonl',
                       graph_id: str = 'graph',
                       graph_version: str = '',
+                      output_directory: str = None,
                       logger=None):
+    if not output_directory:
+        output_directory = graph_directory
     graph_nodes_file_path = os.path.join(graph_directory, nodes_filename)
     graph_edges_file_path = os.path.join(graph_directory, edges_filename)
     nodes_csv_filename = 'nodes.temp_csv'
     edges_csv_filename = 'edges.temp_csv'
-    csv_nodes_file_path = os.path.join(graph_directory, nodes_csv_filename)
-    csv_edges_file_path = os.path.join(graph_directory, edges_csv_filename)
+    csv_nodes_file_path = os.path.join(output_directory, nodes_csv_filename)
+    csv_edges_file_path = os.path.join(output_directory, edges_csv_filename)
     if os.path.exists(csv_nodes_file_path) and os.path.exists(csv_edges_file_path):
         if logger:
             logger.info(f'CSV files were already created for {graph_id}({graph_version})')
@@ -229,8 +232,8 @@ def create_neo4j_dump(graph_directory: str,
                                                       edges_output_file=csv_edges_file_path)
         if logger:
             logger.info(f'CSV files created for {graph_id}({graph_version})...')
-
-    graph_dump_file_path = os.path.join(graph_directory, f'graph_{graph_version}.db.dump')
+    graph_dump_name = f'graph_{graph_version}.db.dump' if graph_version else 'graph.db.dump'
+    graph_dump_file_path = os.path.join(output_directory, graph_dump_name)
     if os.path.exists(graph_dump_file_path):
         if logger:
             logger.info(f'Neo4j dump already exists for {graph_id}({graph_version})')
@@ -238,7 +241,7 @@ def create_neo4j_dump(graph_directory: str,
 
     neo4j_access = Neo4jTools()
     try:
-        import_exit_code = neo4j_access.import_csv_files(graph_directory=graph_directory,
+        import_exit_code = neo4j_access.import_csv_files(graph_directory=output_directory,
                                                          csv_nodes_filename=nodes_csv_filename,
                                                          csv_edges_filename=edges_csv_filename)
         if import_exit_code != 0:

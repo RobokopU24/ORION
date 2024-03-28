@@ -4,10 +4,16 @@ import requests
 import time
 
 from robokop_genetics.genetics_normalization import GeneticsNormalizer
-from Common.node_types import *
+from Common.biolink_constants import *
 from Common.utils import LoggingUtil
 
 NORMALIZATION_CODE_VERSION = '1.1'
+
+# node property name for node types that did not normalize
+CUSTOM_NODE_TYPES = 'custom_node_types'
+
+# predicate to use when normalization fails
+FALLBACK_EDGE_PREDICATE = 'biolink:related_to'
 
 
 class NodeNormalizer:
@@ -192,7 +198,7 @@ class NodeNormalizer:
             if not self.strict_normalization:
 
                 if NODE_TYPES not in current_node:
-                    current_node[NODE_TYPES] = [ROOT_ENTITY]
+                    current_node[NODE_TYPES] = [NAMED_THING]
 
                 # remove all the bad types and make them a property instead
                 invalid_node_types = [node_type for node_type in current_node[NODE_TYPES] if
@@ -203,9 +209,9 @@ class NodeNormalizer:
                 # keep all the valid types
                 current_node[NODE_TYPES] = [node_type for node_type in current_node[NODE_TYPES] if
                                             node_type in self.biolink_compliant_node_types]
-                # add the ROOT ENTITY type if it's not there
-                if ROOT_ENTITY not in current_node[NODE_TYPES]:
-                    current_node[NODE_TYPES].append(ROOT_ENTITY)
+                # add the NAMED_THING type if it's not there
+                if NAMED_THING not in current_node[NODE_TYPES]:
+                    current_node[NODE_TYPES].append(NAMED_THING)
 
                 # enforce that the list is really a set
                 current_node[NODE_TYPES] = list(set(current_node[NODE_TYPES]))
@@ -514,7 +520,7 @@ class EdgeNormalizer:
 
     def get_valid_node_types(self):
         # call the descendants endpoint with the root node type
-        edge_norm_descendants_url = f'{self.edge_norm_endpoint}bl/{ROOT_ENTITY}/descendants?version={self.edge_norm_version}'
+        edge_norm_descendants_url = f'{self.edge_norm_endpoint}bl/{NAMED_THING}/descendants?version={self.edge_norm_version}'
         resp: requests.models.Response = requests.get(edge_norm_descendants_url)
 
         # did we get a good status code

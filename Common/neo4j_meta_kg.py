@@ -3,7 +3,7 @@ import json
 import os
 from collections import defaultdict
 from Common.neo4j_tools import Neo4jTools
-from Common.node_types import ROOT_ENTITY
+from Common.biolink_constants import NAMED_THING
 from Common.biolink_utils import BiolinkUtils
 
 
@@ -27,8 +27,8 @@ class Neo4jMetaKGGenerator:
         self.logger.info(f"Completed schema query ({after_time - before_time} seconds). Preparing initial schema.")
 
         schema = defaultdict(lambda: defaultdict(set))
-        #  avoids adding nodes with only a ROOT_ENTITY label (currently NamedThing)
-        filter_named_thing = lambda x: set(filter(lambda y: y != ROOT_ENTITY, x))
+        #  avoids adding nodes with only a NAMED_THING label (currently NamedThing)
+        filter_named_thing = lambda x: set(filter(lambda y: y != NAMED_THING, x))
         for schema_result in schema_query_results:
             source_labels, predicate, target_labels = \
                 self.bl_utils.find_biolink_leaves(filter_named_thing(schema_result['source_labels'])), \

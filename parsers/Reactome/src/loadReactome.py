@@ -9,7 +9,7 @@ from bs4 import BeautifulSoup
 from Common.loader_interface import SourceDataLoader
 from Common.kgxmodel import kgxnode, kgxedge
 from Common.neo4j_tools import Neo4jTools
-from Common.node_types import MACROMOLECULAR_COMPLEX, NAMED_THING
+from Common.biolink_constants import MACROMOLECULAR_COMPLEX, NAMED_THING
 from Common.prefixes import REACTOME, NCBITAXON, GTOPDB, UNIPROTKB, CHEBI, KEGG_COMPOUND, KEGG_GLYCAN, PUBCHEM_COMPOUND, NCBIGENE, CLINVAR
 from Common.utils import GetData
 
