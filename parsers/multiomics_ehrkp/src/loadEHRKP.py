@@ -56,7 +56,7 @@ class EHRKPLoader(SourceDataLoader):
         super().__init__(test_mode=test_mode, source_data_dir=source_data_dir)
 
         self.ehr_kp_url = 'https://storage.googleapis.com/multiomics_provider_kp_data/clinical_risk/'
-        self.ehr_edges_file = 'ehr_risk_edges_data_2022_06_01'
+        self.ehr_edges_file = 'ehr_risk_edges_data_2022_06_01.csv'
         self.data_files = [self.ehr_edges_file]
 
     def get_latest_source_version(self) -> str:
