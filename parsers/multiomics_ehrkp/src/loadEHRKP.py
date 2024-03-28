@@ -56,14 +56,13 @@ class EHRKPLoader(SourceDataLoader):
         super().__init__(test_mode=test_mode, source_data_dir=source_data_dir)
 
         self.ehr_kp_url = 'https://storage.googleapis.com/multiomics_provider_kp_data/clinical_risk/'
-        self.ehr_edges_file = 'MD_readable_EHR_risk_KP_edges_20230814.csv'
+        self.ehr_edges_file = 'ehr_risk_edges_data_2022_06_01'
         self.data_files = [self.ehr_edges_file]
 
     def get_latest_source_version(self) -> str:
         # if possible go to the source and retrieve a string that is the latest version of the source data
         # version = we infer the date from the filename of the edges TSVs deployed 
         edges_file = self.ehr_edges_file
-        
         try:
             date_digits = re.findall(r'\d+', edges_file)
             date_digits = ''.join(date_digits)
