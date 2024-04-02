@@ -83,7 +83,7 @@ class EHRKPLoader(SourceDataLoader):
             date_digits = re.findall(r'\d+', edges_file)
             date_digits = ''.join(date_digits)
             latest_version = "TSV_Date_" + date_digits[:4] + '_' + date_digits[4:6] + '_' + date_digits[6:8]
-        except:
+        except IndexError:
             latest_version = "1.0"
 
         return latest_version
