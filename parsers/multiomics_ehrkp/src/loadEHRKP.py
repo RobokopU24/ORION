@@ -1,13 +1,29 @@
 import os
 import enum
 import json
-import
+import re
 
 from Common.extractor import Extractor
 from Common.loader_interface import SourceDataLoader
 from Common.biolink_constants import PRIMARY_KNOWLEDGE_SOURCE, SUPPORTING_DATA_SOURCE, KNOWLEDGE_LEVEL, AGENT_TYPE
 from Common.utils import GetData
 
+
+class OLD_EHRKP_EDGES_DATACOLS(enum.IntEnum):
+    SUBJECT_ID = 0
+    PREDICATE = 1
+    OBJECT_ID = 2
+    RELATION = 3
+    PROVIDED_BY = 4
+    PROVIDED_DATE = 5
+    CATEGORY = 6
+    CLASSIFIER = 7
+    AUCROC = 8
+    PVAL = 9
+    FEATURE_IMPORTANCE = 10
+    FEATURE_COEFFICIENT = 11
+    PATIENT_COUNT_WITH_CONDITION = 12
+    PATIENT_COUNT_WITHOUT_CONDITION = 13
 
 class EHRKP_EDGES_DATACOLS(enum.IntEnum):
     SUBJECT_ID = 0
@@ -66,7 +82,7 @@ class EHRKPLoader(SourceDataLoader):
         try:
             date_digits = re.findall(r'\d+', edges_file)
             date_digits = ''.join(date_digits)
-            latest_version = "TSV Date: " + date_digits[:4] + '/' + date_digits[4:6] + '/' + date_digits[6:8]
+            latest_version = "TSV_Date_" + date_digits[:4] + '_' + date_digits[4:6] + '_' + date_digits[6:8]
         except:
             latest_version = "1.0"
 
@@ -90,17 +106,17 @@ class EHRKPLoader(SourceDataLoader):
         with open(ehr_edges_file_path, 'rt') as fp:
             
             extractor.csv_extract(fp,
-                      lambda line: line[EHRKP_EDGES_DATACOLS.SUBJECT_ID.value],  # subject id
-                      lambda line: line[EHRKP_EDGES_DATACOLS.OBJECT_ID.value],  # object id
-                      # here we use the relation column instead of predicate because the RO:xxxx curie
-                      # is preferred as a way to map to the best biolink predicate in normalization
-                      lambda line: line[EHRKP_EDGES_DATACOLS.PREDICATE.value],  # predicate extractor
-                      lambda line: {'name': line[EHRKP_EDGES_DATACOLS.SUBJECT_NAME.value]},  # subject properties
-                      lambda line: {'name': line[EHRKP_EDGES_DATACOLS.OBJECT_NAME.value]},  # object properties
-                      lambda line: self.get_edge_properties(data_row=line),  # edge properties
-                      comment_character='#',
-                      delim=',',
-                      has_header_row=True)
+                                  lambda line: line[OLD_EHRKP_EDGES_DATACOLS.SUBJECT_ID.value],  # subject id
+                                  lambda line: line[OLD_EHRKP_EDGES_DATACOLS.OBJECT_ID.value],  # object id
+                                  # here we use the relation column instead of predicate because the RO:xxxx curie
+                                  # is preferred as a way to map to the best biolink predicate in normalization
+                                  lambda line: line[OLD_EHRKP_EDGES_DATACOLS.PREDICATE.value],  # predicate extractor
+                                  lambda line: {}, # {'name': line[EHRKP_EDGES_DATACOLS.SUBJECT_NAME.value]}, # subject properties
+                                  lambda line: {}, # {'name': line[EHRKP_EDGES_DATACOLS.OBJECT_NAME.value]},  # object properties
+                                  lambda line: self.get_edge_properties(data_row=line),  # edge properties
+                                  comment_character='#',
+                                  delim=',',
+                                  has_header_row=True)
             return extractor.load_metadata
 
     def get_edge_properties(self, data_row):
@@ -108,7 +124,19 @@ class EHRKPLoader(SourceDataLoader):
         edge_properties[SUPPORTING_DATA_SOURCE] = self.supporting_data_source
         edge_properties[KNOWLEDGE_LEVEL] = self.knowledge_level
         edge_properties[AGENT_TYPE] = self.agent_type
-        
+        edge_properties["num_patients_with_condition"] = 10**(float(data_row[OLD_EHRKP_EDGES_DATACOLS.PATIENT_COUNT_WITH_CONDITION.value]))
+        edge_properties["num_patients_without_condition"] = 10**(float(data_row[OLD_EHRKP_EDGES_DATACOLS.PATIENT_COUNT_WITHOUT_CONDITION.value]))
+
+        edge_properties["biolink:supporting_study_method_type"] = "STATO:0000149"
+        edge_properties["biolink:update_date"] = "2022-05-18"
+        edge_properties["biolink:p_value"] = float(data_row[OLD_EHRKP_EDGES_DATACOLS.PVAL.value])
+        edge_properties["STATO:0000209"] = float(data_row[OLD_EHRKP_EDGES_DATACOLS.AUCROC.value])
+        edge_properties["biolink:log_odds_ratio"] = float(data_row[OLD_EHRKP_EDGES_DATACOLS.FEATURE_COEFFICIENT.value])
+        edge_properties["biolink:supporting_study_date_range"] = "2022-2023"
+        edge_properties["biolink:supporting_study_cohort"] = "age < 18 excluded"
+        # edge_properties["biolink:log_odds_ratio_95_ci"] = [float(data_row[OLD_EHRKP_EDGES_DATACOLS.LOWER_95_CI.value]), float(data_row[OLD_EHRKP_EDGES_DATACOLS.UPPER_95_CI.value])]
+
+        """
         edge_properties["biolink:has_supporting_study_result"] = json.dumps(
             {"value": "We train many multivariable, binary logistic regression models on EHR data for each specific condition/disease/outcome. Features include labs, medications, and phenotypes. Directed edges point from risk factors to specific outcomes (diseases, phenotype, or medication exposure).",
              "attributes": [
@@ -136,13 +164,5 @@ class EHRKPLoader(SourceDataLoader):
                 {"attribute_type_id": "biolink:log_odds_ratio_95_ci",
                  "value": [float(data_row[EHRKP_EDGES_DATACOLS.LOWER_95_CI.value]), float(data_row[EHRKP_EDGES_DATACOLS.UPPER_95_CI.value])]}
         ]})
+        """
         return edge_properties
-                                                                                   
-                                                                                    
-                                                                                    
-                                                                                    
-                                                                                    
-
-        
-        
-    
