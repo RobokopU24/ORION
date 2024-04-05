@@ -48,10 +48,27 @@ OBJECT_ID = 'object'
 PREDICATE = 'predicate'
 PRIMARY_KNOWLEDGE_SOURCE = 'primary_knowledge_source'
 AGGREGATOR_KNOWLEDGE_SOURCES = 'aggregator_knowledge_source'
-AGENT_TYPE = 'agent_type'
-KNOWLEDGE_LEVEL = 'knowledge_level'
 P_VALUE = 'p_value'
 ADJUSTED_P_VALUE = 'adjusted_p_value'
+AGENT_TYPE = 'agent_type'
+KNOWLEDGE_LEVEL = 'knowledge_level'
+
+# enums for knowledge level
+KNOWLEDGE_ASSERTION = 'knowledge_assertion'
+LOGICAL_ENTAILMENT = 'logical_entailment'
+PREDICATION = 'prediction'
+STATISTICAL_ASSOCIATION = 'statistical_association'
+OBSERVATION = 'observation'
+NOT_PROVIDED = 'not_provided'
+
+# enums for agent type
+MANUAL_AGENT = 'manual_agent'
+AUTOMATED_AGENT = 'automated_agent'
+DATA_PIPELINE = 'data_analysis_pipeline'
+COMPUTATIONAL_MODEL = 'computational_model'
+TEXT_MINING_AGENT = 'text_mining_agent'
+IMAGE_PROCESSING_AGENT = 'image_processing_agent'
+MANUAL_VALIDATION_OF_AUTOMATED_AGENT = 'manual_validation_of_automated_agent'
 
 # properties that could be on edges or nodes (I think?)
 DESCRIPTION = 'description'

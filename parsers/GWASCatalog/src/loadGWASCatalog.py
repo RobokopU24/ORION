@@ -1,15 +1,14 @@
 import argparse
-import logging
 import os
 import re
 import enum
 
 from sys import float_info
 from collections import defaultdict
-from Common.utils import LoggingUtil, GetData
-from Common.loader_interface import SourceDataLoader, SourceDataBrokenError, SourceDataFailedError
+from Common.utils import GetData
+from Common.loader_interface import SourceDataLoader
 from Common.kgxmodel import kgxnode, kgxedge
-from Common.biolink_constants import SEQUENCE_VARIANT, DISEASE_OR_PHENOTYPIC_FEATURE, PUBLICATIONS
+from Common.biolink_constants import *
 from Common.prefixes import DBSNP, EFO, ORPHANET, HP, NCIT, MONDO, GO
 
 
@@ -150,7 +149,9 @@ class GWASCatalogLoader(SourceDataLoader):
 
                     # get pubmed id
                     pubmed_id = row[DATACOLS.PUBMEDID.value]
-                    edge_props = {PUBLICATIONS: [f'PMID:{pubmed_id}']}
+                    edge_props = {PUBLICATIONS: [f'PMID:{pubmed_id}'],
+                                  KNOWLEDGE_LEVEL: KNOWLEDGE_ASSERTION,
+                                  AGENT_TYPE: MANUAL_AGENT}
 
                     # get p-value
                     p_value_string = row[DATACOLS.P_VALUE.value]
