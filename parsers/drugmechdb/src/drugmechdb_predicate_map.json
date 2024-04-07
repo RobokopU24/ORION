@@ -1,0 +1,156 @@
+{
+        "biolink:affects_risk_for": {
+            "inverted": false,
+            "predicate": "biolink:predisposes_to_condition",
+            "properties": {}
+        },
+        "biolink:ameliorates": {
+            "inverted": false,
+            "predicate": "biolink:ameliorates_condition",
+            "properties": {}
+        },
+        "biolink:contraindicated_for": {
+            "inverted": false,
+            "predicate": "biolink:contraindicated_in",
+            "properties": {}
+        },
+        "biolink:decreases_abundance_of": {
+            "inverted": false,
+            "predicate": "biolink:affects",
+            "properties": {
+                "qualifier_predicate":"biolink:causes",
+                "object_direction_qualifier":"decreased",
+                "object_aspect_qualifier":"abundance"
+            }
+            
+        },
+        "biolink:decreases_activity_of": {
+            "inverted": false,
+            "predicate": "biolink:affects",
+            "properties": {
+                "qualifier_predicate":"biolink:causes",
+                "object_direction_qualifier":"decreased",
+                "object_aspect_qualifier":"activity"
+            }
+        },
+        "biolink:decreases_expression_of": {
+            "inverted": false,
+            "predicate": "biolink:affects",
+            "properties": {
+                "qualifier_predicate":"biolink:causes",
+                "object_direction_qualifier":"decreased",
+                "object_aspect_qualifier":"expression"
+            }
+        },
+        "biolink:decreases_synthesis_of": {
+            "inverted": false,
+            "predicate": "biolink:affects",
+            "properties": {
+                "qualifier_predicate":"biolink:causes",
+                "object_direction_qualifier":"decreased",
+                "object_aspect_qualifier":"synthesis"
+            }
+        },
+        "biolink:decreases_uptake_of": {
+            "inverted": false,
+            "predicate": "biolink:affects",
+            "properties": {
+                "qualifier_predicate":"biolink:causes",
+                "object_direction_qualifier":"decreased",
+                "object_aspect_qualifier":"uptake"
+            }
+        },
+        "biolink:directly_interacts_with": {
+            "inverted": false,
+            "predicate": "biolink:directly_physically_interacts_with",
+            "properties": {}
+        },
+        "biolink:exacerbates": {
+            "inverted": false,
+            "predicate": "biolink:related_to",
+            "properties": {}
+        },
+        "biolink:increases_abundance_of": {
+            "inverted": false,
+            "predicate": "biolink:affects",
+            "properties": {
+                "qualifier_predicate":"biolink:causes",
+                "object_direction_qualifier":"increased",
+                "object_aspect_qualifier":"abundance"
+            }
+        },
+        "biolink:increases_activity_of": {
+            "inverted": false,
+            "predicate": "biolink:affects",
+            "properties": {
+                "qualifier_predicate":"biolink:causes",
+                "object_direction_qualifier":"increased",
+                "object_aspect_qualifier":"activity"
+            }
+        },
+        "biolink:increases_degradation_of": {
+            "inverted": false,
+            "predicate": "biolink:affects",
+            "properties": {
+                "qualifier_predicate":"biolink:causes",
+                "object_direction_qualifier":"increased",
+                "object_aspect_qualifier":"degradation"
+            }
+        },
+        "biolink:increases_expression_of": {
+            "inverted": false,
+            "predicate": "biolink:affects",
+            "properties": {
+                "qualifier_predicate":"biolink:causes",
+                "object_direction_qualifier":"increased",
+                "object_aspect_qualifier":"expression"
+            }
+        },
+        "biolink:increases_stability_of": {
+            "inverted": false,
+            "predicate": "biolink:affects",
+            "properties": {
+                "qualifier_predicate":"biolink:causes",
+                "object_direction_qualifier":"increased",
+                "object_aspect_qualifier":"stability"
+            }
+        },
+        "biolink:increases_transport_of": {
+            "inverted": false,
+            "predicate": "biolink:affects",
+            "properties": {
+                "qualifier_predicate":"biolink:causes",
+                "object_direction_qualifier":"increased",
+                "object_aspect_qualifier":"transport"
+            }
+        },
+        "biolink:molecularly_interacts_with": {
+            "inverted": false,
+            "predicate": "biolink:directly_physically_interacts_with",
+            "properties": {}
+        },
+        "biolink:negatively_regulates": {
+            "inverted": false,
+            "predicate": "biolink:regulates",
+            "properties": {
+                "object_direction_qualifier":"upregulates"
+            }
+        },
+        "biolink:positively_regulates": {
+            "inverted": false,
+            "predicate": "biolink:regulates",
+            "properties": {
+                "object_direction_qualifier":"upregulates"
+            }
+        },
+        "biolink:predisposes": {
+            "inverted": false,
+            "predicate": "biolink:predisposes_to_condition",
+            "properties": {}
+        },
+        "biolink:prevents": {
+            "inverted": false,
+            "predicate": "biolink:preventative_for_condition",
+            "properties": {}
+        }
+}
