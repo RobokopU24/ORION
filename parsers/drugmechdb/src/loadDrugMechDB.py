@@ -2,6 +2,7 @@ import json
 import requests as rq
 import os
 import pandas as pd
+import ast
 
 from Common.utils import GetData
 from Common.loader_interface import SourceDataLoader
@@ -13,14 +14,9 @@ def load_json(json_data):
         data = json.load(file)
     file.close()
     return data
-    
-# # Example usage
-# json_file = 'indication_paths.json'
-# csv_file = 'indication_paths.csv'
-# data = load_json(json_file)
 
 ##############
-# Class: Load in direct Gene/Protein-[biolink:target_for]->Disease relationships from DrugMechDB
+# Class: Load in full Clinical Outcome Pathways and direct Gene/Protein-[biolink:target_for]->Disease relationships from DrugMechDB.
 # By: Jon-Michael Beasley
 # Date: 09/06/2023
 ##############
@@ -88,6 +84,17 @@ class DrugMechDBLoader(SourceDataLoader):
 
         :return: ret_val: load_metadata
         """
+        ### This dict stores the edges created for each entry, then it will be grouped and agggregated to merge drugmechdb path ids.
+        source_target_pair_dict = {
+            "dmdb_ids":[],
+            "source_ids":[],
+            "target_ids":[],
+            "predicates":[],
+            "qualifier_predicates":[],
+            "object_direction_qualifiers":[],
+            "object_aspect_qualifiers":[]
+        }
+        ### This dict stores the edges created for the new "biolink:target_for" edges, then it will be grouped and agggregated to merge drugmechdb path ids.
         triple_pair_dict = {
             "dmdb_ids":[],
             "drug_names":[],
@@ -119,21 +126,32 @@ class DrugMechDBLoader(SourceDataLoader):
             for i in range(len(links)):
                 triple = links[i]
 
+                source_target_pair_dict["dmdb_ids"].append(dmdb_id)
+
                 source = triple["source"]
                 fixed_source = self.fix_node(source,node_mapping)
+                source_target_pair_dict["source_ids"].append(fixed_source)
                 output_node = kgxnode(fixed_source)
                 self.output_file_writer.write_kgx_node(output_node)
 
                 target = triple["target"]
                 fixed_target = self.fix_node(target,node_mapping)
+                source_target_pair_dict["target_ids"].append(fixed_target)
                 output_node = kgxnode(fixed_target)
                 self.output_file_writer.write_kgx_node(output_node)
-
+                
                 predicate = "biolink:" + triple["key"].replace(" ","_")
-                edge_props = {"drugmechdb_path_id":dmdb_id}
                 if predicate in predicate_mapping.keys():
-                    edge_props.update(dict(predicate_mapping[predicate]["properties"]))
+                    source_target_pair_dict["qualifier_predicates"].append(predicate_mapping[predicate]["properties"]["qualifier_predicate"])
+                    source_target_pair_dict["object_direction_qualifiers"].append(predicate_mapping[predicate]["properties"]["object_direction_qualifier"])
+                    source_target_pair_dict["object_aspect_qualifiers"].append(predicate_mapping[predicate]["properties"]["object_aspect_qualifier"])
                     predicate = predicate_mapping[predicate]["predicate"]
+                else:
+                    source_target_pair_dict["qualifier_predicates"].append("")
+                    source_target_pair_dict["object_direction_qualifiers"].append("")
+                    source_target_pair_dict["object_aspect_qualifiers"].append("")
+
+                source_target_pair_dict["predicates"].append(predicate)
 
                 ### The next section finds the drug target for assigning "biolink:target_for" edges.
                 nodes = entry["nodes"]
@@ -152,12 +170,13 @@ class DrugMechDBLoader(SourceDataLoader):
                             triple_pair_dict["drug_target_uniprots"].append(drug_target_uniprot)
                             triple_pair_dict["disease_names"].append(disease_name)
                             triple_pair_dict["disease_meshs"].append(disease_mesh)
-                            
+                        
+                        ### If the next node after the drug is a metabolite of the drug, then go forward one link and check if the next node is the target.
                         elif node["id"] == target and node["label"] in ["Drug","ChemicalSubstance"]:
                             if entry["links"][i+1]["source"] == node["id"]:
                                 new_target = entry["links"][i+1]["target"]
                                 for node in nodes:
-                                    if (node["id"] == new_target) and (node["label"] == "Protein"):
+                                    if (node["id"] == new_target) and (node["label"] in ["Protein","GeneFamily"]):
                                         drug_target_name = node["name"]
                                         drug_target_uniprot = self.fix_node(node["id"],node_mapping)
                                         disease_mesh = self.fix_node(disease_mesh,node_mapping)
@@ -171,30 +190,44 @@ class DrugMechDBLoader(SourceDataLoader):
                                         triple_pair_dict["disease_meshs"].append(disease_mesh)
                         else:
                             continue
-                output_edge = kgxedge(
-                    subject_id=fixed_source,
-                    object_id=fixed_target,
-                    predicate=predicate,
-                    edgeprops=edge_props,
-                    primary_knowledge_source=self.provenance_id
-                )
-                self.output_file_writer.write_kgx_edge(output_edge)
 
-        ### Saves the "biolin:target_for" edges as a CSV file, which is useful as a benchmarking dataset.
+        df = pd.DataFrame(source_target_pair_dict)
+        df = df.groupby(["source_ids","target_ids","predicates","qualifier_predicates","object_direction_qualifiers","object_aspect_qualifiers"], as_index=False).agg(list).reset_index(drop=True)
+        df['dmdb_ids'] = df['dmdb_ids'].apply(lambda x: list(set(x))) ###Removes duplicates
+        for index, row in df.iterrows():
+            edge_props = {}
+            if row["qualifier_predicates"] != "":
+                edge_props.update({"qualifier_predicate":row["qualifier_predicates"]})
+            if row["object_direction_qualifiers"] != "":
+                edge_props.update({"object_direction_qualifier":row["object_direction_qualifiers"]})
+            if row["object_aspect_qualifiers"] != "":
+                edge_props.update({"object_aspect_qualifier":row["object_aspect_qualifiers"]})
+            edge_props.update({"drugmechdb_path_id": row["dmdb_ids"]})
+            output_edge = kgxedge(
+                        subject_id=row["source_ids"],
+                        object_id=row["target_ids"],
+                        predicate=row["predicates"],
+                        edgeprops=edge_props,
+                        primary_knowledge_source=self.provenance_id
+                    )
+            self.output_file_writer.write_kgx_edge(output_edge)
+        
+        ### Saves the "biolink:target_for" edges as a CSV file, which is useful as a benchmarking dataset.
         df = pd.DataFrame(triple_pair_dict)
-        print(len(df))
+        df= df.groupby(["drug_names","drug_meshs","drug_drugbanks","drug_target_names","drug_target_uniprots","disease_names","disease_meshs"], as_index=False).agg(list).reset_index(drop=True)
+        df['dmdb_ids'] = df['dmdb_ids'].apply(lambda x: list(set(x))) ###Removes duplicates
         csv_file_name = os.path.join(self.data_path,"indication_paths.csv")
         df.to_csv(csv_file_name)
         
         extractor = Extractor(file_writer=self.output_file_writer)
         with open(csv_file_name, 'rt') as fp:
             extractor.csv_extract(fp,
-                    lambda line: line[6],  # subject id
-                    lambda line: line[8],  # object id
+                    lambda line: line[5],  # subject id
+                    lambda line: line[7],  # object id
                     lambda line: "biolink:target_for",
                     lambda line: {}, #Node 1 props
                     lambda line: {}, #Node 2 props
-                    lambda line: {"drugmechdb_path_id":line[1]}, #Edge props
+                    lambda line: {"drugmechdb_path_id":ast.literal_eval(line[8])}, #Edge props
                     comment_character=None,
                     delim=",",
                     has_header_row=True
