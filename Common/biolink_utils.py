@@ -147,6 +147,21 @@ class BiolinkUtils:
         return False
 
 
+BIOLINK_MAPPING_CHANGES = {
+    'KEGG': 'http://identifiers.org/kegg/',
+    'NCBIGene': 'https://identifiers.org/ncbigene/'
+}
+
+@staticmethod
+def get_biolink_prefix_map():
+    response = requests.get(f'https://raw.githubusercontent.com/biolink/biolink-model/v{BIOLINK_MODEL_VERSION}/project/prefixmap/biolink_model_prefix_map.json')
+    if response.status_code != 200:
+        response.raise_for_status()
+    biolink_prefix_map = response.json()
+    biolink_prefix_map.update(BIOLINK_MAPPING_CHANGES)
+    return biolink_prefix_map
+
+
 INFORES_STATUS_INVALID = 'invalid'
 INFORES_STATUS_DEPRECATED = 'deprecated'
 INFORES_STATUS_VALID = 'valid'
