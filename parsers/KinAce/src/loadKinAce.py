@@ -101,7 +101,7 @@ class KinAceLoader(SourceDataLoader):
                                 lambda line: {}, #Node 1 props
                                 lambda line: {}, #Node 2 props
                                 lambda line: {
-                                                'qualifier_predicate':'biolink:causes',
+                                                'qualified_predicate':'biolink:causes',
                                                 'object_direction_qualifier':'increased',
                                                 'object_aspect_qualifier':'phosphorylation',
                                                 'agent_type':'automated_agent',
