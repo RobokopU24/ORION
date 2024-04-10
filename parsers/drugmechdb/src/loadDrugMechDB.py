@@ -90,7 +90,7 @@ class DrugMechDBLoader(SourceDataLoader):
             "source_ids":[],
             "target_ids":[],
             "predicates":[],
-            "qualifier_predicates":[],
+            "qualified_predicates":[],
             "object_direction_qualifiers":[],
             "object_aspect_qualifiers":[]
         }
@@ -142,12 +142,12 @@ class DrugMechDBLoader(SourceDataLoader):
                 
                 predicate = "biolink:" + triple["key"].replace(" ","_")
                 if predicate in predicate_mapping.keys():
-                    source_target_pair_dict["qualifier_predicates"].append(predicate_mapping[predicate]["properties"]["qualifier_predicate"])
+                    source_target_pair_dict["qualified_predicates"].append(predicate_mapping[predicate]["properties"]["qualified_predicate"])
                     source_target_pair_dict["object_direction_qualifiers"].append(predicate_mapping[predicate]["properties"]["object_direction_qualifier"])
                     source_target_pair_dict["object_aspect_qualifiers"].append(predicate_mapping[predicate]["properties"]["object_aspect_qualifier"])
                     predicate = predicate_mapping[predicate]["predicate"]
                 else:
-                    source_target_pair_dict["qualifier_predicates"].append("")
+                    source_target_pair_dict["qualified_predicates"].append("")
                     source_target_pair_dict["object_direction_qualifiers"].append("")
                     source_target_pair_dict["object_aspect_qualifiers"].append("")
 
@@ -192,12 +192,12 @@ class DrugMechDBLoader(SourceDataLoader):
                             continue
 
         df = pd.DataFrame(source_target_pair_dict)
-        df = df.groupby(["source_ids","target_ids","predicates","qualifier_predicates","object_direction_qualifiers","object_aspect_qualifiers"], as_index=False).agg(list).reset_index(drop=True)
+        df = df.groupby(["source_ids","target_ids","predicates","qualified_predicates","object_direction_qualifiers","object_aspect_qualifiers"], as_index=False).agg(list).reset_index(drop=True)
         df['dmdb_ids'] = df['dmdb_ids'].apply(lambda x: list(set(x))) ###Removes duplicates
         for index, row in df.iterrows():
             edge_props = {}
-            if row["qualifier_predicates"] != "":
-                edge_props.update({"qualifier_predicate":row["qualifier_predicates"]})
+            if row["qualified_predicates"] != "":
+                edge_props.update({"qualified_predicate":row["qualified_predicates"]})
             if row["object_direction_qualifiers"] != "":
                 edge_props.update({"object_direction_qualifier":row["object_direction_qualifiers"]})
             if row["object_aspect_qualifiers"] != "":
