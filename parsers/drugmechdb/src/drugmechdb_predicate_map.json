@@ -3,7 +3,7 @@
             "inverted": false,
             "predicate": "biolink:predisposes_to_condition",
             "properties": {
-                "qualifier_predicate": "",
+                "qualified_predicate": "",
                 "object_direction_qualifier":"",
                 "object_aspect_qualifier":""
             }
@@ -12,7 +12,7 @@
             "inverted": false,
             "predicate": "biolink:ameliorates_condition",
             "properties": {
-                "qualifier_predicate": "",
+                "qualified_predicate": "",
                 "object_direction_qualifier":"",
                 "object_aspect_qualifier":""
             }
@@ -21,7 +21,7 @@
             "inverted": false,
             "predicate": "biolink:contraindicated_in",
             "properties": {
-                "qualifier_predicate": "",
+                "qualified_predicate": "",
                 "object_direction_qualifier":"",
                 "object_aspect_qualifier":""
             }
@@ -30,7 +30,7 @@
             "inverted": false,
             "predicate": "biolink:affects",
             "properties": {
-                "qualifier_predicate":"biolink:causes",
+                "qualified_predicate":"biolink:causes",
                 "object_direction_qualifier":"decreased",
                 "object_aspect_qualifier":"abundance"
             }
@@ -40,7 +40,7 @@
             "inverted": false,
             "predicate": "biolink:affects",
             "properties": {
-                "qualifier_predicate":"biolink:causes",
+                "qualified_predicate":"biolink:causes",
                 "object_direction_qualifier":"decreased",
                 "object_aspect_qualifier":"activity"
             }
@@ -49,7 +49,7 @@
             "inverted": false,
             "predicate": "biolink:affects",
             "properties": {
-                "qualifier_predicate":"biolink:causes",
+                "qualified_predicate":"biolink:causes",
                 "object_direction_qualifier":"decreased",
                 "object_aspect_qualifier":"expression"
             }
@@ -58,7 +58,7 @@
             "inverted": false,
             "predicate": "biolink:affects",
             "properties": {
-                "qualifier_predicate":"biolink:causes",
+                "qualified_predicate":"biolink:causes",
                 "object_direction_qualifier":"decreased",
                 "object_aspect_qualifier":"synthesis"
             }
@@ -67,7 +67,7 @@
             "inverted": false,
             "predicate": "biolink:affects",
             "properties": {
-                "qualifier_predicate":"biolink:causes",
+                "qualified_predicate":"biolink:causes",
                 "object_direction_qualifier":"decreased",
                 "object_aspect_qualifier":"uptake"
             }
@@ -76,7 +76,7 @@
             "inverted": false,
             "predicate": "biolink:directly_physically_interacts_with",
             "properties": {
-                "qualifier_predicate": "",
+                "qualified_predicate": "",
                 "object_direction_qualifier":"",
                 "object_aspect_qualifier":""
             }
@@ -85,7 +85,7 @@
             "inverted": false,
             "predicate": "biolink:related_to",
             "properties": {
-                "qualifier_predicate": "",
+                "qualified_predicate": "",
                 "object_direction_qualifier":"",
                 "object_aspect_qualifier":""
             }
@@ -94,7 +94,7 @@
             "inverted": false,
             "predicate": "biolink:affects",
             "properties": {
-                "qualifier_predicate":"biolink:causes",
+                "qualified_predicate":"biolink:causes",
                 "object_direction_qualifier":"increased",
                 "object_aspect_qualifier":"abundance"
             }
@@ -103,7 +103,7 @@
             "inverted": false,
             "predicate": "biolink:affects",
             "properties": {
-                "qualifier_predicate":"biolink:causes",
+                "qualified_predicate":"biolink:causes",
                 "object_direction_qualifier":"increased",
                 "object_aspect_qualifier":"activity"
             }
@@ -112,7 +112,7 @@
             "inverted": false,
             "predicate": "biolink:affects",
             "properties": {
-                "qualifier_predicate":"biolink:causes",
+                "qualified_predicate":"biolink:causes",
                 "object_direction_qualifier":"increased",
                 "object_aspect_qualifier":"degradation"
             }
@@ -121,7 +121,7 @@
             "inverted": false,
             "predicate": "biolink:affects",
             "properties": {
-                "qualifier_predicate":"biolink:causes",
+                "qualified_predicate":"biolink:causes",
                 "object_direction_qualifier":"increased",
                 "object_aspect_qualifier":"expression"
             }
@@ -130,7 +130,7 @@
             "inverted": false,
             "predicate": "biolink:affects",
             "properties": {
-                "qualifier_predicate":"biolink:causes",
+                "qualified_predicate":"biolink:causes",
                 "object_direction_qualifier":"increased",
                 "object_aspect_qualifier":"stability"
             }
@@ -139,7 +139,7 @@
             "inverted": false,
             "predicate": "biolink:affects",
             "properties": {
-                "qualifier_predicate":"biolink:causes",
+                "qualified_predicate":"biolink:causes",
                 "object_direction_qualifier":"increased",
                 "object_aspect_qualifier":"transport"
             }
@@ -148,7 +148,7 @@
             "inverted": false,
             "predicate": "biolink:directly_physically_interacts_with",
             "properties": {
-                "qualifier_predicate": "",
+                "qualified_predicate": "",
                 "object_direction_qualifier":"",
                 "object_aspect_qualifier":""
             }
@@ -157,7 +157,7 @@
             "inverted": false,
             "predicate": "biolink:regulates",
             "properties": {
-                "qualifier_predicate": "",
+                "qualified_predicate": "",
                 "object_direction_qualifier":"upregulates",
                 "object_aspect_qualifier":""
             }
@@ -166,7 +166,7 @@
             "inverted": false,
             "predicate": "biolink:regulates",
             "properties": {
-                "qualifier_predicate": "",
+                "qualified_predicate": "",
                 "object_direction_qualifier":"upregulates",
                 "object_aspect_qualifier":""
             }
@@ -175,7 +175,7 @@
             "inverted": false,
             "predicate": "biolink:predisposes_to_condition",
             "properties": {
-                "qualifier_predicate": "",
+                "qualified_predicate": "",
                 "object_direction_qualifier":"",
                 "object_aspect_qualifier":""
             }
@@ -184,7 +184,7 @@
             "inverted": false,
             "predicate": "biolink:preventative_for_condition",
             "properties": {
-                "qualifier_predicate": "",
+                "qualified_predicate": "",
                 "object_direction_qualifier":"",
                 "object_aspect_qualifier":""
             }
