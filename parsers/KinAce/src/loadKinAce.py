@@ -97,10 +97,15 @@ class KinAceLoader(SourceDataLoader):
             extractor.csv_extract(fp,
                                 lambda line: f"UniProtKB:{line[1]}",  # subject id
                                 lambda line: f"UniProtKB:{line[2]}",  # object id
-                                lambda line: "biolink:phosphorylates",  # predicate
+                                lambda line: "biolink:affects",  # predicate
                                 lambda line: {}, #Node 1 props
                                 lambda line: {}, #Node 2 props
                                 lambda line: {
+                                                'qualifier_predicate':'biolink:causes',
+                                                'object_direction_qualifier':'increased',
+                                                'object_aspect_qualifier':'phosphorylation',
+                                                'agent_type':'automated_agent',
+                                                'knowledge_level':'knowledge_assertion',
                                                 'phosphorylation_sites':line[3],
                                                 'primary_sources':line[4],
                                                 'secondary_sources':line[5]
