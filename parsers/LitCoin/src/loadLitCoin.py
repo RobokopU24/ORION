@@ -73,7 +73,7 @@ class LitCoinLoader(SourceDataLoader):
 
     source_id: str = 'LitCoin'
     provenance_id: str = 'infores:robokop-kg'  # TODO - change this to a LitCoin infores when it exists
-    parsing_version: str = '1.7'
+    parsing_version: str = '1.8'
 
     def __init__(self, test_mode: bool = False, source_data_dir: str = None):
         """
@@ -138,6 +138,11 @@ class LitCoinLoader(SourceDataLoader):
                     self.output_file_writer.write_node(node_id=object_resolution_results['curie'],
                                                        node_name=object_resolution_results['name'])
 
+                    self.output_file_writer.write_node(node_id=pubmed_id,
+                                                       node_properties={
+                                                           'abstract_summary': litcoin_edge[LLM_ABSTRACT_SUMMARY_EDGE_PROP]
+                                                       })
+
                     predicate = 'biolink:' + snakify(litcoin_edge[LLM_RELATIONSHIP])
                     edge_properties = {
                         PUBLICATIONS: [pubmed_id],
@@ -154,7 +159,15 @@ class LitCoinLoader(SourceDataLoader):
                                                        object_id=object_resolution_results['curie'],
                                                        predicate=predicate,
                                                        edge_properties=edge_properties)
+                    self.output_file_writer.write_edge(subject_id=subject_resolution_results['curie'],
+                                                       object_id=pubmed_id,
+                                                       predicate='biolink:related_to')
+                    self.output_file_writer.write_edge(subject_id=object_resolution_results['curie'],
+                                                       object_id=pubmed_id,
+                                                       predicate='biolink:related_to')
                     records += 1
+                if records > 100 and self.test_mode:
+                    break
 
         # write out name res results alongside the output
         with open(os.path.join(self.data_path, "..",
@@ -276,7 +289,7 @@ class LitCoinLoader(SourceDataLoader):
 
 class LitCoinSapBERTLoader(LitCoinLoader):
     source_id: str = 'LitCoinSapBERT'
-    parsing_version: str = '1.5'
+    parsing_version: str = '1.6'
 
     def name_resolution_function(self, node_name, preferred_biolink_node_type, retries=0):
         sapbert_url = 'https://babel-sapbert.apps.renci.org/annotate/'
