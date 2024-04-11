@@ -6,7 +6,8 @@ import xml.etree.cElementTree as E_Tree
 
 from bs4 import BeautifulSoup
 from zipfile import ZipFile
-from Common.utils import LoggingUtil, GetData
+from Common.biolink_constants import *
+from Common.utils import GetData
 from Common.loader_interface import SourceDataLoader
 from Common.prefixes import CTD, HMDB, OMIM, UNIPROTKB
 from Common.kgxmodel import kgxnode, kgxedge
@@ -27,7 +28,7 @@ class HMDBLoader(SourceDataLoader):
     source_data_url = "https://hmdb.ca/downloads"
     license = "https://hmdb.ca/about"
     attribution = "https://hmdb.ca/about#cite"
-    parsing_version: str = '1.2'
+    parsing_version: str = '1.3'
 
     def __init__(self, test_mode: bool = False, source_data_dir: str = None):
         """
@@ -201,16 +202,14 @@ class HMDBLoader(SourceDataLoader):
                         # what type of protein is this
                         if protein_type.text.startswith('Enzyme'):
                             # create the edge data
-                            props: dict = {}
                             subject_id: str = metabolite_id
                             object_id: str = protein_id
                             predicate: str = f'{CTD}:affects_abundance_of'
                         # else it must be a transport?
                         else:
                             # create the edge data
-                            props: dict = {}
-                            subject_id: str = metabolite_id
-                            object_id: str = protein_id
+                            subject_id: str = protein_id
+                            object_id: str = metabolite_id
                             predicate: str = f'{CTD}:increases_transport_of'
 
                         # get the name element
@@ -226,12 +225,14 @@ class HMDBLoader(SourceDataLoader):
                         new_node = kgxnode(protein_id, name=name)
                         self.output_file_writer.write_kgx_node(new_node)
 
+                        edge_props = {KNOWLEDGE_LEVEL: KNOWLEDGE_ASSERTION,
+                                      AGENT_TYPE: MANUAL_AGENT}
                         # create an edge and add it to the list
                         new_edge = kgxedge(subject_id,
                                            object_id,
                                            predicate=predicate,
                                            primary_knowledge_source=self.provenance_id,
-                                           edgeprops=props)
+                                           edgeprops=edge_props)
                         self.output_file_writer.write_kgx_edge(new_edge)
                     else:
                         self.logger.debug(f'no protein type for {metabolite_id}')
@@ -312,11 +313,12 @@ class HMDBLoader(SourceDataLoader):
                                 pmids.append('PMID:' + pmid.text)
 
                         # create the edge property data
-                        props: dict = {}
+                        edge_props = {KNOWLEDGE_LEVEL: KNOWLEDGE_ASSERTION,
+                                      AGENT_TYPE: MANUAL_AGENT}
 
                         # if we found any pubmed ids add them to the properties (optional)
                         if len(pmids) > 0:
-                            props.update({'publications': pmids})
+                            edge_props[PUBLICATIONS] = pmids
 
                         disease_id = f'{OMIM}:{object_id.text}'
 
@@ -329,7 +331,7 @@ class HMDBLoader(SourceDataLoader):
                                            disease_id,
                                            predicate='RO:0002610',
                                            primary_knowledge_source=self.provenance_id,
-                                           edgeprops=props)
+                                           edgeprops=edge_props)
                         self.output_file_writer.write_kgx_edge(new_edge)
                         ret_val = True
                 else:
@@ -391,11 +393,13 @@ class HMDBLoader(SourceDataLoader):
                         new_node = kgxnode(object_id, name=name)
                         self.output_file_writer.write_kgx_node(new_node)
 
-                        # create an edge and add it to the list
+                        edge_props = {KNOWLEDGE_LEVEL: KNOWLEDGE_ASSERTION,
+                                      AGENT_TYPE: MANUAL_AGENT}
                         new_edge = kgxedge(metabolite_id,
                                            object_id,
                                            predicate='RO:0000056',
-                                           primary_knowledge_source=self.provenance_id)
+                                           primary_knowledge_source=self.provenance_id,
+                                           edgeprops=edge_props)
                         self.output_file_writer.write_kgx_edge(new_edge)
                     else:
                         self.logger.debug(f'invalid smpdb for {metabolite_id}')
