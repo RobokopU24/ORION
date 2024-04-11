@@ -152,7 +152,7 @@ BIOLINK_MAPPING_CHANGES = {
     'NCBIGene': 'https://identifiers.org/ncbigene/'
 }
 
-@staticmethod
+
 def get_biolink_prefix_map():
     response = requests.get(f'https://raw.githubusercontent.com/biolink/biolink-model/v{BIOLINK_MODEL_VERSION}/project/prefixmap/biolink_model_prefix_map.json')
     if response.status_code != 200:
