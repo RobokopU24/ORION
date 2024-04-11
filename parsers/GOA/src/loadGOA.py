@@ -173,7 +173,7 @@ class GOALoader(SourceDataLoader):
                                   lambda line: get_goa_predicate(line),  # predicate extractor
                                   lambda line: get_goa_subject_props(line),  # subject props
                                   lambda line: {},  # object props
-                                  lambda line: self.get_goa_edge_properties(line),  # edge props
+                                  lambda line: get_goa_edge_properties(line),  # edge props
                                   filter_set=taxon_filter_set,
                                   filter_field=taxon_filter_field,
                                   comment_character="!", delim='\t')
@@ -182,24 +182,24 @@ class GOALoader(SourceDataLoader):
         self.final_edge_list = extractor.edges
         return extractor.load_metadata
 
-    def get_goa_edge_properties(self, line: list):
-        try:
-            knowledge_level, agent_type = GOA_EVIDENCE_CODE_TO_KL_AT[line[DATACOLS.Evidence_Code.value]]
-        except KeyError as k:
-            self.logger.error(f'Missing Evidence Code mapping for code: {k}')
-            knowledge_level, agent_type = NOT_PROVIDED, NOT_PROVIDED
 
-        edge_properties = {PRIMARY_KNOWLEDGE_SOURCE: GOALoader.provenance_id,
-                           KNOWLEDGE_LEVEL: knowledge_level,
-                           AGENT_TYPE: agent_type}
-        publications = []
-        evidence_field = line[DATACOLS.DB_Reference.value]
-        for evidence in evidence_field.split('|'):
-            if 'PMID' in evidence:
-                publications.append(evidence)
-        if publications:
-            edge_properties[PUBLICATIONS] = publications
-        return edge_properties
+def get_goa_edge_properties(line: list):
+    try:
+        knowledge_level, agent_type = GOA_EVIDENCE_CODE_TO_KL_AT[line[DATACOLS.Evidence_Code.value]]
+    except KeyError as k:
+        knowledge_level, agent_type = NOT_PROVIDED, NOT_PROVIDED
+
+    edge_properties = {PRIMARY_KNOWLEDGE_SOURCE: GOALoader.provenance_id,
+                       KNOWLEDGE_LEVEL: knowledge_level,
+                       AGENT_TYPE: agent_type}
+    publications = []
+    evidence_field = line[DATACOLS.DB_Reference.value]
+    for evidence in evidence_field.split('|'):
+        if 'PMID' in evidence:
+            publications.append(evidence)
+    if publications:
+        edge_properties[PUBLICATIONS] = publications
+    return edge_properties
 
 def get_goa_predicate(line: list):
     supplied_qualifier = line[DATACOLS.Qualifier.value]
