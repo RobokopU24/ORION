@@ -13,6 +13,7 @@ from Common.load_manager import SourceDataManager
 from Common.kgx_file_merger import KGXFileMerger
 from Common.neo4j_tools import create_neo4j_dump
 from Common.kgxmodel import GraphSpec, SubGraphSource, DataSource, NormalizationScheme
+from Common.normalization import NORMALIZATION_CODE_VERSION
 from Common.metadata import Metadata, GraphMetadata, SourceMetadata
 from Common.supplementation import SequenceVariantSupplementation
 from Common.biolink_constants import PRIMARY_KNOWLEDGE_SOURCE, AGGREGATOR_KNOWLEDGE_SOURCES, PREDICATE, PUBLICATIONS
@@ -338,6 +339,8 @@ class GraphBuilder:
                     if 'conflation' in graph_yaml else None
                 graph_wide_strict_norm = graph_yaml['strict_normalization'] \
                     if 'strict_normalization' in graph_yaml else None
+                graph_wide_normalization_code_version = graph_yaml['normalization_code_version'] \
+                    if 'normalization_code_version' in graph_yaml else None
 
                 # apply them to all of the data sources, this will overwrite anything defined at the source level
                 for data_source in data_sources:
@@ -349,6 +352,8 @@ class GraphBuilder:
                         data_source.normalization_scheme.conflation = graph_wide_conflation
                     if graph_wide_strict_norm is not None:
                         data_source.normalization_scheme.strict = graph_wide_strict_norm
+                    if graph_wide_normalization_code_version is not None:
+                        data_source.normalization_scheme.normalization_code_version = graph_wide_normalization_code_version
 
                 graph_output_format = graph_yaml['output_format'] if 'output_format' in graph_yaml else ""
                 current_graph_spec = GraphSpec(graph_id=graph_id,
@@ -410,10 +415,13 @@ class GraphBuilder:
             else self.source_data_manager.get_latest_edge_normalization_version()
         strict_normalization = source_yml['strict_normalization'] \
             if 'strict_normalization' in source_yml else True
+        normalization_code_version = source_yml['normalization_code_version'] \
+            if 'normalization_code_version' in source_yml else NORMALIZATION_CODE_VERSION
         conflation = source_yml['conflation'] \
             if 'conflation' in source_yml else False
         normalization_scheme = NormalizationScheme(node_normalization_version=node_normalization_version,
                                                    edge_normalization_version=edge_normalization_version,
+                                                   normalization_code_version=normalization_code_version,
                                                    strict=strict_normalization,
                                                    conflation=conflation)
         supplementation_version = SequenceVariantSupplementation.SUPPLEMENTATION_VERSION
