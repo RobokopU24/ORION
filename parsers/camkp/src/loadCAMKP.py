@@ -7,7 +7,7 @@ import json
 
 from Common.utils import GetData
 from Common.kgxmodel import kgxnode, kgxedge
-from Common.biolink_constants import XREFS
+from Common.biolink_constants import XREFS, KNOWLEDGE_LEVEL, KNOWLEDGE_ASSERTION, AGENT_TYPE, MANUAL_AGENT
 from Common.loader_interface import SourceDataLoader
 
 from gzip import GzipFile
@@ -36,7 +36,7 @@ class CAMKPLoader(SourceDataLoader):
     source_data_url = "https://github.com/ExposuresProvider/cam-kp-api"
     license = "https://github.com/ExposuresProvider/cam-kp-api/blob/master/LICENSE"
     attribution = "https://github.com/ExposuresProvider/cam-kp-api"
-    parsing_version = "1.2"
+    parsing_version = "1.3"
 
     def __init__(self, test_mode: bool = False, source_data_dir: str = None):
         """
@@ -92,18 +92,20 @@ class CAMKPLoader(SourceDataLoader):
 
                 object_id = self.sanitize_cam_node_id(line[CAMDATACOLS.OBJECT_ID.value])
                 object_node = kgxnode(object_id)
-
                 self.output_file_writer.write_kgx_node(object_node)
 
                 predicate = line[CAMDATACOLS.PREDICATE.value]
                 edge_provenance_id = line[CAMDATACOLS.PROVENANCE_ID.value]
                 edge_provenance_url = line[CAMDATACOLS.PROVENANCE_URL.value]
-                edge_properties = {}
+                edge_properties = {
+                    XREFS: [edge_provenance_url],
+                    KNOWLEDGE_LEVEL: KNOWLEDGE_ASSERTION,
+                    AGENT_TYPE: MANUAL_AGENT
+                }
                 if len(line) >= CAMDATACOLS.QUALIFIERS.value + 1:
                     qualifier_json_strings = line[CAMDATACOLS.QUALIFIERS.value].split('||')
                     edge_properties = {k.replace('biolink:', ''): v for json_item in qualifier_json_strings
                                        for k, v in json.loads(json_item).items()}
-                edge_properties[XREFS] = [edge_provenance_url]
                 new_edge = kgxedge(subject_id=subject_id,
                                    object_id=object_id,
                                    predicate=predicate,
@@ -111,15 +113,10 @@ class CAMKPLoader(SourceDataLoader):
                                    aggregator_knowledge_sources=[self.aggregator_knowledge_source],
                                    edgeprops=edge_properties)
                 self.output_file_writer.write_kgx_edge(new_edge)
-
                 record_counter += 1
         
-        self.logger.debug(f'Parsing data file complete.')
-        load_metadata: dict = {
-            'num_source_lines': record_counter,
-            'unusable_source_lines': skipped_record_counter
-            }
-
+        load_metadata: dict = {'num_source_lines': record_counter,
+                               'unusable_source_lines': skipped_record_counter}
         return load_metadata
 
     def sanitize_cam_node_id(self, node_id):
