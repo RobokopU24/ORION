@@ -229,6 +229,7 @@ class GraphBuilder:
         aggregator_knowledge_sources = set()
         edge_properties = set()
         predicate_counts = defaultdict(int)
+        predicate_counts_by_ks = defaultdict(lambda: defaultdict(int))
         edges_with_publications = defaultdict(int)
         graph_edges_file_path = os.path.join(graph_directory, EDGES_FILENAME)
         for edge_json in quick_jsonl_file_iterator(graph_edges_file_path):
@@ -239,6 +240,7 @@ class GraphBuilder:
             for key in edge_json.keys():
                 edge_properties.add(key)
             predicate_counts[edge_json[PREDICATE]] += 1
+            predicate_counts_by_ks[edge_json[PRIMARY_KNOWLEDGE_SOURCE]][edge_json[PREDICATE]] += 1
             if PUBLICATIONS in edge_json and edge_json[PUBLICATIONS]:
                 edges_with_publications[edge_json[PREDICATE]] += 1
 
@@ -268,7 +270,9 @@ class GraphBuilder:
             'pass': True,
             'primary_knowledge_sources': list(primary_knowledge_sources),
             'aggregator_knowledge_sources': list(aggregator_knowledge_sources),
-            'predicates': {k: v for k, v in predicate_counts.items()},
+            'predicate_totals': {k: v for k, v in predicate_counts.items()},
+            'predicates_by_knowledge_source': {ks: {predicate: count for predicate, count in ks_to_p.items()}
+                                               for ks, ks_to_p in predicate_counts_by_ks.items()},
             'node_curie_prefixes': {k: v for k, v in node_curie_prefixes.items()},
             'edges_with_publications': {k: v for k, v in edges_with_publications.items()},
             'edge_properties': list(edge_properties),
