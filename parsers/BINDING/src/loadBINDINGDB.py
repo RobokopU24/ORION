@@ -1,7 +1,8 @@
 import os
 import enum
 import math
-from zipfile import ZipFile as zipfile
+import json
+from zipfile import ZipFile
 import requests as rq
 import requests.exceptions
 
@@ -9,7 +10,7 @@ from parsers.BINDING.src.bindingdb_constraints import LOG_SCALE_AFFINITY_THRESHO
 from Common.utils import GetData
 from Common.loader_interface import SourceDataLoader
 from Common.extractor import Extractor
-from Common.biolink_constants import PUBLICATIONS, AFFINITY, AFFINITY_PARAMETER
+from Common.biolink_constants import PUBLICATIONS, AFFINITY, AFFINITY_PARAMETER, KNOWLEDGE_LEVEL, AGENT_TYPE, KNOWLEDGE_ASSERTION, MANUAL_AGENT
 
 # Full Binding Data.
 
@@ -32,7 +33,7 @@ def negative_log(concentration_nm): ### This function converts nanomolar concent
     return -(math.log10(concentration_nm*(10**-9)))
 
 def generate_zipfile_rows(zip_file_path, file_inside_zip, delimiter='\\t'):
-        with zipfile(zip_file_path, 'r') as zip_file:
+        with ZipFile(zip_file_path, 'r') as zip_file:
             with zip_file.open(file_inside_zip, 'r') as file:
                 for line in file:
                     yield str(line).split(delimiter)
@@ -51,7 +52,7 @@ class BINDINGDBLoader(SourceDataLoader):
     source_data_url = "https://www.bindingdb.org/rwd/bind/chemsearch/marvin/SDFdownload.jsp?all_download=yes"
     license = "All data and download files in bindingDB are freely available under a 'Creative Commons BY 3.0' license.'"
     attribution = 'https://www.bindingdb.org/rwd/bind/info.jsp'
-    parsing_version = '1.4'
+    parsing_version = '1.5'
 
     def __init__(self, test_mode: bool = False, source_data_dir: str = None):
         """
@@ -60,8 +61,8 @@ class BINDINGDBLoader(SourceDataLoader):
         """
         # call the super
         super().__init__(test_mode=test_mode, source_data_dir=source_data_dir)
-        #6 is the stand in threshold value until a better value can be determined
-        #We may not even use the thresholds, that way all data can be captured.
+        # 5 is the stand in threshold value until a better value can be determined
+        # We may not even use the thresholds, that way all data can be captured.
         self.affinity_threshold = LOG_SCALE_AFFINITY_THRESHOLD
 
         self.measure_to_predicate = {
@@ -94,10 +95,9 @@ class BINDINGDBLoader(SourceDataLoader):
             version_index = binding_db_download_page_response.text.index('BindingDB_All_2D_') + 17
             bindingdb_version = binding_db_download_page_response.text[version_index:version_index + 6]
         except requests.exceptions.SSLError:
-            # "TEMPORARY, I HOPE HOPE HOPE"
             # currently the binding db SSL implementation is outdated/broken with the latest packages
             self.logger.error(f'BINDING-DB had an SSL error while attempting to retrieve version. Returning default 202403.')
-            return '202403'
+            return '202404'
 
         return f"{bindingdb_version}"
 
@@ -136,9 +136,9 @@ class BINDINGDBLoader(SourceDataLoader):
             if (ligand == '') or (protein == ''): # Check if Pubchem or UniProt ID is missing.
                 continue
             
-            publication = f"PMID:{row[BD_EDGEUMAN.PMID.value]}" if row[BD_EDGEUMAN.PMID.value] != '' else None
-            assay_id = f"PUBCHEM.AID:{row[BD_EDGEUMAN.PUBCHEM_AID.value]}" if row[BD_EDGEUMAN.PUBCHEM_AID.value] != '' else None
-            patent = f"PATENT:{row[BD_EDGEUMAN.PATENT_NUMBER.value]}" if row[BD_EDGEUMAN.PATENT_NUMBER.value] != '' else None
+            publication = f"PMID:{row[BD_EDGEUMAN.PMID.value]}" if row[BD_EDGEUMAN.PMID.value] else None
+            assay_id = f"PUBCHEM.AID:{row[BD_EDGEUMAN.PUBCHEM_AID.value]}" if row[BD_EDGEUMAN.PUBCHEM_AID.value] else None
+            patent = f"PATENT:{row[BD_EDGEUMAN.PATENT_NUMBER.value]}" if row[BD_EDGEUMAN.PATENT_NUMBER.value] else None
 
             for column in columns:
                 if row[column[0]] != '':
@@ -149,22 +149,24 @@ class BINDINGDBLoader(SourceDataLoader):
                         # already has another measurement type in the row, and that other measurement has far more value.
                         continue
                     ligand_protein_measure_key = f"{ligand}~{protein}~{measure_type}"
-                    # The section below checks through all of the previous entry keys and uses
-                    if ligand_protein_measure_key in data_store:  # TODO start here
+                    # if we already created an entry with the same ligand-protein-measure_type key, use it
+                    if ligand_protein_measure_key in data_store:
                         entry = data_store[ligand_protein_measure_key]
-                        found_key = True
                     else:
-                        entry = {}
-                        entry.update({'ligand': f"PUBCHEM.COMPOUND:{ligand}"})
-                        entry.update({'protein': f"UniProtKB:{protein}"})
-                        entry.update({'predicate': self.measure_to_predicate[measure_type]})
-                        entry.update({AFFINITY_PARAMETER: measure_type})
-                        entry.update({'supporting_affinities': []})
-                        entry.update({PUBLICATIONS: []})
-                        entry.update({'pubchem_assay_ids': []})
-                        entry.update({'patent_ids': []})
+                        # otherwise make what will turn into an edge
+                        entry = {'ligand': f"PUBCHEM.COMPOUND:{ligand}",
+                                 'protein': f"UniProtKB:{protein}",
+                                 'predicate': self.measure_to_predicate[measure_type],
+                                 AFFINITY_PARAMETER: measure_type,
+                                 'supporting_affinities': [],
+                                 PUBLICATIONS: [],
+                                 'pubchem_assay_ids': [],
+                                 'patent_ids': [],
+                                 KNOWLEDGE_LEVEL: KNOWLEDGE_ASSERTION,
+                                 AGENT_TYPE: MANUAL_AGENT}
                         data_store[ligand_protein_measure_key] = entry
-                    #If there's a > in the result, it means that this is a dead compound, i.e. it won't bass
+
+                    # If there's a > in the result, it means that this is a dead compound, i.e. it won't pass
                     # our activity/inhibition threshold
                     if ">" in row[column[0]]:
                         continue
@@ -195,23 +197,19 @@ class BINDINGDBLoader(SourceDataLoader):
                 average_affinity = sum(entry["supporting_affinities"])/len(entry["supporting_affinities"])
                 entry[AFFINITY] = round(negative_log(average_affinity),2)
                 entry["supporting_affinities"] = [round(negative_log(x),2) for x in entry["supporting_affinities"]]
-            except Exception:
+            except Exception as e:
                 bad_entries.add(key)
+                self.logger.warning(f'Error calculating affinities for entry: {json.dumps(entry,indent=4)} (error: {e})')
 
-        import json
-        for badkey in bad_entries:
-            bad_entry = data_store.pop(badkey)
-            if len(bad_entry["supporting_affinities"]) == 0:
-                continue
-            print(json.dumps(bad_entry,indent=4))
+        for bad_key in bad_entries:
+            del data_store[bad_key]
 
         extractor = Extractor(file_writer=self.output_file_writer)
-        extractor.json_extract(data_store,
-                            lambda item: data_store[item]['ligand'],  # subject id
-                            lambda item: data_store[item]['protein'],  # object id
-                            lambda item: data_store[item]['predicate'],  # predicate
-                            lambda item: {}, #Node 1 props
-                            lambda item: {}, #Node 2 props
-                            lambda item: {key:value for key,value in data_store[item].items() if key not in ['ligand','protein']} #Edge props
-                        )
+        extractor.json_extract(data_store.values(),
+                               lambda item: item['ligand'],  # subject id
+                               lambda item: item['protein'],  # object id
+                               lambda item: item['predicate'],  # predicate
+                               lambda item: {},  # subject props
+                               lambda item: {},  # object props
+                               lambda item: {k: v for k, v in item.items() if key not in ['ligand', 'protein', 'predicate']}) #Edge props
         return extractor.load_metadata
