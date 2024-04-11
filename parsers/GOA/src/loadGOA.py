@@ -7,7 +7,7 @@ from Common.loader_interface import SourceDataLoader
 from Common.extractor import Extractor
 from io import TextIOWrapper
 from Common.utils import GetData
-from Common.biolink_constants import PRIMARY_KNOWLEDGE_SOURCE, PUBLICATIONS
+from Common.biolink_constants import *
 from Common.prefixes import NCBITAXON
 
 
@@ -32,6 +32,49 @@ class DATACOLS(enum.IntEnum):
     Gene_Product_Form_ID = 16
 
 
+GOA_PREDICATES = {'enables': 'RO:0002327',
+                  'involved_in': 'RO:0002331',
+                  'located_in': 'RO:0001025',
+                  'contributes_to': 'RO:0002326',
+                  'acts_upstream_of': 'RO:0002263',
+                  'part_of': 'BFO:0000050',
+                  'acts_upstream_of_positive_effect': 'RO:0004034',
+                  'is_active_in': 'RO:0002432',
+                  'acts_upstream_of_negative_effect': 'RO:0004035',
+                  'colocalizes_with': 'RO:0002325',
+                  'acts_upstream_of_or_within': 'RO:0002264',
+                  'acts_upstream_of_or_within_positive_effect': 'RO:0004032',
+                  'acts_upstream_of_or_within_negative_effect': 'RO:0004033'}
+
+GOA_EVIDENCE_CODE_TO_KL_AT = {
+    "EXP": (KNOWLEDGE_ASSERTION, MANUAL_AGENT),
+    "IDA": (KNOWLEDGE_ASSERTION, MANUAL_AGENT),
+    "IPI": (KNOWLEDGE_ASSERTION, MANUAL_AGENT),
+    "IMP": (KNOWLEDGE_ASSERTION, MANUAL_AGENT),
+    "IGI": (KNOWLEDGE_ASSERTION, MANUAL_AGENT),
+    "IEP": (KNOWLEDGE_ASSERTION, MANUAL_AGENT),
+    "HTP": (KNOWLEDGE_ASSERTION, MANUAL_AGENT),
+    "HDA": (KNOWLEDGE_ASSERTION, MANUAL_AGENT),
+    "HMP": (KNOWLEDGE_ASSERTION, MANUAL_AGENT),
+    "HGI": (KNOWLEDGE_ASSERTION, MANUAL_AGENT),
+    "HEP": (KNOWLEDGE_ASSERTION, MANUAL_AGENT),
+    "IBA": (PREDICATION, MANUAL_VALIDATION_OF_AUTOMATED_AGENT),
+    "IBD": (PREDICATION, MANUAL_VALIDATION_OF_AUTOMATED_AGENT),
+    "IKR": (KNOWLEDGE_ASSERTION, MANUAL_AGENT),
+    "IRD": (PREDICATION, MANUAL_AGENT),
+    "ISS": (PREDICATION, MANUAL_VALIDATION_OF_AUTOMATED_AGENT),
+    "ISO": (PREDICATION, MANUAL_VALIDATION_OF_AUTOMATED_AGENT),
+    "ISA": (PREDICATION, MANUAL_VALIDATION_OF_AUTOMATED_AGENT),
+    "ISM": (PREDICATION, MANUAL_VALIDATION_OF_AUTOMATED_AGENT),
+    "IGC": (PREDICATION, MANUAL_AGENT),
+    "RCA": (PREDICATION, MANUAL_VALIDATION_OF_AUTOMATED_AGENT),
+    "TAS": (KNOWLEDGE_ASSERTION, MANUAL_AGENT),
+    "NAS": (PREDICATION, MANUAL_AGENT),
+    "IC": (PREDICATION, MANUAL_AGENT),
+    "ND": (NOT_PROVIDED, NOT_PROVIDED),
+    "IEA": (PREDICATION, AUTOMATED_AGENT)
+}
+
 ##############
 # Class: UniProtKB GOA loader
 #
@@ -47,7 +90,7 @@ class GOALoader(SourceDataLoader):
     source_data_url = "ftp://ftp.ebi.ac.uk/pub/databases/GO/goa/"
     license = "https://www.ebi.ac.uk/about/terms-of-use/"
     attribution = "https://www.ebi.ac.uk/GOA/publications"
-    parsing_version = '1.1'
+    parsing_version = '1.2'
 
     def __init__(self, test_mode: bool = False, source_data_dir: str = None):
         """
@@ -130,7 +173,7 @@ class GOALoader(SourceDataLoader):
                                   lambda line: get_goa_predicate(line),  # predicate extractor
                                   lambda line: get_goa_subject_props(line),  # subject props
                                   lambda line: {},  # object props
-                                  lambda line: get_goa_edge_properties(line),  # edge props
+                                  lambda line: self.get_goa_edge_properties(line),  # edge props
                                   filter_set=taxon_filter_set,
                                   filter_field=taxon_filter_field,
                                   comment_character="!", delim='\t')
@@ -139,21 +182,24 @@ class GOALoader(SourceDataLoader):
         self.final_edge_list = extractor.edges
         return extractor.load_metadata
 
+    def get_goa_edge_properties(self, line: list):
+        try:
+            knowledge_level, agent_type = GOA_EVIDENCE_CODE_TO_KL_AT[line[DATACOLS.Evidence_Code.value]]
+        except KeyError as k:
+            self.logger.error(f'Missing Evidence Code mapping for code: {k}')
+            knowledge_level, agent_type = NOT_PROVIDED, NOT_PROVIDED
 
-GOA_PREDICATES = {'enables':'RO:0002327',
-                  'involved_in':'RO:0002331',
-                  'located_in':'RO:0001025',
-                  'contributes_to':'RO:0002326',
-                  'acts_upstream_of':'RO:0002263',
-                  'part_of':'BFO:0000050',
-                  'acts_upstream_of_positive_effect':'RO:0004034',
-                  'is_active_in':'RO:0002432',
-                  'acts_upstream_of_negative_effect':'RO:0004035',
-                  'colocalizes_with':'RO:0002325',
-                  'acts_upstream_of_or_within':'RO:0002264',
-                  'acts_upstream_of_or_within_positive_effect':'RO:0004032',
-                  'acts_upstream_of_or_within_negative_effect':'RO:0004033'}
-
+        edge_properties = {PRIMARY_KNOWLEDGE_SOURCE: GOALoader.provenance_id,
+                           KNOWLEDGE_LEVEL: knowledge_level,
+                           AGENT_TYPE: agent_type}
+        publications = []
+        evidence_field = line[DATACOLS.DB_Reference.value]
+        for evidence in evidence_field.split('|'):
+            if 'PMID' in evidence:
+                publications.append(evidence)
+        if publications:
+            edge_properties[PUBLICATIONS] = publications
+        return edge_properties
 
 def get_goa_predicate(line: list):
     supplied_qualifier = line[DATACOLS.Qualifier.value]
@@ -172,18 +218,6 @@ def get_goa_predicate(line: list):
             return None
     else:
         return GOA_PREDICATES[supplied_qualifier]
-
-
-def get_goa_edge_properties(line: list):
-    edge_properties = {PRIMARY_KNOWLEDGE_SOURCE: GOALoader.provenance_id}
-    publications = []
-    evidence_field = line[DATACOLS.DB_Reference.value]
-    for evidence in evidence_field.split('|'):
-        if 'PMID' in evidence:
-            publications.append(evidence)
-    if publications:
-        edge_properties[PUBLICATIONS] = publications
-    return edge_properties
 
 
 def get_goa_subject_props(line: list):
