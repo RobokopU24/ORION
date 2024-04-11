@@ -9,7 +9,7 @@ from bs4 import BeautifulSoup
 from Common.loader_interface import SourceDataLoader
 from Common.kgxmodel import kgxnode, kgxedge
 from Common.neo4j_tools import Neo4jTools
-from Common.biolink_constants import MACROMOLECULAR_COMPLEX, NAMED_THING
+from Common.biolink_constants import *
 from Common.prefixes import REACTOME, NCBITAXON, GTOPDB, UNIPROTKB, CHEBI, KEGG_COMPOUND, KEGG_GLYCAN, PUBCHEM_COMPOUND, NCBIGENE, CLINVAR
 from Common.utils import GetData
 
@@ -99,7 +99,7 @@ class ReactomeLoader(SourceDataLoader):
     source_data_url = "https://reactome.org/"
     license = "https://reactome.org/license"
     attribution = "https://academic.oup.com/nar/article/50/D1/D687/6426058?login=false"
-    parsing_version = '1.2'
+    parsing_version = '1.3'
 
     def __init__(self, test_mode: bool = False, source_data_dir: str = None):
         """
@@ -424,12 +424,16 @@ class ReactomeLoader(SourceDataLoader):
                                 complex_context=None):
         predicate = PREDICATE_MAPPING.get(relationship_type, None)
         if predicate:
+            edge_properties = {KNOWLEDGE_LEVEL: KNOWLEDGE_ASSERTION,
+                               AGENT_TYPE: MANUAL_AGENT}
+            if complex_context:
+                edge_properties['complex_context'] = complex_context
             if not regulation_type:
                 output_edge = kgxedge(
                     subject_id=subject_id,
                     object_id=object_id,
                     predicate=predicate,
-                    edgeprops={'complex_context': complex_context} if complex_context else None,
+                    edgeprops=edge_properties,
                     primary_knowledge_source=self.provenance_id
                 )
             else:
@@ -440,18 +444,16 @@ class ReactomeLoader(SourceDataLoader):
                 else:
                     self.logger.warning(f'Unexpected regulation type encountered: {regulation_type}')
                     return
-                edge_props = {
-                    'qualified_predicate': 'causes',
-                    'object_aspect_qualifier': 'expression',
-                    'object_direction_qualifier': direction,
-                }
-                if complex_context:
-                    edge_props['complex_context'] = complex_context
+                edge_properties.update({
+                    QUALIFIED_PREDICATE: 'biolink:causes',
+                    OBJECT_ASPECT_QUALIFIER: 'expression',
+                    OBJECT_DIRECTION_QUALIFIER: direction,
+                })
                 output_edge = kgxedge(
                     subject_id=subject_id,
                     object_id=object_id,
                     predicate=predicate,
-                    edgeprops=edge_props,
+                    edgeprops=edge_properties,
                     primary_knowledge_source=self.provenance_id
                 )
             self.output_file_writer.write_kgx_edge(output_edge)

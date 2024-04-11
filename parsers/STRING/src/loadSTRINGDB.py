@@ -7,7 +7,7 @@ from Common.utils import GetData
 from Common.loader_interface import SourceDataLoader
 from Common.extractor import Extractor
 from Common.prefixes import ENSEMBL, NCBITAXON
-from Common.biolink_constants import PRIMARY_KNOWLEDGE_SOURCE
+from Common.biolink_constants import *
 
 
 # Full PPI Data.
@@ -148,8 +148,10 @@ class STRINGDBLoader(SourceDataLoader):
                                     "Textmining_transferred":line[PPI_EDGEUMAN.TEXTMINING_TRANSFERRED.value],
                                     "Cooccurance":line[PPI_EDGEUMAN.COOCCURANCE.value],
                                     "Combined_score":line[PPI_EDGEUMAN.COMBINED_SCORE.value],
-                                    "species_context_qualifier": f"{NCBITAXON}:{self.taxon_id}",
-                                    PRIMARY_KNOWLEDGE_SOURCE: self.provenance_id
+                                    SPECIES_CONTEXT_QUALIFIER: f"{NCBITAXON}:{self.taxon_id}",
+                                    PRIMARY_KNOWLEDGE_SOURCE: self.provenance_id,
+                                    KNOWLEDGE_LEVEL: KNOWLEDGE_ASSERTION,
+                                    AGENT_TYPE: MANUAL_AGENT
                                   },  # edge props
                                   comment_character=None,
                                   delim=" ",
@@ -171,8 +173,10 @@ class STRINGDBLoader(SourceDataLoader):
                                     "Textmining_transferred":line[PPI_EDGEUMAN.TEXTMINING_TRANSFERRED.value],
                                     "Cooccurance":line[PPI_EDGEUMAN.COOCCURANCE.value],
                                     "Combined_score":line[PPI_EDGEUMAN.COMBINED_SCORE.value],
-                                    "species_context_qualifier": f"{NCBITAXON}:{self.taxon_id}",
-                                    PRIMARY_KNOWLEDGE_SOURCE: self.provenance_id
+                                    SPECIES_CONTEXT_QUALIFIER: f"{NCBITAXON}:{self.taxon_id}",
+                                    PRIMARY_KNOWLEDGE_SOURCE: self.provenance_id,
+                                    KNOWLEDGE_LEVEL: KNOWLEDGE_ASSERTION,
+                                    AGENT_TYPE: MANUAL_AGENT
                                   },  # edge props
                                   comment_character=None,
                                   delim=" ",
@@ -195,8 +199,10 @@ class STRINGDBLoader(SourceDataLoader):
                                     "Textmining_transferred":line[PPI_EDGEUMAN.TEXTMINING_TRANSFERRED.value],
                                     "Cooccurance":line[PPI_EDGEUMAN.COOCCURANCE.value],
                                     "Combined_score":line[PPI_EDGEUMAN.COMBINED_SCORE.value],
-                                    "species_context_qualifier": f"{NCBITAXON}:{self.taxon_id}",
-                                    PRIMARY_KNOWLEDGE_SOURCE: self.provenance_id
+                                    SPECIES_CONTEXT_QUALIFIER: f"{NCBITAXON}:{self.taxon_id}",
+                                    PRIMARY_KNOWLEDGE_SOURCE: self.provenance_id,
+                                    KNOWLEDGE_LEVEL: KNOWLEDGE_ASSERTION,
+                                    AGENT_TYPE: MANUAL_AGENT
                                   },  # edge props
                                   comment_character=None,
                                   delim=" ",
@@ -220,8 +226,10 @@ class STRINGDBLoader(SourceDataLoader):
                                     "Textmining_transferred":line[PPI_EDGEUMAN.TEXTMINING_TRANSFERRED.value],
                                     "Cooccurance":line[PPI_EDGEUMAN.COOCCURANCE.value],
                                     "Combined_score":line[PPI_EDGEUMAN.COMBINED_SCORE.value],
-                                    "species_context_qualifier": f"{NCBITAXON}:{self.taxon_id}",
-                                    PRIMARY_KNOWLEDGE_SOURCE: self.provenance_id
+                                    SPECIES_CONTEXT_QUALIFIER: f"{NCBITAXON}:{self.taxon_id}",
+                                    PRIMARY_KNOWLEDGE_SOURCE: self.provenance_id,
+                                    KNOWLEDGE_LEVEL: KNOWLEDGE_ASSERTION,
+                                    AGENT_TYPE: MANUAL_AGENT
                                   },  # edge props
                                   comment_character=None,
                                   delim=" ",
@@ -246,7 +254,9 @@ class STRINGDBLoader(SourceDataLoader):
                                     "Textmining_transferred":line[PPI_PHYSICAL_EDGEUMAN.TEXTMINING_TRANSFERRED.value],
                                     "Combined_score":line[PPI_PHYSICAL_EDGEUMAN.COMBINED_SCORE.value],
                                     "species_context_qualifier": f"{NCBITAXON}:{self.taxon_id}",
-                                    PRIMARY_KNOWLEDGE_SOURCE: self.provenance_id
+                                    PRIMARY_KNOWLEDGE_SOURCE: self.provenance_id,
+                                    KNOWLEDGE_LEVEL: KNOWLEDGE_ASSERTION,
+                                    AGENT_TYPE: MANUAL_AGENT
                                   },  # edge props
                                   comment_character=None,
                                   delim=" ",
@@ -257,11 +267,11 @@ class STRINGDBLoader(SourceDataLoader):
 
 class HumanSTRINGDBLoader(STRINGDBLoader):
     source_id: str = 'STRING-DB-Human'
-    parsing_version = '1.1'
+    parsing_version = '1.2'
     taxon_id: str = '9606'  # Human taxon
 
 
 class YeastSTRINGDBLoader(STRINGDBLoader):
     source_id: str = 'STRING-DB-Yeast'
-    parsing_version = '1.1'
+    parsing_version = '1.2'
     taxon_id: str = '4932'  # Saccharomyces cerevisiae taxon
