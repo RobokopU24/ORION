@@ -8,6 +8,8 @@ from Common.utils import GetData
 from Common.loader_interface import SourceDataLoader
 from Common.kgxmodel import kgxnode, kgxedge
 from Common.extractor import Extractor
+from Common.biolink_constants import KNOWLEDGE_LEVEL, KNOWLEDGE_ASSERTION, AGENT_TYPE, MANUAL_AGENT, \
+    QUALIFIED_PREDICATE, OBJECT_ASPECT_QUALIFIER, OBJECT_DIRECTION_QUALIFIER
 
 def load_json(json_data):
     with open(json_data, encoding="utf-8-sig") as file:
@@ -28,7 +30,7 @@ class DrugMechDBLoader(SourceDataLoader):
     source_data_url = "https://github.com/SuLab/DrugMechDB/raw/main/indication_paths.json"
     license = "SuLab/DrugMechDB is licensed under the Creative Commons Zero v1.0 Universal license"
     attribution = 'https://sulab.github.io/DrugMechDB/'
-    parsing_version = '1.2'
+    parsing_version = '1.3'
 
     def __init__(self, test_mode: bool = False, source_data_dir: str = None):
         """
@@ -57,7 +59,6 @@ class DrugMechDBLoader(SourceDataLoader):
         drugmechdb_download_page_response = rq.get('https://github.com/SuLab/DrugMechDB')
         version_index = drugmechdb_download_page_response.text.index('/SuLab/DrugMechDB/releases/tag/') + 31
         drugmechdb_version = drugmechdb_download_page_response.text[version_index:version_index + 5]
-
         return f"{drugmechdb_version}"
     
     def get_data(self) -> int:
@@ -195,14 +196,15 @@ class DrugMechDBLoader(SourceDataLoader):
         df = df.groupby(["source_ids","target_ids","predicates","qualified_predicates","object_direction_qualifiers","object_aspect_qualifiers"], as_index=False).agg(list).reset_index(drop=True)
         df['dmdb_ids'] = df['dmdb_ids'].apply(lambda x: list(set(x))) ###Removes duplicates
         for index, row in df.iterrows():
-            edge_props = {}
+            edge_props = {"drugmechdb_path_id": row["dmdb_ids"],
+                          KNOWLEDGE_LEVEL: KNOWLEDGE_ASSERTION,
+                          AGENT_TYPE: MANUAL_AGENT}
             if row["qualified_predicates"] != "":
-                edge_props.update({"qualified_predicate":row["qualified_predicates"]})
+                edge_props[QUALIFIED_PREDICATE] = row["qualified_predicates"]
             if row["object_direction_qualifiers"] != "":
-                edge_props.update({"object_direction_qualifier":row["object_direction_qualifiers"]})
+                edge_props[OBJECT_DIRECTION_QUALIFIER] = row["object_direction_qualifiers"]
             if row["object_aspect_qualifiers"] != "":
-                edge_props.update({"object_aspect_qualifier":row["object_aspect_qualifiers"]})
-            edge_props.update({"drugmechdb_path_id": row["dmdb_ids"]})
+                edge_props[OBJECT_ASPECT_QUALIFIER] = row["object_aspect_qualifiers"]
             output_edge = kgxedge(
                         subject_id=row["source_ids"],
                         object_id=row["target_ids"],
@@ -227,7 +229,9 @@ class DrugMechDBLoader(SourceDataLoader):
                     lambda line: "biolink:target_for",
                     lambda line: {}, #Node 1 props
                     lambda line: {}, #Node 2 props
-                    lambda line: {"drugmechdb_path_id":ast.literal_eval(line[8])}, #Edge props
+                    lambda line: {"drugmechdb_path_id": ast.literal_eval(line[8]),
+                                  KNOWLEDGE_LEVEL: KNOWLEDGE_ASSERTION,
+                                  AGENT_TYPE: MANUAL_AGENT}, #Edge props
                     comment_character=None,
                     delim=",",
                     has_header_row=True
