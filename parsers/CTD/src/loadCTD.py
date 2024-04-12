@@ -219,7 +219,7 @@ class CTDLoader(SourceDataLoader):
 
                 # all edges from this file get the same KL/AT
                 edge_props[KNOWLEDGE_LEVEL] = KNOWLEDGE_ASSERTION
-                edge_props[AGENT_TYPE] = AGENT_TYPE
+                edge_props[AGENT_TYPE] = MANUAL_AGENT
 
                 # save the edge
                 new_edge = kgxedge(edge_subject,
