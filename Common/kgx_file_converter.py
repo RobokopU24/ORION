@@ -17,6 +17,8 @@ def convert_jsonl_to_neo4j_csv(nodes_input_file: str,
     if not edges_output_file:
         edges_output_file = f'{edges_input_file.rsplit(".")[0]}.csv'
 
+    # these will get converted into headers
+    # required properties have unique/specialized types of the following instead of normal variable types
     required_node_properties = {
         'id': 'ID',
         'name': 'string',
@@ -30,6 +32,8 @@ def convert_jsonl_to_neo4j_csv(nodes_input_file: str,
                      array_delimiter=array_delimiter)
     # __verify_conversion(nodes_output_file, node_properties, array_delimiter, output_delimiter)
 
+    # these will get converted into headers
+    # required properties have unique/specialized types of the following instead of normal variable types
     required_edge_properties = {
         SUBJECT_ID: 'START_ID',
         PREDICATE: 'TYPE',
@@ -43,7 +47,7 @@ def convert_jsonl_to_neo4j_csv(nodes_input_file: str,
                      array_delimiter=array_delimiter)
     # __verify_conversion(edges_output_file, edge_properties, array_delimiter, output_delimiter)
 
-
+"""
 def __verify_conversion(file_path: str,
                         properties: dict,
                         array_delimiter: str,
@@ -82,7 +86,7 @@ def __verify_conversion(file_path: str,
         print(f'Not all properties were verified.. This should not happen..')
         print(f'Properties that were not verified: '
               f'{[prop for prop in properties.keys() if prop not in verified_properties]}')
-
+"""
 
 def __determine_properties_and_types(file_path: str, required_properties: dict):
     property_type_counts = defaultdict(lambda: defaultdict(int))
@@ -91,7 +95,9 @@ def __determine_properties_and_types(file_path: str, required_properties: dict):
             if value is None:
                 property_type_counts[key]["None"] += 1
                 if key in required_properties:
-                    print(f'WARNING: Required property None: {entity.items()}')
+                    print(f'WARNING: Required property ({key}) was None: {entity.items()}')
+                    raise Exception(
+                        f'None found as a value for a required property (property: {key}) in line {entity.items()}')
             elif isinstance(value, bool):
                 property_type_counts[key]["boolean"] += 1
             elif isinstance(value, int):
@@ -118,26 +124,34 @@ def __determine_properties_and_types(file_path: str, required_properties: dict):
             else:
                 property_type_counts[key]["string"] += 1
 
+    # start with the required_properties dictionary, it has the hard coded unique types for them already
     properties = required_properties.copy()
+    properties_to_remove = []
     for prop, type_counts in property_type_counts.items():
         prop_types = list(type_counts.keys())
         num_prop_types = len(prop_types)
 
-        if 'None' in prop_types:
-            print(f'WARNING: None found as a value for property {prop}, that should not happen!')
-            if prop in required_properties:
-                raise Exception(f'None found as a value for a required property - {type_counts.items()}')
+        # if 'None' in prop_types:
+            # print(f'WARNING: None found as a value for property {prop}')
 
         if prop in required_properties and (num_prop_types > 1):
+            # TODO this should just enforce that required properties are the correct type,
+            #  instead of trying to establish the type
             raise Exception(f'Required property {prop} had multiple conflicting types: {type_counts.items()}')
         elif prop in required_properties:
             # do nothing, already set
             pass
         elif num_prop_types == 1:
-            # if only one type just set it to that
-            properties[prop] = prop_types[0]
+            # if the only prop type is None that means it had no values
+            if prop_types[0] == "None":
+                # set to remove from the properties list which means it won't be in the output files
+                properties_to_remove.append(prop)
+            else:
+                # otherwise if only one type just set it to that
+                properties[prop] = prop_types[0]
         else:
-            # try to resolve the conflicts - TODO: this probably needs more work, it means a property had mixed types
+            # TODO: this probably needs more work
+            # try to resolve conflicting types, attempt to pick the type that will accommodate all of the values
             # print(f'Property {prop} had conflicting types: {type_counts}')
             if 'string[]' in prop_types:
                 properties[prop] = 'string[]'
@@ -154,7 +168,7 @@ def __determine_properties_and_types(file_path: str, required_properties: dict):
             else:
                 properties[prop] = 'string'
 
-        if prop not in properties:
+        if prop not in properties and prop not in properties_to_remove:
             raise Exception(f'Property type could not be determined for: {prop}. {type_counts.items()}')
 
     # print(f'Found {len(properties)} properties:{properties.items()}')
@@ -166,13 +180,13 @@ def __convert_to_csv(input_file: str,
                      properties: dict,  # dictionary of { node/edge property: property_type }
                      array_delimiter: str,
                      output_delimiter: str):
-
-    headers = {prop: f'{prop}:{prop_type}' for prop, prop_type in properties.items()}
+    headers = {prop: f'{prop.removeprefix("biolink:")}:{prop_type}' for prop, prop_type in properties.items()}
     with open(output_file, 'w', newline='') as output_file_handler:
         csv_file_writer = csv.DictWriter(output_file_handler,
                                          delimiter=output_delimiter,
                                          fieldnames=properties,
                                          restval='',
+                                         extrasaction='ignore',
                                          quoting=csv.QUOTE_MINIMAL)
         csv_file_writer.writerow(headers)
         for item in quick_jsonl_file_iterator(input_file):
@@ -195,7 +209,6 @@ def __convert_to_csv(input_file: str,
 
 
 if __name__ == '__main__':
-
     parser = argparse.ArgumentParser(description='Convert jsonl kgx files to csv neo4j import files')
     parser.add_argument('nodes', help='file with nodes in jsonl format')
     parser.add_argument('edges', help='file with edges in jsonl format')
