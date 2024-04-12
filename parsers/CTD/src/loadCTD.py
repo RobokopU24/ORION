@@ -30,7 +30,7 @@ class CTDLoader(SourceDataLoader):
     source_data_url = "http://ctdbase.org/reports/"
     license = "http://ctdbase.org/about/publications/#citing"
     attribution = "http://ctdbase.org/about/"
-    parsing_version: str = '1.4'
+    parsing_version: str = '1.5'
 
     # some CTD predicates no longer have mappings in the biolink model, convert them to something that will normalize
     predicate_conversion_map = {
