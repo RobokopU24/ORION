@@ -205,17 +205,12 @@ class Neo4jTools:
         self.neo4j_driver.close()
 
 
-def create_neo4j_dump(graph_directory: str,
-                      nodes_filename: str = 'nodes.jsonl',
-                      edges_filename: str = 'edges.jsonl',
+def create_neo4j_dump(nodes_filepath: str,
+                      edges_filepath: str,
+                      output_directory: str,
                       graph_id: str = 'graph',
                       graph_version: str = '',
-                      output_directory: str = None,
                       logger=None):
-    if not output_directory:
-        output_directory = graph_directory
-    graph_nodes_file_path = os.path.join(graph_directory, nodes_filename)
-    graph_edges_file_path = os.path.join(graph_directory, edges_filename)
     nodes_csv_filename = 'nodes.temp_csv'
     edges_csv_filename = 'edges.temp_csv'
     csv_nodes_file_path = os.path.join(output_directory, nodes_csv_filename)
@@ -226,8 +221,8 @@ def create_neo4j_dump(graph_directory: str,
     else:
         if logger:
             logger.info(f'Creating CSV files for {graph_id}({graph_version})...')
-        kgx_file_converter.convert_jsonl_to_neo4j_csv(nodes_input_file=graph_nodes_file_path,
-                                                      edges_input_file=graph_edges_file_path,
+        kgx_file_converter.convert_jsonl_to_neo4j_csv(nodes_input_file=nodes_filepath,
+                                                      edges_input_file=edges_filepath,
                                                       nodes_output_file=csv_nodes_file_path,
                                                       edges_output_file=csv_edges_file_path)
         if logger:

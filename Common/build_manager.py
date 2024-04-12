@@ -112,11 +112,13 @@ class GraphBuilder:
 
         if 'neo4j' in graph_spec.graph_output_format.lower():
             self.logger.info(f'Starting Neo4j dump pipeline for {graph_id}...')
-            dump_success = create_neo4j_dump(graph_id=graph_id,
+            nodes_filepath = os.path.join(graph_output_dir, NODES_FILENAME)
+            edges_filepath = os.path.join(graph_output_dir, EDGES_FILENAME)
+            dump_success = create_neo4j_dump(nodes_filepath=nodes_filepath,
+                                             edges_filepath=edges_filepath,
+                                             output_directory=graph_output_dir,
+                                             graph_id=graph_id,
                                              graph_version=graph_version,
-                                             graph_directory=graph_output_dir,
-                                             nodes_filename=NODES_FILENAME,
-                                             edges_filename=EDGES_FILENAME,
                                              logger=self.logger)
 
             if dump_success:
