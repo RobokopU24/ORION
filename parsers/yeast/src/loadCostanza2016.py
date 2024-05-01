@@ -31,7 +31,7 @@ class Costanza2016Loader(SourceDataLoader):
 
     source_id: str = 'Costanza2016Data'
     provenance_id: str = 'infores:CostanzaGeneticInteractions'
-    parsing_version = '1.1'
+    parsing_version = '1.2'
 
     def __init__(self, test_mode: bool = False, source_data_dir: str = None):
         """
@@ -144,7 +144,7 @@ class Costanza2016Loader(SourceDataLoader):
         with open(costanza_genetic_interactions, 'r') as fp:
             extractor.csv_extract(fp,
                                   lambda line: f"SGD:{line[COSTANZA_GENEINTERACTIONS.GENE1.value]}-{line[COSTANZA_GENEINTERACTIONS.GENE2.value]}",  # subject id
-                                  lambda line: line[COSTANZA_GENEINTERACTIONS.GENE1.value],  # object id
+                                  lambda line: f"SGD:{line[COSTANZA_GENEINTERACTIONS.GENE1.value]}",  # object id
                                   lambda line: "biolink:has_part",  # predicate extractor
                                   lambda line: {}, # subject props
                                   lambda line: {}, # object props
@@ -160,7 +160,7 @@ class Costanza2016Loader(SourceDataLoader):
         with open(costanza_genetic_interactions, 'r') as fp:
             extractor.csv_extract(fp,
                                   lambda line: f"SGD:{line[COSTANZA_GENEINTERACTIONS.GENE1.value]}-{line[COSTANZA_GENEINTERACTIONS.GENE2.value]}",  # subject id
-                                  lambda line: line[COSTANZA_GENEINTERACTIONS.GENE2.value],  # object id
+                                  lambda line: f"SGD:{line[COSTANZA_GENEINTERACTIONS.GENE2.value]}",  # object id
                                   lambda line: "biolink:has_part",  # predicate extractor
                                   lambda line: {}, # subject props
                                   lambda line: {}, # object props
