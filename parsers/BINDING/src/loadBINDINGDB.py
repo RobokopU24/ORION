@@ -96,7 +96,7 @@ class BINDINGDBLoader(SourceDataLoader):
             bindingdb_version = binding_db_download_page_response.text[version_index:version_index + 6]
         except requests.exceptions.SSLError:
             # currently the binding db SSL implementation is outdated/broken with the latest packages
-            self.logger.error(f'BINDING-DB had an SSL error while attempting to retrieve version. Returning default 202403.')
+            self.logger.error(f'BINDING-DB had an SSL error while attempting to retrieve version. Returning default.')
             return '202404'
 
         return f"{bindingdb_version}"
