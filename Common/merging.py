@@ -2,16 +2,20 @@ import os
 import jsonlines
 import secrets
 from xxhash import xxh64_hexdigest
+from Common.biolink_utils import get_biolink_model_toolkit
 from Common.biolink_constants import *
 from Common.utils import quick_json_loads, quick_json_dumps, chunk_iterator
 
 NODE_PROPERTIES_THAT_SHOULD_BE_SETS = {SYNONYMS, NODE_TYPES, SYNONYM}
 EDGE_PROPERTIES_THAT_SHOULD_BE_SETS = {AGGREGATOR_KNOWLEDGE_SOURCES, PUBLICATIONS, XREFS}
 
+bmt = get_biolink_model_toolkit()
+
 
 def edge_key_function(edge):
+    qualifiers = [f'{key}{value}' for key, value in edge.items() if bmt.is_qualifier(key)]
     return xxh64_hexdigest(f'{edge[SUBJECT_ID]}{edge[PREDICATE]}{edge[OBJECT_ID]}'
-                           f'{edge.get(PRIMARY_KNOWLEDGE_SOURCE, "")}')
+                           f'{edge.get(PRIMARY_KNOWLEDGE_SOURCE, "")}{"".join(qualifiers)}')
 
 
 def entity_merging_function(entity_1, entity_2, properties_that_are_sets):
