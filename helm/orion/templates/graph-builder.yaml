@@ -42,6 +42,10 @@ spec:
             {{- end }}
             - mountPath: /data
               name: ds-neo4j-scratch-volume
+              subPath: neo4j_data
+            - mountPath: /logs
+              name: ds-neo4j-scratch-volume
+              subPath: neo4j_logs
           env:
             - name: ORION_STORAGE
               value: /ORION_storage
@@ -56,10 +60,10 @@ spec:
             {{- end }}
             - name: ORION_LOGS
               value: /ORION_logs
-            - name: ORION_NEO4J_PASSWORD
-              value: ds-password
             - name: ORION_OUTPUT_URL
               value: {{ .Values.orion.outputURL }}
+            - name: BL_VERSION
+              value: {{ .Values.orion.normalization.bl_version }}
             {{- if .Values.orion.normalization.nodeNormEndpoint }}
             - name: NODE_NORMALIZATION_ENDPOINT
               value: {{ .Values.orion.normalization.nodeNormEndpoint }}
@@ -112,6 +116,10 @@ spec:
               {{- end }}
             - mountPath: /data
               name: ds-neo4j-scratch-volume
+              subPath: neo4j_data
+            - mountPath: /logs
+              name: ds-neo4j-scratch-volume
+              subPath: neo4j_logs
           env:
             - name: ORION_STORAGE
               value: /ORION_storage
@@ -126,10 +134,10 @@ spec:
             {{- end }}
             - name: ORION_LOGS
               value: /ORION_logs
-            - name: ORION_NEO4J_PASSWORD
-              value: ds-password
             - name: ORION_OUTPUT_URL
               value: {{ .Values.orion.outputURL }}
+            - name: BL_VERSION
+              value: {{ .Values.orion.normalization.bl_version }}
             {{- if .Values.orion.normalization.nodeNormEndpoint }}
             - name: NODE_NORMALIZATION_ENDPOINT
               value: {{ .Values.orion.normalization.nodeNormEndpoint }}

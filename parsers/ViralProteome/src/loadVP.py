@@ -25,7 +25,7 @@ class VPLoader(SourceDataLoader):
     source_data_url = "https://www.ebi.ac.uk/GOA/proteomes"
     license = "https://www.ebi.ac.uk/about/terms-of-use"
     attribution = "https://www.ebi.ac.uk/about/terms-of-use"
-    parsing_version: str = '1.1'
+    parsing_version: str = '1.2'
 
     # organism types
     TYPE_BACTERIA: str = '0'

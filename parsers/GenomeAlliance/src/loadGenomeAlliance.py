@@ -6,7 +6,7 @@ import gzip
 from Common.utils import GetData
 from Common.loader_interface import SourceDataLoader
 from Common.extractor import Extractor
-from Common.node_types import PRIMARY_KNOWLEDGE_SOURCE
+from Common.biolink_constants import PRIMARY_KNOWLEDGE_SOURCE
 
 
 # the data header columns for the orthologs tsv file:

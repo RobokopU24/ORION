@@ -18,7 +18,11 @@ HGNC = 'HGNC'
 HMDB = 'HMDB'
 HUMAN_GOA = 'HumanGOA'
 INTACT = 'IntAct'
+LITCOIN = 'LitCoin'
+LITCOIN_SAPBERT = 'LitCoinSapBERT'
+LITCOIN_ENTITY_EXTRACTOR = 'LitCoinEntityExtractor'
 KINACE = 'KinAce'
+MOLEPRO = 'MolePro'
 MONARCH_KG = 'MonarchKG'
 MONDO_PROPS = 'MONDOProps'
 ONTOLOGICAL_HIERARCHY = 'OntologicalHierarchy'
@@ -61,7 +65,11 @@ SOURCE_DATA_LOADER_CLASS_IMPORTS = {
     HUMAN_GOA: ("parsers.GOA.src.loadGOA", "HumanGOALoader"),
     HUMAN_STRING: ("parsers.STRING.src.loadSTRINGDB", "HumanSTRINGDBLoader"),
     INTACT: ("parsers.IntAct.src.loadIA", "IALoader"),
+    LITCOIN: ("parsers.LitCoin.src.loadLitCoin", "LitCoinLoader"),
+    LITCOIN_ENTITY_EXTRACTOR: ("parsers.LitCoin.src.loadLitCoin", "LitCoinEntityExtractorLoader"),
+    LITCOIN_SAPBERT: ("parsers.LitCoin.src.loadLitCoin", "LitCoinSapBERTLoader"),
     KINACE: ("parsers.KinAce.src.loadKinAce", "KinAceLoader"),
+    MOLEPRO: ("parsers.molepro.src.loadMolePro", "MoleProLoader"),
     MONARCH_KG: ("parsers.monarchkg.src.loadMonarchKG", "MonarchKGLoader"),
     MONDO_PROPS: ("parsers.MONDOProperties.src.loadMP", "MPLoader"),
     ONTOLOGICAL_HIERARCHY: ("parsers.UberGraph.src.loadUG", "OHLoader"),

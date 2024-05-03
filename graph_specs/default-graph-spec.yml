@@ -26,6 +26,7 @@ graphs:
       - source_id: CHEBIProps
       - source_id: CTD
       - source_id: DrugCentral
+      - source_id: DrugMechDB
       - source_id: GtoPdb
       - source_id: Hetio
       - source_id: HGNC
@@ -85,10 +86,10 @@ graphs:
       - source_id: OntologicalHierarchy
         merge_strategy: connected_edge_subset
 
- #- graph_id: 
+ #- graph_id:
  #  graph_name: DisGeNET
  #  graph_description: 'Disease – Gene Network (DisGeNET) is an open-source database on genes and variants associated with human disease. The integrated data are derived from curated repositories, GWAS catalogs, animal models, and the scientific literature.'
- #  graph_url: 
+ #  graph_url:
  #  output_format: 
  #  sources:
  #    - source_id:
@@ -104,6 +105,16 @@ graphs:
       - source_id: DrugCentral
       - source_id: OntologicalHierarchy
         merge_strategy: connected_edge_subset
+
+#  - graph_id: DrugMechDB_Automat
+#    graph_name: DrugMechDB
+#    graph_description: 'A database of paths that represent the mechanism of action from a drug to a disease in an indication.'
+#    graph_url: https://sulab.github.io/DrugMechDB/
+#    output_format: neo4j
+#    sources:
+#      - source_id: DrugMechDB
+#      - source_id: OntologicalHierarchy
+#        merge_strategy: connected_edge_subset
 
   - graph_id: GenomeAllianceOrthologs_Automat
     graph_name: Alliance of Genome Resources

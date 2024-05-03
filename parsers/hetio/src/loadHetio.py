@@ -8,7 +8,7 @@ from Common.utils import GetDataPullError
 from Common.loader_interface import SourceDataLoader
 from Common.extractor import Extractor
 from Common.prefixes import NCBIGENE, DRUGBANK, UBERON, DOID, MESH, UMLS
-from Common.node_types import AGGREGATOR_KNOWLEDGE_SOURCES, PRIMARY_KNOWLEDGE_SOURCE
+from Common.biolink_constants import *
 
 
 class HetioLoader(SourceDataLoader):
@@ -19,7 +19,7 @@ class HetioLoader(SourceDataLoader):
     source_data_url = "https://github.com/hetio/hetionet/blob/master/hetnet/json/hetionet-v1.0.json.bz2"
     license = "https://het.io/about/"
     attribution = "https://het.io/about/"
-    parsing_version: str = '1.4'
+    parsing_version: str = '1.5'
 
     def __init__(self, test_mode: bool = False, source_data_dir: str = None):
         """
@@ -210,7 +210,10 @@ hetio_source_to_provenance_lookup = {
 
 
 def get_edge_properties(edge):
-    edge_props = {}
+    edge_props = {
+        KNOWLEDGE_LEVEL: NOT_PROVIDED,
+        AGENT_TYPE: NOT_PROVIDED
+    }
     edge_data = edge['data']
     if 'source' in edge_data:
         edge_sources = [edge_data['source']]

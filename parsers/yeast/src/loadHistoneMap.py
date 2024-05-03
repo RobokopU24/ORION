@@ -7,7 +7,7 @@ from parsers.SGD.src.sgd_source_retriever import SGDAllGenes
 from parsers.yeast.src.yeast_constants import YEAST_GENOME_RESOLUTION, SGD_ALL_GENES_FILE, HISTONE_LOCI_FILE
 from Common.loader_interface import SourceDataLoader
 from Common.extractor import Extractor
-from Common.node_types import PRIMARY_KNOWLEDGE_SOURCE
+from Common.biolink_constants import PRIMARY_KNOWLEDGE_SOURCE
 
 #List of Binned Histone Modifications
 class HISTONEMODBINS_EDGEUMAN(enum.IntEnum):
