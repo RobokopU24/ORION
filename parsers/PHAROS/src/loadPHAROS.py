@@ -99,11 +99,15 @@ class PHAROSLoader(SourceDataLoader):
 
         :return: the version of the data
         """
+        """
+        we could do something like this but PHAROS is not going to be updated in this same format so it's not helpful
         url = 'http://juniper.health.unm.edu/tcrd/download/latest.README'
         response = requests.get(url)
         first_line = response.text.splitlines()[0]
         version = first_line.split()[1].replace('.', '_')
         return version
+        """
+        return 'v6_13_4'
 
     def get_data(self):
         gd: GetData = GetData(self.logger.level)
