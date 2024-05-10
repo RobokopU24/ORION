@@ -1,0 +1,24 @@
+graphs:
+  - graph_id: DugSemanticSearchKG
+    graph_name: KG for Semantic search
+    graph_description:
+    graph_url:
+    conflation: True
+    output_format: none
+    sources:
+      - source_id: CHEBIProps
+      - source_id: CTD
+      - source_id: DrugCentral
+      - source_id: GtoPdb
+      - source_id: Hetio
+      - source_id: HGNC
+      - source_id: HMDB
+      - source_id: IntAct
+      - source_id: MonarchKG
+      - source_id: MONDOProps
+      - source_id: OntologicalHierarchy
+        merge_strategy: connected_edge_subset
+      - source_id: PANTHER
+      - source_id: PHAROS
+      - source_id: Reactome
+      - source_id: Ubergraph
