@@ -57,9 +57,13 @@ pharos:
   db_name: PHAROS
 
 drugcentral:
-  host: pod-host-or-ip
-  port: 5432
-  user: dc-user
-  password: dc-pass
+  host: unmtid-dbs.net
+  port: 5433
+  user: drugman
+  password: dosage
   db_name: drugcentral
+  # host: pod-host-or-ip
+  # port: 5432
+  # user: dc-user
+  # password: dc-pass
 

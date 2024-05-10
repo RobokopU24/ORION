@@ -4,7 +4,7 @@ import jsonlines
 import logging
 from Common.biolink_utils import BiolinkInformationResources, INFORES_STATUS_INVALID, INFORES_STATUS_DEPRECATED
 from Common.biolink_constants import SEQUENCE_VARIANT, PRIMARY_KNOWLEDGE_SOURCE, AGGREGATOR_KNOWLEDGE_SOURCES, \
-    PUBLICATIONS, OBJECT_ID, SUBJECT_ID, PREDICATE
+    PUBLICATIONS, OBJECT_ID, SUBJECT_ID, PREDICATE, SUBCLASS_OF
 from Common.normalization import NodeNormalizer, EdgeNormalizer, EdgeNormalizationResult
 from Common.utils import LoggingUtil, chunk_iterator
 from Common.kgx_file_writer import KGXFileWriter
@@ -250,6 +250,7 @@ class KGXFileNormalizer:
         edge_splits = 0
         edges_failed_due_to_nodes = 0
         edges_failed_due_to_predicates = 0
+        subclass_loops_removed = 0
 
         node_norm_lookup = self.node_normalizer.node_normalization_lookup
         edge_norm_lookup = self.edge_normalizer.edge_normalization_lookup
@@ -303,6 +304,8 @@ class KGXFileNormalizer:
                                 normalized_predicate = edge[PREDICATE]
                                 edge_inverted_by_normalization = False
 
+                            # a counter for the number of normalized edges coming from a single source edge
+                            # it's only used to determine how many edge splits occurred
                             edge_count = 0
 
                             # ensure edge has a primary knowledge source
@@ -317,6 +320,12 @@ class KGXFileNormalizer:
 
                             for norm_subject_id in normalized_subject_ids:
                                 for norm_object_id in normalized_object_ids:
+
+                                    # if it's a subclass_of edge, and it's a self-loop, throw it out
+                                    if normalized_predicate == SUBCLASS_OF and norm_subject_id == norm_object_id:
+                                        subclass_loops_removed += 1
+                                        continue
+
                                     edge_count += 1
 
                                     # create a new edge with the normalized values
@@ -390,6 +399,7 @@ class KGXFileNormalizer:
             # this should be true: source_edges - failures - mergers + splits = edges post norm
             'edge_mergers': graph_merger.merged_edge_counter,
             'edge_splits': edge_splits,
+            'subclass_loops_removed': subclass_loops_removed,
             'final_normalized_edges': normalized_edge_count
         })
         if deprecated_infores_ids:

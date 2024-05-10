@@ -25,6 +25,7 @@ def node_property_merging_test(graph_merger: GraphMerger):
     assert 'SYN_X' in merged_node[SYNONYMS] and 'SYN_5' in merged_node[SYNONYMS]
     assert len(merged_node[NODE_TYPES]) == 1
 
+
 def test_node_property_merging_in_memory():
     node_property_merging_test(MemoryGraphMerger())
 
@@ -146,3 +147,55 @@ def test_edge_merging_counts_in_memory():
 
 def test_edge_merging_counts_on_disk():
     edge_merging_counts_test(DiskGraphMerger(temp_directory=TEMP_DIRECTORY, chunk_size=8))
+
+
+def test_qualifier_edge_merging():
+
+    test_edges_up = [{SUBJECT_ID: f'NODE:1',
+                      PREDICATE: 'testing:predicate',
+                      OBJECT_ID: f'NODE:2',
+                      SUBJECT_ASPECT_QUALIFIER: f'test_aspect',
+                      SUBJECT_DIRECTION_QUALIFIER: 'up',
+                      'testing_prop': [i]}
+                     for i in range(1, 16)]
+
+    test_edges_down = [{SUBJECT_ID: f'NODE:1',
+                        PREDICATE: 'testing:predicate',
+                        OBJECT_ID: f'NODE:2',
+                        SUBJECT_ASPECT_QUALIFIER: f'test_aspect',
+                        SUBJECT_DIRECTION_QUALIFIER: 'down',
+                        'testing_prop': [i]}
+                       for i in range(1, 11)]
+
+    test_edges_other = [{SUBJECT_ID: f'NODE:1',
+                         PREDICATE: 'testing:predicate',
+                         OBJECT_ID: f'NODE:2',
+                         SUBJECT_ASPECT_QUALIFIER: f'test_aspect',
+                         SUBJECT_DIRECTION_QUALIFIER: 'down',
+                         SPECIES_CONTEXT_QUALIFIER: 'test_species',
+                         'testing_prop': [i]}
+                        for i in range(1, 6)]
+    graph_merger = MemoryGraphMerger()
+    graph_merger.merge_edges(test_edges_up)
+    graph_merger.merge_edges(test_edges_down)
+    graph_merger.merge_edges(test_edges_other)
+
+    merged_edges = [json.loads(edge) for edge in graph_merger.get_merged_edges_jsonl()]
+    assert len(merged_edges) == 3
+
+    passed_tests = 0
+    for edge in merged_edges:
+        if edge[SUBJECT_DIRECTION_QUALIFIER] == 'up':
+            assert len(edge['testing_prop']) == 15
+            assert SPECIES_CONTEXT_QUALIFIER not in edge
+            passed_tests += 1
+        elif edge[SUBJECT_DIRECTION_QUALIFIER] == 'down' and SPECIES_CONTEXT_QUALIFIER not in edge:
+            assert len(edge['testing_prop']) == 10
+            passed_tests += 1
+        elif edge[SUBJECT_DIRECTION_QUALIFIER] == 'down' and SPECIES_CONTEXT_QUALIFIER in edge:
+            assert len(edge['testing_prop']) == 5
+            passed_tests += 1
+
+    assert passed_tests == 3
+
+

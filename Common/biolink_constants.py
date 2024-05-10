@@ -181,3 +181,6 @@ BIOLINK_PROPERTIES_THAT_ARE_LISTS = [
     PUBLICATIONS,
     XREFS
 ]
+
+# biolink compliant predicates
+SUBCLASS_OF = 'biolink:subclass_of'

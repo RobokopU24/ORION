@@ -62,6 +62,24 @@ class PHAROSLoader(SourceDataLoader):
         'UniProt Disease': 'infores:uniprot'
     }
 
+    # we might want more granularity here but for now it's one-to-one source with KL/AT
+    PHAROS_KL_AT_lookup = {
+        'CTD': (PREDICATION, MANUAL_AGENT),
+        'DisGeNET': (NOT_PROVIDED, NOT_PROVIDED),
+        'DrugCentral Indication': (KNOWLEDGE_ASSERTION, MANUAL_AGENT),
+        'eRAM': (NOT_PROVIDED, NOT_PROVIDED),
+        'JensenLab Experiment TIGA': (PREDICATION, AUTOMATED_AGENT),
+        'JensenLab Knowledge AmyCo': (NOT_PROVIDED, NOT_PROVIDED),
+        'JensenLab Knowledge MedlinePlus': (NOT_PROVIDED, NOT_PROVIDED),
+        'JensenLab Knowledge UniProtKB-KW': (NOT_PROVIDED, NOT_PROVIDED),
+        'JensenLab Text Mining': (NOT_PROVIDED, NOT_PROVIDED),
+        'Monarch': (NOT_PROVIDED, NOT_PROVIDED),
+        'UniProt Disease': (KNOWLEDGE_ASSERTION, MANUAL_AGENT)
+    }
+
+    # these are used for pharos edges which are not from a further upstream source
+    PHAROS_KL_AT = (KNOWLEDGE_ASSERTION, MANUAL_AGENT)
+
     def __init__(self, test_mode: bool = False, source_data_dir: str = None):
         """
         :param test_mode - sets the run into test mode
@@ -162,8 +180,9 @@ class PHAROSLoader(SourceDataLoader):
             disease_id = item['did']
             disease_name = self.sanitize_name(item['name'])
             edge_provenance = self.PHAROS_INFORES_MAPPING[item['dtype']]
-            edge_properties = {KNOWLEDGE_LEVEL: NOT_PROVIDED,
-                               AGENT_TYPE: NOT_PROVIDED}
+            knowledge_level, agent_type = self.PHAROS_KL_AT_lookup.get(item['dtype'], (NOT_PROVIDED, NOT_PROVIDED))
+            edge_properties = {KNOWLEDGE_LEVEL: knowledge_level,
+                               AGENT_TYPE: agent_type}
             if item['score']:
                 edge_properties['score'] = float(item['score'])
 
@@ -349,8 +368,9 @@ class PHAROSLoader(SourceDataLoader):
         else:
             pmids: list = []
 
-        props: dict = {KNOWLEDGE_LEVEL: NOT_PROVIDED,
-                       AGENT_TYPE: NOT_PROVIDED}
+        knowledge_level, agent_type = self.PHAROS_KL_AT
+        props: dict = {KNOWLEDGE_LEVEL: knowledge_level,
+                       AGENT_TYPE: agent_type}
 
         # if there was affinity data save it
         affinity = result['affinity']
