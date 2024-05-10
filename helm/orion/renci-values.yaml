@@ -13,7 +13,7 @@ orion:
   image:
     repository: ghcr.io/robokopu24/orion
     pullPolicy: IfNotPresent
-    tag: v1.0.12g
+    tag: v1.0.14
   graphsVolume:
     use_nfs: true
     nfs_server: na-projects.edc.renci.org
@@ -46,8 +46,8 @@ orion:
   normalization:
     nodeNormEndpoint: https://nodenormalization-sri.renci.org/
     edgeNormEndpoint: https://bl-lookup-sri.renci.org/
-    bl_version: 4.1.6
-  outputURL: https://stars.renci.org/var/plater/bl-4.1.6/
+    bl_version: 4.2.0
+  outputURL: https://stars.renci.org/var/plater/bl-4.2.0/
 
 pharos:
   host: pod-host-or-ip
