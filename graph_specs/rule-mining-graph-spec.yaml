@@ -6,7 +6,7 @@ graphs:
     graph_description: 'The ROBOKOP Knowledge Graph (ROBOKOP KG) is an open-source biomedical KG that supports the ROBOKOP application and currently contains millions of biomedical relationships derived from dozens of integrated and harmonized biological knowledge sources and bio-ontologies. The ROBOKOP KG includes curated components of most of the Automat KGs, as well as other knowledge sources. Most of the ROBOKOP knowledge sources are curated. However, the ROBOKOP KG also includes text-mined assertions from PubMed and PubMed Central that have been derived from natural language processing (NLP). Note that text-based assertions, while providing valuable information, must be interpreted with caution, as NLP algorithms may introduce false assertions. This version excludes text mining edges and is used for rule mining.'
     graph_url:
     conflation: True
-    output_format: jsonl
+    output_format: jsonl+redundant_jsonl
     sources:
       - source_id: BINDING-DB
       - source_id: CHEBIProps
