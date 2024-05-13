@@ -99,8 +99,8 @@ class GraphBuilder:
             if qc_results['pass']:
                 self.logger.info(f'QC passed for graph {graph_id}.')
             else:
-                # TODO - bail if qc fails - just need to implement a way to force output regardless
-                self.logger.info(f'QC failed for graph {graph_id}')
+                self.logger.info(f'QC failed for graph {graph_id}, bailing..')
+                return
 
         needs_meta_kg = not self.has_meta_kg(graph_directory=graph_output_dir)
         needs_test_data = not self.has_test_data(graph_directory=graph_output_dir)
@@ -283,7 +283,6 @@ class GraphBuilder:
         if deprecated_infores_ids:
             qc_metadata['warnings']['deprecated_knowledge_sources'] = deprecated_infores_ids
         if invalid_infores_ids:
-            qc_metadata['pass'] = False
             qc_metadata['warnings']['invalid_knowledge_sources'] = invalid_infores_ids
         return qc_metadata
 
