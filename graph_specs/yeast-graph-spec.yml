@@ -26,6 +26,7 @@ graphs:
       - source_id: CHEBIProps
       - source_id: CTD
       - source_id: DrugCentral
+      - source_id: DrugMechDB
       - source_id: GtoPdb
       - source_id: Hetio
       - source_id: HGNC

@@ -11,7 +11,7 @@ from Common.loader_interface import SourceDataLoader, SourceDataFailedError, Sou
 from Common.prefixes import GTOPDB, HGNC, ENSEMBL, PUBMED
 from Common.kgxmodel import kgxnode, kgxedge
 from Common.predicates import DGIDB_PREDICATE_MAPPING
-from Common.node_types import PUBLICATIONS, AFFINITY, AFFINITY_PARAMETER
+from Common.biolink_constants import *
 
 
 class INTERACTIONS_COLS(enum.Enum):
@@ -57,7 +57,7 @@ class GtoPdbLoader(SourceDataLoader):
     source_data_url = "http://www.guidetopharmacology.org/"
     license = "https://www.guidetopharmacology.org/about.jsp#license"
     attribution = "https://www.guidetopharmacology.org/citing.jsp"
-    parsing_version: str = '1.2'
+    parsing_version: str = '1.3'
 
     def __init__(self, test_mode: bool = False, source_data_dir: str = None):
         """
@@ -199,10 +199,15 @@ class GtoPdbLoader(SourceDataLoader):
                         part_node = kgxnode(part_node_id, name=part_node_name)
                         self.output_file_writer.write_kgx_node(part_node)
 
+                        edge_props = {
+                            KNOWLEDGE_LEVEL: KNOWLEDGE_ASSERTION,
+                            AGENT_TYPE: MANUAL_AGENT
+                        }
                         new_edge = kgxedge(ligand_id,
                                            part_node_id,
                                            predicate=self.has_part_predicate,
-                                           primary_knowledge_source=self.provenance_id)
+                                           primary_knowledge_source=self.provenance_id,
+                                           edgeprops=edge_props)
                         self.output_file_writer.write_kgx_edge(new_edge)
                 else:
                     skipped_record_counter += 1
@@ -253,17 +258,19 @@ class GtoPdbLoader(SourceDataLoader):
                     ligand_node = kgxnode(ligand_id, name=ligand_name)
                     self.output_file_writer.write_kgx_node(ligand_node)
 
-                    props: dict = {'primaryTarget': True if r[INTERACTIONS_COLS.PRIMARY_TARGET.value] == 'true' else False,
+                    edge_props: dict = {'primaryTarget': True if r[INTERACTIONS_COLS.PRIMARY_TARGET.value] == 'true' else False,
                                    AFFINITY_PARAMETER: r[INTERACTIONS_COLS.AFFINITY_UNITS.value],
-                                   'endogenous': True if r[INTERACTIONS_COLS.ENDOGENOUS.value] == 'true' else False}
+                                   'endogenous': True if r[INTERACTIONS_COLS.ENDOGENOUS.value] == 'true' else False,
+                                   KNOWLEDGE_LEVEL: KNOWLEDGE_ASSERTION,
+                                   AGENT_TYPE: MANUAL_AGENT}
 
                     # check the affinity median and ensure it is a float
                     if r[INTERACTIONS_COLS.AFFINITY_MEDIAN.value] != '':
-                        props.update({AFFINITY: float(r[INTERACTIONS_COLS.AFFINITY_MEDIAN.value])})
+                        edge_props[AFFINITY] = float(r[INTERACTIONS_COLS.AFFINITY_MEDIAN.value])
 
                     # if there are publications add them in
                     if r[INTERACTIONS_COLS.PUBMED_ID.value] != '':
-                        props.update({PUBLICATIONS: [f'{PUBMED}:{x}' for x in r[INTERACTIONS_COLS.PUBMED_ID.value].split('|')]})
+                        edge_props[PUBLICATIONS] = [f'{PUBMED}:{x}' for x in r[INTERACTIONS_COLS.PUBMED_ID.value].split('|')]
 
                     genes = r[INTERACTIONS_COLS.TARGET_ENSEMBL_GENE_ID.value].split('|')
                     gene_names = r[INTERACTIONS_COLS.TARGET_GENE_SYMBOLS.value].split('|')
@@ -277,7 +284,7 @@ class GtoPdbLoader(SourceDataLoader):
                                            gene_id,
                                            predicate=predicate,
                                            primary_knowledge_source=self.provenance_id,
-                                           edgeprops=props)
+                                           edgeprops=edge_props)
                         self.output_file_writer.write_kgx_edge(new_edge)
 
                     if "Human" in r[INTERACTIONS_COLS.LIGAND_SPECIES.value] \
@@ -291,15 +298,16 @@ class GtoPdbLoader(SourceDataLoader):
                                 gene_node = kgxnode(gene_id, name=gene_symbol)
                                 self.output_file_writer.write_kgx_node(gene_node)
 
-                                props: dict = {}
-                                if r[INTERACTIONS_COLS.PUBMED_ID.value] != '':
-                                    props.update({PUBLICATIONS: [f'{PUBMED}:{x}' for x in r[INTERACTIONS_COLS.PUBMED_ID.value].split('|')]})
+                                edge_props: dict = {KNOWLEDGE_LEVEL: KNOWLEDGE_ASSERTION,
+                                                    AGENT_TYPE: MANUAL_AGENT}
+                                if r[INTERACTIONS_COLS.PUBMED_ID.value]:
+                                    edge_props[PUBLICATIONS] = [f'{PUBMED}:{x}' for x in r[INTERACTIONS_COLS.PUBMED_ID.value].split('|')]
 
                                 new_edge = kgxedge(gene_id,
                                                    ligand_id,
                                                    predicate=self.has_gene_product_predicate,
                                                    primary_knowledge_source=self.provenance_id,
-                                                   edgeprops=props)
+                                                   edgeprops=edge_props)
                                 self.output_file_writer.write_kgx_edge(new_edge)
                 else:
                     skipped_record_counter += 1

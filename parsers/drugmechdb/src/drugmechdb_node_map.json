@@ -1,0 +1,858 @@
+{
+        "MESH:D016044": {
+            "id": "PR:000029194",
+            "name": "BCR/ABL fusion protein (human)"
+        },
+        "interpro:IPR003440": {
+            "id": "GO:0003843",
+            "name": "1,3-beta-D-glucan synthase activity"
+        },
+        "MESH:D015514": {
+            "id": "UMLS:C0029014",
+            "name": "Oncogene Proteins, Fusion"
+        },
+        "DRUGBANK:DBMET03189": {
+            "id": "PUBCHEM.COMPOUND:126357",
+            "name": "5-Aza-2'-deoxycytidine-5'-triphosphate"
+        },
+        "DRUGBANK:DBSALT001065": {
+            "id": "PUBCHEM.COMPOUND:240767",
+            "name": "Fluorometholone Acetate"
+        },
+        "DRUGBANK:DBSALT001045": {
+            "id": "PUBCHEM.COMPOUND:84003",
+            "name": "Ketorolac tromethamine"
+        },
+        "DRUGBANK:DBMET02573": {
+            "id": "PUBCHEM.COMPOUND:631051",
+            "name": "21-Desacetyl Deflazacort"
+        },
+        "DRUGBANK:DBMET01698": {
+            "id": "PUBCHEM.COMPOUND:68178378",
+            "name": "6'beta-Hydroxylovastatin"
+        },
+        "UniProtKB:A0A156J405": {
+            "id": "UniProtKB:A0A4Q2E8H5",
+            "name": "DNA topoisomerase 4 subunit A"
+        },
+        "UniProtKB:A0A8A6J2U1": {
+            "id": "UniProtKB:A8GI27",
+            "name": "Elongation factor 4"
+        },
+        "UniProtKB:S7IMP9": {
+            "id": "UniProtKB:A0A2D2D9D4",
+            "name": "Small ribosomal subunit protein uS9"
+        },
+        "UniProtKB:A0A6C1LUF2": {
+            "id": "UniProtKB:A0A0J8RAV7",
+            "name": "Cytochrome P450 51"
+        },
+        "UniProtKB:41972": {
+            "id": "UniProtKB:P41368",
+            "name": "Isoleucine--tRNA ligase"
+        },
+        "UniProtKB:S7IK33": {
+            "id": "UniProtKB:A0A2D2D7W9",
+            "name": "Small ribosomal subunit protein uS4"
+        },
+        "UniProtKB:P4984": {
+            "id": "UniProtKB:P49841",
+            "name": "Glycogen synthase kinase-3 beta"
+        },
+        "UniProtKB:S2ZP52": {
+            "id": "UniProtKB:A0A1F1VU17",
+            "name": "Small ribosomal subunit protein uS4"
+        },
+        "UniProtKB:A0A443X2G9": {
+            "id": "UniProtKB:W1DID1",
+            "name": "DNA gyrase subunit A"
+        },
+        "UniProtKB:P3535": {
+            "id": "UniProtKB:P35354",
+            "name": "Prostaglandin G/H synthase 2"
+        },
+        "UniProtKB:S3ABF8": {
+            "id": "UniProtKB:A0A448PPU9",
+            "name": "Small ribosomal subunit protein uS9"
+        },
+        "UniProtKB:V5AL63": {
+            "id": "UniProtKB:A0A411IMP7",
+            "name": "Elongation factor G"
+        },
+        "UniProtKB:S7JCG1": {
+            "id": "UniProtKB:A0A2D2D8E5",
+            "name": "Elongation factor G"
+        },
+        "CHEBI:35472": {
+            "id": "CHEBI:67079",
+            "name": "anti-inflammatory agent"
+        },
+        "CHEBI:50503": {
+            "id": "UMLS:C0282090",
+            "name": "Laxatives"
+        },
+        "CHEBI:21241": {
+            "id": "CHEBI:176783",
+            "name": "vitamin C"
+        },
+        "CHEBI:35705": {
+            "id": "MESH:D007166",
+            "name": "Immunosuppressive Agents"
+        },
+        "CHEBI:77034": {
+            "id": "UMLS:C0026698",
+            "name": "mucolytic agents"
+        },
+        "NCBITaxon:1535326": {
+            "id": "NCBITaxon:5476",
+            "name": "Candida albicans"
+        },
+        "NCBITaxon:11103": {
+            "id": "NCBITaxon:3052230",
+            "name": "Hepacivirus hominis"
+        },
+        "NCBITaxon:5519": {
+            "id": "NCBITaxon:55194",
+            "name": "Malassezia furfur"
+        },
+        "REACT:R-HSA-8932339": {
+            "id": "REACT:R-HSA-9755511",
+            "name": "KEAP1-NFE2L2 pathway "
+        },
+        "TIGR:02074": {
+            "id": "UniProtKB:A0A7U2H7Z3",
+            "name": "Penicillin-binding protein 1A"
+        },
+        "GO:0003809": {
+            "id": "GO:0004252",
+            "name": "serine-type endopeptidase activity"
+        },
+        "GO:0140603": {
+            "id": "GO:0016887",
+            "name": "ATP hydrolysis activity"
+        },
+        "GO:0071442": {
+            "id": "GO:0010484",
+            "name": "histone H3 acetyltransferase activity"
+        },
+        "GO:0070997": {
+            "id": "UMLS:C2754100",
+            "name": "neuron death"
+        },
+        "GO:0000737": {
+            "id": "GO:0004519",
+            "name": "endonuclease activity"
+        },
+        "GO:0036475": {
+            "id": "GO:0036480",
+            "name": "neuron intrinsic apoptotic signaling pathway in response to oxidative stress"
+        },
+        "GO:0050828": {
+            "id": "GO:0043129",
+            "name": "surfactant homeostasis"
+        },
+        "GO:005507": {
+            "id": "GO:0006879",
+            "name": "intracellular iron ion homeostasis"
+        },
+        "GO:0071158": {
+            "id": "GO:0051726",
+            "name": "regulation of cell cycle"
+        },
+        "GO:0090503": {
+            "id": "GO:0090305",
+            "name": "nucleic acid phosphodiester bond hydrolysis"
+        },
+        "GO:0007048": {
+            "id": "UMLS:C0596263",
+            "name": "Carcinogenesis"
+        },
+        "GO:0043631": {
+            "id": "GO:0180011",
+            "name": "cytosolic mRNA polyadenylation"
+        },
+        "GO:0046855": {
+            "id": "GO:0043647",
+            "name": "inositol phosphate metabolic process"
+        },
+        "GO:0044825": {
+            "id": "GO:0044823",
+            "name": "retroviral integrase activity"
+        },
+        "GO:0036473": {
+            "id": "GO:0097468",
+            "name": "programmed cell death in response to reactive oxygen species"
+        },
+        "GO:0001207": {
+            "id": "GO:0140713",
+            "name": "histone chaperone activity"
+        },
+        "GO:0070265": {
+            "id": "GO:0097300",
+            "name": "programmed necrotic cell death"
+        },
+        "GO:0055072": {
+            "id": "GO:0006879",
+            "name": "intracellular iron ion homeostasis"
+        },
+        "MESH:D010062": {
+            "id": "UMLS:C0029967",
+            "name": "Ovulation Induction"
+        },
+        "MESH:D034061": {
+            "id": "UMLS:C0221145",
+            "name": "Thrombopoiesis"
+        },
+        "MESH:D002470": {
+            "id": "UMLS:C0007620",
+            "name": "Cell survival"
+        },
+        "MESH:D061566": {
+            "id": "HGNC.FAMILY:184",
+            "name": "Sodium voltage-gated channels"
+        },
+        "MESH:D000066829": {
+            "id": "UMLS:C0598958",
+            "name": "Neuroprotection"
+        },
+        "MESH:D015221": {
+            "id": "HGNC.FAMILY:183",
+            "name": "Potassium channels"
+        },
+        "MESH:D019065": {
+            "id": "UMLS:C0282629",
+            "name": "Virus Assembly"
+        },
+        "MESH:D014779": {
+            "id": "UMLS:C0042774",
+            "name": "Virus Replication"
+        },
+        "MESH:D008560": {
+            "id": "UMLS:C0025245",
+            "name": "Membrane Fluidity"
+        },
+        "MESH:D014661": {
+            "id": "GO:0042310",
+            "name": "vasoconstriction"
+        },
+        "MESH:D014590": {
+            "id": "UMLS:C0042130",
+            "name": "Uterine Contraction"
+        },
+        "MESH:D020746": {
+            "id": "UMLS:C0288263",
+            "name": "L-Type Calcium Channels"
+        },
+        "MESH:D018047": {
+            "id": "UMLS:C0001471",
+            "name": "Receptors, Purinergic P1"
+        },
+        "MESH:D015227": {
+            "id": "UMLS:C0023775",
+            "name": "Lipid Peroxidation"
+        },
+        "MESH:D054327": {
+            "id": "UMLS:C3853691",
+            "name": "Eye lubricant"
+        },
+        "MESH:D002463": {
+            "id": "UMLS:C0007605",
+            "name": "Cell Membrane Permeability"
+        },
+        "MESH:D018994": {
+            "id": "UMLS:C0027108",
+            "name": "Myosin Light Chains"
+        },
+        "MESH:D015220": {
+            "id": "HGNC.FAMILY:182",
+            "name": "Calcium channels"
+        },
+        "MESH:D016923": {
+            "id": "UMLS:C0007587",
+            "name": "Cell Death"
+        },
+        "MESH:D012032": {
+            "id": "UMLS:C1720801",
+            "name": "Refractory Period, Electrophysiological"
+        },
+        "MESH:D004167": {
+            "id": "UMLS:C0012550",
+            "name": "Diphtheria Toxin"
+        },
+        "MESH:D036022": {
+            "id": "UMLS:C1136102",
+            "name": "Capsid Proteins"
+        },
+        "MESH:D016147": {
+            "id": "UMLS:C0079427",
+            "name": "Tumor Suppressor Genes"
+        },
+        "MESH:D010539": {
+            "id": "UMLS:C0031164",
+            "name": "Permeability"
+        },
+        "MESH:D018168": {
+            "id": "HGNC.FAMILY:2069",
+            "name": "Retinoic acid receptors"
+        },
+        "MESH:D018341": {
+            "id": "UMLS:C0001639",
+            "name": "Receptors, Adrenergic, alpha-2"
+        },
+        "MESH:D012738": {
+            "id": "UMLS:C0036883",
+            "name": "Sex Hormone-Binding Globulin"
+        },
+        "MESH:D055504": {
+            "id": "UMLS:C2350409",
+            "name": "Insulin Receptor Substrate Proteins"
+        },
+        "MESH:D015513": {
+            "id": "UMLS:C0029005",
+            "name": "Oncogene Proteins"
+        },
+        "MESH:D001610": {
+            "id": "UMLS:C2607955",
+            "name": "Beta radiation"
+        },
+        "MESH:D018079": {
+            "id": "UMLS:C0206518",
+            "name": "GABA Receptor"
+        },
+        "MESH:D010410": {
+            "id": "UMLS:C0030847",
+            "name": "Penile Erection"
+        },
+        "MESH:D051098": {
+            "id": "UMLS:C1579754",
+            "name": "Glial Cell Line-Derived Neurotrophic Factors"
+        },
+        "MESH:D017319": {
+            "id": "UMLS:C0162713",
+            "name": "Photosensitizing Agents"
+        },
+        "MESH:D057705": {
+            "id": "UMLS:C2936222",
+            "name": "Transendothelial and Transepithelial Migration"
+        },
+        "MESH:D016212": {
+            "id": "UMLS:C0040690",
+            "name": "Transforming Growth Factor beta"
+        },
+        "MESH:D002199": {
+            "id": "UMLS:C0006906",
+            "name": "Capillary Permeability"
+        },
+        "MESH:D053536": {
+            "id": "NCBIGene:707236",
+            "name": "KRT16"
+        },
+        "MESH:D000071080": {
+            "id": "UMLS:C4277734",
+            "name": "Cortical Excitability"
+        },
+        "MESH:D016084": {
+            "id": "HP:4000007",
+            "name": "Bronchoconstriction"
+        },
+        "MESH:D000803": {
+            "id": "PUBCHEM.COMPOUND:3081372",
+            "name": "Angiotensin I"
+        },
+        "MESH:D054368": {
+            "id": "UMLS:C0282090",
+            "name": "Laxatives"
+        },
+        "MESH:D059365": {
+            "id": "GO:0000184",
+            "name": "nuclear-transcribed mRNA catabolic process, nonsense-mediated decay"
+        },
+        "MESH:D011950": {
+            "id": "HGNC.FAMILY:175",
+            "name": "Cholinergic receptors"
+        },
+        "MESH:D014655": {
+            "id": "UMLS:C0042380",
+            "name": "Vascular resistance"
+        },
+        "MESH:D054856": {
+            "id": "UMLS:C1517336",
+            "name": "G-Quadruplexes"
+        },
+        "MESH:D053553": {
+            "id": "UMLS:C1676737",
+            "name": "Keratin-6"
+        },
+        "MESH:D017475": {
+            "id": "UMLS:C0132173",
+            "name": "Receptors, Nerve Growth Factor"
+        },
+        "interpro:IPR013673": {
+            "id": "HGNC.FAMILY:276",
+            "name": "Potassium inwardly rectifying channel subfamily J"
+        },
+        "interpro:IPR017790": {
+            "id": "UMLS:C0135892",
+            "name": "Penicillin-Binding Protein 2"
+        },
+        "interpro:IPR000451": {
+            "id": "PANTHER.FAMILY:PTHR24169",
+            "name": "NUCLEAR FACTOR NF-KAPPA-B PROTEIN"
+        },
+        "interpro:IPR000217": {
+            "id": "PANTHER.FAMILY:PTHR11588",
+            "name": "Tubulin"
+        },
+        "interpro:IPR001054": {
+            "id": "HGNC.FAMILY:819",
+            "name": "Guanylate cyclases"
+        },
+        "interpro:IPR019602": {
+            "id": "PANTHER.FAMILY:PTHR10367",
+            "name": "MRNA-CAPPING ENZYME"
+        },
+        "interpro:IPR002289": {
+            "id": "UniProtKB:P28472",
+            "name": "Gamma-aminobutyric acid receptor subunit beta-3"
+        },
+        "interpro:IPR028309": {
+            "id": "PANTHER.FAMILY:PTHR13742",
+            "name": "RETINOBLASTOMA-ASSOCIATED PROTEIN RB -RELATED"
+        },
+        "interpro:IPR030826": {
+            "id": "MESH:D054680",
+            "name": "Ribosome Subunits, Small, Bacterial"
+        },
+        "interpro:IPR001104": {
+            "id": "PANTHER.FAMILY:PTHR10556",
+            "name": "3-OXO-5-ALPHA-STEROID 4-DEHYDROGENASE"
+        },
+        "interpro:IPR006390": {
+            "id": "UMLS:C0012314",
+            "name": "Dihydropteroate Synthase"
+        },
+        "interpro:IPR003965": {
+            "id": "PANTHER.FAMILY:PTHR43775",
+            "name": "FATTY ACID SYNTHASE"
+        },
+        "interpro:IPR005982": {
+            "id": "PANTHER.FAMILY:PTHR48105",
+            "name": "THIOREDOXIN REDUCTASE 1-RELATED-RELATED"
+        },
+        "interpro:IPR005446": {
+            "id": "UniProtKB:Q13936",
+            "name": "Voltage-dependent L-type calcium channel subunit alpha-1C"
+        },
+        "interpro:IPR005990": {
+            "id": "PANTHER.FAMILY:PTHR11911",
+            "name": "INOSINE-5-MONOPHOSPHATE DEHYDROGENASE RELATED"
+        },
+        "interpro:IPR000499": {
+            "id": "HGNC.FAMILY:225",
+            "name": "Endothelin receptors"
+        },
+        "interpro:IPR043502": {
+            "id": "PANTHER.FAMILY:PTHR10133",
+            "name": "DNA POLYMERASE I"
+        },
+        "interpro:IPR001128": {
+            "id": "HGNC.FAMILY:862",
+            "name": "Cytochrome P450s"
+        },
+        "interpro:IPR000114": {
+            "id": "PANTHER.FAMILY:PTHR12220",
+            "name": "50S/60S RIBOSOMAL PROTEIN L16"
+        },
+        "interpro:IPR005742": {
+            "id": "PANTHER.FAMILY:PTHR11390",
+            "name": "PROKARYOTIC DNA TOPOISOMERASE"
+        },
+        "interpro:IPR023088": {
+            "id": "UniProtKB:Q07343",
+            "name": "3',5'-cyclic-AMP phosphodiesterase 4B"
+        },
+        "interpro:IPR001211": {
+            "id": "PANTHER.FAMILY:PTHR11716",
+            "name": "PHOSPHOLIPASE A2 FAMILY MEMBER"
+        },
+        "interpro:IPR037532": {
+            "id": "UMLS:C0135893",
+            "name": "Penicillin-Binding Protein 3"
+        },
+        "interpro:IPR001460": {
+            "id": "PANTHER.FAMILY:PTHR22935",
+            "name": "PENICILLIN-BINDING PROTEIN"
+        },
+        "interpro:IPR011009": {
+            "id": "PANTHER.FAMILY:PTHR46448",
+            "name": "PROTEIN KINASE DOMAIN-CONTAINING PROTEIN"
+        },
+        "interpro:IPR000837": {
+            "id": "HGNC.FAMILY:1258",
+            "name": "AP-1 transcription factor"
+        },
+        "interpro:IPR013680": {
+            "id": "PANTHER.FAMILY:PTHR10166",
+            "name": "VOLTAGE-DEPENDENT CALCIUM CHANNEL SUBUNIT ALPHA-2/DELTA-RELATED"
+        },
+        "interpro:IPR043371": {
+            "id": "PANTHER.FAMILY:PTHR11347",
+            "name": "CYCLIC NUCLEOTIDE PHOSPHODIESTERASE"
+        },
+        "interpro:IPR000476": {
+            "id": "UMLS:C0018061",
+            "name": "Gonadotropins"
+        },
+        "interpro:IPR000929": {
+            "id": "HGNC.FAMILY:181",
+            "name": "Dopamine receptors"
+        },
+        "interpro:IPR022801": {
+            "id": "PR:000023862",
+            "name": "30S ribosomal protein S9"
+        },
+        "interpro:IPR005445": {
+            "id": "HGNC.FAMILY:1512",
+            "name": "Calcium voltage-gated channel alpha1 subunits"
+        },
+        "interpro:IPR003574": {
+            "id": "UniProtKB:P05231",
+            "name": "Interleukin-6"
+        },
+        "interpro:IPR000003": {
+            "id": "HGNC.FAMILY:2086",
+            "name": "Retinoid X receptors"
+        },
+        "interpro:IPR002955": {
+            "id": "UniProtKB:P10636",
+            "name": "Microtubule-associated protein tau"
+        },
+        "interpro:IPR016248": {
+            "id": "PANTHER.FAMILY:PTHR19890",
+            "name": "FIBROBLAST GROWTH FACTOR RECEPTOR"
+        },
+        "interpro:IPR017320": {
+            "id": "HGNC.FAMILY:989",
+            "name": "Histone deacetylase"
+        },
+        "interpro:IPR023174": {
+            "id": "PANTHER.FAMILY:PTHR11347",
+            "name": "CYCLIC NUCLEOTIDE PHOSPHODIESTERASE"
+        },
+        "interpro:IPR002205": {
+            "id": "PANTHER.FAMILY:PTHR11390",
+            "name": "PROKARYOTIC DNA TOPOISOMERASE"
+        },
+        "interpro:IPR000477": {
+            "id": "UniProtKB:Q72547",
+            "name": "Reverse transcriptase/RNaseH"
+        },
+        "interpro:IPR013760": {
+            "id": "PANTHER.FAMILY:PTHR11390",
+            "name": "PROKARYOTIC DNA TOPOISOMERASE"
+        },
+        "interpro:PR001696": {
+            "id": "HGNC.FAMILY:1203",
+            "name": "Sodium voltage-gated channel alpha subunits"
+        },
+        "interpro:IPR026899": {
+            "id": "UMLS:C5573839",
+            "name": "1,3-beta-glucan synthase component FKS1"
+        },
+        "interpro:IPR031649": {
+            "id": "UMLS:C0288263",
+            "name": "L-Type Calcium Channels"
+        },
+        "interpro:IPR035897": {
+            "id": "HGNC.FAMILY:1296",
+            "name": "TIR domain containing"
+        },
+        "interpro:IPR002453": {
+            "id": "UniProtKB:Q13509",
+            "name": "Tubulin beta-3 chain"
+        },
+        "interpro:IPR002117": {
+            "id": "UniProtKB:P04637",
+            "name": "Cellular tumor antigen p53"
+        },
+        "interpro:IPR017950": {
+            "id": "UMLS:C0041945",
+            "name": "Urease"
+        },
+        "interpro:IPR003938": {
+            "id": "HGNC.FAMILY:274",
+            "name": "Potassium voltage-gated channels"
+        },
+        "interpro:IPR002227": {
+            "id": "UniProtKB:P14679",
+            "name": "Tyrosinase"
+        },
+        "interpro:IPR002233": {
+            "id": "HGNC.FAMILY:169",
+            "name": "Adrenoceptors"
+        },
+        "interpro:IPR000235": {
+            "id": "PR:000023860",
+            "name": "30S ribosomal protein S7"
+        },
+        "interpro:IPR000584": {
+            "id": "UniProtKB:Q08289",
+            "name": "Voltage-dependent L-type calcium channel subunit beta-2"
+        },
+        "interpro:IPR001418": {
+            "id": "HGNC.FAMILY:245",
+            "name": "Opioid receptors"
+        },
+        "interpro:IPR001148": {
+            "id": "HGNC.FAMILY:460",
+            "name": "Carbonic anhydrases"
+        },
+        "interpro:IPR001321": {
+            "id": "UniProtKB:Q16665",
+            "name": "Hypoxia-inducible factor 1-alpha"
+        },
+        "interpro:IPR001254": {
+            "id": "UMLS:C0758336",
+            "name": "trypsin-like serine protease"
+        },
+        "interpro:IPR001697": {
+            "id": "PANTHER.FAMILY:PTHR11817",
+            "name": "PYRUVATE KINASE"
+        },
+        "interpro:IPR028325": {
+            "id": "HGNC.FAMILY:274",
+            "name": "Potassium voltage-gated channels"
+        },
+        "interpro:IPR001873": {
+            "id": "PANTHER.FAMILY:PTHR11690",
+            "name": "AMILORIDE-SENSITIVE SODIUM CHANNEL-RELATED"
+        },
+        "interpro:IPR015680": {
+            "id": "UMLS:C0756632",
+            "name": "glutamate-gated chloride channel"
+        },
+        "interpro:IPR013759": {
+            "id": "PANTHER.FAMILY:PTHR11390",
+            "name": "PROKARYOTIC DNA TOPOISOMERASE"
+        },
+        "interpro:IPR003084": {
+            "id": "HGNC.FAMILY:989",
+            "name": "Histone deacetylase"
+        },
+        "interpro:IPR001245": {
+            "id": "PANTHER.FAMILY:PTHR46392",
+            "name": "DUAL SERINE/THREONINE AND TYROSINE PROTEIN KINASE"
+        },
+        "interpro:IPR028809": {
+            "id": "HGNC.FAMILY:184",
+            "name": "Sodium voltage-gated channels"
+        },
+        "interpro:IPR001170": {
+            "id": "HGNC.FAMILY:819",
+            "name": "Guanylate cyclases"
+        },
+        "interpro:IPR006782": {
+            "id": "PANTHER.FAMILY:PTHR11633",
+            "name": "PLATELET-DERIVED GROWTH FACTOR"
+        },
+        "interpro:IPR030848": {
+            "id": "PANTHER.FAMILY:PTHR43261",
+            "name": "TRANSLATION ELONGATION FACTOR G-RELATED"
+        },
+        "interpro:IPR044109": {
+            "id": "GO:0004691",
+            "name": "cAMP-dependent protein kinase activity"
+        },
+        "interpro:IPR005884": {
+            "id": "PR:000022686",
+            "name": "fumarate reductase flavoprotein subunit"
+        },
+        "interpro:IPR000975": {
+            "id": "PANTHER.FAMILY:PTHR10078",
+            "name": "INTERLEUKIN-1 FAMILY MEMBER"
+        },
+        "interpro:IPR000265": {
+            "id": "UniProtKB:P43115",
+            "name": "Prostaglandin E2 receptor EP3 subtype"
+        },
+        "interpro:IPR002587": {
+            "id": "UniProtKB:Q9NPH2",
+            "name": "Inositol-3-phosphate synthase 1"
+        },
+        "interpro:IPR001464": {
+            "id": "HGNC.FAMILY:404",
+            "name": "Annexins"
+        },
+        "interpro:IPR009135": {
+            "id": "UniProtKB:P17948",
+            "name": "Vascular endothelial growth factor receptor 1"
+        },
+        "interpro:IPR040125": {
+            "id": "PANTHER.FAMILY:PTHR10835",
+            "name": "SQUALENE MONOOXYGENASE"
+        },
+        "interpro:IPR030672": {
+            "id": "HGNC.FAMILY:53",
+            "name": "Adenylate cyclases"
+        },
+        "interpro:IPR034162": {
+            "id": "HGNC.FAMILY:1927",
+            "name": "Pepsinogens"
+        },
+        "interpro:cd15058": {
+            "id": "UniProtKB:P08588",
+            "name": "Beta-1 adrenergic receptor"
+        },
+        "interpro:IPR001320": {
+            "id": "PANTHER.FAMILY:PTHR18966",
+            "name": "IONOTROPIC GLUTAMATE RECEPTOR"
+        },
+        "interpro:IPR005311": {
+            "id": "PANTHER.FAMILY:PTHR22935",
+            "name": "PANTHER.FAMILY:PTHR22935"
+        },
+        "interpro:IPR001696": {
+            "id": "HGNC.FAMILY:1203",
+            "name": "Sodium voltage-gated channel alpha subunits"
+        },
+        "interpro:SSF50353": {
+            "id": "UMLS:C0079189",
+            "name": "cytokine"
+        },
+        "interpro:IPR002231": {
+            "id": "HGNC.FAMILY:171",
+            "name": "5-hydroxytryptamine receptors"
+        },
+        "interpro:IPR005025": {
+            "id": "PANTHER.FAMILY:PTHR43355",
+            "name": "FLAVIN REDUCTASE (NADPH)"
+        },
+        "interpro:IPR002441": {
+            "id": "UniProtKB:P14672",
+            "name": "Solute carrier family 2, facilitated glucose transporter member 4"
+        },
+        "interpro:IPR001796": {
+            "id": "PANTHER.FAMILY:PTHR48069",
+            "name": "DIHYDROFOLATE REDUCTASE"
+        },
+        "interpro:IPR047096": {
+            "id": "UniProtKB:P19838",
+            "name": "Nuclear factor NF-kappa-B p105 subunit"
+        },
+        "interpro:IPR015476": {
+            "id": "UniProtKB:P06881",
+            "name": "Calcitonin Gene-Related Peptide"
+        },
+        "interpro:IPR010526": {
+            "id": "HGNC.FAMILY:184",
+            "name": "Sodium voltage-gated channels"
+        },
+        "interpro:IPR001634": {
+            "id": "HGNC.FAMILY:211",
+            "name": "Adenosine receptors"
+        },
+        "interpro:IPR035516": {
+            "id": "PANTHER.FAMILY:PTHR11390",
+            "name": "PROKARYOTIC DNA TOPOISOMERASE"
+        },
+        "interpro:IPR003461": {
+            "id": "HGNC.FAMILY:1109",
+            "name": "Keratins"
+        },
+        "interpro:IPR002403": {
+            "id": "PANTHER.FAMILY:PTHR24286:SF191",
+            "name": "LANOSTEROL 14-ALPHA DEMETHYLASE"
+        },
+        "interpro:IPR012338": {
+            "id": "PANTHER.FAMILY:PTHR11935",
+            "name": "BETA LACTAMASE DOMAIN"
+        },
+        "interpro:IPR002394": {
+            "id": "HGNC.FAMILY:173",
+            "name": "Cholinergic receptors nicotinic subunits"
+        },
+        "interpro:IPR003545": {
+            "id": "UniProtKB:O14746",
+            "name": "Telomerase reverse transcriptase"
+        },
+        "interpro:IPR000995": {
+            "id": "HGNC.FAMILY:180",
+            "name": "holinergic receptors muscarinic"
+        },
+        "interpro:IPR022423": {
+            "id": "PANTHER.FAMILY:PTHR46987",
+            "name": "NEUROHYPOPHYSIAL HORMONES, N-TERMINAL DOMAIN CONTAINING PROTEIN"
+        },
+        "interpro:IPR023031": {
+            "id": "UniProtKB:P11172",
+            "name": "Uridine 5'-monophosphate synthase"
+        },
+        "interpro:IPR006028": {
+            "id": "HGNC.FAMILY:563",
+            "name": "Gamma-aminobutyric acid type A receptor subunits"
+        },
+        "PFAM:PF00809": {
+            "id": "PR:000022682",
+            "name": "dihydropteroate synthase"
+        },
+        "PFAM:PF00446": {
+            "id": "PANTHER.FAMILY:PTHR10522",
+            "name": "GONADOLIBERIN"
+        },
+        "PFAM:PF11590": {
+            "id": "PANTHER.FAMILY:PTHR10322",
+            "name": "DNA POLYMERASE CATALYTIC SUBUNIT"
+        },
+        "PFAM:PF00466": {
+            "id": "PR:000023816",
+            "name": "50S ribosomal protein L10"
+        },
+        "PFAM:PF00858": {
+            "id": "PANTHER.FAMILY:PTHR11690",
+            "name": "AMILORIDE-SENSITIVE SODIUM CHANNEL-RELATED"
+        },
+        "PFAM:PF00186": {
+            "id": "PANTHER.FAMILY:PTHR48069",
+            "name": "DIHYDROFOLATE REDUCTASE"
+        },
+        "PFAM:PF00067": {
+            "id": "HGNC.FAMILY:862",
+            "name": "Cytochrome P450s"
+        },
+        "PFAM:PF01007": {
+            "id": "HGNC.FAMILY:276",
+            "name": "Potassium inwardly rectifying channel subfamily J"
+        },
+        "PFAM:PF00237": {
+            "id": "PR:000023816",
+            "name": "50S ribosomal protein L10"
+        },
+        "PFAM:PF02898": {
+            "id": "PANTHER.FAMILY:PTHR19384",
+            "name": "NITRIC OXIDE SYNTHASE-RELATED"
+        },
+        "PFAM:PF03520": {
+            "id": "HGNC.FAMILY:274",
+            "name": "Potassium voltage-gated channels"
+        },
+        "PFAM:PF00905": {
+            "id": "PANTHER.FAMILY:PTHR22935",
+            "name": "PENICILLIN-BINDING PROTEIN"
+        },
+        "PFAM:PF06753": {
+            "id": "PUBCHEM.COMPOUND:439201",
+            "name": "Bradykinin"
+        },
+        "PFAM:PF06589": {
+            "id": "UniProtKB:P04926",
+            "name": "Malaria protein EXP-1"
+        },
+        "PFAM:PF00449": {
+            "id": "UMLS:C0041945",
+            "name": "Urease"
+        },
+        "PFAM:PF06512": {
+            "id": "HGNC.FAMILY:184",
+            "name": "Sodium voltage-gated channels"
+        }
+}

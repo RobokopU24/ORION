@@ -6,7 +6,7 @@ import pandas as pd
 from Common.utils import GetData
 from Common.loader_interface import SourceDataLoader
 from Common.extractor import Extractor
-from Common.node_types import PUBLICATIONS
+from Common.biolink_constants import PUBLICATIONS
 
 # Full Kinase-Substrate Phosphorylation Data.
 

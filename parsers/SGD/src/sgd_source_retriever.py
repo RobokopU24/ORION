@@ -18,17 +18,17 @@ def SGDGene2GOTerm(data_directory):
     print(
         "---------------------------------------------------\nCollecting all GO Annotation data for all genes on SGD...\n---------------------------------------------------\n")
     view = ["primaryIdentifier", "secondaryIdentifier", "symbol", "featureType",
-            "qualifier", "goAnnotation.ontologyTerm.identifier",
+            "goAnnotation.ontologyTerm.identifier",
             "goAnnotation.ontologyTerm.name", "goAnnotation.ontologyTerm.namespace",
-            "goAnnotation.evidence.code.code", "goAnnotation.qualifier",
+            "goAnnotation.evidence.code.code", "goAnnotation.qualifier", "col1", 
             "goAnnotation.evidence.code.withText", "goAnnotation.annotationExtension",
-            "goAnnotation.evidence.code.annotType",
-            "goAnnotation.evidence.publications.pubMedId",
+            "goAnnotation.evidence.code.annotType", "goAnnotation.parentsIdentifier", 
+            "goAnnotation.parentsName", "goAnnotation.evidence.publications.pubMedId",
             "goAnnotation.evidence.publications.citation"]
 
     # Request all gene2GOTerm data.
     rqgene2goterm = rq.get(
-        f"https://yeastmine.yeastgenome.org/yeastmine/service/template/results?name=Gene_GO&constraint1=Gene&op1=LOOKUP&value1=**&extra1=&format=csv")
+        f"https://yeastmine.yeastgenome.org/yeastmine/service/template/results?name=GoSlimTerm_Gene&constraint1=Gene.goAnnotation.ontologyTerm.parents.name&op1=eq&value1=**&extra1&format=csv")
 
     # Parse as CSV object.
     lines = rqgene2goterm.text.splitlines()
@@ -48,7 +48,6 @@ def SGDGene2GOTerm(data_directory):
     gene2gotermdf.fillna("?", inplace=True)
     print('SGD gene2goterm Data Collected!')
     print(os.path.join(storage_dir, csv_fname))
-    # gene2gotermdf.to_csv(f"//ORION/parsers/yeast/src/{csv_fname}", encoding="utf-8-sig", index=False)
     gene2gotermdf.to_csv(os.path.join(storage_dir, csv_fname), encoding="utf-8-sig", index=False)
 
 

@@ -5,7 +5,7 @@ import requests
 
 from Common.loader_interface import SourceDataLoader, SourceDataBrokenError, SourceDataFailedError
 from Common.kgxmodel import kgxnode, kgxedge
-from Common.node_types import GENE, DISEASE_OR_PHENOTYPIC_FEATURE, PUBLICATIONS
+from Common.biolink_constants import *
 from Common.utils import GetData, snakify
 from Common.db_connectors import MySQLConnector
 from Common.predicates import DGIDB_PREDICATE_MAPPING
@@ -19,7 +19,7 @@ class PHAROSLoader(SourceDataLoader):
     source_data_url = "https://pharos.nih.gov/"
     license = "Data accessed from Pharos and TCRD is publicly available from the primary sources listed above. Please respect their individual licenses regarding proper use and redistribution."
     attribution = 'Sheils, T., Mathias, S. et al, "TCRD and Pharos 2021: mining the human proteome for disease biology", Nucl. Acids Res., 2021. DOI: 10.1093/nar/gkaa993'
-    parsing_version: str = '1.5'
+    parsing_version: str = '1.6'
 
     GENE_TO_DISEASE_QUERY: str = """select distinct x.value, d.did, d.name, p.sym, d.dtype, d.score
                                 from disease d 
@@ -61,6 +61,24 @@ class PHAROSLoader(SourceDataLoader):
         'Monarch': 'infores:monarchinitiative',
         'UniProt Disease': 'infores:uniprot'
     }
+
+    # we might want more granularity here but for now it's one-to-one source with KL/AT
+    PHAROS_KL_AT_lookup = {
+        'CTD': (PREDICATION, MANUAL_AGENT),
+        'DisGeNET': (NOT_PROVIDED, NOT_PROVIDED),
+        'DrugCentral Indication': (KNOWLEDGE_ASSERTION, MANUAL_AGENT),
+        'eRAM': (NOT_PROVIDED, NOT_PROVIDED),
+        'JensenLab Experiment TIGA': (PREDICATION, AUTOMATED_AGENT),
+        'JensenLab Knowledge AmyCo': (NOT_PROVIDED, NOT_PROVIDED),
+        'JensenLab Knowledge MedlinePlus': (NOT_PROVIDED, NOT_PROVIDED),
+        'JensenLab Knowledge UniProtKB-KW': (NOT_PROVIDED, NOT_PROVIDED),
+        'JensenLab Text Mining': (NOT_PROVIDED, NOT_PROVIDED),
+        'Monarch': (NOT_PROVIDED, NOT_PROVIDED),
+        'UniProt Disease': (KNOWLEDGE_ASSERTION, MANUAL_AGENT)
+    }
+
+    # these are used for pharos edges which are not from a further upstream source
+    PHAROS_KL_AT = (KNOWLEDGE_ASSERTION, MANUAL_AGENT)
 
     def __init__(self, test_mode: bool = False, source_data_dir: str = None):
         """
@@ -162,7 +180,11 @@ class PHAROSLoader(SourceDataLoader):
             disease_id = item['did']
             disease_name = self.sanitize_name(item['name'])
             edge_provenance = self.PHAROS_INFORES_MAPPING[item['dtype']]
-            edge_properties = {'score': float(item['score'])} if item['score'] else {}
+            knowledge_level, agent_type = self.PHAROS_KL_AT_lookup.get(item['dtype'], (NOT_PROVIDED, NOT_PROVIDED))
+            edge_properties = {KNOWLEDGE_LEVEL: knowledge_level,
+                               AGENT_TYPE: agent_type}
+            if item['score']:
+                edge_properties['score'] = float(item['score'])
 
             # move along, no disease id
             if disease_id is None:
@@ -346,8 +368,11 @@ class PHAROSLoader(SourceDataLoader):
         else:
             pmids: list = []
 
+        knowledge_level, agent_type = self.PHAROS_KL_AT
+        props: dict = {KNOWLEDGE_LEVEL: knowledge_level,
+                       AGENT_TYPE: agent_type}
+
         # if there was affinity data save it
-        props: dict = {}
         affinity = result['affinity']
         if affinity is not None and affinity != '':
             props['affinity'] = float(affinity)

@@ -16,7 +16,7 @@ from Common.kgxmodel import GraphSpec, SubGraphSource, DataSource, Normalization
 from Common.normalization import NORMALIZATION_CODE_VERSION
 from Common.metadata import Metadata, GraphMetadata, SourceMetadata
 from Common.supplementation import SequenceVariantSupplementation
-from Common.node_types import PRIMARY_KNOWLEDGE_SOURCE, AGGREGATOR_KNOWLEDGE_SOURCES, PREDICATE, PUBLICATIONS
+from Common.biolink_constants import PRIMARY_KNOWLEDGE_SOURCE, AGGREGATOR_KNOWLEDGE_SOURCES, PREDICATE, PUBLICATIONS
 from Common.meta_kg import MetaKnowledgeGraphBuilder, META_KG_FILENAME, TEST_DATA_FILENAME
 
 NODES_FILENAME = 'nodes.jsonl'
@@ -112,11 +112,13 @@ class GraphBuilder:
 
         if 'neo4j' in graph_spec.graph_output_format.lower():
             self.logger.info(f'Starting Neo4j dump pipeline for {graph_id}...')
-            dump_success = create_neo4j_dump(graph_id=graph_id,
+            nodes_filepath = os.path.join(graph_output_dir, NODES_FILENAME)
+            edges_filepath = os.path.join(graph_output_dir, EDGES_FILENAME)
+            dump_success = create_neo4j_dump(nodes_filepath=nodes_filepath,
+                                             edges_filepath=edges_filepath,
+                                             output_directory=graph_output_dir,
+                                             graph_id=graph_id,
                                              graph_version=graph_version,
-                                             graph_directory=graph_output_dir,
-                                             nodes_filename=NODES_FILENAME,
-                                             edges_filename=EDGES_FILENAME,
                                              logger=self.logger)
 
             if dump_success:
@@ -229,6 +231,7 @@ class GraphBuilder:
         aggregator_knowledge_sources = set()
         edge_properties = set()
         predicate_counts = defaultdict(int)
+        predicate_counts_by_ks = defaultdict(lambda: defaultdict(int))
         edges_with_publications = defaultdict(int)
         graph_edges_file_path = os.path.join(graph_directory, EDGES_FILENAME)
         for edge_json in quick_jsonl_file_iterator(graph_edges_file_path):
@@ -239,6 +242,7 @@ class GraphBuilder:
             for key in edge_json.keys():
                 edge_properties.add(key)
             predicate_counts[edge_json[PREDICATE]] += 1
+            predicate_counts_by_ks[edge_json[PRIMARY_KNOWLEDGE_SOURCE]][edge_json[PREDICATE]] += 1
             if PUBLICATIONS in edge_json and edge_json[PUBLICATIONS]:
                 edges_with_publications[edge_json[PREDICATE]] += 1
 
@@ -268,7 +272,9 @@ class GraphBuilder:
             'pass': True,
             'primary_knowledge_sources': list(primary_knowledge_sources),
             'aggregator_knowledge_sources': list(aggregator_knowledge_sources),
-            'predicates': {k: v for k, v in predicate_counts.items()},
+            'predicate_totals': {k: v for k, v in predicate_counts.items()},
+            'predicates_by_knowledge_source': {ks: {predicate: count for predicate, count in ks_to_p.items()}
+                                               for ks, ks_to_p in predicate_counts_by_ks.items()},
             'node_curie_prefixes': {k: v for k, v in node_curie_prefixes.items()},
             'edges_with_publications': {k: v for k, v in edges_with_publications.items()},
             'edge_properties': list(edge_properties),
@@ -444,7 +450,7 @@ class GraphBuilder:
         return os.path.join(self.graphs_dir, graph_id, graph_version)
 
     def get_graph_output_URL(self, graph_id: str, graph_version: str):
-        graph_output_url = os.environ['ORION_OUTPUT_URL']
+        graph_output_url = os.environ.get('ORION_OUTPUT_URL', "https://localhost/")
         if graph_output_url[-1] != '/':
             graph_output_url += '/'
         return f'{graph_output_url}{graph_id}/{graph_version}/'

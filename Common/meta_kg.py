@@ -3,7 +3,7 @@ import argparse
 import os
 from collections import defaultdict
 
-from Common.node_types import NODE_TYPES, SUBJECT_ID, OBJECT_ID, PREDICATE, PRIMARY_KNOWLEDGE_SOURCE, AGGREGATOR_KNOWLEDGE_SOURCES
+from Common.biolink_constants import NODE_TYPES, SUBJECT_ID, OBJECT_ID, PREDICATE, PRIMARY_KNOWLEDGE_SOURCE, AGGREGATOR_KNOWLEDGE_SOURCES
 from Common.utils import quick_jsonl_file_iterator
 from Common.biolink_utils import BiolinkUtils
 

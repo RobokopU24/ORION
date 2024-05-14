@@ -1,7 +1,7 @@
 import pytest
-from Common.normalization import NodeNormalizer, EdgeNormalizer, EdgeNormalizationResult
-from Common.node_types import ROOT_ENTITY, \
-    GENE, SEQUENCE_VARIANT, FALLBACK_EDGE_PREDICATE, CUSTOM_NODE_TYPES, INFORMATION_CONTENT, NODE_TYPES
+from Common.biolink_constants import NAMED_THING, GENE, SEQUENCE_VARIANT, INFORMATION_CONTENT, NODE_TYPES
+from Common.normalization import NodeNormalizer, EdgeNormalizer, EdgeNormalizationResult, \
+    FALLBACK_EDGE_PREDICATE, CUSTOM_NODE_TYPES
 
 INVALID_NODE_TYPE = "testing:Type1"
 
@@ -22,7 +22,7 @@ def test_nodes():
         {"id": "ENSEMBL:testing_id", "name": "broken gene", NODE_TYPES: [GENE, GENE, INVALID_NODE_TYPE]},
         {"id": "TESTING:testing_id", "name": "broken gene 2", NODE_TYPES: [INVALID_NODE_TYPE]},
         {"id": "TESTING:nameless", "name": "", NODE_TYPES: [INVALID_NODE_TYPE], "test_prop": 1},
-        {"id": "CHEBI:33551", NODE_TYPES: [ROOT_ENTITY]}
+        {"id": "CHEBI:33551", NODE_TYPES: [NAMED_THING]}
     ]
     return nodes
 
@@ -38,7 +38,7 @@ def test_node_norm(test_nodes):
     normalized_node = get_node_from_list(normalized_id, test_nodes)
     assert normalized_node is not None
     assert GENE in normalized_node[NODE_TYPES]
-    assert ROOT_ENTITY in normalized_node[NODE_TYPES]
+    assert NAMED_THING in normalized_node[NODE_TYPES]
     assert CUSTOM_NODE_TYPES not in normalized_node
     assert normalized_node['test_prop'] == 1
 
@@ -65,20 +65,20 @@ def test_node_norm_lenient(test_nodes):
     assert normalized_id == correct_normalized_id
     normalized_node = get_node_from_list(normalized_id, test_nodes)
     assert normalized_node is not None
-    assert ROOT_ENTITY in normalized_node[NODE_TYPES]
+    assert NAMED_THING in normalized_node[NODE_TYPES]
     assert INVALID_NODE_TYPE in normalized_node[CUSTOM_NODE_TYPES]
     assert normalized_node['test_prop'] == 1
 
     normalized_id = node_normalizer.node_normalization_lookup['ENSEMBL:testing_id'][0]
     normalized_node = get_node_from_list(normalized_id, test_nodes)
     assert INVALID_NODE_TYPE in normalized_node[CUSTOM_NODE_TYPES]
-    assert ROOT_ENTITY in normalized_node[NODE_TYPES]
-    assert len(normalized_node[NODE_TYPES]) == 2  # should be GENE and ROOT_ENTITY
+    assert NAMED_THING in normalized_node[NODE_TYPES]
+    assert len(normalized_node[NODE_TYPES]) == 2  # should be GENE and NAMED_THING
 
     normalized_id = node_normalizer.node_normalization_lookup['TESTING:nameless'][0]
     normalized_node = get_node_from_list(normalized_id, test_nodes)
     assert INVALID_NODE_TYPE in normalized_node[CUSTOM_NODE_TYPES]
-    assert ROOT_ENTITY in normalized_node[NODE_TYPES]
+    assert NAMED_THING in normalized_node[NODE_TYPES]
     assert normalized_node['name'] == 'nameless'
 
 
@@ -129,7 +129,7 @@ def test_variant_node_norm():
     assert len(variant_nodes_2) == 13
     bogus_node_after_normalization = get_node_from_list('BOGUS:rs999999999999', variant_nodes_2)
     assert bogus_node_after_normalization['name'] == 'BOGUS:rs999999999999'
-    assert ROOT_ENTITY in bogus_node_after_normalization[NODE_TYPES]
+    assert NAMED_THING in bogus_node_after_normalization[NODE_TYPES]
     assert SEQUENCE_VARIANT in bogus_node_after_normalization[NODE_TYPES]
 
 

@@ -13,21 +13,21 @@ orion:
   image:
     repository: ghcr.io/robokopu24/orion
     pullPolicy: IfNotPresent
-    tag: v1.0.9
+    tag: v1.0.12g
   graphsVolume:
     use_nfs: true
     nfs_server: na-projects.edc.renci.org
-    nfs_path: /stars/ORION
+    nfs_path: /stars/Data_services
     nfs_mount_subpath: biolink3/graphs/
   sourcesVolume:
     use_nfs: true
     nfs_server: na-projects.edc.renci.org
-    nfs_path: /stars/ORION
+    nfs_path: /stars/Data_services
     nfs_mount_subpath: biolink3/storage/
   extraVolume:
     use_extra_volume: true
     nfs_server: na-projects.edc.renci.org
-    nfs_path: /stars/ORION
+    nfs_path: /stars/Data_services
     nfs_mount_subpath: sterling/
   neo4jScratchVolume:
     size: 80Gi
@@ -46,7 +46,8 @@ orion:
   normalization:
     nodeNormEndpoint: https://nodenormalization-sri.renci.org/
     edgeNormEndpoint: https://bl-lookup-sri.renci.org/
-  outputURL: https://stars.renci.org/var/plater/bl-3.5.4/
+    bl_version: 4.1.6
+  outputURL: https://stars.renci.org/var/plater/bl-4.1.6/
 
 pharos:
   host: pod-host-or-ip
@@ -56,9 +57,13 @@ pharos:
   db_name: PHAROS
 
 drugcentral:
-  host: pod-host-or-ip
-  port: 5432
-  user: dc-user
-  password: dc-pass
+  host: unmtid-dbs.net
+  port: 5433
+  user: drugman
+  password: dosage
   db_name: drugcentral
+  # host: pod-host-or-ip
+  # port: 5432
+  # user: dc-user
+  # password: dc-pass
 

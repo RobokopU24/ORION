@@ -4,9 +4,8 @@ import gzip
 import argparse
 from urllib import request
 from Common.normalization import NodeNormalizer
-from Common.utils import LoggingUtil
-from Common.loader_interface import SourceDataLoader, SourceDataBrokenError, SourceDataFailedError
-from Common.node_types import SEQUENCE_VARIANT, GENE
+from Common.loader_interface import SourceDataLoader
+from Common.biolink_constants import *
 from Common.prefixes import HGVS, UBERON
 from Common.hgvs_utils import convert_variant_to_hgvs
 
@@ -19,7 +18,7 @@ class GTExLoader(SourceDataLoader):
     source_data_url = "https://storage.googleapis.com/gtex_analysis_v8/single_tissue_qtl_data/"
     license = "https://www.gtexportal.org/home/documentationPage"
     attribution = "https://www.gtexportal.org/home/documentationPage"
-    parsing_version = '1.2'
+    parsing_version = '1.3'
     has_sequence_variants = True
 
     # this probably won't change very often - just hard code it for now
@@ -248,8 +247,10 @@ class GTExLoader(SourceDataLoader):
             predicate = "CTD:decreases_expression_of"
 
         edge_properties = {'expressed_in': [anatomy_id],
-                           'p_value': [float(p_value)],
-                           'slope': [float(slope)]}
+                           P_VALUE: [float(p_value)],
+                           'slope': [float(slope)],
+                           KNOWLEDGE_LEVEL: PREDICATION,
+                           AGENT_TYPE: COMPUTATIONAL_MODEL}
 
         # write out the coalesced edge for the previous group
         self.output_file_writer.write_edge(subject_id=variant_id,

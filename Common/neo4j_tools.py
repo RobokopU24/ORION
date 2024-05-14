@@ -3,7 +3,7 @@ import os
 import neo4j
 import subprocess
 import Common.kgx_file_converter as kgx_file_converter
-from Common.node_types import NAMED_THING
+from Common.biolink_constants import NAMED_THING
 from Common.utils import LoggingUtil
 
 
@@ -19,7 +19,7 @@ class Neo4jTools:
         self.http_port = http_port
         self.https_port = https_port
         self.bolt_port = bolt_port
-        self.password = password if password else os.environ['ORION_NEO4J_PASSWORD']
+        self.password = password if password else os.environ.get('ORION_NEO4J_PASSWORD', 'orion-password')
         self.graph_db_uri = f'bolt://{neo4j_host}:{bolt_port}'
         self.graph_db_auth = ("neo4j", self.password)
         self.neo4j_driver = neo4j.GraphDatabase.driver(self.graph_db_uri, auth=self.graph_db_auth)
@@ -205,32 +205,30 @@ class Neo4jTools:
         self.neo4j_driver.close()
 
 
-def create_neo4j_dump(graph_directory: str,
-                      nodes_filename: str = 'nodes.jsonl',
-                      edges_filename: str = 'edges.jsonl',
+def create_neo4j_dump(nodes_filepath: str,
+                      edges_filepath: str,
+                      output_directory: str,
                       graph_id: str = 'graph',
                       graph_version: str = '',
                       logger=None):
-    graph_nodes_file_path = os.path.join(graph_directory, nodes_filename)
-    graph_edges_file_path = os.path.join(graph_directory, edges_filename)
     nodes_csv_filename = 'nodes.temp_csv'
     edges_csv_filename = 'edges.temp_csv'
-    csv_nodes_file_path = os.path.join(graph_directory, nodes_csv_filename)
-    csv_edges_file_path = os.path.join(graph_directory, edges_csv_filename)
+    csv_nodes_file_path = os.path.join(output_directory, nodes_csv_filename)
+    csv_edges_file_path = os.path.join(output_directory, edges_csv_filename)
     if os.path.exists(csv_nodes_file_path) and os.path.exists(csv_edges_file_path):
         if logger:
             logger.info(f'CSV files were already created for {graph_id}({graph_version})')
     else:
         if logger:
             logger.info(f'Creating CSV files for {graph_id}({graph_version})...')
-        kgx_file_converter.convert_jsonl_to_neo4j_csv(nodes_input_file=graph_nodes_file_path,
-                                                      edges_input_file=graph_edges_file_path,
+        kgx_file_converter.convert_jsonl_to_neo4j_csv(nodes_input_file=nodes_filepath,
+                                                      edges_input_file=edges_filepath,
                                                       nodes_output_file=csv_nodes_file_path,
                                                       edges_output_file=csv_edges_file_path)
         if logger:
             logger.info(f'CSV files created for {graph_id}({graph_version})...')
-
-    graph_dump_file_path = os.path.join(graph_directory, f'graph_{graph_version}.db.dump')
+    graph_dump_name = f'graph_{graph_version}.db.dump' if graph_version else 'graph.db.dump'
+    graph_dump_file_path = os.path.join(output_directory, graph_dump_name)
     if os.path.exists(graph_dump_file_path):
         if logger:
             logger.info(f'Neo4j dump already exists for {graph_id}({graph_version})')
@@ -238,7 +236,7 @@ def create_neo4j_dump(graph_directory: str,
 
     neo4j_access = Neo4jTools()
     try:
-        import_exit_code = neo4j_access.import_csv_files(graph_directory=graph_directory,
+        import_exit_code = neo4j_access.import_csv_files(graph_directory=output_directory,
                                                          csv_nodes_filename=nodes_csv_filename,
                                                          csv_edges_filename=edges_csv_filename)
         if import_exit_code != 0:

@@ -22,12 +22,12 @@ export ORION_GRAPH_SPEC=testing-graph-spec.yml
 #ORION_GRAPH_SPEC_URL - a URL pointing to a Graph Spec file
 #export ORION_GRAPH_SPEC_URL=https://raw.githubusercontent.com/RENCI-AUTOMAT/ORION/helm_deploy/graph_specs/yeast-graph-spec.yml
 
-export ORION_NEO4J_PASSWORD=insecurepasswordexample
+export PYTHONPATH="$PYTHONPATH:$PWD"
 
-export ORION_OUTPUT_URL=https://localhost/
 
 #The following environment variables are optional
 export EDGE_NORMALIZATION_ENDPOINT=https://bl-lookup-sri.renci.org/
 export NODE_NORMALIZATION_ENDPOINT=https://nodenormalization-sri.renci.org/
-
-export PYTHONPATH="$PYTHONPATH:$PWD"
+export NAME_RESOLVER_ENDPOINT=https://name-resolution-sri.renci.org/
+export ORION_OUTPUT_URL=https://localhost/  # this is currently only used to generate metadata
+export BL_VERSION=4.1.6
