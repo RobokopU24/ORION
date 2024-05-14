@@ -112,9 +112,10 @@ class GraphBuilder:
                                                 generate_meta_kg=needs_meta_kg,
                                                 generate_test_data=needs_test_data)
 
+        output_formats = graph_spec.graph_output_format.lower().split('+')
         nodes_filepath = os.path.join(graph_output_dir, NODES_FILENAME)
         edges_filepath = os.path.join(graph_output_dir, EDGES_FILENAME)
-        if 'neo4j' in graph_spec.graph_output_format.lower():
+        if 'neo4j' in output_formats:
             self.logger.info(f'Starting Neo4j dump pipeline for {graph_id}...')
             dump_success = create_neo4j_dump(nodes_filepath=nodes_filepath,
                                              edges_filepath=edges_filepath,
@@ -127,7 +128,7 @@ class GraphBuilder:
                 graph_output_url = self.get_graph_output_URL(graph_id, graph_version)
                 graph_metadata.set_dump_url(f'{graph_output_url}graph_{graph_version}.db.dump')
 
-        if 'redundant_jsonl' in graph_spec.graph_output_format.lower():
+        if 'redundant_jsonl' in output_formats:
             self.logger.info(f'Generating redundant edge KG for {graph_id}...')
             redundant_filepath = edges_filepath.replace(EDGES_FILENAME, REDUNDANT_EDGES_FILENAME)
             generate_redundant_kg(edges_filepath, redundant_filepath)
