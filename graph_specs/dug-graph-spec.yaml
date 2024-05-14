@@ -4,7 +4,7 @@ graphs:
     graph_description:
     graph_url:
     conflation: True
-    output_format: none
+    output_format:
     sources:
       - source_id: CHEBIProps
       - source_id: CTD
@@ -21,4 +21,4 @@ graphs:
       - source_id: PANTHER
       - source_id: PHAROS
       - source_id: Reactome
-      - source_id: Ubergraph
+      - source_id: UbergraphNonredundant
