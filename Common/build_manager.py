@@ -112,7 +112,7 @@ class GraphBuilder:
                                                 generate_meta_kg=needs_meta_kg,
                                                 generate_test_data=needs_test_data)
 
-        output_formats = graph_spec.graph_output_format.lower().split('+')
+        output_formats = graph_spec.graph_output_format.lower().split('+') if graph_spec.graph_output_format else []
         nodes_filepath = os.path.join(graph_output_dir, NODES_FILENAME)
         edges_filepath = os.path.join(graph_output_dir, EDGES_FILENAME)
         if 'neo4j' in output_formats:
