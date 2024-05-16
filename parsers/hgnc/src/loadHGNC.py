@@ -6,6 +6,7 @@ from Common.utils import GetData
 from Common.loader_interface import SourceDataLoader
 from Common.kgxmodel import kgxnode, kgxedge
 from Common.prefixes import HGNC, HGNC_FAMILY
+from Common.biolink_constants import *
 
 
 ##############
@@ -23,7 +24,7 @@ class HGNCLoader(SourceDataLoader):
     source_data_url = "ftp://ftp.ebi.ac.uk/pub/databases/genenames/hgnc/archive/"
     license = "https://www.genenames.org/about/"
     attribution = "https://www.genenames.org/about/"
-    parsing_version: str = '1.1'
+    parsing_version: str = '1.2'
 
     def __init__(self, test_mode: bool = False, source_data_dir: str = None):
         """
@@ -33,7 +34,10 @@ class HGNCLoader(SourceDataLoader):
         super().__init__(test_mode=test_mode, source_data_dir=source_data_dir)
 
         self.complete_set_file_name = 'hgnc_complete_set.txt'
-        self.data_files: list = [self.complete_set_file_name, 'hgnc_genes_in_groups.txt']
+        # self.gene_groups_file_name = 'hgnc_genes_in_groups.txt'
+        self.data_files: list = [self.complete_set_file_name,
+                                 # self.gene_groups_file_name
+                                 ]
         self.test_mode: bool = test_mode
         self.source_db: str = 'HUGO Gene Nomenclature Committee'
 
@@ -46,9 +50,12 @@ class HGNCLoader(SourceDataLoader):
 
         :return: the data version
         """
-
         data_puller = GetData()
-        data_file_date = data_puller.get_ftp_file_date(self.ftp_site, self.ftp_dir, self.data_files[0])
+        # HGNC files change very frequently, excluding the day makes sure we only update it once per month
+        data_file_date = data_puller.get_ftp_file_date(self.ftp_site,
+                                                       self.ftp_dir,
+                                                       self.data_files[0],
+                                                       exclude_day=True)
         return data_file_date
 
     def get_data(self) -> int:
@@ -58,24 +65,11 @@ class HGNCLoader(SourceDataLoader):
         """
         # get a reference to the data gathering class
         gd: GetData = GetData(self.logger.level)
+        file_count: int = gd.pull_via_ftp(self.ftp_site, self.ftp_dir, [self.complete_set_file_name], self.data_path)
 
-        # TODO
-        # if self.test_mode:
-        #   set up test data instead
-        # else:
-        # get the complete data set
-        file_count: int = gd.pull_via_ftp(self.ftp_site, self.ftp_dir, [self.data_files[0]], self.data_path)
+        # get the gene groups dataset
+        # byte_count: int = gd.pull_via_http('https://www.genenames.org/cgi-bin/genegroup/download-all/' + self.self.gene_groups_file_name, self.data_path)
 
-        # did we get the file
-        if file_count > 0:
-            # get the gene groups dataset
-            byte_count: int = gd.pull_via_http('https://www.genenames.org/cgi-bin/genegroup/download-all/' + self.data_files[1], self.data_path)
-
-            # did we get the data
-            if byte_count > 0:
-                file_count += 1
-
-        # return the file count to the caller
         return file_count
 
     def parse_data(self) -> dict:
@@ -138,11 +132,12 @@ class HGNCLoader(SourceDataLoader):
                         self.final_node_list.append(gene_family_node)
 
                         # get the baseline properties
-                        props = {}
+                        props = {KNOWLEDGE_LEVEL: KNOWLEDGE_ASSERTION,
+                                 AGENT_TYPE: MANUAL_AGENT}
 
                         # were there publications
                         if len(r['pubmed_id']) > 0:
-                            props.update({'publications': ['PMID:' + v for v in r['pubmed_id'].split('|')]})
+                            props[PUBLICATIONS] = ['PMID:' + v for v in r['pubmed_id'].split('|')]
 
                         # create the gene to gene family edge
                         new_edge = kgxedge(gene_family_curie,

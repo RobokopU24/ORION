@@ -1,8 +1,8 @@
-{{- if not .Values.dataServices.graphsVolume.use_nfs }}
+{{- if not .Values.orion.sourcesVolume.use_nfs }}
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
-  name: ds-graphs-pvc
+  name: ds-sources-pvc
   annotations:
     "helm.sh/resource-policy": keep
 spec:
@@ -10,8 +10,8 @@ spec:
   - ReadWriteOnce
   resources:
     requests:
-      storage: {{ .Values.dataServices.graphsVolume.size }}
+      storage: {{ .Values.orion.sourcesVolume.size }}
     limits:
-      storage: {{ .Values.dataServices.graphsVolume.size }}
+      storage: {{ .Values.orion.sourcesVolume.size }}
   storageClassName: basic
 {{- end }}

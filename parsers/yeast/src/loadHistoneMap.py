@@ -7,7 +7,7 @@ from parsers.SGD.src.sgd_source_retriever import SGDAllGenes
 from parsers.yeast.src.yeast_constants import YEAST_GENOME_RESOLUTION, SGD_ALL_GENES_FILE, HISTONE_LOCI_FILE
 from Common.loader_interface import SourceDataLoader
 from Common.extractor import Extractor
-from Common.node_types import PRIMARY_KNOWLEDGE_SOURCE
+from Common.biolink_constants import PRIMARY_KNOWLEDGE_SOURCE
 
 #List of Binned Histone Modifications
 class HISTONEMODBINS_EDGEUMAN(enum.IntEnum):
@@ -45,6 +45,7 @@ class YeastHistoneMapLoader(SourceDataLoader):
 
     source_id: str = 'YeastHistoneMap'
     provenance_id: str = 'infores:yeasthistones'
+    parsing_version: str = '1.0'
 
     def __init__(self, test_mode: bool = False, source_data_dir: str = None):
         """
@@ -73,7 +74,7 @@ class YeastHistoneMapLoader(SourceDataLoader):
 
         :return:
         """
-        return 'yeast_v1'
+        return 'yeast_v2'
 
     def get_data(self) -> int:
         """
@@ -201,9 +202,9 @@ class YeastHistoneMapLoader(SourceDataLoader):
                             'H4K8ac': None, 'H4R3me': None, 'H4R3me2s': None, 'HTZ1': None}
 
         # Will continue to work on this mapping.
-        # Get descendants of GO term "histone modification" (GO:0016570)
+        # Get descendants of GO term "histone modifying activity" (GO:0140993)
         HisModDescendants = rq.get(
-            f"https://www.ebi.ac.uk/QuickGO/services/ontology/go/terms/{'GO:0016570'}/descendants").json()
+            f"https://www.ebi.ac.uk/QuickGO/services/ontology/go/terms/GO:0140993/descendants").json()
         descendants = str(HisModDescendants['results'][0]['descendants']).replace("'", "").replace(" ", "").replace(
             "[", "").replace("]", "")
         descendantNames = rq.get(f"https://www.ebi.ac.uk/QuickGO/services/ontology/go/terms/{descendants}").json()

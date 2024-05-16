@@ -30,7 +30,7 @@ class DataServicesContainer:
         # placeholders for overriding
         self.default_image = None
         self.default_ports = None
-        self.default_volumes = [f"{os.environ['HOST_STORAGE_DIR']}:/Data_services_storage"]
+        self.default_volumes = [f"{os.environ['HOST_STORAGE_DIR']}:/ORION_storage"]
         self.environment_vars = {}
 
     def run(self,

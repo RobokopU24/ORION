@@ -4,16 +4,16 @@ import logging
 
 from Common.utils import LoggingUtil
 from Common.kgxmodel import kgxnode, kgxedge
-from Common.node_types import PRIMARY_KNOWLEDGE_SOURCE, AGGREGATOR_KNOWLEDGE_SOURCES, \
+from Common.biolink_constants import PRIMARY_KNOWLEDGE_SOURCE, AGGREGATOR_KNOWLEDGE_SOURCES, \
     SUBJECT_ID, OBJECT_ID, PREDICATE
 
 
 class KGXFileWriter:
 
-    logger = LoggingUtil.init_logging("Data_services.Common.KGXFileWriter",
+    logger = LoggingUtil.init_logging("ORION.Common.KGXFileWriter",
                                       line_format='medium',
                                       level=logging.DEBUG,
-                                      log_file_path=os.environ.get('DATA_SERVICES_LOGS'))
+                                      log_file_path=os.environ.get('ORION_LOGS'))
     """
     constructor
     :param nodes_output_file_path: the file path for the nodes file
@@ -142,6 +142,9 @@ class KGXFileWriter:
                         primary_knowledge_source=edge.primary_knowledge_source,
                         aggregator_knowledge_sources=edge.aggregator_knowledge_sources,
                         edge_properties=edge.properties)
+
+    def write_normalized_edge(self, edge: dict):
+        self.__write_edge_to_file(edge)
 
     def write_normalized_edges(self, edges: iter):
         for edge in edges:

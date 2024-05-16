@@ -1,12 +1,19 @@
 import os
 import logging
 import requests
+import time
 
 from robokop_genetics.genetics_normalization import GeneticsNormalizer
-from Common.node_types import *
+from Common.biolink_constants import *
 from Common.utils import LoggingUtil
 
-NORMALIZATION_CODE_VERSION = '1.0'
+NORMALIZATION_CODE_VERSION = '1.2'
+
+# node property name for node types that did not normalize
+CUSTOM_NODE_TYPES = 'custom_node_types'
+
+# predicate to use when normalization fails
+FALLBACK_EDGE_PREDICATE = 'biolink:related_to'
 
 
 class NodeNormalizer:
@@ -36,10 +43,10 @@ class NodeNormalizer:
         :param node_normalization_version - not implemented yet
         """
         # create a logger
-        self.logger = LoggingUtil.init_logging("Data_services.Common.NodeNormalizer",
+        self.logger = LoggingUtil.init_logging("ORION.Common.NodeNormalizer",
                                                level=log_level,
                                                line_format='medium',
-                                               log_file_path=os.environ.get('DATA_SERVICES_LOGS'))
+                                               log_file_path=os.environ.get('ORION_LOGS'))
         # storage for regular nodes that failed to normalize
         self.failed_to_normalize_ids = set()
         # storage for variant nodes that failed to normalize
@@ -63,6 +70,37 @@ class NodeNormalizer:
         self.sequence_variant_normalizer = None
         self.variant_node_types = None
 
+    def hit_node_norm_service(self, curies, retries=0):
+        resp: requests.models.Response = requests.post(f'{self.node_norm_endpoint}get_normalized_nodes',
+                                                       json={'curies': curies,
+                                                             'conflate': self.conflate_node_types,
+                                                             'drug_chemical_conflate': self.conflate_node_types,
+                                                             'description': True})
+        if resp.status_code == 200:
+            # if successful return the json as an object
+            return resp.json()
+        else:
+            error_message = f'Node norm response code: {resp.status_code}'
+            if resp.status_code >= 500:
+                # if 5xx retry 3 times
+                retries += 1
+                if retries == 4:
+                    error_message += ', retried 3 times, giving up..'
+                    self.logger.error(error_message)
+                    resp.raise_for_status()
+                else:
+                    error_message += f', retrying.. (attempt {retries})'
+                    time.sleep(retries * 3)
+                    self.logger.error(error_message)
+                    return self.hit_node_norm_service(curies, retries)
+            else:
+                # we should never get a legitimate 4xx response from node norm,
+                # crash with an error for troubleshooting
+                if resp.status_code == 422:
+                    error_message += f'(curies: {curies})'
+                self.logger.error(error_message)
+                resp.raise_for_status()
+
     def normalize_node_data(self, node_list: list, block_size: int = 1000) -> list:
         """
         This method calls the NodeNormalization web service to get the normalized identifier and name of the node.
@@ -76,11 +114,8 @@ class NodeNormalizer:
 
         self.logger.debug(f'Start of normalize_node_data. items: {len(node_list)}')
 
-        # init the cache list - this accumulates all of the results from the node norm service
+        # init the cache - this accumulates all the results from the node norm service
         cached_node_norms: dict = {}
-
-        # save the node list count to avoid grabbing it over and over
-        node_count: int = len(node_list)
 
         # create a unique set of node ids
         tmp_normalize: set = set([node['id'] for node in node_list])
@@ -111,29 +146,16 @@ class NodeNormalizer:
                 # collect a slice of records from the data frame
                 data_chunk: list = to_normalize[start_index: end_index]
 
-                # get the data
-                resp: requests.models.Response = requests.post(f'{self.node_norm_endpoint}get_normalized_nodes',
-                                                               json={'curies': data_chunk,
-                                                                     'conflate': self.conflate_node_types})
-
-                # did we get a good status code
-                if resp.status_code == 200:
-                    # convert json to dict
-                    rvs: dict = resp.json()
-
-                    if rvs:
-                        # merge this list with what we have gotten so far
-                        cached_node_norms.update(**rvs)
-                    else:
-                        # this is a quick fix for the API returning empty dict instead of nulls when
-                        # none of the curies normalize
-                        empty_responses = {curie: None for curie in data_chunk}
-                        cached_node_norms.update(empty_responses)
+                # hit the node norm api
+                normalization_json = self.hit_node_norm_service(curies=data_chunk)
+                if normalization_json:
+                    # merge the normalization results with what we have gotten so far
+                    cached_node_norms.update(**normalization_json)
                 else:
-                    # the error that is trapped here means that the entire list of nodes didnt get normalized.
-                    error_message = f'Node norm response code: {resp.status_code}'
-                    self.logger.error(error_message)
-                    resp.raise_for_status()
+                    # this shouldn't happen but if the API returns an empty dict instead of nulls,
+                    # assume none of the curies normalize
+                    empty_responses = {curie: None for curie in data_chunk}
+                    cached_node_norms.update(empty_responses)
 
                 # move on down the list
                 start_index += block_size
@@ -152,8 +174,8 @@ class NodeNormalizer:
             self.biolink_compliant_node_types = biolink_lookup.get_valid_node_types()
 
         # for each node update the node with normalized information
-        # store the normalized IDs for later look up
-        while node_idx < node_count:
+        # store the normalized IDs in self.node_normalization_lookup for later look up
+        while node_idx < len(node_list):
 
             # get the next node list item by index
             current_node = node_list[node_idx]
@@ -176,7 +198,7 @@ class NodeNormalizer:
             if not self.strict_normalization:
 
                 if NODE_TYPES not in current_node:
-                    current_node[NODE_TYPES] = [ROOT_ENTITY]
+                    current_node[NODE_TYPES] = [NAMED_THING]
 
                 # remove all the bad types and make them a property instead
                 invalid_node_types = [node_type for node_type in current_node[NODE_TYPES] if
@@ -187,9 +209,9 @@ class NodeNormalizer:
                 # keep all the valid types
                 current_node[NODE_TYPES] = [node_type for node_type in current_node[NODE_TYPES] if
                                             node_type in self.biolink_compliant_node_types]
-                # add the ROOT ENTITY type if it's not there
-                if ROOT_ENTITY not in current_node[NODE_TYPES]:
-                    current_node[NODE_TYPES].append(ROOT_ENTITY)
+                # add the NAMED_THING type if it's not there
+                if NAMED_THING not in current_node[NODE_TYPES]:
+                    current_node[NODE_TYPES].append(NAMED_THING)
 
                 # enforce that the list is really a set
                 current_node[NODE_TYPES] = list(set(current_node[NODE_TYPES]))
@@ -198,17 +220,23 @@ class NodeNormalizer:
             current_node_normalization = cached_node_norms[current_node_id]
             if current_node_normalization is not None:
 
+                current_node_id_section = current_node_normalization['id']
+
                 # update the node with the normalized info
-                normalized_id = current_node_normalization['id']['identifier']
+                normalized_id = current_node_id_section['identifier']
                 current_node['id'] = normalized_id
                 current_node[NODE_TYPES] = current_node_normalization['type']
                 current_node[SYNONYMS] = list(item['identifier'] for item in current_node_normalization[SYNONYMS])
-                if INFORMATION_CONTENT in current_node_normalization:
-                    current_node[INFORMATION_CONTENT] = current_node_normalization[INFORMATION_CONTENT]
 
-                # set the name as the label if it exists
-                if 'label' in current_node_normalization['id']:
-                    current_node['name'] = current_node_normalization['id']['label']
+                # set the name as the primary label if it exists
+                if 'label' in current_node_id_section:
+                    current_node['name'] = current_node_id_section['label']
+
+                # set the node description and/or information content if they are present
+                if 'information_content' in current_node_normalization:
+                    current_node[INFORMATION_CONTENT] = current_node_normalization[INFORMATION_CONTENT]
+                if 'description' in current_node_id_section:
+                    current_node[DESCRIPTION] = current_node_id_section['description']
 
                 self.node_normalization_lookup[current_node_id] = [normalized_id]
             else:
@@ -339,7 +367,7 @@ class EdgeNormalizer:
         :param log_level - overrides default log level
         """
         # create a logger
-        self.logger = LoggingUtil.init_logging("Data_services.Common.EdgeNormalizer", level=log_level, line_format='medium', log_file_path=os.environ.get('DATA_SERVICES_LOGS'))
+        self.logger = LoggingUtil.init_logging("ORION.Common.EdgeNormalizer", level=log_level, line_format='medium', log_file_path=os.environ.get('ORION_LOGS'))
         # normalization map for future look up of all normalized predicates
         self.edge_normalization_lookup = {}
         self.cached_edge_norms = {}
@@ -360,7 +388,7 @@ class EdgeNormalizer:
 
     def normalize_edge_data(self,
                             edge_list: list,
-                            block_size: int = 2500) -> list:
+                            block_size: int = 100) -> list:
         """
         This method calls the EdgeNormalization web service to retrieve information for normalizing edges.
 
@@ -492,7 +520,7 @@ class EdgeNormalizer:
 
     def get_valid_node_types(self):
         # call the descendants endpoint with the root node type
-        edge_norm_descendants_url = f'{self.edge_norm_endpoint}bl/{ROOT_ENTITY}/descendants?version={self.edge_norm_version}'
+        edge_norm_descendants_url = f'{self.edge_norm_endpoint}bl/{NAMED_THING}/descendants?version={self.edge_norm_version}'
         resp: requests.models.Response = requests.get(edge_norm_descendants_url)
 
         # did we get a good status code
@@ -503,3 +531,50 @@ class EdgeNormalizer:
         else:
             # this shouldn't happen, raise an exception
             resp.raise_for_status()
+
+
+NAME_RESOLVER_URL = os.environ.get('NAME_RESOLVER_ENDPOINT', "https://name-resolution-sri.renci.org/") + 'lookup'
+NAME_RESOLVER_HEADERS = {"accept": "application/json"}
+NAME_RESOLVER_API_ERROR = 'api_error'
+
+
+def call_name_resolution(name: str, biolink_type: str, retries=0, logger=None):
+    nameres_payload = {
+        "string": name,
+        "biolink_type": biolink_type if biolink_type else "",
+        "autocomplete": False
+    }
+    try:
+        # logger.info(f'About to call name res..')
+        nameres_result = requests.get(NAME_RESOLVER_URL,
+                                      params=nameres_payload,
+                                      headers=NAME_RESOLVER_HEADERS,
+                                      timeout=45)
+        # logger.info(f'Got result from name res {nameres_result.status_code}')
+        if nameres_result.status_code == 200:
+            # return the first result if there is one
+            nameres_json = nameres_result.json()
+            # logger.info(f'Unpacked json..')
+            return nameres_json[0] if nameres_json else None
+        else:
+            error_message = f'Non-200 result from name resolution (url: {NAME_RESOLVER_URL}, ' \
+                            f'payload: {nameres_payload}). Status code: {nameres_result.status_code}.'
+    except requests.exceptions.ConnectionError as e:
+        error_message = f'Connection Error calling name resolution (url: {NAME_RESOLVER_URL}, ' \
+                        f'payload: {nameres_payload}). Error: {e}.'
+    except requests.exceptions.Timeout as t:
+        error_message = f'Calling name resolution timed out (url: {NAME_RESOLVER_URL}, ' \
+                        f'payload: {nameres_payload}). Error: {t}.'
+
+    # if we get here something went wrong, log error and retry
+    if logger:
+        logger.error(error_message)
+    else:
+        print(error_message)
+    if retries < 2:
+        time.sleep(5)
+        logger.info('Retrying name resolution..')
+        return call_name_resolution(name, biolink_type, retries + 1, logger)
+
+    # if retried 2 times already give up and return the last error
+    return {NAME_RESOLVER_API_ERROR: error_message}

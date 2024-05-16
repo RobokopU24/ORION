@@ -7,7 +7,8 @@ from io import BytesIO
 from urllib.request import urlopen
 from zipfile import ZipFile
 from collections import defaultdict
-from Common.node_types import SEQUENCE_VARIANT, GENE, FALLBACK_EDGE_PREDICATE
+from Common.biolink_constants import *
+from Common.normalization import FALLBACK_EDGE_PREDICATE
 from Common.utils import LoggingUtil
 from Common.kgx_file_writer import KGXFileWriter
 from Common.kgx_file_normalizer import KGXFileNormalizer
@@ -56,10 +57,10 @@ class SequenceVariantSupplementation:
 
     def __init__(self):
 
-        self.logger = LoggingUtil.init_logging("Data_services.Common.SequenceVariantSupplementation",
+        self.logger = LoggingUtil.init_logging("ORION.Common.SequenceVariantSupplementation",
                                                line_format='medium',
-                                               log_file_path=environ['DATA_SERVICES_LOGS'])
-        workspace_dir = environ["DATA_SERVICES_STORAGE"]
+                                               log_file_path=environ['ORION_LOGS'])
+        workspace_dir = environ["ORION_STORAGE"]
 
         # if the snpEff dir exists, assume we already downloaded it
         self.snpeff_dir = path.join(workspace_dir, "snpEff")
@@ -178,14 +179,14 @@ class SequenceVariantSupplementation:
                                         annotations_to_write[effect_predicate].add(gene_curie)
                         for effect_predicate, gene_ids in annotations_to_write.items():
                             for gene_id in gene_ids:
+                                edge_props = {KNOWLEDGE_LEVEL: PREDICATION,
+                                              AGENT_TYPE: COMPUTATIONAL_MODEL}
                                 if gene_distances[gene_id]:
                                     try:
-                                        edge_props = {'distance_to_feature': int(gene_distances[gene_id])}
+                                        edge_props['distance_to_feature']: int(gene_distances[gene_id])
                                     except ValueError:
-                                        edge_props = None
-                                else:
-                                    edge_props = None
-                                output_file_writer.write_node(gene_id, None, [GENE])
+                                        pass
+                                output_file_writer.write_node(gene_id, "", [NAMED_THING, GENE])
                                 output_file_writer.write_edge(subject_id=variant_id,
                                                               object_id=gene_id,
                                                               predicate=effect_predicate,

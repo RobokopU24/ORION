@@ -3,7 +3,7 @@ import jsonlines
 from itertools import chain
 from Common.utils import LoggingUtil, quick_jsonl_file_iterator, quick_json_dumps, quick_json_loads
 from Common.kgxmodel import GraphSpec, SubGraphSource, DataSource
-from Common.node_types import SUBJECT_ID, OBJECT_ID
+from Common.biolink_constants import SUBJECT_ID, OBJECT_ID
 from Common.merging import GraphMerger, DiskGraphMerger, MemoryGraphMerger
 from Common.load_manager import RESOURCE_HOGS
 
@@ -18,9 +18,9 @@ class KGXFileMerger:
     def __init__(self,
                  output_directory: str):
         self.output_directory = output_directory
-        self.logger = LoggingUtil.init_logging("Data_services.Common.KGXFileMerger",
+        self.logger = LoggingUtil.init_logging("ORION.Common.KGXFileMerger",
                                                line_format='medium',
-                                               log_file_path=os.environ['DATA_SERVICES_LOGS'])
+                                               log_file_path=os.environ['ORION_LOGS'])
 
     def merge(self,
               graph_spec: GraphSpec,

@@ -1,14 +1,14 @@
 import os
 import argparse
 import enum
-import logging
 import re
 
 from io import TextIOWrapper
 from csv import reader
 from operator import itemgetter
 from zipfile import ZipFile
-from Common.utils import LoggingUtil, GetData
+from Common.biolink_constants import *
+from Common.utils import GetData
 from Common.loader_interface import SourceDataLoader, SourceDataFailedError
 from Common.prefixes import NCBITAXON, UNIPROTKB
 from Common.kgxmodel import kgxnode, kgxedge
@@ -75,7 +75,7 @@ class IALoader(SourceDataLoader):
     source_data_url = "https://www.ebi.ac.uk/intact/"
     license = "https://www.ebi.ac.uk/about/terms-of-use/"
     attribution = "http://europepmc.org/article/MED/24234451"
-    parsing_version: str = '1.1'
+    parsing_version: str = '1.2'
 
     def __init__(self, test_mode: bool = False, source_data_dir: str = None):
         """
@@ -112,14 +112,8 @@ class IALoader(SourceDataLoader):
         """
         # get a reference to the data gathering class
         gd: GetData = GetData(self.logger.level)
-
-        # do the real thing if we arent in debug mode
-        if not self.test_mode:
-            file_count: int = gd.pull_via_ftp('ftp.ebi.ac.uk', '/pub/databases/IntAct/current/psimitab/', [self.data_file], self.data_path)
-        else:
-            file_count: int = 1
-
-        # return the file count to the caller
+        file_count: int = gd.pull_via_ftp('ftp.ebi.ac.uk', '/pub/databases/IntAct/current/psimitab/', [self.data_file],
+                                          self.data_path)
         return file_count
 
     def parse_data(self) -> dict:
@@ -380,7 +374,10 @@ class IALoader(SourceDataLoader):
                 # add the interacting node edges
                 subject_id = f"{grp_list[grp_idx]['u_a']}"
                 object_id = f"{grp_list[grp_idx]['u_b']}"
-                edge_props = {"publications": f"{grp_list[grp_idx]['pub_id']}", "detection_method": detection_method}
+                edge_props = {PUBLICATIONS: grp_list[grp_idx]['pub_id'],
+                              "detection_method": detection_method,
+                              KNOWLEDGE_LEVEL: NOT_PROVIDED,
+                              AGENT_TYPE: NOT_PROVIDED}
                 new_edge = kgxedge(subject_id,
                                    object_id,
                                    predicate="RO:0002436",
@@ -393,10 +390,13 @@ class IALoader(SourceDataLoader):
                     # add the taxa edges
                     subject_id = f"{grp_list[grp_idx]['u_' + suffix]}"
                     object_id = f"{grp_list[grp_idx]['t_' + suffix]}"
+                    edge_props = {KNOWLEDGE_LEVEL: NOT_PROVIDED,
+                                  AGENT_TYPE: NOT_PROVIDED}
                     new_edge = kgxedge(subject_id,
                                        object_id,
                                        predicate="RO:0002162",
-                                       primary_knowledge_source=self.provenance_id)
+                                       primary_knowledge_source=self.provenance_id,
+                                       edgeprops=edge_props)
                     self.final_edge_list.append(new_edge)
 
                 # goto the next pair
@@ -517,13 +517,13 @@ if __name__ == '__main__':
     # create a command line parser
     ap = argparse.ArgumentParser(description='Load IntAct virus interaction data file and create KGX import files.')
 
-    # command line should be like: python loadIA.py -d E:/Data_services/IntAct_data
+    # command line should be like: python loadIA.py -d E:/ORION/IntAct_data
     ap.add_argument('-i', '--data_dir', required=True, help='The IntAct data file directory')
 
     # parse the arguments
     args = vars(ap.parse_args())
 
-    # IntAct_data_dir = 'E:/Data_services/IntAct'
+    # IntAct_data_dir = 'E:/ORION/IntAct'
     IntAct_data_dir = args['data_dir']
     out_mode = args['out_mode']
 

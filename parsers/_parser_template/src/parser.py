@@ -5,7 +5,7 @@ import gzip
 
 from Common.extractor import Extractor
 from Common.loader_interface import SourceDataLoader
-from Common.node_types import PRIMARY_KNOWLEDGE_SOURCE
+from Common.biolink_constants import PRIMARY_KNOWLEDGE_SOURCE
 from Common.prefixes import HGNC  # only an example, use existing curie prefixes or add your own to the prefixes file
 from Common.utils import GetData
 

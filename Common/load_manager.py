@@ -22,9 +22,9 @@ class SourceDataManager:
                  test_mode: bool = False,
                  fresh_start_mode: bool = False):
 
-        self.logger = LoggingUtil.init_logging("Data_services.Common.SourceDataManager",
+        self.logger = LoggingUtil.init_logging("ORION.Common.SourceDataManager",
                                                line_format='medium',
-                                               log_file_path=os.environ['DATA_SERVICES_LOGS'])
+                                               log_file_path=os.environ['ORION_LOGS'])
 
         self.test_mode = test_mode
         if test_mode:
@@ -183,7 +183,7 @@ class SourceDataManager:
                 f"{failed_error.error_message}")
             if retries < 2:
                 self.logger.error(f"Retrying fetching for {source_id}.. (retry {retries + 1})")
-                self.fetch_source(source_id, retries=retries+1)
+                self.fetch_source(source_id=source_id, source_version=source_version, retries=retries+1)
             else:
                 source_metadata.set_fetch_error(failed_error.error_message)
                 source_metadata.set_fetch_status(SourceMetadata.FAILED)
@@ -682,15 +682,15 @@ class SourceDataManager:
         return os.path.join(self.storage_dir, source_id, source_version)
 
     def init_storage_dir(self):
-        # use the storage directory specified by the environment variable DATA_SERVICES_STORAGE
+        # use the storage directory specified by the environment variable ORION_STORAGE
         # check to make sure it's set and valid, otherwise fail
-        if "DATA_SERVICES_STORAGE" not in os.environ:
-            raise Exception(f'You must use the environment variable DATA_SERVICES_STORAGE '
+        if "ORION_STORAGE" not in os.environ:
+            raise Exception(f'You must use the environment variable ORION_STORAGE '
                             f'to specify a storage directory.')
-        if os.path.isdir(os.environ["DATA_SERVICES_STORAGE"]):
-            return os.environ["DATA_SERVICES_STORAGE"]
+        if os.path.isdir(os.environ["ORION_STORAGE"]):
+            return os.environ["ORION_STORAGE"]
         else:
-            raise IOError(f'Storage directory not valid: {os.environ["DATA_SERVICES_STORAGE"]}')
+            raise IOError(f'Storage directory not valid: {os.environ["ORION_STORAGE"]}')
 
     def init_source_output_dir(self, source_id: str):
         source_dir_path = os.path.join(self.storage_dir, source_id)
@@ -715,8 +715,8 @@ if __name__ == '__main__':
                              'in the finalized kgx files.')
     args = parser.parse_args()
 
-    if 'DATA_SERVICES_TEST_MODE' in os.environ:
-        test_mode_from_env = os.environ['DATA_SERVICES_TEST_MODE']
+    if 'ORION_TEST_MODE' in os.environ:
+        test_mode_from_env = os.environ['ORION_TEST_MODE']
     else:
         test_mode_from_env = False
 

@@ -1,7 +1,18 @@
 import requests
 import yaml
+import os
 
 from bmt import Toolkit
+
+
+BIOLINK_MODEL_VERSION = os.environ.get("BL_VERSION", "4.1.6")
+BIOLINK_MODEL_SCHEMA_URL = f"https://raw.githubusercontent.com/biolink/biolink-model/v{BIOLINK_MODEL_VERSION}/biolink-model.yaml"
+PREDICATE_MAP_URL = f"https://raw.githubusercontent.com/biolink/biolink-model/v{BIOLINK_MODEL_VERSION}/predicate_mapping.yaml"
+
+
+def get_biolink_model_toolkit():
+    return Toolkit(schema=BIOLINK_MODEL_SCHEMA_URL, predicate_map=PREDICATE_MAP_URL)
+
 
 map_data = {
   "attribute_type_map": {
@@ -26,7 +37,7 @@ VALUE_TYPES = map_data['value_type_map']
 class BiolinkUtils:
 
     def __init__(self):
-        self.toolkit = Toolkit()
+        self.toolkit = get_biolink_model_toolkit()
 
     def find_biolink_leaves(self, biolink_concepts: set):
         """
@@ -136,14 +147,29 @@ class BiolinkUtils:
         return False
 
 
+BIOLINK_MAPPING_CHANGES = {
+    'KEGG': 'http://identifiers.org/kegg/',
+    'NCBIGene': 'https://identifiers.org/ncbigene/'
+}
+
+
+def get_biolink_prefix_map():
+    response = requests.get(f'https://raw.githubusercontent.com/biolink/biolink-model/v{BIOLINK_MODEL_VERSION}/project/prefixmap/biolink_model_prefix_map.json')
+    if response.status_code != 200:
+        response.raise_for_status()
+    biolink_prefix_map = response.json()
+    biolink_prefix_map.update(BIOLINK_MAPPING_CHANGES)
+    return biolink_prefix_map
+
+
 INFORES_STATUS_INVALID = 'invalid'
 INFORES_STATUS_DEPRECATED = 'deprecated'
 INFORES_STATUS_VALID = 'valid'
 
 
 class BiolinkInformationResources:
-
-    infores_catalog_url = 'https://raw.githubusercontent.com/biolink/biolink-model/master/infores_catalog.yaml'
+    infores_catalog_url = 'https://raw.githubusercontent.com/biolink/information-resource-registry/main/infores_catalog.yaml'
+    #infores_catalog_url = 'https://raw.githubusercontent.com/biolink/biolink-model/master/infores_catalog.yaml'
 
     def __init__(self):
         # Fetch the infores catalog from the biolink model

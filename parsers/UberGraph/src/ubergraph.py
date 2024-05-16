@@ -2,17 +2,7 @@ import requests
 import curies
 import tarfile
 from io import TextIOWrapper
-
-
-BIOLINK_DUPLICATE_MAPPINGS = ["agrkb",
-                              "OBOREL",
-                              "oboInOwl",
-                              "oboformat"]
-
-BIOLINK_MAPPING_CHANGES = {
-    'KEGG': 'http://identifiers.org/kegg/',
-    'NCBIGene': 'https://identifiers.org/ncbigene/'
-}
+from Common.biolink_utils import get_biolink_prefix_map
 
 OBO_MISSING_MAPPINGS = {
     'NCBIGene': 'http://purl.obolibrary.org/obo/NCBIGene_',
@@ -27,6 +17,7 @@ class UberGraphTools:
                  ubergraph_url: str = None,
                  ubergraph_archive_path: str = None,
                  graph_base_path: str = None,
+                 load_node_descriptions: bool = False,
                  logger=None):
 
         self.node_curies = {}
@@ -35,8 +26,9 @@ class UberGraphTools:
         self.graph_base_path = graph_base_path
         self.logger = logger
         self.curie_to_iri_converter = self.init_curie_converter()
-        self.node_descriptions = self.get_node_descriptions(ubergraph_url)
         self.convert_iris_to_curies()
+
+        self.node_descriptions = self.get_node_descriptions(ubergraph_url) if load_node_descriptions else None
 
     def convert_iris_to_curies(self):
         if self.logger:
@@ -70,11 +62,11 @@ class UberGraphTools:
                 if node_mapping_failures:
                     self.logger.info(f'Node conversion failure examples: {node_mapping_failures[:10]}')
                 self.logger.info(f'Edges: {len(self.edge_curies)} successfully converted, {len(edge_mapping_failures)} failures.')
-                if node_mapping_failures:
+                if edge_mapping_failures:
                     self.logger.info(f'Edge conversion failure examples: {edge_mapping_failures[:10]}')
 
     def init_curie_converter(self):
-        biolink_prefix_map = self.get_biolink_prefix_map()
+        biolink_prefix_map = get_biolink_prefix_map()
         iri_to_biolink_curie_converter = curies.Converter.from_prefix_map(biolink_prefix_map)
         iri_to_obo_curie_converter = curies.get_obo_converter()
         custom_converter = curies.Converter.from_prefix_map(OBO_MISSING_MAPPINGS)
@@ -118,29 +110,6 @@ class UberGraphTools:
 
     def get_curie_for_edge_id(self, edge_id):
         return self.edge_curies[edge_id]
-
-    @staticmethod
-    def get_biolink_prefix_map():
-        # TODO - ideally this would be a specific version of the biolink model, that's not supported by parsers yet
-        response = requests.get \
-            ('https://raw.githubusercontent.com/biolink/biolink-model/master/prefix-map/biolink-model-prefix-map.json')
-        if response.status_code != 200:
-            response.raise_for_status()
-
-        biolink_prefix_map = response.json()
-
-        for duplicate_mapping in BIOLINK_DUPLICATE_MAPPINGS:
-            if duplicate_mapping in biolink_prefix_map:
-                del (biolink_prefix_map[duplicate_mapping])
-        kegg_keys = []
-        for key, value in biolink_prefix_map.items():
-            if 'KEGG.' in key:
-                kegg_keys.append(key)
-        for key in kegg_keys:
-            del (biolink_prefix_map[key])
-
-        biolink_prefix_map.update(BIOLINK_MAPPING_CHANGES)
-        return biolink_prefix_map
 
     @staticmethod
     def get_latest_source_version(ubergraph_url: str):

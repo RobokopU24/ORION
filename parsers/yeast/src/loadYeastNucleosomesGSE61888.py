@@ -5,7 +5,7 @@ import pandas as pd
 from Common.utils import GetData, int_to_roman_numeral
 from Common.loader_interface import SourceDataLoader
 from Common.extractor import Extractor
-from Common.node_types import PRIMARY_KNOWLEDGE_SOURCE
+from Common.biolink_constants import PRIMARY_KNOWLEDGE_SOURCE
 from parsers.yeast.src.yeast_constants import HISTONE_LOCI_FILE, YEAST_GENOME_RESOLUTION
 from parsers.yeast.src.loadHistoneMap import YeastHistoneMapLoader
 
@@ -240,7 +240,7 @@ class YeastGSE61888Loader(SourceDataLoader):
 
         :return:
         """
-        return 'yeast_v1_5'
+        return 'yeast_v2'
 
     def get_data(self) -> int:
         """

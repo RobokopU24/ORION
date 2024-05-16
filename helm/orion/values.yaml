@@ -1,15 +1,15 @@
-# Default values for data-services.
+# Default values for ORION.
 
 replicaCount: 1
 
-dataServices:
+orion:
   graphID: "Test_Graph"
   graphSpec: "testing-graph-spec.yml"
   # useLocalGraphSpec true if the graphSpec is a file in the codebase (mainly for testing), false if a remote URL
   useLocalGraphSpec: true
   buildMode: true
   image:
-    repository: ghcr.io/renci-automat/data_services
+    repository: ghcr.io/robokopu24/orion
     pullPolicy: Always
     tag: latest
   graphsVolume:

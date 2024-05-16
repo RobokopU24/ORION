@@ -13,22 +13,25 @@ from Common.load_manager import SourceDataManager
 from Common.kgx_file_merger import KGXFileMerger
 from Common.neo4j_tools import create_neo4j_dump
 from Common.kgxmodel import GraphSpec, SubGraphSource, DataSource, NormalizationScheme
+from Common.normalization import NORMALIZATION_CODE_VERSION
 from Common.metadata import Metadata, GraphMetadata, SourceMetadata
 from Common.supplementation import SequenceVariantSupplementation
-from Common.node_types import PRIMARY_KNOWLEDGE_SOURCE, AGGREGATOR_KNOWLEDGE_SOURCES, PREDICATE, PUBLICATIONS
+from Common.biolink_constants import PRIMARY_KNOWLEDGE_SOURCE, AGGREGATOR_KNOWLEDGE_SOURCES, PREDICATE, PUBLICATIONS
 from Common.meta_kg import MetaKnowledgeGraphBuilder, META_KG_FILENAME, TEST_DATA_FILENAME
+from Common.redundant_kg import generate_redundant_kg
 
 NODES_FILENAME = 'nodes.jsonl'
 EDGES_FILENAME = 'edges.jsonl'
+REDUNDANT_EDGES_FILENAME = 'redundant_edges.jsonl'
 
 
 class GraphBuilder:
 
     def __init__(self):
 
-        self.logger = LoggingUtil.init_logging("Data_services.Common.GraphBuilder",
+        self.logger = LoggingUtil.init_logging("ORION.Common.GraphBuilder",
                                                line_format='medium',
-                                               log_file_path=os.environ['DATA_SERVICES_LOGS'])
+                                               log_file_path=os.environ['ORION_LOGS'])
 
         self.current_graph_versions = {}
         self.graphs_dir = self.init_graphs_dir()  # path to the graphs output directory
@@ -98,8 +101,8 @@ class GraphBuilder:
             if qc_results['pass']:
                 self.logger.info(f'QC passed for graph {graph_id}.')
             else:
-                # TODO - bail if qc fails - just need to implement a way to force output regardless
-                self.logger.info(f'QC failed for graph {graph_id}')
+                self.logger.info(f'QC failed for graph {graph_id}, bailing..')
+                return
 
         needs_meta_kg = not self.has_meta_kg(graph_directory=graph_output_dir)
         needs_test_data = not self.has_test_data(graph_directory=graph_output_dir)
@@ -109,18 +112,26 @@ class GraphBuilder:
                                                 generate_meta_kg=needs_meta_kg,
                                                 generate_test_data=needs_test_data)
 
-        if 'neo4j' in graph_spec.graph_output_format.lower():
+        output_formats = graph_spec.graph_output_format.lower().split('+') if graph_spec.graph_output_format else []
+        nodes_filepath = os.path.join(graph_output_dir, NODES_FILENAME)
+        edges_filepath = os.path.join(graph_output_dir, EDGES_FILENAME)
+        if 'neo4j' in output_formats:
             self.logger.info(f'Starting Neo4j dump pipeline for {graph_id}...')
-            dump_success = create_neo4j_dump(graph_id=graph_id,
+            dump_success = create_neo4j_dump(nodes_filepath=nodes_filepath,
+                                             edges_filepath=edges_filepath,
+                                             output_directory=graph_output_dir,
+                                             graph_id=graph_id,
                                              graph_version=graph_version,
-                                             graph_directory=graph_output_dir,
-                                             nodes_filename=NODES_FILENAME,
-                                             edges_filename=EDGES_FILENAME,
                                              logger=self.logger)
 
             if dump_success:
                 graph_output_url = self.get_graph_output_URL(graph_id, graph_version)
                 graph_metadata.set_dump_url(f'{graph_output_url}graph_{graph_version}.db.dump')
+
+        if 'redundant_jsonl' in output_formats:
+            self.logger.info(f'Generating redundant edge KG for {graph_id}...')
+            redundant_filepath = edges_filepath.replace(EDGES_FILENAME, REDUNDANT_EDGES_FILENAME)
+            generate_redundant_kg(edges_filepath, redundant_filepath)
 
     def build_dependencies(self, graph_spec: GraphSpec):
         for subgraph_source in graph_spec.subgraphs:
@@ -228,6 +239,7 @@ class GraphBuilder:
         aggregator_knowledge_sources = set()
         edge_properties = set()
         predicate_counts = defaultdict(int)
+        predicate_counts_by_ks = defaultdict(lambda: defaultdict(int))
         edges_with_publications = defaultdict(int)
         graph_edges_file_path = os.path.join(graph_directory, EDGES_FILENAME)
         for edge_json in quick_jsonl_file_iterator(graph_edges_file_path):
@@ -238,6 +250,7 @@ class GraphBuilder:
             for key in edge_json.keys():
                 edge_properties.add(key)
             predicate_counts[edge_json[PREDICATE]] += 1
+            predicate_counts_by_ks[edge_json[PRIMARY_KNOWLEDGE_SOURCE]][edge_json[PREDICATE]] += 1
             if PUBLICATIONS in edge_json and edge_json[PUBLICATIONS]:
                 edges_with_publications[edge_json[PREDICATE]] += 1
 
@@ -267,7 +280,9 @@ class GraphBuilder:
             'pass': True,
             'primary_knowledge_sources': list(primary_knowledge_sources),
             'aggregator_knowledge_sources': list(aggregator_knowledge_sources),
-            'predicates': {k: v for k, v in predicate_counts.items()},
+            'predicate_totals': {k: v for k, v in predicate_counts.items()},
+            'predicates_by_knowledge_source': {ks: {predicate: count for predicate, count in ks_to_p.items()}
+                                               for ks, ks_to_p in predicate_counts_by_ks.items()},
             'node_curie_prefixes': {k: v for k, v in node_curie_prefixes.items()},
             'edges_with_publications': {k: v for k, v in edges_with_publications.items()},
             'edge_properties': list(edge_properties),
@@ -276,14 +291,13 @@ class GraphBuilder:
         if deprecated_infores_ids:
             qc_metadata['warnings']['deprecated_knowledge_sources'] = deprecated_infores_ids
         if invalid_infores_ids:
-            qc_metadata['pass'] = False
             qc_metadata['warnings']['invalid_knowledge_sources'] = invalid_infores_ids
         return qc_metadata
 
     def load_graph_specs(self):
-        if 'DATA_SERVICES_GRAPH_SPEC' in os.environ and os.environ['DATA_SERVICES_GRAPH_SPEC']:
+        if 'ORION_GRAPH_SPEC' in os.environ and os.environ['ORION_GRAPH_SPEC']:
             # this is a messy way to find the graph spec path, mainly for testing - URL is preferred
-            graph_spec_file = os.environ['DATA_SERVICES_GRAPH_SPEC']
+            graph_spec_file = os.environ['ORION_GRAPH_SPEC']
             graph_spec_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'graph_specs', graph_spec_file)
             if os.path.exists(graph_spec_path):
                 self.logger.info(f'Loading graph spec: {graph_spec_file}')
@@ -292,15 +306,15 @@ class GraphBuilder:
                     return self.parse_graph_spec(graph_spec_yaml)
             else:
                 raise Exception(f'Configuration Error - Graph Spec could not be found: {graph_spec_file}')
-        elif 'DATA_SERVICES_GRAPH_SPEC_URL' in os.environ:
-            graph_spec_url = os.environ['DATA_SERVICES_GRAPH_SPEC_URL']
+        elif 'ORION_GRAPH_SPEC_URL' in os.environ:
+            graph_spec_url = os.environ['ORION_GRAPH_SPEC_URL']
             graph_spec_request = requests.get(graph_spec_url)
             graph_spec_request.raise_for_status()
             graph_spec_yaml = yaml.full_load(graph_spec_request.text)
             return self.parse_graph_spec(graph_spec_yaml)
         else:
             raise Exception(f'Configuration Error - No Graph Spec was configured. Set the environment variable '
-                            f'DATA_SERVICES_GRAPH_SPEC_URL to a URL with a valid Graph Spec yaml file. '
+                            f'ORION_GRAPH_SPEC_URL to a URL with a valid Graph Spec yaml file. '
                             f'See the README for more info.')
 
     def parse_graph_spec(self, graph_spec_yaml):
@@ -338,6 +352,8 @@ class GraphBuilder:
                     if 'conflation' in graph_yaml else None
                 graph_wide_strict_norm = graph_yaml['strict_normalization'] \
                     if 'strict_normalization' in graph_yaml else None
+                graph_wide_normalization_code_version = graph_yaml['normalization_code_version'] \
+                    if 'normalization_code_version' in graph_yaml else None
 
                 # apply them to all of the data sources, this will overwrite anything defined at the source level
                 for data_source in data_sources:
@@ -349,6 +365,8 @@ class GraphBuilder:
                         data_source.normalization_scheme.conflation = graph_wide_conflation
                     if graph_wide_strict_norm is not None:
                         data_source.normalization_scheme.strict = graph_wide_strict_norm
+                    if graph_wide_normalization_code_version is not None:
+                        data_source.normalization_scheme.normalization_code_version = graph_wide_normalization_code_version
 
                 graph_output_format = graph_yaml['output_format'] if 'output_format' in graph_yaml else ""
                 current_graph_spec = GraphSpec(graph_id=graph_id,
@@ -410,10 +428,13 @@ class GraphBuilder:
             else self.source_data_manager.get_latest_edge_normalization_version()
         strict_normalization = source_yml['strict_normalization'] \
             if 'strict_normalization' in source_yml else True
+        normalization_code_version = source_yml['normalization_code_version'] \
+            if 'normalization_code_version' in source_yml else NORMALIZATION_CODE_VERSION
         conflation = source_yml['conflation'] \
             if 'conflation' in source_yml else False
         normalization_scheme = NormalizationScheme(node_normalization_version=node_normalization_version,
                                                    edge_normalization_version=edge_normalization_version,
+                                                   normalization_code_version=normalization_code_version,
                                                    strict=strict_normalization,
                                                    conflation=conflation)
         supplementation_version = SequenceVariantSupplementation.SUPPLEMENTATION_VERSION
@@ -436,7 +457,7 @@ class GraphBuilder:
         return os.path.join(self.graphs_dir, graph_id, graph_version)
 
     def get_graph_output_URL(self, graph_id: str, graph_version: str):
-        graph_output_url = os.environ['DATA_SERVICES_OUTPUT_URL']
+        graph_output_url = os.environ.get('ORION_OUTPUT_URL', "https://localhost/")
         if graph_output_url[-1] != '/':
             graph_output_url += '/'
         return f'{graph_output_url}{graph_id}/{graph_version}/'
@@ -475,14 +496,14 @@ class GraphBuilder:
 
     @staticmethod
     def init_graphs_dir():
-        # use the directory specified by the environment variable DATA_SERVICES_GRAPHS
-        if 'DATA_SERVICES_GRAPHS' in os.environ and os.path.isdir(os.environ['DATA_SERVICES_GRAPHS']):
-            return os.environ['DATA_SERVICES_GRAPHS']
+        # use the directory specified by the environment variable ORION_GRAPHS
+        if 'ORION_GRAPHS' in os.environ and os.path.isdir(os.environ['ORION_GRAPHS']):
+            return os.environ['ORION_GRAPHS']
         else:
             # if graph dir is invalid or not specified back out
             raise IOError(
                 'GraphBuilder graphs directory not found. '
-                'Specify a valid directory with environment variable DATA_SERVICES_GRAPHS.')
+                'Specify a valid directory with environment variable ORION_GRAPHS.')
 
 
 if __name__ == '__main__':

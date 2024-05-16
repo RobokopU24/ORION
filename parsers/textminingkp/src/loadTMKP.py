@@ -3,7 +3,7 @@ import json
 import argparse
 import enum
 
-from Common.node_types import PUBLICATIONS
+from Common.biolink_constants import *
 from Common.utils import GetData
 from Common.kgxmodel import kgxedge
 from Common.loader_interface import SourceDataLoader
@@ -145,7 +145,9 @@ class TMKPLoader(SourceDataLoader):
                 edge_props = {PUBLICATIONS: [paper_id for paper_id in paper_idxs.split('|')],
                               "biolink:tmkp_confidence_score": float(confidence_score),
                               "sentences": "|".join(sentences),
-                              "tmkp_ids": [tmkp_id for tmkp_id in tmpk_idxs.split('|')]}
+                              "tmkp_ids": [tmkp_id for tmkp_id in tmpk_idxs.split('|')],
+                              KNOWLEDGE_LEVEL: NOT_PROVIDED,
+                              AGENT_TYPE: TEXT_MINING_AGENT}
 
                 # look for any qualifiers and add them to edge_props if they have values
                 for qualifier_index, qualifier_attribute in TMKP_QUALIFIER_ATTRIBUTES.items():

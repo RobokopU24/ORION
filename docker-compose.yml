@@ -1,20 +1,22 @@
 version: "3.7"
 services:
-  data_services:
+  orion:
     platform: linux/amd64
     build:
       context: .
-    command: [python, /Data_services/Common/build_manager.py, all]
+    command: [python, /ORION/Common/build_manager.py, all]
     environment:
-      - DATA_SERVICES_STORAGE=/Data_services_storage
-      - DATA_SERVICES_GRAPHS=/Data_services_graphs
-      - DATA_SERVICES_LOGS=/Data_services_logs
-      - DATA_SERVICES_GRAPH_SPEC
-      - DATA_SERVICES_GRAPH_SPEC_URL
-      - DATA_SERVICES_OUTPUT_URL
-      - DATA_SERVICES_NEO4J_PASSWORD
+      - ORION_STORAGE=/ORION_storage
+      - ORION_GRAPHS=/ORION_graphs
+      - ORION_LOGS=/ORION_logs
+      - ORION_GRAPH_SPEC
+      - ORION_GRAPH_SPEC_URL
+      - ORION_OUTPUT_URL
+      - ORION_NEO4J_PASSWORD
       - EDGE_NORMALIZATION_ENDPOINT
       - NODE_NORMALIZATION_ENDPOINT
+      - NAME_RESOLVER_ENDPOINT
+      - BL_VERSION
       - PHAROS_DB_HOST
       - PHAROS_DB_USER
       - PHAROS_DB_PASSWORD
@@ -26,10 +28,10 @@ services:
       - DRUGCENTRAL_DB_NAME
       - DRUGCENTRAL_DB_PORT
     volumes:
-      - .:/Data_services
-      - "${DATA_SERVICES_STORAGE}:/Data_services_storage"
-      - "${DATA_SERVICES_GRAPHS}:/Data_services_graphs"
-      - "${DATA_SERVICES_LOGS}:/Data_services_logs"
+      - .:/ORION
+      - "${ORION_STORAGE}:/ORION_storage"
+      - "${ORION_GRAPHS}:/ORION_graphs"
+      - "${ORION_LOGS}:/ORION_logs"
     user: 7474:7474
     
 

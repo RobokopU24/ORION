@@ -3,7 +3,7 @@ import argparse
 import os
 from collections import defaultdict
 
-from Common.node_types import NODE_TYPES, SUBJECT_ID, OBJECT_ID, PREDICATE, PRIMARY_KNOWLEDGE_SOURCE, AGGREGATOR_KNOWLEDGE_SOURCES
+from Common.biolink_constants import NODE_TYPES, SUBJECT_ID, OBJECT_ID, PREDICATE, PRIMARY_KNOWLEDGE_SOURCE, AGGREGATOR_KNOWLEDGE_SOURCES
 from Common.utils import quick_jsonl_file_iterator
 from Common.biolink_utils import BiolinkUtils
 
@@ -26,8 +26,7 @@ class MetaKnowledgeGraphBuilder:
                  nodes_file_path: str,
                  edges_file_path: str,
                  logger=None):
-        if logger:
-            self.logger = logger
+        self.logger = logger
         self.bl_utils = BiolinkUtils()
 
         self.node_id_to_leaf_types = None
@@ -62,7 +61,16 @@ class MetaKnowledgeGraphBuilder:
         for node in quick_jsonl_file_iterator(nodes_file_path):
 
             # find the leaf node types of this node's types according to the biolink model, if not done already
-            node_types = frozenset(node[NODE_TYPES])
+            try:
+                node_types = frozenset(node[NODE_TYPES])
+            except TypeError as e:
+                error_message = f'Node types were not a valid list for node: {node}'
+                if self.logger:
+                    self.logger.error(error_message)
+                else:
+                    print(error_message)
+                node_types = frozenset()
+
             if node_types not in node_types_to_leaves:
                 leaf_types = self.bl_utils.find_biolink_leaves(node_types)
                 node_types_to_leaves[node_types] = leaf_types
@@ -108,9 +116,12 @@ class MetaKnowledgeGraphBuilder:
                 subject_types = node_id_to_leaf_types[edge[SUBJECT_ID]]
                 object_types = node_id_to_leaf_types[edge[OBJECT_ID]]
             except KeyError as e:
+                error_message = f'Leaf node types not found for node: {e}. '\
+                                f'Make sure the node is present in the nodes file.'
                 if self.logger:
-                    self.logger.error(f'Leaf node types not found for a node on edge {json.dumps(edge)}. '
-                                      f'Make sure the nodes are present in the nodes file. KeyError: {e}')
+                    self.logger.error(error_message)
+                else:
+                    print(error_message)
                 continue
 
             non_core_edge_attributes = [key for key in edge.keys()
@@ -136,7 +147,15 @@ class MetaKnowledgeGraphBuilder:
                     edge_type_key = f'{subject_type}{object_type}{predicate}'
                     edge_type_key_to_attributes[edge_type_key].update(edge_attributes)
                     for qual, qual_val in edge_qualifier_values.items():
-                        edge_type_key_to_qualifiers[edge_type_key][qual].add(qual_val)
+                        try:
+                            edge_type_key_to_qualifiers[edge_type_key][qual].add(qual_val)
+                        except TypeError as e:
+                            error_message = f'Type of value for qualifier not expected: {qual}: {qual_val}, '\
+                                            f'ignoring for meta kg. Error: {e}'
+                            if self.logger:
+                                self.logger.warning(error_message)
+                            else:
+                                print(error_message)
 
                     if edge_type_key not in edge_type_key_to_example:
                         example_edge = {

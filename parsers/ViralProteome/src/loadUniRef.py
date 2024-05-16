@@ -487,7 +487,7 @@ if __name__ == '__main__':
     # create a command line parser
     ap = argparse.ArgumentParser(description='Load UniRef data files and create KGX import files.')
 
-    # command line should be like: python loadUniRef2.py -d /projects/stars/Data_services/UniRef_data -f uniref50,uniref90,uniref100
+    # command line should be like: python loadUniRef2.py -d /projects/stars/ORION/UniRef_data -f uniref50,uniref90,uniref100
     ap.add_argument('-r', '--data_dir', required=True, help='The location of the UniRef data files')
     ap.add_argument('-f', '--UniRef_files', required=True, help='Name(s) of input UniRef files (comma delimited)')
 
@@ -495,7 +495,7 @@ if __name__ == '__main__':
     args = vars(ap.parse_args())
 
     # this is the base directory for data files and the resultant KGX files.
-    # data_dir = 'E:/Data_services/UniRef_data'
+    # data_dir = 'E:/ORION/UniRef_data'
     UniRef_data_dir: str = args['data_dir']
 
     # create the file list

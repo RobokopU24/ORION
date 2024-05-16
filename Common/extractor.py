@@ -1,7 +1,7 @@
 import csv
 from Common.kgxmodel import kgxnode, kgxedge
 from Common.kgx_file_writer import KGXFileWriter
-from Common.node_types import PRIMARY_KNOWLEDGE_SOURCE, AGGREGATOR_KNOWLEDGE_SOURCES
+from Common.biolink_constants import PRIMARY_KNOWLEDGE_SOURCE, AGGREGATOR_KNOWLEDGE_SOURCES
 
 
 class Extractor:
@@ -118,7 +118,7 @@ class Extractor:
 
         # if we  haven't seen the subject before, add it to nodes
         if subject_id and subject_id not in self.node_ids:
-            subject_name = subjectprops.pop('name', None)
+            subject_name = subjectprops.pop('name', '')
             subject_categories = subjectprops.pop('categories', None)
             subject_node = kgxnode(subject_id, name=subject_name, categories=subject_categories, nodeprops=subjectprops)
             if self.file_writer:
@@ -129,7 +129,7 @@ class Extractor:
 
         # if we  haven't seen the object before, add it to nodes
         if object_id and object_id not in self.node_ids:
-            object_name = objectprops.pop('name', None)
+            object_name = objectprops.pop('name', '')
             object_categories = objectprops.pop('categories', None)
             object_node = kgxnode(object_id, name=object_name, categories=object_categories, nodeprops=objectprops)
             if self.file_writer:

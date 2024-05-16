@@ -34,7 +34,7 @@ class SourceDataLoader:
             if not os.path.exists(self.data_path):
                 os.mkdir(self.data_path)
         else:
-            self.data_path = os.environ.get("DATA_SERVICES_STORAGE")
+            self.data_path = os.environ.get("ORION_STORAGE")
 
         # the final output lists of nodes and edges
         self.final_node_list: list = []
@@ -44,10 +44,10 @@ class SourceDataLoader:
         self.output_file_writer: KGXFileWriter = None
 
         # create a logger
-        self.logger = LoggingUtil.init_logging(f"Data_services.parsers.{self.get_name()}",
+        self.logger = LoggingUtil.init_logging(f"ORION.parsers.{self.get_name()}",
                                                level=logging.INFO,
                                                line_format='medium',
-                                               log_file_path=os.environ.get('DATA_SERVICES_LOGS'))
+                                               log_file_path=os.environ.get('ORION_LOGS'))
 
     def get_latest_source_version(self):
         """Determine and return the latest source version ie. a unique identifier associated with the latest version."""

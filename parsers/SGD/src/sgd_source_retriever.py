@@ -18,17 +18,17 @@ def SGDGene2GOTerm(data_directory):
     print(
         "---------------------------------------------------\nCollecting all GO Annotation data for all genes on SGD...\n---------------------------------------------------\n")
     view = ["primaryIdentifier", "secondaryIdentifier", "symbol", "featureType",
-            "qualifier", "goAnnotation.ontologyTerm.identifier",
+            "goAnnotation.ontologyTerm.identifier",
             "goAnnotation.ontologyTerm.name", "goAnnotation.ontologyTerm.namespace",
-            "goAnnotation.evidence.code.code", "goAnnotation.qualifier",
+            "goAnnotation.evidence.code.code", "goAnnotation.qualifier", "col1", 
             "goAnnotation.evidence.code.withText", "goAnnotation.annotationExtension",
-            "goAnnotation.evidence.code.annotType",
-            "goAnnotation.evidence.publications.pubMedId",
+            "goAnnotation.evidence.code.annotType", "goAnnotation.parentsIdentifier", 
+            "goAnnotation.parentsName", "goAnnotation.evidence.publications.pubMedId",
             "goAnnotation.evidence.publications.citation"]
 
     # Request all gene2GOTerm data.
     rqgene2goterm = rq.get(
-        f"https://yeastmine.yeastgenome.org/yeastmine/service/template/results?name=Gene_GO&constraint1=Gene&op1=LOOKUP&value1=**&extra1=&format=csv")
+        f"https://yeastmine.yeastgenome.org/yeastmine/service/template/results?name=GoSlimTerm_Gene&constraint1=Gene.goAnnotation.ontologyTerm.parents.name&op1=eq&value1=**&extra1&format=csv")
 
     # Parse as CSV object.
     lines = rqgene2goterm.text.splitlines()
@@ -42,13 +42,12 @@ def SGDGene2GOTerm(data_directory):
                                 quotechar='"', quoting=csv.QUOTE_MINIMAL)
         for row in reader:
             datawriter.writerow(row)
-    gene2gotermdf = pd.read_csv(os.path.join(storage_dir, csv_fname))
+    gene2gotermdf = pd.read_csv(os.path.join(storage_dir, csv_fname), dtype="string")
     gene2gotermdf.columns = view
     gene2gotermdf[view[0]] = gene2gotermdf[view[0]].apply(lambda x: "SGD:" + str(x))
     gene2gotermdf.fillna("?", inplace=True)
     print('SGD gene2goterm Data Collected!')
     print(os.path.join(storage_dir, csv_fname))
-    # gene2gotermdf.to_csv(f"//Data_services/parsers/yeast/src/{csv_fname}", encoding="utf-8-sig", index=False)
     gene2gotermdf.to_csv(os.path.join(storage_dir, csv_fname), encoding="utf-8-sig", index=False)
 
 
@@ -70,7 +69,7 @@ def SGDGene2Phenotype(data_directory):
                 'identifier': identifiers,
                 'reference': references}
 
-    apodf = pd.DataFrame(data=apo_dict)
+    apodf = pd.DataFrame(data=apo_dict, dtype="string")
     print('APO IDs Collected!')
     csv_fname = 'yeast_phenotype_APO_identifiers.csv'
     storage_dir = data_directory
@@ -105,7 +104,7 @@ def SGDGene2Phenotype(data_directory):
 
     # Join SGD data to APO identifiers and save file in current directory
     print("Joining APO IDs and SGD links to gene2phenotype table and saving...")
-    gene2phenotypedf = pd.read_csv(os.path.join(storage_dir, csv_fname))
+    gene2phenotypedf = pd.read_csv(os.path.join(storage_dir, csv_fname), dtype="string")
 
     gene2phenotypedf.columns = view
     gene2phenotypedf[view[0]] = gene2phenotypedf[view[0]].apply(lambda x: "SGD:" + str(x))
@@ -210,23 +209,19 @@ def SGDGene2Complex(data_directory):
             "allInteractors.participant.secondaryIdentifier",
             "allInteractors.biologicalRole", "allInteractors.stoichiometry",
             "allInteractors.type", "identifier", "properties", "accession",
-            "allInteractors.participant.genes.primaryIdentifier", "complex.link"]
+            "allInteractors.participant.genes.primaryIdentifier"]
 
     data = dict.fromkeys(view, [])
-    url = "https://www.yeastgenome.org/complex/"
-
     for row in query.rows():
-        for col in range(len(view)):
-            key = view[col]
-            if key != "complex.link":
-                if key == "identifier":
-                    value = "EBI:" + str(row[key])
-                elif key == "allInteractors.participant.genes.primaryIdentifier":
-                    value = "SGD:" + str(row[key])
-                else:
-                    value = row[key]
-            elif key == "complex.link":
-                value = url + str(row[view[10]])
+        for key in view:
+            if key == "identifier":
+                value = "EBI:" + str(row[key])
+            elif key == "allInteractors.participant.genes.primaryIdentifier":
+                value = "SGD:" + str(row[key])
+            elif key == "properties":
+                value = str(row[key]).replace("\r\n", " ").replace("\n", " ").strip()
+            else:
+                value = row[key]
             data[key] = data[key] + [value]
     gene2complexdf = pd.DataFrame(data)
     gene2complexdf.fillna("?", inplace=True)
@@ -254,16 +249,18 @@ def SGDComplex2GOTerm(data_directory):
 
     for row in query.rows():
         for col in view:
-
             if col == "accession":
-                value = "CPX:" + str(row[col])
+                value = str(row[col])
             elif col == "goAnnotation.qualifier":
-                if str(row["goAnnotation.ontologyTerm.namespace"]) == "molecular_function":
+                ontology_term_namespace = str(row["goAnnotation.ontologyTerm.namespace"])
+                if ontology_term_namespace == "molecular_function":
                     value = "biolink:enables"
-                elif str(row["goAnnotation.ontologyTerm.namespace"]) == "biological_process":
+                elif ontology_term_namespace == "biological_process":
                     value = "biolink:actively_involved_in"
-                elif str(row["goAnnotation.ontologyTerm.namespace"]) == "cellular_component":
+                elif ontology_term_namespace == "cellular_component":
                     value = "biolink:located_in"
+                else:
+                    value = ""
             else:
                 value = str(row[col])
             data[col] = data[col] + [value]
