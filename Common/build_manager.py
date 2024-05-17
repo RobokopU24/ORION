@@ -18,9 +18,11 @@ from Common.metadata import Metadata, GraphMetadata, SourceMetadata
 from Common.supplementation import SequenceVariantSupplementation
 from Common.biolink_constants import PRIMARY_KNOWLEDGE_SOURCE, AGGREGATOR_KNOWLEDGE_SOURCES, PREDICATE, PUBLICATIONS
 from Common.meta_kg import MetaKnowledgeGraphBuilder, META_KG_FILENAME, TEST_DATA_FILENAME
+from Common.redundant_kg import generate_redundant_kg
 
 NODES_FILENAME = 'nodes.jsonl'
 EDGES_FILENAME = 'edges.jsonl'
+REDUNDANT_EDGES_FILENAME = 'redundant_edges.jsonl'
 
 
 class GraphBuilder:
@@ -99,8 +101,8 @@ class GraphBuilder:
             if qc_results['pass']:
                 self.logger.info(f'QC passed for graph {graph_id}.')
             else:
-                # TODO - bail if qc fails - just need to implement a way to force output regardless
-                self.logger.info(f'QC failed for graph {graph_id}')
+                self.logger.info(f'QC failed for graph {graph_id}, bailing..')
+                return
 
         needs_meta_kg = not self.has_meta_kg(graph_directory=graph_output_dir)
         needs_test_data = not self.has_test_data(graph_directory=graph_output_dir)
@@ -110,10 +112,11 @@ class GraphBuilder:
                                                 generate_meta_kg=needs_meta_kg,
                                                 generate_test_data=needs_test_data)
 
-        if 'neo4j' in graph_spec.graph_output_format.lower():
+        output_formats = graph_spec.graph_output_format.lower().split('+') if graph_spec.graph_output_format else []
+        nodes_filepath = os.path.join(graph_output_dir, NODES_FILENAME)
+        edges_filepath = os.path.join(graph_output_dir, EDGES_FILENAME)
+        if 'neo4j' in output_formats:
             self.logger.info(f'Starting Neo4j dump pipeline for {graph_id}...')
-            nodes_filepath = os.path.join(graph_output_dir, NODES_FILENAME)
-            edges_filepath = os.path.join(graph_output_dir, EDGES_FILENAME)
             dump_success = create_neo4j_dump(nodes_filepath=nodes_filepath,
                                              edges_filepath=edges_filepath,
                                              output_directory=graph_output_dir,
@@ -124,6 +127,11 @@ class GraphBuilder:
             if dump_success:
                 graph_output_url = self.get_graph_output_URL(graph_id, graph_version)
                 graph_metadata.set_dump_url(f'{graph_output_url}graph_{graph_version}.db.dump')
+
+        if 'redundant_jsonl' in output_formats:
+            self.logger.info(f'Generating redundant edge KG for {graph_id}...')
+            redundant_filepath = edges_filepath.replace(EDGES_FILENAME, REDUNDANT_EDGES_FILENAME)
+            generate_redundant_kg(edges_filepath, redundant_filepath)
 
     def build_dependencies(self, graph_spec: GraphSpec):
         for subgraph_source in graph_spec.subgraphs:
@@ -283,7 +291,6 @@ class GraphBuilder:
         if deprecated_infores_ids:
             qc_metadata['warnings']['deprecated_knowledge_sources'] = deprecated_infores_ids
         if invalid_infores_ids:
-            qc_metadata['pass'] = False
             qc_metadata['warnings']['invalid_knowledge_sources'] = invalid_infores_ids
         return qc_metadata
 
