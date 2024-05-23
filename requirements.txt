@@ -5,13 +5,13 @@ git+https://github.com/ObesityHub/robokop-genetics.git
 # intermine is on pypi but as of 6/23 it's broken for python 3.10+, this fork fixes the issue
 git+https://github.com/EvanDietzMorris/intermine-ws-python.git
 jsonlines==4.0.0
-pyyaml==6.0
+pyyaml==6.0.1
 beautifulsoup4==4.11.1
 psycopg2-binary==2.9.9
 orjson==3.9.15
 xxhash==3.4.1
 mysql-connector-python==8.3.0
-neo4j==5.10.0
+neo4j==4.4.12
 pyoxigraph==0.3.22
 curies==0.7.8
 prefixmaps==0.2.2
