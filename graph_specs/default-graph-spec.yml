@@ -1,7 +1,7 @@
 # Default graph spec
 graphs:
 
-  - graph_id: Baseline
+  - graph_id: baseline
     # optional parameters to be applied to the entire graph - see README for more info
     # node_normalization_version: latest
     # edge_normalization_version: latest
@@ -45,19 +45,19 @@ graphs:
       - source_id: STRING-DB-Human
       - source_id: UbergraphNonredundant
 
-  - graph_id: RobokopKG
+  - graph_id: robokopkg
     graph_name: ROBOKOP KG
     graph_description: 'ROBOKOP (KG) is an open-source biomedical KG that supports the ROBOKOP application and currently contains millions of biomedical relationships derived from dozens of integrated and harmonized biological knowledge sources and bio-ontologies, including the Automat primary and aggregate knowledge sources. ROBOKOP KG also includes text-mined assertions from PubMed and PubMed Central, derived from natural language processing (NLP). Note that text-based assertions, while providing valuable information, must be interpreted with caution, as NLP algorithms may introduce false assertions.'
     graph_url: http://robokopkg.renci.org/browser/
     conflation: True
     output_format: neo4j
     subgraphs:
-      - graph_id: Baseline
+      - graph_id: baseline
     sources:
       - source_id: GWASCatalog
       - source_id: GTEx
 
-  - graph_id: BINDING_Automat
+  - graph_id: binding-automat
     graph_name: BINDING
     graph_description: 'Binding DataBase (BindingDB) openly exposes curated data on chemical entities and their molecular targets.'
     graph_url: https://www.bindingdb.org/
@@ -67,7 +67,7 @@ graphs:
       - source_id: OntologicalHierarchy
         merge_strategy: connected_edge_subset
 
-  - graph_id: CAMKP_Automat
+  - graph_id: camkp-automat
     graph_name: CAM KG
     graph_description: 'The CAM KG contains data on CAMs (Causal Activity Models), which are small knowledge graphs built using the Web Ontology Language (OWL). The CAM database combines many CAM graphs, along with a large merged bio-ontology containing the full vocabulary of concepts referenced within the individual CAMs. Each CAM describes an instantiation of some of those concepts in a particular context, modeling the interactions between those instances as an interlinked representation of a complex biological or environmental process.'
     graph_url:
@@ -76,7 +76,7 @@ graphs:
     sources:
       - source_id: CAM-KP
 
-  - graph_id: CTD_Automat
+  - graph_id: ctd-automat
     graph_name: CTD
     graph_description: 'The Comparative Toxicogenomics Database (CTD) is an open-source database that provides manually curated information about chemical-gene/protein, chemical-disease, and gene/protein-disease relationships, with additional support for the curated relationships provided by function and pathway data.'
     graph_url: http://ctdbase.org/about/
@@ -96,7 +96,7 @@ graphs:
  #    - source_id:
  #      merge_strategy:
 
-  - graph_id: DrugCentral_Automat
+  - graph_id: drugcentral-automat
     graph_name: DrugCentral
     graph_description: 'DrugCentral provides open-source data on active ingredients, chemical entities, pharmaceutical products, drug mode of action, indications, and pharmacologic action for approved drugs, derived from information provided by the US Food & Drug Administration, the European Medicines Agency, and the Pharmaceutical and Medical Devices Agency. Note that DrugCentral provides limited information on discontinued drugs and drugs approved outside of the US, but that information has not been validated.'
     graph_url: https://drugcentral.org/
@@ -106,17 +106,7 @@ graphs:
       - source_id: OntologicalHierarchy
         merge_strategy: connected_edge_subset
 
-#  - graph_id: DrugMechDB_Automat
-#    graph_name: DrugMechDB
-#    graph_description: 'A database of paths that represent the mechanism of action from a drug to a disease in an indication.'
-#    graph_url: https://sulab.github.io/DrugMechDB/
-#    output_format: neo4j
-#    sources:
-#      - source_id: DrugMechDB
-#      - source_id: OntologicalHierarchy
-#        merge_strategy: connected_edge_subset
-
-  - graph_id: GenomeAllianceOrthologs_Automat
+  - graph_id: genomeallianceorthologs-automat
     graph_name: Alliance of Genome Resources
     graph_description: 'The Alliance of Genome Resources is a consortium of the owners of seven model organism databases (MODs) and the Gene Ontology (GO) Consortium, whose goal is to provide an integrated view of their data to all biologists, clinicians, and other interested parties. The Alliance provides the results of all methods that have been benchmarked by the Quest for Orthologs Consortium (QfO), as well as curated ortholog inferences from HGNC (human, mouse, rat genes).'
     graph_url: https://www.alliancegenome.org/
@@ -126,7 +116,7 @@ graphs:
       - source_id: OntologicalHierarchy
         merge_strategy: connected_edge_subset
 
-  - graph_id: GTEx_Automat
+  - graph_id: gtex-automat
     graph_name: GTEx
     graph_description: 'The Genotype-Tissue Expression (GTEx) portal provides open access to data on tissue-specific gene expression and regulation, derived from molecular assays (e.g., WGS, WES, RNA-Seq) on 54 non-diseased tissue sites across nearly 1000 individuals.'
     graph_url: https://gtexportal.org/home/
@@ -136,7 +126,7 @@ graphs:
       - source_id: OntologicalHierarchy
         merge_strategy: connected_edge_subset
 
-  - graph_id: GtoPdb_Automat
+  - graph_id: gtopdb-automat
     graph_name: GtoPdb
     graph_description: 'The International Union of Basic and Clinical Pharmacology (IUPHAR) / British Pharmacological Society (BPS) Guide to Pharmacology database (GtoPdb) provides searchable open-source quantitative information on drug targets and the prescription medicines and experimental drugs that act on them.'
     graph_url: http://www.guidetopharmacology.org/
@@ -146,7 +136,7 @@ graphs:
       - source_id: OntologicalHierarchy
         merge_strategy: connected_edge_subset
 
-  - graph_id: GWASCatalog_Automat
+  - graph_id: gwascatalog-automat
     graph_name: GWAS Catalog
     graph_description: 'The Genome-Wide Association Studies (GWAS) Catalog provides a curated, searchable, visualisable, and openly available database of single nucleotide polymorphism (SNP)-trait associations, derived from GWAS publications, including the reported trait, significant SNP-trait associations, and sample metadata.'
     graph_url: https://www.ebi.ac.uk/gwas/
@@ -156,7 +146,7 @@ graphs:
       - source_id: OntologicalHierarchy
         merge_strategy: connected_edge_subset
 
-  - graph_id: Hetio_Automat
+  - graph_id: hetio-automat
     graph_name: Hetionet
     graph_description: 'Hetionet is an open-source biomedical "heterogeneous information network" (hetnet) or graph-based resource describing relationships uncovered by millions of biomedical research studies over the past fifty years.'
     graph_url: https://het.io/
@@ -166,7 +156,7 @@ graphs:
       - source_id: OntologicalHierarchy
         merge_strategy: connected_edge_subset
 
-  - graph_id: HGNC_Automat
+  - graph_id: hgnc-automat
     graph_name: HGNC
     graph_description: 'The HUGO Gene Nomenclature Committee (HGNC) database provides open access to HGNC-approved unique symbols and names for human genes, gene groups, and associated resources, including links to genomic, proteomic and phenotypic information.'
     graph_url: https://www.genenames.org/
@@ -176,7 +166,7 @@ graphs:
       - source_id: OntologicalHierarchy
         merge_strategy: connected_edge_subset
 
-  - graph_id: HMDB_Automat
+  - graph_id: hmdb-automat
     graph_name: HMDB
     graph_description: 'The Human Metabolome DataBase (HMDB) is an openly accessible database containing detailed information about small molecule metabolites found in the human body, with links between chemical data, clinical data, and molecular biology/biochemistry data, including protein sequences (enzymes and transporters).'
     graph_url: https://hmdb.ca/
@@ -186,7 +176,7 @@ graphs:
       - source_id: OntologicalHierarchy
         merge_strategy: connected_edge_subset
 
-  - graph_id: HumanGOA_Automat
+  - graph_id: humangoa-automat
     graph_name: Human GOA
     graph_description: 'The Gene Ontology (GO) Consortium’s Human Gene Ontologies Annotations (Human GOA) resource provides open access to curated assignment of GO terms to proteins in the UniProt KnowledgeBase (UniProtKB), RNA molecules from RNACentral, and protein complexes from the Complex Portal.'
     graph_url: https://www.ebi.ac.uk/GOA/index
@@ -196,7 +186,7 @@ graphs:
       - source_id: OntologicalHierarchy
         merge_strategy: connected_edge_subset
 
-  - graph_id: IntAct_Automat
+  - graph_id: intact-automat
     graph_name: IntAct Molecular Interaction Database
     graph_description: 'The IntAct Molecular Interaction Database provides open access to molecular interactions data derived from literature curation or direct user submission.'
     graph_url: https://www.ebi.ac.uk/intact/home
@@ -206,7 +196,7 @@ graphs:
       - source_id: OntologicalHierarchy
         merge_strategy: connected_edge_subset
 
-  - graph_id: PANTHER_Automat
+  - graph_id: panther-automat
     graph_name: PANTHER
     graph_description: 'The Protein ANalysis THrough Evolutionary Relationships (PANTHER) classification system provides an openly available annotation library of gene family phylogenetic trees, with persistent identifiers attached to all nodes in the trees and annotation of each protein member of the family by its family and protein class, subfamily, orthologs, paralogs, GO Phylogenetic Annotation Project function, and Reactome pathways.'
     graph_url: http://pantherdb.org/
@@ -216,7 +206,7 @@ graphs:
       - source_id: OntologicalHierarchy
         merge_strategy: connected_edge_subset
 
-  - graph_id: PHAROS_Automat
+  - graph_id: pharos-automat
     graph_name: Pharos
     graph_description: 'Pharos is the openly accessible user interface to the Illuminating the Druggable Genome (IDG) program’s Knowledge Management Center (KMC), which aims to develop a comprehensive, integrated knowledge-base for the Druggable Genome (DG) to illuminate the uncharacterized and/or poorly annotated portion of the DG, focusing on three of the most common drug-targeted protein families: G-protein-coupled receptors; ion channels; and kinases.'
     graph_url: https://pharos.nih.gov/
@@ -226,7 +216,7 @@ graphs:
       - source_id: OntologicalHierarchy
         merge_strategy: connected_edge_subset
 
-  - graph_id: Reactome_Automat
+  - graph_id: reactome-automat
     graph_name: Reactome
     graph_description: 'REACTOME is an open-source, open access, manually curated and peer-reviewed pathway database. Our goal is to provide intuitive bioinformatics tools for the visualization, interpretation and analysis of pathway knowledge to support basic and clinical research, genome analysis, modeling, systems biology and education.'
     graph_url: https://reactome.org/
@@ -236,7 +226,7 @@ graphs:
       - source_id: OntologicalHierarchy
         merge_strategy: connected_edge_subset
 
-  - graph_id: STRING-DB_Automat
+  - graph_id: string-db-automat
     graph_name: STRING
     graph_description: 'The Search Tool for the Retrieval of INteracting Genes/proteins (STRING) database provides information on known and predicted protein-protein interactions (both direct and indirect) derived from genomic context predictions, high-throughput laboratory experiments, conserved co-expression, automated text mining, and aggregated knowledge from primary data sources.'
     graph_url: https://string-db.org/
@@ -246,7 +236,7 @@ graphs:
       - source_id: OntologicalHierarchy
         merge_strategy: connected_edge_subset
 
-  - graph_id: TMKP_Automat
+  - graph_id: tmkp-automat
     graph_name: Text Mining Provider KG
     graph_description: 'The Text Mining Provider KG contains subject-predicate-object assertions derived from the application of natural language processing (NLP) algorithms to the PubMedCentral Open Access collection of publications plus additional titles and abstracts from PubMed. Note thattext-mined assertions, while providing valuable information, must be interpreted with caution, as NLP algorithms may introduce false assertions.'
     graph_url: https://github.com/NCATSTranslator/Translator-All/wiki/Text-Mining-Provider
@@ -256,7 +246,7 @@ graphs:
       - source_id: OntologicalHierarchy
         merge_strategy: connected_edge_subset
 
-  - graph_id: UbergraphRedundant_Automat
+  - graph_id: ubergraphredundant-automat
     graph_name: Ubergraph
     graph_description: 'Ubergraph is an open-source graph database containing integrated ontologies, including Gene Ontology (GO), Chemical Entities of Biological Interest (ChHEBI), Human Phenotype Ontology (HPO), and the Uber-anatomy ontology (Uberon)’s anatomical ontology.'
     graph_url: https://github.com/INCATools/ubergraph
@@ -264,7 +254,7 @@ graphs:
     sources:
       - source_id: UbergraphRedundant
 
-  - graph_id: ViralProteome_Automat
+  - graph_id: viralproteome-automat
     graph_name: Viral Proteome
     graph_description: 'The Gene Ontology (GO) Consortium’s Viral Proteome resource provides open access to curated assignment of GO terms to proteins and proteome relationships derived from the UniProt KnowledgeBase for all NCBI taxa classified as viruses.'
     graph_url: https://www.ebi.ac.uk/GOA/proteomes
