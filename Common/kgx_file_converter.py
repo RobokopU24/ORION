@@ -180,7 +180,13 @@ def __convert_to_csv(input_file: str,
                      properties: dict,  # dictionary of { node/edge property: property_type }
                      array_delimiter: str,
                      output_delimiter: str):
+    # headers = map(lambda key: f'{key.removeprefix("biolink:")}:{properties[key]}', properties.keys())
+
+    if "biolink:primary_knowledge_source" in properties.keys() and "primary_knowledge_source" in properties.keys():
+        properties.pop("biolink:primary_knowledge_source")
+
     headers = {prop: f'{prop.removeprefix("biolink:")}:{prop_type}' for prop, prop_type in properties.items()}
+
     with open(output_file, 'w', newline='') as output_file_handler:
         csv_file_writer = csv.DictWriter(output_file_handler,
                                          delimiter=output_delimiter,
@@ -190,7 +196,10 @@ def __convert_to_csv(input_file: str,
                                          quoting=csv.QUOTE_MINIMAL)
         csv_file_writer.writerow(headers)
         for item in quick_jsonl_file_iterator(input_file):
+            # for key in keys:
             for key in list(item.keys()):
+                if key == 'biolink:primary_knowledge_source':
+                    continue
                 if item[key] is None:
                     del item[key]
                 else:
