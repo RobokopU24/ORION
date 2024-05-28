@@ -5,10 +5,9 @@ import logging
 from Common.biolink_utils import BiolinkInformationResources, INFORES_STATUS_INVALID, INFORES_STATUS_DEPRECATED
 from Common.biolink_constants import SEQUENCE_VARIANT, PRIMARY_KNOWLEDGE_SOURCE, AGGREGATOR_KNOWLEDGE_SOURCES, \
     PUBLICATIONS, OBJECT_ID, SUBJECT_ID, PREDICATE, SUBCLASS_OF
-from Common.normalization import NodeNormalizer, EdgeNormalizer, EdgeNormalizationResult
+from Common.normalization import NormalizationScheme, NodeNormalizer, EdgeNormalizer, EdgeNormalizationResult
 from Common.utils import LoggingUtil, chunk_iterator
 from Common.kgx_file_writer import KGXFileWriter
-from Common.kgxmodel import NormalizationScheme
 from Common.merging import MemoryGraphMerger, DiskGraphMerger
 
 

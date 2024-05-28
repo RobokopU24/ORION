@@ -6,8 +6,7 @@ from collections import defaultdict
 from Common.data_sources import SourceDataLoaderClassFactory, RESOURCE_HOGS, get_available_data_sources
 from Common.utils import LoggingUtil, GetDataPullError
 from Common.kgx_file_normalizer import KGXFileNormalizer, NormalizationBrokenError, NormalizationFailedError
-from Common.kgxmodel import NormalizationScheme
-from Common.normalization import NodeNormalizer, EdgeNormalizer
+from Common.normalization import NormalizationScheme, NodeNormalizer, EdgeNormalizer
 from Common.metadata import SourceMetadata
 from Common.loader_interface import SourceDataBrokenError, SourceDataFailedError
 from Common.supplementation import SequenceVariantSupplementation, SupplementationFailedError

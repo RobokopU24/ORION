@@ -3,6 +3,7 @@ import logging
 import requests
 import time
 
+from dataclasses import dataclass
 from robokop_genetics.genetics_normalization import GeneticsNormalizer
 from Common.biolink_constants import *
 from Common.utils import LoggingUtil
@@ -14,6 +15,31 @@ CUSTOM_NODE_TYPES = 'custom_node_types'
 
 # predicate to use when normalization fails
 FALLBACK_EDGE_PREDICATE = 'biolink:related_to'
+
+
+@dataclass
+class NormalizationScheme:
+    node_normalization_version: str = 'latest'
+    edge_normalization_version: str = 'latest'
+    normalization_code_version: str = NORMALIZATION_CODE_VERSION
+    strict: bool = True
+    conflation: bool = False
+
+    def get_composite_normalization_version(self):
+        composite_normalization_version = f'{self.node_normalization_version}_' \
+                                f'{self.edge_normalization_version}_{self.normalization_code_version}'
+        if self.conflation:
+            composite_normalization_version += '_conflated'
+        if self.strict:
+            composite_normalization_version += '_strict'
+        return composite_normalization_version
+
+    def get_metadata_representation(self):
+        return {'node_normalization_version': self.node_normalization_version,
+                'edge_normalization_version': self.edge_normalization_version,
+                'normalization_code_version': self.normalization_code_version,
+                'conflation': self.conflation,
+                'strict': self.strict}
 
 
 class NodeNormalizer:
