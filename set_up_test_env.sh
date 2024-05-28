@@ -31,3 +31,4 @@ export NODE_NORMALIZATION_ENDPOINT=https://nodenormalization-sri.renci.org/
 export NAME_RESOLVER_ENDPOINT=https://name-resolution-sri.renci.org/
 export ORION_OUTPUT_URL=https://localhost/  # this is currently only used to generate metadata
 export BL_VERSION=4.1.6
+export DOCKER_PLATFORM=linux/arm64
