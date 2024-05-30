@@ -9,7 +9,7 @@ from Common.biolink_utils import BiolinkUtils
 from Common.loader_interface import SourceDataLoader
 from Common.biolink_constants import PUBLICATIONS
 from Common.utils import GetData, snakify
-from Common.normalization import call_name_resolution, NAME_RESOLVER_API_ERROR
+from Common.normalization import call_name_resolution, NAME_RESOLVER_API_ERROR, EdgeNormalizer
 from Common.prefixes import PUBMED
 
 
@@ -73,7 +73,7 @@ class LitCoinLoader(SourceDataLoader):
 
     source_id: str = 'LitCoin'
     provenance_id: str = 'infores:robokop-kg'  # TODO - change this to a LitCoin infores when it exists
-    parsing_version: str = '1.8'
+    parsing_version: str = '1.9'
 
     def __init__(self, test_mode: bool = False, source_data_dir: str = None):
         """
@@ -111,6 +111,7 @@ class LitCoinLoader(SourceDataLoader):
         # with open(os.path.join(self.data_path, "litcoin_name_res_results.json"), "w") as name_res_results_file:
         #    self.node_name_to_id_lookup = json.load(name_res_results_file)
 
+        edges_for_validation = []
         records = 0
         skipped_records = 0
         litcoin_file_path: str = os.path.join(self.data_path, self.data_file)
@@ -121,6 +122,8 @@ class LitCoinLoader(SourceDataLoader):
                 llm_output = litcoin_object['output']
                 for litcoin_edge in self.parse_llm_output(llm_output):
                     self.logger.info(f'processing edge {records}')
+
+                    # look up the subject with name resolution
                     subject_resolution_results = self.process_llm_node(litcoin_edge[LLM_SUBJECT_NAME],
                                                                        litcoin_edge[LLM_SUBJECT_TYPE])
                     if not subject_resolution_results or \
@@ -138,11 +141,6 @@ class LitCoinLoader(SourceDataLoader):
                     self.output_file_writer.write_node(node_id=object_resolution_results['curie'],
                                                        node_name=object_resolution_results['name'])
 
-                    self.output_file_writer.write_node(node_id=pubmed_id,
-                                                       node_properties={
-                                                           'abstract_summary': litcoin_edge[LLM_ABSTRACT_SUMMARY_EDGE_PROP]
-                                                       })
-
                     predicate = 'biolink:' + snakify(litcoin_edge[LLM_RELATIONSHIP])
                     edge_properties = {
                         PUBLICATIONS: [pubmed_id],
@@ -159,6 +157,17 @@ class LitCoinLoader(SourceDataLoader):
                                                        object_id=object_resolution_results['curie'],
                                                        predicate=predicate,
                                                        edge_properties=edge_properties)
+                    edges_for_validation.append({'subject_llm': litcoin_edge[LLM_SUBJECT_NAME],
+                                                 'subject_name_res': subject_resolution_results,
+                                                 'object_llm': litcoin_edge[LLM_OBJECT_NAME],
+                                                 'object_name_res': object_resolution_results,
+                                                 'predicate_llm': predicate})
+
+                    # write the node for the publication and edges from the publication to the entities
+                    self.output_file_writer.write_node(node_id=pubmed_id,
+                                                       node_properties={
+                                                           'abstract_summary': litcoin_edge[LLM_ABSTRACT_SUMMARY_EDGE_PROP]
+                                                       })
                     self.output_file_writer.write_edge(subject_id=subject_resolution_results['curie'],
                                                        object_id=pubmed_id,
                                                        predicate='biolink:related_to')
@@ -191,6 +200,9 @@ class LitCoinLoader(SourceDataLoader):
                                f"parsed_{self.parsing_version}",
                                "name_res_timing_litcoin.tsv"), "w") as name_res_timing_file:
             name_res_timing_file.writelines(self.name_res_stats)
+
+        # validate edges and write results
+        self.validate_edges(edges_for_validation)
 
         parsing_metadata = {
             'records': records,
@@ -286,10 +298,71 @@ class LitCoinLoader(SourceDataLoader):
             "score": name_res_json['score']
         }
 
+    def validate_edges(self, edges_to_validate):
+
+        edge_normalizer = EdgeNormalizer()
+        unique_predicates = [edge['predicate_llm'] for edge in edges_to_validate]
+        fake_edges_for_normalization = [{'predicate': predicate} for predicate in unique_predicates]
+        edge_normalizer.normalize_edge_data(fake_edges_for_normalization)
+
+        no_valid_associations = []
+        invalid_predicates = []
+        valid_edges = []
+        for edge_info in edges_to_validate:
+
+            try:
+                del(edge_info['subject_name_res']['score'])
+                del(edge_info['subject_name_res']['queried_type'])
+                del(edge_info['object_name_res']['score'])
+                del(edge_info['object_name_res']['queried_type'])
+            except KeyError as k:
+                pass
+
+            subject_name_resolution_results = edge_info['subject_name_res']
+            object_name_resolution_results = edge_info['object_name_res']
+            predicate = edge_info['predicate_llm']
+            normalized_predicate = edge_normalizer.edge_normalization_lookup[predicate].predicate
+            edge_info['predicate_normalized'] = normalized_predicate
+            possible_predicates_based_on_domain = set()
+            possible_predicates_based_on_range = set()
+            for subject_type in subject_name_resolution_results['types']:
+                possible_predicates_based_on_domain.update(self.bl_utils.toolkit.get_all_predicates_with_class_domain(subject_type, formatted=True, check_ancestors=True))
+            # print(f"{subject_name_resolution_results['types']} - {possible_predicates_based_on_domain}")
+            for object_type in object_name_resolution_results['types']:
+                possible_predicates_based_on_range.update(self.bl_utils.toolkit.get_all_predicates_with_class_range(object_type, formatted=True, check_ancestors=True))
+            # print(f"{object_name_resolution_results['types']} - {possible_predicates_based_on_range}")
+            possible_predicates = possible_predicates_based_on_domain & possible_predicates_based_on_range
+            # edge_info['valid_predicates'] = list(possible_predicates)
+            if normalized_predicate not in possible_predicates:
+                invalid_predicates.append(json.dumps(edge_info) + '\n')
+
+            possible_associations = self.bl_utils.toolkit.get_associations(subject_categories=subject_name_resolution_results['types'],
+                                                                           object_categories=object_name_resolution_results['types'],
+                                                                           predicates=[normalized_predicate])
+            # edge_info['possible_associations'] = possible_associations
+            if not possible_associations:
+                no_valid_associations.append(json.dumps(edge_info) + '\n')
+
+            if normalized_predicate in possible_predicates and possible_associations:
+                valid_edges.append(json.dumps(edge_info) + '\n')
+
+        with open(os.path.join(self.data_path, "..",
+                               f"parsed_{self.parsing_version}",
+                               "litcoin_valid_edges.jsonl"), "w") as edge_validation_results:
+            edge_validation_results.writelines(valid_edges)
+        with open(os.path.join(self.data_path, "..",
+                               f"parsed_{self.parsing_version}",
+                               "litcoin_edges_without_valid_associations.jsonl"), "w") as edge_validation_results:
+            edge_validation_results.writelines(no_valid_associations)
+        with open(os.path.join(self.data_path, "..",
+                               f"parsed_{self.parsing_version}",
+                               "litcoin_edges_with_invalid_predicates.jsonl"), "w") as edge_validation_results:
+            edge_validation_results.writelines(invalid_predicates)
+
 
 class LitCoinSapBERTLoader(LitCoinLoader):
     source_id: str = 'LitCoinSapBERT'
-    parsing_version: str = '1.6'
+    parsing_version: str = '1.7'
 
     def name_resolution_function(self, node_name, preferred_biolink_node_type, retries=0):
         sapbert_url = 'https://babel-sapbert.apps.renci.org/annotate/'
@@ -321,7 +394,7 @@ class LitCoinSapBERTLoader(LitCoinLoader):
         return {
             "curie": name_res_json['curie'],
             "name": name_res_json['name'],
-            "types": [name_res_json['category']],
+            "types": name_res_json['category'] if isinstance(name_res_json['category'], list) else [name_res_json['category']],
             "score": name_res_json['score']
         }
 
