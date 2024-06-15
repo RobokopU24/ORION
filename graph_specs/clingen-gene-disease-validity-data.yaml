@@ -1,0 +1,8 @@
+graphs:
+  - graph_id: clingen_gene_disease_validity
+    graph_name: clingen_gene_disease_validity
+    graph_description: 'ClinGen gene validity curations https://search.clinicalgenome.org/kb/gene-validity'
+    graph_url: ''
+    output_format: none
+    sources:
+      - source_id: ClinGenGeneDiseaseValidity
