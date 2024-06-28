@@ -46,7 +46,9 @@ orion:
   normalization:
     nodeNormEndpoint: https://nodenormalization-sri.renci.org/
     edgeNormEndpoint: https://bl-lookup-sri.renci.org/
-    bl_version: 4.2.0
+    nameResolverEndpoint: https://name-resolution-sri.renci.org/lookup
+    sapbertEndpoint: https://sap-qdrant.apps.renci.org/
+    bl_version: 4.2.1
   outputURL: https://stars.renci.org/var/plater/bl-4.2.0/
 
 pharos:
