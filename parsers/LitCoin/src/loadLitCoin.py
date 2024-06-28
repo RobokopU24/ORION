@@ -135,8 +135,8 @@ class LitCoinLoader(SourceDataLoader):
                                                      "mapped_predicates.json")
         predicate_mapper = PredicateMapping(predicate_vectors_file_path=predicate_vectors_file_path,
                                             predicate_map_cache_file_path=predicate_map_cache_file_path,
-                                            logger=self.logger)
-
+                                            logger=self.logger,
+                                            workspace_dir=self.data_path)
         self.load_bagel_cache()
 
         records = 0
