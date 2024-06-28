@@ -50,6 +50,9 @@ orion:
     sapbertEndpoint: https://sap-qdrant.apps.renci.org/
     bl_version: 4.2.1
   outputURL: https://stars.renci.org/var/plater/bl-4.2.0/
+  openAI:
+    openAIKey: secret_key_here_do_not_commit
+
 
 pharos:
   host: pod-host-or-ip
