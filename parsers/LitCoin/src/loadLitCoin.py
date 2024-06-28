@@ -1,32 +1,47 @@
-import time
+
 import os
 import json
+import orjson
 import re
 import requests
-from collections import defaultdict
+import urllib
 
 from Common.biolink_utils import BiolinkUtils
-from Common.loader_interface import SourceDataLoader
+from Common.loader_interface import SourceDataLoader, SourceDataFailedError
 from Common.biolink_constants import PUBLICATIONS
 from Common.utils import GetData, snakify
-from Common.normalization import call_name_resolution, NAME_RESOLVER_API_ERROR, EdgeNormalizer
+from Common.normalization import call_name_resolution, NAME_RESOLVER_API_ERROR
 from Common.prefixes import PUBMED
+
+from parsers.LitCoin.src.bagel import get_bagel_results, extract_best_match
+from parsers.LitCoin.src.predicate_mapping import PredicateMapping
 
 
 LLM_SUBJECT_NAME = 'subject'
 LLM_SUBJECT_TYPE = 'subject_type'
+LLM_SUBJECT_QUALIFIER = 'subject_qualifier'
 LLM_OBJECT_NAME = 'object'
 LLM_OBJECT_TYPE = 'object_type'
+LLM_OBJECT_QUALIFIER = 'object_qualifier'
 LLM_RELATIONSHIP = 'relationship'
-LLM_MAIN_FINDING = 'main_finding'
+LLM_RELATIONSHIP_QUALIFIER = 'statement_qualifier'
 
 LLM_SUBJECT_NAME_EDGE_PROP = 'llm_subject'
 LLM_SUBJECT_TYPE_EDGE_PROP = 'llm_subject_type'
+LLM_SUBJECT_QUALIFIER_EDGE_PROP = 'llm_subject_qualifier'
 LLM_OBJECT_NAME_EDGE_PROP = 'llm_object'
 LLM_OBJECT_TYPE_EDGE_PROP = 'llm_object_type'
+LLM_OBJECT_QUALIFIER_EDGE_PROP = 'llm_object_qualifier'
 LLM_RELATIONSHIP_EDGE_PROP = 'llm_relationship'
-LLM_ABSTRACT_SUMMARY_EDGE_PROP = 'llm_summary'
+LLM_RELATIONSHIP_QUALIFIER_EDGE_PROP = 'llm_relationship_qualifier'
 
+BAGEL_SUBJECT_SYN_TYPE = 'subject_bagel_syn_type'
+BAGEL_OBJECT_SYN_TYPE = 'object_bagel_syn_type'
+
+ABSTRACT_TITLE_EDGE_PROP = 'abstract_title'
+ABSTRACT_TEXT_EDGE_PROP = 'abstract_text'
+
+"""
 NODE_TYPE_MAPPINGS = {
     "Activity": "Activity",
     "AnatomicalStructure": "AnatomicalEntity",
@@ -62,7 +77,7 @@ NODE_TYPE_MAPPINGS = {
     "Therapy": "Procedure",
     "Treatment": "Procedure"
 }
-
+"""
 
 ##############
 # Class: LitCoin source loader
@@ -73,7 +88,7 @@ class LitCoinLoader(SourceDataLoader):
 
     source_id: str = 'LitCoin'
     provenance_id: str = 'infores:robokop-kg'  # TODO - change this to a LitCoin infores when it exists
-    parsing_version: str = '1.9'
+    parsing_version: str = '1.11'
 
     def __init__(self, test_mode: bool = False, source_data_dir: str = None):
         """
@@ -84,20 +99,23 @@ class LitCoinLoader(SourceDataLoader):
 
         self.data_url = 'https://stars.renci.org/var/data_services/litcoin/'
         self.data_file = 'abstracts_CompAndHeal_gpt4_20240320_train.json'
-        self.data_files = [self.data_file]
+        self.biolink_predicate_vectors_file = 'mapped_predicate_vectors.json'
+        self.data_files = [self.data_file, self.biolink_predicate_vectors_file]
         # dicts of name to id lookups organized by node type (node_name_to_id_lookup[node_type] = dict of names -> id)
-        self.node_name_to_id_lookup = defaultdict(dict)
+        # self.node_name_to_id_lookup = defaultdict(dict)  <--- replaced with bagel
+        self.bagel_results_lookup = None
         self.name_res_stats = []
         self.bl_utils = BiolinkUtils()
 
     def get_latest_source_version(self) -> str:
-        latest_version = 'v1.3'
+        latest_version = 'v1.4'
         return latest_version
 
     def get_data(self) -> bool:
-        source_data_url = f'{self.data_url}{self.data_file}'
-        data_puller = GetData()
-        data_puller.pull_via_http(source_data_url, self.data_path)
+        for data_file in self.data_files:
+            source_data_url = f'{self.data_url}{data_file}'
+            data_puller = GetData()
+            data_puller.pull_via_http(source_data_url, self.data_path)
         return True
 
     def parse_data(self) -> dict:
@@ -109,100 +127,121 @@ class LitCoinLoader(SourceDataLoader):
 
         # could use cached results for faster dev runs with something like this
         # with open(os.path.join(self.data_path, "litcoin_name_res_results.json"), "w") as name_res_results_file:
-        #    self.node_name_to_id_lookup = json.load(name_res_results_file)
+        #    self.node_name_to_id_lookup = orjson.load(name_res_results_file)
 
-        edges_for_validation = []
+        predicate_vectors_file_path = os.path.join(self.data_path,
+                                                   self.biolink_predicate_vectors_file)
+        predicate_map_cache_file_path = os.path.join(self.data_path,
+                                                     "mapped_predicates.json")
+        predicate_mapper = PredicateMapping(predicate_vectors_file_path=predicate_vectors_file_path,
+                                            predicate_map_cache_file_path=predicate_map_cache_file_path,
+                                            logger=self.logger)
+
+        self.load_bagel_cache()
+
         records = 0
         skipped_records = 0
+        number_of_abstracts = 0
         litcoin_file_path: str = os.path.join(self.data_path, self.data_file)
         with open(litcoin_file_path) as litcoin_file:
             litcoin_json = json.load(litcoin_file)
             for litcoin_object in litcoin_json:
-                pubmed_id = f'{PUBMED}:{litcoin_object["abstract_id"]}'
+                number_of_abstracts += 1
+                if number_of_abstracts > 4 and self.test_mode:
+                    break
+                abstract_id = litcoin_object['abstract_id']
+                self.logger.info(f'processing abstract {number_of_abstracts}: {abstract_id}')
+                pubmed_id = f'{PUBMED}:{abstract_id}'
+                abstract_title, abstract_text = self.parse_abstract_text(litcoin_object)
                 llm_output = litcoin_object['output']
                 for litcoin_edge in self.parse_llm_output(llm_output):
-                    self.logger.info(f'processing edge {records}')
+                    try:
+                        subject_name = litcoin_edge[LLM_SUBJECT_NAME]
+                        if subject_name not in self.bagel_results_lookup:
+                            bagel_results = get_bagel_results(abstract=abstract_text, term=subject_name)
+                            self.bagel_results_lookup[subject_name] = bagel_results
+                        else:
+                            bagel_results = self.bagel_results_lookup[subject_name]
+                        bagel_subject_node, subject_bagel_synonym_type = extract_best_match(bagel_results)
+                        if not bagel_subject_node:
+                            skipped_records += 1
+                            continue
+                        subject_id = bagel_subject_node['curie']
+                        subject_name = bagel_subject_node['label']
 
-                    # look up the subject with name resolution
-                    subject_resolution_results = self.process_llm_node(litcoin_edge[LLM_SUBJECT_NAME],
-                                                                       litcoin_edge[LLM_SUBJECT_TYPE])
-                    if not subject_resolution_results or \
-                            NAME_RESOLVER_API_ERROR in subject_resolution_results:
-                        skipped_records += 1
-                        continue
-                    object_resolution_results = self.process_llm_node(litcoin_edge[LLM_OBJECT_NAME],
-                                                                      litcoin_edge[LLM_OBJECT_TYPE])
-                    if not object_resolution_results or \
-                            NAME_RESOLVER_API_ERROR in object_resolution_results:
-                        skipped_records += 1
-                        continue
-                    self.output_file_writer.write_node(node_id=subject_resolution_results['curie'],
-                                                       node_name=subject_resolution_results['name'])
-                    self.output_file_writer.write_node(node_id=object_resolution_results['curie'],
-                                                       node_name=object_resolution_results['name'])
+                        object_name = litcoin_edge[LLM_OBJECT_NAME]
+                        if object_name not in self.bagel_results_lookup:
+                            bagel_results = get_bagel_results(abstract=abstract_text, term=object_name)
+                            self.bagel_results_lookup[object_name] = bagel_results
+                        else:
+                            bagel_results = self.bagel_results_lookup[object_name]
+                        bagel_object_node, object_bagel_synonym_type = extract_best_match(bagel_results)
+                        if not bagel_object_node:
+                            skipped_records += 1
+                            continue
+                        object_id = bagel_object_node['curie']
+                        object_name = bagel_object_node['label']
 
-                    predicate = 'biolink:' + snakify(litcoin_edge[LLM_RELATIONSHIP])
-                    edge_properties = {
-                        PUBLICATIONS: [pubmed_id],
-                        LLM_SUBJECT_NAME_EDGE_PROP: litcoin_edge[LLM_SUBJECT_NAME],
-                        LLM_SUBJECT_TYPE_EDGE_PROP: litcoin_edge[LLM_SUBJECT_TYPE],
-                        LLM_OBJECT_NAME_EDGE_PROP: litcoin_edge[LLM_OBJECT_NAME],
-                        LLM_OBJECT_TYPE_EDGE_PROP: litcoin_edge[LLM_OBJECT_TYPE],
-                        LLM_RELATIONSHIP_EDGE_PROP: litcoin_edge[LLM_RELATIONSHIP],
-                        LLM_ABSTRACT_SUMMARY_EDGE_PROP: litcoin_edge[LLM_ABSTRACT_SUMMARY_EDGE_PROP],
-                        #  LLM_MAIN_FINDING: litcoin_edge[LLM_MAIN_FINDING]
-                        LLM_MAIN_FINDING: True
-                    }
-                    self.output_file_writer.write_edge(subject_id=subject_resolution_results['curie'],
-                                                       object_id=object_resolution_results['curie'],
-                                                       predicate=predicate,
-                                                       edge_properties=edge_properties)
-                    edges_for_validation.append({'subject_llm': litcoin_edge[LLM_SUBJECT_NAME],
-                                                 'subject_name_res': subject_resolution_results,
-                                                 'object_llm': litcoin_edge[LLM_OBJECT_NAME],
-                                                 'object_name_res': object_resolution_results,
-                                                 'predicate_llm': predicate})
+                        # predicate = 'biolink:' + snakify(litcoin_edge[LLM_RELATIONSHIP])
+                        predicate = predicate_mapper.get_mapped_predicate(litcoin_edge[LLM_RELATIONSHIP])
+                        if not predicate:
+                            skipped_records += 1
+                            continue
 
-                    # write the node for the publication and edges from the publication to the entities
-                    self.output_file_writer.write_node(node_id=pubmed_id,
-                                                       node_properties={
-                                                           'abstract_summary': litcoin_edge[LLM_ABSTRACT_SUMMARY_EDGE_PROP]
-                                                       })
-                    self.output_file_writer.write_edge(subject_id=subject_resolution_results['curie'],
-                                                       object_id=pubmed_id,
-                                                       predicate='biolink:related_to')
-                    self.output_file_writer.write_edge(subject_id=object_resolution_results['curie'],
-                                                       object_id=pubmed_id,
-                                                       predicate='biolink:related_to')
-                    records += 1
-                if records > 100 and self.test_mode:
-                    break
+                        self.output_file_writer.write_node(node_id=subject_id,
+                                                           node_name=subject_name)
+                        self.output_file_writer.write_node(node_id=object_id,
+                                                           node_name=object_name)
 
-        # write out name res results alongside the output
-        with open(os.path.join(self.data_path, "..",
-                               f"parsed_{self.parsing_version}",
-                               "litcoin_name_res_results.json"), "w") as name_res_results_file:
+                        edge_properties = {
+                            PUBLICATIONS: [pubmed_id],
+                            LLM_SUBJECT_NAME_EDGE_PROP: litcoin_edge[LLM_SUBJECT_NAME],
+                            LLM_SUBJECT_TYPE_EDGE_PROP: litcoin_edge[LLM_SUBJECT_TYPE],
+                            LLM_SUBJECT_QUALIFIER_EDGE_PROP: litcoin_edge[LLM_SUBJECT_QUALIFIER]
+                            if LLM_SUBJECT_QUALIFIER in litcoin_edge else None,
+                            BAGEL_SUBJECT_SYN_TYPE: subject_bagel_synonym_type,
+                            LLM_OBJECT_NAME_EDGE_PROP: litcoin_edge[LLM_OBJECT_NAME],
+                            LLM_OBJECT_TYPE_EDGE_PROP: litcoin_edge[LLM_OBJECT_TYPE],
+                            LLM_OBJECT_QUALIFIER_EDGE_PROP: litcoin_edge[LLM_OBJECT_QUALIFIER]
+                            if LLM_OBJECT_QUALIFIER in litcoin_edge else None,
+                            BAGEL_OBJECT_SYN_TYPE: object_bagel_synonym_type,
+                            LLM_RELATIONSHIP_EDGE_PROP: litcoin_edge[LLM_RELATIONSHIP],
+                            LLM_RELATIONSHIP_QUALIFIER_EDGE_PROP: litcoin_edge[LLM_RELATIONSHIP_QUALIFIER]
+                            if LLM_RELATIONSHIP_QUALIFIER in litcoin_edge else None,
+                            ABSTRACT_TITLE_EDGE_PROP: abstract_title,
+                            ABSTRACT_TEXT_EDGE_PROP: abstract_text
+                        }
 
-            # include the biolink type used to call name res
-            for node_type, node_name_to_results_dict in self.node_name_to_id_lookup.items():
-                node_type_used_for_name_res = NODE_TYPE_MAPPINGS.get(self.convert_node_type_to_biolink_format(node_type),
-                                                                     None)
-                for results in node_name_to_results_dict.values():
-                    if results and NAME_RESOLVER_API_ERROR not in results:
-                        results['queried_type'] = node_type_used_for_name_res
-            json.dump(self.node_name_to_id_lookup,
-                      name_res_results_file,
-                      indent=4,
-                      sort_keys=True)
+                        self.output_file_writer.write_edge(subject_id=subject_id,
+                                                           object_id=object_id,
+                                                           predicate=predicate,
+                                                           edge_properties=edge_properties)
 
-        # write name res lookup times
-        with open(os.path.join(self.data_path, "..",
-                               f"parsed_{self.parsing_version}",
-                               "name_res_timing_litcoin.tsv"), "w") as name_res_timing_file:
-            name_res_timing_file.writelines(self.name_res_stats)
+                        # write the node for the publication and edges from the publication to the entities
+                        self.output_file_writer.write_node(node_id=pubmed_id,
+                                                           node_properties={ABSTRACT_TEXT_EDGE_PROP: abstract_text})
+                        self.output_file_writer.write_edge(subject_id=pubmed_id,
+                                                           object_id=subject_id,
+                                                           predicate='biolink:mentions')
+                        self.output_file_writer.write_edge(subject_id=pubmed_id,
+                                                           object_id=object_id,
+                                                           predicate='biolink:mentions')
+                        records += 1
 
-        # validate edges and write results
-        self.validate_edges(edges_for_validation)
+                    except Exception as e:
+                        # save results/cache on an error to avoid duplicate llm calls
+                        self.save_bagel_cache()
+                        predicate_mapper.save_cached_predicate_mappings()
+                        raise SourceDataFailedError(error_message=str(e))
+
+        # save the predicates mapped with openai embeddings
+        predicate_mapper.save_cached_predicate_mappings()
+
+        # save the bagel results
+        self.save_bagel_cache()
+
+        # replaced by bagel
+        # self.save_nameres_lookup_results()
 
         parsing_metadata = {
             'records': records,
@@ -210,6 +249,26 @@ class LitCoinLoader(SourceDataLoader):
         }
         return parsing_metadata
 
+    def get_bagel_cache_path(self):
+        return os.path.join(self.data_path, "bagel_cache.json")
+
+    def load_bagel_cache(self):
+        bagel_cache_file_path = self.get_bagel_cache_path()
+        if os.path.exists(bagel_cache_file_path):
+            with open(bagel_cache_file_path, "r") as bagel_cache_file:
+                self.bagel_results_lookup = json.load(bagel_cache_file)
+        else:
+            self.bagel_results_lookup = {}
+
+    def save_bagel_cache(self):
+        bagel_cache_file_path = self.get_bagel_cache_path()
+        with open(bagel_cache_file_path, "w") as bagel_cache_file:
+            return json.dump(self.bagel_results_lookup,
+                             bagel_cache_file,
+                             indent=4,
+                             sort_keys=True)
+    """
+    replaced by bagel
     def process_llm_node(self, node_name: str, node_type: str):
 
         # check if we did name resolution for this name and type already and return it if so
@@ -224,11 +283,9 @@ class LitCoinLoader(SourceDataLoader):
         biolink_node_type = self.convert_node_type_to_biolink_format(node_type)
         preferred_biolink_node_type = NODE_TYPE_MAPPINGS.get(biolink_node_type, None)
         self.logger.info(f'calling name res for {node_name} - {preferred_biolink_node_type}')
-        start_time = time.time()
         name_resolution_results = self.name_resolution_function(node_name, preferred_biolink_node_type)
-        elapsed_time = time.time() - start_time
         standardized_name_res_result = self.standardize_name_resolution_results(name_resolution_results)
-        self.name_res_stats.append(f"{node_name}\t{preferred_biolink_node_type}\t{elapsed_time}\n")
+        standardized_name_res_result['queried_type'] = preferred_biolink_node_type
         self.node_name_to_id_lookup[node_type][node_name] = standardized_name_res_result
         return standardized_name_res_result
 
@@ -241,33 +298,38 @@ class LitCoinLoader(SourceDataLoader):
         except TypeError as e:
             self.logger.error(f'Bad node type provided by llm: {node_type}')
             return ""
+    """
+
+    @staticmethod
+    def parse_abstract_text(llm_response):
+        # this attempts to extract the abstract title and text from the llm output,
+        # it's not great because the abstract is not inside the json part of the output
+        abstract_title = "Abstract title not provided or could not be parsed."
+        abstract_text = "Abstract text not provided or could not be parsed."
+        prompt_lines = llm_response["prompt"].split("\n")
+        for line in prompt_lines:
+            if line.startswith("Title: "):
+                abstract_title = line[len("Title: "):]
+            if line.startswith("Abstract: "):
+                abstract_text = line[len("Abstract: "):]
+        return abstract_title, abstract_text
 
     def parse_llm_output(self, llm_output):
 
-        # this attempts to extract the abstract summary from the llm output,
-        # it's not great because the summary is not inside the json part of the output
-        abstract_summary = "Summary not provided or could not be parsed."
-        if "Summary:" in llm_output:
-            if "\n\nBiological Entities:" in llm_output:
-                abstract_summary = llm_output.split("Summary: ")[1].split("Biological Entities:")[0].strip()
-            elif "\n\nEntities:" in llm_output:
-                abstract_summary = llm_output.split("Summary: ")[1].split("Entities:")[0].strip()
-
-        # the rest of the logic is from Miles at CoVar, it parses the current format of output from the llm
         required_fields = [LLM_SUBJECT_NAME,
                            LLM_SUBJECT_TYPE,
                            LLM_OBJECT_NAME,
                            LLM_OBJECT_TYPE,
-                           LLM_RELATIONSHIP
-                           ]
+                           LLM_RELATIONSHIP]
+
+        # this regex is from Miles at CoVar, it should extract json objects representing all the edges with entities
         matches = re.findall(r'\{([^\}]*)\}', llm_output)
         valid_responses = []
         for match in matches:
             cur_response = '{' + match + '}'
             try:
-                cur_response_dict = json.loads(cur_response)
-                cur_response_dict[LLM_ABSTRACT_SUMMARY_EDGE_PROP] = abstract_summary
-            except json.decoder.JSONDecodeError as e:
+                cur_response_dict = orjson.loads(cur_response)
+            except orjson.JSONDecodeError as e:
                 self.logger.error(f'Error decoding JSON: {e}')
                 continue
             for field in required_fields:
@@ -277,7 +339,7 @@ class LitCoinLoader(SourceDataLoader):
                 if not isinstance(cur_response_dict[field], str):
                     self.logger.warning(f'Non-string field {field} in response: {cur_response_dict}')
                     break
-            else:  # only add the fields which have all the fields
+            else:  # only return edge/node dictionaries which have all the required fields
                 valid_responses.append(cur_response_dict)
         return valid_responses
 
@@ -298,66 +360,15 @@ class LitCoinLoader(SourceDataLoader):
             "score": name_res_json['score']
         }
 
-    def validate_edges(self, edges_to_validate):
-
-        edge_normalizer = EdgeNormalizer()
-        unique_predicates = [edge['predicate_llm'] for edge in edges_to_validate]
-        fake_edges_for_normalization = [{'predicate': predicate} for predicate in unique_predicates]
-        edge_normalizer.normalize_edge_data(fake_edges_for_normalization)
-
-        no_valid_associations = []
-        invalid_predicates = []
-        valid_edges = []
-        for edge_info in edges_to_validate:
-
-            try:
-                del(edge_info['subject_name_res']['score'])
-                del(edge_info['subject_name_res']['queried_type'])
-                del(edge_info['object_name_res']['score'])
-                del(edge_info['object_name_res']['queried_type'])
-            except KeyError as k:
-                pass
-
-            subject_name_resolution_results = edge_info['subject_name_res']
-            object_name_resolution_results = edge_info['object_name_res']
-            predicate = edge_info['predicate_llm']
-            normalized_predicate = edge_normalizer.edge_normalization_lookup[predicate].predicate
-            edge_info['predicate_normalized'] = normalized_predicate
-            possible_predicates_based_on_domain = set()
-            possible_predicates_based_on_range = set()
-            for subject_type in subject_name_resolution_results['types']:
-                possible_predicates_based_on_domain.update(self.bl_utils.toolkit.get_all_predicates_with_class_domain(subject_type, formatted=True, check_ancestors=True))
-            # print(f"{subject_name_resolution_results['types']} - {possible_predicates_based_on_domain}")
-            for object_type in object_name_resolution_results['types']:
-                possible_predicates_based_on_range.update(self.bl_utils.toolkit.get_all_predicates_with_class_range(object_type, formatted=True, check_ancestors=True))
-            # print(f"{object_name_resolution_results['types']} - {possible_predicates_based_on_range}")
-            possible_predicates = possible_predicates_based_on_domain & possible_predicates_based_on_range
-            # edge_info['valid_predicates'] = list(possible_predicates)
-            if normalized_predicate not in possible_predicates:
-                invalid_predicates.append(json.dumps(edge_info) + '\n')
-
-            possible_associations = self.bl_utils.toolkit.get_associations(subject_categories=subject_name_resolution_results['types'],
-                                                                           object_categories=object_name_resolution_results['types'],
-                                                                           predicates=[normalized_predicate])
-            # edge_info['possible_associations'] = possible_associations
-            if not possible_associations:
-                no_valid_associations.append(json.dumps(edge_info) + '\n')
-
-            if normalized_predicate in possible_predicates and possible_associations:
-                valid_edges.append(json.dumps(edge_info) + '\n')
-
+    def save_nameres_lookup_results(self):
+        # write out name res results / lookup to file
         with open(os.path.join(self.data_path, "..",
                                f"parsed_{self.parsing_version}",
-                               "litcoin_valid_edges.jsonl"), "w") as edge_validation_results:
-            edge_validation_results.writelines(valid_edges)
-        with open(os.path.join(self.data_path, "..",
-                               f"parsed_{self.parsing_version}",
-                               "litcoin_edges_without_valid_associations.jsonl"), "w") as edge_validation_results:
-            edge_validation_results.writelines(no_valid_associations)
-        with open(os.path.join(self.data_path, "..",
-                               f"parsed_{self.parsing_version}",
-                               "litcoin_edges_with_invalid_predicates.jsonl"), "w") as edge_validation_results:
-            edge_validation_results.writelines(invalid_predicates)
+                               "litcoin_name_res_results.json"), "w") as name_res_results_file:
+            json.dump(self.node_name_to_id_lookup,
+                      name_res_results_file,
+                      indent=4,
+                      sort_keys=True)
 
 
 class LitCoinSapBERTLoader(LitCoinLoader):
@@ -365,14 +376,15 @@ class LitCoinSapBERTLoader(LitCoinLoader):
     parsing_version: str = '1.7'
 
     def name_resolution_function(self, node_name, preferred_biolink_node_type, retries=0):
-        sapbert_url = 'https://babel-sapbert.apps.renci.org/annotate/'
+        sapbert_url = os.getenv('SAPBERT_URL', 'https://babel-sapbert.apps.renci.org/')
+        sapbert_annotate_endpoint = urllib.parse.urljoin(sapbert_url, '/annotate/')
         sapbert_payload = {
           "text": node_name,
           "model_name": "sapbert",
           "count": 1000,
           "args": {"bl_type": preferred_biolink_node_type}
         }
-        sapbert_response = requests.post(sapbert_url, json=sapbert_payload)
+        sapbert_response = requests.post(sapbert_annotate_endpoint, json=sapbert_payload)
         if sapbert_response.status_code == 200:
             sapbert_json = sapbert_response.json()
             # return the first result if there is one
@@ -401,7 +413,7 @@ class LitCoinSapBERTLoader(LitCoinLoader):
 
 class LitCoinEntityExtractorLoader(LitCoinLoader):
     source_id: str = 'LitCoinEntityExtractor'
-    parsing_version: str = '1.3'
+    parsing_version: str = '1.4'
 
     def parse_data(self) -> dict:
         litcoin_file_path: str = os.path.join(self.data_path, self.data_file)
@@ -415,19 +427,21 @@ class LitCoinEntityExtractorLoader(LitCoinLoader):
 
                     subject_name = litcoin_edge[LLM_SUBJECT_NAME]
                     subject_type = litcoin_edge[LLM_SUBJECT_TYPE]
-                    subject_mapped_type = NODE_TYPE_MAPPINGS.get(self.convert_node_type_to_biolink_format(subject_type),
-                                                                 None)
+                    # NODE_TYPE_MAPPINGS was replaced with Bagel for now
+                    # subject_mapped_type = NODE_TYPE_MAPPINGS.get(self.convert_node_type_to_biolink_format(subject_type),
+                    #                                             None)
                     all_entities[f'{subject_name}{subject_type}'] = {'name': subject_name,
                                                                      'llm_type': subject_type,
-                                                                     'name_res_type': subject_mapped_type,
+                                                                     # 'name_res_type': subject_mapped_type,
                                                                      'abstract_id': abstract_id}
                     object_name = litcoin_edge[LLM_OBJECT_NAME]
                     object_type = litcoin_edge[LLM_OBJECT_TYPE]
-                    object_mapped_type = NODE_TYPE_MAPPINGS.get(self.convert_node_type_to_biolink_format(object_type),
-                                                                None)
+                    # NODE_TYPE_MAPPINGS was replaced with Bagel for now
+                    # object_mapped_type = NODE_TYPE_MAPPINGS.get(self.convert_node_type_to_biolink_format(object_type),
+                    #                                            None)
                     all_entities[f'{object_name}{object_type}'] = {'name': object_name,
                                                                    'llm_type': object_type,
-                                                                   'name_res_type': object_mapped_type,
+                                                                   # 'name_res_type': object_mapped_type,
                                                                    'abstract_id': abstract_id}
 
         with open(os.path.join(self.data_path, "..",
