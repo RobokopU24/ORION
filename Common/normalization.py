@@ -533,7 +533,7 @@ class EdgeNormalizer:
             resp.raise_for_status()
 
 
-NAME_RESOLVER_URL = os.environ.get('NAME_RESOLVER_ENDPOINT', "https://name-resolution-sri.renci.org/") + 'lookup'
+NAME_RESOLVER_URL = os.environ.get('NAMERES_ENDPOINT', "https://name-resolution-sri.renci.org/lookup")
 NAME_RESOLVER_HEADERS = {"accept": "application/json"}
 NAME_RESOLVER_API_ERROR = 'api_error'
 
