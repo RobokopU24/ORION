@@ -88,7 +88,7 @@ class LitCoinLoader(SourceDataLoader):
 
     source_id: str = 'LitCoin'
     provenance_id: str = 'infores:robokop-kg'  # TODO - change this to a LitCoin infores when it exists
-    parsing_version: str = '1.11'
+    parsing_version: str = '2.0'
 
     def __init__(self, test_mode: bool = False, source_data_dir: str = None):
         """
@@ -147,7 +147,7 @@ class LitCoinLoader(SourceDataLoader):
             litcoin_json = json.load(litcoin_file)
             for litcoin_object in litcoin_json:
                 number_of_abstracts += 1
-                if number_of_abstracts > 4 and self.test_mode:
+                if number_of_abstracts > 5 and self.test_mode:
                     break
                 abstract_id = litcoin_object['abstract_id']
                 self.logger.info(f'processing abstract {number_of_abstracts}: {abstract_id}')
