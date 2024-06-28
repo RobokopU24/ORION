@@ -2,10 +2,9 @@
 import requests
 from requests.adapters import HTTPAdapter, Retry
 
-from comparator.engines.nameres import NameResNEREngine
-from comparator.engines.sapbert import SAPBERTNEREngine
-
-from parsers.LitCoin.src.bagel_gpt import ask_labels, ask_classes, ask_classes_and_descriptions
+from parsers.LitCoin.src.NER.nameres import NameResNEREngine
+from parsers.LitCoin.src.NER.sapbert import SAPBERTNEREngine
+from parsers.LitCoin.src.bagel_gpt import ask_classes_and_descriptions
 
 
 # output of parse_gpt looks like {"entity": triple["object"], "qualifier": triple["object_qualifier"]}
