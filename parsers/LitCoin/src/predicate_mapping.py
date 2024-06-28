@@ -18,9 +18,10 @@ class PredicateText(BaseDoc):
 
 
 class PredicateDatabase:
-    def __init__(self, logger):
+    def __init__(self, logger, workspace_dir='./workspace'):
         self.db = None
         self.logger = logger
+        self.workspace_dir = workspace_dir
 
     def map_biolink_predicates(self, data: dict, output_file=None) -> dict:
         text_maps = defaultdict(set)
@@ -84,7 +85,7 @@ class PredicateDatabase:
                 )
 
         # self.logger.info("Load vectordb")
-        self.db = InMemoryExactNNVectorDB[PredicateText](workspace='./workspace')
+        self.db = InMemoryExactNNVectorDB[PredicateText](workspace=self.workspace_dir)
         self.db.index(inputs=DocList[PredicateText](doc_list))
         # self.logger.info("Ready")
 
@@ -105,7 +106,8 @@ class PredicateMapping:
                  predicate_vectors_file_path: str,
                  logger,
                  predicate_map_cache_file_path: str = None,
-                 predicate_score_threshold: float = None):
+                 predicate_score_threshold: float = None,
+                 workspace_dir: str = './workspace'):
 
         self.predicate_map = {}
         self.predicate_map_cache_file_path = predicate_map_cache_file_path
@@ -113,7 +115,7 @@ class PredicateMapping:
 
         self.predicate_score_threshold = predicate_score_threshold
 
-        self.predicate_database = PredicateDatabase(logger=logger)
+        self.predicate_database = PredicateDatabase(logger=logger, workspace_dir=workspace_dir)
         self.predicate_database.load_db_from_json(predicate_vectors_file_path)
 
         self.logger = logger
