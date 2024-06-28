@@ -1,14 +1,13 @@
 import os
 import logging
-import urllib
 
 import requests
 
-from comparator.engines.base import BaseNEREngine
+from parsers.LitCoin.src.NER.base import BaseNEREngine
 
 # Configuration: get the SAPBERT URL and figure out the annotate path.
 SAPBERT_URL = os.getenv('SAPBERT_URL', 'https://babel-sapbert.apps.renci.org/')
-SAPBERT_ANNOTATE_ENDPOINT = urllib.parse.urljoin(SAPBERT_URL, '/annotate/')
+SAPBERT_ANNOTATE_ENDPOINT = SAPBERT_URL + 'annotate/'
 SAPBERT_MODEL_NAME = "sapbert"
 SAPBERT_COUNT = 1000  # We've found that 1000 is about the minimum you need for reasonable results.
 
