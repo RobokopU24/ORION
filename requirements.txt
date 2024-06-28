@@ -18,4 +18,3 @@ prefixmaps==0.2.4
 bmt==1.4.1
 docarray==0.40.0
 vectordb==0.0.21
-git+https://github.com/RENCI-NER/benchmarks.git
