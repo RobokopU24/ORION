@@ -46,6 +46,9 @@ spec:
             - mountPath: /logs
               name: ds-neo4j-scratch-volume
               subPath: neo4j_logs
+            - mountPath: /ORION/.env
+              name: app-config
+              subPath: env-file
           env:
             - name: ORION_STORAGE
               value: /ORION_storage
@@ -128,6 +131,9 @@ spec:
             - mountPath: /logs
               name: ds-neo4j-scratch-volume
               subPath: neo4j_logs
+            - mountPath: /ORION/.env
+              name: app-config
+              subPath: env-file
           env:
             - name: ORION_STORAGE
               value: /ORION_storage
@@ -213,4 +219,8 @@ spec:
                 resources:
                   requests:
                     storage: {{ .Values.orion.neo4jScratchVolume.size }}
+        - name: app-config
+          configMap:
+            name: {{ include "orion.fullname" . }}-app-config
+            defaultMode: 0777
   backoffLimit: 0
