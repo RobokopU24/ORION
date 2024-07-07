@@ -21,6 +21,7 @@ INTACT = 'IntAct'
 KINACE = 'KinAce'
 MONARCH_KG = 'MonarchKG'
 MONDO_PROPS = 'MONDOProps'
+NPASS = 'NPASS'
 ONTOLOGICAL_HIERARCHY = 'OntologicalHierarchy'
 PANTHER = 'PANTHER'
 PHAROS = 'PHAROS'
@@ -65,6 +66,7 @@ SOURCE_DATA_LOADER_CLASS_IMPORTS = {
     KINACE: ("parsers.KinAce.src.loadKinAce", "KinAceLoader"),
     MONARCH_KG: ("parsers.monarchkg.src.loadMonarchKG", "MonarchKGLoader"),
     MONDO_PROPS: ("parsers.MONDOProperties.src.loadMP", "MPLoader"),
+    NPASS: ("parsers.NPASS.src.loadNPASS", "NPASSLoader"),
     ONTOLOGICAL_HIERARCHY: ("parsers.UberGraph.src.loadUG", "OHLoader"),
     PANTHER: ("parsers.panther.src.loadPanther", "PLoader"),
     PHAROS: ("parsers.PHAROS.src.loadPHAROS", "PHAROSLoader"),
