@@ -1,9 +1,10 @@
 import requests
-import os
 import json
 from collections import defaultdict
 
-api_key = os.environ.get("OPENAI_API_KEY")
+from Common.config import CONFIG
+
+OPENAI_API_KEY = CONFIG.get("OPENAI_API_KEY")
 
 
 def ask_classes_and_descriptions(text, term, termlist):
@@ -197,7 +198,7 @@ def ask_labels(text, term, termlist):
 def query(prompt):
     headers = {
         "Content-Type": "application/json",
-        "Authorization": f"Bearer {api_key}"
+        "Authorization": f"Bearer {OPENAI_API_KEY}"
     }
 
     payload = {
@@ -221,7 +222,7 @@ def query(prompt):
         response.raise_for_status()
     try:
         content = response.json()["choices"][0]["message"]["content"]
-        print(content)
+        # print(content)
     except KeyError as k:
         print(f'openai json did not contain expected key {k}: {response.json()}')
         raise k
