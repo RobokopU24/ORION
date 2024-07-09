@@ -6,7 +6,9 @@ from vectordb import InMemoryExactNNVectorDB
 from docarray import BaseDoc, DocList
 from docarray.typing import NdArray
 
-API_KEY = os.environ.get("OPENAI_API_KEY")
+from Common.config import CONFIG
+
+OPENAI_API_KEY = CONFIG.get("OPENAI_API_KEY")
 
 FALLBACK_PREDICATE = "biolink:related_to"
 
@@ -53,7 +55,7 @@ class PredicateDatabase:
         payload = {"model": model, "input": text}
         headers = {
             "Content-Type": "application/json",
-            "Authorization": f"Bearer {API_KEY}"
+            "Authorization": f"Bearer {OPENAI_API_KEY}"
         }
         url = "https://api.openai.com/v1/embeddings"
         try:
