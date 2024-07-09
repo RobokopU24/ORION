@@ -50,6 +50,8 @@ spec:
               name: app-config
               subPath: env-file
           env:
+            - name: HOME
+              value: /ORION
             - name: ORION_STORAGE
               value: /ORION_storage
             - name: ORION_GRAPHS
@@ -135,6 +137,8 @@ spec:
               name: app-config
               subPath: env-file
           env:
+            - name: HOME
+              value: /ORION
             - name: ORION_STORAGE
               value: /ORION_storage
             - name: ORION_GRAPHS
