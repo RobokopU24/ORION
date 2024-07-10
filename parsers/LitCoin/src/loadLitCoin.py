@@ -160,8 +160,13 @@ class LitCoinLoader(SourceDataLoader):
                     try:
                         subject_name = litcoin_edge[LLM_SUBJECT_NAME]
                         if subject_name not in self.bagel_results_lookup:
-                            bagel_results = get_bagel_results(abstract=abstract_text, term=subject_name)
-                            self.bagel_results_lookup[subject_name] = bagel_results
+                            try:
+                                bagel_results = get_bagel_results(abstract=abstract_text, term=subject_name)
+                                self.bagel_results_lookup[subject_name] = bagel_results
+                            except Exception as e:
+                                self.logger.error(f'Failed Bagelization: {type(e)}:{e}')
+                                skipped_records += 1
+                                continue
                         else:
                             bagel_results = self.bagel_results_lookup[subject_name]
                         bagel_subject_node, subject_bagel_synonym_type = extract_best_match(bagel_results)
@@ -176,6 +181,7 @@ class LitCoinLoader(SourceDataLoader):
                             try:
                                 bagel_results = get_bagel_results(abstract=abstract_text, term=object_name)
                                 self.bagel_results_lookup[object_name] = bagel_results
+                                skipped_records += 1
                             except Exception as e:
                                 self.logger.error(f'Failed Bagelization: {type(e)}:{e}')
                                 continue
