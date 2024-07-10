@@ -66,12 +66,12 @@ class BINDINGDBLoader(SourceDataLoader):
         self.affinity_threshold = LOG_SCALE_AFFINITY_THRESHOLD
 
         self.measure_to_predicate = {
-            "pKi": "biolink:binds",
+            "pKi": "{DGIDB}:inhibitor", #inhibition constant
             "pIC50": "CTD:decreases_activity_of",
-            "pKd": "biolink:binds",
+            "pKd": "RO:0002436",
             "pEC50": "CTD:increases_activity_of",
-            "k_on": "biolink:binds",
-            "k_off": "biolink:binds"
+            "k_on": "RO:0002436",
+            "k_off": "RO:0002436"
         }
 
         self.bindingdb_version = None
