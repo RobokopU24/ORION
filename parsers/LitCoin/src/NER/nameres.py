@@ -6,11 +6,9 @@ import requests
 from parsers.LitCoin.src.NER.base import BaseNEREngine
 
 # Configuration: NameRes
-NAMERES_ENDPOINT = os.getenv('NAMERES_ENDPOINT', 'https://name-resolution-sri-dev.apps.renci.org/lookup')
-NAMERES_RL_ENDPOINT = os.getenv('NAMERES_RL_ENDPOINT', 'https://name-resolution-sri-dev.apps.renci.org/reverse_lookup')
-
-# Configuration: the `/get_normalized_nodes` endpoint on a Node Normalization instance to use.
-NODE_NORM_ENDPOINT = os.getenv('NODE_NORM_ENDPOINT', 'https://nodenormalization-sri.renci.org/get_normalized_nodes')
+NAMERES_URL = os.getenv('NAMERES_ENDPOINT', 'https://name-resolution-sri.renci.org/')
+NAMERES_ENDPOINT = f'{NAMERES_URL}lookup'
+NAMERES_RL_ENDPOINT = f'{NAMERES_URL}reverse_lookup'
 
 
 class NameResNEREngine(BaseNEREngine):
