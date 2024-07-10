@@ -173,8 +173,12 @@ class LitCoinLoader(SourceDataLoader):
 
                         object_name = litcoin_edge[LLM_OBJECT_NAME]
                         if object_name not in self.bagel_results_lookup:
-                            bagel_results = get_bagel_results(abstract=abstract_text, term=object_name)
-                            self.bagel_results_lookup[object_name] = bagel_results
+                            try:
+                                bagel_results = get_bagel_results(abstract=abstract_text, term=object_name)
+                                self.bagel_results_lookup[object_name] = bagel_results
+                            except Exception as e:
+                                self.logger.error(f'Failed Bagelization: {type(e)}:{e}')
+                                continue
                         else:
                             bagel_results = self.bagel_results_lookup[object_name]
                         bagel_object_node, object_bagel_synonym_type = extract_best_match(bagel_results)
