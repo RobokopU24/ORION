@@ -63,16 +63,18 @@ class PHAROSLoader(SourceDataLoader):
     }
 
     # we might want more granularity here but for now it's one-to-one source with KL/AT
+    # we will need to develop a procedure for merging KL/AT moving forward
     PHAROS_KL_AT_lookup = {
         'CTD': (PREDICATION, MANUAL_AGENT),
         'DisGeNET': (NOT_PROVIDED, NOT_PROVIDED),
         'DrugCentral Indication': (KNOWLEDGE_ASSERTION, MANUAL_AGENT),
         'eRAM': (NOT_PROVIDED, NOT_PROVIDED),
+        # For more information about JensenLab Databases: DOI: https://doi.org/10.1093/database/baac019
         'JensenLab Experiment TIGA': (PREDICATION, AUTOMATED_AGENT),
-        'JensenLab Knowledge AmyCo': (NOT_PROVIDED, NOT_PROVIDED),
-        'JensenLab Knowledge MedlinePlus': (NOT_PROVIDED, NOT_PROVIDED),
-        'JensenLab Knowledge UniProtKB-KW': (NOT_PROVIDED, NOT_PROVIDED),
-        'JensenLab Text Mining': (NOT_PROVIDED, NOT_PROVIDED),
+        'JensenLab Knowledge AmyCo': (KNOWLEDGE_ASSERTION, MANUAL_AGENT),
+        'JensenLab Knowledge MedlinePlus': (KNOWLEDGE_ASSERTION, MANUAL_AGENT),
+        'JensenLab Knowledge UniProtKB-KW': (KNOWLEDGE_ASSERTION, MANUAL_VALIDATION_OF_AUTOMATED_AGENT),
+        'JensenLab Text Mining': (NOT_PROVIDED, TEXT_MINING_AGENT),
         'Monarch': (NOT_PROVIDED, NOT_PROVIDED),
         'UniProt Disease': (KNOWLEDGE_ASSERTION, MANUAL_AGENT)
     }
