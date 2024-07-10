@@ -126,7 +126,7 @@ class PredicateMapping:
         if predicate in self.predicate_map:
             mapped_predicate, predicate_mapping_score = self.predicate_map[predicate]
         else:
-            self.logger.info(f'calling openAI for predicate embedding {predicate}')
+            # self.logger.info(f'calling openAI for predicate embedding {predicate}')
             predicate_mapping_result, predicate_mapping_score = self.predicate_database.search(predicate)
             mapped_predicate = predicate_mapping_result.predicate
             self.predicate_map[predicate] = mapped_predicate, predicate_mapping_score

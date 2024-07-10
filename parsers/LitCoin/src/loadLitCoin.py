@@ -88,7 +88,7 @@ class LitCoinLoader(SourceDataLoader):
 
     source_id: str = 'LitCoin'
     provenance_id: str = 'infores:robokop-kg'  # TODO - change this to a LitCoin infores when it exists
-    parsing_version: str = '2.0'
+    parsing_version: str = '2.1'
 
     def __init__(self, test_mode: bool = False, source_data_dir: str = None):
         """
@@ -106,6 +106,8 @@ class LitCoinLoader(SourceDataLoader):
         self.bagel_results_lookup = None
         self.name_res_stats = []
         self.bl_utils = BiolinkUtils()
+
+        self.mentions_predicate = "IAO:0000142"
 
     def get_latest_source_version(self) -> str:
         latest_version = 'v1.4'
@@ -147,7 +149,7 @@ class LitCoinLoader(SourceDataLoader):
             litcoin_json = json.load(litcoin_file)
             for litcoin_object in litcoin_json:
                 number_of_abstracts += 1
-                if number_of_abstracts > 5 and self.test_mode:
+                if number_of_abstracts > 2 and self.test_mode:
                     break
                 abstract_id = litcoin_object['abstract_id']
                 self.logger.info(f'processing abstract {number_of_abstracts}: {abstract_id}')
@@ -222,17 +224,17 @@ class LitCoinLoader(SourceDataLoader):
                                                            node_properties={ABSTRACT_TEXT_EDGE_PROP: abstract_text})
                         self.output_file_writer.write_edge(subject_id=pubmed_id,
                                                            object_id=subject_id,
-                                                           predicate='biolink:mentions')
+                                                           predicate=self.mentions_predicate)
                         self.output_file_writer.write_edge(subject_id=pubmed_id,
                                                            object_id=object_id,
-                                                           predicate='biolink:mentions')
+                                                           predicate=self.mentions_predicate)
                         records += 1
 
                     except Exception as e:
                         # save results/cache on an error to avoid duplicate llm calls
                         self.save_bagel_cache()
                         predicate_mapper.save_cached_predicate_mappings()
-                        raise SourceDataFailedError(error_message=str(e))
+                        raise e
 
         # save the predicates mapped with openai embeddings
         predicate_mapper.save_cached_predicate_mappings()
