@@ -5,7 +5,7 @@ from requests.adapters import HTTPAdapter, Retry
 from parsers.LitCoin.src.NER.nameres import NameResNEREngine
 from parsers.LitCoin.src.NER.sapbert import SAPBERTNEREngine
 from parsers.LitCoin.src.bagel_gpt import ask_classes_and_descriptions
-
+from Common.normalization import NODE_NORMALIZATION_URL
 
 # output of parse_gpt looks like {"entity": triple["object"], "qualifier": triple["object_qualifier"]}
 session = requests.Session()
@@ -20,7 +20,7 @@ sapbert = SAPBERTNEREngine(session)
 
 
 def get_bagel_results(abstract, term):
-    print(f'bagelizing term {term}.')
+    # print(f'bagelizing term {term}.')
     taxon_id_to_name = {}
     nr_results = nameres.annotate(term, props={}, limit=10)
     sb_results = sapbert.annotate(term, props={}, limit=10)
@@ -61,19 +61,19 @@ def augment_results(terms, nameres, taxes):
     augs = nameres.reverse_lookup(curies)
     for curie in augs:
         terms[curie].update(augs[curie])
-        resp = requests.get("https://nodenormalization-sri.renci.org/get_normalized_nodes?curie="+curie+"&conflate=true&drug_chemical_conflate=true&description=true")
+        resp = requests.get(f"{NODE_NORMALIZATION_URL}get_normalized_nodes?curie="+curie+"&conflate=true&drug_chemical_conflate=true&description=true")
         if resp.status_code == 200:
             result = resp.json()
             try:
                 terms[curie]["description"] = result[curie]["id"].get("description","")
             except:
-                print("No curie?",curie)
+                # print("No curie?" , curie)
                 terms[curie]["description"] = ""
     for curie, annotation in terms.items():
         if len(annotation["taxa"]) > 0:
             tax_id = annotation["taxa"][0]
             if tax_id not in taxes:
-                resp = requests.get("https://nodenormalization-sri.renci.org/get_normalized_nodes?curie="+tax_id)
+                resp = requests.get(f"{NODE_NORMALIZATION_URL}get_normalized_nodes?curie="+tax_id)
                 if resp.status_code == 200:
                     result = resp.json()
                     tax_name = result[tax_id]["id"]["label"]
