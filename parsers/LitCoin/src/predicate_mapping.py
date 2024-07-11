@@ -1,6 +1,8 @@
 import os
 import json
 import requests
+
+from requests.adapters import HTTPAdapter, Retry
 from collections import defaultdict
 from vectordb import InMemoryExactNNVectorDB
 from docarray import BaseDoc, DocList
@@ -24,6 +26,15 @@ class PredicateDatabase:
         self.db = None
         self.logger = logger
         self.workspace_dir = workspace_dir
+
+        session = requests.Session()
+        retries = Retry(total=5,
+                        backoff_factor=0.1,
+                        status_forcelist=[502, 503, 504, 429])
+        session.mount('http://', HTTPAdapter(max_retries=retries))
+        session.mount('https://', HTTPAdapter(max_retries=retries))
+        self.requests_sessions = session
+
 
     def map_biolink_predicates(self, data: dict, output_file=None) -> dict:
         text_maps = defaultdict(set)
@@ -59,7 +70,7 @@ class PredicateDatabase:
         }
         url = "https://api.openai.com/v1/embeddings"
         try:
-            response = requests.post(url, json=payload, headers=headers)
+            response = self.requests_session.post(url, json=payload, headers=headers)
             if response.status_code != 200:
                 response.raise_for_status()
             j = response.json()
