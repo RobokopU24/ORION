@@ -7,7 +7,7 @@ from Common.config import CONFIG
 OPENAI_API_KEY = CONFIG.get("OPENAI_API_KEY")
 
 
-def ask_classes_and_descriptions(text, term, termlist):
+def ask_classes_and_descriptions(text, term, termlist, requests_session):
     """Get GPT results based only on the labels of the terms."""
 
     # Get the Labels
@@ -50,7 +50,7 @@ def ask_classes_and_descriptions(text, term, termlist):
     possible_synonyms_classes_and_descriptions: {synonym_list}
     """
 
-    results = query(prompt)
+    results = query(prompt, requests_session)
 
     for result in results:
         syn = result['synonym']
@@ -195,7 +195,7 @@ def ask_labels(text, term, termlist):
     return grouped_by_syntype
 
 
-def query(prompt):
+def query(prompt, requests_session):
     headers = {
         "Content-Type": "application/json",
         "Authorization": f"Bearer {OPENAI_API_KEY}"
@@ -216,7 +216,7 @@ def query(prompt):
         ]
     }
 
-    response = requests.post("https://api.openai.com/v1/chat/completions", headers=headers, json=payload)
+    response = requests_session.post("https://api.openai.com/v1/chat/completions", headers=headers, json=payload)
     if response.status_code != 200:
         print(f'openai call returned non-200 status: {response.status_code}')
         response.raise_for_status()
