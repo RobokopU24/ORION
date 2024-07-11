@@ -33,7 +33,7 @@ class PredicateDatabase:
                         status_forcelist=[502, 503, 504, 429])
         session.mount('http://', HTTPAdapter(max_retries=retries))
         session.mount('https://', HTTPAdapter(max_retries=retries))
-        self.requests_sessions = session
+        self.requests_session = session
 
 
     def map_biolink_predicates(self, data: dict, output_file=None) -> dict:
