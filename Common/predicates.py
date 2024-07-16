@@ -17,12 +17,12 @@ DGIDB_PREDICATE_MAPPING = {
     "blocker": f"{DGIDB}:blocker",
     "channel_blocker": f"{DGIDB}:channel_blocker",
     "ec50": f"{DGIDB}:agonist",
-    "ed50": f"RO:0002434",  # Effective Dose. Potentially needs to be {DGIDB}:agonist
+    "ed50": f"RO:0002434",  # Effective Dose. Where does this predicate come from? CB (2024_07): "it makes no sense to have an ed50 between a chemical and a gene/protein"
     "gating_inhibitor": f"{DGIDB}:gating_inhibitor",
-    "gi50": f"RO:0002434",  # Growth Inhibitor. Potentially needs to be {DGIDB}:agonist
+    "gi50": f"{DGIDB}:Inhibitor",  # Growth Inhibitor
     "ic50": f"{DGIDB}:inhibitor",
     "inhibitor": f"{DGIDB}:inhibitor",
-    "interacts_with": f"{DRUGBANK}:target",  # maps to biolink:physically_interacts_with
+    "interacts_with": f"{DRUGBANK}:target",  # Where does this predicate come from? Possiblely needs to be modified to RO:0002436
     "inverse_agonist": f"{DGIDB}:inverse_agonist",
     "ka": f"RO:0002436",
     "kact": f"RO:0002436",  # is this a miss type of kcat?
