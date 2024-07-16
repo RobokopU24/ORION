@@ -22,7 +22,7 @@ DGIDB_PREDICATE_MAPPING = {
     "gi50": f"{DGIDB}:Inhibitor",  # Growth Inhibitor
     "ic50": f"{DGIDB}:inhibitor",
     "inhibitor": f"{DGIDB}:inhibitor",
-    "interacts_with": f"{DRUGBANK}:target",  # Where does this predicate come from? Possiblely needs to be modified to RO:0002436
+    "interacts_with": f"RO:0002434",  # Where does this predicate come from? Possiblely needs to be modified to RO:0002436
     "inverse_agonist": f"{DGIDB}:inverse_agonist",
     "ka": f"RO:0002436",
     "kact": f"RO:0002436",  # is this a miss type of kcat?
