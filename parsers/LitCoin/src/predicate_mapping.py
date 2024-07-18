@@ -28,9 +28,9 @@ class PredicateDatabase:
         self.workspace_dir = workspace_dir
 
         session = requests.Session()
-        retries = Retry(total=5,
-                        backoff_factor=0.1,
-                        status_forcelist=[502, 503, 504, 429])
+        retries = Retry(total=8,
+                        backoff_factor=.75,
+                        status_forcelist=[502, 503, 504, 520, 429])
         session.mount('http://', HTTPAdapter(max_retries=retries))
         session.mount('https://', HTTPAdapter(max_retries=retries))
         self.requests_session = session
