@@ -9,9 +9,9 @@ from Common.normalization import NODE_NORMALIZATION_URL
 
 # output of parse_gpt looks like {"entity": triple["object"], "qualifier": triple["object_qualifier"]}
 session = requests.Session()
-retries = Retry(total=5,
-                backoff_factor=0.1,
-                status_forcelist=[502, 503, 504, 429])
+retries = Retry(total=8,
+                backoff_factor=.75,
+                status_forcelist=[502, 503, 504, 520, 429])
 session.mount('http://', HTTPAdapter(max_retries=retries))
 session.mount('https://', HTTPAdapter(max_retries=retries))
 nameres = NameResNEREngine(session)
