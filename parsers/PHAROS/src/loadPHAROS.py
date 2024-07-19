@@ -19,7 +19,7 @@ class PHAROSLoader(SourceDataLoader):
     source_data_url = "https://pharos.nih.gov/"
     license = "Data accessed from Pharos and TCRD is publicly available from the primary sources listed above. Please respect their individual licenses regarding proper use and redistribution."
     attribution = 'Sheils, T., Mathias, S. et al, "TCRD and Pharos 2021: mining the human proteome for disease biology", Nucl. Acids Res., 2021. DOI: 10.1093/nar/gkaa993'
-    parsing_version: str = '1.6'
+    parsing_version: str = '1.7'
 
     GENE_TO_DISEASE_QUERY: str = """select distinct x.value, d.did, d.name, p.sym, d.dtype, d.score
                                 from disease d 
@@ -63,16 +63,18 @@ class PHAROSLoader(SourceDataLoader):
     }
 
     # we might want more granularity here but for now it's one-to-one source with KL/AT
+    # we will need to develop a procedure for merging KL/AT moving forward
     PHAROS_KL_AT_lookup = {
         'CTD': (PREDICATION, MANUAL_AGENT),
         'DisGeNET': (NOT_PROVIDED, NOT_PROVIDED),
         'DrugCentral Indication': (KNOWLEDGE_ASSERTION, MANUAL_AGENT),
         'eRAM': (NOT_PROVIDED, NOT_PROVIDED),
+        # For more information about JensenLab Databases: DOI: https://doi.org/10.1093/database/baac019
         'JensenLab Experiment TIGA': (PREDICATION, AUTOMATED_AGENT),
-        'JensenLab Knowledge AmyCo': (NOT_PROVIDED, NOT_PROVIDED),
-        'JensenLab Knowledge MedlinePlus': (NOT_PROVIDED, NOT_PROVIDED),
-        'JensenLab Knowledge UniProtKB-KW': (NOT_PROVIDED, NOT_PROVIDED),
-        'JensenLab Text Mining': (NOT_PROVIDED, NOT_PROVIDED),
+        'JensenLab Knowledge AmyCo': (KNOWLEDGE_ASSERTION, MANUAL_AGENT),
+        'JensenLab Knowledge MedlinePlus': (KNOWLEDGE_ASSERTION, MANUAL_AGENT),
+        'JensenLab Knowledge UniProtKB-KW': (KNOWLEDGE_ASSERTION, MANUAL_VALIDATION_OF_AUTOMATED_AGENT),
+        'JensenLab Text Mining': (NOT_PROVIDED, TEXT_MINING_AGENT),
         'Monarch': (NOT_PROVIDED, NOT_PROVIDED),
         'UniProt Disease': (KNOWLEDGE_ASSERTION, MANUAL_AGENT)
     }
