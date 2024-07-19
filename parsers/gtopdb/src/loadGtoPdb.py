@@ -57,7 +57,7 @@ class GtoPdbLoader(SourceDataLoader):
     source_data_url = "http://www.guidetopharmacology.org/"
     license = "https://www.guidetopharmacology.org/about.jsp#license"
     attribution = "https://www.guidetopharmacology.org/citing.jsp"
-    parsing_version: str = '1.3'
+    parsing_version: str = '1.4'
 
     def __init__(self, test_mode: bool = False, source_data_dir: str = None):
         """

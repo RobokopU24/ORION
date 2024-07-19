@@ -52,7 +52,7 @@ class BINDINGDBLoader(SourceDataLoader):
     source_data_url = "https://www.bindingdb.org/rwd/bind/chemsearch/marvin/SDFdownload.jsp?all_download=yes"
     license = "All data and download files in bindingDB are freely available under a 'Creative Commons BY 3.0' license.'"
     attribution = 'https://www.bindingdb.org/rwd/bind/info.jsp'
-    parsing_version = '1.5'
+    parsing_version = '1.6'
 
     def __init__(self, test_mode: bool = False, source_data_dir: str = None):
         """
