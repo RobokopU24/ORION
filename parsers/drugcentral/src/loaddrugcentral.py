@@ -27,9 +27,9 @@ class DrugCentralLoader(SourceDataLoader):
     omop_relationmap = {'off-label use': 'biolink:applied_to_treat',  # is substance that treats
                         'reduce risk': 'biolink:preventative_for_condition',  # is substance that treats
                         'contraindication': 'NCIT:C37933',  # contraindication
-                        'symptomatic treatment': 'RO:0003307',  # is substance that treats
+                        'symptomatic treatment': 'RO:0002606',  # is substance that treats
                         'indication': 'RO:0002606',  # is substance that treats
-                        'diagnosis': 'RO:0002606'}  # there's only one row like this.
+                        'diagnosis': 'DrugCentral:5271'}  # there's only one row like this.
 
     act_type_to_knowledge_source_map = {'IUPHAR': 'infores:gtopdb',
                                         'KEGG DRUG': 'infores:kegg',
