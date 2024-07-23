@@ -354,12 +354,13 @@ class NodeNormalizer:
 
     @staticmethod
     def get_normalization_requests_session():
+        pool_maxsize = min(os.cpu_count(), 10)
         s = requests.Session()
-        retries = Retry(total=5,
-                        backoff_factor=.2,
+        retries = Retry(total=10,
+                        backoff_factor=.5,
                         status_forcelist=[502, 503, 504, 403, 429])
-        s.mount('https://', HTTPAdapter(max_retries=retries))
-        s.mount('http://', HTTPAdapter(max_retries=retries))
+        s.mount('https://', HTTPAdapter(max_retries=retries, pool_maxsize=pool_maxsize))
+        s.mount('http://', HTTPAdapter(max_retries=retries, pool_maxsize=pool_maxsize))
         return s
 
 
