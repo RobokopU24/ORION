@@ -121,8 +121,7 @@ class NodeNormalizer:
                 error_message = f"Node Normalization service {self.node_norm_endpoint} returned 200 " \
                                 f"but with an empty result for (curies: {curies})"
                 raise NormalizationFailedError(error_message=error_message)
-        elif resp.status_code == 422:
-            # 422 unprocessable entity - we sent something bad to node norm, crash so we can diagnose
+        else:
             error_message = f'Node norm response code: {resp.status_code} (curies: {curies})'
             self.logger.error(error_message)
             resp.raise_for_status()
@@ -166,11 +165,13 @@ class NodeNormalizer:
         # we could try to optimize the number of max_workers for ThreadPoolExecutor more specifically,
         # by default python attempts to find a reasonable # based on os.cpu_count()
         with ThreadPoolExecutor() as executor:
-            # casting to a list here
             normalization_results = list(executor.map(self.hit_node_norm_service, chunks_of_ids))
-            for normalization_json in normalization_results:
-                # merge the normalization results into one dictionary
-                cached_node_norms.update(**normalization_json)
+            for normalization_json, ids in zip(normalization_results, chunks_of_ids):
+                if not normalization_json:
+                    self.logger.error(f'Normalization json results missing for ids:{ids}')
+                else:
+                    # merge the normalization results into one dictionary
+                    cached_node_norms.update(**normalization_json)
 
         # reset the node index
         node_idx = 0
@@ -354,8 +355,8 @@ class NodeNormalizer:
     @staticmethod
     def get_normalization_requests_session():
         s = requests.Session()
-        retries = Retry(total=3,
-                        backoff_factor=.1,
+        retries = Retry(total=5,
+                        backoff_factor=.2,
                         status_forcelist=[502, 503, 504, 403, 429])
         s.mount('https://', HTTPAdapter(max_retries=retries))
         s.mount('http://', HTTPAdapter(max_retries=retries))
