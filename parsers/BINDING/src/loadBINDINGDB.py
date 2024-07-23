@@ -2,12 +2,14 @@ import os
 import enum
 import math
 import json
+import zipfile
+import requests
+
 from zipfile import ZipFile
-import requests as rq
-import requests.exceptions
+from requests.adapters import HTTPAdapter, Retry
 
 from parsers.BINDING.src.bindingdb_constraints import LOG_SCALE_AFFINITY_THRESHOLD #Change the binding affinity threshold here. Default is 10 uM Ki,Kd,EC50,orIC50
-from Common.utils import GetData
+from Common.utils import GetData, GetDataPullError
 from Common.loader_interface import SourceDataLoader
 from Common.extractor import Extractor
 from Common.biolink_constants import PUBLICATIONS, AFFINITY, AFFINITY_PARAMETER, KNOWLEDGE_LEVEL, AGENT_TYPE, KNOWLEDGE_ASSERTION, MANUAL_AGENT
@@ -75,12 +77,12 @@ class BINDINGDBLoader(SourceDataLoader):
         }
 
         self.bindingdb_version = None
-        self.bindingdb_version = self.get_latest_source_version()
         self.bindingdb_data_url = f"https://www.bindingdb.org/bind/downloads/"
 
-        self.BD_archive_file_name = f"BindingDB_All_{self.bindingdb_version}_tsv.zip"
-        self.BD_file_name = f"BindingDB_All_{self.bindingdb_version}.tsv"
-        self.data_files = [self.BD_archive_file_name]
+        # the real downloaded archive and file looks like BindingDB_All_XXX_tsv.zip and BindingDB_All_XXX.tsv
+        # where XXX is the date/version, to prevent needing to find the version again to access the file we rename to:
+        self.data_file = "BindingDB_All_tsv.zip"
+        self.data_file_inside_archive = "BindingDB_All.tsv"
 
     def get_latest_source_version(self) -> str:
         """
@@ -90,26 +92,61 @@ class BINDINGDBLoader(SourceDataLoader):
         if self.bindingdb_version:
             return self.bindingdb_version
         try:
+            s = requests.Session()
+            retries = Retry(total=3,
+                            backoff_factor=2)
+            s.mount('https://', HTTPAdapter(max_retries=retries))
+
             ### The method below gets the database version from the html, but this may be subject to change. ###
-            binding_db_download_page_response = rq.get('https://www.bindingdb.org/rwd/bind/chemsearch/marvin/Download.jsp',)
+            binding_db_download_page_response = requests.get('https://www.bindingdb.org/rwd/bind/chemsearch/marvin/Download.jsp', timeout=8)
             version_index = binding_db_download_page_response.text.index('BindingDB_All_2D_') + 17
             bindingdb_version = binding_db_download_page_response.text[version_index:version_index + 6]
-        except requests.exceptions.SSLError:
-            # currently the binding db SSL implementation is outdated/broken with the latest packages
-            self.logger.error(f'BINDING-DB had an SSL error while attempting to retrieve version. Returning default.')
-            return '202404'
+            self.bindingdb_version = bindingdb_version
+            return f"{bindingdb_version}"
 
-        return f"{bindingdb_version}"
+        except requests.exceptions.SSLError:
+            # BINDING-DB often has ssl related errors with the jsp page
+            error_message = f'BINDING-DB had an SSL error while attempting to retrieve version..'
+        except requests.exceptions.Timeout:
+            error_message = f'BINDING-DB timed out attempting to retrieve version...'
+        except ValueError:
+            error_message = f'BINDING-DB get_latest_source_version got a response but could not determine the version'
+        raise GetDataPullError(error_message=error_message)
 
     def get_data(self) -> int:
         """
         Gets the bindingdb data.
-
         """
+        # because these file names include the version we need to make sure we have it first
+        if self.bindingdb_version is None:
+            self.get_latest_source_version()
+
+        # determine the archive and file name using the version
+        versioned_archive_name = f"BindingDB_All_{self.bindingdb_version}_tsv.zip"
+        versioned_file_name = f"BindingDB_All_{self.bindingdb_version}.tsv"
+
+        # download the zipped data
         data_puller = GetData()
-        for source in self.data_files:
-            source_url = f"{self.bindingdb_data_url}{source}"
-            data_puller.pull_via_http(source_url, self.data_path)
+        source_url = f"{self.bindingdb_data_url}{versioned_archive_name}"
+        data_puller.pull_via_http(source_url, self.data_path)
+
+        self.logger.info(f'BINDING-DB data was downloaded but needs to be re-zipped with a different name, '
+                         f'this might be slow..')
+        # extract the file(s) from the archive and delete the archive
+        archive_file_path = os.path.join(self.data_path, versioned_archive_name)
+        with ZipFile(archive_file_path, 'r') as binding_archive:
+            binding_archive.extractall(self.data_path)
+        os.remove(archive_file_path)
+
+        # rename the data file and zip it again,
+        # this is slow and dumb, but it lets us have a consistent data file name and stores compressed data
+        data_file_path = os.path.join(self.data_path, versioned_file_name)
+        renamed_data_file = os.path.join(self.data_path, self.data_file_inside_archive)
+        os.rename(data_file_path, renamed_data_file)
+        renamed_archive = os.path.join(self.data_path, self.data_file)
+        with ZipFile(renamed_archive, 'w', compression=zipfile.ZIP_DEFLATED) as new_zip:
+            new_zip.write(renamed_data_file, arcname=self.data_file_inside_archive)
+        os.remove(renamed_data_file)
         return True
 
     def parse_data(self) -> dict:
@@ -123,7 +160,8 @@ class BINDINGDBLoader(SourceDataLoader):
         data_store= dict()
 
         columns = [[x.value,x.name] for x in BD_EDGEUMAN if x.name not in ['PMID','PUBCHEM_AID','PATENT_NUMBER','PUBCHEM_CID','UNIPROT_TARGET_CHAIN']]
-        for n,row in enumerate(generate_zipfile_rows(os.path.join(self.data_path,self.BD_archive_file_name), self.BD_file_name)):
+        zipped_data_path = os.path.join(self.data_path, self.data_file)
+        for n,row in enumerate(generate_zipfile_rows(zipped_data_path, self.data_file_inside_archive)):
             if n == 0:
                 continue
             if self.test_mode:
