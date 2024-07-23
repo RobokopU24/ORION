@@ -5,22 +5,11 @@ import logging
 from Common.biolink_utils import BiolinkInformationResources, INFORES_STATUS_INVALID, INFORES_STATUS_DEPRECATED
 from Common.biolink_constants import SEQUENCE_VARIANT, PRIMARY_KNOWLEDGE_SOURCE, AGGREGATOR_KNOWLEDGE_SOURCES, \
     PUBLICATIONS, OBJECT_ID, SUBJECT_ID, PREDICATE, SUBCLASS_OF
-from Common.normalization import NormalizationScheme, NodeNormalizer, EdgeNormalizer, EdgeNormalizationResult
+from Common.normalization import NormalizationScheme, NodeNormalizer, EdgeNormalizer, EdgeNormalizationResult, \
+    NormalizationFailedError
 from Common.utils import LoggingUtil, chunk_iterator
 from Common.kgx_file_writer import KGXFileWriter
 from Common.merging import MemoryGraphMerger, DiskGraphMerger
-
-
-class NormalizationBrokenError(Exception):
-    def __init__(self, error_message: str, actual_error: Exception=None):
-        self.error_message = error_message
-        self.actual_error = actual_error
-
-
-class NormalizationFailedError(Exception):
-    def __init__(self, error_message: str, actual_error: Exception=None):
-        self.error_message = error_message
-        self.actual_error = actual_error
 
 
 EDGE_PROPERTIES_THAT_SHOULD_BE_SETS = {AGGREGATOR_KNOWLEDGE_SOURCES, PUBLICATIONS}
@@ -349,6 +338,7 @@ class KGXFileNormalizer:
                             # this could happen due to rare cases of normalization splits where one node normalizes to many
                             if edge_count > 1:
                                 edge_splits += edge_count - 1
+
                     graph_merger.merge_edges(normalized_edges)
                     self.logger.info(f'Processed {number_of_source_edges} edges so far...')
 
