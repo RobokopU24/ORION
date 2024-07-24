@@ -24,6 +24,7 @@ from Common.biolink_constants import *
 ##############
 class CTDLoader(SourceDataLoader):
 
+    mimic_koza = False
     source_id = 'CTD'
     provenance_id = 'infores:ctd'
     description = "The Comparative Toxicogenomics Database (CTD) is an open-source database that provides manually curated information about chemical-gene/protein, chemical-disease, and gene-disease relationships, with additional support for the curated relationships provided by functional and pathway data."
@@ -50,7 +51,7 @@ class CTDLoader(SourceDataLoader):
         'biolink:treats_or_applied_or_studied_to_treat': (KNOWLEDGE_ASSERTION, MANUAL_AGENT)
     }
 
-    def __init__(self, test_mode: bool = False, source_data_dir: str = None):
+    def __init__(self, test_mode: bool = False, source_data_dir: str = None, mimic_koza = True):
         """
         :param test_mode - sets the run into test mode
         :param source_data_dir - the specific storage directory to save files in
@@ -58,6 +59,7 @@ class CTDLoader(SourceDataLoader):
         super().__init__(test_mode=test_mode, source_data_dir=source_data_dir)
 
         self.source_db = 'Comparative Toxicogenomics Database'
+        self.mimic_koza = mimic_koza
 
         self.therapeutic_predicate = 'CTD:ameliorates'
         self.marker_predicate = 'CTD:contributes_to'
@@ -414,7 +416,7 @@ class CTDLoader(SourceDataLoader):
                             marker_refs += evidence['refs']
 
                     # get the predicate
-                    predicate = self.get_chemical_label_id(treats_count, marker_count)
+                    predicate = self.get_chemical_label_id(treats_count, marker_count,self.mimic_koza)
 
                     # was there a valid predicate
                     if predicate is None:
@@ -544,7 +546,8 @@ class CTDLoader(SourceDataLoader):
 
     def get_chemical_label_id(self,
                               therapeutic_count: int,
-                              marker_count: int) -> (str, str):
+                              marker_count: int,
+                             mimic_koza: bool) -> (str, str):
         """
         This function applies rules to determine which edge to prefer in cases
         where conflicting edges are returned for a chemical disease relationship.
@@ -553,6 +556,8 @@ class CTDLoader(SourceDataLoader):
         :param marker_count:
         :return:
         """
+        if(mimic_koza and therapeutic_count>0):
+            return self.therapeutic_predicate
 
         # if this is not a good amount of evidence
         if therapeutic_count == marker_count and therapeutic_count < 3:
