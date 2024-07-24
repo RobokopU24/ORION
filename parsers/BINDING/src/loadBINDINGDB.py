@@ -52,7 +52,7 @@ class BINDINGDBLoader(SourceDataLoader):
     source_data_url = "https://www.bindingdb.org/rwd/bind/chemsearch/marvin/SDFdownload.jsp?all_download=yes"
     license = "All data and download files in bindingDB are freely available under a 'Creative Commons BY 3.0' license.'"
     attribution = 'https://www.bindingdb.org/rwd/bind/info.jsp'
-    parsing_version = '1.5'
+    parsing_version = '1.6'
 
     def __init__(self, test_mode: bool = False, source_data_dir: str = None):
         """
@@ -66,12 +66,12 @@ class BINDINGDBLoader(SourceDataLoader):
         self.affinity_threshold = LOG_SCALE_AFFINITY_THRESHOLD
 
         self.measure_to_predicate = {
-            "pKi": "biolink:binds",
+            "pKi": "{DGIDB}:inhibitor", #inhibition constant
             "pIC50": "CTD:decreases_activity_of",
-            "pKd": "biolink:binds",
+            "pKd": "RO:0002436",
             "pEC50": "CTD:increases_activity_of",
-            "k_on": "biolink:binds",
-            "k_off": "biolink:binds"
+            "k_on": "RO:0002436",
+            "k_off": "RO:0002436"
         }
 
         self.bindingdb_version = None
