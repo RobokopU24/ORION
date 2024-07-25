@@ -22,6 +22,7 @@ class GTExLoader(SourceDataLoader):
     has_sequence_variants = True
 
     # this probably won't change very often - just hard code it for now
+    # TODO have GTEX dynamically get version and file url (starting point: https://gtexportal.org/api/v2/metadata/dataset)
     GTEX_VERSION = "8"
 
     # tissue name to uberon curies, the tissue names will match gtex file names
