@@ -82,6 +82,7 @@ class FDBLoader(SourceDataLoader):
         # and get a reference to the data gatherer
         gd: GetData = GetData(self.logger.level)
 
+        if(self.full_url_path==None): self.get_latest_source_version()
         # get all the files noted above
         file_count, foodb_dir, self.tar_dir_name = gd.get_foodb_files(self.full_url_path, self.data_path, self.archive_name, self.data_files)
 
