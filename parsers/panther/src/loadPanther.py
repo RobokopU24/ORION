@@ -115,6 +115,7 @@ class PLoader(SourceDataLoader):
         # do the real thing if we arent in debug mode
         if not self.test_mode:
             # get the complete data set
+            #TODO make these class level variables.
             file_count: int = gd.pull_via_ftp('ftp.pantherdb.org', f'/sequence_classifications/{self.data_version}/PANTHER_Sequence_Classification_files/', [self.data_file], self.data_path)
         else:
             file_count: int = 1
