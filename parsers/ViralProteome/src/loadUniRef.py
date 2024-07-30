@@ -90,6 +90,7 @@ class UniRefSimLoader(SourceDataLoader):
         # are we in test mode
         if not self.test_mode:
             # get the list of taxa
+            #TODO: It looks like gd.get_ncbi_taxon_id_set doesn't resolve. It was removed in https://github.com/RobokopU24/ORION/commit/d3860356f2dac5779d1c15d651e644921dc48f88
             target_taxon_set: set = gd.get_ncbi_taxon_id_set(self.data_path, self.TYPE_VIRUS)
         else:
             # create a test set of target taxa
