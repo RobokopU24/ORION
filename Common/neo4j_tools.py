@@ -61,7 +61,7 @@ class Neo4jTools:
             return password_exit_code
 
         self.logger.info(f'Loading a neo4j backup dump {dump_file_path}...')
-        neo4j_load_cmd = ['neo4j-admin', 'database', 'load', f'--from={dump_file_path}', '--overwrite-destination=true']
+        neo4j_load_cmd = ['neo4j-admin', 'database', 'load', f'--from-path={dump_file_path}', '--overwrite-destination=true']
         load_results: subprocess.CompletedProcess = subprocess.run(neo4j_load_cmd,
                                                                    capture_output=True)
         self.logger.info(load_results.stdout)
