@@ -94,7 +94,7 @@ def __determine_properties_and_types(file_path: str, required_properties: dict):
         for key, value in entity.items():
             if value is None:
                 property_type_counts[key]["None"] += 1
-                if key in required_properties:
+                if key in required_properties and key is not "name":
                     print(f'WARNING: Required property ({key}) was None: {entity.items()}')
                     raise Exception(
                         f'None found as a value for a required property (property: {key}) in line {entity.items()}')
@@ -134,7 +134,7 @@ def __determine_properties_and_types(file_path: str, required_properties: dict):
         # if 'None' in prop_types:
             # print(f'WARNING: None found as a value for property {prop}')
 
-        if prop in required_properties and (num_prop_types > 1):
+        if prop in required_properties and (num_prop_types > 1) and prop != "name":
             # TODO this should just enforce that required properties are the correct type,
             #  instead of trying to establish the type
             raise Exception(f'Required property {prop} had multiple conflicting types: {type_counts.items()}')
@@ -192,7 +192,10 @@ def __convert_to_csv(input_file: str,
         for item in quick_jsonl_file_iterator(input_file):
             for key in list(item.keys()):
                 if item[key] is None:
-                    del item[key]
+                    if key == "name":
+                        item["name"] = item["id"]
+                    else:
+                        del item[key]
                 else:
                     prop_type = properties[key]
                     # convert lists into strings with an array delimiter
