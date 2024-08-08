@@ -48,10 +48,13 @@ OBJECT_ID = 'object'
 PREDICATE = 'predicate'
 PRIMARY_KNOWLEDGE_SOURCE = 'primary_knowledge_source'
 AGGREGATOR_KNOWLEDGE_SOURCES = 'aggregator_knowledge_source'
+SUPPORTING_DATA_SOURCE = 'supporting_data_source'
 P_VALUE = 'p_value'
 ADJUSTED_P_VALUE = 'adjusted_p_value'
 AGENT_TYPE = 'agent_type'
 KNOWLEDGE_LEVEL = 'knowledge_level'
+MAX_RESEARCH_PHASE = 'max_research_phase'
+HAS_SUPPORTING_STUDY_RESULT = "has_supporting_study_result"
 
 # enums for knowledge level
 KNOWLEDGE_ASSERTION = 'knowledge_assertion'
@@ -137,6 +140,7 @@ BIOLINK_EDGE_PROPERTIES = [
     PREDICATE,
     PRIMARY_KNOWLEDGE_SOURCE,
     AGGREGATOR_KNOWLEDGE_SOURCES,
+    SUPPORTING_DATA_SOURCE,
     PUBLICATIONS,
     SYNONYMS,
     DESCRIPTION,
@@ -147,6 +151,8 @@ BIOLINK_EDGE_PROPERTIES = [
     FDA_APPROVAL_STATUS,
     KNOWLEDGE_LEVEL,
     MECHANISM_OF_ACTION,
+    MAX_RESEARCH_PHASE,
+    HAS_SUPPORTING_STUDY_RESULT,
     # qualifiers
     ANATOMICAL_CONTEXT_QUALIFIER,
     CAUSAL_MECHANISM_QUALIFIER,
