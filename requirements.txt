@@ -1,5 +1,5 @@
 pandas==2.2.1
-requests==2.32.0
+requests==2.32.3
 pytest==8.1.1
 git+https://github.com/ObesityHub/robokop-genetics.git
 # intermine is on pypi but as of 6/23 it's broken for python 3.10+, this fork fixes the issue
