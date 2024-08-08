@@ -6,4 +6,4 @@ graphs:
     graph_url: https://github.com/NCATSTranslator/Translator-All/wiki/Clinical-Trials-KP
     output_format: neo4j
     sources:
-      - source_id: CTKP
+      - source_id: ClinicalTrialsKP
