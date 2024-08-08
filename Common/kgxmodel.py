@@ -99,18 +99,45 @@ class SubGraphSource(GraphSource):
                 'merge_strategy:': self.merge_strategy,
                 'graph_metadata': self.graph_metadata}
 
+from typing import Callable
 
 @dataclass
 class DataSource(GraphSource):
     normalization_scheme: NormalizationScheme = None
-    source_version: str = None
+    #This function serves as an update to a static variable which used to \
+    # be used to represent "source_version". This is because there are two
+    # cases. One is the source version has been set by the graph spec yaml file,
+    # in which case we have this as a lambda that ignores the paramater and returns that string.
+    # The other case is when it needs to be dynamically generated based on the information in 
+    # a data set. In that case it will be invoked when needed.
+    get_source_version: Callable[[str],str] = None 
+    __source_version : str = None
     parsing_version: str = None
     supplementation_version: str = None
     release_info: dict = None
 
+
+#    def __init__(self, normalization_scheme, source_version, parsing_version=None, supplementation_version=None, release_info=None, **kwargs):
+#        self.normalization_scheme = normalization_scheme
+#        self.parsing_version = parsing_version
+#        self.supplementation_version = supplementation_version
+#        self.release_info = release_info
+    #def __init__(source_version, **kwargs):
+        #print(self.source_version)
+        #breakpoint()
+        #print(kwargs)
+#        super().__init__(**kwargs)
+
+    def __getattr__(self, name):
+        if(name=="source_version"):
+            if(self.__source_version==None):
+                self.__source_version = self.get_source_version(self.id)
+            return self.__source_version
+        else: return object.__getattribute__(self,name)
+
     def get_metadata_representation(self):
         metadata = {'source_id': self.id,
-                'source_version': self.source_version,
+                'source_version': self.get_source_version(self.id),
                 'release_version': self.version,
                 'parsing_version': self.parsing_version,
                 'supplementation_version': self.supplementation_version,
