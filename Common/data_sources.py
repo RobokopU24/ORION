@@ -4,7 +4,7 @@ import importlib
 BINDING_DB = 'BINDING-DB'
 CAM_KP = 'CAM-KP'
 CHEBI_PROPERTIES = 'CHEBIProps'
-CLINICAL_TRIALS_KP = 'CTKP'
+CLINICAL_TRIALS_KP = 'ClinicalTrialsKP'
 CORD19 = 'Cord19'
 CTD = 'CTD'
 DRUG_CENTRAL = 'DrugCentral'
