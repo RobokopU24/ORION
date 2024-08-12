@@ -203,6 +203,7 @@ class CTKPLoader(SourceDataLoader):
             supporting_data_source = None
 
         edge_attributes = {
+            EDGE_ID: line[EDGESDATACOLS.ID.value],
             PRIMARY_KNOWLEDGE_SOURCE: primary_knowledge_source,
             AGGREGATOR_KNOWLEDGE_SOURCES: aggregator_knowledge_sources,
             KNOWLEDGE_LEVEL: line[EDGESDATACOLS.KNOWLEDGE_LEVEL.value],
