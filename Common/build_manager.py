@@ -12,8 +12,8 @@ from Common.data_sources import get_available_data_sources
 from Common.load_manager import SourceDataManager
 from Common.kgx_file_merger import KGXFileMerger
 from Common.neo4j_tools import create_neo4j_dump
-from Common.kgxmodel import GraphSpec, SubGraphSource, DataSource, NormalizationScheme
-from Common.normalization import NORMALIZATION_CODE_VERSION
+from Common.kgxmodel import GraphSpec, SubGraphSource, DataSource
+from Common.normalization import NORMALIZATION_CODE_VERSION, NormalizationScheme
 from Common.metadata import Metadata, GraphMetadata, SourceMetadata
 from Common.supplementation import SequenceVariantSupplementation
 from Common.biolink_constants import PRIMARY_KNOWLEDGE_SOURCE, AGGREGATOR_KNOWLEDGE_SOURCES, PREDICATE, PUBLICATIONS
@@ -139,8 +139,7 @@ class GraphBuilder:
             subgraph_version = subgraph_source.version
             if self.check_for_existing_graph_dir(subgraph_id, subgraph_version):
                 # load previous metadata
-                graph_metadata = self.get_graph_metadata(subgraph_id, subgraph_version)
-                subgraph_source.graph_metadata = graph_metadata.metadata
+                subgraph_source.graph_metadata = self.get_graph_metadata(subgraph_id, subgraph_version)
             elif self.current_graph_versions[subgraph_id] == subgraph_version:
                 self.logger.warning(f'For graph {graph_spec.graph_id} subgraph dependency '
                                     f'{subgraph_id} version {subgraph_version} is not ready. Building now...')

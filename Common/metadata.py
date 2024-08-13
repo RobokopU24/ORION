@@ -3,7 +3,7 @@ import os
 import json
 from xxhash import xxh64_hexdigest
 
-from Common.kgxmodel import NormalizationScheme
+from Common.normalization import NormalizationScheme
 
 
 class Metadata:
@@ -121,6 +121,9 @@ class GraphMetadata(Metadata):
 
     def get_graph_version(self):
         return self.metadata['graph_version']
+
+    def get_source_ids(self):
+        return [source['source_id'] for source in self.metadata['sources']]
 
 
 class SourceMetadata(Metadata):
