@@ -87,7 +87,6 @@ class SIGNORLoader(SourceDataLoader):
                 with open(os.path.join(self.data_path, self.signor_stimuli_filename), 'wb') as f:
                     f.write(response.content)
             elif source == self.signor_file_name:
-                source_url = f"{source}"
                 data_puller.pull_via_http(self.signor_data_url, self.data_path)
             file_count+=1
         return file_count
