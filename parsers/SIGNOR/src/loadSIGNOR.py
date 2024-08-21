@@ -49,7 +49,7 @@ class SIGNORLoader(SourceDataLoader):
 
         self.signor_version = self.get_latest_source_version()
         self.signor_file_name = f"getLatestRelease.php"
-        self.data_files = [self.signor_data_url,
+        self.data_files = [self.self.signor_file_name,
                            self.signor_phenotypes_filename,
                            self.signor_stimuli_filename
                            ]
@@ -72,7 +72,7 @@ class SIGNORLoader(SourceDataLoader):
         """
 
         data_puller = GetData()
-        i=0
+        file_count=0
         for source in self.data_files:
             if source == self.signor_phenotypes_filename:
                 mp_encoder = MultipartEncoder(fields={"submit":(None, "Download phenotype data")})
@@ -86,13 +86,11 @@ class SIGNORLoader(SourceDataLoader):
                 response = rq.post(self.signor_mapping_download,headers=headers,data=mp_encoder)
                 with open(os.path.join(self.data_path, self.signor_stimuli_filename), 'wb') as f:
                     f.write(response.content)
-            else:
+            elif source == self.signor_file_name:
                 source_url = f"{source}"
-                data_puller.pull_via_http(source_url, self.data_path)
-
-            i+=1
-        print(os.path.join(self.data_path,self.signor_file_name))
-        return True
+                data_puller.pull_via_http(self.signor_data_url, self.data_path)
+            file_count+=1
+        return file_count
 
     def process_node_to_kgx(self,node_id: str, node_name: str, node_categories: list):
         #self.logger.info(f'processing node: {node_identity}')
