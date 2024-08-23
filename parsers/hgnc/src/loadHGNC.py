@@ -26,7 +26,7 @@ class HGNCLoader(SourceDataLoader):
     attribution = "https://www.genenames.org/about/"
     parsing_version: str = '1.2'
 
-    def __init__(self, test_mode: bool = False, source_data_dir: str = None):
+    def __init__(self, test_mode: bool = False, source_data_dir: str = None, mimic_koza : bool = True):
         """
         :param test_mode - sets the run into test mode
         :param source_data_dir - the specific storage directory to save files in
@@ -39,6 +39,7 @@ class HGNCLoader(SourceDataLoader):
                                  # self.gene_groups_file_name
                                  ]
         self.test_mode: bool = test_mode
+        self.mimic_koza: bool = mimic_koza
         self.source_db: str = 'HUGO Gene Nomenclature Committee'
 
         self.ftp_site = 'ftp.ebi.ac.uk'
@@ -109,6 +110,14 @@ class HGNCLoader(SourceDataLoader):
 
                 # increment the counter
                 record_counter += 1
+                if(self.mimic_koza):
+                    gene_id = r['hgnc_id']
+                    gene_name = r['name']
+                    gene_props = {'locus_group': r['locus_group'], 'symbol': r['symbol'], 'location': r['location']}
+                    gene_node = kgxnode(gene_id, name=gene_name, nodeprops=gene_props)
+                    self.final_node_list.append(gene_node)
+                    continue
+                    
 
                 # did we get a valid record
                 if len(r['gene_family_id']) > 0:
