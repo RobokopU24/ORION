@@ -13,24 +13,24 @@ jobs:
         runs-on: ubuntu-latest
         steps:
             - name: Check out the repo
-              uses: actions/checkout@v2
+              uses: actions/checkout@v4
             - name: Get the version
               id: get_version
               run: echo ::set-output name=VERSION::${GITHUB_REF/refs\/tags\//}
-            - name: Extract metadata (tags, labels) for Docker
-              id: meta
-              uses: docker/metadata-action@98669ae865ea3cffbcbaa878cf57c20bbf1c6c38
-              with:
-                images:
-                    ghcr.io/${{ github.repository }}
             - name: Login to ghcr
-              uses: docker/login-action@v1
+              uses: docker/login-action@f4ef78c080cd8ba55a85445d5b36e214a81df20a
               with:
                   registry: ${{ env.REGISTRY }}
                   username: ${{ github.actor }}
                   password: ${{ secrets.GITHUB_TOKEN }}
+            - name: Extract metadata (tags, labels) for Docker
+              id: meta
+              uses: docker/metadata-action@9ec57ed1fcdbf14dcef7dfbe97b2010124a938b7
+              with:
+                images:
+                  ghcr.io/${{ github.repository }}
             - name: Push to GitHub Packages
-              uses: docker/build-push-action@ad44023a93711e3deb337508980b4b5e9bcdc5dc
+              uses: docker/build-push-action@3b5e8027fcad23fda98b2e3ac259d8d67585f671
               with:
                   context: .
                   push: true

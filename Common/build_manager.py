@@ -12,8 +12,8 @@ from Common.data_sources import get_available_data_sources
 from Common.load_manager import SourceDataManager
 from Common.kgx_file_merger import KGXFileMerger
 from Common.neo4j_tools import create_neo4j_dump
-from Common.kgxmodel import GraphSpec, SubGraphSource, DataSource, NormalizationScheme
-from Common.normalization import NORMALIZATION_CODE_VERSION
+from Common.kgxmodel import GraphSpec, SubGraphSource, DataSource
+from Common.normalization import NORMALIZATION_CODE_VERSION, NormalizationScheme
 from Common.metadata import Metadata, GraphMetadata, SourceMetadata
 from Common.supplementation import SequenceVariantSupplementation
 from Common.biolink_constants import PRIMARY_KNOWLEDGE_SOURCE, AGGREGATOR_KNOWLEDGE_SOURCES, PREDICATE, PUBLICATIONS

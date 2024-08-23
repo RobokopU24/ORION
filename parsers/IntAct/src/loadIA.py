@@ -84,6 +84,9 @@ class IALoader(SourceDataLoader):
         """
         super().__init__(test_mode=test_mode, source_data_dir=source_data_dir)
 
+        self.ftp_site = 'ftp.ebi.ac.uk'
+        self.ftp_dir = '/pub/databases/IntAct/current/psimitab/'
+        
         self.data_file: str = 'intact.zip'
         self.source_db: str = 'IntAct Molecular Interaction Database'
 
@@ -100,7 +103,7 @@ class IALoader(SourceDataLoader):
         gd = GetData(self.logger.level)
 
         # get the file date
-        ret_val: str = gd.get_ftp_file_date('ftp.ebi.ac.uk', '/pub/databases/IntAct/current/psimitab/', self.data_file)
+        ret_val: str = gd.get_ftp_file_date(self.ftp_site, self.ftp_dir, self.data_file)
 
         # return to the caller
         return ret_val
@@ -112,7 +115,7 @@ class IALoader(SourceDataLoader):
         """
         # get a reference to the data gathering class
         gd: GetData = GetData(self.logger.level)
-        file_count: int = gd.pull_via_ftp('ftp.ebi.ac.uk', '/pub/databases/IntAct/current/psimitab/', [self.data_file],
+        file_count: int = gd.pull_via_ftp(self.ftp_site, self.ftp_dir, [self.data_file],
                                           self.data_path)
         return file_count
 

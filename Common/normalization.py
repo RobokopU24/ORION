@@ -3,6 +3,9 @@ import logging
 import requests
 import time
 
+from requests.adapters import HTTPAdapter, Retry
+from dataclasses import dataclass
+
 from robokop_genetics.genetics_normalization import GeneticsNormalizer
 from Common.biolink_constants import *
 from Common.utils import LoggingUtil
@@ -14,6 +17,36 @@ CUSTOM_NODE_TYPES = 'custom_node_types'
 
 # predicate to use when normalization fails
 FALLBACK_EDGE_PREDICATE = 'biolink:related_to'
+
+@dataclass
+class NormalizationScheme:
+    node_normalization_version: str = 'latest'
+    edge_normalization_version: str = 'latest'
+    normalization_code_version: str = NORMALIZATION_CODE_VERSION
+    strict: bool = True
+    conflation: bool = False
+
+    def get_composite_normalization_version(self):
+        composite_normalization_version = f'{self.node_normalization_version}_' \
+                                f'{self.edge_normalization_version}_{self.normalization_code_version}'
+        if self.conflation:
+            composite_normalization_version += '_conflated'
+        if self.strict:
+            composite_normalization_version += '_strict'
+        return composite_normalization_version
+
+    def get_metadata_representation(self):
+        return {'node_normalization_version': self.node_normalization_version,
+                'edge_normalization_version': self.edge_normalization_version,
+                'normalization_code_version': self.normalization_code_version,
+                'conflation': self.conflation,
+                'strict': self.strict}
+
+
+class NormalizationFailedError(Exception):
+    def __init__(self, error_message: str, actual_error: Exception = None):
+        self.error_message = error_message
+        self.actual_error = actual_error
 
 
 class NodeNormalizer:
@@ -70,108 +103,94 @@ class NodeNormalizer:
         self.sequence_variant_normalizer = None
         self.variant_node_types = None
 
-    def hit_node_norm_service(self, curies, retries=0):
-        resp: requests.models.Response = requests.post(f'{self.node_norm_endpoint}get_normalized_nodes',
-                                                       json={'curies': curies,
-                                                             'conflate': self.conflate_node_types,
-                                                             'drug_chemical_conflate': self.conflate_node_types,
-                                                             'description': True})
+        self.requests_session = self.get_normalization_requests_session()
+
+    def hit_node_norm_service(self, curies):
+        resp = self.requests_session.post(f'{self.node_norm_endpoint}get_normalized_nodes',
+                                          json={'curies': curies,
+                                                'conflate': self.conflate_node_types,
+                                                'drug_chemical_conflate': self.conflate_node_types,
+                                                'description': True})
         if resp.status_code == 200:
             # if successful return the json as an object
-            return resp.json()
-        else:
-            error_message = f'Node norm response code: {resp.status_code}'
-            if resp.status_code >= 500:
-                # if 5xx retry 3 times
-                retries += 1
-                if retries == 4:
-                    error_message += ', retried 3 times, giving up..'
-                    self.logger.error(error_message)
-                    resp.raise_for_status()
-                else:
-                    error_message += f', retrying.. (attempt {retries})'
-                    time.sleep(retries * 3)
-                    self.logger.error(error_message)
-                    return self.hit_node_norm_service(curies, retries)
+            response_json = resp.json()
+            if response_json:
+                return response_json
             else:
-                # we should never get a legitimate 4xx response from node norm,
-                # crash with an error for troubleshooting
-                if resp.status_code == 422:
-                    error_message += f'(curies: {curies})'
-                self.logger.error(error_message)
-                resp.raise_for_status()
+                error_message = f"Node Normalization service {self.node_norm_endpoint} returned 200 " \
+                                f"but with an empty result for (curies: {curies})"
+                raise NormalizationFailedError(error_message=error_message)
+        else:
+            error_message = f'Node norm response code: {resp.status_code} (curies: {curies})'
+            self.logger.error(error_message)
+            resp.raise_for_status()
 
-    def normalize_node_data(self, node_list: list, block_size: int = 1000) -> list:
+    def normalize_node_data(self, node_list: list, batch_size: int = 1000) -> list:
         """
-        This method calls the NodeNormalization web service to get the normalized identifier and name of the node.
-        the data comes in as a node list.
+        This method calls the NodeNormalization web service and normalizes a list of nodes.
 
-        :param node_list: A list with items to normalize
-        :param block_size: the number of curies in the request
+        :param node_list: A list of unique nodes to normalize
+        :param batch_size: the number of curies to be sent to NodeNormalization at once
 
         :return:
         """
 
-        self.logger.debug(f'Start of normalize_node_data. items: {len(node_list)}')
+        # look up all valid biolink node types if needed
+        # this is used when strict normalization is off to ensure only valid types go into the graph as NODE_TYPES
+        if not self.strict_normalization and not self.biolink_compliant_node_types:
+            biolink_lookup = EdgeNormalizer(edge_normalization_version=self.biolink_version)
+            self.biolink_compliant_node_types = biolink_lookup.get_valid_node_types()
 
-        # init the cache - this accumulates all the results from the node norm service
-        cached_node_norms: dict = {}
+        # make a list of the node ids, we used to deduplicate here, but now we expect the list to be unique ids
+        to_normalize: list = [node['id'] for node in node_list]
 
-        # create a unique set of node ids
-        tmp_normalize: set = set([node['id'] for node in node_list])
-
-        # convert the set to a list so we can iterate through it
-        to_normalize: list = list(tmp_normalize)
-
-        # init the array index lower boundary
+        # use indexes and slice to grab batch_size sized chunks of ids from the list
         start_index: int = 0
-
-        # get the last index of the list
         last_index: int = len(to_normalize)
-
-        self.logger.debug(f'{last_index} unique nodes found in this group.')
-
-        # grab chunks of the data frame
+        chunks_of_ids = []
         while True:
             if start_index < last_index:
-                # define the end index of the slice
-                end_index: int = start_index + block_size
+                end_index: int = start_index + batch_size
 
-                # force the end index to be the last index to insure no overflow
+                # force the end index to be no greater than the last index to ensure no overflow
                 if end_index >= last_index:
                     end_index = last_index
 
-                self.logger.debug(f'Working block {start_index} to {end_index}.')
-
-                # collect a slice of records from the data frame
-                data_chunk: list = to_normalize[start_index: end_index]
-
-                # hit the node norm api
-                normalization_json = self.hit_node_norm_service(curies=data_chunk)
-                if normalization_json:
-                    # merge the normalization results with what we have gotten so far
-                    cached_node_norms.update(**normalization_json)
-                else:
-                    # this shouldn't happen but if the API returns an empty dict instead of nulls,
-                    # assume none of the curies normalize
-                    empty_responses = {curie: None for curie in data_chunk}
-                    cached_node_norms.update(empty_responses)
+                # collect a slice of block_size curies from the full list
+                chunks_of_ids.append(to_normalize[start_index: end_index])
 
                 # move on down the list
-                start_index += block_size
+                start_index += batch_size
             else:
                 break
+
+        # we should be able to do the following, but it's causing RemoteDisconnected errors with node norm
+        #
+        # hit the node norm api with the chunks of curies in parallel
+        # we could try to optimize the number of max_workers for ThreadPoolExecutor more specifically,
+        # by default python attempts to find a reasonable # based on os.cpu_count()
+        # with ThreadPoolExecutor() as executor:
+        #     executor_results = executor.map(self.hit_node_norm_service, chunks_of_ids)
+        #
+        # normalization_results = list(executor_results)
+        # for normalization_json, ids in zip(normalization_results, chunks_of_ids):
+        #     if not normalization_json:
+        #        raise NormalizationFailedError(f'!!! Normalization json results missing for ids: {ids}')
+        #    else:
+        #        merge the normalization results into one dictionary
+        #        node_normalization_results.update(**normalization_json)
+
+        # until we can get threading working, hit node norm sequentially
+        node_normalization_results: dict = {}
+        for chunk in chunks_of_ids:
+            results = self.hit_node_norm_service(chunk)
+            node_normalization_results.update(**results)
 
         # reset the node index
         node_idx = 0
 
         # node ids that failed to normalize
         failed_to_normalize: list = []
-
-        # look up valid node types if needed
-        if not self.strict_normalization and not self.biolink_compliant_node_types:
-            biolink_lookup = EdgeNormalizer(edge_normalization_version=self.biolink_version)
-            self.biolink_compliant_node_types = biolink_lookup.get_valid_node_types()
 
         # for each node update the node with normalized information
         # store the normalized IDs in self.node_normalization_lookup for later look up
@@ -217,7 +236,7 @@ class NodeNormalizer:
                 current_node[NODE_TYPES] = list(set(current_node[NODE_TYPES]))
 
             # did we get a response from the normalizer
-            current_node_normalization = cached_node_norms[current_node_id]
+            current_node_normalization = node_normalization_results[current_node_id]
             if current_node_normalization is not None:
 
                 current_node_id_section = current_node_normalization['id']
@@ -341,6 +360,17 @@ class NodeNormalizer:
             # this shouldn't happen, raise an exception
             resp.raise_for_status()
 
+    @staticmethod
+    def get_normalization_requests_session():
+        pool_maxsize = max(os.cpu_count(), 10)
+        s = requests.Session()
+        retries = Retry(total=8,
+                        backoff_factor=1,
+                        status_forcelist=[502, 503, 504, 403, 429])
+        s.mount('https://', HTTPAdapter(max_retries=retries, pool_maxsize=pool_maxsize))
+        s.mount('http://', HTTPAdapter(max_retries=retries, pool_maxsize=pool_maxsize))
+        return s
+
 
 class EdgeNormalizationResult:
     def __init__(self,
@@ -398,10 +428,8 @@ class EdgeNormalizer:
         """
 
         # find the predicates that have not been normalized yet
-        predicates_to_normalize = set()
-        for edge in edge_list:
-            if edge[PREDICATE] not in self.edge_normalization_lookup:
-                predicates_to_normalize.add(edge[PREDICATE])
+        predicates_to_normalize = {edge[PREDICATE] for edge in edge_list
+                                   if edge[PREDICATE] not in self.edge_normalization_lookup}
 
         # convert the set to a list so we can iterate through it
         predicates_to_normalize_list = list(predicates_to_normalize)
