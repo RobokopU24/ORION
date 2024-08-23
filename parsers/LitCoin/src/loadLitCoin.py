@@ -98,9 +98,9 @@ class LitCoinLoader(SourceDataLoader):
         super().__init__(test_mode=test_mode, source_data_dir=source_data_dir)
 
         self.data_url = 'https://stars.renci.org/var/data_services/litcoin/'
-        self.data_file = 'abstracts_CompAndHeal_gpt4_20240320_train.json'
+        self.llm_output_file = 'rare_disease_abstracts_fixed._gpt4_20240320.json'
         self.biolink_predicate_vectors_file = 'mapped_predicate_vectors.json'
-        self.data_files = [self.data_file, self.biolink_predicate_vectors_file]
+        self.data_files = [self.llm_output_file, self.biolink_predicate_vectors_file]
         # dicts of name to id lookups organized by node type (node_name_to_id_lookup[node_type] = dict of names -> id)
         # self.node_name_to_id_lookup = defaultdict(dict)  <--- replaced with bagel
         self.bagel_results_lookup = None
@@ -110,7 +110,7 @@ class LitCoinLoader(SourceDataLoader):
         self.mentions_predicate = "IAO:0000142"
 
     def get_latest_source_version(self) -> str:
-        latest_version = 'v1.4'
+        latest_version = 'rare_disease_1'
         return latest_version
 
     def get_data(self) -> bool:
@@ -143,8 +143,13 @@ class LitCoinLoader(SourceDataLoader):
 
         records = 0
         skipped_records = 0
+        failed_bagelization = 0
+        bagelization_errors = 0
+        failed_predicate_mapping = 0
         number_of_abstracts = 0
-        litcoin_file_path: str = os.path.join(self.data_path, self.data_file)
+        terms_that_could_not_be_bagelized = set()
+        predicates_that_could_not_be_mapped = set()
+        litcoin_file_path: str = os.path.join(self.data_path, self.llm_output_file)
         with open(litcoin_file_path) as litcoin_file:
             litcoin_json = json.load(litcoin_file)
             for litcoin_object in litcoin_json:
@@ -166,12 +171,15 @@ class LitCoinLoader(SourceDataLoader):
                             except Exception as e:
                                 self.logger.error(f'Failed Bagelization: {type(e)}:{e}')
                                 skipped_records += 1
+                                bagelization_errors += 1
                                 continue
                         else:
                             bagel_results = self.bagel_results_lookup[subject_name]
                         bagel_subject_node, subject_bagel_synonym_type = extract_best_match(bagel_results)
                         if not bagel_subject_node:
                             skipped_records += 1
+                            failed_bagelization += 1
+                            terms_that_could_not_be_bagelized.add(subject_name)
                             continue
                         subject_id = bagel_subject_node['curie']
                         subject_name = bagel_subject_node['label']
@@ -181,15 +189,18 @@ class LitCoinLoader(SourceDataLoader):
                             try:
                                 bagel_results = get_bagel_results(abstract=abstract_text, term=object_name)
                                 self.bagel_results_lookup[object_name] = bagel_results
-                                skipped_records += 1
                             except Exception as e:
                                 self.logger.error(f'Failed Bagelization: {type(e)}:{e}')
+                                skipped_records += 1
+                                bagelization_errors += 1
                                 continue
                         else:
                             bagel_results = self.bagel_results_lookup[object_name]
                         bagel_object_node, object_bagel_synonym_type = extract_best_match(bagel_results)
                         if not bagel_object_node:
                             skipped_records += 1
+                            failed_bagelization += 1
+                            terms_that_could_not_be_bagelized.add(object_name)
                             continue
                         object_id = bagel_object_node['curie']
                         object_name = bagel_object_node['label']
@@ -198,6 +209,7 @@ class LitCoinLoader(SourceDataLoader):
                         predicate = predicate_mapper.get_mapped_predicate(litcoin_edge[LLM_RELATIONSHIP])
                         if not predicate:
                             skipped_records += 1
+                            failed_predicate_mapping += 1
                             continue
 
                         self.output_file_writer.write_node(node_id=subject_id,
@@ -257,7 +269,12 @@ class LitCoinLoader(SourceDataLoader):
 
         parsing_metadata = {
             'records': records,
-            'skipped_records': skipped_records
+            'skipped_records': skipped_records,
+            'bagelization_errors': bagelization_errors,
+            'failed_bagelization': failed_bagelization,
+            'terms_that_could_not_be_bagelized': list(terms_that_could_not_be_bagelized),
+            'failed_predicate_mapping': failed_predicate_mapping,
+            'predicates_that_could_not_be_mapped': list(predicates_that_could_not_be_mapped)
         }
         return parsing_metadata
 
@@ -428,7 +445,7 @@ class LitCoinEntityExtractorLoader(LitCoinLoader):
     parsing_version: str = '1.4'
 
     def parse_data(self) -> dict:
-        litcoin_file_path: str = os.path.join(self.data_path, self.data_file)
+        litcoin_file_path: str = os.path.join(self.data_path, self.llm_output_file)
         all_entities = {}
         with open(litcoin_file_path) as litcoin_file:
             litcoin_json = json.load(litcoin_file)
