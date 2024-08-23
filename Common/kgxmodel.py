@@ -1,6 +1,8 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, InitVar
+from typing import Callable
 from Common.biolink_constants import NAMED_THING
 from Common.normalization import NORMALIZATION_CODE_VERSION
+
 
 class kgxnode:
     def __init__(self,
@@ -99,50 +101,49 @@ class SubGraphSource(GraphSource):
                 'merge_strategy:': self.merge_strategy,
                 'graph_metadata': self.graph_metadata}
 
-from typing import Callable
 
 @dataclass
 class DataSource(GraphSource):
     normalization_scheme: NormalizationScheme = None
-    #This function serves as an update to a static variable which used to \
-    # be used to represent "source_version". This is because there are two
-    # cases. One is the source version has been set by the graph spec yaml file,
-    # in which case we have this as a lambda that ignores the paramater and returns that string.
-    # The other case is when it needs to be dynamically generated based on the information in 
-    # a data set. In that case it will be invoked when needed.
-    get_source_version: Callable[[str],str] = None 
-    __source_version : str = None
+    source_version: InitVar[str] = None
     parsing_version: str = None
     supplementation_version: str = None
     release_info: dict = None
 
+    # This function serves as an optional way to provide a callable function which can determine the source version,
+    # instead of setting it during initialization. This is used like lazy initialization, because determining the
+    # source version of a data source can be expensive and error-prone, and we don't want to do it if we don't need to.
+    get_source_version: InitVar[Callable[[str], str]] = None
+    _source_version: str = None
+    _get_source_version: Callable[[str], str] = None
 
-#    def __init__(self, normalization_scheme, source_version, parsing_version=None, supplementation_version=None, release_info=None, **kwargs):
-#        self.normalization_scheme = normalization_scheme
-#        self.parsing_version = parsing_version
-#        self.supplementation_version = supplementation_version
-#        self.release_info = release_info
-    #def __init__(source_version, **kwargs):
-        #print(self.source_version)
-        #breakpoint()
-        #print(kwargs)
-#        super().__init__(**kwargs)
+    def __post_init__(self, source_version, get_source_version):
+        self._get_source_version = get_source_version
+        # if a source_version is provided in initialization, just store that and return it
+        if source_version:
+            self._source_version = source_version
+        # if neither the source version nor a function to determine it is provided, throw an error
+        if not source_version and not get_source_version:
+            raise Exception(f'Invalid DataSource initialization - '
+                            f'source_version or get_source_version must be provided.')
 
-    def __getattr__(self, name):
-        if(name=="source_version"):
-            if(self.__source_version==None):
-                self.__source_version = self.get_source_version(self.id)
-            return self.__source_version
-        else: return object.__getattribute__(self,name)
+    # when
+    def __getattribute__(self, name):
+        if name == "source_version":
+            if not self._source_version:
+                self._source_version = self._get_source_version(self.id)
+            return self._source_version
+        else:
+            return object.__getattribute__(self, name)
 
     def get_metadata_representation(self):
         metadata = {'source_id': self.id,
-                'source_version': self.get_source_version(self.id),
-                'release_version': self.version,
-                'parsing_version': self.parsing_version,
-                'supplementation_version': self.supplementation_version,
-                'normalization_scheme': self.normalization_scheme.get_metadata_representation(),
-                'merge_strategy': self.merge_strategy}
+                    'source_version': self.source_version,  # this may produce an IDE warning but it's right
+                    'release_version': self.version,
+                    'parsing_version': self.parsing_version,
+                    'supplementation_version': self.supplementation_version,
+                    'normalization_scheme': self.normalization_scheme.get_metadata_representation(),
+                    'merge_strategy': self.merge_strategy}
         if self.release_info:
             metadata.update(self.release_info)
         return metadata
