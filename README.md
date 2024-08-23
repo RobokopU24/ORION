@@ -31,12 +31,20 @@ git clone https://github.com/RobokopU24/ORION.git
 Next create directories where data sources, graphs, and logs will be stored. 
 
 ORION_STORAGE - for storing data sources
+
 ORION_GRAPHS - for storing knowledge graphs
+
 ORION_LOGS - for storing logs
 
-You can do this manually, or use the script indicated below to set up a standard configuration (Option 1 or 2).
+You can do this manually, or use the script indicated below to set up a default configuration.
 
-Option 1: Create three directories and set environment variables specifying paths to the locations of those directories.
+Option 1: Use this script to create the directories and set the environment variables:
+```
+cd ~/ORION_root/ORION/
+source ./set_up_test_env.sh
+```
+
+Option 2: Create three directories and manually set environment variables specifying paths to the locations of those directories.
 ```
 mkdir ~/ORION_root/storage/
 export ORION_STORAGE=~/ORION_root/storage/ 
@@ -46,12 +54,6 @@ export ORION_GRAPHS=~/ORION_root/graphs/
 
 mkdir ~/ORION_root/logs/
 export ORION_LOGS=~/ORION_root/logs/
-```
-
-Option 2: Use this script to create the directories and set the environment variables:
-```
-cd ~/ORION_root/ORION/
-source ./set_up_test_env.sh
 ```
 
 Next create or select a Graph Spec yaml file where the content of knowledge graphs to be built will be specified.
@@ -91,11 +93,11 @@ docker-compose up
 ```
 If you want to specify an individual graph you can override the default command with a graph id from your Spec.
 ```
-docker-compose run --rm data_services python /ORION/Common/build_manager.py Example_Graph_ID
+docker-compose run --rm orion python /ORION/Common/build_manager.py Example_Graph_ID
 ```
 To run the ORION pipeline for a single data source, you can use:
 ```
-docker-compose run --rm data_services python /ORION/Common/load_manager.py Example_Source
+docker-compose run --rm orion python /ORION/Common/load_manager.py Example_Source
 ```
 To see available arguments and a list of supported data sources:
 ```
@@ -142,5 +144,5 @@ Now you can use that source ID in a graph spec to include your new source in a g
 
 After you alter the codebase, or if you are experiencing issues or errors you may want to run tests:
 ```
-docker-compose run --rm data_services pytest /ORION
+docker-compose run --rm orion pytest /ORION
 ```

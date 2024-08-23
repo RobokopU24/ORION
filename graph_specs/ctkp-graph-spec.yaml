@@ -1,0 +1,9 @@
+graphs:
+
+  - graph_id: CTKP_Automat
+    graph_name: Clinical Trials KP
+    graph_description: 'The Clinical Trials KP, created and maintained by the Multiomics Provider, provides information on Clinical Trials, ultimately derived from researcher submissions to clinicaltrials.gov, via the Aggregate Analysis of Clinical Trials (AACT) database). Information on select trials includes the NCT Identifier of the trial, interventions used, diseases/conditions relevant to the trial, adverse events, etc.'
+    graph_url: https://github.com/NCATSTranslator/Translator-All/wiki/Clinical-Trials-KP
+    output_format: neo4j
+    sources:
+      - source_id: ClinicalTrialsKP

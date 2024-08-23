@@ -19,17 +19,34 @@ def edge_key_function(edge):
 
 
 def entity_merging_function(entity_1, entity_2, properties_that_are_sets):
-    for key, value in entity_2.items():
-        # TODO - make sure this is the behavior we want -
-        # for properties that are lists append the values
-        # otherwise keep the first one
-        if key in entity_1:
-            if isinstance(value, list):
-                entity_1[key].extend(value)
-                if key in properties_that_are_sets:
-                    entity_1[key] = list(set(entity_1[key]))
+    # for every property of entity 2
+    for key, entity_2_value in entity_2.items():
+        # if entity 1 also has the property and entity_2_value is not null/empty:
+        # concatenate values if one is a list, otherwise ignore the property from entity 2
+        if (key in entity_1) and entity_2_value:
+            entity_1_value = entity_1[key]
+            entity_1_is_list = isinstance(entity_1_value, list)
+            entity_2_is_list = isinstance(entity_2_value, list)
+            if entity_1_is_list and entity_2_is_list:
+                # if they're both lists just combine them
+                entity_1_value.extend(entity_2_value)
+            elif entity_1_is_list:
+                # if 1 is a list and 2 isn't, append the value of 2 to the list from 1
+                entity_1_value.append(entity_2_value)
+            elif entity_2_is_list:
+                if entity_1_value:
+                    # if 2 is a list and 1 has a value, add the value of 1 to the list from 2
+                    entity_1[key] = [entity_1_value] + entity_2_value
+                else:
+                    # if 2 is a list and 1 doesn't have a value, just use the list from 2
+                    entity_1[key] = entity_2_value
+            # else:
+            # if neither is a list, do nothing (keep the value from 1)
+            if (entity_1_is_list or entity_2_is_list) and (key in properties_that_are_sets):
+                entity_1[key] = list(set(entity_1[key]))
         else:
-            entity_1[key] = value
+            # if entity 1 doesn't have the property, add the property from entity 2
+            entity_1[key] = entity_2_value
     return entity_1
 
 

@@ -3,7 +3,6 @@ import logging
 import requests
 import time
 
-from concurrent.futures import ThreadPoolExecutor
 from requests.adapters import HTTPAdapter, Retry
 from dataclasses import dataclass
 

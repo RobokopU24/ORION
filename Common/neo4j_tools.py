@@ -61,7 +61,7 @@ class Neo4jTools:
             return password_exit_code
 
         self.logger.info(f'Loading a neo4j backup dump {dump_file_path}...')
-        neo4j_load_cmd = ['neo4j-admin', 'database', 'load', f'--from-path={dump_file_path}', '--overwrite-destination=true']
+        neo4j_load_cmd = ['neo4j-admin', 'database', 'load', f'--from-path={dump_file_path}', '--overwrite-destination=true', 'neo4j']
         load_results: subprocess.CompletedProcess = subprocess.run(neo4j_load_cmd,
                                                                    capture_output=True)
         self.logger.info(load_results.stdout)
@@ -71,6 +71,19 @@ class Neo4jTools:
                             f'{load_results.stderr.decode("UTF-8")}'
             self.logger.error(error_message)
         return load_results_return_code
+
+    def migrate_dump_to_neo4j_5(self):
+        self.logger.info(f'Migrating db dump to neo4j 5...')
+        neo4j_migrate_cmd = ['neo4j-admin', 'database', 'migrate', '--force-btree-indexes-to-range', 'neo4j']
+        migrate_results: subprocess.CompletedProcess = subprocess.run(neo4j_migrate_cmd,
+                                                                      capture_output=True)
+        self.logger.info(migrate_results.stdout)
+        results_return_code = migrate_results.returncode
+        if results_return_code != 0:
+            error_message = f'Neo4j migrate subprocess error (ExitCode {results_return_code}): ' \
+                            f'{migrate_results.stderr.decode("UTF-8")}'
+            self.logger.error(error_message)
+        return results_return_code
 
     def create_backup_dump(self,
                            dump_directory: str = None):

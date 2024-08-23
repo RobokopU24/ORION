@@ -2,7 +2,6 @@ import os
 import enum
 import math
 import json
-import zipfile
 import requests
 
 from zipfile import ZipFile
@@ -77,12 +76,12 @@ class BINDINGDBLoader(SourceDataLoader):
         }
 
         self.bindingdb_version = None
+        self.bindingdb_version = self.get_latest_source_version()
         self.bindingdb_data_url = f"https://www.bindingdb.org/bind/downloads/"
 
-        # the real downloaded archive and file looks like BindingDB_All_XXX_tsv.zip and BindingDB_All_XXX.tsv
-        # where XXX is the date/version, to prevent needing to find the version again to access the file we rename to:
-        self.data_file = "BindingDB_All_tsv.zip"
-        self.data_file_inside_archive = "BindingDB_All.tsv"
+        self.bd_archive_file_name = f"BindingDB_All_{self.bindingdb_version}_tsv.zip"
+        self.bd_file_name = f"BindingDB_All.tsv"
+        self.data_files = [self.bd_archive_file_name]
 
     def get_latest_source_version(self) -> str:
         """
@@ -93,7 +92,7 @@ class BINDINGDBLoader(SourceDataLoader):
             return self.bindingdb_version
         try:
             s = requests.Session()
-            retries = Retry(total=3,
+            retries = Retry(total=5,
                             backoff_factor=2)
             s.mount('https://', HTTPAdapter(max_retries=retries))
 
@@ -117,36 +116,10 @@ class BINDINGDBLoader(SourceDataLoader):
         """
         Gets the bindingdb data.
         """
-        # because these file names include the version we need to make sure we have it first
-        if self.bindingdb_version is None:
-            self.get_latest_source_version()
-
-        # determine the archive and file name using the version
-        versioned_archive_name = f"BindingDB_All_{self.bindingdb_version}_tsv.zip"
-        versioned_file_name = f"BindingDB_All_{self.bindingdb_version}.tsv"
-
         # download the zipped data
         data_puller = GetData()
-        source_url = f"{self.bindingdb_data_url}{versioned_archive_name}"
+        source_url = f"{self.bindingdb_data_url}{self.bd_archive_file_name}"
         data_puller.pull_via_http(source_url, self.data_path)
-
-        self.logger.info(f'BINDING-DB data was downloaded but needs to be re-zipped with a different name, '
-                         f'this might be slow..')
-        # extract the file(s) from the archive and delete the archive
-        archive_file_path = os.path.join(self.data_path, versioned_archive_name)
-        with ZipFile(archive_file_path, 'r') as binding_archive:
-            binding_archive.extractall(self.data_path)
-        os.remove(archive_file_path)
-
-        # rename the data file and zip it again,
-        # this is slow and dumb, but it lets us have a consistent data file name and stores compressed data
-        data_file_path = os.path.join(self.data_path, versioned_file_name)
-        renamed_data_file = os.path.join(self.data_path, self.data_file_inside_archive)
-        os.rename(data_file_path, renamed_data_file)
-        renamed_archive = os.path.join(self.data_path, self.data_file)
-        with ZipFile(renamed_archive, 'w', compression=zipfile.ZIP_DEFLATED) as new_zip:
-            new_zip.write(renamed_data_file, arcname=self.data_file_inside_archive)
-        os.remove(renamed_data_file)
         return True
 
     def parse_data(self) -> dict:
@@ -160,8 +133,8 @@ class BINDINGDBLoader(SourceDataLoader):
         data_store= dict()
 
         columns = [[x.value,x.name] for x in BD_EDGEUMAN if x.name not in ['PMID','PUBCHEM_AID','PATENT_NUMBER','PUBCHEM_CID','UNIPROT_TARGET_CHAIN']]
-        zipped_data_path = os.path.join(self.data_path, self.data_file)
-        for n,row in enumerate(generate_zipfile_rows(zipped_data_path, self.data_file_inside_archive)):
+        zipped_data_path = os.path.join(self.data_path, self.bd_archive_file_name)
+        for n,row in enumerate(generate_zipfile_rows(zipped_data_path, self.bd_file_name)):
             if n == 0:
                 continue
             if self.test_mode:

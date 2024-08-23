@@ -94,7 +94,7 @@ def __determine_properties_and_types(file_path: str, required_properties: dict):
         for key, value in entity.items():
             if value is None:
                 property_type_counts[key]["None"] += 1
-                if key in required_properties and key is not "name":
+                if key in required_properties and key != "name":
                     print(f'WARNING: Required property ({key}) was None: {entity.items()}')
                     raise Exception(
                         f'None found as a value for a required property (property: {key}) in line {entity.items()}')
