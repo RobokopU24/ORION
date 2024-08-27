@@ -129,12 +129,12 @@ class CTDLoader(SourceDataLoader):
 
         # process chemical to gene (expanded)
         curated_files_archive_path = os.path.join(self.data_path, self.hand_curated_data_archive)
-        self.chemical_to_gene_exp(curated_files_archive_path,
-                                  self.hand_curated_chemical_to_gene_file)
+        #self.chemical_to_gene_exp(curated_files_archive_path,
+        #                          self.hand_curated_chemical_to_gene_file)
 
         # process disease to exposure
         exposures_file_path = os.path.join(self.data_path, self.ctd_exposure_events_file)
-        self.disease_to_exposure(exposures_file_path)
+        #self.disease_to_exposure(exposures_file_path)
 
         # disease to chemical
         disease_to_chemical_file_path = os.path.join(self.data_path, self.ctd_chemical_to_disease_file)
@@ -556,8 +556,11 @@ class CTDLoader(SourceDataLoader):
         :param marker_count:
         :return:
         """
-        if(mimic_koza and therapeutic_count>0):
-            return self.therapeutic_predicate
+        if mimic_koza:
+            if therapeutic_count>0:
+                return self.therapeutic_predicate
+            else:
+                return None
 
         # if this is not a good amount of evidence
         if therapeutic_count == marker_count and therapeutic_count < 3:
