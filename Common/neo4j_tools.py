@@ -3,7 +3,7 @@ import os
 import neo4j
 import subprocess
 import Common.kgx_file_converter as kgx_file_converter
-from Common.node_types import NAMED_THING
+from Common.biolink_constants import NAMED_THING
 from Common.utils import LoggingUtil
 
 
@@ -19,7 +19,7 @@ class Neo4jTools:
         self.http_port = http_port
         self.https_port = https_port
         self.bolt_port = bolt_port
-        self.password = password if password else os.environ['ORION_NEO4J_PASSWORD']
+        self.password = password if password else os.environ.get('ORION_NEO4J_PASSWORD', 'orion-password')
         self.graph_db_uri = f'bolt://{neo4j_host}:{bolt_port}'
         self.graph_db_auth = ("neo4j", self.password)
         self.neo4j_driver = neo4j.GraphDatabase.driver(self.graph_db_uri, auth=self.graph_db_auth)
@@ -37,11 +37,12 @@ class Neo4jTools:
             return password_exit_code
 
         self.logger.info(f'Importing csv files to neo4j...')
-        neo4j_import_cmd = ["neo4j-admin", "import", f"--nodes={csv_nodes_filename}",
-                            f"--relationships={csv_edges_filename}",
+        neo4j_import_cmd = ['neo4j-admin', 'database', 'import', 'full',
+                            f'--nodes={csv_nodes_filename}',
+                            f'--relationships={csv_edges_filename}',
                             '--delimiter=TAB',
                             '--array-delimiter=U+001F',
-                            '--force']
+                            '--overwrite-destination=true']
         import_results: subprocess.CompletedProcess = subprocess.run(neo4j_import_cmd,
                                                                      cwd=graph_directory,
                                                                      capture_output=True)
@@ -60,7 +61,7 @@ class Neo4jTools:
             return password_exit_code
 
         self.logger.info(f'Loading a neo4j backup dump {dump_file_path}...')
-        neo4j_load_cmd = ['neo4j-admin', 'load', f'--from={dump_file_path}', '--force']
+        neo4j_load_cmd = ['neo4j-admin', 'database', 'load', f'--from-path={dump_file_path}', '--overwrite-destination=true', 'neo4j']
         load_results: subprocess.CompletedProcess = subprocess.run(neo4j_load_cmd,
                                                                    capture_output=True)
         self.logger.info(load_results.stdout)
@@ -71,10 +72,23 @@ class Neo4jTools:
             self.logger.error(error_message)
         return load_results_return_code
 
+    def migrate_dump_to_neo4j_5(self):
+        self.logger.info(f'Migrating db dump to neo4j 5...')
+        neo4j_migrate_cmd = ['neo4j-admin', 'database', 'migrate', '--force-btree-indexes-to-range', 'neo4j']
+        migrate_results: subprocess.CompletedProcess = subprocess.run(neo4j_migrate_cmd,
+                                                                      capture_output=True)
+        self.logger.info(migrate_results.stdout)
+        results_return_code = migrate_results.returncode
+        if results_return_code != 0:
+            error_message = f'Neo4j migrate subprocess error (ExitCode {results_return_code}): ' \
+                            f'{migrate_results.stderr.decode("UTF-8")}'
+            self.logger.error(error_message)
+        return results_return_code
+
     def create_backup_dump(self,
-                           dump_file_path: str = None):
+                           dump_directory: str = None):
         self.logger.info(f'Creating a backup dump of the neo4j...')
-        neo4j_dump_cmd = ['neo4j-admin', 'dump', f'--to={dump_file_path}']
+        neo4j_dump_cmd = ['neo4j-admin', 'database', 'dump', 'neo4j', f'--to-path={dump_directory}']
         dump_results: subprocess.CompletedProcess = subprocess.run(neo4j_dump_cmd,
                                                                    capture_output=True)
         self.logger.info(dump_results.stdout)
@@ -107,7 +121,7 @@ class Neo4jTools:
 
     def set_initial_password(self):
         self.logger.info('Setting initial password for Neo4j...')
-        neo4j_cmd = ['neo4j-admin', 'set-initial-password', self.password]
+        neo4j_cmd = ['neo4j-admin', 'dbms', 'set-initial-password', self.password]
         neo4j_results: subprocess.CompletedProcess = subprocess.run(neo4j_cmd,
                                                                     capture_output=True)
         self.logger.info(neo4j_results.stdout)
@@ -139,7 +153,7 @@ class Neo4jTools:
             with self.neo4j_driver.session() as session:
 
                 # node name index
-                node_name_index_cypher = f'CREATE INDEX node_name_index FOR (n:`{NAMED_THING}`) on (n.name)'
+                node_name_index_cypher = f'CREATE INDEX node_name_index FOR (n:`{NAMED_THING}`) ON (n.name)'
                 self.logger.info(f'Adding node name index on {NAMED_THING}.name')
                 session.run(node_name_index_cypher).consume()
                 indexes_added += 1
@@ -151,8 +165,8 @@ class Neo4jTools:
                 self.logger.info(f'Adding node id indexes for node labels: {node_labels}')
                 for node_label in node_labels:
                     node_label_index = f'node_id_{node_label.replace(":", "_")}'
-                    node_name_index_cypher = f'CREATE CONSTRAINT {node_label_index} ON (n:`{node_label}`) ' \
-                                             f'ASSERT n.id IS UNIQUE'
+                    node_name_index_cypher = f'CREATE CONSTRAINT {node_label_index} FOR (n:`{node_label}`) ' \
+                                             f'REQUIRE n.id IS UNIQUE'
                     session.run(node_name_index_cypher).consume()
                     indexes_added += 1
                     index_names.append(node_label_index)
@@ -205,32 +219,34 @@ class Neo4jTools:
         self.neo4j_driver.close()
 
 
-def create_neo4j_dump(graph_directory: str,
-                      nodes_filename: str = 'nodes.jsonl',
-                      edges_filename: str = 'edges.jsonl',
+def create_neo4j_dump(nodes_filepath: str,
+                      edges_filepath: str,
+                      output_directory: str,
                       graph_id: str = 'graph',
                       graph_version: str = '',
                       logger=None):
-    graph_nodes_file_path = os.path.join(graph_directory, nodes_filename)
-    graph_edges_file_path = os.path.join(graph_directory, edges_filename)
     nodes_csv_filename = 'nodes.temp_csv'
     edges_csv_filename = 'edges.temp_csv'
-    csv_nodes_file_path = os.path.join(graph_directory, nodes_csv_filename)
-    csv_edges_file_path = os.path.join(graph_directory, edges_csv_filename)
+    csv_nodes_file_path = os.path.join(output_directory, nodes_csv_filename)
+    csv_edges_file_path = os.path.join(output_directory, edges_csv_filename)
     if os.path.exists(csv_nodes_file_path) and os.path.exists(csv_edges_file_path):
         if logger:
             logger.info(f'CSV files were already created for {graph_id}({graph_version})')
     else:
         if logger:
             logger.info(f'Creating CSV files for {graph_id}({graph_version})...')
-        kgx_file_converter.convert_jsonl_to_neo4j_csv(nodes_input_file=graph_nodes_file_path,
-                                                      edges_input_file=graph_edges_file_path,
+        kgx_file_converter.convert_jsonl_to_neo4j_csv(nodes_input_file=nodes_filepath,
+                                                      edges_input_file=edges_filepath,
                                                       nodes_output_file=csv_nodes_file_path,
                                                       edges_output_file=csv_edges_file_path)
         if logger:
             logger.info(f'CSV files created for {graph_id}({graph_version})...')
 
-    graph_dump_file_path = os.path.join(graph_directory, f'graph_{graph_version}.db.dump')
+    # would like to do the following, but apparently you can't specify a custom name for the dump now
+    # graph_dump_name = f'graph_{graph_version}.neo4j5.db.dump' if graph_version else 'graph.neo4j5.db.dump'
+    # graph_dump_file_path = os.path.join(output_directory, graph_dump_name)
+    graph_dump_name = 'neo4j.dump'
+    graph_dump_file_path = os.path.join(output_directory, graph_dump_name)
     if os.path.exists(graph_dump_file_path):
         if logger:
             logger.info(f'Neo4j dump already exists for {graph_id}({graph_version})')
@@ -238,7 +254,7 @@ def create_neo4j_dump(graph_directory: str,
 
     neo4j_access = Neo4jTools()
     try:
-        import_exit_code = neo4j_access.import_csv_files(graph_directory=graph_directory,
+        import_exit_code = neo4j_access.import_csv_files(graph_directory=output_directory,
                                                          csv_nodes_filename=nodes_csv_filename,
                                                          csv_edges_filename=edges_csv_filename)
         if import_exit_code != 0:
@@ -260,7 +276,7 @@ def create_neo4j_dump(graph_directory: str,
         if stop_exit_code != 0:
             return False
 
-        dump_exit_code = neo4j_access.create_backup_dump(graph_dump_file_path)
+        dump_exit_code = neo4j_access.create_backup_dump(output_directory)
         if dump_exit_code != 0:
             return False
 

@@ -12,7 +12,7 @@ from Common.utils import GetData, GetDataPullError
 from Common.loader_interface import SourceDataLoader, SourceDataFailedError
 from Common.kgxmodel import kgxnode, kgxedge
 from Common.prefixes import CTD, NCBITAXON, MESH
-from Common.node_types import PUBLICATIONS
+from Common.biolink_constants import *
 
 
 ##############
@@ -30,12 +30,24 @@ class CTDLoader(SourceDataLoader):
     source_data_url = "http://ctdbase.org/reports/"
     license = "http://ctdbase.org/about/publications/#citing"
     attribution = "http://ctdbase.org/about/"
-    parsing_version: str = '1.3'
+    parsing_version: str = '1.5'
 
+    # some CTD predicates no longer have mappings in the biolink model, convert them to something that will normalize
     predicate_conversion_map = {
         'CTD:decreases_molecular_interaction_with': 'CTD:decreases_molecular_interaction',
         'CTD:increases_molecular_interaction_with': 'CTD:increases_molecular_interaction',
         'CTD:ameliorates': 'biolink:treats_or_applied_or_studied_to_treat'
+    }
+
+    #  mappings for predicate: (knowledge level, agent type)
+    exposure_events_KL_AT_lookup = {
+        'CTD:positive_correlation': (STATISTICAL_ASSOCIATION, MANUAL_AGENT),
+        'CTD:negative_correlation': (STATISTICAL_ASSOCIATION, MANUAL_AGENT),
+        'CTD:prediction_hypothesis': (PREDICATION, NOT_PROVIDED)
+    }
+    chemical_disease_KL_AT_lookup = {
+        'CTD:contributes_to': (KNOWLEDGE_ASSERTION, MANUAL_AGENT),
+        'biolink:treats_or_applied_or_studied_to_treat': (KNOWLEDGE_ASSERTION, MANUAL_AGENT)
     }
 
     def __init__(self, test_mode: bool = False, source_data_dir: str = None):
@@ -63,11 +75,10 @@ class CTDLoader(SourceDataLoader):
         self.ctd_data_files = [self.ctd_chemical_to_disease_file,
                                self.ctd_exposure_events_file]
 
-        self.data_files = []
-        self.data_files.extend(self.hand_curated_files)
-        self.data_files.extend(self.ctd_data_files)
+        self.data_files = self.hand_curated_files + self.ctd_data_files
 
-        self.previous_node_ids = set()
+        self.final_record_counter: int = 0
+        self.final_skipped_record_counter: int = 0
 
     def get_latest_source_version(self) -> str:
         """
@@ -75,6 +86,7 @@ class CTDLoader(SourceDataLoader):
 
         :return:
         """
+
         try:
             # load the web page for CTD
             html_page: requests.Response = requests.get('http://ctdbase.org/about/dataStatus.go')
@@ -90,8 +102,7 @@ class CTDLoader(SourceDataLoader):
                 # save the value
                 return version.text.split(':')[1].strip().replace(' ', '_')
         except Exception as e:
-            pass
-        raise GetDataPullError(error_message=f'Unable to determine latest version for CTD')
+            raise GetDataPullError(error_message=f'Unable to determine latest version for CTD: {e}')
 
     def get_data(self):
         """
@@ -114,44 +125,26 @@ class CTDLoader(SourceDataLoader):
         :return:
         """
 
-        final_record_count: int = 0
-        final_skipped_count: int = 0
-
         # process chemical to gene (expanded)
         curated_files_archive_path = os.path.join(self.data_path, self.hand_curated_data_archive)
-        records, skipped = self.chemical_to_gene_exp(curated_files_archive_path,
-                                                     self.hand_curated_chemical_to_gene_file)
-
-        # add to the final counts
-        final_record_count += records
-        final_skipped_count += skipped
+        self.chemical_to_gene_exp(curated_files_archive_path,
+                                  self.hand_curated_chemical_to_gene_file)
 
         # process disease to exposure
         exposures_file_path = os.path.join(self.data_path, self.ctd_exposure_events_file)
-        records, skipped = self.disease_to_exposure(exposures_file_path)
-
-        # add to the final counts
-        final_record_count += records
-        final_skipped_count += skipped
+        self.disease_to_exposure(exposures_file_path)
 
         # disease to chemical
         disease_to_chemical_file_path = os.path.join(self.data_path, self.ctd_chemical_to_disease_file)
-        records, skipped = self.disease_to_chemical(disease_to_chemical_file_path)
+        self.disease_to_chemical(disease_to_chemical_file_path)
 
-        # add to the final counts
-        final_record_count += records
-        final_skipped_count += skipped
-
-        # load up the metadata
-        load_metadata: dict = {
-            'num_source_lines': final_record_count,
-            'unusable_source_lines': final_skipped_count
+        parse_metadata: dict = {
+            'num_source_lines': self.final_record_counter,
+            'unusable_source_lines': self.final_skipped_record_counter
         }
+        return parse_metadata
 
-        # return the metadata to the caller
-        return load_metadata
-
-    def chemical_to_gene_exp(self, archive_path: str, chemical_to_gene_file: str) -> (list, list, int, int):
+    def chemical_to_gene_exp(self, archive_path: str, chemical_to_gene_file: str):
         """
         Parses the data file to create chemical to gene nodes and relationships
 
@@ -201,9 +194,6 @@ class CTDLoader(SourceDataLoader):
                     skipped_record_counter += 1
                     continue
 
-                # get the edge predicate
-                predicate = self.convert_predicates(f"{CTD}:{predicate_label}")
-
                 # capitalize the node IDs
                 chemical_id: str = r['chemicalID'].upper()
                 gene_id: str = r['geneID'].upper()
@@ -224,6 +214,13 @@ class CTDLoader(SourceDataLoader):
                     edge_subject: str = gene_id
                     edge_object: str = chemical_id
 
+                # get the edge predicate
+                predicate = self.convert_predicates(f"{CTD}:{predicate_label}")
+
+                # all edges from this file get the same KL/AT
+                edge_props[KNOWLEDGE_LEVEL] = KNOWLEDGE_ASSERTION
+                edge_props[AGENT_TYPE] = MANUAL_AGENT
+
                 # save the edge
                 new_edge = kgxedge(edge_subject,
                                    edge_object,
@@ -232,10 +229,10 @@ class CTDLoader(SourceDataLoader):
                                    edgeprops=edge_props)
                 self.output_file_writer.write_kgx_edge(new_edge)
 
-        # return the record counters to the caller
-        return record_counter, skipped_record_counter
+            self.final_record_counter += record_counter
+            self.final_skipped_record_counter += skipped_record_counter
 
-    def disease_to_exposure(self, file_path: str) -> (list, list, int, int):
+    def disease_to_exposure(self, file_path: str):
         """
         Parses the data file to create disease to exposure nodes and relationships
 
@@ -276,6 +273,8 @@ class CTDLoader(SourceDataLoader):
                     continue
                 else:
                     predicate: str = self.convert_predicates(f"{CTD}:{predicate_label}")
+                    knowledge_level, agent_type = self.exposure_events_KL_AT_lookup.get(predicate,
+                                                                                        (NOT_PROVIDED, NOT_PROVIDED))
 
                 # save the disease node
                 disease_id = f'{MESH}:' + r['diseaseid']
@@ -292,11 +291,13 @@ class CTDLoader(SourceDataLoader):
                                    disease_id,
                                    predicate=predicate,
                                    primary_knowledge_source=self.provenance_id,
-                                   edgeprops={PUBLICATIONS: [f"PMID:{r['reference']}"]})
+                                   edgeprops={PUBLICATIONS: [f"PMID:{r['reference']}"],
+                                              KNOWLEDGE_LEVEL: knowledge_level,
+                                              AGENT_TYPE: agent_type})
                 self.output_file_writer.write_kgx_edge(new_edge)
 
-        # return the node and edge lists to the caller
-        return record_counter, skipped_record_counter
+            self.final_record_counter += record_counter
+            self.final_skipped_record_counter += skipped_record_counter
 
     def disease_to_chemical(self, file_path: str):
         """
@@ -331,7 +332,7 @@ class CTDLoader(SourceDataLoader):
 
             # iterate through node groups and create the edge records.
             while record_counter < record_count:
-                # if its the first time in prime the pump
+                # if it's the first time in prime the pump
                 if first:
                     # save the disease id
                     cur_disease_id = sorted_data[record_counter]['DiseaseID']
@@ -353,7 +354,7 @@ class CTDLoader(SourceDataLoader):
                     # increment the record counter
                     record_counter += 1
 
-                    # insure we dont overrun the list
+                    # ensure we dont overrun the list
                     if record_counter >= record_count:
                         break
 
@@ -431,13 +432,12 @@ class CTDLoader(SourceDataLoader):
                     if predicate == self.therapeutic_predicate:
                         publications = treats_refs
 
-                    # was this node already added
+                    # write the disease node if it wasn't already written
+                    # (note that this check is not really necessary because the file writer will prevent duplicates,
+                    # but it's slightly more efficient to not create the node object again)
                     if not disease_node_added:
-                        # add the disease node
                         disease_node = kgxnode(cur_disease_id.upper(), name=cur_disease_name)
                         self.output_file_writer.write_kgx_node(disease_node)
-
-                        # set the flag so we dont duplicate adding this node
                         disease_node_added = True
 
                     # add the chemical node
@@ -447,22 +447,26 @@ class CTDLoader(SourceDataLoader):
 
                     # add the edge
                     predicate = self.convert_predicates(predicate)
+                    knowledge_level, agent_type = self.chemical_disease_KL_AT_lookup.get(predicate, (NOT_PROVIDED,
+                                                                                                     NOT_PROVIDED))
                     new_edge = kgxedge(chemical_id,
                                        cur_disease_id.upper(),
                                        predicate=predicate,
                                        primary_knowledge_source=self.provenance_id,
-                                       edgeprops={PUBLICATIONS: publications})
+                                       edgeprops={PUBLICATIONS: publications,
+                                                  KNOWLEDGE_LEVEL: knowledge_level,
+                                                  AGENT_TYPE: agent_type})
                     self.output_file_writer.write_kgx_edge(new_edge)
 
-                # insure we dont overrun the list
+                # ensure we dont overrun the list
                 if record_counter >= record_count:
                     break
 
                 # save the next disease id
                 cur_disease_id = sorted_data[record_counter]['DiseaseID']
 
-        # return the node/edge lists and counters to the caller
-        return record_counter, skipped_record_counter
+        self.final_record_counter += record_counter
+        self.final_skipped_record_counter += skipped_record_counter
 
     @staticmethod
     def check_expanded_gene_chemical_row(r):

@@ -7,7 +7,8 @@ import os
 from Common.extractor import Extractor
 from Common.loader_interface import SourceDataLoader, SourceDataFailedError, SourceDataBrokenError
 from Common.utils import GetData, snakify
-from Common.node_types import PRIMARY_KNOWLEDGE_SOURCE, AGGREGATOR_KNOWLEDGE_SOURCES, PUBLICATIONS
+from Common.biolink_constants import PRIMARY_KNOWLEDGE_SOURCE, AGGREGATOR_KNOWLEDGE_SOURCES, PUBLICATIONS, \
+    KNOWLEDGE_LEVEL, KNOWLEDGE_ASSERTION, AGENT_TYPE, MANUAL_AGENT
 from Common.prefixes import DRUGCENTRAL, MEDDRA, UMLS, UNIPROTKB, PUBMED
 from Common.predicates import DGIDB_PREDICATE_MAPPING
 from Common.db_connectors import PostgresConnector
@@ -21,7 +22,20 @@ class DrugCentralLoader(SourceDataLoader):
     source_data_url = "https://drugcentral.org/download"
     license = "https://drugcentral.org/privacy"
     attribution = "https://drugcentral.org/about"
-    parsing_version: str = '1.3'
+    parsing_version: str = '1.5'
+
+    omop_relationmap = {'off-label use': 'biolink:applied_to_treat',  # is substance that treats
+                        'reduce risk': 'biolink:preventative_for_condition',  # is substance that treats
+                        'contraindication': 'NCIT:C37933',  # contraindication
+                        'symptomatic treatment': 'RO:0002606',  # is substance that treats
+                        'indication': 'RO:0002606',  # is substance that treats
+                        'diagnosis': 'DrugCentral:5271'}  # there's only one row like this.
+
+    act_type_to_knowledge_source_map = {'IUPHAR': 'infores:gtopdb',
+                                        'KEGG DRUG': 'infores:kegg',
+                                        'PDSP': 'infores:pdsp',
+                                        'CHEMBL': 'infores:chembl',
+                                        'DRUGBANK': 'infores:drugbank'}
 
     def __init__(self, test_mode: bool = False, source_data_dir: str = None):
         """
@@ -30,16 +44,8 @@ class DrugCentralLoader(SourceDataLoader):
         """
         super().__init__(test_mode=test_mode, source_data_dir=source_data_dir)
 
-        self.omop_relationmap = {'off-label use': 'RO:0002606',  # is substance that treats
-                                 'reduce risk': 'RO:0002606',  # is substance that treats
-                                 'contraindication': 'NCIT:C37933',  # contraindication
-                                 'symptomatic treatment': 'RO:0002606',  # is substance that treats
-                                 'indication': 'RO:0002606',  # is substance that treats
-                                 'diagnosis': 'RO:0002606',  # theres only one row like this.
-                                 }
-
         self.data_url = 'https://unmtid-shinyapps.net/download/'
-        self.data_file = 'drugcentral.dump.08222022.sql.gz'
+        self.data_file = 'drugcentral.dump.11012023.sql.gz'
 
         self.adverse_event_predicate = 'biolink:has_adverse_event'
 
@@ -58,16 +64,19 @@ class DrugCentralLoader(SourceDataLoader):
                             where a.target_id = dc.target_id
                             and dc.component_id = c.id'''
 
+        self.unknown_knowledge_sources = set()
+
     def get_latest_source_version(self) -> str:
         """
         gets the version of the data
 
         :return: the version of the data
         """
-
-        # we could grab this dynamically from here http://juniper.health.unm.edu/tcrd/download/latest.README
-        # but it wouldn't be very helpful until we can automatically populate the DB
-        return '8_22_2022'
+        # There is currently no implementation for automatically loading the postgres database,
+        # so this might as well be hardcoded.
+        #
+        # It's not obvious what the best way to determine it would be anyway: https://unmtid-dbs.net/download/
+        return '11_1_2023'
 
     def get_data(self):
         gd: GetData = GetData(self.logger.level)
@@ -99,7 +108,9 @@ class DrugCentralLoader(SourceDataLoader):
                               lambda line: self.omop_relationmap[line['relationship_name']],
                               lambda line: {},  # subject props
                               lambda line: {},  # object props
-                              lambda line: {PRIMARY_KNOWLEDGE_SOURCE: DrugCentralLoader.provenance_id}  # edge props
+                              lambda line: {PRIMARY_KNOWLEDGE_SOURCE: DrugCentralLoader.provenance_id,
+                                            KNOWLEDGE_LEVEL: KNOWLEDGE_ASSERTION,
+                                            AGENT_TYPE: MANUAL_AGENT}  # edge props
                               )
 
         # adverse events
@@ -109,9 +120,11 @@ class DrugCentralLoader(SourceDataLoader):
                               lambda line: self.adverse_event_predicate, #It would be better if there were a mapping...
                               lambda line: {},  # subject props
                               lambda line: {},  # object props
-                              lambda line: { 'FAERS_llr': line['llr'],
-                                             AGGREGATOR_KNOWLEDGE_SOURCES: [DrugCentralLoader.provenance_id],
-                                             PRIMARY_KNOWLEDGE_SOURCE: 'infores:faers' }  # edge props
+                              lambda line: {'FAERS_llr': line['llr'],
+                                            AGGREGATOR_KNOWLEDGE_SOURCES: [DrugCentralLoader.provenance_id],
+                                            PRIMARY_KNOWLEDGE_SOURCE: 'infores:faers',
+                                            KNOWLEDGE_LEVEL: KNOWLEDGE_ASSERTION,
+                                            AGENT_TYPE: MANUAL_AGENT}  # edge props
                               )
 
         # bioactivity.  There are several rows in the main activity table (act_table_full) that include multiple accessions
@@ -123,15 +136,23 @@ class DrugCentralLoader(SourceDataLoader):
                               lambda line: get_bioactivity_predicate(line),
                               lambda line: {},  # subject props
                               lambda line: {},  # object props
-                              lambda line: get_bioactivity_attributes(line)  # edge props
+                              lambda line: self.get_bioactivity_attributes(line)  # edge props
                               )
 
+        if self.unknown_knowledge_sources:
+            self.logger.warning(f'Unmapped bioactivity act_type: {self.unknown_knowledge_sources}')
+
+        # retrieve the lists of nodes and edges from the extractor
         self.final_node_list = extractor.nodes
         self.final_edge_list = extractor.edges
 
+        # It might seem like the following section doesn't do anything,
+        # but because the Extractor did not have a file writer, nothing has been written yet.
+        # Any nodes in self.final_node_list are written to file after parse_data, so that's how this works.
+
         # find node properties for previously extracted nodes
         node_props_by_id = {}
-        # here we want all of the information from the structures table except the following columns
+        # here we want all the information from the structures table, except the following columns:
         unwanted_properties = ["cd_id",
                                "cas_reg_no",
                                "name",
@@ -145,9 +166,10 @@ class DrugCentralLoader(SourceDataLoader):
         node_props_query = 'select * from structures'
         db_cursor.execute(node_props_query)
         rows = db_cursor.fetchall()
+        extracted_node_ids = extractor.get_node_ids()
         for row in rows:
             node_id = f"{DRUGCENTRAL}:{row.pop('id')}"
-            if node_id in extractor.get_node_ids():
+            if node_id in extracted_node_ids:
                 for prop in unwanted_properties:
                     del row[prop]
                 node_props_by_id[node_id] = row
@@ -160,6 +182,27 @@ class DrugCentralLoader(SourceDataLoader):
 
         return extractor.load_metadata
 
+    def get_bioactivity_attributes(self, line):
+        edge_props = {KNOWLEDGE_LEVEL: KNOWLEDGE_ASSERTION,
+                      AGENT_TYPE: MANUAL_AGENT}
+        if line['act_type'] is not None:
+            edge_props['affinity'] = line['act_value']
+            edge_props['affinityParameter'] = line['act_type']
+        if line['act_source'] == 'SCIENTIFIC LITERATURE' and line['act_source_url'] is not None:
+            papersource = line['act_source_url']
+            if papersource.startswith('http://www.ncbi.nlm.nih.gov/pubmed'):
+                papersource = f'{PUBMED}:{papersource.split("/")[-1]}'
+                edge_props[PUBLICATIONS] = [papersource]
+
+        edge_props[PRIMARY_KNOWLEDGE_SOURCE] = self.act_type_to_knowledge_source_map.get(line['act_source'],
+                                                                                         self.provenance_id)
+        if edge_props[PRIMARY_KNOWLEDGE_SOURCE] == self.provenance_id:
+            if line["act_source"] != 'SCIENTIFIC LITERATURE' and line["act_source"] != 'UNKNOWN':
+                self.unknown_knowledge_sources.add(line["act_source"])
+        else:
+            edge_props[AGGREGATOR_KNOWLEDGE_SOURCES] = [DrugCentralLoader.provenance_id]
+        return edge_props
+
     def init_drugcentral_db(self):
         try:
             db_host = os.environ['DRUGCENTRAL_DB_HOST']
@@ -167,8 +210,14 @@ class DrugCentralLoader(SourceDataLoader):
             db_password = os.environ['DRUGCENTRAL_DB_PASSWORD']
             db_name = os.environ['DRUGCENTRAL_DB_NAME']
             db_port = os.environ['DRUGCENTRAL_DB_PORT']
-        except KeyError as k:
-            raise SourceDataFailedError(f'DRUGCENTRAL DB environment variables not set. ({repr(k)})')
+        except KeyError:
+            self.logger.warning('DRUGCENTRAL DB environment variables not set. Attempting to use public instance..')
+            db_host = 'unmtid-dbs.net'
+            db_user = 'drugman'
+            db_password = 'dosage'
+            db_name = 'drugcentral'
+            db_port = 5433
+            # raise SourceDataFailedError(f'DRUGCENTRAL DB environment variables not set.')
 
         self.drug_central_db = PostgresConnector(db_host=db_host,
                                                  db_user=db_user,
@@ -247,31 +296,8 @@ def get_bioactivity_predicate(line):
     return predicate
 
 
-def get_bioactivity_attributes(line):
-    edge_props = {}
-    if line['act_type'] is not None:
-        edge_props['affinity'] = line['act_value']
-        edge_props['affinityParameter'] = line['act_type']
-    if line['act_source'] == 'SCIENTIFIC LITERATURE' and line['act_source_url'] is not None:
-        edge_props[PRIMARY_KNOWLEDGE_SOURCE] = DrugCentralLoader.provenance_id
-        papersource = line['act_source_url']
-        if papersource.startswith('http://www.ncbi.nlm.nih.gov/pubmed'):
-            papersource=f'{PUBMED}:{papersource.split("/")[-1]}'
-            edge_props[PUBLICATIONS] = [papersource]
-    else:
-        edge_props[AGGREGATOR_KNOWLEDGE_SOURCES] = [DrugCentralLoader.provenance_id]
-        if line['act_source'] == 'IUPHAR':
-            edge_props[PRIMARY_KNOWLEDGE_SOURCE] = 'infores:gtopdb'
-        elif line['act_source'] == 'KEGG DRUG':
-            edge_props[PRIMARY_KNOWLEDGE_SOURCE] = 'infores:kegg'
-        elif line['act_source'] == 'PDSP':
-            edge_props[PRIMARY_KNOWLEDGE_SOURCE] = 'infores:pdsp'
-        elif line['act_source'] == 'CHEMBL':
-            edge_props[PRIMARY_KNOWLEDGE_SOURCE] = 'infores:chembl'
-        else:
-            edge_props[PRIMARY_KNOWLEDGE_SOURCE] = DrugCentralLoader.provenance_id
-            del edge_props[AGGREGATOR_KNOWLEDGE_SOURCES]
-    return edge_props
+
+
 
 if __name__ == '__main__':
     # create a command line parser

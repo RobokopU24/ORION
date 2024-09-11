@@ -3,25 +3,13 @@ import json
 import jsonlines
 import logging
 from Common.biolink_utils import BiolinkInformationResources, INFORES_STATUS_INVALID, INFORES_STATUS_DEPRECATED
-from Common.node_types import SEQUENCE_VARIANT, PRIMARY_KNOWLEDGE_SOURCE, AGGREGATOR_KNOWLEDGE_SOURCES, \
-    PUBLICATIONS, OBJECT_ID, SUBJECT_ID, PREDICATE
-from Common.normalization import NodeNormalizer, EdgeNormalizer, EdgeNormalizationResult
+from Common.biolink_constants import SEQUENCE_VARIANT, PRIMARY_KNOWLEDGE_SOURCE, AGGREGATOR_KNOWLEDGE_SOURCES, \
+    PUBLICATIONS, OBJECT_ID, SUBJECT_ID, PREDICATE, SUBCLASS_OF
+from Common.normalization import NormalizationScheme, NodeNormalizer, EdgeNormalizer, EdgeNormalizationResult, \
+    NormalizationFailedError
 from Common.utils import LoggingUtil, chunk_iterator
 from Common.kgx_file_writer import KGXFileWriter
-from Common.kgxmodel import NormalizationScheme
 from Common.merging import MemoryGraphMerger, DiskGraphMerger
-
-
-class NormalizationBrokenError(Exception):
-    def __init__(self, error_message: str, actual_error: Exception=None):
-        self.error_message = error_message
-        self.actual_error = actual_error
-
-
-class NormalizationFailedError(Exception):
-    def __init__(self, error_message: str, actual_error: Exception=None):
-        self.error_message = error_message
-        self.actual_error = actual_error
 
 
 EDGE_PROPERTIES_THAT_SHOULD_BE_SETS = {AGGREGATOR_KNOWLEDGE_SOURCES, PUBLICATIONS}
@@ -250,6 +238,7 @@ class KGXFileNormalizer:
         edge_splits = 0
         edges_failed_due_to_nodes = 0
         edges_failed_due_to_predicates = 0
+        subclass_loops_removed = 0
 
         node_norm_lookup = self.node_normalizer.node_normalization_lookup
         edge_norm_lookup = self.edge_normalizer.edge_normalization_lookup
@@ -303,6 +292,8 @@ class KGXFileNormalizer:
                                 normalized_predicate = edge[PREDICATE]
                                 edge_inverted_by_normalization = False
 
+                            # a counter for the number of normalized edges coming from a single source edge
+                            # it's only used to determine how many edge splits occurred
                             edge_count = 0
 
                             # ensure edge has a primary knowledge source
@@ -317,6 +308,12 @@ class KGXFileNormalizer:
 
                             for norm_subject_id in normalized_subject_ids:
                                 for norm_object_id in normalized_object_ids:
+
+                                    # if it's a subclass_of edge, and it's a self-loop, throw it out
+                                    if normalized_predicate == SUBCLASS_OF and norm_subject_id == norm_object_id:
+                                        subclass_loops_removed += 1
+                                        continue
+
                                     edge_count += 1
 
                                     # create a new edge with the normalized values
@@ -341,6 +338,7 @@ class KGXFileNormalizer:
                             # this could happen due to rare cases of normalization splits where one node normalizes to many
                             if edge_count > 1:
                                 edge_splits += edge_count - 1
+
                     graph_merger.merge_edges(normalized_edges)
                     self.logger.info(f'Processed {number_of_source_edges} edges so far...')
 
@@ -355,15 +353,8 @@ class KGXFileNormalizer:
             infores_status = bl_inforesources.get_infores_status(knowledge_source)
             if infores_status == INFORES_STATUS_DEPRECATED:
                 deprecated_infores_ids.append(knowledge_source)
-                self.logger.warning(f'Normalization found a deprecated infores identifier: {knowledge_source}')
             elif infores_status == INFORES_STATUS_INVALID:
                 invalid_infores_ids.append(knowledge_source)
-
-        if invalid_infores_ids:
-            warning_message = f'Normalization found invalid infores identifiers: {invalid_infores_ids}'
-            self.logger.warning(warning_message)
-            if self.normalization_scheme.strict:
-                raise NormalizationFailedError(warning_message)
 
         try:
             self.logger.debug(f'Writing normalized edges to file...')
@@ -397,12 +388,15 @@ class KGXFileNormalizer:
             # this should be true: source_edges - failures - mergers + splits = edges post norm
             'edge_mergers': graph_merger.merged_edge_counter,
             'edge_splits': edge_splits,
+            'subclass_loops_removed': subclass_loops_removed,
             'final_normalized_edges': normalized_edge_count
         })
         if deprecated_infores_ids:
             self.normalization_metadata['deprecated_infores_ids'] = deprecated_infores_ids
+            self.logger.warning(f'Normalization found deprecated infores identifiers: {deprecated_infores_ids}')
         if invalid_infores_ids:
             self.normalization_metadata['invalid_infores_ids'] = invalid_infores_ids
+            self.logger.warning(f'Normalization found invalid infores identifiers: {invalid_infores_ids}')
 
 
 

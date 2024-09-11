@@ -7,7 +7,7 @@ from parsers.SGD.src.sgd_source_retriever import SGDAllGenes
 from parsers.yeast.src.yeast_constants import YEAST_GENOME_RESOLUTION, SGD_ALL_GENES_FILE, HISTONE_LOCI_FILE
 from Common.loader_interface import SourceDataLoader
 from Common.extractor import Extractor
-from Common.node_types import PRIMARY_KNOWLEDGE_SOURCE
+from Common.biolink_constants import PRIMARY_KNOWLEDGE_SOURCE
 
 #List of Binned Histone Modifications
 class HISTONEMODBINS_EDGEUMAN(enum.IntEnum):
@@ -275,9 +275,8 @@ class YeastHistoneMapLoader(SourceDataLoader):
                                     "CTD:increases_abundance_of"]
 
         self.logger.debug('Histone Modifications Mapped to GO Terms!')
-        csv_fname = f"HistonePTM2GO.csv"
         histonePTM2GO_df = pd.DataFrame.from_dict(histonePTM2GO)
-        histonePTM2GO_df.to_csv(os.path.join(output_directory, csv_fname), encoding="utf-8-sig", index=False)
+        histonePTM2GO_df.to_csv(os.path.join(output_directory, self.histone_mod_to_go_term_file_name), encoding="utf-8-sig", index=False)
         for chr in chromosome_lengths.keys():
             m = int(chromosome_lengths[chr])
             for i in range(m):  # Create loci nodes for chromosomes
@@ -303,7 +302,7 @@ class YeastHistoneMapLoader(SourceDataLoader):
                         data['histoneMod'].append(ptm)
         genomelocidf = pd.DataFrame(data)
         self.logger.debug('Histone Modifications Loci Collected!')
-        genomelocidf.to_csv(os.path.join(output_directory, HISTONE_LOCI_FILE), encoding="utf-8-sig", index=False)
+        genomelocidf.to_csv(os.path.join(output_directory, self.histone_mod_list_file_name), encoding="utf-8-sig", index=False)
 
         if not generate_gene_mapping:
             return
@@ -336,5 +335,4 @@ class YeastHistoneMapLoader(SourceDataLoader):
         genomelocidf = genomelocidf.merge(just_windows, how='inner', on=['chromosomeID', 'start', 'end', 'loci'])
 
         self.logger.debug(f"Histone Modifications Mapping Complete!")
-        csv_f3name = f"HistoneMod2Gene.csv"
-        genomelocidf.to_csv(os.path.join(output_directory, csv_f3name), encoding="utf-8-sig", index=False)
+        genomelocidf.to_csv(os.path.join(output_directory, self.histone_mod_to_gene_file_name), encoding="utf-8-sig", index=False)

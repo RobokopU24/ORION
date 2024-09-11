@@ -6,7 +6,7 @@ from parsers.SGD.src.sgd_source_retriever import retrieve_sgd_files
 from Common.loader_interface import SourceDataLoader
 from Common.extractor import Extractor
 from Common.prefixes import PUBMED
-from Common.node_types import PRIMARY_KNOWLEDGE_SOURCE, NODE_TYPES, PUBLICATIONS
+from Common.biolink_constants import PRIMARY_KNOWLEDGE_SOURCE, NODE_TYPES, PUBLICATIONS
 from parsers.yeast.src.yeast_constants import SGD_ALL_GENES_FILE
 
 # Maps Genes to GO Terms.
@@ -18,7 +18,7 @@ class GENEGOTERMS_EDGEUMAN(enum.IntEnum):
     EVIDENCECODE = 8
     EVIDENCECODETEXT = 10
     ANNOTATIONTYPE = 12
-    EVIDENCEPMID = 13
+    EVIDENCEPMID = 15
 
 # Maps Genes to Pathways
 class GENEPATHWAYS_EDGEUMAN(enum.IntEnum):

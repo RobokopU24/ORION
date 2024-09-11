@@ -5,7 +5,7 @@ import requests
 
 from Common.loader_interface import SourceDataLoader, SourceDataBrokenError, SourceDataFailedError
 from Common.kgxmodel import kgxnode, kgxedge
-from Common.node_types import GENE, DISEASE_OR_PHENOTYPIC_FEATURE, PUBLICATIONS
+from Common.biolink_constants import *
 from Common.utils import GetData, snakify
 from Common.db_connectors import MySQLConnector
 from Common.predicates import DGIDB_PREDICATE_MAPPING
@@ -19,7 +19,7 @@ class PHAROSLoader(SourceDataLoader):
     source_data_url = "https://pharos.nih.gov/"
     license = "Data accessed from Pharos and TCRD is publicly available from the primary sources listed above. Please respect their individual licenses regarding proper use and redistribution."
     attribution = 'Sheils, T., Mathias, S. et al, "TCRD and Pharos 2021: mining the human proteome for disease biology", Nucl. Acids Res., 2021. DOI: 10.1093/nar/gkaa993'
-    parsing_version: str = '1.5'
+    parsing_version: str = '1.7'
 
     GENE_TO_DISEASE_QUERY: str = """select distinct x.value, d.did, d.name, p.sym, d.dtype, d.score
                                 from disease d 
@@ -62,6 +62,26 @@ class PHAROSLoader(SourceDataLoader):
         'UniProt Disease': 'infores:uniprot'
     }
 
+    # we might want more granularity here but for now it's one-to-one source with KL/AT
+    # we will need to develop a procedure for merging KL/AT moving forward
+    PHAROS_KL_AT_lookup = {
+        'CTD': (PREDICATION, MANUAL_AGENT),
+        'DisGeNET': (NOT_PROVIDED, NOT_PROVIDED),
+        'DrugCentral Indication': (KNOWLEDGE_ASSERTION, MANUAL_AGENT),
+        'eRAM': (NOT_PROVIDED, NOT_PROVIDED),
+        # For more information about JensenLab Databases: DOI: https://doi.org/10.1093/database/baac019
+        'JensenLab Experiment TIGA': (PREDICATION, AUTOMATED_AGENT),
+        'JensenLab Knowledge AmyCo': (KNOWLEDGE_ASSERTION, MANUAL_AGENT),
+        'JensenLab Knowledge MedlinePlus': (KNOWLEDGE_ASSERTION, MANUAL_AGENT),
+        'JensenLab Knowledge UniProtKB-KW': (KNOWLEDGE_ASSERTION, MANUAL_VALIDATION_OF_AUTOMATED_AGENT),
+        'JensenLab Text Mining': (NOT_PROVIDED, TEXT_MINING_AGENT),
+        'Monarch': (NOT_PROVIDED, NOT_PROVIDED),
+        'UniProt Disease': (KNOWLEDGE_ASSERTION, MANUAL_AGENT)
+    }
+
+    # these are used for pharos edges which are not from a further upstream source
+    PHAROS_KL_AT = (KNOWLEDGE_ASSERTION, MANUAL_AGENT)
+
     def __init__(self, test_mode: bool = False, source_data_dir: str = None):
         """
         :param test_mode - sets the run into test mode
@@ -74,6 +94,7 @@ class PHAROSLoader(SourceDataLoader):
         self.source_db = 'Target Central Resource Database'
         self.pharos_db = None
         self.genetic_association_predicate = 'WIKIDATA_PROPERTY:P2293'
+        self.target_for_predicate = "biolink:target_for"
 
     def get_latest_source_version(self) -> str:
         """
@@ -81,11 +102,15 @@ class PHAROSLoader(SourceDataLoader):
 
         :return: the version of the data
         """
+        """
+        we could do something like this but PHAROS is not going to be updated in this same format so it's not helpful
         url = 'http://juniper.health.unm.edu/tcrd/download/latest.README'
         response = requests.get(url)
         first_line = response.text.splitlines()[0]
         version = first_line.split()[1].replace('.', '_')
         return version
+        """
+        return 'v6_13_4'
 
     def get_data(self):
         gd: GetData = GetData(self.logger.level)
@@ -162,7 +187,11 @@ class PHAROSLoader(SourceDataLoader):
             disease_id = item['did']
             disease_name = self.sanitize_name(item['name'])
             edge_provenance = self.PHAROS_INFORES_MAPPING[item['dtype']]
-            edge_properties = {'score': float(item['score'])} if item['score'] else {}
+            knowledge_level, agent_type = self.PHAROS_KL_AT_lookup.get(item['dtype'], (NOT_PROVIDED, NOT_PROVIDED))
+            edge_properties = {KNOWLEDGE_LEVEL: knowledge_level,
+                               AGENT_TYPE: agent_type}
+            if item['score']:
+                edge_properties['score'] = float(item['score'])
 
             # move along, no disease id
             if disease_id is None:
@@ -188,9 +217,13 @@ class PHAROSLoader(SourceDataLoader):
                 self.output_file_writer.write_kgx_node(gene_node)
 
                 if edge_provenance:
+                    if edge_provenance == "infores:drugcentral":
+                        assigned_predicate = self.target_for_predicate
+                    else:
+                        assigned_predicate = self.genetic_association_predicate
                     gene_to_disease_edge = kgxedge(subject_id=gene_id,
                                                    object_id=disease_id,
-                                                   predicate=self.genetic_association_predicate,
+                                                   predicate=assigned_predicate,
                                                    edgeprops=edge_properties,
                                                    primary_knowledge_source=edge_provenance,
                                                    aggregator_knowledge_sources=[self.provenance_id])
@@ -346,8 +379,11 @@ class PHAROSLoader(SourceDataLoader):
         else:
             pmids: list = []
 
+        knowledge_level, agent_type = self.PHAROS_KL_AT
+        props: dict = {KNOWLEDGE_LEVEL: knowledge_level,
+                       AGENT_TYPE: agent_type}
+
         # if there was affinity data save it
-        props: dict = {}
         affinity = result['affinity']
         if affinity is not None and affinity != '':
             props['affinity'] = float(affinity)

@@ -2,30 +2,51 @@ import os
 import jsonlines
 import secrets
 from xxhash import xxh64_hexdigest
-from Common.node_types import *
+from Common.biolink_utils import get_biolink_model_toolkit
+from Common.biolink_constants import *
 from Common.utils import quick_json_loads, quick_json_dumps, chunk_iterator
 
-NODE_PROPERTIES_THAT_SHOULD_BE_SETS = {SYNONYMS, NODE_TYPES}
+NODE_PROPERTIES_THAT_SHOULD_BE_SETS = {SYNONYMS, NODE_TYPES, SYNONYM}
 EDGE_PROPERTIES_THAT_SHOULD_BE_SETS = {AGGREGATOR_KNOWLEDGE_SOURCES, PUBLICATIONS, XREFS}
+
+bmt = get_biolink_model_toolkit()
 
 
 def edge_key_function(edge):
+    qualifiers = [f'{key}{value}' for key, value in edge.items() if bmt.is_qualifier(key)]
     return xxh64_hexdigest(f'{edge[SUBJECT_ID]}{edge[PREDICATE]}{edge[OBJECT_ID]}'
-                           f'{edge.get(PRIMARY_KNOWLEDGE_SOURCE, "")}')
+                           f'{edge.get(PRIMARY_KNOWLEDGE_SOURCE, "")}{"".join(qualifiers)}')
 
 
 def entity_merging_function(entity_1, entity_2, properties_that_are_sets):
-    for key, value in entity_2.items():
-        # TODO - make sure this is the behavior we want -
-        # for properties that are lists append the values
-        # otherwise keep the first one
-        if key in entity_1:
-            if isinstance(value, list):
-                entity_1[key].extend(value)
-                if key in properties_that_are_sets:
-                    entity_1[key] = list(set(entity_1[key]))
+    # for every property of entity 2
+    for key, entity_2_value in entity_2.items():
+        # if entity 1 also has the property and entity_2_value is not null/empty:
+        # concatenate values if one is a list, otherwise ignore the property from entity 2
+        if (key in entity_1) and entity_2_value:
+            entity_1_value = entity_1[key]
+            entity_1_is_list = isinstance(entity_1_value, list)
+            entity_2_is_list = isinstance(entity_2_value, list)
+            if entity_1_is_list and entity_2_is_list:
+                # if they're both lists just combine them
+                entity_1_value.extend(entity_2_value)
+            elif entity_1_is_list:
+                # if 1 is a list and 2 isn't, append the value of 2 to the list from 1
+                entity_1_value.append(entity_2_value)
+            elif entity_2_is_list:
+                if entity_1_value:
+                    # if 2 is a list and 1 has a value, add the value of 1 to the list from 2
+                    entity_1[key] = [entity_1_value] + entity_2_value
+                else:
+                    # if 2 is a list and 1 doesn't have a value, just use the list from 2
+                    entity_1[key] = entity_2_value
+            # else:
+            # if neither is a list, do nothing (keep the value from 1)
+            if (entity_1_is_list or entity_2_is_list) and (key in properties_that_are_sets):
+                entity_1[key] = list(set(entity_1[key]))
         else:
-            entity_1[key] = value
+            # if entity 1 doesn't have the property, add the property from entity 2
+            entity_1[key] = entity_2_value
     return entity_1
 
 

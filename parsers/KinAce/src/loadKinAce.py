@@ -8,6 +8,7 @@ from Common.loader_interface import SourceDataLoader
 from Common.extractor import Extractor
 from Common.biolink_constants import *
 
+
 ##############
 # Class: Loading kinase-substrate phosphorylation reactions from KinAce
 # By: Jon-Michael Beasley

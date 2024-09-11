@@ -4,7 +4,7 @@ import tarfile
 from io import TextIOWrapper
 from Common.utils import GetData
 from Common.loader_interface import SourceDataLoader
-# from Common.node_types import DESCRIPTION
+from Common.biolink_constants import KNOWLEDGE_LEVEL, AGENT_TYPE, KNOWLEDGE_ASSERTION, MANUAL_AGENT
 from parsers.UberGraph.src.ubergraph import UberGraphTools
 
 
@@ -91,12 +91,15 @@ class UGLoader(SourceDataLoader):
                     # object_description = ubergraph_tools.node_descriptions.get(object_curie, None)
                     # object_properties = {DESCRIPTION: object_description} if object_description else {}
 
+                    edge_props = {KNOWLEDGE_LEVEL: KNOWLEDGE_ASSERTION,
+                                  AGENT_TYPE: MANUAL_AGENT}
                     self.output_file_writer.write_node(node_id=subject_curie)
                     self.output_file_writer.write_node(node_id=object_curie)
                     self.output_file_writer.write_edge(subject_id=subject_curie,
                                                        object_id=object_curie,
                                                        predicate=predicate_curie,
-                                                       primary_knowledge_source=self.provenance_id)
+                                                       primary_knowledge_source=self.provenance_id,
+                                                       edge_properties=edge_props)
                     if self.test_mode and record_counter == 10_000:
                         break
 

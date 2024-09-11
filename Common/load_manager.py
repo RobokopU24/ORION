@@ -5,9 +5,8 @@ from collections import defaultdict
 
 from Common.data_sources import SourceDataLoaderClassFactory, RESOURCE_HOGS, get_available_data_sources
 from Common.utils import LoggingUtil, GetDataPullError
-from Common.kgx_file_normalizer import KGXFileNormalizer, NormalizationBrokenError, NormalizationFailedError
-from Common.kgxmodel import NormalizationScheme
-from Common.normalization import NodeNormalizer, EdgeNormalizer
+from Common.kgx_file_normalizer import KGXFileNormalizer
+from Common.normalization import NormalizationScheme, NodeNormalizer, EdgeNormalizer, NormalizationFailedError
 from Common.metadata import SourceMetadata
 from Common.loader_interface import SourceDataBrokenError, SourceDataFailedError
 from Common.supplementation import SequenceVariantSupplementation, SupplementationFailedError
@@ -183,7 +182,7 @@ class SourceDataManager:
                 f"{failed_error.error_message}")
             if retries < 2:
                 self.logger.error(f"Retrying fetching for {source_id}.. (retry {retries + 1})")
-                self.fetch_source(source_id, retries=retries+1)
+                self.fetch_source(source_id=source_id, source_version=source_version, retries=retries+1)
             else:
                 source_metadata.set_fetch_error(failed_error.error_message)
                 source_metadata.set_fetch_status(SourceMetadata.FAILED)
@@ -356,17 +355,6 @@ class SourceDataManager:
                                                           normalization_status=SourceMetadata.STABLE,
                                                           normalization_info=normalization_info)
             return True
-        except NormalizationBrokenError as broken_error:
-            error_message = f"{source_id} NormalizationBrokenError: {broken_error.error_message}"
-            if broken_error.actual_error:
-                error_message += f" - {broken_error.actual_error}"
-            self.logger.error(error_message)
-            source_metadata.update_normalization_metadata(parsing_version,
-                                                          composite_normalization_version,
-                                                          normalization_status=SourceMetadata.BROKEN,
-                                                          normalization_error=error_message,
-                                                          normalization_time=current_time)
-            return False
         except NormalizationFailedError as failed_error:
             error_message = f"{source_id} NormalizationFailedError: {failed_error.error_message}"
             if failed_error.actual_error:

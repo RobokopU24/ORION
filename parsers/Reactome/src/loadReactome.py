@@ -9,7 +9,7 @@ from bs4 import BeautifulSoup
 from Common.loader_interface import SourceDataLoader
 from Common.kgxmodel import kgxnode, kgxedge
 from Common.neo4j_tools import Neo4jTools
-from Common.node_types import MACROMOLECULAR_COMPLEX, NAMED_THING
+from Common.biolink_constants import *
 from Common.prefixes import REACTOME, NCBITAXON, GTOPDB, UNIPROTKB, CHEBI, KEGG_COMPOUND, KEGG_GLYCAN, PUBCHEM_COMPOUND, NCBIGENE, CLINVAR
 from Common.utils import GetData
 
@@ -99,7 +99,7 @@ class ReactomeLoader(SourceDataLoader):
     source_data_url = "https://reactome.org/"
     license = "https://reactome.org/license"
     attribution = "https://academic.oup.com/nar/article/50/D1/D687/6426058?login=false"
-    parsing_version = '1.2'
+    parsing_version = '1.3'
 
     def __init__(self, test_mode: bool = False, source_data_dir: str = None):
         """
@@ -109,9 +109,12 @@ class ReactomeLoader(SourceDataLoader):
         super().__init__(test_mode=test_mode, source_data_dir=source_data_dir)
         self.version_url: str = 'https://reactome.org/about/news'
 
+        # we'll rename the neo4j dump as we download it to make neo4j usage easier
+        # (community edition only allows one database, having just one named 'neo4j' helps)
         self.neo4j_dump_file = 'reactome.graphdb.dump'
+        self.saved_neo4j_dump_file = 'neo4j.dump'
         self.data_url = 'https://reactome.org/download/current/'
-        self.data_files = [self.neo4j_dump_file]
+        self.data_files = [self.saved_neo4j_dump_file]
 
         self.triple_file: str = 'reactomeContents_CriticalTriples.csv'
         self.triple_path = os.path.dirname(os.path.abspath(__file__))
@@ -142,15 +145,25 @@ class ReactomeLoader(SourceDataLoader):
 
     def get_data(self) -> bool:
         gd: GetData = GetData(self.logger.level)
-        for dt_file in self.data_files:
-            gd.pull_via_http(f'{self.data_url}{dt_file}',
-                             self.data_path)
+        gd.pull_via_http(f'{self.data_url}{self.neo4j_dump_file}',
+                         self.data_path, saved_file_name=self.saved_neo4j_dump_file)
         return True
  
     def parse_data(self):
         neo4j_tools = Neo4jTools()
-        neo4j_tools.load_backup_dump(f'{self.data_path}/{self.neo4j_dump_file}')
-        neo4j_tools.start_neo4j()
+
+        neo4j_status_code = neo4j_tools.load_backup_dump(f'{self.data_path}/')
+        if neo4j_status_code:
+            raise SystemError('Neo4j failed to load the backup dump.')
+
+        neo4j_status_code = neo4j_tools.migrate_dump_to_neo4j_5()
+        if neo4j_status_code:
+            raise SystemError('Neo4j failed to migrate the dump to neo4j 5.')
+
+        neo4j_status_code = neo4j_tools.start_neo4j()
+        if neo4j_status_code:
+            raise SystemError('Neo4j failed to start.')
+
         neo4j_tools.wait_for_neo4j_initialization()
         neo4j_driver = neo4j_tools.neo4j_driver
 
@@ -424,12 +437,16 @@ class ReactomeLoader(SourceDataLoader):
                                 complex_context=None):
         predicate = PREDICATE_MAPPING.get(relationship_type, None)
         if predicate:
+            edge_properties = {KNOWLEDGE_LEVEL: KNOWLEDGE_ASSERTION,
+                               AGENT_TYPE: MANUAL_AGENT}
+            if complex_context:
+                edge_properties['complex_context'] = complex_context
             if not regulation_type:
                 output_edge = kgxedge(
                     subject_id=subject_id,
                     object_id=object_id,
                     predicate=predicate,
-                    edgeprops={'complex_context': complex_context} if complex_context else None,
+                    edgeprops=edge_properties,
                     primary_knowledge_source=self.provenance_id
                 )
             else:
@@ -440,18 +457,16 @@ class ReactomeLoader(SourceDataLoader):
                 else:
                     self.logger.warning(f'Unexpected regulation type encountered: {regulation_type}')
                     return
-                edge_props = {
-                    'qualified_predicate': 'causes',
-                    'object_aspect_qualifier': 'expression',
-                    'object_direction_qualifier': direction,
-                }
-                if complex_context:
-                    edge_props['complex_context'] = complex_context
+                edge_properties.update({
+                    QUALIFIED_PREDICATE: 'biolink:causes',
+                    OBJECT_ASPECT_QUALIFIER: 'expression',
+                    OBJECT_DIRECTION_QUALIFIER: direction,
+                })
                 output_edge = kgxedge(
                     subject_id=subject_id,
                     object_id=object_id,
                     predicate=predicate,
-                    edgeprops=edge_props,
+                    edgeprops=edge_properties,
                     primary_knowledge_source=self.provenance_id
                 )
             self.output_file_writer.write_kgx_edge(output_edge)

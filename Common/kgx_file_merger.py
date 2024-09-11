@@ -3,7 +3,7 @@ import jsonlines
 from itertools import chain
 from Common.utils import LoggingUtil, quick_jsonl_file_iterator, quick_json_dumps, quick_json_loads
 from Common.kgxmodel import GraphSpec, SubGraphSource, DataSource
-from Common.node_types import SUBJECT_ID, OBJECT_ID
+from Common.biolink_constants import SUBJECT_ID, OBJECT_ID
 from Common.merging import GraphMerger, DiskGraphMerger, MemoryGraphMerger
 from Common.load_manager import RESOURCE_HOGS
 
@@ -85,8 +85,10 @@ class KGXFileMerger:
         needs_on_disk_merge = False
         for graph_source in graph_sources:
             if isinstance(graph_source, SubGraphSource):
-                needs_on_disk_merge = True
-                break
+                for source_id in graph_source.graph_metadata.get_source_ids():
+                    if source_id in RESOURCE_HOGS:
+                        needs_on_disk_merge = True
+                        break
             elif graph_source.id in RESOURCE_HOGS:
                 needs_on_disk_merge = True
                 break

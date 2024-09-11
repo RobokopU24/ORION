@@ -3,7 +3,6 @@ import logging
 import tarfile
 import gzip
 import requests
-import pandas as pd
 import orjson
 from dateutil import parser as dp
 from itertools import islice
@@ -16,7 +15,6 @@ from csv import reader, DictReader
 from ftplib import FTP
 from datetime import datetime
 from logging.handlers import RotatingFileHandler
-from pathlib import Path
 
 
 class LoggingUtil(object):
@@ -266,23 +264,30 @@ class GetData:
             self.logger.error(error_message)
             raise GetDataPullError(error_message)
 
-    def pull_via_http(self, url: str, data_dir: str, is_gzip=False) -> int:
+    def pull_via_http(self, url: str, data_dir: str, is_gzip=False, saved_file_name: str = None) -> int:
         """
         gets the file from an http stream.
 
         :param url:
         :param data_dir:
         :param is_gzip:
+        :param saved_file_name:
         :return: the number of bytes read
         """
 
-        # get the filename
-        data_file: str = url.split('/')[-1]
+        # is_gzip isn't used on the main branch, but it's probably on some branches or forks,
+        # lets throw this for a while, so it's not mysteriously removed
+        if is_gzip:
+            raise NotImplementedError(f'is_gzip is deprecated, unzip files during parsing not retrieval!')
 
-        # init the byte counter
+        # get the name of the file to write
+        data_file: str = saved_file_name if saved_file_name else url.split('/')[-1]
+
+        # this tracks how much, if any, of the file is downloaded
+        # (it's not really used anymore, it could be more simple)
         byte_counter: int = 0
 
-        # get the file if its not there
+        # check if the file exists already
         if not os.path.exists(os.path.join(data_dir, data_file)):
 
             self.logger.debug(f'Retrieving {url} -> {data_dir}')
@@ -290,16 +295,8 @@ class GetData:
                 hdr = {'User-Agent': 'Mozilla/5.0 (Windows NT 6.1; Win64; x64)'}
                 req = request.Request(url, headers=hdr)
 
-                # get the the file data handle
+                # get the file data handle
                 file_data = request.urlopen(req)
-
-                # is this a gzip file
-                if is_gzip:
-                    # get a handle to the data
-                    file_data = gzip.GzipFile(fileobj=file_data)
-
-                    # strip off the .gz if exists
-                    data_file = data_file.replace('.gz', '')
 
                 with open(os.path.join(data_dir, data_file), 'wb') as fp:
                     # specify the buffered data block size

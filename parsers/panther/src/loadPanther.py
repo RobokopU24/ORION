@@ -6,6 +6,7 @@ import re
 import requests
 
 from bs4 import BeautifulSoup
+from Common.biolink_constants import *
 from Common.utils import GetData
 from Common.loader_interface import SourceDataLoader
 from Common.kgxmodel import kgxnode, kgxedge
@@ -38,7 +39,7 @@ class PLoader(SourceDataLoader):
     source_data_url = "ftp.pantherdb.org/sequence_classifications/"
     license = "http://pantherdb.org/tou.jsp"
     attribution = "http://pantherdb.org/publications.jsp#HowToCitePANTHER"
-    parsing_version: str = '1.1'
+    parsing_version: str = '1.2'
 
     def __init__(self, test_mode: bool = False, source_data_dir: str = None):
         """
@@ -114,6 +115,7 @@ class PLoader(SourceDataLoader):
         # do the real thing if we arent in debug mode
         if not self.test_mode:
             # get the complete data set
+            #TODO make these class level variables.
             file_count: int = gd.pull_via_ftp('ftp.pantherdb.org', f'/sequence_classifications/{self.data_version}/PANTHER_Sequence_Classification_files/', [self.data_file], self.data_path)
         else:
             file_count: int = 1
@@ -261,10 +263,13 @@ class PLoader(SourceDataLoader):
                     self.final_node_list.append(gene_sub_family_node)
 
                     # create the edge
+                    edge_properties = {KNOWLEDGE_LEVEL: NOT_PROVIDED,
+                                       AGENT_TYPE: NOT_PROVIDED}
                     new_edge = kgxedge(subject_id=g_sub_fam_id,
                                        predicate='BFO:0000050',
                                        object_id=family.identifier,
-                                       primary_knowledge_source=self.provenance_id)
+                                       primary_knowledge_source=self.provenance_id,
+                                       edgeprops=edge_properties)
                     self.final_edge_list.append(new_edge)
 
     def get_gene_by_gene_family(self, family):
@@ -286,10 +291,13 @@ class PLoader(SourceDataLoader):
                 self.final_node_list.append(gene_node)
 
                 # create the edge
+                edge_properties = {KNOWLEDGE_LEVEL: NOT_PROVIDED,
+                                   AGENT_TYPE: NOT_PROVIDED}
                 gene_family_edge = kgxedge(subject_id=gene_id,
                                            predicate='BFO:0000050',
                                            object_id=family.identifier,
-                                           primary_knowledge_source=self.provenance_id)
+                                           primary_knowledge_source=self.provenance_id,
+                                           edgeprops=edge_properties)
                 self.final_edge_list.append(gene_family_edge)
 
     def get_biological_process_or_activity_by_gene_family(self, family):
@@ -310,10 +318,13 @@ class PLoader(SourceDataLoader):
                     self.final_node_list.append(new_node)
 
                     # create the gene_family-biological_process_or_activity edge
+                    edge_properties = {KNOWLEDGE_LEVEL: KNOWLEDGE_ASSERTION,
+                                       AGENT_TYPE: MANUAL_AGENT}
                     new_edge = kgxedge(subject_id=family.identifier,
                                        predicate='RO:0002331',
                                        object_id=bio_p_id,
-                                       primary_knowledge_source=self.provenance_id)
+                                       primary_knowledge_source=self.provenance_id,
+                                       edgeprops=edge_properties)
                     self.final_edge_list.append(new_edge)
 
     def get_molecular_function_by_gene_family(self, family):
@@ -334,10 +345,13 @@ class PLoader(SourceDataLoader):
                     self.final_node_list.append(new_node)
 
                     # create the gene_family-molecular function edge
+                    edge_properties = {KNOWLEDGE_LEVEL: KNOWLEDGE_ASSERTION,
+                                       AGENT_TYPE: MANUAL_AGENT}
                     new_edge = kgxedge(subject_id=family.identifier,
                                        predicate='RO:0002327',
                                        object_id=mole_func_id,
-                                       primary_knowledge_source=self.provenance_id)
+                                       primary_knowledge_source=self.provenance_id,
+                                       edgeprops=edge_properties)
                     self.final_edge_list.append(new_edge)
 
     def get_cellular_component_by_gene_family(self, family):
@@ -358,10 +372,13 @@ class PLoader(SourceDataLoader):
                     self.final_node_list.append(new_node)
 
                     # create the gene_family-cellular_component edge
+                    edge_properties = {KNOWLEDGE_LEVEL: NOT_PROVIDED,
+                                       AGENT_TYPE: NOT_PROVIDED}
                     new_edge = kgxedge(subject_id=family.identifier,
                                        predicate='RO:0001025',
                                        object_id=cellular_component_id,
-                                       primary_knowledge_source=self.provenance_id)
+                                       primary_knowledge_source=self.provenance_id,
+                                       edgeprops=edge_properties)
                     self.final_edge_list.append(new_edge)
 
     def get_pathway_by_gene_family(self, family):
@@ -384,10 +401,13 @@ class PLoader(SourceDataLoader):
                 self.final_node_list.append(new_node)
 
                 # create the gene_family-pathway edge
+                edge_properties = {KNOWLEDGE_LEVEL: NOT_PROVIDED,
+                                   AGENT_TYPE: NOT_PROVIDED}
                 new_edge = kgxedge(subject_id=panther_pathway_id,
                                    predicate='RO:0000057',
                                    object_id=family.identifier,
-                                   primary_knowledge_source=self.provenance_id)
+                                   primary_knowledge_source=self.provenance_id,
+                                   edgeprops=edge_properties)
                 self.final_edge_list.append(new_edge)
 
     def get_gene_id_from_row(self, row):

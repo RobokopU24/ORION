@@ -1,0 +1,15 @@
+# Values for running ORION on Sterling at RENCI with minimal resource consumption
+orion:
+  neo4jScratchVolume:
+    size: 40Gi
+  resources:
+    limits:
+      cpu: "2500m"
+      memory: 8Gi
+      ephemeral-storage: 2Gi
+    requests:
+      cpu: "2500m"
+      memory: 6Gi
+      ephemeral-storage: 1Gi
+
+

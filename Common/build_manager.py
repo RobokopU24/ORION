@@ -12,15 +12,17 @@ from Common.data_sources import get_available_data_sources
 from Common.load_manager import SourceDataManager
 from Common.kgx_file_merger import KGXFileMerger
 from Common.neo4j_tools import create_neo4j_dump
-from Common.kgxmodel import GraphSpec, SubGraphSource, DataSource, NormalizationScheme
-from Common.normalization import NORMALIZATION_CODE_VERSION
+from Common.kgxmodel import GraphSpec, SubGraphSource, DataSource
+from Common.normalization import NORMALIZATION_CODE_VERSION, NormalizationScheme
 from Common.metadata import Metadata, GraphMetadata, SourceMetadata
 from Common.supplementation import SequenceVariantSupplementation
-from Common.node_types import PRIMARY_KNOWLEDGE_SOURCE, AGGREGATOR_KNOWLEDGE_SOURCES, PREDICATE, PUBLICATIONS
+from Common.biolink_constants import PRIMARY_KNOWLEDGE_SOURCE, AGGREGATOR_KNOWLEDGE_SOURCES, PREDICATE, PUBLICATIONS
 from Common.meta_kg import MetaKnowledgeGraphBuilder, META_KG_FILENAME, TEST_DATA_FILENAME
+from Common.redundant_kg import generate_redundant_kg
 
 NODES_FILENAME = 'nodes.jsonl'
 EDGES_FILENAME = 'edges.jsonl'
+REDUNDANT_EDGES_FILENAME = 'redundant_edges.jsonl'
 
 
 class GraphBuilder:
@@ -99,8 +101,8 @@ class GraphBuilder:
             if qc_results['pass']:
                 self.logger.info(f'QC passed for graph {graph_id}.')
             else:
-                # TODO - bail if qc fails - just need to implement a way to force output regardless
-                self.logger.info(f'QC failed for graph {graph_id}')
+                self.logger.info(f'QC failed for graph {graph_id}, bailing..')
+                return
 
         needs_meta_kg = not self.has_meta_kg(graph_directory=graph_output_dir)
         needs_test_data = not self.has_test_data(graph_directory=graph_output_dir)
@@ -110,18 +112,26 @@ class GraphBuilder:
                                                 generate_meta_kg=needs_meta_kg,
                                                 generate_test_data=needs_test_data)
 
-        if 'neo4j' in graph_spec.graph_output_format.lower():
+        output_formats = graph_spec.graph_output_format.lower().split('+') if graph_spec.graph_output_format else []
+        nodes_filepath = os.path.join(graph_output_dir, NODES_FILENAME)
+        edges_filepath = os.path.join(graph_output_dir, EDGES_FILENAME)
+        if 'neo4j' in output_formats:
             self.logger.info(f'Starting Neo4j dump pipeline for {graph_id}...')
-            dump_success = create_neo4j_dump(graph_id=graph_id,
+            dump_success = create_neo4j_dump(nodes_filepath=nodes_filepath,
+                                             edges_filepath=edges_filepath,
+                                             output_directory=graph_output_dir,
+                                             graph_id=graph_id,
                                              graph_version=graph_version,
-                                             graph_directory=graph_output_dir,
-                                             nodes_filename=NODES_FILENAME,
-                                             edges_filename=EDGES_FILENAME,
                                              logger=self.logger)
 
             if dump_success:
                 graph_output_url = self.get_graph_output_URL(graph_id, graph_version)
                 graph_metadata.set_dump_url(f'{graph_output_url}graph_{graph_version}.db.dump')
+
+        if 'redundant_jsonl' in output_formats:
+            self.logger.info(f'Generating redundant edge KG for {graph_id}...')
+            redundant_filepath = edges_filepath.replace(EDGES_FILENAME, REDUNDANT_EDGES_FILENAME)
+            generate_redundant_kg(edges_filepath, redundant_filepath)
 
     def build_dependencies(self, graph_spec: GraphSpec):
         for subgraph_source in graph_spec.subgraphs:
@@ -129,8 +139,7 @@ class GraphBuilder:
             subgraph_version = subgraph_source.version
             if self.check_for_existing_graph_dir(subgraph_id, subgraph_version):
                 # load previous metadata
-                graph_metadata = self.get_graph_metadata(subgraph_id, subgraph_version)
-                subgraph_source.graph_metadata = graph_metadata.metadata
+                subgraph_source.graph_metadata = self.get_graph_metadata(subgraph_id, subgraph_version)
             elif self.current_graph_versions[subgraph_id] == subgraph_version:
                 self.logger.warning(f'For graph {graph_spec.graph_id} subgraph dependency '
                                     f'{subgraph_id} version {subgraph_version} is not ready. Building now...')
@@ -229,6 +238,7 @@ class GraphBuilder:
         aggregator_knowledge_sources = set()
         edge_properties = set()
         predicate_counts = defaultdict(int)
+        predicate_counts_by_ks = defaultdict(lambda: defaultdict(int))
         edges_with_publications = defaultdict(int)
         graph_edges_file_path = os.path.join(graph_directory, EDGES_FILENAME)
         for edge_json in quick_jsonl_file_iterator(graph_edges_file_path):
@@ -239,6 +249,7 @@ class GraphBuilder:
             for key in edge_json.keys():
                 edge_properties.add(key)
             predicate_counts[edge_json[PREDICATE]] += 1
+            predicate_counts_by_ks[edge_json[PRIMARY_KNOWLEDGE_SOURCE]][edge_json[PREDICATE]] += 1
             if PUBLICATIONS in edge_json and edge_json[PUBLICATIONS]:
                 edges_with_publications[edge_json[PREDICATE]] += 1
 
@@ -268,7 +279,9 @@ class GraphBuilder:
             'pass': True,
             'primary_knowledge_sources': list(primary_knowledge_sources),
             'aggregator_knowledge_sources': list(aggregator_knowledge_sources),
-            'predicates': {k: v for k, v in predicate_counts.items()},
+            'predicate_totals': {k: v for k, v in predicate_counts.items()},
+            'predicates_by_knowledge_source': {ks: {predicate: count for predicate, count in ks_to_p.items()}
+                                               for ks, ks_to_p in predicate_counts_by_ks.items()},
             'node_curie_prefixes': {k: v for k, v in node_curie_prefixes.items()},
             'edges_with_publications': {k: v for k, v in edges_with_publications.items()},
             'edge_properties': list(edge_properties),
@@ -277,7 +290,6 @@ class GraphBuilder:
         if deprecated_infores_ids:
             qc_metadata['warnings']['deprecated_knowledge_sources'] = deprecated_infores_ids
         if invalid_infores_ids:
-            qc_metadata['pass'] = False
             qc_metadata['warnings']['invalid_knowledge_sources'] = invalid_infores_ids
         return qc_metadata
 
@@ -444,7 +456,7 @@ class GraphBuilder:
         return os.path.join(self.graphs_dir, graph_id, graph_version)
 
     def get_graph_output_URL(self, graph_id: str, graph_version: str):
-        graph_output_url = os.environ['ORION_OUTPUT_URL']
+        graph_output_url = os.environ.get('ORION_OUTPUT_URL', "https://localhost/")
         if graph_output_url[-1] != '/':
             graph_output_url += '/'
         return f'{graph_output_url}{graph_id}/{graph_version}/'

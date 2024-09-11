@@ -7,6 +7,7 @@ from io import TextIOWrapper
 from csv import reader
 from operator import itemgetter
 from zipfile import ZipFile
+from Common.biolink_constants import *
 from Common.utils import GetData
 from Common.loader_interface import SourceDataLoader, SourceDataFailedError
 from Common.prefixes import NCBITAXON, UNIPROTKB
@@ -74,7 +75,7 @@ class IALoader(SourceDataLoader):
     source_data_url = "https://www.ebi.ac.uk/intact/"
     license = "https://www.ebi.ac.uk/about/terms-of-use/"
     attribution = "http://europepmc.org/article/MED/24234451"
-    parsing_version: str = '1.1'
+    parsing_version: str = '1.2'
 
     def __init__(self, test_mode: bool = False, source_data_dir: str = None):
         """
@@ -83,6 +84,9 @@ class IALoader(SourceDataLoader):
         """
         super().__init__(test_mode=test_mode, source_data_dir=source_data_dir)
 
+        self.ftp_site = 'ftp.ebi.ac.uk'
+        self.ftp_dir = '/pub/databases/IntAct/current/psimitab/'
+        
         self.data_file: str = 'intact.zip'
         self.source_db: str = 'IntAct Molecular Interaction Database'
 
@@ -99,7 +103,7 @@ class IALoader(SourceDataLoader):
         gd = GetData(self.logger.level)
 
         # get the file date
-        ret_val: str = gd.get_ftp_file_date('ftp.ebi.ac.uk', '/pub/databases/IntAct/current/psimitab/', self.data_file)
+        ret_val: str = gd.get_ftp_file_date(self.ftp_site, self.ftp_dir, self.data_file)
 
         # return to the caller
         return ret_val
@@ -111,14 +115,8 @@ class IALoader(SourceDataLoader):
         """
         # get a reference to the data gathering class
         gd: GetData = GetData(self.logger.level)
-
-        # do the real thing if we arent in debug mode
-        if not self.test_mode:
-            file_count: int = gd.pull_via_ftp('ftp.ebi.ac.uk', '/pub/databases/IntAct/current/psimitab/', [self.data_file], self.data_path)
-        else:
-            file_count: int = 1
-
-        # return the file count to the caller
+        file_count: int = gd.pull_via_ftp(self.ftp_site, self.ftp_dir, [self.data_file],
+                                          self.data_path)
         return file_count
 
     def parse_data(self) -> dict:
@@ -379,7 +377,10 @@ class IALoader(SourceDataLoader):
                 # add the interacting node edges
                 subject_id = f"{grp_list[grp_idx]['u_a']}"
                 object_id = f"{grp_list[grp_idx]['u_b']}"
-                edge_props = {"publications": f"{grp_list[grp_idx]['pub_id']}", "detection_method": detection_method}
+                edge_props = {PUBLICATIONS: grp_list[grp_idx]['pub_id'],
+                              "detection_method": detection_method,
+                              KNOWLEDGE_LEVEL: NOT_PROVIDED,
+                              AGENT_TYPE: NOT_PROVIDED}
                 new_edge = kgxedge(subject_id,
                                    object_id,
                                    predicate="RO:0002436",
@@ -392,10 +393,13 @@ class IALoader(SourceDataLoader):
                     # add the taxa edges
                     subject_id = f"{grp_list[grp_idx]['u_' + suffix]}"
                     object_id = f"{grp_list[grp_idx]['t_' + suffix]}"
+                    edge_props = {KNOWLEDGE_LEVEL: NOT_PROVIDED,
+                                  AGENT_TYPE: NOT_PROVIDED}
                     new_edge = kgxedge(subject_id,
                                        object_id,
                                        predicate="RO:0002162",
-                                       primary_knowledge_source=self.provenance_id)
+                                       primary_knowledge_source=self.provenance_id,
+                                       edgeprops=edge_props)
                     self.final_edge_list.append(new_edge)
 
                 # goto the next pair
