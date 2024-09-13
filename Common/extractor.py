@@ -106,6 +106,8 @@ class Extractor:
                   object_property_extractor,
                   edge_property_extractor,
                   exclude_unconnected_nodes=False):
+        if all(element == '' for element in row):
+            return
         # pull the information out of the edge
         predicate = predicate_extractor(row) if predicate_extractor is not None else None
         if exclude_unconnected_nodes and predicate is None:
