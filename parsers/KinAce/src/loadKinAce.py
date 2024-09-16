@@ -31,7 +31,7 @@ class KinAceLoader(SourceDataLoader):
     source_data_url = "https://kinace.kinametrix.com/session/ff792906de38db0d1c9900ac5882497b/download/download0?w="
     license = "Creative Commons Attribution 4.0 International"
     attribution = 'https://kinace.kinametrix.com/#section-about'
-    parsing_version = '1.1'
+    parsing_version = '1.2'
 
     KINACE_INFORES_MAPPING = {
         'PhosphoSitePlus': 'infores:psite-plus',
@@ -81,7 +81,7 @@ class KinAceLoader(SourceDataLoader):
         return True
 
     def get_pmids(self, line):
-        publication_list = None
+        publication_list = []
 
         if line[DATACOLS.PUBLICATIONS.value] in ['', 'NA']:
             return publication_list
@@ -91,19 +91,19 @@ class KinAceLoader(SourceDataLoader):
 
         return publication_list
 
-    def KL_AT_assignments(self, line):
-        KL = NOT_PROVIDED
-        AT = NOT_PROVIDED
+    def get_KL_AT_assignments(self, line):
+        knowledge_level = NOT_PROVIDED
+        agent_type = NOT_PROVIDED
         if line[DATACOLS.primary_source.value] == 'PhosphoSitePlus':
-            KL = KNOWLEDGE_ASSERTION
-            AT = MANUAL_AGENT
+            knowledge_level = KNOWLEDGE_ASSERTION
+            agent_type = MANUAL_AGENT
         elif line[DATACOLS.primary_source.value] == 'EPSD':
-            KL = NOT_PROVIDED
-            AT = NOT_PROVIDED
+            knowledge_level = NOT_PROVIDED
+            agent_type = NOT_PROVIDED
         elif line[DATACOLS.primary_source.value] == 'iPTMNet':
-            KL = NOT_PROVIDED
-            AT = TEXT_MINING_AGENT
-        return [KL, AT]
+            knowledge_level = NOT_PROVIDED
+            agent_type = TEXT_MINING_AGENT
+        return [knowledge_level, agent_type]
 
     def parse_data(self) -> dict:
         """
@@ -121,17 +121,17 @@ class KinAceLoader(SourceDataLoader):
                                   lambda line: f"UniProtKB:{line[DATACOLS.kinase.value]}",
                                   object_extractor=lambda line: f"UniProtKB:{line[DATACOLS.substrate.value]}",
                                   predicate_extractor=lambda line: "biolink:affects",  # predicate
-                                  edge_property_extractor=lambda line: {'qualified_predicate': 'biolink:causes',
-                                                                        'object_direction_qualifier': 'increased',
-                                                                        'object_aspect_qualifier': 'phosphorylation',
-                                                                        'phosphorylation_sites': line[DATACOLS.p_site.value],
-                                                                        'knowledge_level': self.KL_AT_assignments(line)[0],
-                                                                        'agent_type':  self.KL_AT_assignments(line)[1],
-                                                                        'primary_knowledge_source':
-                                                                            self.KINACE_INFORES_MAPPING[line[DATACOLS.primary_source.value]],
-                                                                        'aggregator_knowledge_sources': f"infores:kinace",
-                                                                        'publications': self.get_pmids(line),
-                                                  }, # Edge props
+                                  edge_property_extractor=lambda line:
+                                  {QUALIFIED_PREDICATE: 'biolink:causes',
+                                   OBJECT_DIRECTION_QUALIFIER: 'increased',
+                                   OBJECT_ASPECT_QUALIFIER: 'phosphorylation',
+                                   'phosphorylation_sites': [line[DATACOLS.p_site.value]],
+                                   KNOWLEDGE_LEVEL: self.get_KL_AT_assignments(line)[0],
+                                   AGENT_TYPE:  self.get_KL_AT_assignments(line)[1],
+                                   PRIMARY_KNOWLEDGE_SOURCE:
+                                       self.KINACE_INFORES_MAPPING.get(line[DATACOLS.primary_source.value], None),
+                                   AGGREGATOR_KNOWLEDGE_SOURCES: [self.provenance_id],
+                                   PUBLICATIONS: self.get_pmids(line)},
                                   has_header_row=True,
                                   delim=','
                                   )
