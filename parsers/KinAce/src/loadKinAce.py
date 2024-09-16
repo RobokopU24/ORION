@@ -1,6 +1,5 @@
 import os
 import enum
-import csv
 import requests
 
 from Common.utils import GetData
@@ -21,6 +20,7 @@ class DATACOLS(enum.IntEnum):
     p_site = 4
     primary_source = 5
     PUBLICATIONS = 7
+
 
 class KinAceLoader(SourceDataLoader):
 
@@ -50,7 +50,6 @@ class KinAceLoader(SourceDataLoader):
         # self.kinace_version = "2023-10-30"
         # KinAce downloaded this data on the 30th of October 2023. However, they have made changes to the files since
         # I suggest using the last commit date of the file to version this data set
-        self.data_path = "."
         self.kinace_data_url = f"https://github.com/GauravPandeyLab/KiNet/raw/master/data/ksi_source_full_dataset.csv"
         # Let's use the full source for completeness rather than the pruned list
         self.interactions_file_name = f"ksi_source_full_dataset.csv"
