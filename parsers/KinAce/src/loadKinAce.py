@@ -118,7 +118,7 @@ class KinAceLoader(SourceDataLoader):
         with open(os.path.join(self.data_path, self.interactions_file_name)) as csvfile:
             # change to csv reader
             extractor.csv_extract(csvfile,
-                                  lambda line: f"UniProtKB:{line[DATACOLS.kinase.value]}",
+                                  subject_extractor=lambda line: f"UniProtKB:{line[DATACOLS.kinase.value]}",
                                   object_extractor=lambda line: f"UniProtKB:{line[DATACOLS.substrate.value]}",
                                   predicate_extractor=lambda line: "biolink:affects",  # predicate
                                   edge_property_extractor=lambda line:
