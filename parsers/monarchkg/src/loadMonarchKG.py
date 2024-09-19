@@ -2,11 +2,12 @@
 import os
 import tarfile
 import orjson
+import requests
 
 from Common.loader_interface import SourceDataLoader
 from Common.kgxmodel import kgxedge
 from Common.biolink_constants import *
-from Common.utils import GetData
+from Common.utils import GetData, GetDataPullError
 
 
 ##############
@@ -29,7 +30,7 @@ class MonarchKGLoader(SourceDataLoader):
 
         # there is a /latest/ for this url, but without a valid get_latest_source_version function,
         # it could create a mismatch, pin to this version for now
-        self.data_url = 'https://data.monarchinitiative.org/monarch-kg-dev/2024-03-18/'
+        self.data_url = 'https://data.monarchinitiative.org/monarch-kg-dev/latest/'
         self.monarch_graph_archive = 'monarch-kg.jsonl.tar.gz'
         self.monarch_edge_file_archive_path = 'monarch-kg_edges.jsonl'
         self.data_files = [self.monarch_graph_archive]
@@ -63,9 +64,17 @@ class MonarchKGLoader(SourceDataLoader):
         }
 
     def get_latest_source_version(self) -> str:
-        # possible to retrieve from /latest/index.html with beautifulsoup or some html parser but not ideal,
-        # planning to try to set up a better method with owners
-        latest_version = '2024-03-18'
+        """
+        Gets the name of latest monarch kg version from metadata. 
+        """
+        latest_version = None
+        try:
+            metadata_yaml : requests.Response = requests.get("https://data.monarchinitiative.org/monarch-kg-dev/latest/metadata.yaml")
+            for line in metadata_yaml.text.split('\n'):
+                if("kg-version:" in line): latest_version = line.replace("kg-version:","").strip()
+            if(latest_version==None):raise ValueError("Cannot find 'kg-version' in Monarch KG metadata yaml.")
+        except Exception as e:
+            raise GetDataPullError(error_message=f'Unable to determine latest version for Monarch KG: {e}')
         return latest_version
 
     def get_data(self) -> bool:
