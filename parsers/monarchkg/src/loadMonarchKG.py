@@ -94,6 +94,10 @@ class MonarchKGLoader(SourceDataLoader):
         skipped_ignore_knowledge_source = 0
         skipped_undesired_predicate = 0
         full_tar_path = os.path.join(self.data_path, self.monarch_graph_archive)
+        protected_edge_labels = [SUBJECT_ID, OBJECT_ID, PREDICATE,PRIMARY_KNOWLEDGE_SOURCE,
+                                 AGGREGATOR_KNOWLEDGE_SOURCES, KNOWLEDGE_LEVEL, AGENT_TYPE,
+                                 PUBLICATIONS, "biolink:primary_knowledge_source", "biolink:aggregator_knowledge_source"]
+
         with tarfile.open(full_tar_path, 'r') as tar_files:
             with tar_files.extractfile(self.monarch_edge_file_archive_path) as edges_file:
                 for line in edges_file:
@@ -125,13 +129,14 @@ class MonarchKGLoader(SourceDataLoader):
                         KNOWLEDGE_LEVEL: monarch_edge[KNOWLEDGE_LEVEL] if KNOWLEDGE_LEVEL in monarch_edge else NOT_PROVIDED,
                         AGENT_TYPE: monarch_edge[AGENT_TYPE] if AGENT_TYPE in monarch_edge else NOT_PROVIDED
                     }
+
                     if monarch_edge[PUBLICATIONS]:
                         edge_properties[PUBLICATIONS] = monarch_edge[PUBLICATIONS]
+
                     for edge_attribute in monarch_edge:
-                        if '_qualifier' in edge_attribute and monarch_edge[edge_attribute]:
+                        if edge_attribute not in protected_edge_labels and monarch_edge[edge_attribute]:
                             edge_properties[edge_attribute] = monarch_edge[edge_attribute]
-                        elif edge_attribute == QUALIFIED_PREDICATE and monarch_edge[QUALIFIED_PREDICATE]:
-                            edge_properties[QUALIFIED_PREDICATE] = monarch_edge[QUALIFIED_PREDICATE]
+
                     output_edge = kgxedge(
                         subject_id=subject_id,
                         predicate=predicate,
