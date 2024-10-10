@@ -18,7 +18,7 @@ nameres = NameResNEREngine(session)
 sapbert = SAPBERTNEREngine(session)
 
 
-def get_bagel_results(abstract, term):
+def get_orion_bagel_results(text, term):
     # print(f'bagelizing term {term}.')
     taxon_id_to_name = {}
     nr_results = nameres.annotate(term, props={}, limit=10)
@@ -30,7 +30,7 @@ def get_bagel_results(abstract, term):
     update_by_id(terms, nr_results, "NameRes")
     update_by_id(terms, sb_results, "SAPBert")
     augment_results(terms, nameres, taxon_id_to_name)
-    gpt_class_desc_response = ask_classes_and_descriptions(abstract, term, terms, session)
+    gpt_class_desc_response = ask_classes_and_descriptions(text, term, terms, session)
     # gpt_label_response = ask_labels(abstract, term, terms)
     # gpt_class_response = ask_classes(abstract, term, terms)
     return gpt_class_desc_response

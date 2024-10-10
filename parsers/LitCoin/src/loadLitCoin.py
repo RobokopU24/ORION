@@ -3,17 +3,16 @@ import os
 import json
 import orjson
 import re
-import requests
-import urllib
 
 from Common.biolink_utils import BiolinkUtils
-from Common.loader_interface import SourceDataLoader, SourceDataFailedError
+from Common.loader_interface import SourceDataLoader
 from Common.biolink_constants import PUBLICATIONS
-from Common.utils import GetData, snakify
+from Common.utils import GetData
 from Common.normalization import call_name_resolution, NAME_RESOLVER_API_ERROR
 from Common.prefixes import PUBMED
 
-from parsers.LitCoin.src.bagel import get_bagel_results, extract_best_match
+from parsers.LitCoin.src.bagel_service import call_bagel_service
+from parsers.LitCoin.src.bagel import get_orion_bagel_results, extract_best_match
 from parsers.LitCoin.src.predicate_mapping import PredicateMapping
 
 
@@ -79,6 +78,7 @@ NODE_TYPE_MAPPINGS = {
 }
 """
 
+
 ##############
 # Class: LitCoin source loader
 #
@@ -98,7 +98,8 @@ class LitCoinLoader(SourceDataLoader):
         super().__init__(test_mode=test_mode, source_data_dir=source_data_dir)
 
         self.data_url = 'https://stars.renci.org/var/data_services/litcoin/'
-        self.llm_output_file = 'rare_disease_abstracts_fixed._gpt4_20240320.json'
+        # self.llm_output_file = 'rare_disease_abstracts_fixed._gpt4_20240320.json'
+        self.llm_output_file = 'abstracts_CompAndHeal_gpt4_20240320_train.json'
         self.biolink_predicate_vectors_file = 'mapped_predicate_vectors.json'
         self.data_files = [self.llm_output_file, self.biolink_predicate_vectors_file]
         # dicts of name to id lookups organized by node type (node_name_to_id_lookup[node_type] = dict of names -> id)
@@ -110,7 +111,7 @@ class LitCoinLoader(SourceDataLoader):
         self.mentions_predicate = "IAO:0000142"
 
     def get_latest_source_version(self) -> str:
-        latest_version = 'rare_disease_1'
+        latest_version = 'v1.4'
         return latest_version
 
     def get_data(self) -> bool:
@@ -145,6 +146,7 @@ class LitCoinLoader(SourceDataLoader):
         skipped_records = 0
         failed_bagelization = 0
         bagelization_errors = 0
+        bagelized_success = 0
         failed_predicate_mapping = 0
         number_of_abstracts = 0
         terms_that_could_not_be_bagelized = set()
@@ -154,7 +156,7 @@ class LitCoinLoader(SourceDataLoader):
             litcoin_json = json.load(litcoin_file)
             for litcoin_object in litcoin_json:
                 number_of_abstracts += 1
-                if number_of_abstracts > 2 and self.test_mode:
+                if bagelized_success > 200 and self.test_mode:
                     break
                 abstract_id = litcoin_object['abstract_id']
                 self.logger.info(f'processing abstract {number_of_abstracts}: {abstract_id}')
@@ -166,15 +168,21 @@ class LitCoinLoader(SourceDataLoader):
                         subject_name = litcoin_edge[LLM_SUBJECT_NAME]
                         if subject_name not in self.bagel_results_lookup:
                             try:
-                                bagel_results = get_bagel_results(abstract=abstract_text, term=subject_name)
+                                bagel_results = self.get_bagel_results(text=abstract_text, entity=subject_name)
                                 self.bagel_results_lookup[subject_name] = bagel_results
+                                bagelized_success += 1
                             except Exception as e:
                                 self.logger.error(f'Failed Bagelization: {type(e)}:{e}')
                                 skipped_records += 1
                                 bagelization_errors += 1
-                                continue
+                                # continue
+                                raise e
                         else:
                             bagel_results = self.bagel_results_lookup[subject_name]
+                        if 'error' in bagel_results:
+                            skipped_records += 1
+                            failed_bagelization += 1
+                            continue
                         bagel_subject_node, subject_bagel_synonym_type = extract_best_match(bagel_results)
                         if not bagel_subject_node:
                             skipped_records += 1
@@ -187,15 +195,21 @@ class LitCoinLoader(SourceDataLoader):
                         object_name = litcoin_edge[LLM_OBJECT_NAME]
                         if object_name not in self.bagel_results_lookup:
                             try:
-                                bagel_results = get_bagel_results(abstract=abstract_text, term=object_name)
+                                bagel_results = self.get_bagel_results(text=abstract_text, entity=object_name)
                                 self.bagel_results_lookup[object_name] = bagel_results
+                                bagelized_success += 1
                             except Exception as e:
                                 self.logger.error(f'Failed Bagelization: {type(e)}:{e}')
                                 skipped_records += 1
                                 bagelization_errors += 1
-                                continue
+                                # continue
+                                raise e
                         else:
                             bagel_results = self.bagel_results_lookup[object_name]
+                        if 'error' in bagel_results:
+                            skipped_records += 1
+                            failed_bagelization += 1
+                            continue
                         bagel_object_node, object_bagel_synonym_type = extract_best_match(bagel_results)
                         if not bagel_object_node:
                             skipped_records += 1
@@ -264,9 +278,6 @@ class LitCoinLoader(SourceDataLoader):
         # save the bagel results
         self.save_bagel_cache()
 
-        # replaced by bagel
-        # self.save_nameres_lookup_results()
-
         parsing_metadata = {
             'records': records,
             'skipped_records': skipped_records,
@@ -277,6 +288,9 @@ class LitCoinLoader(SourceDataLoader):
             'predicates_that_could_not_be_mapped': list(predicates_that_could_not_be_mapped)
         }
         return parsing_metadata
+
+    def get_bagel_results(self, text, entity):
+        return get_orion_bagel_results(text=text, term=entity)
 
     def get_bagel_cache_path(self):
         return os.path.join(self.data_path, "bagel_cache.json")
@@ -389,55 +403,13 @@ class LitCoinLoader(SourceDataLoader):
             "score": name_res_json['score']
         }
 
-    def save_nameres_lookup_results(self):
-        # write out name res results / lookup to file
-        with open(os.path.join(self.data_path, "..",
-                               f"parsed_{self.parsing_version}",
-                               "litcoin_name_res_results.json"), "w") as name_res_results_file:
-            json.dump(self.node_name_to_id_lookup,
-                      name_res_results_file,
-                      indent=4,
-                      sort_keys=True)
 
+class LitCoinBagelServiceLoader(LitCoinLoader):
+    source_id: str = 'LitCoinBagelService'
+    parsing_version: str = '1.0'
 
-class LitCoinSapBERTLoader(LitCoinLoader):
-    source_id: str = 'LitCoinSapBERT'
-    parsing_version: str = '1.7'
-
-    def name_resolution_function(self, node_name, preferred_biolink_node_type, retries=0):
-        sapbert_url = os.getenv('SAPBERT_URL', 'https://babel-sapbert.apps.renci.org/')
-        sapbert_annotate_endpoint = urllib.parse.urljoin(sapbert_url, '/annotate/')
-        sapbert_payload = {
-          "text": node_name,
-          "model_name": "sapbert",
-          "count": 1000,
-          "args": {"bl_type": preferred_biolink_node_type}
-        }
-        sapbert_response = requests.post(sapbert_annotate_endpoint, json=sapbert_payload)
-        if sapbert_response.status_code == 200:
-            sapbert_json = sapbert_response.json()
-            # return the first result if there is one
-            if sapbert_json:
-                return sapbert_json[0]
-        else:
-            error_message = f'Non-200 Sapbert result {sapbert_response.status_code} for request {sapbert_payload}.'
-            if retries < 3:
-                self.logger.error(error_message + f' Retrying (attempt {retries + 1})... ')
-                return self.name_resolution_function(node_name, preferred_biolink_node_type, retries + 1)
-            else:
-                self.logger.error(error_message + f' Giving up...')
-        # if no results return None
-        return None
-
-    def standardize_name_resolution_results(self, name_res_json):
-        if not name_res_json:
-            return None
-        return {
-            "curie": name_res_json['curie'],
-            "name": name_res_json['name'],
-            "types": name_res_json['category'] if isinstance(name_res_json['category'], list) else [name_res_json['category']],
-            "score": name_res_json['score']
-        }
+    def get_bagel_results(self, text, entity):
+        return call_bagel_service(text=text, entity=entity)
 
 
 class LitCoinEntityExtractorLoader(LitCoinLoader):
