@@ -11,8 +11,8 @@ from Common.utils import GetData
 from Common.normalization import call_name_resolution, NAME_RESOLVER_API_ERROR
 from Common.prefixes import PUBMED
 
-from parsers.LitCoin.src.bagel_service import call_bagel_service
-from parsers.LitCoin.src.bagel import get_orion_bagel_results, extract_best_match
+from parsers.LitCoin.src.bagel.bagel_service import call_bagel_service
+from parsers.LitCoin.src.bagel.bagel import get_orion_bagel_results, extract_best_match
 from parsers.LitCoin.src.predicate_mapping import PredicateMapping
 
 
