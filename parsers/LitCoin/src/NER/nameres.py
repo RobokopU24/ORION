@@ -30,7 +30,7 @@ class NameResNEREngine(BaseNEREngine):
         if props.get('skip_umls', False):
             skip_umls = True
 
-        timeout = props.get('timeout', 15)  # Default to 10 seconds
+        timeout = props.get('timeout', 15)
 
         # Make a request to Nemo-Serve.
         nameres_options = {
