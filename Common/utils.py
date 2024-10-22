@@ -26,12 +26,6 @@ class LoggingUtil(object):
         """
             Logging utility controlling format and setting initial logging level
         """
-        # get a new logger
-        logger = logging.getLogger(__name__)
-
-        # is this the root
-        if not logger.parent.name == 'root':
-            return logger
 
         # get the logger with the specified name
         logger = logging.getLogger(name)
@@ -48,14 +42,8 @@ class LoggingUtil(object):
             "long": '%(asctime)-15s  - %(filename)s %(funcName)s() %(levelname)s: %(message)s'
         }[line_format]
 
-        # create a stream handler (default to console)
-        stream_handler = logging.StreamHandler()
-
         # create a formatter
         formatter = logging.Formatter(format_type)
-
-        # set the formatter on the console stream
-        stream_handler.setFormatter(formatter)
 
         # set the logging level
         if 'ORION_TEST_MODE' in os.environ and os.environ['ORION_TEST_MODE']:
@@ -75,6 +63,12 @@ class LoggingUtil(object):
 
             # add the handler to the logger
             logger.addHandler(file_handler)
+
+        # create a stream handler as well (default to console)
+        stream_handler = logging.StreamHandler()
+
+        # set the formatter on the console stream
+        stream_handler.setFormatter(formatter)
 
         # add the console handler to the logger
         logger.addHandler(stream_handler)
