@@ -164,6 +164,14 @@ spec:
             - name: EDGE_NORMALIZATION_ENDPOINT
               value: {{ .Values.orion.normalization.edgeNormEndpoint }}
             {{- end }}
+            {{- if .Values.orion.normalization.nameResolverEndpoint }}
+            - name: NAMERES_ENDPOINT
+              value: {{ .Values.orion.normalization.nameResolverEndpoint }}
+            {{- end }}
+            {{- if .Values.orion.normalization.sapbertEndpoint }}
+            - name: SAPBERT_URL
+              value: {{ .Values.orion.normalization.sapbertEndpoint }}
+            {{- end }}
             - name: DRUGCENTRAL_DB_HOST
               value: {{ .Values.drugcentral.host | quote }}
             - name: DRUGCENTRAL_DB_USER
