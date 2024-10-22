@@ -52,6 +52,7 @@ orion:
   outputURL: https://stars.renci.org/var/plater/bl-4.2.1/
   openAI:
     openAIKey: secret_key_here_do_not_commit
+    openAIOrg: secret_org_here_do_not_commit
 
 pharos:
   host: pod-host-or-ip

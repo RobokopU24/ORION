@@ -7,3 +7,4 @@ metadata:
 data:
   env-file: |-
     OPENAI_API_KEY={{ .Values.orion.openAI.openAIKey }}
+    OPENAI_API_ORGANIZATION={{ .Values.orion.openAI.openAIOrg }}
