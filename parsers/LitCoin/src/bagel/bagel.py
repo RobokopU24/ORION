@@ -4,8 +4,12 @@ from requests.adapters import HTTPAdapter, Retry
 
 from parsers.LitCoin.src.NER.nameres import NameResNEREngine
 from parsers.LitCoin.src.NER.sapbert import SAPBERTNEREngine
-from parsers.LitCoin.src.bagel.bagel_gpt import ask_classes_and_descriptions
+from parsers.LitCoin.src.bagel.bagel_gpt import ask_classes_and_descriptions, LLM_RESULTS
 from Common.normalization import NODE_NORMALIZATION_URL
+
+
+BAGEL_SUBJECT_SYN_TYPE = 'subject_bagel_syn_type'
+BAGEL_OBJECT_SYN_TYPE = 'object_bagel_syn_type'
 
 # output of parse_gpt looks like {"entity": triple["object"], "qualifier": triple["object_qualifier"]}
 session = requests.Session()
@@ -18,7 +22,7 @@ nameres = NameResNEREngine(session)
 sapbert = SAPBERTNEREngine(session)
 
 
-def get_orion_bagel_results(text, term):
+def get_orion_bagel_results(text, term, abstract_id):
     # print(f'bagelizing term {term}.')
     taxon_id_to_name = {}
     nr_results = nameres.annotate(term, props={}, limit=10)
@@ -30,23 +34,66 @@ def get_orion_bagel_results(text, term):
     update_by_id(terms, nr_results, "NameRes")
     update_by_id(terms, sb_results, "SAPBert")
     augment_results(terms, nameres, taxon_id_to_name)
-    gpt_class_desc_response = ask_classes_and_descriptions(text, term, terms, session)
+    gpt_class_desc_response = ask_classes_and_descriptions(text, term, terms, abstract_id, session)
     # gpt_label_response = ask_labels(abstract, term, terms)
     # gpt_class_response = ask_classes(abstract, term, terms)
     return gpt_class_desc_response
 
 
+def convert_orion_bagel_result_to_bagel_service_format(orion_bagel_result):
+    converted_results = {}
+    for match_type, matches in orion_bagel_result.items():
+        for match in matches:
+            converted_result = {"category": f"biolink:{match['biolink_type']}",
+                                "description": match["description"],
+                                "name": match["label"]}
+            for ner_response in match["return_parameters"]:
+                if ner_response["source"] == "NameRes":
+                    converted_result["name_res_rank"] = ner_response["rank"]
+                    converted_result["nameres_score"] = ner_response["score"]
+            # walk through twice to ensure name res before sapbert in dict order
+            for ner_response in match["return_parameters"]:
+                if ner_response["source"] == "SAPBert":
+                    converted_result["sapbert_rank"] = ner_response["rank"]
+                    converted_result["sapbert_score"] = float(ner_response["score"])
+            converted_result["synonym_type"] = match_type
+            converted_result["taxa"] = match["taxa"]
+            if match["curie"] in converted_result:
+                raise Exception(f'Multiple instances of the same curie in bagel result: {match["curie"]} in '
+                                f'{orion_bagel_result}')
+            converted_results[match["curie"]] = converted_result
+    return converted_results
+
+
 def extract_best_match(bagel_results):
     if not bagel_results:
         return None, None
-    if "exact" in bagel_results:
-        return bagel_results['exact'][0], "exact"
-    elif "broad" in bagel_results:
-        return bagel_results['broad'][0], "broad"
-    elif "narrow" in bagel_results:
-        return bagel_results['narrow'][0], "narrow"
-    elif "related" in bagel_results:
-        return bagel_results['related'][0], "related"
+    ranking = {
+        "exact": [],
+        "narrow": [],
+        "broad": [],
+        "related": []
+    }
+    for result_curie, result in bagel_results.items():
+        syn_type = result["synonym_type"]
+        if syn_type == "unrelated":
+            continue
+        rank = min(result.get("name_res_rank", 1000), result.get("sapbert_rank", 1000))
+        ranking[syn_type].append({"id": result_curie, "name": result["name"], "rank": rank})
+
+    ranking["exact"] = sorted(ranking["exact"], key=lambda k: k["rank"])
+    ranking["narrow"] = sorted(ranking["narrow"], key=lambda k: k["rank"])
+    ranking["broad"] = sorted(ranking["broad"], key=lambda k: k["rank"])
+    ranking["related"] = sorted(ranking["related"], key=lambda k: k["rank"])
+
+    if ranking["exact"]:
+        return ranking["exact"][0], "exact"
+    elif ranking["narrow"]:
+        return ranking["narrow"][0], "narrow"
+    elif ranking["broad"]:
+        return ranking["broad"][0], "broad"
+    elif ranking["related"]:
+        return ranking["related"][0], "related"
     else:
         # throw out unrelated
         return None, "unrelated"
@@ -102,4 +149,6 @@ def update_by_label(terms, results, source):
         terms[label].append(r)
 
 
+def get_llm_results():
+    return LLM_RESULTS
 

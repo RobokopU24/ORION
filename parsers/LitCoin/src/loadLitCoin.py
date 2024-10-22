@@ -1,44 +1,63 @@
 
 import os
 import json
-import orjson
-import re
 
 from Common.biolink_utils import BiolinkUtils
 from Common.loader_interface import SourceDataLoader
 from Common.biolink_constants import PUBLICATIONS
-from Common.utils import GetData
+from Common.utils import GetData, quick_jsonl_file_iterator, snakify
 from Common.normalization import call_name_resolution, NAME_RESOLVER_API_ERROR
 from Common.prefixes import PUBMED
 
 from parsers.LitCoin.src.bagel.bagel_service import call_bagel_service
-from parsers.LitCoin.src.bagel.bagel import get_orion_bagel_results, extract_best_match
-from parsers.LitCoin.src.predicate_mapping import PredicateMapping
+from parsers.LitCoin.src.bagel.bagel import get_orion_bagel_results, extract_best_match, \
+    convert_orion_bagel_result_to_bagel_service_format, BAGEL_SUBJECT_SYN_TYPE, BAGEL_OBJECT_SYN_TYPE, get_llm_results
+
+# from parsers.LitCoin.src.predicate_mapping import PredicateMapping
 
 
-LLM_SUBJECT_NAME = 'subject'
-LLM_SUBJECT_TYPE = 'subject_type'
-LLM_SUBJECT_QUALIFIER = 'subject_qualifier'
-LLM_OBJECT_NAME = 'object'
-LLM_OBJECT_TYPE = 'object_type'
-LLM_OBJECT_QUALIFIER = 'object_qualifier'
-LLM_RELATIONSHIP = 'relationship'
-LLM_RELATIONSHIP_QUALIFIER = 'statement_qualifier'
+class LLM:
+    ABSTRACT_ID = 'abstract_id'
+    ABSTRACT_SPAN = 'abstract_span'
+    ASSERTION_ID = 'assertion_id'
+    ASSERTION_SPAN = 'assertion_span'
+    SUBJECT_NAME = 'subject'
+    SUBJECT_TYPE = 'subject_type'
+    SUBJECT_QUALIFIER = 'subject_qualifier'
+    OBJECT_NAME = 'object'
+    OBJECT_TYPE = 'object_type'
+    OBJECT_QUALIFIER = 'object_qualifier'
+    RELATIONSHIP = 'relationship'
+    RELATIONSHIP_QUALIFIER = 'statement_qualifier'
 
-LLM_SUBJECT_NAME_EDGE_PROP = 'llm_subject'
-LLM_SUBJECT_TYPE_EDGE_PROP = 'llm_subject_type'
-LLM_SUBJECT_QUALIFIER_EDGE_PROP = 'llm_subject_qualifier'
-LLM_OBJECT_NAME_EDGE_PROP = 'llm_object'
-LLM_OBJECT_TYPE_EDGE_PROP = 'llm_object_type'
-LLM_OBJECT_QUALIFIER_EDGE_PROP = 'llm_object_qualifier'
-LLM_RELATIONSHIP_EDGE_PROP = 'llm_relationship'
-LLM_RELATIONSHIP_QUALIFIER_EDGE_PROP = 'llm_relationship_qualifier'
 
-BAGEL_SUBJECT_SYN_TYPE = 'subject_bagel_syn_type'
-BAGEL_OBJECT_SYN_TYPE = 'object_bagel_syn_type'
+kg_edge_properties = [
+    LLM.ABSTRACT_ID,
+    LLM.ABSTRACT_SPAN,
+    LLM.ASSERTION_ID,
+    LLM.ASSERTION_SPAN,
+    LLM.SUBJECT_NAME,
+    LLM.SUBJECT_TYPE,
+    LLM.SUBJECT_QUALIFIER,
+    LLM.OBJECT_NAME,
+    LLM.OBJECT_TYPE,
+    LLM.OBJECT_QUALIFIER,
+    LLM.RELATIONSHIP,
+    LLM.RELATIONSHIP_QUALIFIER
+]
+
+required_edge_properties = [
+    LLM.SUBJECT_NAME,
+    LLM.SUBJECT_TYPE,
+    LLM.OBJECT_NAME,
+    LLM.OBJECT_TYPE,
+    LLM.RELATIONSHIP
+]
+
 
 ABSTRACT_TITLE_EDGE_PROP = 'abstract_title'
 ABSTRACT_TEXT_EDGE_PROP = 'abstract_text'
+ABSTRACT_JOURNAL_EDGE_PROP = 'journal'
 
 """
 NODE_TYPE_MAPPINGS = {
@@ -88,7 +107,7 @@ class LitCoinLoader(SourceDataLoader):
 
     source_id: str = 'LitCoin'
     provenance_id: str = 'infores:robokop-kg'  # TODO - change this to a LitCoin infores when it exists
-    parsing_version: str = '2.1'
+    parsing_version: str = '3.2'
 
     def __init__(self, test_mode: bool = False, source_data_dir: str = None):
         """
@@ -99,9 +118,12 @@ class LitCoinLoader(SourceDataLoader):
 
         self.data_url = 'https://stars.renci.org/var/data_services/litcoin/'
         # self.llm_output_file = 'rare_disease_abstracts_fixed._gpt4_20240320.json'
-        self.llm_output_file = 'abstracts_CompAndHeal_gpt4_20240320_train.json'
-        self.biolink_predicate_vectors_file = 'mapped_predicate_vectors.json'
-        self.data_files = [self.llm_output_file, self.biolink_predicate_vectors_file]
+        self.abstracts_file = 'abstracts_CompAndHeal.json'
+        self.llm_output_file = 'abstracts_CompAndHealpaca_v2.0_20241001.jsonl'
+        # self.biolink_predicate_vectors_file = 'mapped_predicate_vectors.json'
+        # self.data_files = [self.llm_output_file, self.abstracts_file, self.biolink_predicate_vectors_file]
+        self.data_files = [self.llm_output_file, self.abstracts_file]
+
         # dicts of name to id lookups organized by node type (node_name_to_id_lookup[node_type] = dict of names -> id)
         # self.node_name_to_id_lookup = defaultdict(dict)  <--- replaced with bagel
         self.bagel_results_lookup = None
@@ -111,7 +133,7 @@ class LitCoinLoader(SourceDataLoader):
         self.mentions_predicate = "IAO:0000142"
 
     def get_latest_source_version(self) -> str:
-        latest_version = 'v1.4'
+        latest_version = 'v3.0'
         return latest_version
 
     def get_data(self) -> bool:
@@ -131,7 +153,7 @@ class LitCoinLoader(SourceDataLoader):
         # could use cached results for faster dev runs with something like this
         # with open(os.path.join(self.data_path, "litcoin_name_res_results.json"), "w") as name_res_results_file:
         #    self.node_name_to_id_lookup = orjson.load(name_res_results_file)
-
+        """
         predicate_vectors_file_path = os.path.join(self.data_path,
                                                    self.biolink_predicate_vectors_file)
         predicate_map_cache_file_path = os.path.join(self.data_path,
@@ -140,7 +162,11 @@ class LitCoinLoader(SourceDataLoader):
                                             predicate_map_cache_file_path=predicate_map_cache_file_path,
                                             logger=self.logger,
                                             workspace_dir=self.data_path)
+        """
         self.load_bagel_cache()
+
+        abstracts_file_path = os.path.join(self.data_path, self.abstracts_file)
+        abstracts = self.load_abstracts(abstracts_file_path)
 
         records = 0
         skipped_records = 0
@@ -148,149 +174,223 @@ class LitCoinLoader(SourceDataLoader):
         bagelization_errors = 0
         bagelized_success = 0
         failed_predicate_mapping = 0
-        number_of_abstracts = 0
+        failed_abstract_lookup = 0
+        missing_abstracts = set()
         terms_that_could_not_be_bagelized = set()
         predicates_that_could_not_be_mapped = set()
         litcoin_file_path: str = os.path.join(self.data_path, self.llm_output_file)
-        with open(litcoin_file_path) as litcoin_file:
-            litcoin_json = json.load(litcoin_file)
-            for litcoin_object in litcoin_json:
-                number_of_abstracts += 1
-                if bagelized_success > 200 and self.test_mode:
-                    break
-                abstract_id = litcoin_object['abstract_id']
-                self.logger.info(f'processing abstract {number_of_abstracts}: {abstract_id}')
-                pubmed_id = f'{PUBMED}:{abstract_id}'
-                abstract_title, abstract_text = self.parse_abstract_text(litcoin_object)
-                llm_output = litcoin_object['output']
-                for litcoin_edge in self.parse_llm_output(llm_output):
+
+        for litcoin_edge in quick_jsonl_file_iterator(litcoin_file_path):
+
+            records += 1
+            if records == 10 and self.test_mode:
+                break
+
+            abstract_id = litcoin_edge[LLM.ABSTRACT_ID]
+            pubmed_id = f'{PUBMED}:{abstract_id}'
+            self.logger.info(f'processing edge {records}, abstract {abstract_id}')
+
+            try:
+                abstract_title = abstracts[abstract_id]['title']
+                abstract_text = abstracts[abstract_id]['abstract']
+                abstract_journal = abstracts[abstract_id]['journal_name']
+            except KeyError:
+                missing_abstracts.add(abstract_id)
+                skipped_records += 1
+                failed_abstract_lookup += 1
+                self.logger.info(f'Skipping due to failed abstract lookup.')
+                continue
+
+            output_edge_properties = self.parse_llm_edge(litcoin_edge, logger=self.logger)
+            if output_edge_properties is None:
+                skipped_records += 1
+                self.logger.info(f'Skipping due to failed edge property extraction.')
+                continue
+
+            try:
+                subject_name = litcoin_edge[LLM.SUBJECT_NAME]
+                if subject_name not in self.bagel_results_lookup:
                     try:
-                        subject_name = litcoin_edge[LLM_SUBJECT_NAME]
-                        if subject_name not in self.bagel_results_lookup:
-                            try:
-                                bagel_results = self.get_bagel_results(text=abstract_text, entity=subject_name)
-                                self.bagel_results_lookup[subject_name] = bagel_results
-                                bagelized_success += 1
-                            except Exception as e:
-                                self.logger.error(f'Failed Bagelization: {type(e)}:{e}')
-                                skipped_records += 1
-                                bagelization_errors += 1
-                                # continue
-                                raise e
-                        else:
-                            bagel_results = self.bagel_results_lookup[subject_name]
-                        if 'error' in bagel_results:
-                            skipped_records += 1
-                            failed_bagelization += 1
-                            continue
-                        bagel_subject_node, subject_bagel_synonym_type = extract_best_match(bagel_results)
-                        if not bagel_subject_node:
-                            skipped_records += 1
-                            failed_bagelization += 1
-                            terms_that_could_not_be_bagelized.add(subject_name)
-                            continue
-                        subject_id = bagel_subject_node['curie']
-                        subject_name = bagel_subject_node['label']
-
-                        object_name = litcoin_edge[LLM_OBJECT_NAME]
-                        if object_name not in self.bagel_results_lookup:
-                            try:
-                                bagel_results = self.get_bagel_results(text=abstract_text, entity=object_name)
-                                self.bagel_results_lookup[object_name] = bagel_results
-                                bagelized_success += 1
-                            except Exception as e:
-                                self.logger.error(f'Failed Bagelization: {type(e)}:{e}')
-                                skipped_records += 1
-                                bagelization_errors += 1
-                                # continue
-                                raise e
-                        else:
-                            bagel_results = self.bagel_results_lookup[object_name]
-                        if 'error' in bagel_results:
-                            skipped_records += 1
-                            failed_bagelization += 1
-                            continue
-                        bagel_object_node, object_bagel_synonym_type = extract_best_match(bagel_results)
-                        if not bagel_object_node:
-                            skipped_records += 1
-                            failed_bagelization += 1
-                            terms_that_could_not_be_bagelized.add(object_name)
-                            continue
-                        object_id = bagel_object_node['curie']
-                        object_name = bagel_object_node['label']
-
-                        # predicate = 'biolink:' + snakify(litcoin_edge[LLM_RELATIONSHIP])
-                        predicate = predicate_mapper.get_mapped_predicate(litcoin_edge[LLM_RELATIONSHIP])
-                        if not predicate:
-                            skipped_records += 1
-                            failed_predicate_mapping += 1
-                            continue
-
-                        self.output_file_writer.write_node(node_id=subject_id,
-                                                           node_name=subject_name)
-                        self.output_file_writer.write_node(node_id=object_id,
-                                                           node_name=object_name)
-
-                        edge_properties = {
-                            PUBLICATIONS: [pubmed_id],
-                            LLM_SUBJECT_NAME_EDGE_PROP: litcoin_edge[LLM_SUBJECT_NAME],
-                            LLM_SUBJECT_TYPE_EDGE_PROP: litcoin_edge[LLM_SUBJECT_TYPE],
-                            LLM_SUBJECT_QUALIFIER_EDGE_PROP: litcoin_edge[LLM_SUBJECT_QUALIFIER]
-                            if LLM_SUBJECT_QUALIFIER in litcoin_edge else None,
-                            BAGEL_SUBJECT_SYN_TYPE: subject_bagel_synonym_type,
-                            LLM_OBJECT_NAME_EDGE_PROP: litcoin_edge[LLM_OBJECT_NAME],
-                            LLM_OBJECT_TYPE_EDGE_PROP: litcoin_edge[LLM_OBJECT_TYPE],
-                            LLM_OBJECT_QUALIFIER_EDGE_PROP: litcoin_edge[LLM_OBJECT_QUALIFIER]
-                            if LLM_OBJECT_QUALIFIER in litcoin_edge else None,
-                            BAGEL_OBJECT_SYN_TYPE: object_bagel_synonym_type,
-                            LLM_RELATIONSHIP_EDGE_PROP: litcoin_edge[LLM_RELATIONSHIP],
-                            LLM_RELATIONSHIP_QUALIFIER_EDGE_PROP: litcoin_edge[LLM_RELATIONSHIP_QUALIFIER]
-                            if LLM_RELATIONSHIP_QUALIFIER in litcoin_edge else None,
-                            ABSTRACT_TITLE_EDGE_PROP: abstract_title,
-                            ABSTRACT_TEXT_EDGE_PROP: abstract_text
-                        }
-
-                        self.output_file_writer.write_edge(subject_id=subject_id,
-                                                           object_id=object_id,
-                                                           predicate=predicate,
-                                                           edge_properties=edge_properties)
-
-                        # write the node for the publication and edges from the publication to the entities
-                        self.output_file_writer.write_node(node_id=pubmed_id,
-                                                           node_properties={ABSTRACT_TEXT_EDGE_PROP: abstract_text})
-                        self.output_file_writer.write_edge(subject_id=pubmed_id,
-                                                           object_id=subject_id,
-                                                           predicate=self.mentions_predicate)
-                        self.output_file_writer.write_edge(subject_id=pubmed_id,
-                                                           object_id=object_id,
-                                                           predicate=self.mentions_predicate)
-                        records += 1
-
+                        bagel_results = self.get_bagel_results(text=abstract_text,
+                                                               entity=subject_name,
+                                                               abstract_id=abstract_id)
+                        self.bagel_results_lookup[subject_name] = bagel_results
+                        bagelized_success += 1
                     except Exception as e:
-                        # save results/cache on an error to avoid duplicate llm calls
-                        self.save_bagel_cache()
-                        predicate_mapper.save_cached_predicate_mappings()
-                        raise e
+                        self.logger.error(f'Failed Bagelization: {type(e)}:{e}')
+                        skipped_records += 1
+                        bagelization_errors += 1
+                        continue
+                else:
+                    bagel_results = self.bagel_results_lookup[subject_name]
+                if 'error' in bagel_results:
+                    skipped_records += 1
+                    failed_bagelization += 1
+                    self.logger.info(f'Skipping due to error in bagelization.')
+                    continue
+                bagel_subject_node, subject_bagel_synonym_type = extract_best_match(bagel_results)
+                if not bagel_subject_node:
+                    skipped_records += 1
+                    failed_bagelization += 1
+                    terms_that_could_not_be_bagelized.add(subject_name)
+                    self.logger.info(f'Skipping due to bagelization finding no match.')
+                    continue
+                subject_id = bagel_subject_node['id']
+                subject_name = bagel_subject_node['name']
+
+                object_name = litcoin_edge[LLM.OBJECT_NAME]
+                if object_name not in self.bagel_results_lookup:
+                    try:
+                        bagel_results = self.get_bagel_results(text=abstract_text,
+                                                               entity=object_name,
+                                                               abstract_id=abstract_id)
+                        self.bagel_results_lookup[object_name] = bagel_results
+                        bagelized_success += 1
+                    except Exception as e:
+                        self.logger.error(f'Failed Bagelization: {type(e)}:{e}')
+                        skipped_records += 1
+                        bagelization_errors += 1
+                        continue
+                else:
+                    bagel_results = self.bagel_results_lookup[object_name]
+                if 'error' in bagel_results:
+                    skipped_records += 1
+                    failed_bagelization += 1
+                    self.logger.info(f'Skipping due to error in bagelization.')
+                    continue
+                bagel_object_node, object_bagel_synonym_type = extract_best_match(bagel_results)
+                if not bagel_object_node:
+                    skipped_records += 1
+                    failed_bagelization += 1
+                    terms_that_could_not_be_bagelized.add(object_name)
+                    self.logger.info(f'Skipping due to bagelization finding no match.')
+                    continue
+                object_id = bagel_object_node['id']
+                object_name = bagel_object_node['name']
+
+                predicate = 'biolink:' + snakify(litcoin_edge[LLM.RELATIONSHIP])
+                # predicate = predicate_mapper.get_mapped_predicate(litcoin_edge[LLM.RELATIONSHIP])
+                if not predicate:
+                    skipped_records += 1
+                    failed_predicate_mapping += 1
+                    self.logger.info(f'Skipping due to failed predicate mapping.')
+                    continue
+
+                self.output_file_writer.write_node(node_id=subject_id,
+                                                   node_name=subject_name)
+                self.output_file_writer.write_node(node_id=object_id,
+                                                   node_name=object_name)
+
+                output_edge_properties.update({
+                    PUBLICATIONS: [pubmed_id],
+                    BAGEL_SUBJECT_SYN_TYPE: subject_bagel_synonym_type,
+                    BAGEL_OBJECT_SYN_TYPE: object_bagel_synonym_type,
+                    ABSTRACT_TITLE_EDGE_PROP: abstract_title,
+                    ABSTRACT_TEXT_EDGE_PROP: abstract_text
+                })
+
+                self.output_file_writer.write_edge(subject_id=subject_id,
+                                                   object_id=object_id,
+                                                   predicate=predicate,
+                                                   edge_properties=output_edge_properties)
+
+                # write the node for the publication and edges from the publication to the entities
+                self.output_file_writer.write_node(node_id=pubmed_id,
+                                                   node_properties={ABSTRACT_TEXT_EDGE_PROP: abstract_text,
+                                                                    ABSTRACT_JOURNAL_EDGE_PROP: abstract_journal})
+                self.output_file_writer.write_edge(subject_id=pubmed_id,
+                                                   object_id=subject_id,
+                                                   predicate=self.mentions_predicate)
+                self.output_file_writer.write_edge(subject_id=pubmed_id,
+                                                   object_id=object_id,
+                                                   predicate=self.mentions_predicate)
+
+            except (KeyboardInterrupt, Exception) as e:
+                # save results/cache on an error to avoid duplicate llm calls
+                self.save_bagel_cache()
+                self.save_llm_results()
+                # predicate_mapper.save_cached_predicate_mappings()
+                raise e
 
         # save the predicates mapped with openai embeddings
-        predicate_mapper.save_cached_predicate_mappings()
+        # predicate_mapper.save_cached_predicate_mappings()
 
         # save the bagel results
         self.save_bagel_cache()
+        self.save_llm_results()
 
         parsing_metadata = {
             'records': records,
             'skipped_records': skipped_records,
             'bagelization_errors': bagelization_errors,
             'failed_bagelization': failed_bagelization,
+            'failed_abstract_lookup': failed_abstract_lookup,
+            'missing_abstracts': list(missing_abstracts),
             'terms_that_could_not_be_bagelized': list(terms_that_could_not_be_bagelized),
             'failed_predicate_mapping': failed_predicate_mapping,
-            'predicates_that_could_not_be_mapped': list(predicates_that_could_not_be_mapped)
+            'predicates_that_could_not_be_mapped': list(predicates_that_could_not_be_mapped),
         }
         return parsing_metadata
 
-    def get_bagel_results(self, text, entity):
-        return get_orion_bagel_results(text=text, term=entity)
+    def parse_llm_edge(self, llm_json_edge, logger):
+        converted_edge = {}
+        for field in required_edge_properties:
+            if field not in llm_json_edge:
+                logger.warning(f'Missing field {field} in response: {llm_json_edge}')
+                return None
+            if not isinstance(llm_json_edge[field], str):
+                logger.warning(f'Non-string field {field} in response: {llm_json_edge}')
+                return None
+        else:
+            for prop in kg_edge_properties:
+                converted_edge[f'llm_{prop}'] = llm_json_edge.get(prop, None)
+            return converted_edge
+
+    @staticmethod
+    def load_abstracts(abstracts_file_path):
+        abstracts = {}
+        with open(abstracts_file_path) as abstract_file:
+            abstract_json = json.load(abstract_file)
+            for abstract_id, abstract in abstract_json.items():
+                pmid = abstract['pmid']
+                abstracts[pmid] = abstract
+        return abstracts
+
+    """
+    This was the previous way to parse outputs before the files were converted to json upstream of ORION,
+    these had multiple edges per line (llm_output)
+    def parse_llm_output(llm_output, logger):
+        required_fields = [SUBJECT_NAME,
+                           SUBJECT_TYPE,
+                           OBJECT_NAME,
+                           OBJECT_TYPE,
+                           RELATIONSHIP]
+
+        # this regex is from Miles at CoVar, it should extract json objects representing all the edges with entities
+        matches = re.findall(r'\{([^\}]*)\}', llm_output)
+        valid_responses = []
+        for match in matches:
+            cur_response = '{' + match + '}'
+            try:
+                cur_response_dict = json.loads(cur_response)
+            except json.JSONDecodeError as e:
+                logger.error(f'Error decoding JSON: {e}')
+                continue
+            for field in required_edge_properties:
+                if field not in cur_response_dict:
+                    logger.warning(f'Missing field {field} in response: {cur_response_dict}')
+                    break
+                if not isinstance(cur_response_dict[field], str):
+                    logger.warning(f'Non-string field {field} in response: {cur_response_dict}')
+                    break
+            else:  # only return edge/node dictionaries which have all the required fields
+                valid_responses.append(cur_response_dict)
+        return valid_responses
+    """
+
+    def get_bagel_results(self, text, entity, abstract_id):
+        orion_bagel_results = get_orion_bagel_results(text=text, term=entity, abstract_id=abstract_id)
+        return convert_orion_bagel_result_to_bagel_service_format(orion_bagel_results)
 
     def get_bagel_cache_path(self):
         return os.path.join(self.data_path, "bagel_cache.json")
@@ -310,6 +410,31 @@ class LitCoinLoader(SourceDataLoader):
                              bagel_cache_file,
                              indent=4,
                              sort_keys=True)
+
+    def get_llm_results_path(self):
+        return os.path.join(self.data_path, "llm_results.json")
+
+    def save_llm_results(self):
+        llm_results_path = self.get_llm_results_path()
+        if os.path.exists(llm_results_path):
+            with open(llm_results_path, "r") as llm_results_file:
+                previous_llm_results = json.load(llm_results_file)
+        else:
+            previous_llm_results = []
+
+        new_llm_results = get_llm_results()
+        results_to_add = []
+        for llm_result in new_llm_results:
+            already_there = False
+            for old_llm_result in previous_llm_results:
+                if llm_result == old_llm_result:
+                    already_there = True
+                    break
+            if not already_there:
+                results_to_add.append(llm_result)
+        with open(llm_results_path, "w") as llm_results_file:
+            json.dump(previous_llm_results + results_to_add, llm_results_file, indent=4)
+
     """
     replaced by bagel
     def process_llm_node(self, node_name: str, node_type: str):
@@ -343,49 +468,6 @@ class LitCoinLoader(SourceDataLoader):
             return ""
     """
 
-    @staticmethod
-    def parse_abstract_text(llm_response):
-        # this attempts to extract the abstract title and text from the llm output,
-        # it's not great because the abstract is not inside the json part of the output
-        abstract_title = "Abstract title not provided or could not be parsed."
-        abstract_text = "Abstract text not provided or could not be parsed."
-        prompt_lines = llm_response["prompt"].split("\n")
-        for line in prompt_lines:
-            if line.startswith("Title: "):
-                abstract_title = line[len("Title: "):]
-            if line.startswith("Abstract: "):
-                abstract_text = line[len("Abstract: "):]
-        return abstract_title, abstract_text
-
-    def parse_llm_output(self, llm_output):
-
-        required_fields = [LLM_SUBJECT_NAME,
-                           LLM_SUBJECT_TYPE,
-                           LLM_OBJECT_NAME,
-                           LLM_OBJECT_TYPE,
-                           LLM_RELATIONSHIP]
-
-        # this regex is from Miles at CoVar, it should extract json objects representing all the edges with entities
-        matches = re.findall(r'\{([^\}]*)\}', llm_output)
-        valid_responses = []
-        for match in matches:
-            cur_response = '{' + match + '}'
-            try:
-                cur_response_dict = orjson.loads(cur_response)
-            except orjson.JSONDecodeError as e:
-                self.logger.error(f'Error decoding JSON: {e}')
-                continue
-            for field in required_fields:
-                if field not in cur_response_dict:
-                    self.logger.warning(f'Missing field {field} in response: {cur_response_dict}')
-                    break
-                if not isinstance(cur_response_dict[field], str):
-                    self.logger.warning(f'Non-string field {field} in response: {cur_response_dict}')
-                    break
-            else:  # only return edge/node dictionaries which have all the required fields
-                valid_responses.append(cur_response_dict)
-        return valid_responses
-
     def name_resolution_function(self, node_name, preferred_biolink_node_type, retries=0):
         return call_name_resolution(node_name,
                                     preferred_biolink_node_type,
@@ -408,10 +490,12 @@ class LitCoinBagelServiceLoader(LitCoinLoader):
     source_id: str = 'LitCoinBagelService'
     parsing_version: str = '1.0'
 
-    def get_bagel_results(self, text, entity):
+    def get_bagel_results(self, text, entity, abstract_id):
         return call_bagel_service(text=text, entity=entity)
 
 
+"""
+This is broken with the new jsonl format
 class LitCoinEntityExtractorLoader(LitCoinLoader):
     source_id: str = 'LitCoinEntityExtractor'
     parsing_version: str = '1.4'
@@ -453,6 +537,5 @@ class LitCoinEntityExtractorLoader(LitCoinLoader):
                 name_res_inputs.write(f'"{entity["name"]}","{entity["llm_type"]}",{entity["name_res_type"]},{entity["abstract_id"]}\n')
         self.logger.info(f'{len(all_entities.values())} unique entities extracted')
         return {}
-
-
+"""
 

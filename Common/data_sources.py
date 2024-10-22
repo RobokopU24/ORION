@@ -69,7 +69,7 @@ SOURCE_DATA_LOADER_CLASS_IMPORTS = {
     INTACT: ("parsers.IntAct.src.loadIA", "IALoader"),
     LITCOIN: ("parsers.LitCoin.src.loadLitCoin", "LitCoinLoader"),
     LITCOIN_W_BAGEL_SERVICE: ("parsers.LitCoin.src.loadLitCoin", "LitCoinBagelServiceLoader"),
-    LITCOIN_ENTITY_EXTRACTOR: ("parsers.LitCoin.src.loadLitCoin", "LitCoinEntityExtractorLoader"),
+    # LITCOIN_ENTITY_EXTRACTOR: ("parsers.LitCoin.src.loadLitCoin", "LitCoinEntityExtractorLoader"),
     KINACE: ("parsers.KinAce.src.loadKinAce", "KinAceLoader"),
     MOLEPRO: ("parsers.molepro.src.loadMolePro", "MoleProLoader"),
     MONARCH_KG: ("parsers.monarchkg.src.loadMonarchKG", "MonarchKGLoader"),

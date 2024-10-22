@@ -5,8 +5,10 @@ from Common.config import CONFIG
 
 OPENAI_API_KEY = CONFIG.get("OPENAI_API_KEY")
 
+LLM_RESULTS = []
 
-def ask_classes_and_descriptions(text, term, termlist, requests_session):
+
+def ask_classes_and_descriptions(text, term, termlist, abstract_id, requests_session):
     """Get GPT results based only on the labels of the terms."""
 
     # Get the Labels
@@ -50,6 +52,13 @@ def ask_classes_and_descriptions(text, term, termlist, requests_session):
     """
 
     results = query(prompt, requests_session)
+
+    LLM_RESULTS.append({
+        'abstract_id': abstract_id,
+        'term': term,
+        'prompt': prompt,
+        'output': results
+    })
 
     for result in results:
         syn = result['synonym']

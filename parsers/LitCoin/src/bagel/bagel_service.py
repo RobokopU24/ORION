@@ -39,13 +39,13 @@ def call_bagel_service(text, entity, entity_type=''):
         "sapbert_url": bagel_sapbert_url,
         "nodenorm_url": bagel_nodenorm_url
     }
-    print(f'Querying bagel with:\n {bagel_json}')
+    # print(f'Querying bagel with:\n {bagel_json}')
     bagel_response = requests.post(BAGEL_ENDPOINT,
                                    json=bagel_json)
 
     if bagel_response.status_code == 200:
         bagel_results = bagel_response.json()
-        print(bagel_results)
+        # print(bagel_results)
         return bagel_results
     elif bagel_response.status_code == 403:
         return {'error': '403'}
