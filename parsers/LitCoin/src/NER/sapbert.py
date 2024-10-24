@@ -41,7 +41,8 @@ class SAPBERTNEREngine(BaseNEREngine):
         response = self.requests_session.post(SAPBERT_ANNOTATE_ENDPOINT, json=request)
         logging.debug(f"Response from {SAPBERT_MODEL_NAME}: {response.content}")
         if not response.ok:
-            raise RuntimeError(f"Server error from SAPBERT for text '{text}': {response}")
+            logging.debug(f"Server error from SAPBERT for text '{text}': {response}")
+            response.raise_for_status()
 
         results = response.json()
         annotations = []

@@ -47,7 +47,8 @@ class NameResNEREngine(BaseNEREngine):
         response = self.requests_session.get(NAMERES_ENDPOINT, params=nameres_options, timeout=timeout)
         logging.debug(f"Response from NameRes: {response.content}")
         if not response.ok:
-            raise RuntimeError(f"Could not contact NameRes: {response}")
+            logging.debug(f"Could not contact NameRes: {response}")
+            response.raise_for_status()
 
         results = response.json()
         annotations = []

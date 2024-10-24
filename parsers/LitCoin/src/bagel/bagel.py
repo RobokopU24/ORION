@@ -25,8 +25,15 @@ sapbert = SAPBERTNEREngine(session)
 def get_orion_bagel_results(text, term, abstract_id):
     # print(f'bagelizing term {term}.')
     taxon_id_to_name = {}
-    nr_results = nameres.annotate(term, props={}, limit=10)
-    sb_results = sapbert.annotate(term, props={}, limit=10)
+    try:
+        nr_results = nameres.annotate(term, props={}, limit=10)
+    except requests.exceptions.HTTPError:
+        nr_results = []
+    try:
+        sb_results = sapbert.annotate(term, props={}, limit=10)
+    except requests.exceptions.HTTPError:
+        sb_results = []
+
     # We have results from both nr and sb. But we want to fill those out with consistent information that may
     # or may not be returned from each source
     # First merge the results by identifier (not label) and store in terms dict
