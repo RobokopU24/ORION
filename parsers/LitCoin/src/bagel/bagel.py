@@ -129,7 +129,10 @@ def augment_results(terms, nameres, taxes):
                 resp = requests.get(f"{NODE_NORMALIZATION_URL}get_normalized_nodes?curie="+tax_id)
                 if resp.status_code == 200:
                     result = resp.json()
-                    tax_name = result[tax_id]["id"]["label"]
+                    try:
+                        tax_name = result[tax_id]["id"]["label"]
+                    except (TypeError, KeyError):
+                        tax_name = f'Taxon name failed for {tax_id}'
                     taxes[tax_id] = tax_name
             tax_name = taxes[tax_id]
             annotation["label"] = f"{annotation['label']} ({tax_name})"
