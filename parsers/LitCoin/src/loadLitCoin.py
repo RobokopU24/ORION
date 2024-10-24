@@ -2,6 +2,8 @@
 import os
 import json
 
+import requests.exceptions
+
 from Common.biolink_utils import BiolinkUtils
 from Common.loader_interface import SourceDataLoader
 from Common.biolink_constants import PUBLICATIONS
@@ -216,10 +218,12 @@ class LitCoinLoader(SourceDataLoader):
                                                                abstract_id=abstract_id)
                         self.bagel_results_lookup[subject_name] = bagel_results
                         bagelized_success += 1
-                    except Exception as e:
+                    except requests.exceptions.HTTPError as e:
                         self.logger.error(f'Failed Bagelization: {type(e)}:{e}')
                         skipped_records += 1
                         bagelization_errors += 1
+                        if e.response.status_code == 429:
+                            raise e
                         continue
                 else:
                     bagel_results = self.bagel_results_lookup[subject_name]
@@ -246,10 +250,12 @@ class LitCoinLoader(SourceDataLoader):
                                                                abstract_id=abstract_id)
                         self.bagel_results_lookup[object_name] = bagel_results
                         bagelized_success += 1
-                    except Exception as e:
+                    except requests.exceptions.HTTPError as e:
                         self.logger.error(f'Failed Bagelization: {type(e)}:{e}')
                         skipped_records += 1
                         bagelization_errors += 1
+                        if e.response.status_code == 429:
+                            raise e
                         continue
                 else:
                     bagel_results = self.bagel_results_lookup[object_name]

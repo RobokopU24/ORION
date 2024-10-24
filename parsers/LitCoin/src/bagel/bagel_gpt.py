@@ -85,7 +85,7 @@ def query(prompt, requests_session):
     }
 
     payload = {
-        "model": "gpt-4-0125-preview",
+        "model": "gpt-4o-mini",
         "messages": [
             {
                 "role": "user",
