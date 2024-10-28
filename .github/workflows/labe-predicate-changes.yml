@@ -24,42 +24,41 @@ jobs:
         pip install -r requirements.txt
 
     - name: Label PR if predicates changed
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      run: |
-        python -c "
-        from github import Github
-
-        g = Github('${{ secrets.GITHUB_TOKEN }}')
-        repo = g.get_repo('${{ github.repository }}')
-        
-        if 'issue' in github.event:
-            item = repo.get_issue(number=github.event.issue.number)
-            is_issue = True
-        else:
-            item = repo.get_pull(github.event.number)
-            is_issue = False
-
-        keywords = ['predicate', 'biolink:']  
-        label_name = 'Biological Context QC'  
-
-        if any(keyword.lower() in item.title.lower() or keyword.lower() in item.body.lower() for keyword in keywords):
-            item.add_to_labels(label_name)  # Add the label
-        "
-
-    - name: Assign if Labeled
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      if: github.event.action == 'labeled' && github.event.label.name == 'Biological Context QC'
-      run: |
-        python -c "
-        from github import Github
+      uses: actions/github-script@v6
+      with:
+        script: |
+          const keywords = ['predicate', 'biolink:'];  // Define keywords
+          const labelName = 'Biological Context QC';  // Label to apply
           
-        g = Github('${{ secrets.GITHUB_TOKEN }}')
-        repo = g.get_repo('${{ github.repository }}')
-        issue_number = github.event.issue.number
-        issue = repo.get_issue(number=issue_number)
+          // Determine if the event is for an issue or pull request
+          const isIssue = context.event.issue !== undefined;
+          const number = isIssue ? context.event.issue.number : context.event.pull_request.number;
+          const item = isIssue ? context.issue : context.payload.pull_request;
+          
+          // Check if the title or body contains any keywords
+          const containsKeyword = (text) => {
+            return keywords.some(keyword => text.toLowerCase().includes(keyword.toLowerCase()));
+          };
+          
+          if (containsKeyword(item.title) || containsKeyword(item.body)) {
+            // Add label if keywords found
+            await github.issues.addLabels({
+              ...context.repo,
+              issue_number: number,
+              labels: [labelName]
+            });
+          }
 
-        assignee = 'eKathleenCarter'
-        issue.add_to_assignees(assignee)
-        "
+    - name: Assign Issue if Labeled
+      uses: actions/github-script@v6
+      if: github.event.action == 'labeled' && github.event.label.name == 'Biological Context QC'
+      with:
+        script: |
+          const assignee = 'eKathleenCarter';  // Change this to the desired assignee's GitHub username
+          
+          // Assign the issue
+          await github.issues.addAssignees({
+            ...context.repo,
+            issue_number: context.issue.number,
+            assignees: [assignee]
+          });
