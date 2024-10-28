@@ -22,16 +22,21 @@ jobs:
           const labelName = 'Biological Context QC'; 
           
           // Check if the event is for an issue
-          let item, number;
-
-          if (context.event.issue) {
-            // It's an issue
-            item = context.event.issue;
+          let item;
+          let number;
+          
+          // Check if the event is for an issue
+          if (context.payload.issue) {
+            item = context.payload.issue;
             number = item.number;
-          } else {
-            // It's a pull request
+          } 
+          // Check if the event is for a pull request
+          else if (context.payload.pull_request) {
             item = context.payload.pull_request;
             number = item.number;
+          } else {
+            console.log("This event is neither an issue nor a pull request.");
+            return; // Exit if it's neither
           }
 
           // Check if the title or body contains any keywords
