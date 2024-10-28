@@ -110,10 +110,10 @@ def query(prompt, requests_session):
         print(f'openai json did not contain expected key {k}: {response.json()}')
         raise k
 
-    chunk = content[content.index("["):(content.rindex("]") + 1)]
     try:
+        chunk = content[content.index("["):(content.rindex("]") + 1)]
         output = json.loads(chunk)
-    except json.JSONDecodeError as e:
-        print(f'openai results not contain valid json chunk, chunk: {chunk}')
-        output = []
+    except (json.JSONDecodeError, ValueError) as e:
+        print(f'openai results did not contain valid json chunk: {content}')
+        raise e
     return output
