@@ -43,11 +43,12 @@ jobs:
           const containsKeyword = (text) => {
             return keywords.some(keyword => text.toLowerCase().includes(keyword.toLowerCase()));
           };
-
+     
           if (containsKeyword(item.title) || containsKeyword(item.body)) {
             // Add label if keywords found
             await github.issues.addLabels({
-              ...context.repo,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
               issue_number: number,
               labels: [labelName]
             });
