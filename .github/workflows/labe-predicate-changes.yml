@@ -4,7 +4,7 @@ on:
   pull_request:
     types: [opened, synchronize]
   issues:
-    types: [opened, edited]
+    types: [opened, edited, labeled]
 
 jobs:
   label:
@@ -14,32 +14,31 @@ jobs:
     - name: Check out code
       uses: actions/checkout@v3
 
-    - name: Set up Python
-      uses: actions/setup-python@v4
-      with:
-        python-version: '3.9'
-
-    - name: Install dependencies
-      run: |
-        pip install -r requirements.txt
-
     - name: Label PR if predicates changed
       uses: actions/github-script@v6
       with:
         script: |
-          const keywords = ['predicate', 'biolink:'];  // Define keywords
-          const labelName = 'Biological Context QC';  // Label to apply
+          const keywords = ['predicate', 'biolink:'];
+          const labelName = 'Biological Context QC'; 
           
-          // Determine if the event is for an issue or pull request
-          const isIssue = context.event.issue !== undefined;
-          const number = isIssue ? context.event.issue.number : context.event.pull_request.number;
-          const item = isIssue ? context.issue : context.payload.pull_request;
-          
+          // Check if the event is for an issue
+          let item, number;
+
+          if (context.event.issue) {
+            // It's an issue
+            item = context.event.issue;
+            number = item.number;
+          } else {
+            // It's a pull request
+            item = context.payload.pull_request;
+            number = item.number;
+          }
+
           // Check if the title or body contains any keywords
           const containsKeyword = (text) => {
             return keywords.some(keyword => text.toLowerCase().includes(keyword.toLowerCase()));
           };
-          
+
           if (containsKeyword(item.title) || containsKeyword(item.body)) {
             // Add label if keywords found
             await github.issues.addLabels({
