@@ -33,7 +33,7 @@ jobs:
         g = Github('${{ secrets.GITHUB_TOKEN }}')
         repo = g.get_repo('${{ github.repository }}')
         
-        if "issue" in github.event:
+        if 'issue' in github.event:
             item = repo.get_issue(number=github.event.issue.number)
             is_issue = True
         else:
