@@ -9,6 +9,8 @@ CORD19 = 'Cord19'
 CTD = 'CTD'
 DRUG_CENTRAL = 'DrugCentral'
 DRUGMECHDB = 'DrugMechDB'
+EHRMAYTREAT = 'EHRMayTreat'
+EHRCLINICALCONNECTIONS = 'EHRClinicalConnections'
 # FOODB = 'FooDB' # this is on hold, data needs review after latest release of data.
 GENOME_ALLIANCE_ORTHOLOGS = 'GenomeAllianceOrthologs'
 GTEX = 'GTEx'
@@ -23,7 +25,6 @@ LITCOIN = 'LitCoin'
 LITCOIN_SAPBERT = 'LitCoinSapBERT'
 LITCOIN_ENTITY_EXTRACTOR = 'LitCoinEntityExtractor'
 KINACE = 'KinAce'
-MAYTREATKP = 'EHRMayTreatKP'
 MOLEPRO = 'MolePro'
 MONARCH_KG = 'MonarchKG'
 MONDO_PROPS = 'MONDOProps'
@@ -72,7 +73,8 @@ SOURCE_DATA_LOADER_CLASS_IMPORTS = {
     LITCOIN_ENTITY_EXTRACTOR: ("parsers.LitCoin.src.loadLitCoin", "LitCoinEntityExtractorLoader"),
     LITCOIN_SAPBERT: ("parsers.LitCoin.src.loadLitCoin", "LitCoinSapBERTLoader"),
     KINACE: ("parsers.KinAce.src.loadKinAce", "KinAceLoader"),
-    MAYTREATKP: ("parsers.ehr.src.loadEHR", "EHRMayTreatLoader"),
+    EHRMAYTREAT: ("parsers.ehr.src.loadEHR", "EHRMayTreatLoader"),
+    EHRCLINICALCONNECTIONS: ("parsers.ehr.src.loadEHR", "EHRClinicalConnectionsLoader"),
     MOLEPRO: ("parsers.molepro.src.loadMolePro", "MoleProLoader"),
     MONARCH_KG: ("parsers.monarchkg.src.loadMonarchKG", "MonarchKGLoader"),
     MONDO_PROPS: ("parsers.MONDOProperties.src.loadMP", "MPLoader"),

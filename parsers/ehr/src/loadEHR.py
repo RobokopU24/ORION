@@ -24,8 +24,8 @@ class EHRMayTreatLoader(SourceDataLoader):
         """
         super().__init__(test_mode=test_mode, source_data_dir=source_data_dir)
 
-        self.data_url: str = 'https://stars.renci.org/var/data_services/ehrmaytreatkp/'
-        self.edge_file_name: str = 'edges.csv'
+        self.data_url: str = 'https://raw.githubusercontent.com/Hadlock-Lab/EHRMLA_KPs/main/May%20Treat/csvs/'
+        self.edge_file_name: str = 'May_Treat_KP_edges_latest_deploy.csv'
         self.data_file = self.edge_file_name
         self.version_file = 'ehr-may-treat-kp.yaml'
 
@@ -86,3 +86,24 @@ class EHRMayTreatLoader(SourceDataLoader):
             'unusable_source_lines': skipped_record_counter}
         return load_metadata
 
+
+class EHRClinicalConnectionsLoader(EHRMayTreatLoader):
+    source_id: str = "EHRClinicalConnectionsKP"
+    provenance_id: str = "infores:isb-EHRMLA-clinicalconnections"
+    description = "Multiomics EHRMLA Clinical Connections KP."
+    source_data_url = "https://github.com/NCATSTranslator/Translator-All/wiki/Multiomics-EHRMLA-May-Treat-KP"
+    license = "https://github.com/NCATSTranslator/Translator-All/wiki/Multiomics-EHRMLA-May-Treat-KP"
+    attribution = "https://github.com/NCATSTranslator/Translator-All/wiki/Multiomics-EHRMLA-May-Treat-KP"
+    parsing_version = "1.0"
+
+    def __init__(self, test_mode: bool = False, source_data_dir: str = None):
+        """
+        :param test_mode - sets the run into test mode
+        :param source_data_dir - the specific storage directory to save files in
+        """
+        super().__init__(test_mode=test_mode, source_data_dir=source_data_dir)
+
+        self.data_url: str = 'https://raw.githubusercontent.com/Hadlock-Lab/EHRMLA_KPs/main/Clinical%20Connections/csvs/'
+        self.edge_file_name: str = 'ClinicalConnections_KP_edges_latest_deploy.csv'
+        self.data_file = self.edge_file_name
+        self.version_file = 'ehr-clinical-connections-kp.yaml'
