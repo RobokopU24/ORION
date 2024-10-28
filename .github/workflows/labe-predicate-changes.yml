@@ -1,0 +1,62 @@
+name: Label Predicate Changes
+
+on:
+  pull_request:
+    types: [opened, synchronize]
+  issues:
+    types: [opened, edited]
+
+jobs:
+  label:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Check out code
+      uses: actions/checkout@v2
+
+    - name: Set up Python
+      uses: actions/setup-python@v2
+      with:
+        python-version: '3.8'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install PyGithub
+
+    - name: Label PR if predicates changed
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: |
+        from github import Github
+
+        g = Github("${{ secrets.GITHUB_TOKEN }}")
+        repo = g.get_repo("${{ github.repository }}")
+        
+        if "issue" in github.event:
+            item = repo.get_issue(number=github.event.issue.number)
+            is_issue = True
+        else:
+            item = repo.get_pull(github.event.number)
+            is_issue = False
+
+        keywords = ["predicate", "biolink:"]  
+        label_name = "Biological Context QC"  
+
+        if any(keyword.lower() in item.title.lower() or keyword.lower() in item.body.lower() for keyword in keywords):
+            item.add_to_labels(label_name)  # Add the label
+
+    - name: Assign if Labeled
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      if: github.event.action == 'labeled' && github.event.label.name == 'Biological Context QC'
+      run: |
+        from github import Github
+          
+        g = Github("${{ secrets.GITHUB_TOKEN }}")
+        repo = g.get_repo("${{ github.repository }}")
+        issue_number = github.event.issue.number
+        issue = repo.get_issue(number=issue_number)
+
+        assignee = "eKathleenCarter" 
+        issue.add_to_assignees(assignee)
