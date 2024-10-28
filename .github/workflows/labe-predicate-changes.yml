@@ -39,12 +39,15 @@ jobs:
             return; // Exit if it's neither
           }
 
+          console.log("Item to check:", item); // Debugging line
+          
           // Check if the title or body contains any keywords
           const containsKeyword = (text) => {
             return keywords.some(keyword => text.toLowerCase().includes(keyword.toLowerCase()));
           };
      
-          if (containsKeyword(item.title) || containsKeyword(item.body)) {
+           if (containsKeyword(item.title) || containsKeyword(item.body)) {
+            console.log(`Adding label "${labelName}" to item #${number}`); // Debugging line
             // Add label if keywords found
             await github.issues.addLabels({
               owner: context.repo.owner,
