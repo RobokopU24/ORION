@@ -22,12 +22,13 @@ jobs:
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install PyGithub
+        pip install -r requirements.txt
 
     - name: Label PR if predicates changed
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
+        python -c "
         from github import Github
 
         g = Github("${{ secrets.GITHUB_TOKEN }}")
@@ -45,12 +46,14 @@ jobs:
 
         if any(keyword.lower() in item.title.lower() or keyword.lower() in item.body.lower() for keyword in keywords):
             item.add_to_labels(label_name)  # Add the label
+        "
 
     - name: Assign if Labeled
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       if: github.event.action == 'labeled' && github.event.label.name == 'Biological Context QC'
       run: |
+        python -c "
         from github import Github
           
         g = Github("${{ secrets.GITHUB_TOKEN }}")
@@ -60,3 +63,4 @@ jobs:
 
         assignee = "eKathleenCarter" 
         issue.add_to_assignees(assignee)
+        "
