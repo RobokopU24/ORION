@@ -23,7 +23,7 @@ LITCOIN = 'LitCoin'
 LITCOIN_SAPBERT = 'LitCoinSapBERT'
 LITCOIN_ENTITY_EXTRACTOR = 'LitCoinEntityExtractor'
 KINACE = 'KinAce'
-MAYTREATKP = 'MayTreatKP'
+MAYTREATKP = 'EHRMayTreatKP'
 MOLEPRO = 'MolePro'
 MONARCH_KG = 'MonarchKG'
 MONDO_PROPS = 'MONDOProps'
@@ -72,7 +72,7 @@ SOURCE_DATA_LOADER_CLASS_IMPORTS = {
     LITCOIN_ENTITY_EXTRACTOR: ("parsers.LitCoin.src.loadLitCoin", "LitCoinEntityExtractorLoader"),
     LITCOIN_SAPBERT: ("parsers.LitCoin.src.loadLitCoin", "LitCoinSapBERTLoader"),
     KINACE: ("parsers.KinAce.src.loadKinAce", "KinAceLoader"),
-    MAYTREATKP: ("parsers.MayTreat.src.loadMayTreat", "MayTreatLoader"),
+    MAYTREATKP: ("parsers.ehr.src.loadEHR", "EHRMayTreatLoader"),
     MOLEPRO: ("parsers.molepro.src.loadMolePro", "MoleProLoader"),
     MONARCH_KG: ("parsers.monarchkg.src.loadMonarchKG", "MonarchKGLoader"),
     MONDO_PROPS: ("parsers.MONDOProperties.src.loadMP", "MPLoader"),
