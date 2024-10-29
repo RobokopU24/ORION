@@ -2,7 +2,7 @@ name: 'Label Predicate Changes'
 
 on:
   pull_request:
-    types: [opened, edited]
+    types: [opened, edited, synchronize]
   issues:
     types: [opened, edited]
 
@@ -25,7 +25,5 @@ jobs:
         pip install PyGithub 
 
     - name: Run predicate check
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
         python ./github/scripts/Bio_QC_check.py
