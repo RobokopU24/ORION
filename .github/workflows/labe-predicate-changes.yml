@@ -28,4 +28,4 @@ jobs:
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
-        python ./github_scripts/Bio_QC_check.py
+        python ./github/scripts/Bio_QC_check.py
