@@ -1,72 +1,31 @@
-name: Label Predicate Changes
+name: 'Label Predicate Changes'
 
 on:
   pull_request:
-    types: [opened, synchronize]
+    types: [opened, edited]
   issues:
-    types: [opened, edited, labeled]
+    types: [opened, edited]
 
 jobs:
-  label:
+  label_check:
     runs-on: ubuntu-latest
 
     steps:
     - name: Check out code
       uses: actions/checkout@v3
 
-    - name: Label PR if predicates changed
-      uses: actions/github-script@v6
+    - name: Set up Python
+      uses: actions/setup-python@v4
       with:
-        script: |
-          const keywords = ['predicate', 'biolink:'];
-          const labelName = 'Biological Context QC'; 
-          
-          // Check if the event is for an issue
-          let item;
-          let number;
-          
-          // Check if the event is for an issue
-          if (context.payload.issue) {
-            item = context.payload.issue;
-            number = item.number;
-          } 
-          // Check if the event is for a pull request
-          else if (context.payload.pull_request) {
-            item = context.payload.pull_request;
-            number = item.number;
-          } else {
-            console.log("This event is neither an issue nor a pull request.");
-            return; // Exit if it's neither
-          }
+        python-version: 3.9
 
-          console.log("Item to check:", item); // Debugging line
-          
-          // Check if the title or body contains any keywords
-          const containsKeyword = (text) => {
-            return keywords.some(keyword => text.toLowerCase().includes(keyword.toLowerCase()));
-          };
-     
-           if (containsKeyword(item.title) || containsKeyword(item.body)) {
-            console.log(`Adding label "${labelName}" to item #${number}`); // Debugging line
-            // Add label if keywords found
-            await github.issues.addLabels({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: number,
-              labels: [labelName]
-            });
-          }
+    - name: Install dependencies
+      run: |
+        pip install -r requirements.txt
+        pip install PyGithub 
 
-    - name: Assign Issue if Labeled
-      uses: actions/github-script@v6
-      if: github.event.action == 'labeled' && github.event.label.name == 'Biological Context QC'
-      with:
-        script: |
-          const assignee = 'eKathleenCarter';  // Change this to the desired assignee's GitHub username
-          
-          // Assign the issue
-          await github.issues.addAssignees({
-            ...context.repo,
-            issue_number: context.issue.number,
-            assignees: [assignee]
-          });
+    - name: Run predicate check
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: |
+        python ./github_scripts/Bio_QC_check.py
