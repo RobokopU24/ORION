@@ -26,4 +26,4 @@ jobs:
 
     - name: Run predicate check
       run: |
-        python ./github/scripts/Bio_QC_check.py
+        python .github/scripts/Bio_QC_check.py
