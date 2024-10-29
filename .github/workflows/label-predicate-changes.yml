@@ -25,5 +25,8 @@ jobs:
         pip install PyGithub 
 
     - name: Run predicate check
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        ISSUE_NUMBER: ${{ github.event.pull_request.number || github.event.issue.number }}
       run: |
         python .github/scripts/Bio_QC_check.py
