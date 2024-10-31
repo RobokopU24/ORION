@@ -112,3 +112,5 @@ class LINCSLoader(SourceDataLoader):
             KNOWLEDGE_LEVEL: KNOWLEDGE_ASSERTION,
             AGENT_TYPE: DATA_PIPELINE
         })
+        
+        return properties
