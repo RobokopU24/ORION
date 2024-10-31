@@ -44,7 +44,8 @@ def object_direction_qualifier_semantic_adjustment(object_direction_qualifier):
     return object_direction_conversion
 
 def object_aspect_qualifier_semantic_adjustment(object_aspect_qualifier):
-    if object_aspect_qualifier.aplit('_')[-1] -- 'interaction':
+    # TODO check if other object aspect qualifiers besides molecular interaction need to be treated differently.
+    if object_aspect_qualifier.split('_')[-1] == 'molecular_interaction':
         object_aspect_conversion = object_aspect_qualifier + "_with"
     else:
         object_aspect_conversion = object_aspect_qualifier + "_of"
@@ -76,9 +77,8 @@ def generate_collapsed_qualifiers_kg(infile, edges_file_path):
             if OBJECT_ASPECT_QUALIFIER in qualifiers:
                 if object_direction_qualifier_exists == True:
                     qualifier_statement+= "_"
-                else: # Don't think we'll need this, but breaking the loop if we find something unexpected.
-                    print(f"Collapsed Qualifiers Graph Failed - missing object_direction_qualifier while trying to add object_aspect_qualifer on edge: {edge}")
-                    break
+                else: # Currently, we'll just say "affects_something" if no direction is specified.
+                    qualifier_statement+= "affects_"
                 qualifier_statement+= object_aspect_qualifier_semantic_adjustment(edge[OBJECT_ASPECT_QUALIFIER])
             
             edges_to_write = []
@@ -87,5 +87,6 @@ def generate_collapsed_qualifiers_kg(infile, edges_file_path):
             if qualifier_statement != "":
                 edges_to_write.append(write_edge_no_q(edge, qualifier_statement))
             else: 
-                edges_to_write(edge)
+                edges_to_write.append(edge)
+
             kgx_file_writer.write_normalized_edges(edges_to_write)
