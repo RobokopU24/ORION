@@ -40,7 +40,7 @@ PREDICATE_MAPPING = {
 ##############
 
 
-class ParserTemplate(SourceDataLoader):
+class LINCSLoader(SourceDataLoader):
 
     source_id: str = 'LINCS'
     # this should be a valid infores curie from the biolink infores catalog
