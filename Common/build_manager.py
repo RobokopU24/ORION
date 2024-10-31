@@ -23,6 +23,7 @@ from Common.redundant_kg import generate_redundant_kg
 NODES_FILENAME = 'nodes.jsonl'
 EDGES_FILENAME = 'edges.jsonl'
 REDUNDANT_EDGES_FILENAME = 'redundant_edges.jsonl'
+COLLAPSED_QUALIFIERS_FILENAME = 'collapsed_qualifier_edges.jsonl'
 
 
 class GraphBuilder:
@@ -115,6 +116,17 @@ class GraphBuilder:
         output_formats = graph_spec.graph_output_format.lower().split('+') if graph_spec.graph_output_format else []
         nodes_filepath = os.path.join(graph_output_dir, NODES_FILENAME)
         edges_filepath = os.path.join(graph_output_dir, EDGES_FILENAME)
+        
+        if 'redundant_jsonl' in output_formats:
+            self.logger.info(f'Generating redundant edge KG for {graph_id}...')
+            redundant_filepath = edges_filepath.replace(EDGES_FILENAME, REDUNDANT_EDGES_FILENAME)
+            generate_redundant_kg(edges_filepath, redundant_filepath)
+            
+        if 'collapsed_qualifiers_jsonl' in output_formats:
+            self.logger.info(f'Generating redundant edge KG for {graph_id}...')
+            redundant_filepath = edges_filepath.replace(EDGES_FILENAME, COLLAPSED_QUALIFIERS_FILENAME)
+            generate_redundant_kg(edges_filepath, redundant_filepath)
+
         if 'neo4j' in output_formats:
             self.logger.info(f'Starting Neo4j dump pipeline for {graph_id}...')
             dump_success = create_neo4j_dump(nodes_filepath=nodes_filepath,
@@ -127,11 +139,6 @@ class GraphBuilder:
             if dump_success:
                 graph_output_url = self.get_graph_output_URL(graph_id, graph_version)
                 graph_metadata.set_dump_url(f'{graph_output_url}graph_{graph_version}.db.dump')
-
-        if 'redundant_jsonl' in output_formats:
-            self.logger.info(f'Generating redundant edge KG for {graph_id}...')
-            redundant_filepath = edges_filepath.replace(EDGES_FILENAME, REDUNDANT_EDGES_FILENAME)
-            generate_redundant_kg(edges_filepath, redundant_filepath)
 
     def build_dependencies(self, graph_spec: GraphSpec):
         for subgraph_source in graph_spec.subgraphs:
