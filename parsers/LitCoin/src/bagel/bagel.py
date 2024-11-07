@@ -83,7 +83,7 @@ def extract_best_match(bagel_results):
     }
     for result_curie, result in bagel_results.items():
         syn_type = result["synonym_type"]
-        if syn_type == "unrelated":
+        if syn_type not in ranking:
             continue
         rank = min(result.get("name_res_rank", 1000), result.get("sapbert_rank", 1000))
         ranking[syn_type].append({"id": result_curie, "name": result["name"], "rank": rank})
@@ -103,8 +103,7 @@ def extract_best_match(bagel_results):
         return ranking["related"][0], "related"
     else:
         # throw out unrelated
-        return None, "unrelated"
-
+        return None, None
 
 def augment_results(terms, nameres, taxes):
     """Given a dict where the key is a curie, and the value are data about the match, augment the value with

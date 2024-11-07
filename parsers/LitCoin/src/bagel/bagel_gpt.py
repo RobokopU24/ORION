@@ -43,11 +43,11 @@ def ask_classes_and_descriptions(text, term, termlist, abstract_id, requests_ses
             "synonymType": ...
         }}
     ]
-    where the value for synonym is the element from the synonym list, vocabulary class is the 
-    class that I input associated with that synonym, and synonymType is either "exact" or "narrow".
+    where the value for synonym is the element from the synonym list, vocabulary class is the class that I input 
+    associated with that synonym, and synonymType is either "exact", "narrow", "broad", or "related".
 
     abstract: {text}
-    query_term: {term}
+    query term: {term}
     possible_synonyms_classes_and_descriptions: {synonym_list}
     """
 
@@ -68,13 +68,12 @@ def ask_classes_and_descriptions(text, term, termlist, abstract_id, requests_ses
         for curie in curies:
             termlist[curie]["synonym_Type"] = syntype
 
-    grouped_by_syntype = dict()
+    grouped_by_syntype = defaultdict(list)
     for curie in termlist:
-        syntype = termlist[curie].get("synonym_Type", "unrelated")
-        termlist[curie]["curie"] = curie
-        if syntype not in grouped_by_syntype:
-            grouped_by_syntype[syntype] = []
-        grouped_by_syntype[syntype].append(termlist[curie])
+        syntype = termlist[curie].get("synonym_Type", None)
+        if syntype:
+            termlist[curie]["curie"] = curie
+            grouped_by_syntype[syntype].append(termlist[curie])
     return grouped_by_syntype
 
 
