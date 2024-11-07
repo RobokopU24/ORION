@@ -41,9 +41,8 @@ def get_orion_bagel_results(text, term, abstract_id):
     update_by_id(terms, nr_results, "NameRes")
     update_by_id(terms, sb_results, "SAPBert")
     augment_results(terms, nameres, taxon_id_to_name)
+    # make the call to the LLM asking it to classify the synonyms
     gpt_class_desc_response = ask_classes_and_descriptions(text, term, terms, abstract_id, session)
-    # gpt_label_response = ask_labels(abstract, term, terms)
-    # gpt_class_response = ask_classes(abstract, term, terms)
     return gpt_class_desc_response
 
 

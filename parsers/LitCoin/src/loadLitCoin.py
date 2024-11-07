@@ -300,10 +300,10 @@ class LitCoinLoader(SourceDataLoader):
                                                        entity=entity_name,
                                                        abstract_id=abstract_id)
                 self.bagel_results_lookup[abstract_id]["terms"][entity_name] = bagel_results
-            except requests.exceptions.HTTPError as e:
+            except Exception as e:
                 error_message = f'Failed Bagelization: {type(e)}:{e}'
                 self.logger.error(error_message)
-                if e.response.status_code == 429:
+                if isinstance(e, requests.exceptions.HTTPError) and e.response.status_code == 429:
                     raise e
                 self.parsing_metadata['bagelization_errors'] += 1
                 bagel_results = {'error': error_message}
