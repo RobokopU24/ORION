@@ -1,12 +1,18 @@
 import json
+import os
 from collections import defaultdict
 
 from Common.config import CONFIG
+from Common.utils import LoggingUtil
 
 OPENAI_API_KEY = CONFIG.get("OPENAI_API_KEY")
 
 LLM_RESULTS = []
 
+
+logger = LoggingUtil.init_logging("ORION.Common.BagelGPT",
+                                  line_format='medium',
+                                  log_file_path=os.environ['ORION_LOGS'])
 
 def ask_classes_and_descriptions(text, term, termlist, abstract_id, requests_session):
     """Get GPT results based only on the labels of the terms."""
@@ -100,19 +106,19 @@ def query(prompt, requests_session):
 
     response = requests_session.post("https://api.openai.com/v1/chat/completions", headers=headers, json=payload)
     if response.status_code != 200:
-        print(f'openai call returned non-200 status: {response.status_code}')
+        logger.error(f'openai call returned non-200 status: {response.status_code}')
         response.raise_for_status()
     try:
         content = response.json()["choices"][0]["message"]["content"]
         # print(content)
     except KeyError as k:
-        print(f'openai json did not contain expected key {k}: {response.json()}')
+        logger.warning(f'openai json did not contain expected key {k}: {response.json()}')
         raise k
 
     try:
         chunk = content[content.index("["):(content.rindex("]") + 1)]
         output = json.loads(chunk)
     except (json.JSONDecodeError, ValueError) as e:
-        print(f'openai results did not contain valid json chunk: {content}')
+        logger.warning(f'openai results did not contain valid json chunk: {content}')
         raise e
     return output
