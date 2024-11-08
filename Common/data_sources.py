@@ -6,6 +6,7 @@ CAM_KP = 'CAM-KP'
 CHEBI_PROPERTIES = 'CHEBIProps'
 CLINICAL_TRIALS_KP = 'ClinicalTrialsKP'
 CORD19 = 'Cord19'
+COHD = 'COHD'
 CTD = 'CTD'
 DRUG_CENTRAL = 'DrugCentral'
 DRUGMECHDB = 'DrugMechDB'
@@ -56,6 +57,7 @@ SOURCE_DATA_LOADER_CLASS_IMPORTS = {
     CHEBI_PROPERTIES: ("parsers.chebi.src.loadChebiProperties", "ChebiPropertiesLoader"),
     CLINICAL_TRIALS_KP: ("parsers.clinicaltrials.src.loadCTKP", "CTKPLoader"),
     CORD19: ("parsers.cord19.src.loadCord19", "Cord19Loader"),
+    COHD: ("parsers.cohd.src.loadCOHD", "COHDLoader"),
     CTD: ("parsers.CTD.src.loadCTD", "CTDLoader"),
     DRUG_CENTRAL: ("parsers.drugcentral.src.loaddrugcentral", "DrugCentralLoader"),
     DRUGMECHDB: ("parsers.drugmechdb.src.loadDrugMechDB", "DrugMechDBLoader"),
