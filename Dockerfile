@@ -1,5 +1,5 @@
 # A docker container with neo4j, java and python for Data Services
-FROM neo4j:5.19.0-community-bullseye
+FROM neo4j:5.25.1-community-bullseye
 
 RUN apt-get update  \
     && apt-get -y install python3 \
