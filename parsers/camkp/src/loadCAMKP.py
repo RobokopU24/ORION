@@ -36,7 +36,7 @@ class CAMKPLoader(SourceDataLoader):
     source_data_url = "https://github.com/ExposuresProvider/cam-kp-api"
     license = "https://github.com/ExposuresProvider/cam-kp-api/blob/master/LICENSE"
     attribution = "https://github.com/ExposuresProvider/cam-kp-api"
-    parsing_version = "1.3"
+    parsing_version = "1.4"
 
     def __init__(self, test_mode: bool = False, source_data_dir: str = None):
         """
@@ -102,10 +102,16 @@ class CAMKPLoader(SourceDataLoader):
                     KNOWLEDGE_LEVEL: KNOWLEDGE_ASSERTION,
                     AGENT_TYPE: MANUAL_AGENT
                 }
+                # if it has enough columns to have a qualifier
                 if len(line) >= CAMDATACOLS.QUALIFIERS.value + 1:
-                    qualifier_json_strings = line[CAMDATACOLS.QUALIFIERS.value].split('||')
-                    edge_properties = {k.replace('biolink:', ''): v for json_item in qualifier_json_strings
-                                       for k, v in json.loads(json_item).items()}
+                    # qualifier format looks like:
+                    # (biolink:anatomical_context_qualifier=GO:0005634)&&(biolink:anatomical_context_qualifier=CL:0008019)
+                    # split on && then remove the parentheses
+                    qualifiers = [qualifier.strip("()") for qualifier in line[CAMDATACOLS.QUALIFIERS.value].split('&&')]
+                    # make a dict of qualifier_key: qualifier_value, remove the biolink prefix
+                    qualifiers = {qual[0].removeprefix("biolink:"): qual[1] for qual in
+                                  [qualifier.split('=') for qualifier in qualifiers]}
+                    edge_properties.update(qualifiers)
                 new_edge = kgxedge(subject_id=subject_id,
                                    object_id=object_id,
                                    predicate=predicate,
