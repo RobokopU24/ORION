@@ -122,7 +122,8 @@ class SIGNORLoader(SourceDataLoader):
     def get_data(self) -> int:
         """
         Gets the SIGNOR 3.0 data.
-        Must send some complex data and headers, which is what happens below.
+        Must send some complex data and headers, because it's php with a form with buttons on it,
+        which is why MultipartEncoder is used.
         """
 
         data_puller = GetData()
@@ -157,9 +158,8 @@ class SIGNORLoader(SourceDataLoader):
                     f.write(response.content)
 
             elif source == self.signor_mechanisms_filename:
-                mp_encoder = MultipartEncoder(fields={"submit": (None, "Download Mechansisms CV")})
-                # Mechanism is spelled from on the SIGNOR website. If they fix their spelling, this will break
-
+                mp_encoder = MultipartEncoder(fields={"submit": (None, "Download Mechansims CV")})
+                # Mechanism is misspelled on the SIGNOR website. If they fix their spelling, this will break
                 headers = {'Content-Type': mp_encoder.content_type}
                 response = rq.post(self.signor_cv_download, headers=headers, data=mp_encoder)
                 with open(os.path.join(self.data_path, self.signor_mechanisms_filename), 'wb') as f:
