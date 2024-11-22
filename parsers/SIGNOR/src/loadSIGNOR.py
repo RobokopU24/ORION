@@ -119,7 +119,6 @@ class SIGNORLoader(SourceDataLoader):
                                                                            "").replace('"', '')
         return file_name
 
-    @property
     def get_data(self) -> int:
         """
         Gets the SIGNOR 3.0 data.
