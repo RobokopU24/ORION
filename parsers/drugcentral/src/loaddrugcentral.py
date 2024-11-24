@@ -269,11 +269,11 @@ def get_bioactivity_predicate(line):
         'RELEASING AGENT':'biolink:interacts_with'}
 
             act_type_mappings = {
-        'IC50':'biolink:decreases_activity_of',
-        'Kd':'biolink:interacts_with',
-        'AC50':'biolink:increases_activity_of',
-        'Ki':'biolink:decreases_activity_of',
-        'EC50':'biolink:increases_activity_of'
+        'pIC50':'biolink:decreases_activity_of',
+        'pKd':'biolink:interacts_with',
+        'pAC50':'biolink:increases_activity_of',
+        'pKi':'biolink:decreases_activity_of',
+        'pEC50':'biolink:increases_activity_of'
     }
     """
 
