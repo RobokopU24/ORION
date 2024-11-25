@@ -187,7 +187,7 @@ class DrugCentralLoader(SourceDataLoader):
                       AGENT_TYPE: MANUAL_AGENT}
         if line['act_type'] is not None:
             edge_props['affinity'] = line['act_value']
-            edge_props['affinityParameter'] = line['act_type']
+            edge_props['affinityParameter'] = f"p{line['act_type']}"
         if line['act_source'] == 'SCIENTIFIC LITERATURE' and line['act_source_url'] is not None:
             papersource = line['act_source_url']
             if papersource.startswith('http://www.ncbi.nlm.nih.gov/pubmed'):
@@ -269,11 +269,11 @@ def get_bioactivity_predicate(line):
         'RELEASING AGENT':'biolink:interacts_with'}
 
             act_type_mappings = {
-        'pIC50':'biolink:decreases_activity_of',
-        'pKd':'biolink:interacts_with',
-        'pAC50':'biolink:increases_activity_of',
-        'pKi':'biolink:decreases_activity_of',
-        'pEC50':'biolink:increases_activity_of'
+        'IC50':'biolink:decreases_activity_of',
+        'Kd':'biolink:interacts_with',
+        'AC50':'biolink:increases_activity_of',
+        'Ki':'biolink:decreases_activity_of',
+        'EC50':'biolink:increases_activity_of'
     }
     """
 
