@@ -533,7 +533,7 @@ class CTDLoader(SourceDataLoader):
         :return:
         """
         # the capture regex
-        regex = '\/|\ |\^'
+        regex = r'\/|\ |\^'
 
         # clean up the predicate
         cleaned_predicate = re.sub(regex, '_', predicate)
