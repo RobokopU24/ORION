@@ -3,14 +3,10 @@ import enum
 
 from Common.extractor import Extractor
 from Common.loader_interface import SourceDataLoader
-from Common.kgxmodel import kgxnode, kgxedge
-from Common.neo4j_tools import Neo4jTools
 from Common.biolink_constants import *
-from Common.prefixes import PUBCHEM_COMPOUND, KNOWLEDGE_LEVEL, KNOWLEDGE_ASSERTION, AGENT_TYPE, DATA_PIPELINE
+from Common.prefixes import PUBCHEM_COMPOUND
 from Common.utils import GetData
 
-
-# if parsing a tsv or csv type file with columns, use a enum to represent each field
 class GENERICDATACOLS(enum.IntEnum):
     SOURCE_ID = 2
     SOURCE_LABEL = 3
@@ -19,14 +15,16 @@ class GENERICDATACOLS(enum.IntEnum):
     PREDICATE = 7
 
 PREDICATE_MAPPING = {
-                    "in_similarity_relationship_with": "biolink:chemically_similar_to",
-                    "negatively_regulates": {
-                        "RO:0002448": {
-                            OBJECT_DIRECTION_QUALIFIER: "downregulated"}},
-                     "positively_regulates": {
-                        "RO:0002448": {
-                            OBJECT_DIRECTION_QUALIFIER: "upregulated"}}
-                     }
+    "in_similarity_relationship_with": "biolink:chemically_similar_to",
+    "negatively_regulates": {
+        "RO:0002448": {
+            OBJECT_DIRECTION_QUALIFIER: "downregulated"}
+    },
+    "positively_regulates": {
+        "RO:0002448": {
+            OBJECT_DIRECTION_QUALIFIER: "upregulated"}
+    }
+}
 
 
 
@@ -34,7 +32,7 @@ PREDICATE_MAPPING = {
 # Class: LINCS loader
 #
 # By: James Chung
-# Date: 10/30/2023
+# Date: 10/30/2024
 # Desc: Class that loads/parses the data in Library of Integrated Network-Based Cellular Signatures.
 # 
 ##############
@@ -43,9 +41,7 @@ PREDICATE_MAPPING = {
 class LINCSLoader(SourceDataLoader):
 
     source_id: str = 'LINCS'
-    # this should be a valid infores curie from the biolink infores catalog
     provenance_id: str = 'infores:lincs'
-    # increment parsing_version whenever changes are made to the parser that would result in changes to parsing output
     parsing_version: str = '1.0'
 
     def __init__(self, test_mode: bool = False, source_data_dir: str = None):
@@ -79,10 +75,6 @@ class LINCSLoader(SourceDataLoader):
 
         :return: ret_val: load_metadata
         """
-        # This is a made up example of how one might extract nodes and edges from a tsv file
-        # In this case it's taking the subject ID from column 1 and the object ID from column 3,
-        # prepending them with a curie prefix. The predicate comes from column 3. The value in column 4
-        # is set as a property on the edge.
         extractor = Extractor(file_writer=self.output_file_writer)
         lincs_file: str = os.path.join(self.lincs_url, self.edge_file)
         with open(lincs_file, 'rt') as fp:
