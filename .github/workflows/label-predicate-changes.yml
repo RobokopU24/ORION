@@ -1,0 +1,32 @@
+name: 'Label Predicate Changes'
+
+on:
+  pull_request:
+    types: [opened, edited, synchronize]
+  issues:
+    types: [opened, edited]
+
+jobs:
+  label_check:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Check out code
+      uses: actions/checkout@v3
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: 3.9
+
+    - name: Install dependencies
+      run: |
+        pip install -r requirements.txt
+        pip install PyGithub 
+
+    - name: Run predicate check
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        ISSUE_NUMBER: ${{ github.event.pull_request.number || github.event.issue.number }}
+      run: |
+        python .github/scripts/Bio_QC_check.py
