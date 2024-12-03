@@ -8,11 +8,10 @@ from urllib.request import urlopen
 from zipfile import ZipFile
 from collections import defaultdict
 from Common.biolink_constants import *
-from Common.normalization import FALLBACK_EDGE_PREDICATE
+from Common.normalization import FALLBACK_EDGE_PREDICATE, NormalizationScheme
 from Common.utils import LoggingUtil
 from Common.kgx_file_writer import KGXFileWriter
 from Common.kgx_file_normalizer import KGXFileNormalizer
-from Common.kgxmodel import NormalizationScheme
 
 
 SNPEFF_SO_PREDICATES = {

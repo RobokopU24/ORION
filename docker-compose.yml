@@ -1,7 +1,5 @@
-version: "3.7"
 services:
   orion:
-    platform: linux/amd64
     build:
       context: .
     command: [python, /ORION/Common/build_manager.py, all]
@@ -12,7 +10,6 @@ services:
       - ORION_GRAPH_SPEC
       - ORION_GRAPH_SPEC_URL
       - ORION_OUTPUT_URL
-      - ORION_NEO4J_PASSWORD
       - EDGE_NORMALIZATION_ENDPOINT
       - NODE_NORMALIZATION_ENDPOINT
       - NAME_RESOLVER_ENDPOINT

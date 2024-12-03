@@ -46,8 +46,8 @@ orion:
   normalization:
     nodeNormEndpoint: https://nodenormalization-sri.renci.org/
     edgeNormEndpoint: https://bl-lookup-sri.renci.org/
-    bl_version: 4.2.0
-  outputURL: https://stars.renci.org/var/plater/bl-4.2.0/
+    bl_version: 4.2.1
+  outputURL: https://stars.renci.org/var/plater/bl-4.2.1/
 
 pharos:
   host: pod-host-or-ip
