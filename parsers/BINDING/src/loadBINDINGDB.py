@@ -11,7 +11,8 @@ from parsers.BINDING.src.bindingdb_constraints import LOG_SCALE_AFFINITY_THRESHO
 from Common.utils import GetData, GetDataPullError
 from Common.loader_interface import SourceDataLoader
 from Common.extractor import Extractor
-from Common.biolink_constants import PUBLICATIONS, AFFINITY, AFFINITY_PARAMETER, KNOWLEDGE_LEVEL, AGENT_TYPE, KNOWLEDGE_ASSERTION, MANUAL_AGENT
+from Common.biolink_constants import PUBLICATIONS, AFFINITY, AFFINITY_PARAMETER, KNOWLEDGE_LEVEL, AGENT_TYPE, \
+    KNOWLEDGE_ASSERTION, MANUAL_AGENT
 
 # Full Binding Data.
 
