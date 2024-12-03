@@ -8,7 +8,7 @@ from Common.extractor import Extractor
 from Common.loader_interface import SourceDataLoader, SourceDataFailedError, SourceDataBrokenError
 from Common.utils import GetData, snakify
 from Common.biolink_constants import PRIMARY_KNOWLEDGE_SOURCE, AGGREGATOR_KNOWLEDGE_SOURCES, PUBLICATIONS, \
-    KNOWLEDGE_LEVEL, KNOWLEDGE_ASSERTION, AGENT_TYPE, MANUAL_AGENT
+    KNOWLEDGE_LEVEL, KNOWLEDGE_ASSERTION, AGENT_TYPE, MANUAL_AGENT, AFFINITY, AFFINITY_PARAMETER
 from Common.prefixes import DRUGCENTRAL, MEDDRA, UMLS, UNIPROTKB, PUBMED
 from Common.predicates import DGIDB_PREDICATE_MAPPING
 from Common.db_connectors import PostgresConnector
@@ -186,8 +186,8 @@ class DrugCentralLoader(SourceDataLoader):
         edge_props = {KNOWLEDGE_LEVEL: KNOWLEDGE_ASSERTION,
                       AGENT_TYPE: MANUAL_AGENT}
         if line['act_type'] is not None:
-            edge_props['affinity'] = line['act_value']
-            edge_props['affinityParameter'] = f"p{line['act_type']}"
+            edge_props[AFFINITY] = line['act_value']
+            edge_props[AFFINITY_PARAMETER] = f"p{line['act_type']}"
         if line['act_source'] == 'SCIENTIFIC LITERATURE' and line['act_source_url'] is not None:
             papersource = line['act_source_url']
             if papersource.startswith('http://www.ncbi.nlm.nih.gov/pubmed'):
