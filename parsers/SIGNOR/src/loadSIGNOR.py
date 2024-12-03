@@ -411,7 +411,7 @@ class SIGNORLoader(SourceDataLoader):
         }
         return edge_properties
 
-    def create_and_parse_edge(self, row, extractor, predicate="biolink:related_to",
+    def create_and_parse_edge(self, row, extractor, predicate="biolink:affects",
                               edge_properties=None, mechanism=None):
         """
         Creates predicates and edge properties for a row
