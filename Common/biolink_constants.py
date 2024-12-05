@@ -55,6 +55,7 @@ AGENT_TYPE = 'agent_type'
 KNOWLEDGE_LEVEL = 'knowledge_level'
 MAX_RESEARCH_PHASE = 'max_research_phase'
 HAS_SUPPORTING_STUDY_RESULT = 'has_supporting_study_result'
+NEGATED = 'negated'
 
 # enums for knowledge level
 KNOWLEDGE_ASSERTION = 'knowledge_assertion'
