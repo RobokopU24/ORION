@@ -72,8 +72,13 @@ def convert_orion_bagel_result_to_bagel_service_format(orion_bagel_result):
 
 
 def extract_best_match(bagel_results):
+    # This whole function could be redesigned, it was supposed to be a ranking algorithm that would select the overall
+    # best match out of potentially ambiguous results (from a list with different rankings coming from name res and
+    # sapbert). In practice, there shouldn't be more than one exact match from either service, we should always select
+    # one of those if they exist. The way this works now, picking the highest rank from either service,
+    # with a heirarchy of match types, isn't necessarily what we want.
     if not bagel_results:
-        return None, None
+        return None
     ranking = {
         "exact": [],
         "narrow": [],
@@ -85,24 +90,26 @@ def extract_best_match(bagel_results):
         if syn_type not in ranking:
             continue
         rank = min(result.get("name_res_rank", 1000), result.get("sapbert_rank", 1000))
-        ranking[syn_type].append({"id": result_curie, "name": result["name"], "rank": rank})
-
+        ranking[syn_type].append({"id": result_curie,
+                                  "name": result["name"],
+                                  "synonym_type": result["synonym_type"],
+                                  "rank": rank})
     ranking["exact"] = sorted(ranking["exact"], key=lambda k: k["rank"])
     ranking["narrow"] = sorted(ranking["narrow"], key=lambda k: k["rank"])
     ranking["broad"] = sorted(ranking["broad"], key=lambda k: k["rank"])
     ranking["related"] = sorted(ranking["related"], key=lambda k: k["rank"])
-
     if ranking["exact"]:
-        return ranking["exact"][0], "exact"
+        return ranking["exact"][0]
     elif ranking["narrow"]:
-        return ranking["narrow"][0], "narrow"
+        return ranking["narrow"][0]
     elif ranking["broad"]:
-        return ranking["broad"][0], "broad"
+        return ranking["broad"][0]
     elif ranking["related"]:
-        return ranking["related"][0], "related"
+        return ranking["related"][0]
     else:
-        # throw out unrelated
-        return None, None
+        # throw out "unrelated" results, or return None if no matches come back
+        return None
+
 
 def augment_results(terms, nameres, taxes):
     """Given a dict where the key is a curie, and the value are data about the match, augment the value with

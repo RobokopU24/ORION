@@ -1,13 +1,14 @@
 
 import os
 import json
+import yaml
 
 import requests.exceptions
 
 from Common.biolink_utils import BiolinkUtils
 from Common.loader_interface import SourceDataLoader
-from Common.biolink_constants import PUBLICATIONS
-from Common.utils import GetData, quick_jsonl_file_iterator, snakify
+from Common.biolink_constants import PUBLICATIONS, NEGATED
+from Common.utils import GetData, quick_jsonl_file_iterator
 from Common.normalization import call_name_resolution, NAME_RESOLVER_API_ERROR
 from Common.prefixes import PUBMED
 
@@ -15,89 +16,51 @@ from parsers.LitCoin.src.bagel.bagel_service import call_bagel_service
 from parsers.LitCoin.src.bagel.bagel import get_orion_bagel_results, extract_best_match, \
     convert_orion_bagel_result_to_bagel_service_format, BAGEL_SUBJECT_SYN_TYPE, BAGEL_OBJECT_SYN_TYPE, get_llm_results
 
-# from parsers.LitCoin.src.predicate_mapping import PredicateMapping
 
-
-class LLM:
+class LITCOIN:
     ABSTRACT_ID = 'abstract_id'
     ABSTRACT_SPAN = 'abstract_span'
     ASSERTION_ID = 'assertion_id'
     ASSERTION_SPAN = 'assertion_span'
-    SUBJECT_NAME = 'subject'
-    SUBJECT_TYPE = 'subject_type'
-    SUBJECT_QUALIFIER = 'subject_qualifier'
     OBJECT_NAME = 'object'
     OBJECT_TYPE = 'object_type'
     OBJECT_QUALIFIER = 'object_qualifier'
+    PREDICATE_MAPPING = 'predicate'
+    PREDICATE = 'mapped_predicate'
+    PREDICATE_NEGATED = 'negated'
     RELATIONSHIP = 'relationship'
     RELATIONSHIP_QUALIFIER = 'statement_qualifier'
+    SUBJECT_NAME = 'subject'
+    SUBJECT_TYPE = 'subject_type'
+    SUBJECT_QUALIFIER = 'subject_qualifier'
 
 
 kg_edge_properties = [
-    LLM.ABSTRACT_ID,
-    LLM.ABSTRACT_SPAN,
-    LLM.ASSERTION_ID,
-    LLM.ASSERTION_SPAN,
-    LLM.SUBJECT_NAME,
-    LLM.SUBJECT_TYPE,
-    LLM.SUBJECT_QUALIFIER,
-    LLM.OBJECT_NAME,
-    LLM.OBJECT_TYPE,
-    LLM.OBJECT_QUALIFIER,
-    LLM.RELATIONSHIP,
-    LLM.RELATIONSHIP_QUALIFIER
+    LITCOIN.ABSTRACT_ID,
+    LITCOIN.ABSTRACT_SPAN,
+    LITCOIN.ASSERTION_ID,
+    LITCOIN.ASSERTION_SPAN,
+    LITCOIN.SUBJECT_NAME,
+    LITCOIN.SUBJECT_TYPE,
+    LITCOIN.SUBJECT_QUALIFIER,
+    LITCOIN.OBJECT_NAME,
+    LITCOIN.OBJECT_TYPE,
+    LITCOIN.OBJECT_QUALIFIER,
+    LITCOIN.RELATIONSHIP,
+    LITCOIN.RELATIONSHIP_QUALIFIER
 ]
 
 required_edge_properties = [
-    LLM.SUBJECT_NAME,
-    LLM.SUBJECT_TYPE,
-    LLM.OBJECT_NAME,
-    LLM.OBJECT_TYPE,
-    LLM.RELATIONSHIP
+    LITCOIN.SUBJECT_NAME,
+    LITCOIN.SUBJECT_TYPE,
+    LITCOIN.OBJECT_NAME,
+    LITCOIN.OBJECT_TYPE,
+    LITCOIN.RELATIONSHIP
 ]
-
 
 ABSTRACT_TITLE_EDGE_PROP = 'abstract_title'
 ABSTRACT_TEXT_EDGE_PROP = 'abstract_text'
 ABSTRACT_JOURNAL_EDGE_PROP = 'journal'
-
-"""
-NODE_TYPE_MAPPINGS = {
-    "Activity": "Activity",
-    "AnatomicalStructure": "AnatomicalEntity",
-    "AnatomicalFeature": "AnatomicalEntity",
-    "Antibody": "ChemicalEntity",
-    "Behavior": "Behavior",
-    "BiologicalStructure": "AnatomicalEntity",
-    "BiologicalPathway": "Pathway",
-    "CellType": "Cell",
-    "Chemical": "ChemicalEntity",
-    "Chemicals": "ChemicalEntity",
-    "Condition": "PhenotypicFeature",
-    "Device": "Device",
-    "Disease": "Disease",
-    "DiseaseSymptom": "DiseaseOrPhenotypicFeature",
-    "Drug": "Drug",
-    "DrugClass": "Drug",
-    "Gene": "Gene",
-    "LifestyleFactor": "Behavior",
-    "Organ": "AnatomicalEntity",
-    "OrganSystem": "AnatomicalEntity",
-    "OrganismHuman": "Cohort",
-    "OrganismHumanEthnicGroup": "PopulationOfIndividualOrganisms",
-    "OrganismPart": "AnatomicalEntity",
-    "Organization": "Agent",
-    "Phenotype": "PhenotypicFeature",
-    "Procedure": "Procedure",
-    "Protein": "Protein",
-    "Proteins": "Protein",
-    "StatisticalMethod": "Activity",
-    "Symptom": "PhenotypicFeature",
-    "Technique": "Procedure",
-    "Therapy": "Procedure",
-    "Treatment": "Procedure"
-}
-"""
 
 
 ##############
@@ -109,7 +72,7 @@ class LitCoinLoader(SourceDataLoader):
 
     source_id: str = 'LitCoin'
     provenance_id: str = 'infores:robokop-kg'  # TODO - change this to a LitCoin infores when it exists
-    parsing_version: str = '3.2'
+    parsing_version: str = '4.0'
 
     def __init__(self, test_mode: bool = False, source_data_dir: str = None):
         """
@@ -119,23 +82,23 @@ class LitCoinLoader(SourceDataLoader):
         super().__init__(test_mode=test_mode, source_data_dir=source_data_dir)
 
         self.data_url = 'https://stars.renci.org/var/data_services/litcoin/'
-        # self.llm_output_file = 'rare_disease_abstracts_fixed._gpt4_20240320.json'
+        self.version_file = 'litcoin.yaml'
         self.abstracts_file = 'abstracts_CompAndHeal.json'
-        self.llm_output_file = 'abstracts_CompAndHealpaca_v2.0_20241001_truncated.jsonl'
-        # self.biolink_predicate_vectors_file = 'mapped_predicate_vectors.json'
-        # self.data_files = [self.llm_output_file, self.abstracts_file, self.biolink_predicate_vectors_file]
+        self.llm_output_file = 'litcoin_latest.jsonl'
         self.data_files = [self.llm_output_file, self.abstracts_file]
 
+        self.parsing_metadata = None
         self.bagel_results_lookup = None
-        self.name_res_stats = []
         self.bl_utils = BiolinkUtils()
 
         self.mentions_predicate = "IAO:0000142"
-        self.parsing_metadata = {}
 
     def get_latest_source_version(self) -> str:
-        latest_version = 'v4.0'
-        return latest_version
+        version_file_url = f"{self.data_url}{self.version_file}"
+        r = requests.get(version_file_url)
+        version_yaml = yaml.full_load(r.text)
+        build_version = str(version_yaml['build'])
+        return build_version
 
     def get_data(self) -> bool:
         for data_file in self.data_files:
@@ -151,16 +114,6 @@ class LitCoinLoader(SourceDataLoader):
         :return: ret_val: load_metadata
         """
 
-        """
-        predicate_vectors_file_path = os.path.join(self.data_path,
-                                                   self.biolink_predicate_vectors_file)
-        predicate_map_cache_file_path = os.path.join(self.data_path,
-                                                     "mapped_predicates.json")
-        predicate_mapper = PredicateMapping(predicate_vectors_file_path=predicate_vectors_file_path,
-                                            predicate_map_cache_file_path=predicate_map_cache_file_path,
-                                            logger=self.logger,
-                                            workspace_dir=self.data_path)
-        """
         self.load_bagel_cache()
 
         abstracts_file_path = os.path.join(self.data_path, self.abstracts_file)
@@ -182,10 +135,10 @@ class LitCoinLoader(SourceDataLoader):
         for litcoin_edge in quick_jsonl_file_iterator(litcoin_file_path):
 
             records += 1
-            if records == 2000 and self.test_mode:
+            if records == 10 and self.test_mode:
                 break
 
-            abstract_id = litcoin_edge[LLM.ABSTRACT_ID]
+            abstract_id = litcoin_edge[LITCOIN.ABSTRACT_ID]
             pubmed_id = f'{PUBMED}:{abstract_id}'
             self.logger.info(f'processing edge {records}, abstract {abstract_id}')
 
@@ -207,33 +160,31 @@ class LitCoinLoader(SourceDataLoader):
                 continue
 
             try:
-
-                subject_node, subject_bagel_synonym_type = self.bagelize_entity(entity_name=litcoin_edge[LLM.SUBJECT_NAME],
-                                                                                abstract_id=abstract_id,
-                                                                                abstract_text=abstract_text)
-                if subject_node:
+                subject_node = self.bagelize_entity(entity_name=litcoin_edge[LITCOIN.SUBJECT_NAME],
+                                                    abstract_id=abstract_id,
+                                                    abstract_text=abstract_text)
+                if subject_node is not None:
                     subject_id = subject_node["id"]
                     subject_name = subject_node["name"]
+                    subject_bagel_synonym_type = subject_node["synonym_type"]
                 else:
                     skipped_records += 1
                     continue
 
-                object_node, object_bagel_synonym_type = self.bagelize_entity(entity_name=litcoin_edge[LLM.OBJECT_NAME],
-                                                                              abstract_id=abstract_id,
-                                                                              abstract_text=abstract_text)
-                if object_node:
+                object_node = self.bagelize_entity(entity_name=litcoin_edge[LITCOIN.OBJECT_NAME],
+                                                   abstract_id=abstract_id,
+                                                   abstract_text=abstract_text)
+                if object_node is not None:
                     object_id = object_node["id"]
                     object_name = object_node["name"]
+                    object_bagel_synonym_type = object_node["synonym_type"]
                 else:
                     skipped_records += 1
                     continue
 
-                predicate = 'biolink:' + snakify(litcoin_edge[LLM.RELATIONSHIP])
-                # predicate = predicate_mapper.get_mapped_predicate(litcoin_edge[LLM.RELATIONSHIP])
-                # if not predicate:
-                #    skipped_records += 1
-                #    self.logger.info(f'Skipping due to failed predicate mapping.')
-                #    continue
+                predicate_mapping = litcoin_edge[LITCOIN.PREDICATE_MAPPING]
+                predicate = predicate_mapping[LITCOIN.PREDICATE]
+                predicate_negated = True if predicate_mapping[LITCOIN.PREDICATE_NEGATED] == "True" else False
 
                 self.output_file_writer.write_node(node_id=subject_id,
                                                    node_name=subject_name)
@@ -247,6 +198,8 @@ class LitCoinLoader(SourceDataLoader):
                     ABSTRACT_TITLE_EDGE_PROP: abstract_title,
                     ABSTRACT_TEXT_EDGE_PROP: abstract_text
                 })
+                if predicate_negated:
+                    output_edge_properties[NEGATED] = True
 
                 self.output_file_writer.write_edge(subject_id=subject_id,
                                                    object_id=object_id,
@@ -310,14 +263,14 @@ class LitCoinLoader(SourceDataLoader):
                 self.bagel_results_lookup[abstract_id]["terms"][entity_name] = bagel_results
 
         if 'error' in bagel_results:
-            return None, None
+            return None
 
-        bagel_node, bagel_synonym_type = extract_best_match(bagel_results)
+        bagel_node = extract_best_match(bagel_results)
         if not bagel_node:
             self.parsing_metadata['failed_bagelization'] += 1
             self.logger.info(f'Skipping due to bagelization finding no match for: {entity_name} in abstract {abstract_id}')
-            return None, None
-        return bagel_node, bagel_synonym_type
+            return None
+        return bagel_node
 
     def parse_llm_edge(self, llm_json_edge, logger):
         converted_edge = {}
@@ -442,6 +395,7 @@ class LitCoinLoader(SourceDataLoader):
 
 
 class LitCoinBagelServiceLoader(LitCoinLoader):
+
     source_id: str = 'LitCoinBagelService'
     parsing_version: str = '1.0'
 
