@@ -411,7 +411,7 @@ class SIGNORLoader(SourceDataLoader):
         }
         return edge_properties
 
-    def create_and_parse_edge(self, row, extractor, predicate="biolink:affects",
+    def create_and_parse_edge(self, row, extractor, predicate="biolink:related_to",
                               edge_properties=None, mechanism=None):
         """
         Creates predicates and edge properties for a row
@@ -470,9 +470,13 @@ class SIGNORLoader(SourceDataLoader):
                         edge_properties = effect_mapping[effect][predicate]
 
                         # Final edge creation
-                        self.create_and_parse_edge(row, extractor, predicate=predicate,
+                        if mechanism:
+                            # Handle edge from mechanism
+                            self.create_and_parse_edge(row, extractor, predicate=predicate,
+                                                   edge_properties=edge_properties, mechanism=mechanism)
+                        else:
+                            self.create_and_parse_edge(row, extractor, predicate=predicate,
                                                    edge_properties=edge_properties)
-
                 # Handle unknown effect case
                 elif effect == "unknown" and mechanism:
                     self.create_and_parse_edge(row, extractor, mechanism=mechanism)
