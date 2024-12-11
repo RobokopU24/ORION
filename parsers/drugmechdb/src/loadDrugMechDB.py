@@ -125,7 +125,7 @@ class DrugMechDBLoader(SourceDataLoader):
             disease_mesh = entry["graph"]["disease_mesh"]
             links  = entry["links"]
     
-            ### Add "biolink:treats" edges between the drug and disease in each indication path.
+            ### Add "biolink:treats_or_applied_or_studied_to_treat" edges between the drug and disease in each indication path.
             source_target_pair_dict["dmdb_ids"].append(dmdb_id)
 
             source = drug_drugbank
@@ -144,7 +144,7 @@ class DrugMechDBLoader(SourceDataLoader):
             source_target_pair_dict["object_direction_qualifiers"].append("")
             source_target_pair_dict["object_aspect_qualifiers"].append("")
             
-            predicate = "biolink:treats"
+            predicate = "biolink:treats_or_applied_or_studied_to_treat"
             source_target_pair_dict["predicates"].append(predicate)
             
             ### Add all explicitly described links in indication path.
