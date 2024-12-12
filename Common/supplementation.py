@@ -204,35 +204,35 @@ class SequenceVariantSupplementation:
                 vcf_file.write(f'#{vcf_headers}\n')
                 for node in source_json:
                     if SEQUENCE_VARIANT in node['category']:
-                        for curie in node['equivalent_identifiers']:
-                            if curie.startswith('ROBO_VAR'):
-                                robo_key = curie.split(':', 1)[1]
-                                robo_params = robo_key.split('|')
+                        robokop_variant_id = node.get('robokop_variant_id', None)
+                        if robokop_variant_id:
+                            robo_key = robokop_variant_id.split(':', 1)[1]
+                            robo_params = robo_key.split('|')
 
-                                chromosome = robo_params[1]
-                                position = int(robo_params[2])
-                                ref_allele = robo_params[4]
-                                alt_allele = robo_params[5]
+                            chromosome = robo_params[1]
+                            position = int(robo_params[2])
+                            ref_allele = robo_params[4]
+                            alt_allele = robo_params[5]
 
-                                if not ref_allele:
-                                    ref_allele = f'N'
-                                    alt_allele = f'N{alt_allele}'
-                                elif not alt_allele:
-                                    ref_allele = f'N{ref_allele}'
-                                    alt_allele = f'N'
-                                else:
-                                    position += 1
+                            if not ref_allele:
+                                ref_allele = f'N'
+                                alt_allele = f'N{alt_allele}'
+                            elif not alt_allele:
+                                ref_allele = f'N{ref_allele}'
+                                alt_allele = f'N'
+                            else:
+                                position += 1
 
-                                current_variant_line = "\t".join([chromosome,
-                                                                  str(position),
-                                                                  node['id'],
-                                                                  ref_allele,
-                                                                  alt_allele,
-                                                                  '',
-                                                                  'PASS',
-                                                                  ''])
-                                vcf_file.write(f'{current_variant_line}\n')
-                                break
+                            current_variant_line = "\t".join([chromosome,
+                                                              str(position),
+                                                              node['id'],
+                                                              ref_allele,
+                                                              alt_allele,
+                                                              '',
+                                                              'PASS',
+                                                              ''])
+                            vcf_file.write(f'{current_variant_line}\n')
+                            break
         except json.JSONDecodeError as e:
             norm_error_msg = f'Error decoding json from {nodes_file_path} on line number {e.lineno}'
             raise SupplementationFailedError(error_message=norm_error_msg, actual_error=e.msg)
