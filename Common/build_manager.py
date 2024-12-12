@@ -25,6 +25,7 @@ NODES_FILENAME = 'nodes.jsonl'
 EDGES_FILENAME = 'edges.jsonl'
 REDUNDANT_EDGES_FILENAME = 'redundant_edges.jsonl'
 COLLAPSED_QUALIFIERS_FILENAME = 'collapsed_qualifier_edges.jsonl'
+DEFAULT_EDGE_PROPERTY_IGNORE_LIST = ['robokop_variant_id']
 
 
 class GraphBuilder:
@@ -133,6 +134,7 @@ class GraphBuilder:
                                              output_directory=graph_output_dir,
                                              graph_id=graph_id,
                                              graph_version=graph_version,
+                                             edge_property_ignore_list=DEFAULT_EDGE_PROPERTY_IGNORE_LIST,
                                              logger=self.logger)
 
             if dump_success:
@@ -154,6 +156,7 @@ class GraphBuilder:
                                              output_directory=graph_output_dir,
                                              graph_id=graph_id,
                                              graph_version=graph_version,
+                                             edge_property_ignore_list=DEFAULT_EDGE_PROPERTY_IGNORE_LIST,
                                              logger=self.logger)
 
             if dump_success:
@@ -167,6 +170,7 @@ class GraphBuilder:
                                              output_directory=graph_output_dir,
                                              graph_id=graph_id,
                                              graph_version=graph_version,
+                                             edge_property_ignore_list=DEFAULT_EDGE_PROPERTY_IGNORE_LIST,
                                              logger=self.logger)
 
             if dump_success:
