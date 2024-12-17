@@ -103,10 +103,11 @@ class DataSource(GraphSource):
             raise Exception(f'Invalid DataSource initialization - '
                             f'source_version or get_source_version must be provided.')
 
-    # when
+    # when the source_version attribute is accessed either return _source_version if it is set
+    # or call the function supplied to retrieve it
     def __getattribute__(self, name):
         if name == "source_version":
-            if not self._source_version:
+            if self._source_version is None:
                 self._source_version = self._get_source_version(self.id)
             return self._source_version
         else:
