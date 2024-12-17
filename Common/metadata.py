@@ -30,7 +30,7 @@ class Metadata:
         raise NotImplementedError()
 
     def save_metadata(self):
-        if not os.path.isfile(self.metadata_file_path):
+        if not os.path.isdir(os.path.dirname(self.metadata_file_path)):
             os.makedirs(os.path.dirname(self.metadata_file_path))
         with open(self.metadata_file_path, 'w') as meta_json_file:
             json.dump(self.metadata, meta_json_file, indent=4)
