@@ -246,7 +246,9 @@ class KGXFileNormalizer:
         knowledge_sources = set()
 
         try:
-            with jsonlines.open(self.source_edges_file_path) as source_json_reader:
+            with jsonlines.open(self.source_edges_file_path) as source_json_reader, \
+                    open(self.edges_output_file_path, 'w') as edges_out:
+
                 for edges_subset in chunk_iterator(source_json_reader, EDGE_NORMALIZATION_BATCH_SIZE):
 
                     number_of_source_edges += len(edges_subset)
@@ -258,7 +260,6 @@ class KGXFileNormalizer:
                             self.logger.error(
                                 f'Edge normalization service failed to return results for {edge_norm_failures}')
 
-                    normalized_edges = []
                     for edge in edges_subset:
                         normalized_subject_ids = None
                         normalized_object_ids = None
@@ -325,21 +326,21 @@ class KGXFileNormalizer:
                                         normalized_edge.update(normalized_edge_properties)
 
                                     # if normalization switched the direction of the predicate, swap the nodes
+                                    normalized_edge[SUBJECT_ID] = norm_subject_id
+                                    normalized_edge[OBJECT_ID] = norm_object_id
+
                                     if edge_inverted_by_normalization:
-                                        normalized_edge[OBJECT_ID] = norm_subject_id
-                                        normalized_edge[SUBJECT_ID] = norm_object_id
-                                    else:
-                                        normalized_edge[SUBJECT_ID] = norm_subject_id
-                                        normalized_edge[OBJECT_ID] = norm_object_id
+                                        normalized_edge = invert_edge(normalized_edge)
 
-                                    normalized_edges.append(normalized_edge)
+                                    edges_out.write(normalized_edge)
+                                    normalized_edge_count += 1
 
-                            # this counter tracks the number of new edges created from each individual edge in the original file
-                            # this could happen due to rare cases of normalization splits where one node normalizes to many
+                            # this counter tracks the number of new edges created from each individual edge in the
+                            # original file this could happen due to rare cases of normalization splits where one
+                            # node normalizes to many
                             if edge_count > 1:
                                 edge_splits += edge_count - 1
 
-                    graph_merger.merge_edges(normalized_edges)
                     self.logger.info(f'Processed {number_of_source_edges} edges so far...')
 
         except OSError as e:
@@ -355,16 +356,6 @@ class KGXFileNormalizer:
                 deprecated_infores_ids.append(knowledge_source)
             elif infores_status == INFORES_STATUS_INVALID:
                 invalid_infores_ids.append(knowledge_source)
-
-        try:
-            self.logger.debug(f'Writing normalized edges to file...')
-            with open(self.edges_output_file_path, 'w') as edges_out:
-                for edge_line in graph_merger.get_merged_edges_jsonl():
-                    edges_out.write(edge_line)
-                    normalized_edge_count += 1
-        except OSError as e:
-            norm_error_msg = f'Error writing edges file {self.edges_output_file_path}'
-            raise NormalizationFailedError(error_message=norm_error_msg, actual_error=e)
 
         try:
             self.logger.debug(f'Writing predicate map to file...')
@@ -398,6 +389,17 @@ class KGXFileNormalizer:
             self.normalization_metadata['invalid_infores_ids'] = invalid_infores_ids
             self.logger.warning(f'Normalization found invalid infores identifiers: {invalid_infores_ids}')
 
+
+def invert_edge(edge):
+    inverted_edge = {}
+    for key, value in edge.items():
+        if key.startswith(SUBJECT_ID):
+            inverted_edge[key.replace(SUBJECT_ID, OBJECT_ID)] = value
+        elif key.startswith(OBJECT_ID):
+            inverted_edge[key.replace(OBJECT_ID, SUBJECT_ID)] = value
+        else:
+            inverted_edge[key] = value
+    return inverted_edge
 
 
 """
