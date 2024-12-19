@@ -247,7 +247,7 @@ class KGXFileNormalizer:
 
         try:
             with jsonlines.open(self.source_edges_file_path) as source_json_reader, \
-                    open(self.edges_output_file_path, 'w') as edges_out:
+                    jsonlines.open(self.edges_output_file_path, 'w') as edges_out:
 
                 for edges_subset in chunk_iterator(source_json_reader, EDGE_NORMALIZATION_BATCH_SIZE):
 
@@ -394,9 +394,9 @@ class KGXFileNormalizer:
 def invert_edge(edge):
     inverted_edge = {}
     for key, value in edge.items():
-        if key.startswith(SUBJECT_ID):
+        if SUBJECT_ID in key:
             inverted_edge[key.replace(SUBJECT_ID, OBJECT_ID)] = value
-        elif key.startswith(OBJECT_ID):
+        elif OBJECT_ID in key:
             inverted_edge[key.replace(OBJECT_ID, SUBJECT_ID)] = value
         else:
             inverted_edge[key] = value
