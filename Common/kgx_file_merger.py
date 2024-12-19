@@ -94,6 +94,7 @@ class KGXFileMerger:
             graph_merger = DiskGraphMerger(temp_directory=self.output_directory)
         else:
             graph_merger = MemoryGraphMerger()
+
         for i, graph_source in enumerate(graph_sources, start=1):
             self.logger.info(f"Processing {graph_source.id}. (primary source {i}/{len(graph_sources)})")
             merge_metadata["sources"][graph_source.id] = {'release_version': graph_source.version}
@@ -113,12 +114,13 @@ class KGXFileMerger:
                             merge_metadata["sources"][graph_source.id][source_filename]["edges"] = edges_count
                     elif graph_source.merge_strategy == "dont_merge_edges":
                         # just copy the lines from the data source edges file verbatim without merging
-                        with jsonlines.open(file_path) as edges, open(edges_out_file, 'a') as edges_out:
+                        with open(file_path) as edges, open(edges_out_file, 'a') as edges_out:
                             edges_count = 0
                             for edge in edges:
                                 edges_out.write(edge)
                                 edges_count += 1
-                            merge_metadata["sources"][graph_source.id][source_filename]["edges"] = edges_count
+                        merge_metadata["sources"][graph_source.id][source_filename]["edges"] = edges_count
+                        merge_metadata["final_edge_count"] += edges_count
                 else:
                     raise ValueError(f"Did not recognize file {file_path} for merging "
                                      f"from data source {graph_source.id}.")
