@@ -8,6 +8,7 @@ graphs:
     output_format: neo4j
     sources:
       - source_id: LitCoin
+        merge_strategy: dont_merge_edges
 
   - graph_id: LitCoin_BagelService
     graph_name: LitCoin Bagel Service
@@ -17,4 +18,4 @@ graphs:
     output_format: neo4j
     sources:
       - source_id: LitCoinBagelService
-
+        merge_strategy: dont_merge_edges
