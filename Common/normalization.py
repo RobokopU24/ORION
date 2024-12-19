@@ -10,7 +10,7 @@ from robokop_genetics.genetics_normalization import GeneticsNormalizer
 from Common.biolink_constants import *
 from Common.utils import LoggingUtil
 
-NORMALIZATION_CODE_VERSION = '1.2'
+NORMALIZATION_CODE_VERSION = '1.3'
 
 # node property name for node types that did not normalize
 CUSTOM_NODE_TYPES = 'custom_node_types'
