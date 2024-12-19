@@ -165,7 +165,9 @@ def test_edge_inversion():
         OBJECT_ID: 'hgnc:2',
         SUBJECT_ASPECT_QUALIFIER: 'some_aspect',
         SUBJECT_DIRECTION_QUALIFIER: 'up',
-        f'{OBJECT_ID}_fake_qualifier': 'test_value'
+        f'{OBJECT_ID}_fake_qualifier': 'test_value',
+        f'test_{OBJECT_ID}_middle': 'test_value_middle',
+        f'test_end_{OBJECT_ID}': 'test_value_end',
     }
     inverted_edge = invert_edge(edge_1)
     assert inverted_edge == {
@@ -173,5 +175,7 @@ def test_edge_inversion():
         SUBJECT_ID: 'hgnc:2',
         OBJECT_ASPECT_QUALIFIER: 'some_aspect',
         OBJECT_DIRECTION_QUALIFIER: 'up',
-        f'{SUBJECT_ID}_fake_qualifier': 'test_value'
+        f'{SUBJECT_ID}_fake_qualifier': 'test_value',
+        f'test_{SUBJECT_ID}_middle': 'test_value_middle',
+        f'test_end_{SUBJECT_ID}': 'test_value_end',
     }
