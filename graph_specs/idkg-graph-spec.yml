@@ -1,0 +1,20 @@
+# testing graph spec
+graphs:
+  - graph_id: IDKG
+    graph_name: Infectious Disease Knowledge Graph
+    graph_description: 'A fake description for the testing baseline!'
+    graph_url: 'http://localhost/fake_graph_url_for_tesing_baseline'
+    output_format: neo4j
+    strict_normalization: False
+    sources:
+      - source_id: DrugCentral
+      - source_id: SMACC
+      - source_id: HVPPI
+      - source_id: NPASS
+        # source_version:
+        # parsing_version:
+        # node_normalization_version: latest
+        # edge_normalization_version: latest
+        # conflation: False
+        # strict_normalization: True (whether or not data should be discarded when it can not be normalized)
+        # merge_strategy: default (used to specify alternative merge strategies)

@@ -10,6 +10,7 @@ jsonlines==4.0.0
 pyyaml==6.0.1
 beautifulsoup4==4.12.3
 psycopg2-binary==2.9.9
+openpyxl
 orjson==3.10.3
 xxhash==3.4.1
 mysql-connector-python==9.1.0
