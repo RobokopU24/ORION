@@ -45,13 +45,10 @@ class KGXFileMerger:
         for graph_source in chain(graph_spec.sources, graph_spec.subgraphs):
             if graph_source.merge_strategy == 'default':
                 primary_sources.append(graph_source)
+            elif graph_source.merge_strategy == 'dont_merge_edges':
+                primary_sources.append(graph_source)
             elif graph_source.merge_strategy == 'connected_edge_subset':
                 secondary_sources.append(graph_source)
-
-        # TODO we should be able to process a single primary source more efficiently (ie copy and paste it)
-        # if len(primary_sources) == 1:
-        #    self.process_single_source(primary_sources[0], nodes_output_file_path, edges_output_file_path)
-        # else:
 
         merge_metadata = {
             'sources': {},
@@ -110,10 +107,18 @@ class KGXFileMerger:
                         merge_metadata["sources"][graph_source.id][source_filename]["nodes"] = nodes_count
 
                 elif "edges" in file_path:
-                    with jsonlines.open(file_path) as edges:
-                        edges_count = graph_merger.merge_edges(edges)
-                        merge_metadata["sources"][graph_source.id][source_filename]["edges"] = edges_count
-
+                    if graph_source.merge_strategy == "default":
+                        with jsonlines.open(file_path) as edges:
+                            edges_count = graph_merger.merge_edges(edges)
+                            merge_metadata["sources"][graph_source.id][source_filename]["edges"] = edges_count
+                    elif graph_source.merge_strategy == "dont_merge_edges":
+                        # just copy the lines from the data source edges file verbatim without merging
+                        with jsonlines.open(file_path) as edges, open(edges_out_file, 'a') as edges_out:
+                            edges_count = 0
+                            for edge in edges:
+                                edges_out.write(edge)
+                                edges_count += 1
+                            merge_metadata["sources"][graph_source.id][source_filename]["edges"] = edges_count
                 else:
                     raise ValueError(f"Did not recognize file {file_path} for merging "
                                      f"from data source {graph_source.id}.")
@@ -177,7 +182,7 @@ class KGXFileMerger:
 
         self.logger.debug(f'Writing merged edges to file...')
         edges_written = 0
-        with open(edges_out_file, 'w') as edges_out:
+        with open(edges_out_file, 'a') as edges_out:
             for edge_line in graph_merger.get_merged_edges_jsonl():
                 edges_out.write(edge_line)
                 edges_written += 1
