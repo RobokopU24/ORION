@@ -71,8 +71,8 @@ ABSTRACT_JOURNAL_EDGE_PROP = 'journal'
 class LitCoinLoader(SourceDataLoader):
 
     source_id: str = 'LitCoin'
-    provenance_id: str = 'infores:robokop-kg'  # TODO - change this to a LitCoin infores when it exists
-    parsing_version: str = '4.0'
+    provenance_id: str = 'infores:litcoin'
+    parsing_version: str = '4.1'
 
     def __init__(self, test_mode: bool = False, source_data_dir: str = None):
         """
