@@ -10,7 +10,7 @@ beautifulsoup4==4.12.3
 psycopg2-binary==2.9.9
 orjson==3.10.3
 xxhash==3.4.1
-mysql-connector-python==8.4.0
+mysql-connector-python==9.1.0
 neo4j==5.20.0
 pyoxigraph==0.3.22
 curies==0.7.9

@@ -19,6 +19,7 @@ HGNC = 'HGNC'
 HMDB = 'HMDB'
 HUMAN_GOA = 'HumanGOA'
 INTACT = 'IntAct'
+LINCS = 'LINCS'
 LITCOIN = 'LitCoin'
 LITCOIN_W_BAGEL_SERVICE = 'LitCoinBagelService'
 LITCOIN_ENTITY_EXTRACTOR = 'LitCoinEntityExtractor'
@@ -67,6 +68,7 @@ SOURCE_DATA_LOADER_CLASS_IMPORTS = {
     HUMAN_GOA: ("parsers.GOA.src.loadGOA", "HumanGOALoader"),
     HUMAN_STRING: ("parsers.STRING.src.loadSTRINGDB", "HumanSTRINGDBLoader"),
     INTACT: ("parsers.IntAct.src.loadIA", "IALoader"),
+    LINCS: ("parsers.LINCS.src.loadLINCS", "LINCSLoader"),
     LITCOIN: ("parsers.LitCoin.src.loadLitCoin", "LitCoinLoader"),
     LITCOIN_W_BAGEL_SERVICE: ("parsers.LitCoin.src.loadLitCoin", "LitCoinBagelServiceLoader"),
     # LITCOIN_ENTITY_EXTRACTOR: ("parsers.LitCoin.src.loadLitCoin", "LitCoinEntityExtractorLoader"),
