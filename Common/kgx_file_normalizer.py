@@ -325,10 +325,11 @@ class KGXFileNormalizer:
                                     if normalized_edge_properties:
                                         normalized_edge.update(normalized_edge_properties)
 
-                                    # if normalization switched the direction of the predicate, swap the nodes
                                     normalized_edge[SUBJECT_ID] = norm_subject_id
                                     normalized_edge[OBJECT_ID] = norm_object_id
 
+                                    # if normalization switched the direction of the predicate,
+                                    # invert the entire edge
                                     if edge_inverted_by_normalization:
                                         normalized_edge = invert_edge(normalized_edge)
 
