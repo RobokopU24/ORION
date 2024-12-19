@@ -1,9 +1,11 @@
 import os
 import argparse
 import datetime
+import time
 from collections import defaultdict
 
 from Common.data_sources import SourceDataLoaderClassFactory, RESOURCE_HOGS, get_available_data_sources
+from Common.exceptions import DataVersionError
 from Common.utils import LoggingUtil, GetDataPullError
 from Common.kgx_file_normalizer import KGXFileNormalizer
 from Common.normalization import NormalizationScheme, NodeNormalizer, EdgeNormalizer, NormalizationFailedError
@@ -124,7 +126,7 @@ class SourceDataManager:
             self.logger.info(f"Fetching source data for {source_id} (version: {source_version})...")
             return self.fetch_source(source_id, source_version=source_version)
 
-    def get_latest_source_version(self, source_id: str, retries: int=0):
+    def get_latest_source_version(self, source_id: str, retries: int = 0):
         if source_id in self.latest_source_version_lookup:
             return self.latest_source_version_lookup[source_id]
 
@@ -136,19 +138,18 @@ class SourceDataManager:
             self.latest_source_version_lookup[source_id] = latest_source_version
             return latest_source_version
         except GetDataPullError as failed_error:
-            self.logger.error(
-                f"Error while checking for latest source version for {source_id}: {failed_error.error_message}")
+            error_message = f"Error while checking for latest source version for {source_id}: " \
+                            f"{failed_error.error_message}"
+            self.logger.error(error_message)
             if retries < 2:
+                time.sleep(3)
                 return self.get_latest_source_version(source_id, retries=retries+1)
             else:
-                # TODO what should we do here?
-                # no great place to write an error in metadata because metadata is specific to source versions
-                # source_metadata.set_version_checking_error(failed_error.error_message)
-                return None
+                raise DataVersionError(error_message=error_message)
         except Exception as e:
-            self.logger.error(
-                f"Error while checking for latest source version for {source_id}: {repr(e)}-{str(e)}")
-            return None
+            error_message = f"Error while checking for latest source version for {source_id}: {repr(e)}-{str(e)}"
+            self.logger.error(error_message)
+            raise DataVersionError(error_message=error_message)
 
     def fetch_source(self, source_id: str, source_version: str='latest', retries: int=0):
 
