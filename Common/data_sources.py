@@ -4,6 +4,7 @@ import importlib
 BINDING_DB = 'BINDING-DB'
 CAM_KP = 'CAM-KP'
 CHEBI_PROPERTIES = 'CHEBIProps'
+CLINICAL_TRIALS_KP = 'ClinicalTrialsKP'
 CORD19 = 'Cord19'
 CTD = 'CTD'
 DRUG_CENTRAL = 'DrugCentral'
@@ -18,6 +19,7 @@ HGNC = 'HGNC'
 HMDB = 'HMDB'
 HUMAN_GOA = 'HumanGOA'
 INTACT = 'IntAct'
+LINCS = 'LINCS'
 LITCOIN = 'LitCoin'
 LITCOIN_SAPBERT = 'LitCoinSapBERT'
 LITCOIN_ENTITY_EXTRACTOR = 'LitCoinEntityExtractor'
@@ -52,6 +54,7 @@ SOURCE_DATA_LOADER_CLASS_IMPORTS = {
     BINDING_DB: ("parsers.BINDING.src.loadBINDINGDB", "BINDINGDBLoader"),
     CAM_KP: ("parsers.camkp.src.loadCAMKP", "CAMKPLoader"),
     CHEBI_PROPERTIES: ("parsers.chebi.src.loadChebiProperties", "ChebiPropertiesLoader"),
+    CLINICAL_TRIALS_KP: ("parsers.clinicaltrials.src.loadCTKP", "CTKPLoader"),
     CORD19: ("parsers.cord19.src.loadCord19", "Cord19Loader"),
     CTD: ("parsers.CTD.src.loadCTD", "CTDLoader"),
     DRUG_CENTRAL: ("parsers.drugcentral.src.loaddrugcentral", "DrugCentralLoader"),
@@ -66,6 +69,7 @@ SOURCE_DATA_LOADER_CLASS_IMPORTS = {
     HUMAN_GOA: ("parsers.GOA.src.loadGOA", "HumanGOALoader"),
     HUMAN_STRING: ("parsers.STRING.src.loadSTRINGDB", "HumanSTRINGDBLoader"),
     INTACT: ("parsers.IntAct.src.loadIA", "IALoader"),
+    LINCS: ("parsers.LINCS.src.loadLINCS", "LINCSLoader"),
     LITCOIN: ("parsers.LitCoin.src.loadLitCoin", "LitCoinLoader"),
     LITCOIN_ENTITY_EXTRACTOR: ("parsers.LitCoin.src.loadLitCoin", "LitCoinEntityExtractorLoader"),
     LITCOIN_SAPBERT: ("parsers.LitCoin.src.loadLitCoin", "LitCoinSapBERTLoader"),

@@ -12,17 +12,19 @@ from Common.data_sources import get_available_data_sources
 from Common.load_manager import SourceDataManager
 from Common.kgx_file_merger import KGXFileMerger
 from Common.neo4j_tools import create_neo4j_dump
-from Common.kgxmodel import GraphSpec, SubGraphSource, DataSource, NormalizationScheme
-from Common.normalization import NORMALIZATION_CODE_VERSION
+from Common.kgxmodel import GraphSpec, SubGraphSource, DataSource
+from Common.normalization import NORMALIZATION_CODE_VERSION, NormalizationScheme
 from Common.metadata import Metadata, GraphMetadata, SourceMetadata
 from Common.supplementation import SequenceVariantSupplementation
 from Common.biolink_constants import PRIMARY_KNOWLEDGE_SOURCE, AGGREGATOR_KNOWLEDGE_SOURCES, PREDICATE, PUBLICATIONS
 from Common.meta_kg import MetaKnowledgeGraphBuilder, META_KG_FILENAME, TEST_DATA_FILENAME
 from Common.redundant_kg import generate_redundant_kg
+from Common.collapse_qualifiers import generate_collapsed_qualifiers_kg
 
 NODES_FILENAME = 'nodes.jsonl'
 EDGES_FILENAME = 'edges.jsonl'
 REDUNDANT_EDGES_FILENAME = 'redundant_edges.jsonl'
+COLLAPSED_QUALIFIERS_FILENAME = 'collapsed_qualifier_edges.jsonl'
 
 
 class GraphBuilder:
@@ -115,6 +117,49 @@ class GraphBuilder:
         output_formats = graph_spec.graph_output_format.lower().split('+') if graph_spec.graph_output_format else []
         nodes_filepath = os.path.join(graph_output_dir, NODES_FILENAME)
         edges_filepath = os.path.join(graph_output_dir, EDGES_FILENAME)
+        
+        if 'redundant_jsonl' in output_formats:
+            self.logger.info(f'Generating redundant edge KG for {graph_id}...')
+            redundant_filepath = edges_filepath.replace(EDGES_FILENAME, REDUNDANT_EDGES_FILENAME)
+            generate_redundant_kg(edges_filepath, redundant_filepath)
+
+        if 'redundant_neo4j' in output_formats:
+            self.logger.info(f'Generating redundant edge KG for {graph_id}...')
+            redundant_filepath = edges_filepath.replace(EDGES_FILENAME, REDUNDANT_EDGES_FILENAME)
+            generate_redundant_kg(edges_filepath, redundant_filepath)
+            self.logger.info(f'Starting Neo4j dump pipeline for redundant {graph_id}...')
+            dump_success = create_neo4j_dump(nodes_filepath=nodes_filepath,
+                                             edges_filepath=redundant_filepath,
+                                             output_directory=graph_output_dir,
+                                             graph_id=graph_id,
+                                             graph_version=graph_version,
+                                             logger=self.logger)
+
+            if dump_success:
+                graph_output_url = self.get_graph_output_URL(graph_id, graph_version)
+                graph_metadata.set_dump_url(f'{graph_output_url}graph_{graph_version}_redundant.db.dump')
+            
+        if 'collapsed_qualifiers_jsonl' in output_formats:
+            self.logger.info(f'Generating collapsed qualifier predicates KG for {graph_id}...')
+            collapsed_qualifiers_filepath = edges_filepath.replace(EDGES_FILENAME, COLLAPSED_QUALIFIERS_FILENAME)
+            generate_collapsed_qualifiers_kg(edges_filepath, collapsed_qualifiers_filepath)
+
+        if 'collapsed_qualifiers_neo4j' in output_formats:
+            self.logger.info(f'Generating collapsed qualifier predicates KG for {graph_id}...')
+            collapsed_qualifiers_filepath = edges_filepath.replace(EDGES_FILENAME, COLLAPSED_QUALIFIERS_FILENAME)
+            generate_collapsed_qualifiers_kg(edges_filepath, collapsed_qualifiers_filepath)
+            self.logger.info(f'Starting Neo4j dump pipeline for {graph_id} with collapsed qualifiers...')
+            dump_success = create_neo4j_dump(nodes_filepath=nodes_filepath,
+                                             edges_filepath=collapsed_qualifiers_filepath,
+                                             output_directory=graph_output_dir,
+                                             graph_id=graph_id,
+                                             graph_version=graph_version,
+                                             logger=self.logger)
+
+            if dump_success:
+                graph_output_url = self.get_graph_output_URL(graph_id, graph_version)
+                graph_metadata.set_dump_url(f'{graph_output_url}graph_{graph_version}_collapsed_qualifiers.db.dump')
+
         if 'neo4j' in output_formats:
             self.logger.info(f'Starting Neo4j dump pipeline for {graph_id}...')
             dump_success = create_neo4j_dump(nodes_filepath=nodes_filepath,
@@ -128,19 +173,13 @@ class GraphBuilder:
                 graph_output_url = self.get_graph_output_URL(graph_id, graph_version)
                 graph_metadata.set_dump_url(f'{graph_output_url}graph_{graph_version}.db.dump')
 
-        if 'redundant_jsonl' in output_formats:
-            self.logger.info(f'Generating redundant edge KG for {graph_id}...')
-            redundant_filepath = edges_filepath.replace(EDGES_FILENAME, REDUNDANT_EDGES_FILENAME)
-            generate_redundant_kg(edges_filepath, redundant_filepath)
-
     def build_dependencies(self, graph_spec: GraphSpec):
         for subgraph_source in graph_spec.subgraphs:
             subgraph_id = subgraph_source.id
             subgraph_version = subgraph_source.version
             if self.check_for_existing_graph_dir(subgraph_id, subgraph_version):
                 # load previous metadata
-                graph_metadata = self.get_graph_metadata(subgraph_id, subgraph_version)
-                subgraph_source.graph_metadata = graph_metadata.metadata
+                subgraph_source.graph_metadata = self.get_graph_metadata(subgraph_id, subgraph_version)
             elif self.current_graph_versions[subgraph_id] == subgraph_version:
                 self.logger.warning(f'For graph {graph_spec.graph_id} subgraph dependency '
                                     f'{subgraph_id} version {subgraph_version} is not ready. Building now...')
