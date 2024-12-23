@@ -34,6 +34,7 @@ PLANT_GOA = 'PlantGOA'
 REACTOME = 'Reactome'
 SCENT = 'Scent'
 SGD = 'SGD'
+SIGNOR = 'SIGNOR'
 HUMAN_STRING = 'STRING-DB-Human'
 TEXT_MINING_KP = 'textminingkp'
 UBERGRAPH_NONREDUNDANT = 'UbergraphNonredundant'
@@ -83,6 +84,7 @@ SOURCE_DATA_LOADER_CLASS_IMPORTS = {
     REACTOME: ("parsers.Reactome.src.loadReactome", "ReactomeLoader"),
     SCENT: ("parsers.scent.src.loadScent", "ScentLoader"),
     SGD: ("parsers.SGD.src.loadSGD", "SGDLoader"),
+    SIGNOR: ("parsers.SIGNOR.src.loadSIGNOR", "SIGNORLoader"),
     TEXT_MINING_KP: ("parsers.textminingkp.src.loadTMKP", "TMKPLoader"),
     UBERGRAPH_NONREDUNDANT: ("parsers.UberGraph.src.loadUG", "UGLoader"),
     UBERGRAPH_REDUNDANT: ("parsers.UberGraph.src.loadUG", "UGRedundantLoader"),
