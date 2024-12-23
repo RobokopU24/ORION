@@ -9,7 +9,7 @@ from collections import defaultdict
 from Common.biolink_utils import BiolinkInformationResources, INFORES_STATUS_INVALID, INFORES_STATUS_DEPRECATED
 from Common.utils import LoggingUtil, quick_jsonl_file_iterator, GetDataPullError
 from Common.data_sources import get_available_data_sources
-from Common.exceptions import DataVersionError
+from Common.exceptions import DataVersionError, GraphSpecError
 from Common.load_manager import SourceDataManager
 from Common.kgx_file_merger import KGXFileMerger
 from Common.neo4j_tools import create_neo4j_dump
