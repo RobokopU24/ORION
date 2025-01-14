@@ -25,6 +25,7 @@ LITCOIN_SAPBERT = 'LitCoinSapBERT'
 LITCOIN_ENTITY_EXTRACTOR = 'LitCoinEntityExtractor'
 KINACE = 'KinAce'
 MOLEPRO = 'MolePro'
+METABOLOMICS_WORKBENCH = 'MetabolomicsWorkbench'
 MONARCH_KG = 'MonarchKG'
 MONDO_PROPS = 'MONDOProps'
 ONTOLOGICAL_HIERARCHY = 'OntologicalHierarchy'
@@ -73,6 +74,7 @@ SOURCE_DATA_LOADER_CLASS_IMPORTS = {
     LITCOIN_ENTITY_EXTRACTOR: ("parsers.LitCoin.src.loadLitCoin", "LitCoinEntityExtractorLoader"),
     LITCOIN_SAPBERT: ("parsers.LitCoin.src.loadLitCoin", "LitCoinSapBERTLoader"),
     KINACE: ("parsers.KinAce.src.loadKinAce", "KinAceLoader"),
+    METABOLOMICS_WORKBENCH: ("parsers.MetabolomicsWorkbench.src.loadMetabolomicsWorkbench", "MetabolomicsWorkbenchLoader"),
     MOLEPRO: ("parsers.molepro.src.loadMolePro", "MoleProLoader"),
     MONARCH_KG: ("parsers.monarchkg.src.loadMonarchKG", "MonarchKGLoader"),
     MONDO_PROPS: ("parsers.MONDOProperties.src.loadMP", "MPLoader"),
