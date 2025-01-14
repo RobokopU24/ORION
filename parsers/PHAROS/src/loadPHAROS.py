@@ -1,7 +1,6 @@
 import os
 import argparse
 import re
-import requests
 
 from Common.loader_interface import SourceDataLoader, SourceDataBrokenError, SourceDataFailedError
 from Common.kgxmodel import kgxnode, kgxedge
@@ -94,6 +93,7 @@ class PHAROSLoader(SourceDataLoader):
         self.source_db = 'Target Central Resource Database'
         self.pharos_db = None
         self.genetic_association_predicate = 'WIKIDATA_PROPERTY:P2293'
+        self.target_for_predicate = "biolink:target_for"
 
     def get_latest_source_version(self) -> str:
         """
@@ -216,9 +216,13 @@ class PHAROSLoader(SourceDataLoader):
                 self.output_file_writer.write_kgx_node(gene_node)
 
                 if edge_provenance:
+                    if edge_provenance == "infores:drugcentral":
+                        assigned_predicate = self.target_for_predicate
+                    else:
+                        assigned_predicate = self.genetic_association_predicate
                     gene_to_disease_edge = kgxedge(subject_id=gene_id,
                                                    object_id=disease_id,
-                                                   predicate=self.genetic_association_predicate,
+                                                   predicate=assigned_predicate,
                                                    edgeprops=edge_properties,
                                                    primary_knowledge_source=edge_provenance,
                                                    aggregator_knowledge_sources=[self.provenance_id])
@@ -381,11 +385,11 @@ class PHAROSLoader(SourceDataLoader):
         # if there was affinity data save it
         affinity = result['affinity']
         if affinity is not None and affinity != '':
-            props['affinity'] = float(affinity)
+            props[AFFINITY] = float(affinity)
 
         affinity_paramater = result['affinity_parameter']
         if affinity_paramater:
-            props['affinity_parameter'] = f'p{result["affinity_parameter"]}'
+            props[AFFINITY_PARAMETER] = f'p{result["affinity_parameter"]}'
 
         # return to the caller
         return predicate, pmids, props, provenance

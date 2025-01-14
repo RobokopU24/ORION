@@ -2,6 +2,7 @@
 import os
 import enum
 import gzip
+import requests
 
 from Common.utils import GetData
 from Common.loader_interface import SourceDataLoader
@@ -36,8 +37,11 @@ class GenomeAllianceOrthologLoader(SourceDataLoader):
 
         self.latest_version = None
         self.latest_version = self.get_latest_source_version()
-        self.genome_alliance_url = f'https://download.alliancegenome.org/{self.get_latest_source_version()}/ORTHOLOGY-ALLIANCE/COMBINED/'
-        self.genome_alliance_ortholog_file = 'ORTHOLOGY-ALLIANCE_COMBINED_25.tsv.gz'
+        #self.genome_alliance_url = f'https://download.alliancegenome.org/{self.get_latest_source_version()}/ORTHOLOGY-ALLIANCE/COMBINED/'
+        #self.genome_alliance_ortholog_file = 'ORTHOLOGY-ALLIANCE_COMBINED_25.tsv.gz'
+        
+        self.genome_alliance_url = 'https://fms.alliancegenome.org/download/'
+        self.self.genome_alliance_ortholog_file = 'ORTHOLOGY-ALLIANCE_COMBINED.tsv.gz'
         self.data_files = [self.genome_alliance_ortholog_file]
 
     def get_latest_source_version(self) -> str:
@@ -46,8 +50,11 @@ class GenomeAllianceOrthologLoader(SourceDataLoader):
 
         :return:
         """
-        if not self.latest_version:
-            self.latest_version = '5.3.0'
+        #if not self.latest_version:
+        #     self.latest_version = '5.3.0'
+        
+        self.latest_version = requests.get("https://www.alliancegenome.org/api/releaseInfo").json()['releaseVersion']
+        
         return self.latest_version
 
     def get_data(self) -> int:

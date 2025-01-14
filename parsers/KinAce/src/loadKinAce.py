@@ -1,37 +1,43 @@
 import os
 import enum
-from zipfile import ZipFile as zipfile
-import pandas as pd
+import requests
 
 from Common.utils import GetData
 from Common.loader_interface import SourceDataLoader
 from Common.extractor import Extractor
-from Common.biolink_constants import PUBLICATIONS
+from Common.biolink_constants import *
 
-# Full Kinase-Substrate Phosphorylation Data.
-
-#make this reflect the column that the data is found in
-class BD_EDGEUMAN(enum.IntEnum):
-    KINASE = 1
-    SUBSTRATE = 2
-    P_SITE = 3
-    PRIMARY_SOURCE = 4
-    SECONDARY_SOURCE = 5
 
 ##############
 # Class: Loading kinase-substrate phosphorylation reactions from KinAce
 # By: Jon-Michael Beasley
 # Date: 03/7/2024
 ##############
+
+class DATACOLS(enum.IntEnum):
+    kinase = 0
+    substrate = 2
+    p_site = 4
+    primary_source = 5
+    PUBLICATIONS = 7
+
+
 class KinAceLoader(SourceDataLoader):
 
     source_id: str = 'KinAce'
     provenance_id: str = 'infores:kinace'
-    description = "The KinAce web portal aggregates and visualizes the network of interactions between protein-kinases and their substrates in the human genome."
+    description = ("The KinAce web portal aggregates and visualizes the network of interactions between "
+                   "protein-kinases and their substrates in the human genome.")
     source_data_url = "https://kinace.kinametrix.com/session/ff792906de38db0d1c9900ac5882497b/download/download0?w="
-    license = "All data and download files in bindingDB are freely available under a 'Creative Commons BY 3.0' license.'"
+    license = "Creative Commons Attribution 4.0 International"
     attribution = 'https://kinace.kinametrix.com/#section-about'
-    parsing_version = '1.0'
+    parsing_version = '1.2'
+
+    KINACE_INFORES_MAPPING = {
+        'PhosphoSitePlus': 'infores:psite-plus',
+        'EPSD': 'infores:epsd',
+        'iPTMNet': 'infores:iptmnet'
+    }
 
     def __init__(self, test_mode: bool = False, source_data_dir: str = None):
         """
@@ -41,12 +47,12 @@ class KinAceLoader(SourceDataLoader):
         # call the super
         super().__init__(test_mode=test_mode, source_data_dir=source_data_dir)
 
-        self.kinace_version = "2023-10-30"
-        #self.kinace_version = self.get_latest_source_version()
-        self.kinace_data_url = f"https://raw.githubusercontent.com/GauravPandeyLab/KinAce/master/data/{self.kinace_version}-kinace-dataset.zip"
-
-        self.archive_file_name = f"{self.kinace_version}-kinace-dataset.zip"
-        self.interactions_file_name = f"ksi_source.csv"
+        # self.kinace_version = "2023-10-30"
+        # KinAce downloaded this data on the 30th of October 2023. However, they have made changes to the files since
+        # I suggest using the last commit date of the file to version this data set
+        self.kinace_data_url = f"https://github.com/GauravPandeyLab/KiNet/raw/master/data/ksi_source_full_dataset.csv"
+        # Let's use the full source for completeness rather than the pruned list
+        self.interactions_file_name = f"ksi_source_full_dataset.csv"
         self.data_files = [self.interactions_file_name]
 
     def get_latest_source_version(self) -> str:
@@ -54,10 +60,14 @@ class KinAceLoader(SourceDataLoader):
         gets the latest version of the data
         :return:
         """
-        if self.kinace_version:
-            return self.kinace_version
-        
-        return f"{self.kinace_version}"
+        url = (f"https://api.github.com/repos/GauravPandeyLab/KiNet/commits?"
+               f"path=./data/{self.interactions_file_name}&per_page=1")
+        response = requests.get(url)
+        commits = response.json()
+        last_commit_date = commits[0]['commit']['committer']['date']
+        date_version = last_commit_date[:10]
+
+        return f"{date_version}"
 
     def get_data(self) -> int:
         """
@@ -67,9 +77,33 @@ class KinAceLoader(SourceDataLoader):
         data_puller = GetData()
         source_url = f"{self.kinace_data_url}"
         data_puller.pull_via_http(source_url, self.data_path)
-        with zipfile(os.path.join(self.data_path, self.archive_file_name), 'r') as zip_ref:
-            zip_ref.extract(self.interactions_file_name, self.data_path)
+
         return True
+
+    def get_pmids(self, line):
+        publication_list = []
+
+        if line[DATACOLS.PUBLICATIONS.value] in ['', 'NA']:
+            return publication_list
+
+        ids = line[DATACOLS.PUBLICATIONS.value].split(';')
+        publication_list = ['PMID:' + i.strip() for i in ids if i.strip()]
+
+        return publication_list
+
+    def get_KL_AT_assignments(self, line):
+        knowledge_level = NOT_PROVIDED
+        agent_type = NOT_PROVIDED
+        if line[DATACOLS.primary_source.value] == 'PhosphoSitePlus':
+            knowledge_level = KNOWLEDGE_ASSERTION
+            agent_type = MANUAL_AGENT
+        elif line[DATACOLS.primary_source.value] == 'EPSD':
+            knowledge_level = NOT_PROVIDED
+            agent_type = NOT_PROVIDED
+        elif line[DATACOLS.primary_source.value] == 'iPTMNet':
+            knowledge_level = NOT_PROVIDED
+            agent_type = TEXT_MINING_AGENT
+        return [knowledge_level, agent_type]
 
     def parse_data(self) -> dict:
         """
@@ -78,35 +112,27 @@ class KinAceLoader(SourceDataLoader):
 
         :return: ret_val: load_metadata
         """
-        print('ok parsing')
-        # with zipfile(os.path.join(self.data_path, self.archive_file_name), 'r') as zip_ref:
-        #     zip_ref.extract(self.interactions_file_name, self.data_path)
-        data = pd.read_csv(os.path.join(self.data_path, self.interactions_file_name))
-        data = data.groupby(["Kinase", "Substrate"]).agg({"Site": list, "PrimarySource": list, "SecondarySource": list}).reset_index()
-        # Define a function to deduplicate lists
-        def deduplicate_list(lst):
-            lst = [x for x in lst if x == x]
-            return list(set(lst))
-        # Apply deduplication function to each aggregated list
-        data['Site'] = data.apply(lambda row: list(set([x for x in row['Site'] if x==x])), axis=1)
-        data['PrimarySource'] = data.apply(lambda row: list(set([x for x in row['PrimarySource'] if x==x])), axis=1)
-        data['SecondarySource'] = data.apply(lambda row: list(set([x for x in row['SecondarySource'] if x==x])), axis=1)
-        data.to_csv(os.path.join(self.data_path, self.interactions_file_name))
+
         extractor = Extractor(file_writer=self.output_file_writer)
-        with open(os.path.join(self.data_path, self.interactions_file_name), 'rt') as fp:
-            extractor.csv_extract(fp,
-                                lambda line: f"UniProtKB:{line[1]}",  # subject id
-                                lambda line: f"UniProtKB:{line[2]}",  # object id
-                                lambda line: "biolink:phosphorylates",  # predicate
-                                lambda line: {}, #Node 1 props
-                                lambda line: {}, #Node 2 props
-                                lambda line: {
-                                                'phosphorylation_sites':line[3],
-                                                'primary_sources':line[4],
-                                                'secondary_sources':line[5]
-                                            }, #Edge props
-                                comment_character=None,
-                                delim=",",
-                                has_header_row=True
-                            )
+
+        with open(os.path.join(self.data_path, self.interactions_file_name)) as csvfile:
+            # change to csv reader
+            extractor.csv_extract(csvfile,
+                                  subject_extractor=lambda line: f"UniProtKB:{line[DATACOLS.kinase.value]}",
+                                  object_extractor=lambda line: f"UniProtKB:{line[DATACOLS.substrate.value]}",
+                                  predicate_extractor=lambda line: "biolink:affects",  # predicate
+                                  edge_property_extractor=lambda line:
+                                  {QUALIFIED_PREDICATE: 'biolink:causes',
+                                   OBJECT_DIRECTION_QUALIFIER: 'increased',
+                                   OBJECT_ASPECT_QUALIFIER: 'phosphorylation',
+                                   'phosphorylation_sites': [line[DATACOLS.p_site.value]],
+                                   KNOWLEDGE_LEVEL: self.get_KL_AT_assignments(line)[0],
+                                   AGENT_TYPE:  self.get_KL_AT_assignments(line)[1],
+                                   PRIMARY_KNOWLEDGE_SOURCE:
+                                       self.KINACE_INFORES_MAPPING.get(line[DATACOLS.primary_source.value], None),
+                                   AGGREGATOR_KNOWLEDGE_SOURCES: [self.provenance_id],
+                                   PUBLICATIONS: self.get_pmids(line)},
+                                  has_header_row=True,
+                                  delim=','
+                                  )
         return extractor.load_metadata

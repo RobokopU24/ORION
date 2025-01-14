@@ -19,6 +19,7 @@ HGNC = 'HGNC'
 HMDB = 'HMDB'
 HUMAN_GOA = 'HumanGOA'
 INTACT = 'IntAct'
+LINCS = 'LINCS'
 LITCOIN = 'LitCoin'
 LITCOIN_SAPBERT = 'LitCoinSapBERT'
 LITCOIN_ENTITY_EXTRACTOR = 'LitCoinEntityExtractor'
@@ -33,6 +34,7 @@ PLANT_GOA = 'PlantGOA'
 REACTOME = 'Reactome'
 SCENT = 'Scent'
 SGD = 'SGD'
+SIGNOR = 'SIGNOR'
 HUMAN_STRING = 'STRING-DB-Human'
 TEXT_MINING_KP = 'textminingkp'
 UBERGRAPH_NONREDUNDANT = 'UbergraphNonredundant'
@@ -67,6 +69,7 @@ SOURCE_DATA_LOADER_CLASS_IMPORTS = {
     HUMAN_GOA: ("parsers.GOA.src.loadGOA", "HumanGOALoader"),
     HUMAN_STRING: ("parsers.STRING.src.loadSTRINGDB", "HumanSTRINGDBLoader"),
     INTACT: ("parsers.IntAct.src.loadIA", "IALoader"),
+    LINCS: ("parsers.LINCS.src.loadLINCS", "LINCSLoader"),
     LITCOIN: ("parsers.LitCoin.src.loadLitCoin", "LitCoinLoader"),
     LITCOIN_ENTITY_EXTRACTOR: ("parsers.LitCoin.src.loadLitCoin", "LitCoinEntityExtractorLoader"),
     LITCOIN_SAPBERT: ("parsers.LitCoin.src.loadLitCoin", "LitCoinSapBERTLoader"),
@@ -81,6 +84,7 @@ SOURCE_DATA_LOADER_CLASS_IMPORTS = {
     REACTOME: ("parsers.Reactome.src.loadReactome", "ReactomeLoader"),
     SCENT: ("parsers.scent.src.loadScent", "ScentLoader"),
     SGD: ("parsers.SGD.src.loadSGD", "SGDLoader"),
+    SIGNOR: ("parsers.SIGNOR.src.loadSIGNOR", "SIGNORLoader"),
     TEXT_MINING_KP: ("parsers.textminingkp.src.loadTMKP", "TMKPLoader"),
     UBERGRAPH_NONREDUNDANT: ("parsers.UberGraph.src.loadUG", "UGLoader"),
     UBERGRAPH_REDUNDANT: ("parsers.UberGraph.src.loadUG", "UGRedundantLoader"),
