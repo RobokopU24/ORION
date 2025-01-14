@@ -16,3 +16,4 @@ pyoxigraph==0.3.22
 curies==0.7.9
 prefixmaps==0.2.4
 bmt==1.4.1
+polars==1.19.0
