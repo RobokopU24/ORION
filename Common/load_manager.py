@@ -504,20 +504,18 @@ class SourceDataManager:
                                   parsing_version: str,
                                   supplementation_version: str,
                                   normalization_scheme: NormalizationScheme):
-        # source data QC here
-        source_metadata = self.get_source_metadata(source_id, source_version)
-        normalization_version = normalization_scheme.get_composite_normalization_version()
+        # source data QC should go here
 
         self.logger.info(f'Generating release for {source_id}')
+        source_metadata = self.get_source_metadata(source_id, source_version)
         loader = SOURCE_DATA_LOADER_CLASSES[source_id](test_mode=self.test_mode)
         source_meta_information = loader.get_source_meta_information()
-        source_metadata.generate_release_metadata(parsing_version=parsing_version,
-                                                  supplementation_version=supplementation_version,
-                                                  normalization_version=normalization_version,
-                                                  source_meta_information=source_meta_information)
-        return source_metadata.get_release_version(parsing_version=parsing_version,
-                                                   supplementation_version=supplementation_version,
-                                                   normalization_version=normalization_version)
+        normalization_version = normalization_scheme.get_composite_normalization_version()
+        release_version = source_metadata.generate_release_metadata(parsing_version=parsing_version,
+                                                                    supplementation_version=supplementation_version,
+                                                                    normalization_version=normalization_version,
+                                                                    source_meta_information=source_meta_information)
+        return release_version
 
     def get_source_metadata(self, source_id: str, source_version):
         if source_id not in self.source_metadata or source_version not in self.source_metadata[source_id]:
