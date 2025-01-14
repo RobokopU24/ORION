@@ -181,7 +181,7 @@ class GraphBuilder:
             if dump_success:
                 graph_output_url = self.get_graph_output_url(graph_id, graph_version)
                 graph_metadata.set_dump_url(f'{graph_output_url}graph_{graph_version}.db.dump')
-
+    
         return True
 
     # determine a graph version utilizing versions of data sources, or just return the graph version specified
@@ -228,6 +228,7 @@ class GraphBuilder:
         self.logger.info(f'Version determined for graph {graph_spec.graph_id}: {graph_version} ({composite_version_string})')
         return graph_version
 
+    
     def build_dependencies(self, graph_spec: GraphSpec):
         graph_id = graph_spec.graph_id
         for subgraph_source in graph_spec.subgraphs:
