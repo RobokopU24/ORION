@@ -77,7 +77,7 @@ graphs:
 
   - graph_id: COHD_Automat
     graph_name: COHD
-    graph_description:
+    graph_description: "The Columbia Open Health Data (COHD) API provides access to counts and frequencies (i.e., EHR prevalence) of conditions, procedures, drug exposures, and patient demographics, and the co-occurrence frequencies between them. Count and frequency data were derived from the Columbia University Medical Center's OHDSI database including inpatient and outpatient data."
     graph_url:
     conflation: False
     output_format: neo4j
