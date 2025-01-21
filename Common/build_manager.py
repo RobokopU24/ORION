@@ -194,7 +194,7 @@ class GraphBuilder:
             for source in graph_spec.sources:
                 if not source.source_version:
                     source.source_version = self.source_data_manager.get_latest_source_version(source.id)
-                self.logger.info(f'Source version - {source.id}: {source.version}')
+                self.logger.info(f'Using {source.id} version: {source.version}')
 
             # for sub-graphs, if a graph version isn't specified,
             # use the graph spec for that subgraph to determine a graph version
@@ -203,7 +203,7 @@ class GraphBuilder:
                     subgraph_graph_spec = self.graph_specs.get(subgraph.id, None)
                     if subgraph_graph_spec:
                         subgraph.graph_version = self.determine_graph_version(subgraph_graph_spec)
-                        self.logger.info(f'found subgraph version, {graph_spec.graph_id}: {subgraph.graph_version}')
+                        self.logger.info(f'Using subgraph {graph_spec.graph_id} version: {subgraph.graph_version}')
                     else:
                         raise GraphSpecError(f'Subgraph {subgraph.id} requested for graph {graph_spec.graph_id} '
                                              f'but the version was not specified and could not be determined without '
@@ -228,7 +228,6 @@ class GraphBuilder:
         self.logger.info(f'Version determined for graph {graph_spec.graph_id}: {graph_version} ({composite_version_string})')
         return graph_version
 
-    
     def build_dependencies(self, graph_spec: GraphSpec):
         graph_id = graph_spec.graph_id
         for subgraph_source in graph_spec.subgraphs:
@@ -550,10 +549,9 @@ class GraphBuilder:
     def get_graph_dir_path(self, graph_id: str, graph_version: str):
         return os.path.join(self.graphs_dir, graph_id, graph_version)
 
-    def get_graph_output_url(self, graph_id: str, graph_version: str):
-        graph_output_url = os.environ.get('ORION_OUTPUT_URL', "https://localhost/")
-        if graph_output_url[-1] != '/':
-            graph_output_url += '/'
+    @staticmethod
+    def get_graph_output_url(graph_id: str, graph_version: str):
+        graph_output_url = os.environ.get('ORION_OUTPUT_URL', "https://localhost/").removesuffix('/')
         return f'{graph_output_url}{graph_id}/{graph_version}/'
 
     @staticmethod

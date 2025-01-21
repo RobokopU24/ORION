@@ -506,7 +506,6 @@ class SourceDataManager:
                                   normalization_scheme: NormalizationScheme):
         # source data QC should go here
 
-        self.logger.info(f'Generating release for {source_id}')
         source_metadata = self.get_source_metadata(source_id, source_version)
         loader = SOURCE_DATA_LOADER_CLASSES[source_id](test_mode=self.test_mode)
         source_meta_information = loader.get_source_meta_information()
@@ -515,6 +514,7 @@ class SourceDataManager:
                                                                     supplementation_version=supplementation_version,
                                                                     normalization_version=normalization_version,
                                                                     source_meta_information=source_meta_information)
+        self.logger.info(f'Generating release version for {source_id}: {release_version}')
         return release_version
 
     def get_source_metadata(self, source_id: str, source_version):
