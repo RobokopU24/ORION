@@ -4,7 +4,6 @@ import requests
 import yaml
 
 from Common.loader_interface import SourceDataLoader
-from Common.biolink_constants import PRIMARY_KNOWLEDGE_SOURCE
 from Common.utils import GetData, quick_jsonl_file_iterator
 
 
