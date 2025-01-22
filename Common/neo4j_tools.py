@@ -224,8 +224,8 @@ def create_neo4j_dump(nodes_filepath: str,
                       output_directory: str,
                       graph_id: str = 'graph',
                       graph_version: str = '',
-                      node_property_ignore_list: list = None,
-                      edge_property_ignore_list: list = None,
+                      node_property_ignore_list: set = None,
+                      edge_property_ignore_list: set = None,
                       logger=None):
     nodes_csv_filename = 'nodes.temp_csv'
     edges_csv_filename = 'edges.temp_csv'

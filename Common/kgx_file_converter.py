@@ -184,9 +184,33 @@ def __convert_to_csv(input_file: str,
                      properties: dict,  # dictionary of { node/edge property: property_type }
                      array_delimiter: str,
                      output_delimiter: str,
-                     property_ignore_list=None):
+                     property_ignore_list: set = None):
+
+    # generate the headers which for neo4j include the property name and the type
+    # for example:
+    # id:ID	name:string	category:LABEL	equivalent_identifiers:string[]	information_content:float
     headers = {prop: f'{prop.removeprefix("biolink:")}:{prop_type}'
-               for prop, prop_type in properties.items() if prop not in property_ignore_list}
+               for prop, prop_type in properties.items()}
+
+    # if there is a property_ignore_list, remove them from the headers
+    # also filter the list to include only properties that are actually present
+    if property_ignore_list:
+        ignored_props_present = set()
+        for ignored_prop in property_ignore_list:
+            if headers.pop(ignored_prop, 'PROP_NOT_FOUND') != 'PROP_NOT_FOUND':
+                ignored_props_present.add(ignored_prop)
+        if not ignored_props_present:
+            property_ignore_list = None
+        else:
+            property_ignore_list = ignored_props_present
+            print(f'Properties that should be ignored were found, ignoring: {property_ignore_list}')
+
+    properties_that_are_lists = {prop for prop in headers if properties[prop] in {'LABEL',
+                                                                                  'string[]',
+                                                                                  'float[]',
+                                                                                  'int[]'}}
+    properties_that_are_boolean = {prop for prop in headers if properties[prop] == 'boolean'}
+
     with open(output_file, 'w', newline='') as output_file_handler:
         csv_file_writer = csv.DictWriter(output_file_handler,
                                          delimiter=output_delimiter,
@@ -205,15 +229,11 @@ def __convert_to_csv(input_file: str,
                 elif property_ignore_list and key in property_ignore_list:
                     del item[key]
                 else:
-                    prop_type = properties[key]
-                    # convert lists into strings with an array delimiter
-                    if prop_type == 'LABEL' or \
-                            prop_type == 'string[]' or \
-                            prop_type == 'float[]' or \
-                            prop_type == 'int[]':
+                    if key in properties_that_are_lists:
+                        # convert lists into strings with an array delimiter
                         if isinstance(item[key], list):  # need to doublecheck for cases of properties with mixed types
                             item[key] = array_delimiter.join(str(value) for value in item[key])
-                    elif prop_type == 'boolean':
+                    elif key in properties_that_are_boolean:
                         # neo4j handles boolean with string 'true' being true and everything else false
                         item[key] = 'true' if item[key] is True else 'false'
             csv_file_writer.writerow(item)
