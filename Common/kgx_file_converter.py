@@ -197,7 +197,8 @@ def __convert_to_csv(input_file: str,
     if property_ignore_list:
         ignored_props_present = set()
         for ignored_prop in property_ignore_list:
-            if headers.pop(ignored_prop, 'PROP_NOT_FOUND') != 'PROP_NOT_FOUND':
+            if properties.pop(ignored_prop, 'PROP_NOT_FOUND') != 'PROP_NOT_FOUND':
+                del headers[ignored_prop.removeprefix("biolink:")]
                 ignored_props_present.add(ignored_prop)
         if not ignored_props_present:
             property_ignore_list = None
@@ -205,11 +206,9 @@ def __convert_to_csv(input_file: str,
             property_ignore_list = ignored_props_present
             print(f'Properties that should be ignored were found, ignoring: {property_ignore_list}')
 
-    properties_that_are_lists = {prop for prop in headers if properties[prop] in {'LABEL',
-                                                                                  'string[]',
-                                                                                  'float[]',
-                                                                                  'int[]'}}
-    properties_that_are_boolean = {prop for prop in headers if properties[prop] == 'boolean'}
+    properties_that_are_lists = {prop for prop, prop_type in properties.items()
+                                 if prop_type in {'LABEL', 'string[]', 'float[]', 'int[]'}}
+    properties_that_are_boolean = {prop for prop, prop_type in properties.items() if prop_type == 'boolean'}
 
     with open(output_file, 'w', newline='') as output_file_handler:
         csv_file_writer = csv.DictWriter(output_file_handler,
