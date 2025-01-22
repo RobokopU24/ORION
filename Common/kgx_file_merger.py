@@ -111,7 +111,7 @@ class KGXFileMerger:
                         merge_metadata["sources"][graph_source.id][source_filename]["nodes"] = nodes_count
 
                 elif "edges" in file_path:
-                    if graph_source.merge_strategy == "default":
+                    if not graph_source.merge_strategy:
                         with jsonlines.open(file_path) as edges:
                             edges_count = graph_merger.merge_edges(edges)
                             merge_metadata["sources"][graph_source.id][source_filename]["edges"] = edges_count
