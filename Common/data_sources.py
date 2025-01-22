@@ -6,9 +6,12 @@ CAM_KP = 'CAM-KP'
 CHEBI_PROPERTIES = 'CHEBIProps'
 CLINICAL_TRIALS_KP = 'ClinicalTrialsKP'
 CORD19 = 'Cord19'
+COHD = 'COHD'
 CTD = 'CTD'
 DRUG_CENTRAL = 'DrugCentral'
 DRUGMECHDB = 'DrugMechDB'
+EHRMAYTREAT = 'EHRMayTreat'
+EHRCLINICALCONNECTIONS = 'EHRClinicalConnections'
 # FOODB = 'FooDB' # this is on hold, data needs review after latest release of data.
 GENOME_ALLIANCE_ORTHOLOGS = 'GenomeAllianceOrthologs'
 GTEX = 'GTEx'
@@ -28,6 +31,7 @@ MOLEPRO = 'MolePro'
 METABOLOMICS_WORKBENCH = 'MetabolomicsWorkbench'
 MONARCH_KG = 'MonarchKG'
 MONDO_PROPS = 'MONDOProps'
+OHD_CAROLINA = 'OHD-Carolina'
 ONTOLOGICAL_HIERARCHY = 'OntologicalHierarchy'
 PANTHER = 'PANTHER'
 PHAROS = 'PHAROS'
@@ -35,6 +39,7 @@ PLANT_GOA = 'PlantGOA'
 REACTOME = 'Reactome'
 SCENT = 'Scent'
 SGD = 'SGD'
+SIGNOR = 'SIGNOR'
 HUMAN_STRING = 'STRING-DB-Human'
 TEXT_MINING_KP = 'textminingkp'
 UBERGRAPH_NONREDUNDANT = 'UbergraphNonredundant'
@@ -56,6 +61,7 @@ SOURCE_DATA_LOADER_CLASS_IMPORTS = {
     CHEBI_PROPERTIES: ("parsers.chebi.src.loadChebiProperties", "ChebiPropertiesLoader"),
     CLINICAL_TRIALS_KP: ("parsers.clinicaltrials.src.loadCTKP", "CTKPLoader"),
     CORD19: ("parsers.cord19.src.loadCord19", "Cord19Loader"),
+    COHD: ("parsers.cohd.src.loadCOHD", "COHDLoader"),
     CTD: ("parsers.CTD.src.loadCTD", "CTDLoader"),
     DRUG_CENTRAL: ("parsers.drugcentral.src.loaddrugcentral", "DrugCentralLoader"),
     DRUGMECHDB: ("parsers.drugmechdb.src.loadDrugMechDB", "DrugMechDBLoader"),
@@ -75,9 +81,12 @@ SOURCE_DATA_LOADER_CLASS_IMPORTS = {
     LITCOIN_SAPBERT: ("parsers.LitCoin.src.loadLitCoin", "LitCoinSapBERTLoader"),
     KINACE: ("parsers.KinAce.src.loadKinAce", "KinAceLoader"),
     METABOLOMICS_WORKBENCH: ("parsers.MetabolomicsWorkbench.src.loadMetabolomicsWorkbench", "MetabolomicsWorkbenchLoader"),
+    EHRMAYTREAT: ("parsers.ehr.src.loadEHR", "EHRMayTreatLoader"),
+    EHRCLINICALCONNECTIONS: ("parsers.ehr.src.loadEHR", "EHRClinicalConnectionsLoader"),
     MOLEPRO: ("parsers.molepro.src.loadMolePro", "MoleProLoader"),
     MONARCH_KG: ("parsers.monarchkg.src.loadMonarchKG", "MonarchKGLoader"),
     MONDO_PROPS: ("parsers.MONDOProperties.src.loadMP", "MPLoader"),
+    OHD_CAROLINA: ("parsers.ohd_carolina.src.loadOHD", "OHDLoader"),
     ONTOLOGICAL_HIERARCHY: ("parsers.UberGraph.src.loadUG", "OHLoader"),
     PANTHER: ("parsers.panther.src.loadPanther", "PLoader"),
     PHAROS: ("parsers.PHAROS.src.loadPHAROS", "PHAROSLoader"),
@@ -85,6 +94,7 @@ SOURCE_DATA_LOADER_CLASS_IMPORTS = {
     REACTOME: ("parsers.Reactome.src.loadReactome", "ReactomeLoader"),
     SCENT: ("parsers.scent.src.loadScent", "ScentLoader"),
     SGD: ("parsers.SGD.src.loadSGD", "SGDLoader"),
+    SIGNOR: ("parsers.SIGNOR.src.loadSIGNOR", "SIGNORLoader"),
     TEXT_MINING_KP: ("parsers.textminingkp.src.loadTMKP", "TMKPLoader"),
     UBERGRAPH_NONREDUNDANT: ("parsers.UberGraph.src.loadUG", "UGLoader"),
     UBERGRAPH_REDUNDANT: ("parsers.UberGraph.src.loadUG", "UGRedundantLoader"),

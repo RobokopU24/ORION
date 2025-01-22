@@ -158,9 +158,8 @@ class KGXFileNormalizer:
                         # this takes the sum of the lengths of the values and subtracts the number of keys
                         # resulting in the number of variants that were added after splitting the original IDs
                         # if this makes absolutely no sense email Evan Morris and he will explain
-                        variant_split_count = len(
-                            [variant for sublist in variant_node_splits.values() for variant in sublist]) \
-                                              - len(variant_node_splits.keys())
+                        variant_split_count = len([variant for sublist in variant_node_splits.values()
+                                                   for variant in sublist]) - len(variant_node_splits.keys())
                         variant_nodes_split_count += variant_split_count
                     else:
                         variant_nodes_split_count = 0

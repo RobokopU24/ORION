@@ -1,0 +1,9 @@
+graphs:
+
+  - graph_id: SIGNOR
+    graph_name: 'SIGNOR 3.0: The SIGnaling Network Open Resource'
+    graph_description: 'SIGNOR is a repository of manually annotated causal relationships between human proteins, chemicals of biological relevance, stimuli and phenotypes.'
+    graph_url: https://signor.uniroma2.it
+    output_format: neo4j
+    sources:
+      - source_id: SIGNOR

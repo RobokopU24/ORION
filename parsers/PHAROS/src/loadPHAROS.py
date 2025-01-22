@@ -1,7 +1,6 @@
 import os
 import argparse
 import re
-import requests
 
 from Common.loader_interface import SourceDataLoader, SourceDataBrokenError, SourceDataFailedError
 from Common.kgxmodel import kgxnode, kgxedge
@@ -386,11 +385,11 @@ class PHAROSLoader(SourceDataLoader):
         # if there was affinity data save it
         affinity = result['affinity']
         if affinity is not None and affinity != '':
-            props['affinity'] = float(affinity)
+            props[AFFINITY] = float(affinity)
 
         affinity_paramater = result['affinity_parameter']
         if affinity_paramater:
-            props['affinity_parameter'] = f'p{result["affinity_parameter"]}'
+            props[AFFINITY_PARAMETER] = f'p{result["affinity_parameter"]}'
 
         # return to the caller
         return predicate, pmids, props, provenance

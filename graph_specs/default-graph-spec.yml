@@ -3,8 +3,8 @@ graphs:
 
   - graph_id: baseline
     # optional parameters to be applied to the entire graph - see README for more info
-    # node_normalization_version: latest
-    # edge_normalization_version: latest
+    # node_normalization_version: 2.3.5
+    # edge_normalization_version: 4.2.5
     # graph_name: Robokop Baseline
     # graph_description: 'The baseline graph from which RobokopKG and other graphs are built.'
     # conflation: True # (whether to conflate node types like Genes and Proteins)
@@ -75,7 +75,16 @@ graphs:
     sources:
       - source_id: CAM-KP
 
-  - graph_id: ctd-automat
+  - graph_id: COHD_Automat
+    graph_name: COHD
+    graph_description: "The Columbia Open Health Data (COHD) API provides access to counts and frequencies (i.e., EHR prevalence) of conditions, procedures, drug exposures, and patient demographics, and the co-occurrence frequencies between them. Count and frequency data were derived from the Columbia University Medical Center's OHDSI database including inpatient and outpatient data."
+    graph_url:
+    conflation: False
+    output_format: neo4j
+    sources:
+      - source_id: COHD
+
+  - graph_id: CTD_Automat
     graph_name: CTD
     graph_description: 'The Comparative Toxicogenomics Database (CTD) is an open-source database that provides manually curated information about chemical-gene/protein, chemical-disease, and gene/protein-disease relationships, with additional support for the curated relationships provided by function and pathway data.'
     graph_url: http://ctdbase.org/about/
@@ -195,7 +204,16 @@ graphs:
       - source_id: OntologicalHierarchy
         merge_strategy: connected_edge_subset
 
-  - graph_id: panther-automat
+  - graph_id: OHD_Carolina_Automat
+    graph_name: Open Health Data @ Carolina
+    graph_description: 'Open Health Data @ Carolina provides access to counts and frequencies (i.e., EHR prevalence) of conditions, procedures, drug exposures, and patient demographics, and the co-occurrence frequencies between them.'
+    graph_url: https://github.com/NCATSTranslator/Translator-All/wiki/Open-Health-Data-at-Carolina
+    conflation: False
+    output_format: neo4j
+    sources:
+      - source_id: OHD-Carolina
+
+  - graph_id: PANTHER_Automat
     graph_name: PANTHER
     graph_description: 'The Protein ANalysis THrough Evolutionary Relationships (PANTHER) classification system provides an openly available annotation library of gene family phylogenetic trees, with persistent identifiers attached to all nodes in the trees and annotation of each protein member of the family by its family and protein class, subfamily, orthologs, paralogs, GO Phylogenetic Annotation Project function, and Reactome pathways.'
     graph_url: http://pantherdb.org/

@@ -1,0 +1,41 @@
+# Testing graph spec
+graphs:
+  - graph_id: Testing_Graph
+    graph_name: Testing Graph
+    graph_description: 'This is a small graph spec that can be used for testing.'
+    graph_url: ''
+    output_format:
+    sources:
+      - source_id: CTD
+      - source_id: HGNC
+
+  - graph_id: Testing_Graph_2
+    graph_name: Testing Graph 2
+    graph_description: 'This is a graph spec that can be used for testing with a subgraph.'
+    graph_url: ''
+    output_format:
+    sources:
+      - source_id: GtoPdb
+    subgraphs:
+      - graph_id: Testing_Graph
+
+  - graph_id: Testing_Graph_3
+    graph_name: Testing Graph 3
+    graph_description: 'This is a graph spec that can be used for testing an invalid subgraph.'
+    graph_url: ''
+    output_format:
+    sources:
+      - source_id: GtoPdb
+    subgraphs:
+      - graph_id: Invalid_Graph
+
+  - graph_id: Testing_Graph_4
+    graph_name: Testing Graph 4
+    graph_description: 'This is a graph spec that can be used for testing an invalid subgraph version.'
+    graph_url: ''
+    output_format:
+    sources:
+      - source_id: GtoPdb
+    subgraphs:
+      - graph_id: Testing_Graph
+        graph_version: abc123
