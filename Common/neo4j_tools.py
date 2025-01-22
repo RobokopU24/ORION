@@ -224,6 +224,8 @@ def create_neo4j_dump(nodes_filepath: str,
                       output_directory: str,
                       graph_id: str = 'graph',
                       graph_version: str = '',
+                      node_property_ignore_list: set = None,
+                      edge_property_ignore_list: set = None,
                       logger=None):
     nodes_csv_filename = 'nodes.temp_csv'
     edges_csv_filename = 'edges.temp_csv'
@@ -238,7 +240,9 @@ def create_neo4j_dump(nodes_filepath: str,
         kgx_file_converter.convert_jsonl_to_neo4j_csv(nodes_input_file=nodes_filepath,
                                                       edges_input_file=edges_filepath,
                                                       nodes_output_file=csv_nodes_file_path,
-                                                      edges_output_file=csv_edges_file_path)
+                                                      edges_output_file=csv_edges_file_path,
+                                                      node_property_ignore_list=node_property_ignore_list,
+                                                      edge_property_ignore_list=edge_property_ignore_list)
         if logger:
             logger.info(f'CSV files created for {graph_id}({graph_version})...')
 

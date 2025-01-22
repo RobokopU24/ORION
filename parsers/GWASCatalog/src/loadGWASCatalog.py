@@ -128,7 +128,7 @@ class GWASCatalogLoader(SourceDataLoader):
                 if i == 1:
                     continue
 
-                if self.test_mode and i == 50:
+                if self.test_mode and i == 30:
                     break
 
                 # the total row count
