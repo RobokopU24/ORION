@@ -27,12 +27,12 @@ class SourceDataLoader:
 
     def __init__(self, test_mode: bool = False, source_data_dir: str = None):
         """Initialize with the option to run in testing mode."""
+        self.data_file = None
         self.test_mode: bool = test_mode
 
         if source_data_dir:
             self.data_path = os.path.join(source_data_dir, "source")
-            if not os.path.exists(self.data_path):
-                os.mkdir(self.data_path)
+            os.makedirs(self.data_path, exist_ok=True)
         else:
             self.data_path = os.environ.get("ORION_STORAGE")
 
@@ -118,6 +118,7 @@ class SourceDataLoader:
             # some implementations will have one data_file
             if self.data_file:
                 downloaded_data = os.path.join(self.data_path, self.data_file)
+                self.logger.info(f'looking for data file: {downloaded_data}')
                 # check if the one file already exists - if it does return false, does not need a download
                 if os.path.exists(downloaded_data):
                     return False
