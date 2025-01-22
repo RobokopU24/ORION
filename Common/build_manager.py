@@ -126,7 +126,11 @@ class GraphBuilder:
         output_formats = graph_spec.graph_output_format.lower().split('+') if graph_spec.graph_output_format else []
         nodes_filepath = os.path.join(graph_output_dir, NODES_FILENAME)
         edges_filepath = os.path.join(graph_output_dir, EDGES_FILENAME)
-        
+
+        # TODO allow these to be specified in the graph spec
+        node_property_ignore_list = {'robokop_variant_id'}
+        edge_property_ignore_list = None
+
         if 'redundant_jsonl' in output_formats:
             self.logger.info(f'Generating redundant edge KG for {graph_id}...')
             redundant_filepath = edges_filepath.replace(EDGES_FILENAME, REDUNDANT_EDGES_FILENAME)
@@ -142,6 +146,8 @@ class GraphBuilder:
                                              output_directory=graph_output_dir,
                                              graph_id=graph_id,
                                              graph_version=graph_version,
+                                             node_property_ignore_list=node_property_ignore_list,
+                                             edge_property_ignore_list=edge_property_ignore_list,
                                              logger=self.logger)
 
             if dump_success:
@@ -163,6 +169,8 @@ class GraphBuilder:
                                              output_directory=graph_output_dir,
                                              graph_id=graph_id,
                                              graph_version=graph_version,
+                                             node_property_ignore_list=node_property_ignore_list,
+                                             edge_property_ignore_list=edge_property_ignore_list,
                                              logger=self.logger)
 
             if dump_success:
@@ -176,6 +184,8 @@ class GraphBuilder:
                                              output_directory=graph_output_dir,
                                              graph_id=graph_id,
                                              graph_version=graph_version,
+                                             node_property_ignore_list=node_property_ignore_list,
+                                             edge_property_ignore_list=edge_property_ignore_list,
                                              logger=self.logger)
 
             if dump_success:

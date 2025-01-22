@@ -75,6 +75,15 @@ graphs:
     sources:
       - source_id: CAM-KP
 
+  - graph_id: COHD_Automat
+    graph_name: COHD
+    graph_description: "The Columbia Open Health Data (COHD) API provides access to counts and frequencies (i.e., EHR prevalence) of conditions, procedures, drug exposures, and patient demographics, and the co-occurrence frequencies between them. Count and frequency data were derived from the Columbia University Medical Center's OHDSI database including inpatient and outpatient data."
+    graph_url:
+    conflation: False
+    output_format: neo4j
+    sources:
+      - source_id: COHD
+
   - graph_id: CTD_Automat
     graph_name: CTD
     graph_description: 'The Comparative Toxicogenomics Database (CTD) is an open-source database that provides manually curated information about chemical-gene/protein, chemical-disease, and gene/protein-disease relationships, with additional support for the curated relationships provided by function and pathway data.'
@@ -204,6 +213,15 @@ graphs:
       - source_id: IntAct
       - source_id: OntologicalHierarchy
         merge_strategy: connected_edge_subset
+
+  - graph_id: OHD_Carolina_Automat
+    graph_name: Open Health Data @ Carolina
+    graph_description: 'Open Health Data @ Carolina provides access to counts and frequencies (i.e., EHR prevalence) of conditions, procedures, drug exposures, and patient demographics, and the co-occurrence frequencies between them.'
+    graph_url: https://github.com/NCATSTranslator/Translator-All/wiki/Open-Health-Data-at-Carolina
+    conflation: False
+    output_format: neo4j
+    sources:
+      - source_id: OHD-Carolina
 
   - graph_id: PANTHER_Automat
     graph_name: PANTHER

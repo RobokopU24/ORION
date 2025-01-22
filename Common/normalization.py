@@ -305,12 +305,14 @@ class NodeNormalizer:
                 # if the normalization info contains an ID it was a success
                 if 'id' in normalization_info:
                     normalized_node = {
-                        'id': normalization_info["id"],
-                        'name': normalization_info["name"],
+                        'id': normalization_info['id'],
+                        'name': normalization_info['name'],
                         # as long as sequence variant types are all the same we can skip this assignment
                         # 'category': normalized_info["type"],
                         'category': variant_node_types,
-                        'equivalent_identifiers': normalization_info["equivalent_identifiers"]
+                        'equivalent_identifiers': normalization_info['equivalent_identifiers'],
+                        'hgvs': normalization_info['hgvs'],
+                        'robokop_variant_id': normalization_info['robokop_variant_id']
                     }
                     variant_nodes.append(normalized_node)
                     # assume we don't have a split and store the id for look up
@@ -329,7 +331,8 @@ class NodeNormalizer:
                             'id': variant_id,
                             'name': variant_id,
                             'category': variant_node_types,
-                            'equivalent_identifiers': []
+                            'equivalent_identifiers': [],
+                            'hgvs': []
                         }
                         variant_nodes.append(fake_normalized_node)
             if len(normalization_response) > 1:
