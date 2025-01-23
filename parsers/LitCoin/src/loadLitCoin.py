@@ -389,7 +389,7 @@ class LitCoinLoader(SourceDataLoader):
         return {
             "curie": name_res_json['curie'],
             "name": name_res_json['label'],
-            "types": list(self.bl_utils.find_biolink_leaves(set(name_res_json['types']))),
+            "types": list(self.bl_utils.find_biolink_leaves(frozenset(name_res_json['types']))),
             "score": name_res_json['score']
         }
 
