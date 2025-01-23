@@ -178,14 +178,14 @@ class KGXFileMerger:
                              nodes_out_file: str,
                              edges_out_file: str):
 
-        self.logger.debug(f'Writing merged nodes to file...')
+        self.logger.info(f'Writing merged nodes to file...')
         nodes_written = 0
         with open(nodes_out_file, 'w') as nodes_out:
             for node_line in graph_merger.get_merged_nodes_jsonl():
                 nodes_out.write(node_line)
                 nodes_written += 1
 
-        self.logger.debug(f'Writing merged edges to file...')
+        self.logger.info(f'Writing merged edges to file...')
         edges_written = 0
         with open(edges_out_file, 'a') as edges_out:
             for edge_line in graph_merger.get_merged_edges_jsonl():
