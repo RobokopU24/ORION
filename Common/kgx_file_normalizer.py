@@ -9,7 +9,6 @@ from Common.normalization import NormalizationScheme, NodeNormalizer, EdgeNormal
     NormalizationFailedError
 from Common.utils import LoggingUtil, chunk_iterator
 from Common.kgx_file_writer import KGXFileWriter
-from Common.merging import MemoryGraphMerger, DiskGraphMerger
 
 
 EDGE_PROPERTIES_THAT_SHOULD_BE_SETS = {AGGREGATOR_KNOWLEDGE_SOURCES, PUBLICATIONS}
@@ -226,12 +225,6 @@ class KGXFileNormalizer:
     # also write a file with the predicates that did not successfully normalize
     def normalize_edge_file(self):
 
-        if self.process_in_memory:
-            graph_merger = MemoryGraphMerger()
-        else:
-            path_head, file_name = os.path.split(self.edges_output_file_path)
-            graph_merger = DiskGraphMerger(temp_directory=path_head)
-
         number_of_source_edges = 0
         normalized_edge_count = 0
         edge_splits = 0
@@ -377,7 +370,6 @@ class KGXFileNormalizer:
             'edges_failed_due_to_predicates': edges_failed_due_to_predicates,
             # these keep track of how many edges merged into another, or split into multiple edges
             # this should be true: source_edges - failures - mergers + splits = edges post norm
-            'edge_mergers': graph_merger.merged_edge_counter,
             'edge_splits': edge_splits,
             'subclass_loops_removed': subclass_loops_removed,
             'final_normalized_edges': normalized_edge_count
