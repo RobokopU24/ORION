@@ -100,11 +100,12 @@ class NodeNormalizer:
         self.requests_session = self.get_normalization_requests_session()
 
     def hit_node_norm_service(self, curies, retries=0):
-        resp: requests.models.Response = requests.post(f'{NODE_NORMALIZATION_URL}get_normalized_nodes',
-                                                       json={'curies': curies,
-                                                             'conflate': self.conflate_node_types,
-                                                             'drug_chemical_conflate': self.conflate_node_types,
-                                                             'description': True})
+        resp: requests.models.Response = \
+            self.requests_session.post(f'{NODE_NORMALIZATION_URL}get_normalized_nodes',
+                                       json={'curies': curies,
+                                             'conflate': self.conflate_node_types,
+                                             'drug_chemical_conflate': self.conflate_node_types,
+                                             'description': True})
         if resp.status_code == 200:
             # if successful return the json as an object
             response_json = resp.json()
