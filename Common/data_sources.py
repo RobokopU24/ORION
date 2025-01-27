@@ -28,6 +28,7 @@ LITCOIN_W_BAGEL_SERVICE = 'LitCoinBagelService'
 LITCOIN_ENTITY_EXTRACTOR = 'LitCoinEntityExtractor'
 KINACE = 'KinAce'
 MOLEPRO = 'MolePro'
+METABOLOMICS_WORKBENCH = 'MetabolomicsWorkbench'
 MONARCH_KG = 'MonarchKG'
 MONDO_PROPS = 'MONDOProps'
 OHD_CAROLINA = 'OHD-Carolina'
@@ -81,6 +82,7 @@ SOURCE_DATA_LOADER_CLASS_IMPORTS = {
     KINACE: ("parsers.KinAce.src.loadKinAce", "KinAceLoader"),
     EHRMAYTREAT: ("parsers.ehr.src.loadEHR", "EHRMayTreatLoader"),
     EHRCLINICALCONNECTIONS: ("parsers.ehr.src.loadEHR", "EHRClinicalConnectionsLoader"),
+    METABOLOMICS_WORKBENCH: ("parsers.MetabolomicsWorkbench.src.loadMetabolomicsWorkbench", "MetabolomicsWorkbenchLoader"),
     MOLEPRO: ("parsers.molepro.src.loadMolePro", "MoleProLoader"),
     MONARCH_KG: ("parsers.monarchkg.src.loadMonarchKG", "MonarchKGLoader"),
     MONDO_PROPS: ("parsers.MONDOProperties.src.loadMP", "MPLoader"),
