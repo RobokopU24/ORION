@@ -12,9 +12,9 @@ from Common.prefixes import PUBCHEM_COMPOUND
 from Common.utils import GetData
 
 
-class LINCSLoader(SourceDataLoader):
+class MetabolomicsWorkbenchLoader(SourceDataLoader):
 
-    source_id: str = 'LINCS'
+    source_id: str = 'MetabolomicsWorkbench'
 
     def __init__(self, test_mode: bool = False, source_data_dir: str = None):
         """
@@ -22,8 +22,8 @@ class LINCSLoader(SourceDataLoader):
         :param source_data_dir - the specific storage directory to save files in
         """
         super().__init__(test_mode=test_mode, source_data_dir=source_data_dir)
-        self.data_url = 'https://cfde-drc.s3.amazonaws.com/LINCS/KG%20Assertions'
-        self.data_file = "LINCS.zip"
+        self.data_url = 'https://cfde-drc.s3.amazonaws.com/Metabolomics/KG%20Assertions'
+        self.data_file = "MW.zip"
 
         with open('/ORION/cfde-config.yml', 'r') as file:
             yaml_data = list(yaml.load_all(file, Loader=SafeLoader))
@@ -54,7 +54,7 @@ class LINCSLoader(SourceDataLoader):
         predicate_mapping = dict(self.config['predicate_mapping'])
 
         for file in self.config["node_files"]:
-            if "secondary_id_column" in file["node_file"]:
+            if file["node_file"]["secondary_id_column"]:
                 tmp_df = pl.scan_csv(os.path.join(self.data_path, file["node_file"]["name"]), has_header=True).select(
                     pl.when(pl.col(file["node_file"]["primary_id_column"]).is_null()).then(pl.col(file["node_file"]["secondary_id_column"])).otherwise(pl.col(file["node_file"]["primary_id_column"])).alias("id"),
                     pl.col("").alias("original_id"),
@@ -111,3 +111,10 @@ class LINCSLoader(SourceDataLoader):
             self.final_edge_list.append(edge)
 
         return { 'record_counter': len(edges), 'skipped_record_counter': len(df_missing), 'errors': []}
+
+
+if __name__ == '__main__':
+    source_data_dir = str(os.path.join(os.environ.get("ORION_STORAGE"), "MetabolomicsWorkbench", "2024-05-08"))
+    loader = MetabolomicsWorkbenchLoader(source_data_dir=source_data_dir)
+    loader.get_data()
+    print(loader.parse_data())
