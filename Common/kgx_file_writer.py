@@ -12,7 +12,7 @@ class KGXFileWriter:
 
     logger = LoggingUtil.init_logging("ORION.Common.KGXFileWriter",
                                       line_format='medium',
-                                      level=logging.DEBUG,
+                                      level=logging.INFO,
                                       log_file_path=os.environ.get('ORION_LOGS'))
     """
     constructor

@@ -55,6 +55,7 @@ AGENT_TYPE = 'agent_type'
 KNOWLEDGE_LEVEL = 'knowledge_level'
 MAX_RESEARCH_PHASE = 'max_research_phase'
 HAS_SUPPORTING_STUDY_RESULT = 'has_supporting_study_result'
+NEGATED = 'negated'
 LOG_ODDS_RATIO = 'log_odds_ratio'
 LOG_ODDS_RATIO_95_CI = 'log_odds_ratio_95_ci'
 TOTAL_SAMPLE_SIZE = 'total_sample_size'
@@ -159,6 +160,7 @@ BIOLINK_EDGE_PROPERTIES = [
     LOG_ODDS_RATIO,
     LOG_ODDS_RATIO_95_CI,
     TOTAL_SAMPLE_SIZE,
+    NEGATED,
     # qualifiers
     ANATOMICAL_CONTEXT_QUALIFIER,
     CAUSAL_MECHANISM_QUALIFIER,

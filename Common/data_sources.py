@@ -24,7 +24,7 @@ HUMAN_GOA = 'HumanGOA'
 INTACT = 'IntAct'
 LINCS = 'LINCS'
 LITCOIN = 'LitCoin'
-LITCOIN_SAPBERT = 'LitCoinSapBERT'
+LITCOIN_W_BAGEL_SERVICE = 'LitCoinBagelService'
 LITCOIN_ENTITY_EXTRACTOR = 'LitCoinEntityExtractor'
 KINACE = 'KinAce'
 MOLEPRO = 'MolePro'
@@ -77,8 +77,8 @@ SOURCE_DATA_LOADER_CLASS_IMPORTS = {
     INTACT: ("parsers.IntAct.src.loadIA", "IALoader"),
     LINCS: ("parsers.LINCS.src.loadLINCS", "LINCSLoader"),
     LITCOIN: ("parsers.LitCoin.src.loadLitCoin", "LitCoinLoader"),
-    LITCOIN_ENTITY_EXTRACTOR: ("parsers.LitCoin.src.loadLitCoin", "LitCoinEntityExtractorLoader"),
-    LITCOIN_SAPBERT: ("parsers.LitCoin.src.loadLitCoin", "LitCoinSapBERTLoader"),
+    LITCOIN_W_BAGEL_SERVICE: ("parsers.LitCoin.src.loadLitCoin", "LitCoinBagelServiceLoader"),
+    # LITCOIN_ENTITY_EXTRACTOR: ("parsers.LitCoin.src.loadLitCoin", "LitCoinEntityExtractorLoader"),
     KINACE: ("parsers.KinAce.src.loadKinAce", "KinAceLoader"),
     EHRMAYTREAT: ("parsers.ehr.src.loadEHR", "EHRMayTreatLoader"),
     EHRCLINICALCONNECTIONS: ("parsers.ehr.src.loadEHR", "EHRClinicalConnectionsLoader"),

@@ -55,27 +55,18 @@ class MetaKnowledgeGraphBuilder:
         node_type_to_attributes = defaultdict(set)
         node_attribute_to_metadata = {}
 
-        # results from bl_utils.find_biolink_leaves for each set of node types
-        node_types_to_leaves = {}
-
         for node in quick_jsonl_file_iterator(nodes_file_path):
 
-            # find the leaf node types of this node's types according to the biolink model, if not done already
+            # find the leaf node types of this node's types according to the biolink model
             try:
-                node_types = frozenset(node[NODE_TYPES])
-            except TypeError as e:
+                leaf_types = self.bl_utils.find_biolink_leaves(frozenset(node[NODE_TYPES]))
+            except TypeError:
                 error_message = f'Node types were not a valid list for node: {node}'
+                leaf_types = {}
                 if self.logger:
                     self.logger.error(error_message)
                 else:
                     print(error_message)
-                node_types = frozenset()
-
-            if node_types not in node_types_to_leaves:
-                leaf_types = self.bl_utils.find_biolink_leaves(node_types)
-                node_types_to_leaves[node_types] = leaf_types
-            else:
-                leaf_types = node_types_to_leaves[node_types]
 
             # store the leaf types for this node id
             node_id_to_leaf_types[node['id']] = leaf_types

@@ -1,7 +1,8 @@
 import pytest
-from Common.biolink_constants import NAMED_THING, GENE, SEQUENCE_VARIANT, INFORMATION_CONTENT, NODE_TYPES
+from Common.biolink_constants import *
 from Common.normalization import NodeNormalizer, EdgeNormalizer, EdgeNormalizationResult, \
     FALLBACK_EDGE_PREDICATE, CUSTOM_NODE_TYPES
+from Common.kgx_file_normalizer import invert_edge
 
 INVALID_NODE_TYPE = "testing:Type1"
 
@@ -138,7 +139,8 @@ def test_edge_normalization():
     edge_list = [{'predicate': 'SEMMEDDB:CAUSES'},
                  {'predicate': 'RO:0000052'},
                  {'predicate': 'RO:0002200'},
-                 {'predicate': 'BADPREFIX:123456'}]
+                 {'predicate': 'BADPREFIX:123456'},
+                 {'predicate': 'biolink:affected_by'}]
     edge_normalizer = EdgeNormalizer()
     edge_normalizer.normalize_edge_data(edge_list)
 
@@ -151,3 +153,29 @@ def test_edge_normalization():
 
     edge_norm_result: EdgeNormalizationResult = edge_normalizer.edge_normalization_lookup['BADPREFIX:123456']
     assert edge_norm_result.predicate == FALLBACK_EDGE_PREDICATE
+
+    edge_norm_result: EdgeNormalizationResult = edge_normalizer.edge_normalization_lookup['biolink:affected_by']
+    assert edge_norm_result.predicate == 'biolink:affects'
+    assert edge_norm_result.inverted is True
+
+
+def test_edge_inversion():
+    edge_1 = {
+        SUBJECT_ID: 'hgnc:1',
+        OBJECT_ID: 'hgnc:2',
+        SUBJECT_ASPECT_QUALIFIER: 'some_aspect',
+        SUBJECT_DIRECTION_QUALIFIER: 'up',
+        f'{OBJECT_ID}_fake_qualifier': 'test_value',
+        f'test_{OBJECT_ID}_middle': 'test_value_middle',
+        f'test_end_{OBJECT_ID}': 'test_value_end',
+    }
+    inverted_edge = invert_edge(edge_1)
+    assert inverted_edge == {
+        OBJECT_ID: 'hgnc:1',
+        SUBJECT_ID: 'hgnc:2',
+        OBJECT_ASPECT_QUALIFIER: 'some_aspect',
+        OBJECT_DIRECTION_QUALIFIER: 'up',
+        f'{SUBJECT_ID}_fake_qualifier': 'test_value',
+        f'test_{SUBJECT_ID}_middle': 'test_value_middle',
+        f'test_end_{SUBJECT_ID}': 'test_value_end',
+    }

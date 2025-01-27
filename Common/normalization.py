@@ -10,13 +10,14 @@ from robokop_genetics.genetics_normalization import GeneticsNormalizer
 from Common.biolink_constants import *
 from Common.utils import LoggingUtil
 
-NORMALIZATION_CODE_VERSION = '1.2'
+NORMALIZATION_CODE_VERSION = '1.3'
 
 # node property name for node types that did not normalize
 CUSTOM_NODE_TYPES = 'custom_node_types'
 
 # predicate to use when normalization fails
 FALLBACK_EDGE_PREDICATE = 'biolink:related_to'
+
 
 @dataclass
 class NormalizationScheme:
@@ -48,6 +49,8 @@ class NormalizationFailedError(Exception):
         self.error_message = error_message
         self.actual_error = actual_error
 
+NODE_NORMALIZATION_URL = os.environ.get('NODE_NORMALIZATION_ENDPOINT', 'https://nodenormalization-sri.renci.org/')
+
 
 class NodeNormalizer:
     """
@@ -61,8 +64,6 @@ class NodeNormalizer:
         category: the semantic type(s)
         equivalent_identifiers: the list of synonymous ids
     """
-
-    DEFAULT_NODE_NORMALIZATION_ENDPOINT = 'https://nodenormalization-sri.renci.org/'
 
     def __init__(self,
                  log_level=logging.INFO,
@@ -94,30 +95,24 @@ class NodeNormalizer:
         self.variant_node_splits = {}
         # normalization map for future look up of all normalized node IDs
         self.node_normalization_lookup = {}
-
-        if 'NODE_NORMALIZATION_ENDPOINT' in os.environ and os.environ['NODE_NORMALIZATION_ENDPOINT']:
-            self.node_norm_endpoint = os.environ['NODE_NORMALIZATION_ENDPOINT']
-        else:
-            self.node_norm_endpoint = self.DEFAULT_NODE_NORMALIZATION_ENDPOINT
-
         self.sequence_variant_normalizer = None
         self.variant_node_types = None
-
         self.requests_session = self.get_normalization_requests_session()
 
-    def hit_node_norm_service(self, curies):
-        resp = self.requests_session.post(f'{self.node_norm_endpoint}get_normalized_nodes',
-                                          json={'curies': curies,
-                                                'conflate': self.conflate_node_types,
-                                                'drug_chemical_conflate': self.conflate_node_types,
-                                                'description': True})
+    def hit_node_norm_service(self, curies, retries=0):
+        resp: requests.models.Response = \
+            self.requests_session.post(f'{NODE_NORMALIZATION_URL}get_normalized_nodes',
+                                       json={'curies': curies,
+                                             'conflate': self.conflate_node_types,
+                                             'drug_chemical_conflate': self.conflate_node_types,
+                                             'description': True})
         if resp.status_code == 200:
             # if successful return the json as an object
             response_json = resp.json()
             if response_json:
                 return response_json
             else:
-                error_message = f"Node Normalization service {self.node_norm_endpoint} returned 200 " \
+                error_message = f"Node Normalization service {NODE_NORMALIZATION_URL} returned 200 " \
                                 f"but with an empty result for (curies: {curies})"
                 raise NormalizationFailedError(error_message=error_message)
         else:
@@ -349,7 +344,7 @@ class NodeNormalizer:
         Retrieves the current production version from the node normalization service
         """
         # fetch the node norm openapi spec
-        node_norm_openapi_url = f'{self.node_norm_endpoint}openapi.json'
+        node_norm_openapi_url = f'{NODE_NORMALIZATION_URL}openapi.json'
         resp: requests.models.Response = requests.get(node_norm_openapi_url)
 
         # did we get a good status code
@@ -564,7 +559,8 @@ class EdgeNormalizer:
             resp.raise_for_status()
 
 
-NAME_RESOLVER_URL = os.environ.get('NAME_RESOLVER_ENDPOINT', "https://name-resolution-sri.renci.org/") + 'lookup'
+NAME_RESOLVER_URL = os.getenv('NAMERES_URL', 'https://name-resolution-sri.renci.org')
+NAME_RESOLVER_ENDPOINT = f'{NAME_RESOLVER_URL}/lookup'
 NAME_RESOLVER_HEADERS = {"accept": "application/json"}
 NAME_RESOLVER_API_ERROR = 'api_error'
 
@@ -577,7 +573,7 @@ def call_name_resolution(name: str, biolink_type: str, retries=0, logger=None):
     }
     try:
         # logger.info(f'About to call name res..')
-        nameres_result = requests.get(NAME_RESOLVER_URL,
+        nameres_result = requests.get(NAME_RESOLVER_ENDPOINT,
                                       params=nameres_payload,
                                       headers=NAME_RESOLVER_HEADERS,
                                       timeout=45)
