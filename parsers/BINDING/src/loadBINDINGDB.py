@@ -111,6 +111,8 @@ class BINDINGDBLoader(SourceDataLoader):
             error_message = f'BINDING-DB timed out attempting to retrieve version...'
         except ValueError:
             error_message = f'BINDING-DB get_latest_source_version got a response but could not determine the version..'
+        except requests.exceptions.ConnectionError as e:
+            error_message = f'BINDING-DB get_latest_source_version failed: {e}..'
         self.logger.error(error_message + ' Returning last known valid version: 202501')
         self.bindingdb_version = '202501'
         return self.bindingdb_version
