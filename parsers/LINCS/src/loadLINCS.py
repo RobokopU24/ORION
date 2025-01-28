@@ -15,6 +15,8 @@ from Common.utils import GetData
 class LINCSLoader(SourceDataLoader):
 
     source_id: str = 'LINCS'
+    provenance_id: str = 'infores:lincs'
+    parsing_version: str = '1.1'
 
     def __init__(self, test_mode: bool = False, source_data_dir: str = None):
         """

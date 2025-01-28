@@ -70,7 +70,7 @@ class SIGNORLoader(SourceDataLoader):
     license = ("SIGNOR is licensed under a Creative Commons Attribution-NonCommercial 4.0 International "
                "(CC BY-NC 4.0) license.")
     attribution = 'https://signor.uniroma2.it/about/'
-    parsing_version = '1.2'
+    parsing_version = '1.3'
 
     def __init__(self, test_mode: bool = False, source_data_dir: str = None):
         """
