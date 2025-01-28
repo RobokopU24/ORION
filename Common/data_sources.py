@@ -22,6 +22,7 @@ GENOME_ALLIANCE_ORTHOLOGS = 'GenomeAllianceOrthologs'
 GTEX = 'GTEx'
 GTOPDB = 'GtoPdb'
 GWAS_CATALOG = 'GWASCatalog'
+HELISMACC = "HeliSMACC"
 HETIO = 'Hetio'
 HGNC = 'HGNC'
 HMDB = 'HMDB'
@@ -82,6 +83,7 @@ SOURCE_DATA_LOADER_CLASS_IMPORTS = {
     GTEX: ("parsers.GTEx.src.loadGTEx", "GTExLoader"),
     GTOPDB: ("parsers.gtopdb.src.loadGtoPdb", "GtoPdbLoader"),
     GWAS_CATALOG: ("parsers.GWASCatalog.src.loadGWASCatalog", "GWASCatalogLoader"),
+    HELISMACC: ("parsers.HeliSMACC.src.loadHeliSMACC", "HeliSMACCLoader"),
     HETIO: ("parsers.hetio.src.loadHetio", "HetioLoader"),
     HGNC: ("parsers.hgnc.src.loadHGNC", "HGNCLoader"),
     HMDB: ("parsers.hmdb.src.loadHMDB", "HMDBLoader"),

@@ -57,8 +57,8 @@ class CTKPLoader(SourceDataLoader):
         super().__init__(test_mode=test_mode, source_data_dir=source_data_dir)
 
         # until we can use the manifest to determine versions and source data file locations we'll hard code it
-        self.node_file_name = 'clinical_trials_kg_nodes_v2.2.10.tsv'
-        self.edge_file_name = 'clinical_trials_kg_edges_v2.2.10.tsv'
+        self.node_file_name = 'clinical_trials_kg_nodes_v2.6.9.tsv'
+        self.edge_file_name = 'clinical_trials_kg_edges_v2.6.9.tsv'
         self.data_url = "https://db.systemsbiology.net/gestalt/KG/"
 
         # once we use the manifest, we'll rename the files while downloading and they can be called something generic
@@ -76,7 +76,7 @@ class CTKPLoader(SourceDataLoader):
         self.source_record_url = "https://db.systemsbiology.net/gestalt/cgi-pub/KGinfo.pl?id="
 
     def get_latest_source_version(self) -> str:
-        latest_version = "2.2.10"
+        latest_version = "2.6.9"
         # we'd like to do this but for now we're using the dev version which is not in the manifest
         # latest_version = self.get_manifest()['version']
         return latest_version

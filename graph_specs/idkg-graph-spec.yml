@@ -9,8 +9,10 @@ graphs:
     sources:
       - source_id: DrugCentral
       - source_id: SMACC
-      - source_id: HVPPI
+      - source_id: HeliSMACC
+      #- source_id: HVPPI
       - source_id: NPASS
+      - source_id: ClinicalTrialsKP
         # source_version:
         # parsing_version:
         # node_normalization_version: latest
