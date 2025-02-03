@@ -468,11 +468,10 @@ class SIGNORLoader(SourceDataLoader):
                     # with the qualifiers in effect_mapping plus the mechanism qualifiers
                     if effect in effect_mapping:
                         for predicate, qualifiers in effect_mapping[effect].items():
-                            edge_properties |= qualifiers
                             self.output_file_writer.write_edge(subject_id=subject_id,
                                                                predicate=predicate,
                                                                object_id=object_id,
-                                                               edge_properties=edge_properties)
+                                                               edge_properties=edge_properties | qualifiers)
                     else:
                         # neither effect or effect/mechanism mapped to a predicate
                         self.output_file_writer.write_edge(subject_id=subject_id,
