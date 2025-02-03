@@ -71,9 +71,9 @@ mechanism_map = {
 
             # This probably needs to be a node property.
             "guanine nucleotide exchange factor": {
-            	"edge_properties": {
-                                    CAUSAL_MECHANISM_QUALIFIER: "guanyl_nucleotide_exchange"
-		}
+                "edge_properties": {
+                    CAUSAL_MECHANISM_QUALIFIER: "guanyl_nucleotide_exchange"
+                }
             },
 
             "post transcriptional modification": {
