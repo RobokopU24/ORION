@@ -40,7 +40,7 @@ class MPLoader(SourceDataLoader):
     source_data_url = ""
     license = ""
     attribution = ""
-    parsing_version: str = '1.0'
+    parsing_version: str = '1.1'
     preserve_unconnected_nodes = True
 
     def __init__(self, test_mode: bool = False, source_data_dir: str = None):
@@ -143,7 +143,6 @@ class MPLoader(SourceDataLoader):
                 #We want superclasses, so
                 mondo_superclasses[subject_curie].append(object_curie)
 
-        nodes = []
         unique_properties = set()
         #Having now collected our properties and superclasses, we want to write nodes.
         for mondo_curie, scs in mondo_superclasses.items():
@@ -153,8 +152,9 @@ class MPLoader(SourceDataLoader):
                     property_name = f"MONDO_SUPERCLASS_{'_'.join(mondo_labels[sc_mc].split())}"
                     unique_properties.add(property_name)
                     props[property_name] = True
-            node = kgxnode(mondo_curie,nodeprops=props)
-            nodes.append(node)
+            if props:
+                node = kgxnode(mondo_curie, nodeprops=props)
+                self.output_file_writer.write_kgx_node(node)
 
         print(f'Added {len(unique_properties)} unique properties to nodes.')
 
@@ -164,10 +164,6 @@ class MPLoader(SourceDataLoader):
             'non_mondo_source_lines': skipped_non_mondo,
             'non_subclass_source_lines': skipped_non_subclass_record_counter
             }
-
-        # create the nodes and edges
-        for node in nodes:
-            self.output_file_writer.write_kgx_node(node)
 
         # return the split file names so they can be removed if desired
         return load_metadata

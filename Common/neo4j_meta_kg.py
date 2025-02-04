@@ -28,7 +28,7 @@ class Neo4jMetaKGGenerator:
 
         schema = defaultdict(lambda: defaultdict(set))
         #  avoids adding nodes with only a NAMED_THING label (currently NamedThing)
-        filter_named_thing = lambda x: set(filter(lambda y: y != NAMED_THING, x))
+        filter_named_thing = lambda x: frozenset(filter(lambda y: y != NAMED_THING, x))
         for schema_result in schema_query_results:
             source_labels, predicate, target_labels = \
                 self.bl_utils.find_biolink_leaves(filter_named_thing(schema_result['source_labels'])), \

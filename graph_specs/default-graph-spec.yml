@@ -33,6 +33,8 @@ graphs:
       - source_id: HMDB
       - source_id: HumanGOA
       - source_id: IntAct
+      - source_id: KinAce
+      - source_id: LINCS
       - source_id: MonarchKG
       - source_id: MONDOProps
       - source_id: OntologicalHierarchy
@@ -41,6 +43,7 @@ graphs:
       - source_id: PHAROS
       - source_id: Reactome
       - source_id: textminingkp
+      - source_id: SIGNOR
       - source_id: STRING-DB-Human
       - source_id: UbergraphNonredundant
 

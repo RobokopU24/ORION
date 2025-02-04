@@ -3,8 +3,8 @@
 replicaCount: 1
 
 orion:
-  graphID: "Test_Graph"
-  graphSpec: "testing-graph-spec.yml"
+  graphID: "all"
+  graphSpec: "example-graph-spec.yaml"
   # useLocalGraphSpec true if the graphSpec is a file in the codebase (mainly for testing), false if a remote URL
   useLocalGraphSpec: true
   buildMode: true
@@ -49,6 +49,9 @@ orion:
   normalization:
     nodeNormEndpoint:
     edgeNormEndpoint:
+  openAI:
+    openAIKey:
+    openAIOrg:
 
 pharos:
   host:

@@ -1,0 +1,49 @@
+---
+name: "MetabolomicsWorkbench"
+version: "2024-05-08"
+provenance_id: "infores:metabolomics_workbench"
+predicate_mapping:
+  produces: "biolink:produces"
+  causally_influences: "biolink:produces"
+  correlated_with_condition: "biolink:correlated_with"
+edge_file: "MW.edges.csv"
+node_files:
+  - node_file:
+      name: "MW.Anatomy.nodes.csv"
+      type: "Anatomy"
+      primary_id_column: "UBERON"
+      secondary_id_column: "CHV"
+  - node_file:
+      name: "MW.Disease or Phenotype.nodes.csv"
+      type: "Disease or Phenotype"
+      primary_id_column: "MONDO"
+      secondary_id_column: "CHV"
+  - node_file:
+      name: "MW.Gene.nodes.csv"
+      type: "Gene"
+      primary_id_column: "HGNC"
+      secondary_id_column: "OMIM"
+  - node_file:
+      name: "MW.Metabolite.nodes.csv"
+      type: "Metabolite"
+      primary_id_column: "PUBCHEM"
+      secondary_id_column: "PUBMED"
+---
+name: "LINCS"
+version: "2024-05-08"
+provenance_id: "infores:lincs"
+predicate_mapping:
+  in_similarity_relationship_with: "biolink:chemically_similar_to"
+  negatively_regulates: "RO:0002212"
+  positively_regulates: "RO:0002213"
+edge_file: "LINCS.edges.csv"
+node_files:
+  - node_file:
+      name: "LINCS.Gene.nodes.csv"
+      type: "Gene"
+      primary_id_column: "HGNC"
+      secondary_id_column: "OMIM"
+  - node_file:
+      name: "LINCS.Compound.nodes.csv"
+      type: "Compound"
+      primary_id_column: "PUBCHEM"

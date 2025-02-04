@@ -27,6 +27,7 @@ class GenomeAllianceOrthologLoader(SourceDataLoader):
     source_id: str = 'GenomeAllianceOrthologs'
     provenance_id: str = 'infores:agrkb'
     parsing_version: str = '1.2'
+    source_data_url = 'https://www.alliancegenome.org/'
 
     def __init__(self, test_mode: bool = False, source_data_dir: str = None):
         """
@@ -37,11 +38,9 @@ class GenomeAllianceOrthologLoader(SourceDataLoader):
 
         self.latest_version = None
         self.latest_version = self.get_latest_source_version()
-        #self.genome_alliance_url = f'https://download.alliancegenome.org/{self.get_latest_source_version()}/ORTHOLOGY-ALLIANCE/COMBINED/'
-        #self.genome_alliance_ortholog_file = 'ORTHOLOGY-ALLIANCE_COMBINED_25.tsv.gz'
         
         self.genome_alliance_url = 'https://fms.alliancegenome.org/download/'
-        self.self.genome_alliance_ortholog_file = 'ORTHOLOGY-ALLIANCE_COMBINED.tsv.gz'
+        self.genome_alliance_ortholog_file = 'ORTHOLOGY-ALLIANCE_COMBINED.tsv.gz'
         self.data_files = [self.genome_alliance_ortholog_file]
 
     def get_latest_source_version(self) -> str:
@@ -50,11 +49,7 @@ class GenomeAllianceOrthologLoader(SourceDataLoader):
 
         :return:
         """
-        #if not self.latest_version:
-        #     self.latest_version = '5.3.0'
-        
         self.latest_version = requests.get("https://www.alliancegenome.org/api/releaseInfo").json()['releaseVersion']
-        
         return self.latest_version
 
     def get_data(self) -> int:

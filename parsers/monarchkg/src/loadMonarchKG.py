@@ -19,7 +19,7 @@ class MonarchKGLoader(SourceDataLoader):
 
     source_id: str = 'MonarchKG'
     provenance_id: str = 'infores:monarchinitiative'
-    parsing_version: str = '1.1'
+    parsing_version: str = '1.2'
 
     def __init__(self, test_mode: bool = False, source_data_dir: str = None):
         """

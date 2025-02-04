@@ -98,7 +98,7 @@ class BINDINGDBLoader(SourceDataLoader):
             s.mount('https://', HTTPAdapter(max_retries=retries))
 
             ### The method below gets the database version from the html, but this may be subject to change. ###
-            binding_db_download_page_response = requests.get('https://www.bindingdb.org/rwd/bind/chemsearch/marvin/Download.jsp', timeout=8)
+            binding_db_download_page_response = s.get('https://www.bindingdb.org/rwd/bind/chemsearch/marvin/Download.jsp', timeout=8)
             version_index = binding_db_download_page_response.text.index('BindingDB_All_2D_') + 17
             bindingdb_version = binding_db_download_page_response.text[version_index:version_index + 6]
             self.bindingdb_version = bindingdb_version
@@ -110,8 +110,12 @@ class BINDINGDBLoader(SourceDataLoader):
         except requests.exceptions.Timeout:
             error_message = f'BINDING-DB timed out attempting to retrieve version...'
         except ValueError:
-            error_message = f'BINDING-DB get_latest_source_version got a response but could not determine the version'
-        raise GetDataPullError(error_message=error_message)
+            error_message = f'BINDING-DB get_latest_source_version got a response but could not determine the version..'
+        except requests.exceptions.ConnectionError as e:
+            error_message = f'BINDING-DB get_latest_source_version failed: {e}..'
+        self.logger.error(error_message + ' Returning last known valid version: 202501')
+        self.bindingdb_version = '202501'
+        return self.bindingdb_version
 
     def get_data(self) -> int:
         """

@@ -46,7 +46,12 @@ spec:
             - mountPath: /logs
               name: ds-neo4j-scratch-volume
               subPath: neo4j_logs
+            - mountPath: /ORION/.env
+              name: app-config
+              subPath: env-file
           env:
+            - name: HOME
+              value: /ORION
             - name: ORION_STORAGE
               value: /ORION_storage
             - name: ORION_GRAPHS
@@ -71,6 +76,14 @@ spec:
             {{- if .Values.orion.normalization.edgeNormEndpoint }}
             - name: EDGE_NORMALIZATION_ENDPOINT
               value: {{ .Values.orion.normalization.edgeNormEndpoint }}
+            {{- end }}
+            {{- if .Values.orion.normalization.nameResolverEndpoint }}
+            - name: NAMERES_ENDPOINT
+              value: {{ .Values.orion.normalization.nameResolverEndpoint }}
+            {{- end }}
+            {{- if .Values.orion.normalization.sapbertEndpoint }}
+            - name: SAPBERT_URL
+              value: {{ .Values.orion.normalization.sapbertEndpoint }}
             {{- end }}
             - name: DRUGCENTRAL_DB_HOST
               value: {{ .Values.drugcentral.host | quote }}
@@ -120,7 +133,12 @@ spec:
             - mountPath: /logs
               name: ds-neo4j-scratch-volume
               subPath: neo4j_logs
+            - mountPath: /ORION/.env
+              name: app-config
+              subPath: env-file
           env:
+            - name: HOME
+              value: /ORION
             - name: ORION_STORAGE
               value: /ORION_storage
             - name: ORION_GRAPHS
@@ -145,6 +163,14 @@ spec:
             {{- if .Values.orion.normalization.edgeNormEndpoint }}
             - name: EDGE_NORMALIZATION_ENDPOINT
               value: {{ .Values.orion.normalization.edgeNormEndpoint }}
+            {{- end }}
+            {{- if .Values.orion.normalization.nameResolverEndpoint }}
+            - name: NAMERES_ENDPOINT
+              value: {{ .Values.orion.normalization.nameResolverEndpoint }}
+            {{- end }}
+            {{- if .Values.orion.normalization.sapbertEndpoint }}
+            - name: SAPBERT_URL
+              value: {{ .Values.orion.normalization.sapbertEndpoint }}
             {{- end }}
             - name: DRUGCENTRAL_DB_HOST
               value: {{ .Values.drugcentral.host | quote }}
@@ -205,4 +231,8 @@ spec:
                 resources:
                   requests:
                     storage: {{ .Values.orion.neo4jScratchVolume.size }}
+        - name: app-config
+          configMap:
+            name: {{ include "orion.fullname" . }}-app-config
+            defaultMode: 0777
   backoffLimit: 0
