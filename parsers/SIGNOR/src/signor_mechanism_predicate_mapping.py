@@ -38,13 +38,17 @@ mechanism_map = {
             },
 
             "chemical activation": {
+                "predicate": f"biolink:affects",
                 "edge_properties": {
+                    QUALIFIED_PREDICATE: f"RO:0003303",  # causes
                     CAUSAL_MECHANISM_QUALIFIER: "chemical activation"
                 }
             },
 
             "chemical inhibition": {
+                "predicate": f"biolink:affects",
                 "edge_properties": {
+                    QUALIFIED_PREDICATE: f"RO:0003303",  # causes
                     CAUSAL_MECHANISM_QUALIFIER: "chemical inhibition"
                 }
             },
@@ -56,6 +60,7 @@ mechanism_map = {
                     OBJECT_ASPECT_QUALIFIER: "chemical modification",
                 }
             },
+
             "destabilization": {
                 "predicate": f"biolink:affects",
                 "edge_properties": {

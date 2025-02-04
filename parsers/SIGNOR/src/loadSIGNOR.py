@@ -69,7 +69,7 @@ class SIGNORLoader(SourceDataLoader):
     license = ("SIGNOR is licensed under a Creative Commons Attribution-NonCommercial 4.0 International "
                "(CC BY-NC 4.0) license.")
     attribution = 'https://signor.uniroma2.it/about/'
-    parsing_version = '1.4'
+    parsing_version = '1.6'
 
     def __init__(self, test_mode: bool = False, source_data_dir: str = None):
         """
@@ -365,8 +365,8 @@ class SIGNORLoader(SourceDataLoader):
             }
 
         # other mechanisms
-        predicate = mechanism_map.get(effect, {}).get("predicate", None)
-        edge_qualifiers = mechanism_map.get(effect, {}).get("edge_properties", None)
+        predicate = mechanism_map.get(effect, {}).get("predicate", "biolink:related_to")
+        edge_qualifiers = mechanism_map.get(effect, {}).get("edge_properties", {})
         return predicate, edge_qualifiers
 
     def get_basic_edge_properties(self, line):
@@ -422,6 +422,8 @@ class SIGNORLoader(SourceDataLoader):
         self.signor_type_map = self.make_signor_type_map()
         input_rows = 0
         skipped_rows = 0
+        unmapped_mechanism_edges = 0
+        unmapped_mechanism_and_effect_edges = 0
         with open(os.path.join(self.data_path, self.signor_file_name)) as csvfile:
             reader = csv.reader(csvfile, delimiter='\t', quotechar='"')
             next(reader)
@@ -448,36 +450,39 @@ class SIGNORLoader(SourceDataLoader):
                     mechanism_predicate, mechanism_edge_qualifiers = \
                         self.edge_predicate_from_mechanism_effect(row, effect=effect)
 
+
                 # basic_edge_properties is actually a list of property dictionaries,
                 # because we will split edges that have multiple qualifiers of the same type
                 basic_edge_properties = self.get_basic_edge_properties(row)
                 for edge_properties in basic_edge_properties:
 
-                    # if there are mechanism qualifiers always add them
-                    if mechanism_edge_qualifiers:
-                        edge_properties |= mechanism_edge_qualifiers
-
-                    # if there is a mechanism predicate make an edge with it
-                    if mechanism_predicate:
+                    # if there are mechanism mappings make an edge
+                    if mechanism:
+                        mechanism_edge_properties = edge_properties | mechanism_edge_qualifiers
                         self.output_file_writer.write_edge(subject_id=subject_id,
                                                            predicate=mechanism_predicate,
                                                            object_id=object_id,
-                                                           edge_properties=edge_properties)
+                                                           edge_properties=mechanism_edge_properties)
+                        if not mechanism_predicate and not mechanism_edge_qualifiers:
+                            unmapped_mechanism_edges += 1
 
-                    # make edges for any predicates mapped in effect_mapping,
-                    # with the qualifiers in effect_mapping plus the mechanism qualifiers
+                    # make edges for all effect mappings
                     if effect in effect_mapping:
                         for predicate, qualifiers in effect_mapping[effect].items():
+                            effect_edge_properties = edge_properties | qualifiers
                             self.output_file_writer.write_edge(subject_id=subject_id,
                                                                predicate=predicate,
                                                                object_id=object_id,
-                                                               edge_properties=edge_properties | qualifiers)
-                    else:
-                        # neither effect or effect/mechanism mapped to a predicate
+                                                               edge_properties=effect_edge_properties)
+                    elif not mechanism:
+                        # no effect or mechanism mappings
+                        unmapped_mechanism_and_effect_edges += 1
                         self.output_file_writer.write_edge(subject_id=subject_id,
                                                            predicate="biolink:related_to",
                                                            object_id=object_id,
                                                            edge_properties=edge_properties)
 
         return {'num_source_lines': input_rows,
-                'unusable_source_lines': skipped_rows}
+                'unusable_source_lines': skipped_rows,
+                'unmapped_mechanism_edges': unmapped_mechanism_edges,
+                'unmapped_mechanism_and_effect_edges': unmapped_mechanism_and_effect_edges}
