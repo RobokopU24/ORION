@@ -66,6 +66,7 @@ class GraphBuilder:
             return False
 
         if build_status == Metadata.STABLE:
+            self.build_results[graph_id] = {'version': graph_version}
             self.logger.info(f'Graph {graph_id} version {graph_version} was already built.')
             return True
         else:
@@ -102,7 +103,7 @@ class GraphBuilder:
             graph_metadata.set_build_info(merge_metadata, current_time)
             graph_metadata.set_build_status(Metadata.STABLE)
             self.logger.info(f'Building graph {graph_id} complete!')
-            self.build_results[graph_id] = {'version': graph_version, 'success': True}
+            self.build_results[graph_id] = {'version': graph_version}
 
         nodes_filepath = os.path.join(graph_output_dir, NODES_FILENAME)
         edges_filepath = os.path.join(graph_output_dir, EDGES_FILENAME)
@@ -119,7 +120,6 @@ class GraphBuilder:
                 self.logger.info(f'QC passed for graph {graph_id}.')
             else:
                 self.logger.warning(f'QC failed for graph {graph_id}.')
-                self.build_results[graph_id] = {'version': graph_version, 'success': False}
 
         needs_meta_kg = not self.has_meta_kg(graph_directory=graph_output_dir)
         needs_test_data = not self.has_test_data(graph_directory=graph_output_dir)
@@ -548,5 +548,4 @@ if __name__ == '__main__':
         else:
             print(f'Invalid graph spec requested: {graph_id_arg}')
     for results_graph_id, results in graph_builder.build_results.items():
-        if results['success']:
-            print(f'{results_graph_id}\t{results["version"]}')
+        print(f'{results_graph_id}\t{results["version"]}')
