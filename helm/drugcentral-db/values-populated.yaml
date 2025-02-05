@@ -17,7 +17,7 @@ primary:
     - name: pharos-nfs
       nfs:
         server: na-projects.edc.renci.org
-        path: /stars/ORION
+        path: /stars/Data_services
   resources:
     limits:
       cpu: .5
