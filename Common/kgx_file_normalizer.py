@@ -75,7 +75,8 @@ class KGXFileNormalizer:
                                                   strict_normalization=normalization_scheme.strict,
                                                   conflate_node_types=normalization_scheme.conflation,
                                                   biolink_version=normalization_scheme.edge_normalization_version)
-            self.edge_normalizer = EdgeNormalizer(edge_normalization_version=normalization_scheme.edge_normalization_version)
+            self.edge_normalizer = EdgeNormalizer(edge_normalization_version=normalization_scheme.edge_normalization_version,
+                                                  strict_normalization=normalization_scheme.strict)
         except Exception as e:
             raise NormalizationFailedError(error_message=repr(e), actual_error=e)
 

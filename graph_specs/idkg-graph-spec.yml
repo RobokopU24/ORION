@@ -11,6 +11,7 @@ graphs:
       - source_id: SMACC
       - source_id: HeliSMACC
       #- source_id: HVPPI
+      - source_id: HVIDB
       - source_id: NPASS
       - source_id: ClinicalTrialsKP
         # source_version:

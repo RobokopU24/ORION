@@ -212,7 +212,7 @@ class NodeNormalizer:
             if not self.strict_normalization:
 
                 if NODE_TYPES not in current_node:
-                    current_node[NODE_TYPES] = [NAMED_THING]
+                    current_node[NODE_TYPES] = current_node[NODE_TYPES]
 
                 # remove all the bad types and make them a property instead
                 invalid_node_types = [node_type for node_type in current_node[NODE_TYPES] if
@@ -389,6 +389,7 @@ class EdgeNormalizer:
 
     def __init__(self,
                  edge_normalization_version: str = 'latest',
+                 strict_normalization: bool = True,
                  log_level=logging.INFO):
         """
         constructor
@@ -398,6 +399,7 @@ class EdgeNormalizer:
         self.logger = LoggingUtil.init_logging("ORION.Common.EdgeNormalizer", level=log_level, line_format='medium', log_file_path=os.environ.get('ORION_LOGS'))
         # normalization map for future look up of all normalized predicates
         self.edge_normalization_lookup = {}
+        self.strict_normalization = strict_normalization
         self.cached_edge_norms = {}
 
         if 'EDGE_NORMALIZATION_ENDPOINT' in os.environ and os.environ['EDGE_NORMALIZATION_ENDPOINT']:
@@ -493,7 +495,17 @@ class EdgeNormalizer:
                     normalized_predicate = normalization_info.pop('identifier')
                 normalization_info.pop('label', None)  # just deleting this key, it's not needed anymore
                 inverted = True if normalization_info.pop('inverted', False) else False
-                self.edge_normalization_lookup[predicate] = EdgeNormalizationResult(predicate=normalized_predicate,
+                if not self.strict_normalization:
+                    if normalized_predicate == "biolink:related_to":
+                        self.edge_normalization_lookup[predicate] = EdgeNormalizationResult(predicate=predicate,
+                                                                                    inverted=inverted,
+                                                                                    properties=normalization_info)
+                    else:
+                        self.edge_normalization_lookup[predicate] = EdgeNormalizationResult(predicate=normalized_predicate,
+                                                                                    inverted=inverted,
+                                                                                    properties=normalization_info)
+                else:
+                    self.edge_normalization_lookup[predicate] = EdgeNormalizationResult(predicate=normalized_predicate,
                                                                                     inverted=inverted,
                                                                                     properties=normalization_info)
             else:

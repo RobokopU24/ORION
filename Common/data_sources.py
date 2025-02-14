@@ -27,6 +27,7 @@ HETIO = 'Hetio'
 HGNC = 'HGNC'
 HMDB = 'HMDB'
 HUMAN_GOA = 'HumanGOA'
+HVIDB = 'HVIDB'
 HVPPI = 'HVPPI'
 INTACT = 'IntAct'
 LINCS = 'LINCS'
@@ -89,6 +90,7 @@ SOURCE_DATA_LOADER_CLASS_IMPORTS = {
     HMDB: ("parsers.hmdb.src.loadHMDB", "HMDBLoader"),
     HUMAN_GOA: ("parsers.GOA.src.loadGOA", "HumanGOALoader"),
     HUMAN_STRING: ("parsers.STRING.src.loadSTRINGDB", "HumanSTRINGDBLoader"),
+    HVIDB: ("parsers.HVIDB.src.loadHVIDB", "HVIDBLoader"),
     HVPPI: ("parsers.HVPPI.src.loadHVPPI", "HVPPILoader"),
     INTACT: ("parsers.IntAct.src.loadIA", "IALoader"),
     LINCS: ("parsers.LINCS.src.loadLINCS", "LINCSLoader"),
