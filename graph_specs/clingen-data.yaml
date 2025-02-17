@@ -1,0 +1,9 @@
+# testing graph spec
+graphs:
+  - graph_id: clingen_variant_pathogenecity_data
+    graph_name: clingen_variant_pathogenecity_data
+    graph_description: 'Graph build on ClinGen Variant Pathogenecity curations https://erepo.clinicalgenome.org/evrepo/'
+    graph_url: ''
+    output_format: none
+    sources:
+      - source_id: ClinGenVariantPathogenicity

@@ -12,7 +12,7 @@ import logging
 from datetime import date
 
 
-# for parsing tsv files, use a enum to represent each field
+# Parsing the columns in the tsv file downloaded from the ClinGen Variant Pathogenicity source
 class ClinGenVariantPathogenicityCOLS(enum.IntEnum):
     VARIATION = 0
     CLINVAR_VARIATION_ID = 1
@@ -38,12 +38,11 @@ class ClinGenVariantPathogenicityCOLS(enum.IntEnum):
 
 ##############
 # Class: ClinGenVariantPathogenicity  source loader
-#
 # Desc: Class that loads/parses the ClinGenVariantPathogenicity data.
 ##############
 class ClinGenVariantPathogenicityLoader(SourceDataLoader):
     source_id: str = 'ClinGenVariantPathogenicity'
-    provenance_id: str = 'infores:clingen' #Need to figure out this, can only be filled from one of the values from https://github.com/biolink/biolink-model/blob/master/infores_catalog.yaml
+    provenance_id: str = 'infores:clingen'
     # increment parsing_version whenever changes are made to the parser that would result in changes to parsing output
     parsing_version: str = '1.0'
     has_sequence_variants = True  # Flag to use robokop_genetics server to tackle sequence variant data
@@ -54,19 +53,18 @@ class ClinGenVariantPathogenicityLoader(SourceDataLoader):
         :param source_data_dir - the specific storage directory to save files in
         """
         super().__init__(test_mode=test_mode, source_data_dir=source_data_dir)
-
-        self.clingen_variant_pathogenicity_url = 'http://erepo.clinicalgenome.org/evrepo/api/classifications/'
+        self.data_url = 'http://erepo.clinicalgenome.org/evrepo/api/classifications/'
         self.clingen_variant_pathogenicity_file = 'all?format=tabbed'
         self.data_files = [self.clingen_variant_pathogenicity_file]
 
     def get_latest_source_version(self) -> str:
         # if possible go to the source and retrieve a string that is the latest version of the source data
-        latest_version = date.today().strftime("%Y%m%d")
+        latest_version = date.today().strftime("%Y%m")
         return latest_version
 
     def get_data(self) -> bool:
         # get_data is responsible for fetching the files in self.data_files and saving them to self.data_path
-        source_data_url = f'{self.clingen_variant_pathogenicity_url}{self.clingen_variant_pathogenicity_file}'
+        source_data_url = f'{self.data_url}{self.clingen_variant_pathogenicity_file}'
         data_puller = GetData()
         data_puller.pull_via_http(source_data_url, self.data_path)
         return True
@@ -77,13 +75,8 @@ class ClinGenVariantPathogenicityLoader(SourceDataLoader):
 
         :return: ret_val: load_metadata
         """
-        # This is a made up example of how one might extract nodes and edges from a tsv file
-        # In this case it's taking the subject ID from column 1 and the object ID from column 3,
-        # prepending them with a curie prefix. The predicate comes from column 3. The value in column 4
-        # is set as a property on the edge.
         extractor = Extractor(file_writer=self.output_file_writer)
         clingen_variant_pathogenicity_file: str = os.path.join(self.data_path, self.clingen_variant_pathogenicity_file)
-        print(os.path.join(self.data_path, self.clingen_variant_pathogenicity_file))
 
         with open(clingen_variant_pathogenicity_file, 'rt') as fp:
             extractor.csv_extract(fp,
