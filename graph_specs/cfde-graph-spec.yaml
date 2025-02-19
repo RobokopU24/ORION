@@ -4,8 +4,10 @@ graphs:
     graph_name: CFDE KP
     graph_description: 'Common Fund Data Ecosystem KG'
     graph_url: https://github.com/NCATSTranslator/Translator-All/wiki/CFDE-KP
-    output_format: none
+    output_format: neo4j
     sources:
       - source_id: LINCS
+        strict_normalization: False
       - source_id: MetabolomicsWorkbench
+        strict_normalization: False
 
