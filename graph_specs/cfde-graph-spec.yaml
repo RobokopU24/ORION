@@ -4,8 +4,35 @@ graphs:
     graph_name: CFDE KP
     graph_description: 'Common Fund Data Ecosystem KG'
     graph_url: https://github.com/NCATSTranslator/Translator-All/wiki/CFDE-KP
-    output_format: none
+    output_format: neo4j
     sources:
+      - source_id: BINDING-DB
+      - source_id: CHEBIProps
+      - source_id: CTD
+      - source_id: DrugCentral
+      - source_id: DrugMechDB
+      - source_id: GtoPdb
+      - source_id: Hetio
+      - source_id: HGNC
+      - source_id: HMDB
+      - source_id: HumanGOA
+      - source_id: IntAct
+      - source_id: KinAce
       - source_id: LINCS
+        strict_normalization: False
       - source_id: MetabolomicsWorkbench
+        strict_normalization: False
+      - source_id: MonarchKG
+      - source_id: MONDOProps
+      - source_id: OntologicalHierarchy
+        merge_strategy: connected_edge_subset
+      - source_id: PANTHER
+      - source_id: PHAROS
+      - source_id: Reactome
+      - source_id: textminingkp
+      - source_id: SIGNOR
+      - source_id: STRING-DB-Human
+      - source_id: UbergraphNonredundant
+      - source_id: GWASCatalog
+      - source_id: GTEx
 

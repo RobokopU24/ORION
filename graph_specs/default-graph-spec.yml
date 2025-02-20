@@ -35,6 +35,7 @@ graphs:
       - source_id: IntAct
       - source_id: KinAce
       - source_id: LINCS
+      - source_id: MetabolomicsWorkbench
       - source_id: MonarchKG
       - source_id: MONDOProps
       - source_id: OntologicalHierarchy

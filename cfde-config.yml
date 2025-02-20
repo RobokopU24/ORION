@@ -4,7 +4,7 @@ version: "2024-05-08"
 provenance_id: "infores:metabolomics_workbench"
 predicate_mapping:
   produces: "biolink:produces"
-  causally_influences: "biolink:produces"
+  causally_influences: "biolink:regulates"
   correlated_with_condition: "biolink:correlated_with"
 edge_file: "MW.edges.csv"
 node_files:
