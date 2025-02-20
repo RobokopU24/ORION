@@ -22,7 +22,7 @@ class DrugCentralLoader(SourceDataLoader):
     source_data_url = "https://drugcentral.org/download"
     license = "https://drugcentral.org/privacy"
     attribution = "https://drugcentral.org/about"
-    parsing_version: str = '1.5'
+    parsing_version: str = '1.6'
 
     omop_relationmap = {'off-label use': 'biolink:applied_to_treat',  # is substance that treats
                         'reduce risk': 'biolink:preventative_for_condition',  # is substance that treats

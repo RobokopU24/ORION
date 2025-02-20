@@ -13,7 +13,7 @@ orion:
   image:
     repository: ghcr.io/robokopu24/orion
     pullPolicy: IfNotPresent
-    tag: litcoin-pipeline-10
+    tag: v1.1.4
   graphsVolume:
     use_nfs: true
     nfs_server: na-projects.edc.renci.org

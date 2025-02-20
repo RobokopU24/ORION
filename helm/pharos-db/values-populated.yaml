@@ -5,8 +5,8 @@ architecture: standalone
 
 auth:
   rootPassword: insecureRootPassword
-  username: example-user
-  password: example-pass
+  username: ds-user
+  password: ds-pass
   createDatabase: true
   database: "PHAROS"
 
@@ -18,7 +18,7 @@ primary:
     - name: pharos-nfs
       nfs:
         server: na-projects.edc.renci.org
-        path: /stars/ORION
+        path: /stars/Data_services
   resources:
     limits:
       cpu: 2
@@ -36,5 +36,5 @@ primary:
 #       kubernetes.io/metadata.name: data-services
 
 
-# image:
-#  debug: true
+image:
+  debug: true
