@@ -33,4 +33,6 @@ graphs:
       - source_id: SIGNOR
       - source_id: STRING-DB-Human
       - source_id: UbergraphNonredundant
+      - source_id: GWASCatalog
+      - source_id: GTEx
 
