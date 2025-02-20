@@ -2,14 +2,21 @@ import os
 import jsonlines
 import secrets
 from xxhash import xxh64_hexdigest
-from Common.biolink_utils import get_biolink_model_toolkit
+from Common.biolink_utils import BiolinkUtils
 from Common.biolink_constants import *
 from Common.utils import quick_json_loads, quick_json_dumps, chunk_iterator
 
 NODE_PROPERTIES_THAT_SHOULD_BE_SETS = {SYNONYMS, NODE_TYPES, SYNONYM}
 EDGE_PROPERTIES_THAT_SHOULD_BE_SETS = {AGGREGATOR_KNOWLEDGE_SOURCES, PUBLICATIONS, XREFS}
 
-bmt = get_biolink_model_toolkit()
+NODE_ENTITY_TYPE = 'node'
+EDGE_ENTITY_TYPE = 'edge'
+
+bmt = BiolinkUtils()
+
+
+def node_key_function(node):
+    return node['id']
 
 
 def edge_key_function(edge):
@@ -50,14 +57,6 @@ def entity_merging_function(entity_1, entity_2, properties_that_are_sets):
     return entity_1
 
 
-def node_key_function(node):
-    return node['id']
-
-
-NODE_ENTITY_TYPE = 'node'
-EDGE_ENTITY_TYPE = 'edge'
-
-
 class GraphMerger:
 
     def __init__(self):
@@ -70,6 +69,15 @@ class GraphMerger:
     def merge_edges(self, edges_iterable):
         raise NotImplementedError
 
+    def merge_node(self, node):
+        raise NotImplementedError
+
+    def merge_edge(self, edge):
+        raise NotImplementedError
+
+    def flush(self):
+        pass
+
     def get_merged_nodes_jsonl(self):
         raise NotImplementedError
 
@@ -79,60 +87,110 @@ class GraphMerger:
 
 class DiskGraphMerger(GraphMerger):
 
-    def __init__(self, temp_directory: str = None, chunk_size: int = 5_000_000):
+    def __init__(self, temp_directory: str = None, chunk_size: int = 10_000_000):
 
         super().__init__()
 
         self.chunk_size = chunk_size
-        self.probably_unique_temp_file_key = secrets.token_hex(6)
-
-        self.temp_node_file_paths = []
-        self.current_node_chunk = 0
-
-        self.temp_edge_file_paths = []
-        self.current_edge_chunk = 0
 
         self.temp_directory = temp_directory
+        self.temp_file_paths = {
+            NODE_ENTITY_TYPE: [],
+            EDGE_ENTITY_TYPE: []
+        }
+        self.entity_buffers = {
+            NODE_ENTITY_TYPE: [],
+            EDGE_ENTITY_TYPE: []
+        }
 
     def merge_nodes(self, nodes):
-        node_counter = 0
-        for chunk_of_nodes in chunk_iterator(nodes, self.chunk_size):
-            self.current_node_chunk += 1
-            temp_node_file = os.path.join(self.temp_directory,
-                                          f'n_{self.current_node_chunk}_{self.probably_unique_temp_file_key}.temp')
-            node_counter += len(chunk_of_nodes)
-            self.write_sorted_entities(chunk_of_nodes, node_key_function, temp_node_file)
-            self.temp_node_file_paths.append(temp_node_file)
-        return node_counter
+        return self.merge_entities(nodes,
+                                   NODE_ENTITY_TYPE,
+                                   node_key_function)
+
+    def merge_node(self, node):
+        self.entity_buffers[NODE_ENTITY_TYPE].append(node)
+        if len(self.entity_buffers[NODE_ENTITY_TYPE]) >= self.chunk_size:
+            self.flush_node_buffer()
 
     def merge_edges(self, edges):
-        edge_counter = 0
-        for chunk_of_edges in chunk_iterator(edges, self.chunk_size):
-            self.current_edge_chunk += 1
-            temp_edge_file = os.path.join(self.temp_directory,
-                                          f'e_{self.current_edge_chunk}_{self.probably_unique_temp_file_key}.temp')
-            edge_counter += len(chunk_of_edges)
-            self.write_sorted_entities(chunk_of_edges, edge_key_function, temp_edge_file)
-            self.temp_edge_file_paths.append(temp_edge_file)
-        return edge_counter
+        return self.merge_entities(edges,
+                                   EDGE_ENTITY_TYPE,
+                                   edge_key_function)
+
+    def merge_edge(self, edge):
+        self.entity_buffers[EDGE_ENTITY_TYPE].append(edge)
+        if len(self.entity_buffers[EDGE_ENTITY_TYPE]) >= self.chunk_size:
+            self.flush_edge_buffer()
+
+    def merge_entities(self, entities, entity_type, entity_sorting_function):
+        entity_counter = 0
+        for chunk_of_entities in chunk_iterator(entities, self.chunk_size):
+            current_chunk_size = len(chunk_of_entities)
+            print(f'merging chunk of size {current_chunk_size}')
+            entity_counter += current_chunk_size
+            if current_chunk_size == self.chunk_size:
+                # this is a full chunk of the max size, go ahead and process it
+                self.sort_and_write_entities(chunk_of_entities,
+                                             entity_sorting_function,
+                                             entity_type)
+            else:
+                # this chunk is smaller than the max chunk size, add it to the buffer
+                self.entity_buffers[entity_type].extend(chunk_of_entities)
+                # if the buffer is full/overfull process it
+                if len(self.entity_buffers[entity_type]) >= self.chunk_size:
+                    self.sort_and_write_entities(self.entity_buffers[entity_type][:self.chunk_size],
+                                                 entity_sorting_function,
+                                                 entity_type)
+                    self.entity_buffers[entity_type] = self.entity_buffers[entity_type][self.chunk_size:]
+        return entity_counter
+
+    def sort_and_write_entities(self,
+                                entities,
+                                entity_sorting_function,
+                                entity_type):
+        entities.sort(key=entity_sorting_function)
+        temp_file_name = f'{entity_type}_{secrets.token_hex(6)}.temp'
+        temp_file_path = os.path.join(self.temp_directory, temp_file_name)
+        with jsonlines.open(temp_file_path, 'w', compact=True) as jsonl_writer:
+            jsonl_writer.write_all(entities)
+        self.temp_file_paths[entity_type].append(temp_file_path)
 
     def get_merged_nodes_jsonl(self):
-        for node in self.get_merged_entities(file_paths=self.temp_node_file_paths,
+        self.flush_node_buffer()
+        for node in self.get_merged_entities(file_paths=self.temp_file_paths[NODE_ENTITY_TYPE],
                                              sorting_key_function=node_key_function,
                                              merge_function=entity_merging_function,
                                              entity_type=NODE_ENTITY_TYPE):
             yield f'{quick_json_dumps(node)}\n'
-        for file_path in self.temp_node_file_paths:
+        for file_path in self.temp_file_paths[NODE_ENTITY_TYPE]:
             os.remove(file_path)
 
+    def flush_node_buffer(self):
+        if not self.entity_buffers[NODE_ENTITY_TYPE]:
+            return
+        self.sort_and_write_entities(self.entity_buffers[NODE_ENTITY_TYPE],
+                                     node_key_function,
+                                     NODE_ENTITY_TYPE)
+        self.entity_buffers[NODE_ENTITY_TYPE] = []
+
     def get_merged_edges_jsonl(self):
-        for edge in self.get_merged_entities(file_paths=self.temp_edge_file_paths,
+        self.flush_edge_buffer()
+        for edge in self.get_merged_entities(file_paths=self.temp_file_paths[EDGE_ENTITY_TYPE],
                                              sorting_key_function=edge_key_function,
                                              merge_function=entity_merging_function,
                                              entity_type=EDGE_ENTITY_TYPE):
             yield f'{quick_json_dumps(edge)}\n'
-        for file_path in self.temp_edge_file_paths:
+        for file_path in self.temp_file_paths[EDGE_ENTITY_TYPE]:
             os.remove(file_path)
+
+    def flush_edge_buffer(self):
+        if not self.entity_buffers[EDGE_ENTITY_TYPE]:
+            return
+        self.sort_and_write_entities(self.entity_buffers[EDGE_ENTITY_TYPE],
+                                     edge_key_function,
+                                     EDGE_ENTITY_TYPE)
+        self.entity_buffers[EDGE_ENTITY_TYPE] = []
 
     def get_merged_entities(self,
                             file_paths,
@@ -179,10 +237,9 @@ class DiskGraphMerger(GraphMerger):
             yield merged_entity
             min_key = min([key for key, entity in next_entities.values()], default=None)
 
-    def write_sorted_entities(self, entities, sorting_function, file_path):
-        entities.sort(key=sorting_function)
-        with jsonlines.open(file_path, 'w', compact=True) as jsonl_writer:
-            jsonl_writer.write_all(entities)
+    def flush(self):
+        self.flush_node_buffer()
+        self.flush_edge_buffer()
 
 
 class MemoryGraphMerger(GraphMerger):
@@ -192,39 +249,44 @@ class MemoryGraphMerger(GraphMerger):
         self.nodes = {}
         self.edges = {}
 
-    # merge a list of nodes (dictionaries not kgxnode objects!) into the existing list
-    # throw_out_duplicates will throw out duplicates, otherwise merge their attributes
+    # merge a list of nodes (dictionaries not kgxnode objects!) into the existing set
     def merge_nodes(self, nodes):
         node_count = 0
         for node in nodes:
             node_count += 1
-            node_key = node['id']
-            if node_key in self.nodes:
-                self.merged_node_counter += 1
-                previous_node = self.nodes[node_key]
-                merged_node = entity_merging_function(previous_node,
-                                                      node,
-                                                      NODE_PROPERTIES_THAT_SHOULD_BE_SETS)
-                self.nodes[node_key] = merged_node
-            else:
-                self.nodes[node_key] = node
+            self.merge_node(node)
         return node_count
+
+    def merge_node(self, node):
+        node_key = node['id']
+        if node_key in self.nodes:
+            self.merged_node_counter += 1
+            previous_node = self.nodes[node_key]
+            merged_node = entity_merging_function(previous_node,
+                                                  node,
+                                                  NODE_PROPERTIES_THAT_SHOULD_BE_SETS)
+            self.nodes[node_key] = merged_node
+        else:
+            self.nodes[node_key] = node
 
     # merge a list of edges (dictionaries not kgxedge objects!) into the existing list
     def merge_edges(self, edges):
         edge_count = 0
         for edge in edges:
             edge_count += 1
-            edge_key = edge_key_function(edge)
-            if edge_key in self.edges:
-                self.merged_edge_counter += 1
-                merged_edge = entity_merging_function(quick_json_loads(self.edges[edge_key]),
-                                                      edge,
-                                                      EDGE_PROPERTIES_THAT_SHOULD_BE_SETS)
-                self.edges[edge_key] = quick_json_dumps(merged_edge)
-            else:
-                self.edges[edge_key] = quick_json_dumps(edge)
+            self.merge_edge(edge)
         return edge_count
+
+    def merge_edge(self, edge):
+        edge_key = edge_key_function(edge)
+        if edge_key in self.edges:
+            self.merged_edge_counter += 1
+            merged_edge = entity_merging_function(quick_json_loads(self.edges[edge_key]),
+                                                  edge,
+                                                  EDGE_PROPERTIES_THAT_SHOULD_BE_SETS)
+            self.edges[edge_key] = quick_json_dumps(merged_edge)
+        else:
+            self.edges[edge_key] = quick_json_dumps(edge)
 
     def get_merged_nodes_jsonl(self):
         for node in self.nodes.values():

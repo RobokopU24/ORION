@@ -71,6 +71,17 @@ class GraphSource:
         else:
             return object.__getattribute__(self, name)
 
+    def get_node_file_paths(self):
+        if self.file_paths is None:
+            raise Exception(f'File paths were requested before they were established for GraphSource {self.id}')
+        return [file_path for file_path in self.file_paths if 'node' in file_path]
+
+    def get_edge_file_paths(self):
+        if self.file_paths is None:
+            raise Exception(f'File paths were requested before they were established for GraphSource {self.id}')
+        return [file_path for file_path in self.file_paths if 'edge' in file_path]
+
+
 
 @dataclass
 class SubGraphSource(GraphSource):

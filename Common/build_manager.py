@@ -84,14 +84,15 @@ class GraphBuilder:
             graph_metadata.set_graph_description(graph_spec.graph_description)
             graph_metadata.set_graph_url(graph_spec.graph_url)
             graph_metadata.set_graph_spec(graph_spec.get_metadata_representation())
+            current_time = datetime.datetime.now().strftime('%m-%d-%y %H:%M:%S')
 
             # merge the sources and write the finalized graph kgx files
-            source_merger = KGXFileMerger(output_directory=graph_output_dir)
-            merge_metadata = source_merger.merge(graph_spec,
-                                                 nodes_output_filename=NODES_FILENAME,
-                                                 edges_output_filename=EDGES_FILENAME)
-
-            current_time = datetime.datetime.now().strftime('%m-%d-%y %H:%M:%S')
+            source_merger = KGXFileMerger(graph_spec=graph_spec,
+                                          output_directory=graph_output_dir,
+                                          nodes_output_filename=NODES_FILENAME,
+                                          edges_output_filename=EDGES_FILENAME)
+            source_merger.merge()
+            merge_metadata = source_merger.get_merge_metadata()
             if "merge_error" in merge_metadata:
                 graph_metadata.set_build_error(merge_metadata["merge_error"], current_time)
                 graph_metadata.set_build_status(Metadata.FAILED)
