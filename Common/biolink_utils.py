@@ -3,6 +3,7 @@ import yaml
 import os
 
 from bmt import Toolkit
+from requests.adapters import HTTPAdapter, Retry
 from functools import cache
 
 BIOLINK_MODEL_VERSION = os.environ.get("BL_VERSION", "4.1.6")
@@ -184,9 +185,20 @@ class BiolinkInformationResources:
         'https://raw.githubusercontent.com/biolink/information-resource-registry/main/infores_catalog.yaml'
 
     def __init__(self):
-        # Fetch the infores catalog from the biolink model
-        infores_catalog_yaml = requests.get(self.infores_catalog_url).text
+        # Fetch the infores catalog from biolink
+        s = requests.Session()
+        retries = Retry(
+            total=8,
+            backoff_factor=0.5,
+            status_forcelist=[429, 500, 502, 503, 504],
+            allowed_methods={'GET'},
+        )
+        s.mount('https://', HTTPAdapter(max_retries=retries))
+        infores_catalog_response = s.get(self.infores_catalog_url)
+        infores_catalog_response.raise_for_status()
+        infores_catalog_yaml = infores_catalog_response.text
         infores_catalog = yaml.safe_load(infores_catalog_yaml)
+
         # store the information as a dictionary with the infores ids as keys
         self.infores_lookup = {infores['id']: infores for infores in infores_catalog['information_resources']}
 
