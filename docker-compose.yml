@@ -1,9 +1,13 @@
 services:
-  orion:
+  orion-worker:
     build:
       context: .
-    command: [python, /ORION/Common/build_manager.py, all]
+      dockerfile: Dockerfile
+    container_name: orion-worker
+    command: [celery, "-A", "celery_worker.celery_app", "worker", "--loglevel=info"]
     environment:
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
       - ORION_STORAGE=/ORION_storage
       - ORION_GRAPHS=/ORION_graphs
       - ORION_LOGS=/ORION_logs
@@ -30,6 +34,10 @@ services:
       - "${ORION_STORAGE}:/ORION_storage"
       - "${ORION_GRAPHS}:/ORION_graphs"
       - "${ORION_LOGS}:/ORION_logs"
-    user: 7474:7474
-    
+    user: 1000:7474
+    networks:
+      - app-network
 
+networks:
+  app-network:
+    external: true
