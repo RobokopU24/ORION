@@ -1,0 +1,43 @@
+services:
+  orion-worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: orion-worker
+    command: [celery, "-A", "celery_worker.celery_app", "worker", "--loglevel=info"]
+    environment:
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+      - ORION_STORAGE=/ORION_storage
+      - ORION_GRAPHS=/ORION_graphs
+      - ORION_LOGS=/ORION_logs
+      - ORION_GRAPH_SPEC
+      - ORION_GRAPH_SPEC_URL
+      - ORION_OUTPUT_URL
+      - EDGE_NORMALIZATION_ENDPOINT
+      - NODE_NORMALIZATION_ENDPOINT
+      - NAMERES_URL
+      - SAPBERT_URL
+      - BL_VERSION
+      - PHAROS_DB_HOST
+      - PHAROS_DB_USER
+      - PHAROS_DB_PASSWORD
+      - PHAROS_DB_NAME
+      - PHAROS_DB_PORT
+      - DRUGCENTRAL_DB_HOST
+      - DRUGCENTRAL_DB_USER
+      - DRUGCENTRAL_DB_PASSWORD
+      - DRUGCENTRAL_DB_NAME
+      - DRUGCENTRAL_DB_PORT
+    volumes:
+      - .:/ORION
+      - "${ORION_STORAGE}:/ORION_storage"
+      - "${ORION_GRAPHS}:/ORION_graphs"
+      - "${ORION_LOGS}:/ORION_logs"
+    user: 1000:7474
+    networks:
+      - app-network
+
+networks:
+  app-network:
+    external: true
