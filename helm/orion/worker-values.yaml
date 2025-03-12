@@ -32,11 +32,11 @@ orion:
   resources:
     limits:
       cpu: "1"
-      memory: 6Gi
+      memory: 10Gi
       ephemeral-storage: 2Gi
     requests:
       cpu: "1"
-      memory: 6Gi
+      memory: 10Gi
       ephemeral-storage: 1Gi
   securityContext:
     runAsUser: 30000
