@@ -1,8 +1,8 @@
 import os
 import jsonlines
 from itertools import chain
-from Common.utils import LoggingUtil, quick_jsonl_file_iterator, quick_json_dumps, quick_json_loads
-from Common.kgxmodel import GraphSpec, SubGraphSource, DataSource
+from Common.utils import LoggingUtil, quick_jsonl_file_iterator, quick_json_loads
+from Common.kgxmodel import GraphSpec, SubGraphSource
 from Common.biolink_constants import SUBJECT_ID, OBJECT_ID
 from Common.merging import GraphMerger, DiskGraphMerger, MemoryGraphMerger
 from Common.load_manager import RESOURCE_HOGS
@@ -12,192 +12,200 @@ from Common.load_manager import RESOURCE_HOGS
 # profile = line_profiler.LineProfiler()
 # atexit.register(profile.print_stats)
 
+logger = LoggingUtil.init_logging("ORION.Common.KGXFileMerger",
+                                  line_format='medium',
+                                  log_file_path=os.environ['ORION_LOGS'])
+DONT_MERGE = 'dont_merge_edges'
+
 
 class KGXFileMerger:
 
     def __init__(self,
-                 output_directory: str):
+                 graph_spec: GraphSpec,
+                 output_directory: str = None,
+                 nodes_output_filename: str = None,
+                 edges_output_filename: str = None):
+        self.graph_spec = graph_spec
         self.output_directory = output_directory
-        self.logger = LoggingUtil.init_logging("ORION.Common.KGXFileMerger",
-                                               line_format='medium',
-                                               log_file_path=os.environ['ORION_LOGS'])
+        self.nodes_output_filename = nodes_output_filename
+        self.edges_output_filename = edges_output_filename
+        self.merge_metadata = self.init_merge_metadata()
 
-    def merge(self,
-              graph_spec: GraphSpec,
-              nodes_output_filename: str,
-              edges_output_filename: str):
+        self.edge_graph_merger: GraphMerger = self.init_edge_graph_merger()
+        self.node_graph_merger = MemoryGraphMerger()
+        # these will be edge files that have a dont_merge merge strategy
+        self.unmerged_edge_files = {}
 
-        if not (graph_spec.sources or graph_spec.subgraphs):
-            merge_error_msg = f'Merge attempted but {graph_spec.graph_id} had no sources to merge.'
-            self.logger.error(merge_error_msg)
-            return {'merge_error': merge_error_msg}
+    def merge(self):
+        if not (self.graph_spec.sources or self.graph_spec.subgraphs):
+            merge_error_msg = f'Merge attempted but {self.graph_spec.graph_id} had no sources to merge.'
+            logger.error(merge_error_msg)
+            self.merge_metadata['merge_error'] = merge_error_msg
+            return
 
-        nodes_output_file_path = os.path.join(self.output_directory, nodes_output_filename)
-        edges_output_file_path = os.path.join(self.output_directory, edges_output_filename)
-        if os.path.exists(nodes_output_file_path) or os.path.exists(edges_output_file_path):
-            merge_error_msg = f'Merge attempted for {graph_spec.graph_id} but merged files already existed!'
-            self.logger.error(merge_error_msg)
-            return {'merge_error': merge_error_msg}
-
-        # group the sources based on their merge strategy, we'll process the primary sources first
+        # group the sources based on their merge strategy
         primary_sources = []
         secondary_sources = []
-        for graph_source in chain(graph_spec.sources, graph_spec.subgraphs):
+        dont_merge_sources = []
+        for graph_source in chain(self.graph_spec.sources, self.graph_spec.subgraphs):
             if not graph_source.merge_strategy:
                 primary_sources.append(graph_source)
-            elif graph_source.merge_strategy == 'dont_merge_edges':
+            elif graph_source.merge_strategy == DONT_MERGE:
                 primary_sources.append(graph_source)
             elif graph_source.merge_strategy == 'connected_edge_subset':
                 secondary_sources.append(graph_source)
             else:
                 return {'merge_error': f'Unsupported merge strategy specified: {graph_source.merge_strategy}'}
 
-        merge_metadata = {
-            'sources': {},
-            'final_node_count': 0,
-            'final_edge_count': 0
-        }
+        self.merge_primary_sources(primary_sources)
+        self.merge_secondary_sources(secondary_sources)
+        self.merge_dont_merge_sources(dont_merge_sources)
 
-        self.merge_primary_sources(primary_sources,
-                                   nodes_output_file_path,
-                                   edges_output_file_path,
-                                   merge_metadata)
-
-        self.merge_secondary_sources(secondary_sources,
-                                     nodes_output_file_path,
-                                     edges_output_file_path,
-                                     merge_metadata)
-
-        if len(merge_metadata['sources']) != len(graph_spec.sources) + len(graph_spec.subgraphs):
-            all_source_ids = [graph_source.id for graph_source in chain(graph_spec.sources, graph_spec.subgraphs)]
+        # sources are added to self.merge_metadata['sources'] as they get merged in,
+        # this roughly checks that all the sources that should be merged were processed
+        if len(self.merge_metadata['sources']) != \
+                len(self.graph_spec.sources) + len(self.graph_spec.subgraphs):
+            all_source_ids = [graph_source.id for graph_source in chain(self.graph_spec.sources,
+                                                                        self.graph_spec.subgraphs)]
             missing_data_sets = [source_id for source_id in all_source_ids if
-                                 source_id not in merge_metadata['sources'].keys()]
-            error_message = f"Error merging graph {graph_spec.graph_id}! could not merge: {missing_data_sets}"
-            self.logger.error(error_message)
-            merge_metadata["merge_error"] = error_message
-        return merge_metadata
+                                 source_id not in self.merge_metadata['sources'].keys()]
+            error_message = f"Error merging graph {self.graph_spec.graph_id}! could not merge: {missing_data_sets}"
+            logger.error(error_message)
+            self.merge_metadata["merge_error"] = error_message
+            return
+        self.merge_metadata['merged_nodes'] = self.node_graph_merger.merged_node_counter
+        self.merge_metadata['merged_edges'] = self.edge_graph_merger.merged_edge_counter
+
+        # NOTE about final counts, the implementation of DiskGraphMerger makes determining final counts impossible until
+        # the output files are written, because that's when the merging actually happens.
+        if self.nodes_output_filename and self.edges_output_filename:
+            merged_nodes_written, merged_edges_written = self.__write_merged_graph_to_file()
+            unmerged_edges_written = self.__write_unmerged_edges_to_file()
+            self.merge_metadata['unmerged_edge_count'] = unmerged_edges_written
+            self.merge_metadata['final_node_count'] += merged_nodes_written
+            self.merge_metadata['final_edge_count'] += merged_edges_written + unmerged_edges_written
 
     def merge_primary_sources(self,
-                              graph_sources: list,
-                              nodes_out_file: str,
-                              edges_out_file: str,
-                              merge_metadata: dict):
-        needs_on_disk_merge = False
-        for graph_source in graph_sources:
-            if isinstance(graph_source, SubGraphSource):
-                for source_id in graph_source.graph_metadata.get_source_ids():
-                    if source_id in RESOURCE_HOGS:
-                        needs_on_disk_merge = True
-                        break
-            elif graph_source.id in RESOURCE_HOGS:
-                needs_on_disk_merge = True
-                break
-
-        if needs_on_disk_merge:
-            graph_merger = DiskGraphMerger(temp_directory=self.output_directory)
-        else:
-            graph_merger = MemoryGraphMerger()
+                              graph_sources: list):
 
         for i, graph_source in enumerate(graph_sources, start=1):
-            self.logger.info(f"Processing {graph_source.id}. (primary source {i}/{len(graph_sources)})")
-            merge_metadata["sources"][graph_source.id] = {'release_version': graph_source.version}
+            logger.info(f"Processing {graph_source.id}. (primary source {i}/{len(graph_sources)}), edge_merging_attr: {graph_source.edge_merging_attributes}")
+            self.merge_metadata["sources"][graph_source.id] = {'release_version': graph_source.version}
 
-            for file_path in graph_source.file_paths:
+            for file_path in graph_source.get_node_file_paths():
+                with jsonlines.open(file_path) as nodes:
+                    nodes_count = self.node_graph_merger.merge_nodes(nodes)
                 source_filename = file_path.rsplit('/')[-1]
-                merge_metadata["sources"][graph_source.id][source_filename] = {}
-                if "nodes" in file_path:
-                    with jsonlines.open(file_path) as nodes:
-                        nodes_count = graph_merger.merge_nodes(nodes)
-                        merge_metadata["sources"][graph_source.id][source_filename]["nodes"] = nodes_count
+                self.merge_metadata["sources"][graph_source.id][source_filename] = {"nodes": nodes_count}
 
-                elif "edges" in file_path:
-                    if not graph_source.merge_strategy:
-                        with jsonlines.open(file_path) as edges:
-                            edges_count = graph_merger.merge_edges(edges)
-                            merge_metadata["sources"][graph_source.id][source_filename]["edges"] = edges_count
-                    elif graph_source.merge_strategy == "dont_merge_edges":
-                        # just copy the lines from the data source edges file verbatim without merging
-                        with open(file_path) as edges, open(edges_out_file, 'a') as edges_out:
-                            edges_count = 0
-                            for edge in edges:
-                                edges_out.write(edge)
-                                edges_count += 1
-                        merge_metadata["sources"][graph_source.id][source_filename]["edges"] = edges_count
-                        merge_metadata["final_edge_count"] += edges_count
-                else:
-                    raise ValueError(f"Did not recognize file {file_path} for merging "
-                                     f"from data source {graph_source.id}.")
+            for file_path in graph_source.get_edge_file_paths():
+                with jsonlines.open(file_path) as edges:
+                    edges_count = self.edge_graph_merger.merge_edges(
+                        edges, additional_edge_attributes=graph_source.edge_merging_attributes)
+                source_filename = file_path.rsplit('/')[-1]
+                self.merge_metadata["sources"][graph_source.id][source_filename] = {"edges": edges_count}
 
-        nodes_written, edges_written = self.__write_back_to_file(graph_merger,
-                                                                 nodes_out_file,
-                                                                 edges_out_file)
-        merge_metadata['merged_nodes'] = graph_merger.merged_node_counter
-        merge_metadata['merged_edges'] = graph_merger.merged_edge_counter
-        merge_metadata['final_node_count'] += nodes_written
-        merge_metadata['final_edge_count'] += edges_written
         return True
 
     # nodes_output_file_path and edges_output_file_path could/should be existing kgx files that will be appended to
     def merge_secondary_sources(self,
-                                graph_sources: list,
-                                nodes_output_file_path: str,
-                                edges_output_file_path: str,
-                                merge_metadata: dict):
+                                graph_sources: list):
+        primary_node_ids = None
         for i, graph_source in enumerate(graph_sources, start=1):
-            self.logger.info(f"Processing {graph_source.id}. (secondary source {i}/{len(graph_sources)})")
+            logger.info(f"Processing {graph_source.id}. (secondary source {i}/{len(graph_sources)})")
             if graph_source.merge_strategy == 'connected_edge_subset':
-                self.logger.info(f"Merging {graph_source.id} using connected_edge_subset merge strategy.")
+                logger.info(f"Merging {graph_source.id} using connected_edge_subset merge strategy.")
 
-                merge_metadata["sources"][graph_source.id] = {'release_version': graph_source.version}
+                self.merge_metadata["sources"][graph_source.id] = {'release_version': graph_source.version}
 
-                file_path_iterator = iter(graph_source.file_paths)
-                for file_path in file_path_iterator:
-                    nodes_file_to_merge = file_path
-                    edges_file_to_merge = next(file_path_iterator)
-                    if not (('nodes' in nodes_file_to_merge) and
-                            ('edges' in edges_file_to_merge)):
-                        raise IOError(
-                            f'File paths were not in node, edge ordered pairs: {nodes_file_to_merge},{edges_file_to_merge}')
-                    new_node_count, new_edge_count = self.merge_connected_edges(nodes_output_file_path,
-                                                                                edges_output_file_path,
-                                                                                nodes_file_to_merge,
-                                                                                edges_file_to_merge)
-                    nodes_source_filename = nodes_file_to_merge.rsplit('/')[-1]
-                    edges_source_filename = edges_file_to_merge.rsplit('/')[-1]
-                    merge_metadata["sources"][graph_source.id][nodes_source_filename] = {
-                        "nodes": new_node_count
-                    }
-                    merge_metadata["sources"][graph_source.id][edges_source_filename] = {
-                        "edges": new_edge_count
-                    }
-                    merge_metadata['final_node_count'] += new_node_count
-                    merge_metadata['final_edge_count'] += new_edge_count
+                # For connected_edge_subset, only merge edges that connect to nodes in primary sources.
+                # Here we establish that list once, before any connected_edge_subset sources are merged in, so we don't
+                # include edges from one connected_edge_subset that are only connected to another connected_edge_subset.
+                if not primary_node_ids:
+                    primary_node_ids = set(self.node_graph_merger.nodes.keys())
 
-    def __write_back_to_file(self,
-                             graph_merger: GraphMerger,
-                             nodes_out_file: str,
-                             edges_out_file: str):
+                nodes_to_add = set()
+                for edge_file in graph_source.get_edge_file_paths():
+                    edge_counter = 0
+                    for edge in quick_jsonl_file_iterator(edge_file):
+                        edge_subject_connected = edge[SUBJECT_ID] in primary_node_ids
+                        edge_object_connected = edge[OBJECT_ID] in primary_node_ids
+                        if edge_subject_connected or edge_object_connected:
+                            edge_counter += 1
+                            self.edge_graph_merger.merge_edge(edge)
+                            if not edge_subject_connected:
+                                nodes_to_add.add(edge[SUBJECT_ID])
+                            elif not edge_object_connected:
+                                nodes_to_add.add(edge[OBJECT_ID])
+                    source_filename = edge_file.rsplit('/')[-1]
+                    self.merge_metadata["sources"][graph_source.id][source_filename] = {"edges": edge_counter}
 
-        self.logger.info(f'Writing merged nodes to file...')
+                for node_file in graph_source.get_node_file_paths():
+                    node_counter = 0
+                    for node in quick_jsonl_file_iterator(node_file):
+                        if node['id'] in nodes_to_add:
+                            node_counter += 1
+                            self.node_graph_merger.merge_node(node)
+                    source_filename = node_file.rsplit('/')[-1]
+                    self.merge_metadata["sources"][graph_source.id][source_filename] = {"nodes": node_counter}
+
+    def merge_dont_merge_sources(self, graph_sources: list):
+        for graph_source in graph_sources:
+            # merge in the nodes
+            for file_path in graph_source.get_node_file_paths():
+                with jsonlines.open(file_path) as nodes:
+                    nodes_count = self.node_graph_merger.merge_nodes(nodes)
+                source_filename = file_path.rsplit('/')[-1]
+                self.merge_metadata["sources"][graph_source.id][source_filename] = {"nodes": nodes_count}
+
+            # just queue up the edges files
+            self.unmerged_edge_files[graph_source.id] = graph_source.get_edge_file_paths()
+
+    def __write_merged_graph_to_file(self):
+        nodes_output_file_path = os.path.join(self.output_directory, self.nodes_output_filename)
+        edges_output_file_path = os.path.join(self.output_directory, self.edges_output_filename)
+        if os.path.exists(nodes_output_file_path) or os.path.exists(edges_output_file_path):
+            merge_error_msg = f'Merge attempted for {self.graph_spec.graph_id} but merged files already existed!'
+            logger.error(merge_error_msg)
+            self.merge_metadata['merge_error'] = merge_error_msg
+            return
+
+        logger.info(f'Writing merged nodes to file...')
         nodes_written = 0
-        with open(nodes_out_file, 'w') as nodes_out:
-            for node_line in graph_merger.get_merged_nodes_jsonl():
+        with open(nodes_output_file_path, 'w') as nodes_out:
+            for node_line in self.node_graph_merger.get_merged_nodes_jsonl():
                 nodes_out.write(node_line)
                 nodes_written += 1
 
-        self.logger.info(f'Writing merged edges to file...')
+        logger.info(f'Writing merged edges to file...')
         edges_written = 0
-        with open(edges_out_file, 'a') as edges_out:
-            for edge_line in graph_merger.get_merged_edges_jsonl():
+        with open(edges_output_file_path, 'w') as edges_out:
+            for edge_line in self.edge_graph_merger.get_merged_edges_jsonl():
                 edges_out.write(edge_line)
                 edges_written += 1
 
         return nodes_written, edges_written
 
+    def __write_unmerged_edges_to_file(self):
+        all_unmerged_edges_count = 0
+        edges_output_file_path = os.path.join(self.output_directory, self.edges_output_filename)
+        with open(edges_output_file_path, 'a') as edges_out:
+            for graph_source_id, edges_files in self.unmerged_edge_files.items():
+                for edges_file in edges_files:
+                    edges_count = 0
+                    with open(edges_file) as edges:
+                        for edge in edges:
+                            edges_out.write(edge)
+                            edges_count += 1
+                    edges_filename = edges_file.rsplit('/')[-1]
+                    self.merge_metadata["sources"][graph_source_id][edges_filename]["edges"] = edges_count
+                    all_unmerged_edges_count += edges_count
+        return all_unmerged_edges_count
+
     """
     This is on hold / TBD - we should be able to process individual sources more efficiently
     def process_single_source(self, graph_source: SourceDataSpec, nodes_out_file: str, edges_out_file: str):
-        self.logger.info(f"Processing single primary source {graph_source.id}.")
+        logger.info(f"Processing single primary source {graph_source.id}.")
         files_processed = 0
         files_to_process = graph_source.file_paths
         if len(files_to_process) <= 2:
@@ -237,10 +245,10 @@ class KGXFileMerger:
                         connected_node_ids_not_in_a.add(edge[SUBJECT_ID])
                     elif not object_connected:
                         connected_node_ids_not_in_a.add(edge[OBJECT_ID])
-        self.logger.debug(f'Added {edges_added} new connected edges')
+        logger.debug(f'Added {edges_added} new connected edges')
 
         nodes_added = len(connected_node_ids_not_in_a)
-        self.logger.debug(f'Found {nodes_added} new nodes from connected edges')
+        logger.debug(f'Found {nodes_added} new nodes from connected edges')
 
         with open(node_file_a, 'a') as merged_nodes_file:
             for node_line in open(node_file_b, 'r', encoding='utf-8'):
@@ -250,3 +258,29 @@ class KGXFileMerger:
 
         return nodes_added, edges_added
 
+    def init_edge_graph_merger(self) -> GraphMerger:
+        needs_on_disk_merge = False
+        for graph_source in chain(self.graph_spec.sources, self.graph_spec.subgraphs):
+            if isinstance(graph_source, SubGraphSource):
+                for source_id in graph_source.graph_metadata.get_source_ids():
+                    if source_id in RESOURCE_HOGS:
+                        needs_on_disk_merge = True
+                        break
+            elif graph_source.id in RESOURCE_HOGS:
+                needs_on_disk_merge = True
+                break
+        if needs_on_disk_merge:
+            if self.output_directory is None:
+                raise IOError(f'DiskGraphMerger attempted but no output directory was specified.')
+            return DiskGraphMerger(temp_directory=self.output_directory)
+        else:
+            return MemoryGraphMerger()
+
+    @staticmethod
+    def init_merge_metadata():
+        return {'sources': {},
+                'final_node_count': 0,
+                'final_edge_count': 0}
+
+    def get_merge_metadata(self):
+        return self.merge_metadata

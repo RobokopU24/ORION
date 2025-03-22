@@ -8,7 +8,7 @@ import requests.exceptions
 from Common.biolink_utils import BiolinkUtils
 from Common.loader_interface import SourceDataLoader
 from Common.biolink_constants import PUBLICATIONS, NEGATED
-from Common.utils import GetData, quick_jsonl_file_iterator
+from Common.utils import GetData, quick_jsonl_file_iterator, LoggingUtil
 from Common.normalization import call_name_resolution, NAME_RESOLVER_API_ERROR
 from Common.prefixes import PUBMED
 
@@ -17,7 +17,13 @@ from parsers.LitCoin.src.bagel.bagel import get_orion_bagel_results, extract_bes
     convert_orion_bagel_result_to_bagel_service_format, BAGEL_SUBJECT_SYN_TYPE, BAGEL_OBJECT_SYN_TYPE, get_llm_results
 
 
+logger = LoggingUtil.init_logging("ORION.Parsers.LitCoin.src.loadLitCoin",
+                                  line_format='medium',
+                                  log_file_path=os.environ['ORION_LOGS'])
+
+
 class LITCOIN:
+    EDGE_ID = 'id'
     ABSTRACT_ID = 'abstract_id'
     ABSTRACT_SPAN = 'abstract_span'
     ASSERTION_ID = 'assertion_id'
@@ -337,9 +343,11 @@ class LitCoinLoader(SourceDataLoader):
 
     def load_bagel_cache(self):
         bagel_cache_file_path = self.get_bagel_cache_path()
+        logger.info(f'LitCoinLoader in load_bagel_cache, file path is: {bagel_cache_file_path}')
         if os.path.exists(bagel_cache_file_path):
             with open(bagel_cache_file_path, "r") as bagel_cache_file:
                 self.bagel_results_lookup = json.load(bagel_cache_file)
+            logger.info(f'{bagel_cache_file_path} loaded, bagel_results_lookup: {self.bagel_results_lookup}')
         else:
             self.bagel_results_lookup = {}
 

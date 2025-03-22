@@ -87,10 +87,12 @@ class GraphBuilder:
             graph_metadata.set_graph_spec(graph_spec.get_metadata_representation())
 
             # merge the sources and write the finalized graph kgx files
-            source_merger = KGXFileMerger(output_directory=graph_output_dir)
-            merge_metadata = source_merger.merge(graph_spec,
-                                                 nodes_output_filename=NODES_FILENAME,
-                                                 edges_output_filename=EDGES_FILENAME)
+            source_merger = KGXFileMerger(graph_spec=graph_spec,
+                                          output_directory=graph_output_dir,
+                                          nodes_output_filename=NODES_FILENAME,
+                                          edges_output_filename=EDGES_FILENAME)
+            source_merger.merge()
+            merge_metadata = source_merger.get_merge_metadata()
 
             current_time = datetime.datetime.now().strftime('%m-%d-%y %H:%M:%S')
             if "merge_error" in merge_metadata:
@@ -450,6 +452,7 @@ class GraphBuilder:
         source_version = source_yml.get('source_version', None)
         parsing_version = source_yml.get('parsing_version', None)
         merge_strategy = source_yml.get('merge_strategy', None)
+        edge_merging_attributes = source_yml.get('edge_merging_attributes', None)
         node_normalization_version = source_yml.get('node_normalization_version', None)
         edge_normalization_version = source_yml.get('edge_normalization_version', None)
         strict_normalization = source_yml.get('strict_normalization', True)
@@ -484,6 +487,7 @@ class GraphBuilder:
         data_source = DataSource(id=source_id,
                                  source_version=source_version,
                                  merge_strategy=merge_strategy,
+                                 edge_merging_attributes=edge_merging_attributes,
                                  normalization_scheme=normalization_scheme,
                                  parsing_version=parsing_version,
                                  supplementation_version=supplementation_version)
