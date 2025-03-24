@@ -1,6 +1,12 @@
+import json
 import logging
 import os
+import polars as pl
+
+from Common.biolink_constants import PRIMARY_KNOWLEDGE_SOURCE, KNOWLEDGE_LEVEL, AGENT_TYPE
 from Common.kgx_file_writer import KGXFileWriter
+from Common.kgxmodel import kgxnode, kgxedge
+from Common.prefixes import PUBCHEM_COMPOUND
 from Common.utils import LoggingUtil
 
 
@@ -193,6 +199,94 @@ class SourceDataLoader:
             self.output_file_writer.write_kgx_edge(edge)
 
 
+    def pad_curie(self, curie):
+        if curie.startswith("UBERON") or curie.startswith("MONDO"):
+            split = curie.split(":")
+            prefix = split[0]
+            suffix = split[1].zfill(7)
+            return f"{prefix}:{suffix}"
+        return curie
+
+
+    def parse_cfde_source(self, config, data_path) -> dict:
+        nodes = pl.DataFrame(schema={"id": pl.String, "original_id": pl.String, "name": pl.String, "category": pl.String})
+
+        dfs = [nodes]
+        for file in config["node_files"]:
+            tmp_df = pl.scan_csv(os.path.join(data_path, file["node_file"]["name"]), has_header=True)
+            if "secondary_id_column" in file["node_file"]:
+                tmp_df = tmp_df.select(
+                    pl.when(pl.col(file["node_file"]["primary_id_column"]).is_null()).then(pl.col(file["node_file"]["secondary_id_column"])).otherwise(pl.col(file["node_file"]["primary_id_column"])).alias("id"),
+                    pl.col("").alias("original_id"),
+                    pl.col("label").alias("name"),
+                    pl.when(pl.col("type").is_null()).then(pl.lit(file["node_file"]["type"])).otherwise(pl.col("type")).alias("category")
+                )
+            else:
+                tmp_df = tmp_df.select(
+                    pl.col(file["node_file"]["primary_id_column"]).alias("id"),
+                    pl.col("").alias("original_id"),
+                    pl.col("label").alias("name"),
+                    pl.when(pl.col("type").is_null()).then(pl.lit(file["node_file"]["type"])).otherwise(pl.col("type")).alias("category")
+                )
+            tmp_df = tmp_df.with_columns(
+                pl.when(pl.col("id").str.starts_with("PUBCHEM")).then(pl.col("id").str.replace("PUBCHEM", PUBCHEM_COMPOUND)).otherwise(pl.col("id")).alias("id"),
+            ).with_columns(pl.col("id").map_elements(self.pad_curie, return_dtype=pl.String)).collect()
+            # tmp_df.write_csv(f'/tmp/{file["node_file"]["type"]}.csv')
+            dfs.append(tmp_df)
+            
+        nodes = pl.concat(dfs, how="vertical")
+    
+        df_missing = nodes.filter(pl.any_horizontal(pl.all().is_null()))
+        unmapped_path = os.path.join(data_path, "unmapped.jsonl")
+        df_missing.write_ndjson(unmapped_path)
+    
+        missing_mapping = dict(zip(df_missing["original_id"], df_missing["id"]))
+    
+        nodes = nodes.drop_nulls()
+        
+        node_mapping = dict(zip(nodes["original_id"], nodes["id"]))
+        # with open('/tmp/node_mapping.json', 'w') as file:
+        #     file.write(json.dumps(node_mapping))
+            
+        nodes.drop_in_place("original_id")
+    
+        for row in nodes.rows(named=True):
+            node = kgxnode(identifier=row['id'], name=row['name'], categories=row['category'])
+            self.final_node_list.append(node)
+    
+        nodes_path = os.path.join(self.data_path, "nodes.jsonl")
+        nodes.write_ndjson(nodes_path)
+    
+        edges = pl.scan_csv(os.path.join(self.data_path, config['edge_file']), has_header=True).select(
+            pl.col("source").alias("subject"),
+            pl.col("relation").alias("predicate"),
+            pl.col("target").alias("object"),
+            pl.lit(config['provenance_id']).alias(PRIMARY_KNOWLEDGE_SOURCE),
+            pl.lit("data_analysis_pipeline").alias(AGENT_TYPE),
+            pl.lit("knowledge_assertion").alias(KNOWLEDGE_LEVEL),
+        ).collect()
+
+        edges = edges.with_columns(pl.col("subject").replace(missing_mapping), pl.col("predicate"), pl.col("object").replace(missing_mapping)).drop_nulls()
+
+        predicate_mapping = dict(config['predicate_mapping'])
+        edges = edges.with_columns(pl.col("subject").replace(node_mapping).alias("subject"), pl.col("predicate").replace(predicate_mapping).alias("predicate"), pl.col("object").replace(node_mapping).alias("object"))
+        edges = edges.unique(subset=["subject", "predicate", "object", "primary_knowledge_source"])
+        
+        # print(edges.pivot(on="primary_knowledge_source", index="predicate", values="subject", aggregate_function="count"))
+        edges_path = os.path.join(self.data_path, "edges.jsonl")
+        edges.write_ndjson(edges_path)
+
+        edges = [kgxedge(subject_id=row['subject'], predicate=row['predicate'], object_id=row['object'], primary_knowledge_source=row[PRIMARY_KNOWLEDGE_SOURCE], edgeprops={ KNOWLEDGE_LEVEL: row[KNOWLEDGE_LEVEL], AGENT_TYPE: row[AGENT_TYPE]}) for row in edges.rows(named=True)]    
+        print(len(edges))
+        # for row in edges.rows(named=True):
+        #     edge = 
+        #     # print(f"{edge.subjectid}, {edge.predicate}, {edge.objectid}")
+        #     self.final_edge_list.append(edge)
+        self.final_edge_list.extend(edges)
+        print(len(self.final_edge_list))
+        
+        return { 'record_counter': len(edges), 'skipped_record_counter': len(df_missing), 'errors': []}
+
 class SourceDataBrokenError(Exception):
     def __init__(self, error_message: str):
         self.error_message = error_message
@@ -201,3 +295,6 @@ class SourceDataBrokenError(Exception):
 class SourceDataFailedError(Exception):
     def __init__(self, error_message: str):
         self.error_message = error_message
+
+
+    
