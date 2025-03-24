@@ -13,7 +13,7 @@ orjson==3.10.3
 xxhash==3.4.1
 mysql-connector-python==9.1.0
 neo4j==5.20.0
-pyoxigraph==0.3.22
+pyoxigraph==0.4.8
 curies==0.7.9
 prefixmaps==0.2.4
 bmt==1.4.3
