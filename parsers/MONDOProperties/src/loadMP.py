@@ -1,3 +1,5 @@
+import gzip
+import io
 import os
 import argparse
 import pyoxigraph
@@ -103,14 +105,14 @@ class MPLoader(SourceDataLoader):
         mondo_superclasses: dict = defaultdict( list )
 
         archive_file_path = os.path.join(self.data_path, f'{self.data_file}')
-        with GzipFile(archive_file_path) as nq_file:
-
+        # with open(archive_file_path, mode='rb') as nq_file:
+        with gzip.open(archive_file_path, mode='rt') as nq_file:
             # Loop through the triples
             # We're only intereseted in MONDO ids
             # For any mondo ID with a low Information Content, we want to make it a property
             # So we need to find those, and find their names, and find what other MONDOs are subclasses of that thing.
             # Then we can add those as properties to the subclasses and write everything out.
-            for ttl_triple in pyoxigraph.parse(nq_file, mime_type='application/n-quads'):
+            for ttl_triple in pyoxigraph.parse(input=nq_file, format=pyoxigraph.RdfFormat.N_QUADS):
 
                 record_counter += 1
 
@@ -171,18 +173,21 @@ class MPLoader(SourceDataLoader):
 
 if __name__ == '__main__':
     # create a command line parser
-    ap = argparse.ArgumentParser(description='Load MONDOProps data files and create KGX import files.')
+    # ap = argparse.ArgumentParser(description='Load MONDOProps data files and create KGX import files.')
+    #
+    # ap.add_argument('-r', '--data_dir', required=True, help='The location of the Ontological-Hierarchy data file')
+    #
+    # # parse the arguments
+    # args = vars(ap.parse_args())
+    #
+    # # this is the base directory for data files and the resultant KGX files.
+    # data_dir: str = args['data_dir']
 
-    ap.add_argument('-r', '--data_dir', required=True, help='The location of the Ontological-Hierarchy data file')
-
-    # parse the arguments
-    args = vars(ap.parse_args())
-
-    # this is the base directory for data files and the resultant KGX files.
-    data_dir: str = args['data_dir']
+    source_data_dir = str(os.path.join("/media/jdr0887/backup/home/jdr0887/ORION_root/ORION_storage", "MONDOProps", "3_5_2025"))
 
     # get a reference to the processor
-    ldr = MPLoader()
+    ldr = MPLoader(source_data_dir=source_data_dir)
+    ldr.parse_data()
 
     # load the data files and create KGX output
-    ldr.load(data_dir + '/nodes.jsonl', data_dir + '/edges.jsonl')
+    # ldr.load(data_dir + '/nodes.jsonl', data_dir + '/edges.jsonl')
