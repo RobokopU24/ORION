@@ -1,9 +1,10 @@
 graphs:
 
-  - graph_id: CFDE_Automat
-    graph_name: CFDE KP
-    graph_description: 'Common Fund Data Ecosystem KG'
-    graph_url: https://github.com/NCATSTranslator/Translator-All/wiki/CFDE-KP
+  - graph_id: Baseline
+    graph_name: CFDE Baseline
+    graph_description: 'CFDE Baseline'
+    graph_url: http://cfde.renci.org/browser/
+    conflation: True
     output_format: neo4j
     sources:
       - source_id: BINDING-DB
@@ -33,6 +34,15 @@ graphs:
       - source_id: SIGNOR
       - source_id: STRING-DB-Human
       - source_id: UbergraphNonredundant
+
+  - graph_id: CFDE_Automat
+    graph_name: CFDE KP
+    graph_description: 'Common Fund Data Ecosystem KG'
+    graph_url: https://github.com/NCATSTranslator/Translator-All/wiki/CFDE-KP
+    conflation: True
+    output_format: neo4j
+    subgraphs:
+      - graph_id: Baseline
+    sources:
       - source_id: GWASCatalog
       - source_id: GTEx
-
