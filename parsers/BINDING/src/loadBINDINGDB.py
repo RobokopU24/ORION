@@ -78,7 +78,7 @@ class BINDINGDBLoader(SourceDataLoader):
 
         self.bindingdb_version = None
         self.bindingdb_version = self.get_latest_source_version()
-        self.bindingdb_data_url = f"https://www.bindingdb.org/bind/downloads/"
+        self.bindingdb_data_url = f"https://www.bindingdb.org/rwd/bind/downloads/"
 
         self.bd_archive_file_name = f"BindingDB_All_{self.bindingdb_version}_tsv.zip"
         self.bd_file_name = f"BindingDB_All.tsv"
@@ -114,7 +114,7 @@ class BINDINGDBLoader(SourceDataLoader):
         except requests.exceptions.ConnectionError as e:
             error_message = f'BINDING-DB get_latest_source_version failed: {e}..'
         self.logger.error(error_message + ' Returning last known valid version: 202501')
-        self.bindingdb_version = '202501'
+        self.bindingdb_version = '202503'
         return self.bindingdb_version
 
     def get_data(self) -> int:
