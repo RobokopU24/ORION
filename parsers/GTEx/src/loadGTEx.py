@@ -15,7 +15,8 @@ class GTExLoader(SourceDataLoader):
     source_id = 'GTEx'
     provenance_id = 'infores:gtex'
     description = "The Genotype-Tissue Expression (GTEx) portal provides open access to data on tissue-specific gene expression and regulation, derived from molecular assays (e.g., WGS, WES, RNA-Seq) on 54 non-diseased tissue sites across nearly 1000 individuals."
-    source_data_url = "https://storage.googleapis.com/gtex_analysis_v8/single_tissue_qtl_data/"
+    source_data_url = "https://storage.googleapis.com/adult-gtex/bulk-qtl/v10/single-tissue-cis-qtl/"
+    # source_data_url = "https://storage.googleapis.com/gtex_analysis_v8/single_tissue_qtl_data/"
     license = "https://www.gtexportal.org/home/documentationPage"
     attribution = "https://www.gtexportal.org/home/documentationPage"
     parsing_version = '1.3'
@@ -120,14 +121,15 @@ class GTExLoader(SourceDataLoader):
     def get_data(self):
         # define the urls for the raw data archives and the location to download them to
         gtex_version = self.GTEX_VERSION
-        eqtl_url = f'https://storage.googleapis.com/gtex_analysis_v{gtex_version}/single_tissue_qtl_data/{self.eqtl_tar_file_name}'
-        eqtl_tar_download_path = os.path.join(self.data_path, self.eqtl_tar_file_name)
 
-        sqtl_url = f'https://storage.googleapis.com/gtex_analysis_v{gtex_version}/single_tissue_qtl_data/{self.sqtl_tar_file_name}'
-        sqtl_tar_download_path = os.path.join(self.data_path, self.sqtl_tar_file_name)
+        eqtl_url = f'https://storage.googleapis.com/adult-gtex/bulk-qtl/v{gtex_version}/single-tissue-cis-qtl/{self.eqtl_tar_file_name}'
+        eqtl_tar_download_path = os.path.join(self.data_path, self.eqtl_tar_file_name)
 
         self.logger.info(f'Downloading raw GTEx data files from {eqtl_url}.')
         self.fetch_and_save_tar(eqtl_url, eqtl_tar_download_path)
+
+        sqtl_url = f'https://storage.googleapis.com/adult-gtex/bulk-qtl/v{gtex_version}/single-tissue-cis-qtl/{self.sqtl_tar_file_name}'
+        sqtl_tar_download_path = os.path.join(self.data_path, self.sqtl_tar_file_name)
 
         self.logger.info(f'Downloading raw GTEx data files from {sqtl_url}.')
         self.fetch_and_save_tar(sqtl_url, sqtl_tar_download_path)
@@ -142,14 +144,11 @@ class GTExLoader(SourceDataLoader):
 
         self.logger.info('Parsing eqtl data and writing nodes...')
         eqtl_tar_download_path = os.path.join(self.data_path, self.eqtl_tar_file_name)
-        self.parse_gtex_tar(tar_path=eqtl_tar_download_path,
-                            load_metadata=load_metadata)
+        self.parse_gtex_tar(tar_path=eqtl_tar_download_path, load_metadata=load_metadata)
 
         self.logger.info('Parsing sqtl data and writing nodes...')
         sqtl_tar_download_path = os.path.join(self.data_path, self.sqtl_tar_file_name)
-        self.parse_gtex_tar(tar_path=sqtl_tar_download_path,
-                            load_metadata=load_metadata,
-                            is_sqtl=True)
+        self.parse_gtex_tar(tar_path=sqtl_tar_download_path, load_metadata=load_metadata, is_sqtl=True)
 
         self.logger.info(f'GTEx parsing and KGX file creation complete.')
         load_metadata['errors'] = self.parsing_errors
@@ -287,7 +286,6 @@ class GTExLoader(SourceDataLoader):
 
                     # check to make sure we know about this tissue
                     if tissue_name in self.anatomy_id_lookup:
-
                         # determine anatomy ID
                         anatomy_id = self.anatomy_id_lookup[tissue_name]
 
