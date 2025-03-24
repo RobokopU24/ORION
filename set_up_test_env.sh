@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+#export $(grep -v '^#' .env | xargs)
+
 #These environment variables are required by Data Services. See the README for more information.
 
 #ORION_STORAGE - a directory for storing data sources
