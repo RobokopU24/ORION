@@ -130,6 +130,12 @@ def test_edge_property_merging_in_memory_edge_id_with_merging():
 def test_edge_property_merging_in_memory_edge_id_without_merging():
     edge_property_merging_test_edge_id_without_merging(MemoryGraphMerger())
 
+def test_edge_property_merging_on_disk_edge_id_with_merging():
+    edge_property_merging_test_edge_id_with_merging(DiskGraphMerger(temp_directory=TEMP_DIRECTORY, chunk_size=8))
+
+def test_edge_property_merging_on_dist_edge_id_without_merging():
+    edge_property_merging_test_edge_id_without_merging(DiskGraphMerger(temp_directory=TEMP_DIRECTORY, chunk_size=8))
+
 def edge_merging_counts_test(graph_merger: GraphMerger):
 
     edges_1_10_pred_1 = []

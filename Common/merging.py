@@ -81,9 +81,6 @@ class GraphMerger:
     def merge_node(self, node):
         raise NotImplementedError
 
-    def merge_edge(self, edge, additional_edge_attributes=None, add_edge_id=False):
-        raise NotImplementedError
-
     def flush(self):
         pass
 
@@ -102,6 +99,9 @@ class DiskGraphMerger(GraphMerger):
 
         self.chunk_size = chunk_size
         self.probably_unique_temp_file_key = secrets.token_hex(6)
+
+        self.additional_edge_attributes = None
+        self.add_edge_id = False
 
         self.temp_node_file_paths = []
         self.current_node_chunk = 0
@@ -131,12 +131,14 @@ class DiskGraphMerger(GraphMerger):
 
     def merge_edges(self, edges, additional_edge_attributes=None, add_edge_id=False):
         logger.info(f'additional_edge_attributes: {additional_edge_attributes}, add_edge_id: {add_edge_id} in DiskGraphMerger:merge_edges()')
+        self.additional_edge_attributes = additional_edge_attributes
+        self.add_edge_id = add_edge_id
         sorting_function = lambda edge: edge_key_function(edge, custom_key_attributes=additional_edge_attributes)
         return self.merge_entities(edges,
                                    EDGE_ENTITY_TYPE,
                                    sorting_function)
 
-    def merge_edge(self, edge, additional_edge_attributes=None, add_edge_id=False):
+    def buffer_edge(self, edge):
         self.entity_buffers[EDGE_ENTITY_TYPE].append(edge)
         if len(self.entity_buffers[EDGE_ENTITY_TYPE]) >= self.chunk_size:
             self.flush_edge_buffer()
@@ -194,10 +196,12 @@ class DiskGraphMerger(GraphMerger):
 
     def get_merged_edges_jsonl(self):
         self.flush_edge_buffer()
+        sorting_function = lambda e: edge_key_function(e, custom_key_attributes=self.additional_edge_attributes)
         for edge in self.get_merged_entities(file_paths=self.temp_file_paths[EDGE_ENTITY_TYPE],
-                                             sorting_key_function=edge_key_function,
+                                             sorting_key_function=sorting_function,
                                              merge_function=entity_merging_function,
-                                             entity_type=EDGE_ENTITY_TYPE):
+                                             entity_type=EDGE_ENTITY_TYPE,
+                                             add_edge_id=self.add_edge_id):
             yield f'{quick_json_dumps(edge)}\n'
         for file_path in self.temp_file_paths[EDGE_ENTITY_TYPE]:
             os.remove(file_path)
@@ -229,8 +233,8 @@ class DiskGraphMerger(GraphMerger):
 
         # next_entities = {i: json_reader.read() for i, json_reader in json_readers.items()}
 
-        min_key = min([key for key, entity in next_entities.values()])
-        while min_key:
+        min_key = min([key for key, entity in next_entities.values()], default=None)
+        while min_key is not None:
             merged_entity = None
             for i in list(next_entities.keys()):
                 next_key, next_entity = next_entities[i]
@@ -253,6 +257,11 @@ class DiskGraphMerger(GraphMerger):
                         del(next_entities[i])
                         json_readers[i].close()
                         file_handlers[i].close()
+
+            # Add the id attribute if add_edge_id is True
+            if entity_type == EDGE_ENTITY_TYPE and add_edge_id and merged_entity and min_key:
+                merged_entity["id"] = min_key
+
             yield merged_entity
             min_key = min([key for key, entity in next_entities.values()], default=None)
 
