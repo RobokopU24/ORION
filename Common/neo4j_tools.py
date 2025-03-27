@@ -46,7 +46,7 @@ class Neo4jTools:
         import_results: subprocess.CompletedProcess = subprocess.run(neo4j_import_cmd,
                                                                      cwd=graph_directory,
                                                                      capture_output=True)
-        # self.logger.info(import_results.stdout)
+        self.logger.info(import_results.stdout)
         import_results_return_code = import_results.returncode
         if import_results_return_code != 0:
             error_message = f'Neo4j import subprocess error (ExitCode {import_results_return_code}): ' \
@@ -64,7 +64,7 @@ class Neo4jTools:
         neo4j_load_cmd = ['neo4j-admin', 'database', 'load', f'--from-path={dump_file_path}', '--overwrite-destination=true', 'neo4j']
         load_results: subprocess.CompletedProcess = subprocess.run(neo4j_load_cmd,
                                                                    capture_output=True)
-        # self.logger.info(load_results.stdout)
+        self.logger.info(load_results.stdout)
         load_results_return_code = load_results.returncode
         if load_results_return_code != 0:
             error_message = f'Neo4j load subprocess error (ExitCode {load_results_return_code}): ' \
@@ -77,7 +77,7 @@ class Neo4jTools:
         neo4j_migrate_cmd = ['neo4j-admin', 'database', 'migrate', '--force-btree-indexes-to-range', 'neo4j']
         migrate_results: subprocess.CompletedProcess = subprocess.run(neo4j_migrate_cmd,
                                                                       capture_output=True)
-        # self.logger.info(migrate_results.stdout)
+        self.logger.info(migrate_results.stdout)
         results_return_code = migrate_results.returncode
         if results_return_code != 0:
             error_message = f'Neo4j migrate subprocess error (ExitCode {results_return_code}): ' \
@@ -91,7 +91,7 @@ class Neo4jTools:
         neo4j_dump_cmd = ['neo4j-admin', 'database', 'dump', 'neo4j', f'--to-path={dump_directory}']
         dump_results: subprocess.CompletedProcess = subprocess.run(neo4j_dump_cmd,
                                                                    capture_output=True)
-        # self.logger.info(dump_results.stdout)
+        self.logger.info(dump_results.stdout)
         dump_results_return_code = dump_results.returncode
         if dump_results_return_code != 0:
             error_message = f'Neo4j dump subprocess error (ExitCode {dump_results_return_code}): ' \
@@ -111,7 +111,7 @@ class Neo4jTools:
         neo4j_cmd = ['neo4j', f'{command}']
         neo4j_results: subprocess.CompletedProcess = subprocess.run(neo4j_cmd,
                                                                     capture_output=True)
-        # self.logger.info(neo4j_results.stdout)
+        self.logger.info(neo4j_results.stdout)
         neo4j_results_return_code = neo4j_results.returncode
         if neo4j_results_return_code != 0:
             error_message = f'Neo4j {command} subprocess error (ExitCode {neo4j_results_return_code}): ' \
@@ -124,7 +124,7 @@ class Neo4jTools:
         neo4j_cmd = ['neo4j-admin', 'dbms', 'set-initial-password', self.password]
         neo4j_results: subprocess.CompletedProcess = subprocess.run(neo4j_cmd,
                                                                     capture_output=True)
-        # self.logger.info(neo4j_results.stdout)
+        self.logger.info(neo4j_results.stdout)
         neo4j_results_return_code = neo4j_results.returncode
         if neo4j_results_return_code != 0:
             error_message = f'Neo4j {neo4j_cmd} subprocess error (ExitCode {neo4j_results_return_code}): ' \
