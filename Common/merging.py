@@ -20,7 +20,8 @@ def edge_key_function(edge, custom_key_attributes=None):
     standard_attributes = (f'{edge[SUBJECT_ID]}{edge[PREDICATE]}{edge[OBJECT_ID]}'
                            f'{edge.get(PRIMARY_KNOWLEDGE_SOURCE, "")}{"".join(qualifiers)}')
     if custom_key_attributes:
-        return xxh64_hexdigest(f'{standard_attributes}{"".join(custom_key_attributes)}')
+        custom_attributes = [edge[attr] for attr in custom_key_attributes]
+        return xxh64_hexdigest(f'{standard_attributes}{"".join(custom_attributes)}')
     else:
         return xxh64_hexdigest(standard_attributes)
 
