@@ -71,6 +71,9 @@ class GraphSource:
         else:
             return object.__getattribute__(self, name)
 
+    def generate_version(self):
+        return None
+
     def get_node_file_paths(self):
         if self.file_paths is None:
             raise Exception(f'File paths were requested before they were established for GraphSource {self.id}')
