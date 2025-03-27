@@ -1,0 +1,11 @@
+{
+    "id": "GtoPdb",
+    "name": "Guide to PHARMACOLOGY (GtoPdb)",
+    "description": "The International Union of Basic and Clinical Pharmacology (IUPHAR) / British Pharmacological Society (BPS) Guide to Pharmacology database (GtoPdb) provides searchable open-source quantitative information on drug targets and the prescription medicines and experimental drugs that act on them.",
+    "url": "http://www.guidetopharmacology.org/",
+    "attribution": "https://www.guidetopharmacology.org/citing.jsp",
+    "citation": "https://doi.org/10.1093/nar/gkad944",
+    "full_citation": "Harding SD, Armstrong JF, Faccenda E, Southan C, Alexander SPH, Davenport AP, Spedding M, Davies JA. (2023) The IUPHAR/BPS Guide to PHARMACOLOGY in 2024. Nucl. Acids Res. 2024; 52(D1):D1438-D1449.",
+    "license": "CC BY-SA 4.0",
+    "contentUrl": "https://www.guidetopharmacology.org/DATA/"
+}

@@ -1,0 +1,11 @@
+{
+    "id": "IntAct",
+    "name": "IntAct Molecular Interaction Database",
+    "description": "The IntAct Molecular Interaction Database provides open access to molecular interactions data derived from literature curation or direct user submission.",
+    "url": "https://www.ebi.ac.uk/intact/",
+    "attribution": "http://europepmc.org/article/MED/24234451",
+    "citation": "https://doi.org/10.1093/nar/gkab1006",
+    "full_citation": "N. Del Toro et al., “The IntAct database: efficient access to fine-grained molecular interaction data,” Nucleic Acids Res., vol. 50, no. D1, pp. D648–D653, Jan. 2022, PMID: 34761267",
+    "license": "CC BY 4.0",
+    "contentUrl": "https://www.ebi.ac.uk/intact/"
+}

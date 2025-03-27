@@ -1,0 +1,11 @@
+{
+    "id": "SIGNOR",
+    "name": "SIGnaling Network Open Resource (SIGNOR)",
+    "description": "Signor 3.0 is a resource that annotates experimental evidence about causal interactions between proteins and other entities of biological relevance: stimuli, phenotypes, enzyme inhibitors, complexes, protein families etc. ",
+    "url": "https://signor.uniroma2.it/",
+    "attribution": "https://signor.uniroma2.it/",
+    "citation": "https://doi.org/10.1093/nar/gkac883",
+    "full_citation": "Lo Surdo P, Iannuccelli M, Contino S, Castagnoli L, Licata L, Cesareni G, Perfetto L. SIGNOR 3.0, the SIGnaling network open resource 3.0: 2022 update. Nucleic Acids Res. 2022 Oct 16:gkac883. doi: 10.1093/nar/gkac883. Epub ahead of print. PMID: 36243968.",
+    "license": "CC BY 4.0",
+    "contentUrl": "https://signor.uniroma2.it/download_entity.php"
+}

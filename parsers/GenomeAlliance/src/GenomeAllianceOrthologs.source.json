@@ -1,0 +1,12 @@
+{
+    "id": "GenomeAllianceOrthologs",
+    "name": "Alliance of Genome Resources",
+    "description": "A consortium of 7 model organism databases (MODs) and the Gene Ontology (GO) Consortium whose goal is to provide an integrated view of their data to all biologists, clinicians and other interested parties.",
+    "url": "https://www.alliancegenome.org/",
+    "attribution": "https://www.alliancegenome.org/",
+    "citation": "https://doi.org/10.1093/genetics/iyae049",
+    "full_citation": "Updates to the Alliance of Genome Resources central infrastructure. 2024. Alliance of Genome Resources Consortium. Genetics. 2024 May 7;227(1):iyae049. doi: 10.1093/genetics/iyae049. PMID: 38552170.",
+    "license": "CC BY 4.0",
+    "contentUrl": "https://www.alliancegenome.org/",
+    "notes": ""
+}

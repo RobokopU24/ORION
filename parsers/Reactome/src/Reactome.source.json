@@ -1,0 +1,11 @@
+{
+    "id": "Reactome",
+    "name": "Reactome",
+    "description": "Reactome is a free, open-source, curated and peer-reviewed pathway database",
+    "url": "https://reactome.org/",
+    "attribution": "https://reactome.org/",
+    "citation": "https://doi.org/10.1093/nar/gkad1025",
+    "full_citation": "Milacic M, Beavers D, Conley P, Gong C, Gillespie M, Griss J, Haw R, Jassal B, Matthews L, May B, Petryszak R, Ragueneau E, Rothfels K, Sevilla C, Shamovsky V, Stephan R, Tiwari K, Varusai T, Weiser J, Wright A, Wu G, Stein L, Hermjakob H, D’Eustachio P. The Reactome Pathway Knowledgebase 2024. Nucleic Acids Research. 2024. doi: 10.1093/nar/gkad1025",
+    "license": "CC0 1.0",
+    "contentUrl": "https://reactome.org/"
+}

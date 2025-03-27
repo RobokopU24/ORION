@@ -1,0 +1,11 @@
+{
+    "id": "STRING-DB-Human",
+    "name": "STRING (Human)",
+    "description": "The Search Tool for the Retrieval of Interacting Genes/Proteins (STRING) database provides information on known and predicted protein-protein interactions (both direct and indirect) derived from genomic context predictions, high-throughput laboratory experiments, conserved co-expression, automated text mining, and aggregated knowledge from primary data sources.",
+    "url": "https://string-db.org",
+    "attribution": "https://string-db.org/",
+    "citation": "https://doi.org/10.1093/nar/gkac1000",
+    "full_citation": "",
+    "license": "CC BY 4.0",
+    "contentUrl": "https://string-db.org"
+}
