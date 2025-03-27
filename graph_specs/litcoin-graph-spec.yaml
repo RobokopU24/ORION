@@ -6,10 +6,11 @@ graphs:
     conflation: True
     strict_normalization: True
     output_format: neo4j
+    edge_merging_attributes:
+      - abstract_id
+    edge_id_addition: True
     sources:
       - source_id: LitCoin
-        edge_merging_attributes:
-          - abstract_id
 
   - graph_id: LitCoin_BagelService
     graph_name: LitCoin Bagel Service

@@ -63,6 +63,8 @@ class GraphSource:
     id: str
     merge_strategy: str = None
     edge_merging_attributes: list = None
+    edge_id_addition: bool = False
+    normalization_scheme: NormalizationScheme = None
     file_paths: list = None
 
     # Version may be generated when requested and differs for subclasses of GraphSource.
@@ -113,7 +115,8 @@ class DataSource(GraphSource):
                     'normalization_scheme': self.normalization_scheme.get_metadata_representation(),
                     'release_version': self.generate_version(),
                     'merge_strategy': self.merge_strategy,
-                    'edge_merging_attributes': self.edge_merging_attributes}
+                    'edge_merging_attributes': self.edge_merging_attributes,
+                    'edge_id_addition': self.edge_id_addition}
         if self.release_info:
             metadata.update(self.release_info)
         return metadata

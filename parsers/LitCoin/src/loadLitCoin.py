@@ -343,11 +343,9 @@ class LitCoinLoader(SourceDataLoader):
 
     def load_bagel_cache(self):
         bagel_cache_file_path = self.get_bagel_cache_path()
-        logger.info(f'LitCoinLoader in load_bagel_cache, file path is: {bagel_cache_file_path}')
         if os.path.exists(bagel_cache_file_path):
             with open(bagel_cache_file_path, "r") as bagel_cache_file:
                 self.bagel_results_lookup = json.load(bagel_cache_file)
-            logger.info(f'{bagel_cache_file_path} loaded, bagel_results_lookup: {self.bagel_results_lookup}')
         else:
             self.bagel_results_lookup = {}
 

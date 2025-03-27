@@ -89,7 +89,7 @@ class KGXFileMerger:
                               graph_sources: list):
 
         for i, graph_source in enumerate(graph_sources, start=1):
-            logger.info(f"Processing {graph_source.id}. (primary source {i}/{len(graph_sources)}), edge_merging_attr: {graph_source.edge_merging_attributes}")
+            logger.info(f"Processing {graph_source.id}. (primary source {i}/{len(graph_sources)})")
             self.merge_metadata["sources"][graph_source.id] = {'release_version': graph_source.version}
 
             for file_path in graph_source.get_node_file_paths():
@@ -101,7 +101,8 @@ class KGXFileMerger:
             for file_path in graph_source.get_edge_file_paths():
                 with jsonlines.open(file_path) as edges:
                     edges_count = self.edge_graph_merger.merge_edges(
-                        edges, additional_edge_attributes=graph_source.edge_merging_attributes)
+                        edges, additional_edge_attributes=graph_source.edge_merging_attributes,
+                        add_edge_id=graph_source.edge_id_addition)
                 source_filename = file_path.rsplit('/')[-1]
                 self.merge_metadata["sources"][graph_source.id][source_filename] = {"edges": edges_count}
 
@@ -127,12 +128,16 @@ class KGXFileMerger:
                 nodes_to_add = set()
                 for edge_file in graph_source.get_edge_file_paths():
                     edge_counter = 0
+                    additional_edge_attributes = graph_source.edge_merging_attributes
+                    add_edge_id = graph_source.edge_id_addition
                     for edge in quick_jsonl_file_iterator(edge_file):
                         edge_subject_connected = edge[SUBJECT_ID] in primary_node_ids
                         edge_object_connected = edge[OBJECT_ID] in primary_node_ids
                         if edge_subject_connected or edge_object_connected:
                             edge_counter += 1
-                            self.edge_graph_merger.merge_edge(edge)
+                            self.edge_graph_merger.merge_edge(edge,
+                                                              additional_edge_attributes=additional_edge_attributes,
+                                                              add_edge_id=add_edge_id)
                             if not edge_subject_connected:
                                 nodes_to_add.add(edge[SUBJECT_ID])
                             elif not edge_object_connected:

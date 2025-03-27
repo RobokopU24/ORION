@@ -74,13 +74,13 @@ class GraphMerger:
     def merge_nodes(self, nodes_iterable):
         raise NotImplementedError
 
-    def merge_edges(self, edges_iterable, additional_edge_attributes=None):
+    def merge_edges(self, edges_iterable, additional_edge_attributes=None, add_edge_id=False):
         raise NotImplementedError
 
     def merge_node(self, node):
         raise NotImplementedError
 
-    def merge_edge(self, edge):
+    def merge_edge(self, edge, additional_edge_attributes=None, add_edge_id=False):
         raise NotImplementedError
 
     def flush(self):
@@ -128,14 +128,14 @@ class DiskGraphMerger(GraphMerger):
         if len(self.entity_buffers[NODE_ENTITY_TYPE]) >= self.chunk_size:
             self.flush_node_buffer()
 
-    def merge_edges(self, edges, additional_edge_attributes=None):
-        logger.info(f'additional_edge_attributes: {additional_edge_attributes}')
+    def merge_edges(self, edges, additional_edge_attributes=None, add_edge_id=False):
+        logger.info(f'additional_edge_attributes: {additional_edge_attributes}, add_edge_id: {add_edge_id} in DiskGraphMerger:merge_edges()')
         sorting_function = lambda edge: edge_key_function(edge, custom_key_attributes=additional_edge_attributes)
         return self.merge_entities(edges,
                                    EDGE_ENTITY_TYPE,
                                    sorting_function)
 
-    def merge_edge(self, edge):
+    def merge_edge(self, edge, additional_edge_attributes=None, add_edge_id=False):
         self.entity_buffers[EDGE_ENTITY_TYPE].append(edge)
         if len(self.entity_buffers[EDGE_ENTITY_TYPE]) >= self.chunk_size:
             self.flush_edge_buffer()
@@ -213,7 +213,8 @@ class DiskGraphMerger(GraphMerger):
                             file_paths,
                             sorting_key_function,
                             merge_function,
-                            entity_type):
+                            entity_type,
+                            add_edge_id=False):
 
         if not file_paths:
             print('Warning: get_next_merged_entity called but no files were available! Empty source?')
@@ -287,23 +288,26 @@ class MemoryGraphMerger(GraphMerger):
             self.nodes[node_key] = node
 
     # merge a list of edges (dictionaries not kgxedge objects!) into the existing list
-    def merge_edges(self, edges, additional_edge_attributes=None):
-        logger.info(f'additional_edge_attributes: {additional_edge_attributes}')
+    def merge_edges(self, edges, additional_edge_attributes=None, add_edge_id=False):
         edge_count = 0
         for edge in edges:
             edge_count += 1
-            self.merge_edge(edge, additional_edge_attributes=additional_edge_attributes)
+            self.merge_edge(edge, additional_edge_attributes=additional_edge_attributes, add_edge_id=add_edge_id)
         return edge_count
 
-    def merge_edge(self, edge, additional_edge_attributes=None):
+    def merge_edge(self, edge, additional_edge_attributes=None, add_edge_id=False):
         edge_key = edge_key_function(edge, custom_key_attributes=additional_edge_attributes)
         if edge_key in self.edges:
             self.merged_edge_counter += 1
             merged_edge = entity_merging_function(quick_json_loads(self.edges[edge_key]),
                                                   edge,
                                                   EDGE_PROPERTIES_THAT_SHOULD_BE_SETS)
+            if add_edge_id is True:
+                merged_edge[EDGE_ID] = edge_key
             self.edges[edge_key] = quick_json_dumps(merged_edge)
         else:
+            if add_edge_id is True:
+                edge[EDGE_ID] = edge_key
             self.edges[edge_key] = quick_json_dumps(edge)
 
     def get_merged_nodes_jsonl(self):

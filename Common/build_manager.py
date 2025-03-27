@@ -396,6 +396,8 @@ class GraphBuilder:
                 graph_wide_edge_norm_version = graph_yaml.get('edge_normalization_version', None)
                 graph_wide_conflation = graph_yaml.get('conflation', None)
                 graph_wide_strict_norm = graph_yaml.get('strict_normalization', None)
+                edge_merging_attributes = graph_yaml.get('edge_merging_attributes', None)
+                edge_id_addition = graph_yaml.get('edge_id_addition', None)
                 if graph_wide_node_norm_version == 'latest':
                     graph_wide_node_norm_version = self.source_data_manager.get_latest_node_normalization_version()
                 if graph_wide_edge_norm_version == 'latest':
@@ -409,6 +411,10 @@ class GraphBuilder:
                         data_source.normalization_scheme.edge_normalization_version = graph_wide_edge_norm_version
                     if graph_wide_conflation is not None:
                         data_source.normalization_scheme.conflation = graph_wide_conflation
+                    if edge_merging_attributes is not None and data_source.merge_strategy != 'dont_merge_edges':
+                        data_source.edge_merging_attributes = edge_merging_attributes
+                    if edge_id_addition is not None and data_source.merge_strategy != 'dont_merge_edges':
+                        data_source.edge_id_addition = edge_id_addition
                     if graph_wide_strict_norm is not None:
                         data_source.normalization_scheme.strict = graph_wide_strict_norm
 
@@ -452,7 +458,6 @@ class GraphBuilder:
         source_version = source_yml.get('source_version', None)
         parsing_version = source_yml.get('parsing_version', None)
         merge_strategy = source_yml.get('merge_strategy', None)
-        edge_merging_attributes = source_yml.get('edge_merging_attributes', None)
         node_normalization_version = source_yml.get('node_normalization_version', None)
         edge_normalization_version = source_yml.get('edge_normalization_version', None)
         strict_normalization = source_yml.get('strict_normalization', True)
@@ -487,7 +492,6 @@ class GraphBuilder:
         data_source = DataSource(id=source_id,
                                  source_version=source_version,
                                  merge_strategy=merge_strategy,
-                                 edge_merging_attributes=edge_merging_attributes,
                                  normalization_scheme=normalization_scheme,
                                  parsing_version=parsing_version,
                                  supplementation_version=supplementation_version)
