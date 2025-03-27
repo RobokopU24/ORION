@@ -1,0 +1,11 @@
+{
+    "id": "OntologicalHierarchy",
+    "name": "Ubergraph Subclass Relationships",
+    "description": "Subclass relationships from the redundant version of Ubergraph.",
+    "url": "https://github.com/INCATools/ubergraph",
+    "attribution": "https://github.com/INCATools/ubergraph",
+    "citation": "",
+    "full_citation": "",
+    "license": "https://raw.githubusercontent.com/INCATools/ubergraph/master/LICENSE.txt",
+    "contentUrl": "https://github.com/INCATools/ubergraph"
+}

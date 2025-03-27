@@ -1,0 +1,11 @@
+{
+    "id": "CCIDB",
+    "name": "Cell-Cell Interaction Database (CCIDB)",
+    "description": "A curated database containing information about cell-cell interactions, including biological and clinical contexts. CCIs were manually retrieved from 272 studies and annotated with 38 types of context features.",
+    "url": "https://ccidb.sysmed.kr/",
+    "attribution": "https://sites.google.com/view/sysmedlab",
+    "citation": "https://doi.org/10.1093/database/baad057",
+    "full_citation": "",
+    "license": "https://creativecommons.org/licenses/by/4.0/",
+    "contentUrl": "https://ccidb.sysmed.kr/"
+}

@@ -1,0 +1,11 @@
+{
+    "id": "GWASCatalog",
+    "name": "GWAS Catalog",
+    "description": "The Genome-Wide Association Studies (GWAS) Catalog provides a curated, searchable, visualisable, and openly available database of single nucleotide polymorphism (SNP)-trait associations, derived from all GWAS publications identified by curators, who then extract the reported trait, significant SNP-trait associations, and sample metadata.",
+    "url": "https://www.ebi.ac.uk/gwas/",
+    "attribution": "https://www.ebi.ac.uk/gwas/",
+    "citation": "https://doi.org/10.1093/nar/gkae1070",
+    "full_citation": "Cerezo M, Sollis E, Ji Y, Lewis E, Abid A, Bircan KO, Hall P, Hayhurst J, John S, Mosaku A, Ramachandran S, Foreman A, Ibrahim A, McLaughlin J, Pendlington Z, Stefancsik R, Lambert SA, McMahon A, Morales J, Keane T, Inouye M, Parkinson H, Harris LW.\nThe NHGRI-EBI GWAS Catalog: standards for reusability, sustainability and diversity\nNucleic Acids Research, Volume 53, Issue D1, 6 January 2025, Pages D998–D1005, https://doi.org/10.1093/nar/gkae1070",
+    "license": "CC BY 4.0",
+    "contentUrl": "https://www.ebi.ac.uk/gwas/docs/file-downloads"
+}

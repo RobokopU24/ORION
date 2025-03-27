@@ -1,0 +1,11 @@
+{
+    "id": "SGD",
+    "name": "Saccharomyces Genome Database (SGD)",
+    "description": "",
+    "url": "https://www.yeastgenome.org/",
+    "attribution": "https://www.yeastgenome.org/",
+    "citation": "https://doi.org/10.1093/genetics/iyae185",
+    "full_citation": "",
+    "license": "CC BY 4.0",
+    "contentUrl": ""
+}

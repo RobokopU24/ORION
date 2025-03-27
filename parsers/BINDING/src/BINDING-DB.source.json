@@ -1,0 +1,11 @@
+{
+    "id": "BINDING-DB",
+    "name": "BindingDB",
+    "description": "A public, web-accessible database of measured binding affinities, focusing chiefly on the interactions of proteins considered to be candidate drug-targets with ligands that are small, drug-like molecules",
+    "url": "https://www.bindingdb.org/",
+    "attribution": "https://www.bindingdb.org/rwd/bind/info.jsp",
+    "citation": "https://doi.org/10.1093/nar/gkae1075",
+    "full_citation": "Liu T, Hwang L, Burley SK, Nitsche CI, Southan C, Walters WP, Gilson MK. BindingDB in 2024: a FAIR knowledgebase of protein-small molecule binding data. Nucleic Acids Res. 2025 Jan 6;53(D1):D1633-D1644. doi: 10.1093/nar/gkae1075. PMID: 39574417; PMCID: PMC11701568.",
+    "license": "Creative Commons BY 3.0",
+    "contentUrl": "https://www.bindingdb.org/rwd/bind/chemsearch/marvin/SDFdownload.jsp?all_download=yes"
+}

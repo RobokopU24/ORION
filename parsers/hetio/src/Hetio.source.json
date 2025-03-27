@@ -1,0 +1,11 @@
+{
+    "id": "Hetio",
+    "name": "Hetionet",
+    "description": "Hetionet is an open-source biomedical heterogeneous information network (hetnet) or graph-based resource describing relationships uncovered by millions of biomedical research studies over the past fifty years.",
+    "url": "https://het.io/about/",
+    "attribution": "https://het.io/about/",
+    "citation": "https://doi.org/10.1371/journal.pcbi.1004259",
+    "full_citation": "Heterogeneous Network Edge Prediction: A Data Integration Approach to Prioritize Disease-Associated Genes\nHimmelstein DS, Baranzini SE\nPLOS Computational Biology (2015)",
+    "license": "https://het.io/about/",
+    "contentUrl": "https://github.com/hetio/hetionet/blob/master/hetnet/json/hetionet-v1.0.json.bz2"
+}
