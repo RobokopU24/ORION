@@ -11,7 +11,7 @@ from Common.utils import LoggingUtil, GetDataPullError
 from Common.data_sources import get_available_data_sources
 from Common.exceptions import DataVersionError, GraphSpecError
 from Common.load_manager import SourceDataManager
-from Common.kgx_file_merger import KGXFileMerger
+from Common.kgx_file_merger import KGXFileMerger, DONT_MERGE
 from Common.kgx_validation import validate_graph
 from Common.neo4j_tools import create_neo4j_dump
 from Common.kgxmodel import GraphSpec, SubGraphSource, DataSource
@@ -411,9 +411,9 @@ class GraphBuilder:
                         data_source.normalization_scheme.edge_normalization_version = graph_wide_edge_norm_version
                     if graph_wide_conflation is not None:
                         data_source.normalization_scheme.conflation = graph_wide_conflation
-                    if edge_merging_attributes is not None and data_source.merge_strategy != 'dont_merge_edges':
+                    if edge_merging_attributes is not None and data_source.merge_strategy != DONT_MERGE:
                         data_source.edge_merging_attributes = edge_merging_attributes
-                    if edge_id_addition is not None and data_source.merge_strategy != 'dont_merge_edges':
+                    if edge_id_addition is not None and data_source.merge_strategy != DONT_MERGE:
                         data_source.edge_id_addition = edge_id_addition
                     if graph_wide_strict_norm is not None:
                         data_source.normalization_scheme.strict = graph_wide_strict_norm

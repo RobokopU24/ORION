@@ -1,7 +1,7 @@
 import os
 import jsonlines
 from itertools import chain
-from Common.utils import LoggingUtil, quick_jsonl_file_iterator, quick_json_loads
+from Common.utils import LoggingUtil, quick_jsonl_file_iterator
 from Common.kgxmodel import GraphSpec, SubGraphSource
 from Common.biolink_constants import SUBJECT_ID, OBJECT_ID
 from Common.merging import GraphMerger, DiskGraphMerger, MemoryGraphMerger
@@ -16,8 +16,9 @@ logger = LoggingUtil.init_logging("ORION.Common.KGXFileMerger",
                                   line_format='medium',
                                   log_file_path=os.environ['ORION_LOGS'])
 
-SECONDARY_MERGE_STRATEGIES = ['connected_edge_subset']
+CONNECTED_EDGE_SUBSET = 'connected_edge_subset'
 DONT_MERGE = 'dont_merge_edges'
+SECONDARY_MERGE_STRATEGIES = [CONNECTED_EDGE_SUBSET]
 
 
 class KGXFileMerger:
@@ -116,8 +117,8 @@ class KGXFileMerger:
         primary_node_ids = None
         for i, graph_source in enumerate(graph_sources, start=1):
             logger.info(f"Processing {graph_source.id}. (secondary source {i}/{len(graph_sources)})")
-            if graph_source.merge_strategy == 'connected_edge_subset':
-                logger.info(f"Merging {graph_source.id} using connected_edge_subset merge strategy.")
+            if graph_source.merge_strategy == CONNECTED_EDGE_SUBSET:
+                logger.info(f"Merging {graph_source.id} using {CONNECTED_EDGE_SUBSET} merge strategy.")
 
                 self.merge_metadata["sources"][graph_source.id] = {'release_version': graph_source.version}
 
