@@ -148,6 +148,10 @@ class BiolinkUtils:
             return True
         return False
 
+    @cache
+    def is_qualifier(self, property_name):
+        return self.toolkit.is_qualifier(property_name)
+
     def is_valid_node_type(self, node_type):
         return self.toolkit.is_category(node_type, mixin=True)
 

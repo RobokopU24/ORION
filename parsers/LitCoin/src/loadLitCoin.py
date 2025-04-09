@@ -18,6 +18,7 @@ from parsers.LitCoin.src.bagel.bagel import get_orion_bagel_results, extract_bes
 
 
 class LITCOIN:
+    EDGE_ID = 'id'
     ABSTRACT_ID = 'abstract_id'
     ABSTRACT_SPAN = 'abstract_span'
     ASSERTION_ID = 'assertion_id'
