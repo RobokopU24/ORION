@@ -68,7 +68,6 @@ class GraphBuilder:
         if build_status == Metadata.STABLE:
             self.build_results[graph_id] = {'version': graph_version}
             self.logger.info(f'Graph {graph_id} version {graph_version} was already built.')
-            return True
         else:
             # if we get here we need to build the graph
             self.logger.info(f'Building graph {graph_id} version {graph_version}, checking dependencies...')
