@@ -224,7 +224,7 @@ class DiskGraphMerger(GraphMerger):
                             add_edge_id=False):
 
         if not file_paths:
-            print('Warning: get_next_merged_entity called but no files were available! Empty source?')
+            logger.error('get_merged_entities called but no file_paths were provided! Empty source?')
             return
 
         file_handlers = [open(file_path) for file_path in file_paths]
