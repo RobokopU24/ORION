@@ -94,6 +94,7 @@ class GraphBuilder:
                                           edges_output_filename=EDGES_FILENAME)
             source_merger.merge()
             merge_metadata = source_merger.get_merge_metadata()
+            current_time = datetime.datetime.now().strftime('%m-%d-%y %H:%M:%S')
             if "merge_error" in merge_metadata:
                 graph_metadata.set_build_error(merge_metadata["merge_error"], current_time)
                 graph_metadata.set_build_status(Metadata.FAILED)
@@ -395,6 +396,8 @@ class GraphBuilder:
                 graph_wide_edge_norm_version = graph_yaml.get('edge_normalization_version', None)
                 graph_wide_conflation = graph_yaml.get('conflation', None)
                 graph_wide_strict_norm = graph_yaml.get('strict_normalization', None)
+                edge_merging_attributes = graph_yaml.get('edge_merging_attributes', None)
+                edge_id_addition = graph_yaml.get('edge_id_addition', None)
                 if graph_wide_node_norm_version == 'latest':
                     graph_wide_node_norm_version = self.source_data_manager.get_latest_node_normalization_version()
                 if graph_wide_edge_norm_version == 'latest':
@@ -408,6 +411,10 @@ class GraphBuilder:
                         data_source.normalization_scheme.edge_normalization_version = graph_wide_edge_norm_version
                     if graph_wide_conflation is not None:
                         data_source.normalization_scheme.conflation = graph_wide_conflation
+                    if edge_merging_attributes is not None and data_source.merge_strategy != 'dont_merge_edges':
+                        data_source.edge_merging_attributes = edge_merging_attributes
+                    if edge_id_addition is not None and data_source.merge_strategy != 'dont_merge_edges':
+                        data_source.edge_id_addition = edge_id_addition
                     if graph_wide_strict_norm is not None:
                         data_source.normalization_scheme.strict = graph_wide_strict_norm
 

@@ -1,8 +1,8 @@
 import os
 import jsonlines
 from itertools import chain
-from Common.utils import LoggingUtil, quick_jsonl_file_iterator, quick_json_dumps, quick_json_loads
-from Common.kgxmodel import GraphSpec, SubGraphSource, DataSource
+from Common.utils import LoggingUtil, quick_jsonl_file_iterator, quick_json_loads
+from Common.kgxmodel import GraphSpec, SubGraphSource
 from Common.biolink_constants import SUBJECT_ID, OBJECT_ID
 from Common.merging import GraphMerger, DiskGraphMerger, MemoryGraphMerger
 from Common.load_manager import RESOURCE_HOGS
@@ -38,7 +38,6 @@ class KGXFileMerger:
         self.unmerged_edge_files = {}
 
     def merge(self):
-
         if not (self.graph_spec.sources or self.graph_spec.subgraphs):
             merge_error_msg = f'Merge attempted but {self.graph_spec.graph_id} had no sources to merge.'
             logger.error(merge_error_msg)
@@ -105,7 +104,9 @@ class KGXFileMerger:
 
             for file_path in graph_source.get_edge_file_paths():
                 with jsonlines.open(file_path) as edges:
-                    edges_count = self.edge_graph_merger.merge_edges(edges)
+                    edges_count = self.edge_graph_merger.merge_edges(
+                        edges, additional_edge_attributes=graph_source.edge_merging_attributes,
+                        add_edge_id=graph_source.edge_id_addition)
                 source_filename = file_path.rsplit('/')[-1]
                 self.merge_metadata["sources"][graph_source.id][source_filename] = {"edges": edges_count}
         return True
@@ -115,9 +116,9 @@ class KGXFileMerger:
         primary_node_ids = None
         for i, graph_source in enumerate(graph_sources, start=1):
             logger.info(f"Processing {graph_source.id}. (secondary source {i}/{len(graph_sources)})")
-
             if graph_source.merge_strategy == 'connected_edge_subset':
                 logger.info(f"Merging {graph_source.id} using connected_edge_subset merge strategy.")
+
                 self.merge_metadata["sources"][graph_source.id] = {'release_version': graph_source.version}
 
                 # For connected_edge_subset, only merge edges that connect to nodes in primary sources.
@@ -129,12 +130,16 @@ class KGXFileMerger:
                 nodes_to_add = set()
                 for edge_file in graph_source.get_edge_file_paths():
                     edge_counter = 0
+                    additional_edge_attributes = graph_source.edge_merging_attributes
+                    add_edge_id = graph_source.edge_id_addition
                     for edge in quick_jsonl_file_iterator(edge_file):
                         edge_subject_connected = edge[SUBJECT_ID] in primary_node_ids
                         edge_object_connected = edge[OBJECT_ID] in primary_node_ids
                         if edge_subject_connected or edge_object_connected:
                             edge_counter += 1
-                            self.edge_graph_merger.merge_edge(edge)
+                            self.edge_graph_merger.merge_edge(edge,
+                                                              additional_edge_attributes=additional_edge_attributes,
+                                                              add_edge_id=add_edge_id)
                             if not edge_subject_connected:
                                 nodes_to_add.add(edge[SUBJECT_ID])
                             elif not edge_object_connected:
@@ -204,11 +209,10 @@ class KGXFileMerger:
                     all_unmerged_edges_count += edges_count
         return all_unmerged_edges_count
 
-
     """
     This is on hold / TBD - we should be able to process individual sources more efficiently
     def process_single_source(self, graph_source: SourceDataSpec, nodes_out_file: str, edges_out_file: str):
-        self.logger.info(f"Processing single primary source {graph_source.id}.")
+        logger.info(f"Processing single primary source {graph_source.id}.")
         files_processed = 0
         files_to_process = graph_source.file_paths
         if len(files_to_process) <= 2:
@@ -217,50 +221,6 @@ class KGXFileMerger:
         else:
             # merge all the files from just one source - probably dont need to check duplicates
     """
-
-    """
-    Given two sets of kgx files, A and B, append to A the edges from B that connect to nodes in A, 
-    and any nodes from B that they connect to.
-    """
-    def merge_connected_edges(self, primary_node_ids, node_file_a, edge_file_a, node_file_b, edge_file_b):
-
-
-        # first grab the node ids from file A
-        node_ids = set([node['id'] for node in quick_jsonl_file_iterator(node_file_a)])
-        connected_node_ids_not_in_a = set()
-
-        # append to edges file A the edges from B that connect to nodes from A,
-        # meanwhile determine the set of node ids from those edges that aren't in A already
-        edges_added = 0
-        with open(edge_file_a, 'a') as merged_edges_file, \
-                open(edge_file_b, 'r', encoding='utf-8') as edges_from_b:
-            for edge_line in edges_from_b:
-                subject_connected = False
-                object_connected = False
-                edge = quick_json_loads(edge_line)
-                if edge[SUBJECT_ID] in node_ids:
-                    subject_connected = True
-                if edge[OBJECT_ID] in node_ids:
-                    object_connected = True
-                if subject_connected or object_connected:
-                    edges_added += 1
-                    merged_edges_file.write(edge_line)
-                    if not subject_connected:
-                        connected_node_ids_not_in_a.add(edge[SUBJECT_ID])
-                    elif not object_connected:
-                        connected_node_ids_not_in_a.add(edge[OBJECT_ID])
-        logger.debug(f'Added {edges_added} new connected edges')
-
-        nodes_added = len(connected_node_ids_not_in_a)
-        logger.debug(f'Found {nodes_added} new nodes from connected edges')
-
-        with open(node_file_a, 'a') as merged_nodes_file:
-            for node_line in open(node_file_b, 'r', encoding='utf-8'):
-                node = quick_json_loads(node_line)
-                if node['id'] in connected_node_ids_not_in_a:
-                    merged_nodes_file.write(node_line)
-
-        return nodes_added, edges_added
 
     def init_edge_graph_merger(self) -> GraphMerger:
         needs_on_disk_merge = False

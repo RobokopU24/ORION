@@ -30,7 +30,7 @@ def add_label(issue_number, label_name):
     print(f"Label '{label_name}' added to issue/PR #{issue_number}")
 
 def check_keywords_in_text(text, keywords):
-    return any(keyword in text for keyword in keywords)
+    return any([keyword in text for keyword in keywords]) if text else False
 
 def main():
     issue_details = get_issue_details(ISSUE_NUMBER)
