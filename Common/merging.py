@@ -81,7 +81,7 @@ class GraphMerger:
     def merge_node(self, node):
         raise NotImplementedError
 
-    def merge_edge(self, edge):
+    def merge_edge(self, edge, additional_edge_attributes=None, add_edge_id=False):
         raise NotImplementedError
 
     def flush(self):
@@ -132,7 +132,7 @@ class DiskGraphMerger(GraphMerger):
                                    NODE_ENTITY_TYPE,
                                    node_key_function)
 
-    def merge_edge(self, edge):
+    def merge_edge(self, edge, additional_edge_attributes=None, add_edge_id=False):
         self.entity_buffers[EDGE_ENTITY_TYPE].append(edge)
         if len(self.entity_buffers[EDGE_ENTITY_TYPE]) >= self.chunk_size:
             self.flush_edge_buffer()
