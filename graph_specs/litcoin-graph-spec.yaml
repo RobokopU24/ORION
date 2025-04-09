@@ -1,14 +1,16 @@
 graphs:
 
-  - graph_id: LitCoin_ORION
+  - graph_id: LitCoin_ORION_with_edge_merging
     graph_name: LitCoin ORION
     graph_description: A graph for the LitCoin project using Bagel from ORION
     conflation: True
     strict_normalization: True
     output_format: neo4j
+    edge_merging_attributes:
+      - abstract_id
+    edge_id_addition: True
     sources:
       - source_id: LitCoin
-        merge_strategy: dont_merge_edges
 
   - graph_id: LitCoin_BagelService
     graph_name: LitCoin Bagel Service

@@ -65,12 +65,12 @@ def test_node_merging_counts_on_disk():
 
 
 def edge_property_merging_test(graph_merger: GraphMerger):
-
     test_edges = [{SUBJECT_ID: f'NODE:1',
                    PREDICATE: 'testing:predicate',
                    OBJECT_ID: f'NODE:2',
                    'testing_property': [i],
-                   AGGREGATOR_KNOWLEDGE_SOURCES: [f'source_{i}', 'source_X']}
+                   AGGREGATOR_KNOWLEDGE_SOURCES: [f'source_{i}', 'source_X'],
+                   'abstract_id': f'test_abstract_id'}
                   for i in range(1, 11)]
 
     graph_merger.merge_edges(test_edges)
@@ -82,15 +82,59 @@ def edge_property_merging_test(graph_merger: GraphMerger):
     # for which merging should collapse into a set of distinct values instead of appending blindly
     # in this case we should've ended up with source_1 through source_10 and source_X = 11 total
     assert len(merged_edges[0][AGGREGATOR_KNOWLEDGE_SOURCES]) == 11
+    assert 'id' not in merged_edges[0]
 
+def edge_property_merging_test_edge_id_with_merging(graph_merger: GraphMerger):
+    # test custom edge merging attributes with edge id addition
+    test_edges = [{SUBJECT_ID: f'NODE:1',
+                   PREDICATE: 'testing:predicate',
+                   OBJECT_ID: f'NODE:2',
+                   'testing_property': [i],
+                   AGGREGATOR_KNOWLEDGE_SOURCES: [f'source_{i}', 'source_X'],
+                   'abstract_id': f'test_abstract_id'}
+                  for i in range(1, 11)]
+
+    graph_merger.merge_edges(test_edges, additional_edge_attributes=['abstract_id'], add_edge_id=True)
+    merged_edges = [json.loads(edge) for edge in graph_merger.get_merged_edges_jsonl()]
+    print(merged_edges)
+    assert len(merged_edges) == 1
+    assert len(merged_edges[0]['testing_property']) == 10
+    assert 'id' in merged_edges[0]
+    assert merged_edges[0]['id'] is not None
+
+def edge_property_merging_test_edge_id_without_merging(graph_merger: GraphMerger):
+    # test custom edge merging attributes with edge id addition
+    test_edges = [{SUBJECT_ID: f'NODE:1',
+                   PREDICATE: 'testing:predicate',
+                   OBJECT_ID: f'NODE:2',
+                   'testing_property': [i],
+                   AGGREGATOR_KNOWLEDGE_SOURCES: [f'source_{i}', 'source_X'],
+                   'abstract_id': f'test_abstract_id_{i}'}
+                  for i in range(1, 11)]
+
+    graph_merger.merge_edges(test_edges, additional_edge_attributes=['abstract_id'], add_edge_id=True)
+    merged_edges = [json.loads(edge) for edge in graph_merger.get_merged_edges_jsonl()]
+    assert len(merged_edges) == 10
+    assert 'id' in merged_edges[0]
+    assert merged_edges[0]['id'] is not None
 
 def test_edge_property_merging_in_memory():
     edge_property_merging_test(MemoryGraphMerger())
 
-
 def test_edge_property_merging_on_disk():
-    edge_property_merging_test(DiskGraphMerger(temp_directory=TEMP_DIRECTORY, chunk_size=8))
+   edge_property_merging_test(DiskGraphMerger(temp_directory=TEMP_DIRECTORY, chunk_size=8))
 
+def test_edge_property_merging_in_memory_edge_id_with_merging():
+    edge_property_merging_test_edge_id_with_merging(MemoryGraphMerger())
+
+def test_edge_property_merging_in_memory_edge_id_without_merging():
+    edge_property_merging_test_edge_id_without_merging(MemoryGraphMerger())
+
+def test_edge_property_merging_on_disk_edge_id_with_merging():
+    edge_property_merging_test_edge_id_with_merging(DiskGraphMerger(temp_directory=TEMP_DIRECTORY, chunk_size=8))
+
+def test_edge_property_merging_on_dist_edge_id_without_merging():
+    edge_property_merging_test_edge_id_without_merging(DiskGraphMerger(temp_directory=TEMP_DIRECTORY, chunk_size=8))
 
 def edge_merging_counts_test(graph_merger: GraphMerger):
 
