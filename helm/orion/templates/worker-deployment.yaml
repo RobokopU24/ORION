@@ -1,0 +1,104 @@
+{{- if .Values.worker.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}-worker
+  labels:
+    app: {{ .Release.Name }}-worker
+spec:
+  replicas: {{ .Values.worker.replicaCount }}
+  selector:
+    matchLabels:
+      app: {{ .Release.Name }}-worker
+  template:
+    metadata:
+      labels:
+        app: {{ .Release.Name }}-worker
+    spec:
+      containers:
+      - name: worker
+        image: "{{ .Values.orion.image.repository }}:{{ .Values.orion.image.tag }}"
+        imagePullPolicy: {{ .Values.orion.image.pullPolicy }}
+        command: ["celery", "-A", "celery_worker.celery_app", "worker", "--loglevel=info"]
+        env:
+        - name: CELERY_BROKER_URL
+          value: {{ .Values.worker.celery.brokerUrl }}
+        - name: CELERY_RESULT_BACKEND
+          value: {{ .Values.worker.celery.resultBackend }}
+        - name: HOME
+          value: /ORION
+        - name: ORION_STORAGE
+          value: /ORION_storage
+        - name: ORION_GRAPHS
+          value: /ORION_graphs
+        - name: ORION_LOGS
+          value: /ORION_logs
+        - name: ORION_GRAPH_SPEC
+          value: {{ .Values.orion.graphSpec }}
+        # Add other env vars as needed
+        volumeMounts:
+          - mountPath: /ORION_storage
+            name: ds-sources-volume
+            {{- if .Values.orion.sourcesVolume.nfs_mount_subpath }}
+            subPath: {{ .Values.orion.sourcesVolume.nfs_mount_subpath }}
+            {{- end }}
+          - mountPath: /ORION_logs
+            name: ds-sources-volume
+            subPath: {{ .Values.orion.sourcesVolume.nfs_mount_subpath }}logs
+          - mountPath: /ORION_graphs
+            name: ds-graphs-volume
+            {{- if .Values.orion.graphsVolume.nfs_mount_subpath }}
+            subPath: {{ .Values.orion.graphsVolume.nfs_mount_subpath }}
+            {{- end }}
+          - mountPath: /data
+            name: ds-neo4j-scratch-volume
+            subPath: neo4j_data
+          - mountPath: /logs
+            name: ds-neo4j-scratch-volume
+            subPath: neo4j_logs
+          - mountPath: /ORION/.env
+            name: app-config
+            subPath: env-file
+        resources:
+          {{- toYaml .Values.orion.resources | nindent 12 }}
+      volumes:
+        {{- if .Values.orion.sourcesVolume.use_nfs }}
+        - name: ds-sources-volume
+          nfs:
+            server: {{ .Values.orion.sourcesVolume.nfs_server }}
+            path: {{ .Values.orion.sourcesVolume.nfs_path }}
+              {{- else }}
+        - name: ds-sources-volume
+          persistentVolumeClaim:
+            claimName: ds-sources-pvc
+              {{- end }}
+              {{- if .Values.orion.graphsVolume.use_nfs }}
+        - name: ds-graphs-volume
+          nfs:
+            server: {{ .Values.orion.graphsVolume.nfs_server }}
+            path: {{ .Values.orion.graphsVolume.nfs_path }}
+              {{- else }}
+        - name: ds-graphs-volume
+          persistentVolumeClaim:
+            claimName: ds-graphs-pvc
+              {{- end }}
+              {{- if .Values.orion.extraVolume.use_extra_volume }}
+        - name: ds-extra-volume
+          nfs:
+            server: {{ .Values.orion.extraVolume.nfs_server }}
+            path: {{ .Values.orion.extraVolume.nfs_path }}
+              {{- end }}
+        - name: ds-neo4j-scratch-volume
+          ephemeral:
+            volumeClaimTemplate:
+              spec:
+                accessModes: [ "ReadWriteOnce" ]
+                storageClassName: basic
+                resources:
+                  requests:
+                    storage: {{ .Values.orion.neo4jScratchVolume.size }}
+        - name: app-config
+          configMap:
+            name: {{ include "orion.fullname" . }}-app-config
+            defaultMode: 0777
+{{- end }}
