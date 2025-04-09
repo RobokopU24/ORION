@@ -209,19 +209,6 @@ class KGXFileMerger:
                     all_unmerged_edges_count += edges_count
         return all_unmerged_edges_count
 
-    """
-    This is on hold / TBD - we should be able to process individual sources more efficiently
-    def process_single_source(self, graph_source: SourceDataSpec, nodes_out_file: str, edges_out_file: str):
-        logger.info(f"Processing single primary source {graph_source.id}.")
-        files_processed = 0
-        files_to_process = graph_source.file_paths
-        if len(files_to_process) <= 2:
-            # TODO just copy them over, never needed to merge
-            # maybe split nodes and edges file paths in SourceDataSpec to make that more flexible
-        else:
-            # merge all the files from just one source - probably dont need to check duplicates
-    """
-
     def init_edge_graph_merger(self) -> GraphMerger:
         needs_on_disk_merge = False
         for graph_source in chain(self.graph_spec.sources, self.graph_spec.subgraphs):
