@@ -4,10 +4,11 @@ services:
       context: .
       dockerfile: Dockerfile
     container_name: orion-worker
-    command: [celery, "-A", "celery_worker.celery_app", "worker", "--loglevel=info"]
+    command: [celery, "-A", "celery_worker.celery_app", "worker", "--loglevel=info", "-Q orion"]
     environment:
       - CELERY_BROKER_URL=redis://redis:6379/0
       - CELERY_RESULT_BACKEND=redis://redis:6379/0
+      - SHARED_SOURCE_DATA_PATH=/tmp/shared_data
       - ORION_STORAGE=/ORION_storage
       - ORION_GRAPHS=/ORION_graphs
       - ORION_LOGS=/ORION_logs
@@ -31,6 +32,7 @@ services:
       - DRUGCENTRAL_DB_PORT
     volumes:
       - .:/ORION
+      - ${SHARED_SOURCE_DATA_PATH}:/tmp/shared_data
       - "${ORION_STORAGE}:/ORION_storage"
       - "${ORION_GRAPHS}:/ORION_graphs"
       - "${ORION_LOGS}:/ORION_logs"

@@ -25,7 +25,8 @@ def run_build_manager(task_data):
     os.environ["ORION_GRAPH_SPEC"] = task_data["graph_spec_filename"]
     # no need to catch CalledProcessError exception, but rather let it propogate to Celery task handling
     result = subprocess.run(
-        ["python", "build_manager.py", task_data["graph_id"]],
+        ["python", "build_manager.py", task_data["graph_id"], "--graph_specs_dir",
+         os.getenv('SHARED_SOURCE_DATA_PATH', None)],
         capture_output=True,
         text=True,
         check=True

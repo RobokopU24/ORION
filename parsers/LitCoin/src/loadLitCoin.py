@@ -1,4 +1,4 @@
-
+import shutil
 import os
 import json
 import yaml
@@ -81,7 +81,7 @@ class LitCoinLoader(SourceDataLoader):
         :param source_data_dir - the specific storage directory to save files in
         """
         super().__init__(test_mode=test_mode, source_data_dir=source_data_dir)
-
+        self.shared_source_data_path = os.getenv('SHARED_SOURCE_DATA_PATH', None)
         self.data_url = 'https://stars.renci.org/var/data_services/litcoin/'
         self.version_file = 'litcoin.yaml'
         self.abstracts_file = 'abstracts_CompAndHeal.json'
@@ -95,17 +95,26 @@ class LitCoinLoader(SourceDataLoader):
         self.mentions_predicate = "IAO:0000142"
 
     def get_latest_source_version(self) -> str:
-        version_file_url = f"{self.data_url}{self.version_file}"
-        r = requests.get(version_file_url)
-        version_yaml = yaml.full_load(r.text)
+        if not self.shared_source_data_path:
+            version_file_url = f"{self.data_url}{self.version_file}"
+            r = requests.get(version_file_url)
+            version_yaml = yaml.full_load(r.text)
+        else:
+            with open(os.path.join(self.shared_source_data_path, self.version_file), 'r') as f:
+                version_yaml = yaml.full_load(f)
+
         build_version = str(version_yaml['build'])
         return build_version
 
+
     def get_data(self) -> bool:
         for data_file in self.data_files:
-            source_data_url = f'{self.data_url}{data_file}'
-            data_puller = GetData()
-            data_puller.pull_via_http(source_data_url, self.data_path)
+            if not self.shared_source_data_path:
+                source_data_url = f'{self.data_url}{data_file}'
+                data_puller = GetData()
+                data_puller.pull_via_http(source_data_url, self.data_path)
+            else:
+                shutil.copy(os.path.join(self.shared_source_data_path, data_file), self.data_path)
         return True
 
     def parse_data(self) -> dict:
@@ -334,7 +343,10 @@ class LitCoinLoader(SourceDataLoader):
         return convert_orion_bagel_result_to_bagel_service_format(orion_bagel_results)
 
     def get_bagel_cache_path(self):
-        return os.path.join(self.data_path, "bagel_cache.json")
+        if self.shared_source_data_path:
+            return os.path.join(self.shared_source_data_path, "bagel_cache.json")
+        else:
+            return os.path.join(self.data_path, "bagel_cache.json")
 
     def load_bagel_cache(self):
         bagel_cache_file_path = self.get_bagel_cache_path()
