@@ -10,11 +10,18 @@ celery_app = Celery(
     backend=os.getenv("CELERY_RESULT_BACKEND", "redis://redis:6379/0"),
 )
 
+celery_app.conf.update(
+    task_serializer="json",
+    accept_content=["json"],
+    result_serializer="json",
+    task_track_started=True,
+    broker_connection_retry_on_startup=True
+)
 
 # Define the task handler for orion.data_ingestion
 # Make sure the name aligns with the task name used by celery in the upstream app
 # so that the data ingestion task can be picked up from the task queue
-@celery_app.task(name="orion.data_ingestion")
+@celery_app.task(name="orion.data_ingestion", queue="orion")
 def run_build_manager(task_data):
     # Ensure we're in the correct directory (ORION root)
     pwd_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'Common')
