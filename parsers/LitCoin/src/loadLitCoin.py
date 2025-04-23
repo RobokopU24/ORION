@@ -354,6 +354,7 @@ class LitCoinLoader(SourceDataLoader):
         return convert_orion_bagel_result_to_bagel_service_format(orion_bagel_results)
 
     def get_bagel_cache_path(self):
+<<<<<<< HEAD
         cache_path = os.path.join(self.data_path, "bagel_cache.json")
         # cache does not exist in source data path, check whether it exists in the shared source data path
         if not os.path.exists(cache_path) and self.shared_source_data_path:
@@ -361,6 +362,12 @@ class LitCoinLoader(SourceDataLoader):
             if os.path.exists(shared_cache_path):
                 shutil.copyfile(shared_cache_path, cache_path)
         return cache_path
+=======
+        if self.shared_source_data_path:
+            return os.path.join(self.shared_source_data_path, "bagel_cache.json")
+        else:
+            return os.path.join(self.data_path, "bagel_cache.json")
+>>>>>>> 890e20c (update ORION to ingest data generated from the LitCoin pipeline)
 
     def load_bagel_cache(self):
         bagel_cache_file_path = self.get_bagel_cache_path()
