@@ -115,10 +115,6 @@ class LitCoinLoader(SourceDataLoader):
                 data_puller.pull_via_http(source_data_url, self.data_path)
             else:
                 shutil.copy(os.path.join(self.shared_source_data_path, data_file), self.data_path)
-                # copy bagel_cache.json if it is in the shared data path
-                cache_file = os.path.join(self.shared_source_data_path, "bagel_cache.json")
-                if os.path.exists(cache_file):
-                    shutil.copy(cache_file, self.data_path)
         return True
 
     def parse_data(self) -> dict:
@@ -296,10 +292,6 @@ class LitCoinLoader(SourceDataLoader):
             self.logger.info(f'Skipping due to bagelization finding no match for: {entity_name} in abstract {abstract_id}')
             return None
         return bagel_node
-
-    def map_predicate(self, predicate, subject, object, abstract):
-
-        return predicate
 
     def parse_llm_edge(self, llm_json_edge, logger):
         converted_edge = {}
