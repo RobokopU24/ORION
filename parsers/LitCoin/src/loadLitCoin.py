@@ -115,6 +115,10 @@ class LitCoinLoader(SourceDataLoader):
                 data_puller.pull_via_http(source_data_url, self.data_path)
             else:
                 shutil.copy(os.path.join(self.shared_source_data_path, data_file), self.data_path)
+                # copy bagel_cache.json if it is in the shared data path
+                cache_file = os.path.join(self.shared_source_data_path, "bagel_cache.json")
+                if os.path.exists(cache_file):
+                    shutil.copy(cache_file, self.data_path)
         return True
 
     def parse_data(self) -> dict:
@@ -293,6 +297,10 @@ class LitCoinLoader(SourceDataLoader):
             return None
         return bagel_node
 
+    def map_predicate(self, predicate, subject, object, abstract):
+
+        return predicate
+
     def parse_llm_edge(self, llm_json_edge, logger):
         converted_edge = {}
         for field in required_edge_properties:
@@ -354,7 +362,6 @@ class LitCoinLoader(SourceDataLoader):
         return convert_orion_bagel_result_to_bagel_service_format(orion_bagel_results)
 
     def get_bagel_cache_path(self):
-<<<<<<< HEAD
         cache_path = os.path.join(self.data_path, "bagel_cache.json")
         # cache does not exist in source data path, check whether it exists in the shared source data path
         if not os.path.exists(cache_path) and self.shared_source_data_path:
@@ -362,12 +369,6 @@ class LitCoinLoader(SourceDataLoader):
             if os.path.exists(shared_cache_path):
                 shutil.copyfile(shared_cache_path, cache_path)
         return cache_path
-=======
-        if self.shared_source_data_path:
-            return os.path.join(self.shared_source_data_path, "bagel_cache.json")
-        else:
-            return os.path.join(self.data_path, "bagel_cache.json")
->>>>>>> 890e20c (update ORION to ingest data generated from the LitCoin pipeline)
 
     def load_bagel_cache(self):
         bagel_cache_file_path = self.get_bagel_cache_path()
