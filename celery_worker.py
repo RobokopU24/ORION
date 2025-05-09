@@ -38,4 +38,4 @@ def run_build_manager(task_data):
         text=True,
         check=True
     )
-    return {"status": "success", "output": result.stdout}
+    return {"status": "success", "output": f'graph {task_data["graph_id"]} is created successfully'}

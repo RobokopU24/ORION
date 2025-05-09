@@ -115,10 +115,6 @@ class LitCoinLoader(SourceDataLoader):
                 data_puller.pull_via_http(source_data_url, self.data_path)
             else:
                 shutil.copy(os.path.join(self.shared_source_data_path, data_file), self.data_path)
-                # copy bagel_cache.json if it is in the shared data path
-                cache_file = os.path.join(self.shared_source_data_path, "bagel_cache.json")
-                if os.path.exists(cache_file):
-                    shutil.copy(cache_file, self.data_path)
         return True
 
     def parse_data(self) -> dict:
@@ -182,6 +178,7 @@ class LitCoinLoader(SourceDataLoader):
                     subject_name = subject_node["name"]
                     subject_bagel_synonym_type = subject_node["synonym_type"]
                 else:
+                    self.logger.info('Skipping due to failed subject node bagelization.')
                     skipped_records += 1
                     continue
 
@@ -193,6 +190,7 @@ class LitCoinLoader(SourceDataLoader):
                     object_name = object_node["name"]
                     object_bagel_synonym_type = object_node["synonym_type"]
                 else:
+                    self.logger.info('Skipping due to failed object node bagelization.')
                     skipped_records += 1
                     continue
 
@@ -201,12 +199,13 @@ class LitCoinLoader(SourceDataLoader):
                                                            litcoin_edge[LITCOIN.RELATIONSHIP],
                                                            abstract_text,
                                                            logger=self.logger)
-                if predicate_mapping_resp is None or 'top_choice' not in predicate_mapping_resp:
+                if predicate_mapping_resp is None:
+                    self.logger.info('Skipping due to failed predicate mapping.')
                     skipped_records += 1
                     continue
 
-                predicate = predicate_mapping_resp['top_choice'][LITCOIN.PREDICATE]
-                predicate_negated = predicate_mapping_resp['top_choice'][LITCOIN.PREDICATE_NEGATED]
+                predicate = predicate_mapping_resp[LITCOIN.PREDICATE]
+                predicate_negated = predicate_mapping_resp[LITCOIN.PREDICATE_NEGATED]
 
                 self.output_file_writer.write_node(node_id=subject_id,
                                                    node_name=subject_name)
@@ -220,8 +219,8 @@ class LitCoinLoader(SourceDataLoader):
                     ABSTRACT_TITLE_EDGE_PROP: abstract_title,
                     ABSTRACT_TEXT_EDGE_PROP: abstract_text
                 })
-                if predicate_negated:
-                    output_edge_properties[NEGATED] = True
+
+                output_edge_properties[NEGATED] = predicate_negated
 
                 self.output_file_writer.write_edge(subject_id=subject_id,
                                                    object_id=object_id,
@@ -294,10 +293,6 @@ class LitCoinLoader(SourceDataLoader):
             return None
         return bagel_node
 
-    def map_predicate(self, predicate, subject, object, abstract):
-
-        return predicate
-
     def parse_llm_edge(self, llm_json_edge, logger):
         converted_edge = {}
         for field in required_edge_properties:
@@ -359,7 +354,13 @@ class LitCoinLoader(SourceDataLoader):
         return convert_orion_bagel_result_to_bagel_service_format(orion_bagel_results)
 
     def get_bagel_cache_path(self):
-        return os.path.join(self.data_path, "bagel_cache.json")
+        cache_path = os.path.join(self.data_path, "bagel_cache.json")
+        # cache does not exist in source data path, check whether it exists in the shared source data path
+        if not os.path.exists(cache_path) and self.shared_source_data_path:
+            shared_cache_path = os.path.join(self.shared_source_data_path, "bagel_cache.json")
+            if os.path.exists(shared_cache_path):
+                shutil.copyfile(shared_cache_path, cache_path)
+        return cache_path
 
     def load_bagel_cache(self):
         bagel_cache_file_path = self.get_bagel_cache_path()
