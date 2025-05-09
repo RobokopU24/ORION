@@ -10,6 +10,7 @@ from Common.loader_interface import SourceDataLoader
 from Common.biolink_constants import PUBLICATIONS, NEGATED
 from Common.utils import GetData, quick_jsonl_file_iterator
 from Common.normalization import call_name_resolution, NAME_RESOLVER_API_ERROR
+from Common.predicates import call_pred_mapping
 from Common.prefixes import PUBMED
 
 from parsers.LitCoin.src.bagel.bagel_service import call_bagel_service
@@ -26,8 +27,7 @@ class LITCOIN:
     OBJECT_NAME = 'object'
     OBJECT_TYPE = 'object_type'
     OBJECT_QUALIFIER = 'object_qualifier'
-    PREDICATE_MAPPING = 'predicate'
-    PREDICATE = 'mapped_predicate'
+    PREDICATE = 'predicate'
     PREDICATE_NEGATED = 'negated'
     RELATIONSHIP = 'relationship'
     RELATIONSHIP_QUALIFIER = 'statement_qualifier'
@@ -115,6 +115,10 @@ class LitCoinLoader(SourceDataLoader):
                 data_puller.pull_via_http(source_data_url, self.data_path)
             else:
                 shutil.copy(os.path.join(self.shared_source_data_path, data_file), self.data_path)
+                # copy bagel_cache.json if it is in the shared data path
+                cache_file = os.path.join(self.shared_source_data_path, "bagel_cache.json")
+                if os.path.exists(cache_file):
+                    shutil.copy(cache_file, self.data_path)
         return True
 
     def parse_data(self) -> dict:
@@ -192,9 +196,17 @@ class LitCoinLoader(SourceDataLoader):
                     skipped_records += 1
                     continue
 
-                predicate_mapping = litcoin_edge[LITCOIN.PREDICATE_MAPPING]
-                predicate = predicate_mapping[LITCOIN.PREDICATE]
-                predicate_negated = True if predicate_mapping[LITCOIN.PREDICATE_NEGATED] == "True" else False
+                predicate_mapping_resp = call_pred_mapping(litcoin_edge[LITCOIN.SUBJECT_NAME],
+                                                           litcoin_edge[LITCOIN.OBJECT_NAME],
+                                                           litcoin_edge[LITCOIN.RELATIONSHIP],
+                                                           abstract_text,
+                                                           logger=self.logger)
+                if predicate_mapping_resp is None or 'top_choice' not in predicate_mapping_resp:
+                    skipped_records += 1
+                    continue
+
+                predicate = predicate_mapping_resp['top_choice'][LITCOIN.PREDICATE]
+                predicate_negated = predicate_mapping_resp['top_choice'][LITCOIN.PREDICATE_NEGATED]
 
                 self.output_file_writer.write_node(node_id=subject_id,
                                                    node_name=subject_name)
@@ -282,6 +294,10 @@ class LitCoinLoader(SourceDataLoader):
             return None
         return bagel_node
 
+    def map_predicate(self, predicate, subject, object, abstract):
+
+        return predicate
+
     def parse_llm_edge(self, llm_json_edge, logger):
         converted_edge = {}
         for field in required_edge_properties:
@@ -343,10 +359,7 @@ class LitCoinLoader(SourceDataLoader):
         return convert_orion_bagel_result_to_bagel_service_format(orion_bagel_results)
 
     def get_bagel_cache_path(self):
-        if self.shared_source_data_path:
-            return os.path.join(self.shared_source_data_path, "bagel_cache.json")
-        else:
-            return os.path.join(self.data_path, "bagel_cache.json")
+        return os.path.join(self.data_path, "bagel_cache.json")
 
     def load_bagel_cache(self):
         bagel_cache_file_path = self.get_bagel_cache_path()

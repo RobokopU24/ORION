@@ -19,6 +19,7 @@ services:
       - NODE_NORMALIZATION_ENDPOINT
       - NAMERES_URL
       - SAPBERT_URL
+      - PRED_MAPPING_URL
       - BL_VERSION
       - PHAROS_DB_HOST
       - PHAROS_DB_USER
