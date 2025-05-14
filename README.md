@@ -145,7 +145,7 @@ See the `graph_specs` directory for more examples.
 
 ### Running ORION
 
-Install Docker to create and run the necessary containers. Make sure you are logged in from command line.
+Install Docker to create and run the necessary containers.
 
 Use the following command to build the necessary images.
 
