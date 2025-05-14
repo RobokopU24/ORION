@@ -4,7 +4,7 @@ import jsonlines
 import logging
 from Common.biolink_utils import BiolinkInformationResources, INFORES_STATUS_INVALID, INFORES_STATUS_DEPRECATED
 from Common.biolink_constants import SEQUENCE_VARIANT, PRIMARY_KNOWLEDGE_SOURCE, AGGREGATOR_KNOWLEDGE_SOURCES, \
-    PUBLICATIONS, OBJECT_ID, SUBJECT_ID, PREDICATE, SUBCLASS_OF
+    PUBLICATIONS, OBJECT_ID, SUBJECT_ID, PREDICATE, SUBCLASS_OF, ORIGINAL_OBJECT, ORIGINAL_SUBJECT
 from Common.normalization import NormalizationScheme, NodeNormalizer, EdgeNormalizer, EdgeNormalizationResult, \
     NormalizationFailedError
 from Common.utils import LoggingUtil, chunk_iterator
@@ -312,6 +312,11 @@ class KGXFileNormalizer:
                                     # create a new edge with the normalized values
                                     # start with the original edge to preserve other properties
                                     normalized_edge = edge.copy()
+
+                                    # Keep the original subject and object IDs
+                                    normalized_edge[ORIGINAL_SUBJECT] = normalized_edge[SUBJECT_ID]
+                                    normalized_edge[ORIGINAL_OBJECT] = normalized_edge[OBJECT_ID]
+
                                     normalized_edge[PREDICATE] = normalized_predicate
 
                                     if normalized_edge_properties:
