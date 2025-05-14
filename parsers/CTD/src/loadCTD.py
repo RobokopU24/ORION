@@ -43,7 +43,7 @@ class CTDLoader(SourceDataLoader):
     exposure_events_KL_AT_lookup = {
         'CTD:positive_correlation': (STATISTICAL_ASSOCIATION, MANUAL_AGENT),
         'CTD:negative_correlation': (STATISTICAL_ASSOCIATION, MANUAL_AGENT),
-        'CTD:prediction_hypothesis': (PREDICATION, NOT_PROVIDED)
+        'CTD:prediction_hypothesis': (PREDICTION, NOT_PROVIDED)
     }
     chemical_disease_KL_AT_lookup = {
         'CTD:contributes_to': (KNOWLEDGE_ASSERTION, MANUAL_AGENT),

@@ -63,7 +63,7 @@ TOTAL_SAMPLE_SIZE = 'total_sample_size'
 # enums for knowledge level
 KNOWLEDGE_ASSERTION = 'knowledge_assertion'
 LOGICAL_ENTAILMENT = 'logical_entailment'
-PREDICATION = 'prediction'
+PREDICTION = 'prediction'
 STATISTICAL_ASSOCIATION = 'statistical_association'
 OBSERVATION = 'observation'
 NOT_PROVIDED = 'not_provided'

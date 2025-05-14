@@ -250,7 +250,7 @@ class GTExLoader(SourceDataLoader):
         edge_properties = {'expressed_in': [anatomy_id],
                            P_VALUE: [float(p_value)],
                            'slope': [float(slope)],
-                           KNOWLEDGE_LEVEL: PREDICATION,
+                           KNOWLEDGE_LEVEL: PREDICTION,
                            AGENT_TYPE: COMPUTATIONAL_MODEL}
 
         # write out the coalesced edge for the previous group
