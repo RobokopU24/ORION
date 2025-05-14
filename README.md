@@ -1,34 +1,36 @@
-
 # ORION
+
 ### Operational Routine for the Ingest and Output of Networks
 
 This package takes data sets from various sources and converts them into Knowledge Graphs.
 
 Each data source will go through the following pipeline before it can be included in a graph:
 
-1. Fetch (retrieve an original data source) 
-2. Parse (convert the data source into KGX files) 
-3. Normalize (use normalization services to convert identifiers and ontology terms to preferred synonyms) 
+1. Fetch (retrieve an original data source)
+2. Parse (convert the data source into KGX files)
+3. Normalize (use normalization services to convert identifiers and ontology terms to preferred synonyms)
 4. Supplement (add supplementary knowledge specific to that source)
 
-To build a graph use a Graph Spec yaml file to specify the sources you want.
+To build a graph use a Graph Spec yaml file to specify the sources you want. Some examples live in `graph_specs` folder.
 
 ORION will automatically run each data source specified through the necessary pipeline. Then it will merge the specified sources into a Knowledge Graph.
 
 ### Installing and Configuring ORION
 
 Create a parent directory:
+
 ```
 mkdir ~/ORION_root
 ```
 
 Clone the code repository:
+
 ```
 cd ~/ORION_root
 git clone https://github.com/RobokopU24/ORION.git
 ```
 
-Next create directories where data sources, graphs, and logs will be stored. 
+Next create directories where data sources, graphs, and logs will be stored.
 
 **ORION_STORAGE** - for storing data sources
 
@@ -39,15 +41,17 @@ Next create directories where data sources, graphs, and logs will be stored.
 You can do this manually, or use the script indicated below to set up a default workspace.
 
 Option 1: Use this script to create the directories and set the environment variables:
+
 ```
 cd ~/ORION_root/ORION/
 source ./set_up_test_env.sh
 ```
 
 Option 2: Create three directories and set environment variables specifying paths to the locations of those directories.
+
 ```
 mkdir ~/ORION_root/storage/
-export ORION_STORAGE=~/ORION_root/storage/ 
+export ORION_STORAGE=~/ORION_root/storage/
 
 mkdir ~/ORION_root/graphs/
 export ORION_GRAPHS=~/ORION_root/graphs/
@@ -56,18 +60,25 @@ mkdir ~/ORION_root/logs/
 export ORION_LOGS=~/ORION_root/logs/
 ```
 
+#### Specify Graph Spec file.
+
 Next create or select a Graph Spec yaml file, where the content of knowledge graphs to be built is specified.
 
 Set either of the following environment variables, but not both:
 
 Option 1: ORION_GRAPH_SPEC - the name of a Graph Spec file located in the graph_specs directory of ORION
+
 ```
 export ORION_GRAPH_SPEC=example-graph-spec.yaml
 ```
+
 Option 2: ORION_GRAPH_SPEC_URL - a URL pointing to a Graph Spec yaml file
+
 ```
 export ORION_GRAPH_SPEC_URL=https://stars.renci.org/var/data_services/graph_specs/default-graph-spec.yaml
 ```
+
+#### Building graph
 
 To build a custom graph, alter a Graph Spec file, which is composed of a list of graphs.
 
@@ -79,7 +90,8 @@ For each graph, specify:
 
 See the full list of data sources and their identifiers in the [data sources file](https://github.com/RobokopU24/ORION/blob/master/Common/data_sources.py).
 
-Here is a simple example. 
+Here is a simple example.
+
 ```
 graphs:
   - graph_id: Example_Graph
@@ -110,6 +122,7 @@ The following are parameters you can set for the entire graph, or for an individ
 **conflation** - True or False flag specifying whether to conflate genes with proteins and chemicals with drugs
 
 For example, we could customize the previous example:
+
 ```
 graphs:
   - graph_id: Example_Graph
@@ -121,27 +134,40 @@ graphs:
       - source_id: HGNC
 ```
 
-See the graph_specs directory for more examples.
+See the `graph_specs` directory for more examples.
 
 ### Running ORION
 
-Install Docker to create and run the necessary containers. 
+Install Docker to create and run the necessary containers. Make sure you are logged in from command line.
 
-By default, using docker-compose up will build every graph in your Graph Spec. It runs the command: python /ORION/Common/build_manager.py all
+Use the following command to build the necessary images.
+
 ```
-docker-compose up
+docker compose build
 ```
+
+To uild every graph in your Graph Spec use the following command. This runs the command: `python /ORION/Common/build_manager.py all` on the image.
+
+```
+docker compose up
+```
+
 If you want to build an individual graph, you can override the default command with a graph_id from the Graph Spec:
+
 ```
-docker-compose run --rm orion python /ORION/Common/build_manager.py Example_Graph
+docker compose run --rm orion python /ORION/Common/build_manager.py Example_Graph
 ```
+
 To run the ORION pipeline for a single data source, you can use the load manager:
+
 ```
-docker-compose run --rm orion python /ORION/Common/load_manager.py CTD
+docker compose run --rm orion python /ORION/Common/load_manager.py CTD
 ```
+
 To see available arguments and a list of supported data sources:
+
 ```
-docker-compose run --rm orion python /ORION/Common/load_manager.py -h
+docker compose run --rm orion python /ORION/Common/load_manager.py -h
 ```
 
 ### For Developers
@@ -150,7 +176,8 @@ To add a new data source to ORION, create a new parser. Each parser extends the 
 
 To implement the interface you will need to write a class that fulfills the following.
 
-Set the class level variables for the source ID and provenance: 
+Set the class level variables for the source ID and provenance:
+
 ```
 source_id: str = 'ExampleSourceID'
 provenance_id: str = 'infores:example_source'
@@ -158,6 +185,7 @@ provenance_id: str = 'infores:example_source'
 
 In initialization, call the parent init function first and pass the initialization arguments.
 Then set the file names for the data file or files.
+
 ```
 super().__init__(test_mode=test_mode, source_data_dir=source_data_dir)
 
@@ -183,6 +211,7 @@ Now you can use that source ID in a graph spec to include your new source in a g
 #### Testing and Troubleshooting
 
 After you alter the codebase, or if you are experiencing issues or errors you may want to run tests:
+
 ```
 docker-compose run --rm orion pytest /ORION
 ```
