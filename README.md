@@ -184,6 +184,8 @@ Example command to convert data source CTD to KGX files.
 docker compose run --rm orion python /ORION/Common/load_manager.py CTD
 ```
 
+The generated graph data and metadata will be in /ORION_root/storage/ created earlier
+
 To see the available arguments and a list of supported data sources:
 
 ```
@@ -200,4 +202,4 @@ docker-compose run --rm orion pytest /ORION
 
 #### Contributing to ORION
 
-Contributions are welcome, see the [Contributer README](README-CONTRIBUTER.md).
+Contributions are welcome, see the [Contributor README](README-CONTRIBUTER.md).
