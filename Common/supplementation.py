@@ -200,7 +200,7 @@ class SequenceVariantSupplementation:
                         for effect_predicate, annotations in annotations_to_write.items():
                             for annotation in annotations:
                                 gene_curie = annotation['gene_id']
-                                edge_props = {KNOWLEDGE_LEVEL: PREDICATION,
+                                edge_props = {KNOWLEDGE_LEVEL: PREDICTION,
                                               AGENT_TYPE: COMPUTATIONAL_MODEL,
                                               'snpeff_effect': annotation['effect']}
                                 try:
