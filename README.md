@@ -161,21 +161,13 @@ docker compose up
 
 #### Building specific graphs
 
-<<<<<<< HEAD
 To build an individual graph use `build_manager.py` with a graph_id from the Graph Spec. The script runs the pipeline for each data source and merges them into complete graphs.
-=======
-To build an individual graph use `build_manager.py` with a graph_id from the Graph Spec. The script merges data sources into complete graphs.
->>>>>>> bf90b53 (ENH: Update the README file with documentation for the two python scripts run through docker)
 
 Usage: `build_manager.py [-h] graph_id`
 positional arguments:
 `graph_id` : ID of the graph to build. Must match an ID from the configured Graph Spec.
 
-<<<<<<< HEAD
 Example command to create a graph from a Graph Spec with the graph_id Example_Graph:
-=======
-Example command to create a graph from a Graph Spec with graph_id: Example_Graph:
->>>>>>> bf90b53 (ENH: Update the README file with documentation for the two python scripts run through docker)
 
 ```
 docker compose run --rm orion python /ORION/Common/build_manager.py Example_Graph
@@ -193,11 +185,7 @@ optional arguments:
   -l, --lenient_normalization : Lenient normalization mode will allow nodes that do not normalize to persist in the finalized kgx files.
 ```
 
-<<<<<<< HEAD
 Example command to ingest the data source CTD and convert it into normalized KGX files:
-=======
-Example command to convert data source CTD to KGX files.
->>>>>>> bf90b53 (ENH: Update the README file with documentation for the two python scripts run through docker)
 
 ```
 docker compose run --rm orion python /ORION/Common/load_manager.py CTD
@@ -219,7 +207,6 @@ docker compose run --rm orion pytest /ORION
 
 If you are building the docker image and performance issues occur, setting the correct platform for docker may help:
 
-<<<<<<< HEAD
 ```
 export DOCKER_PLATFORM=linux/arm64
 ```
@@ -227,6 +214,3 @@ export DOCKER_PLATFORM=linux/arm64
 #### Developers and Contributors
 
 If you would like to contribute to ORION see the [contributing](CONTRIBUTING.md) page.
-=======
-Contributions are welcome, see the [Contributer README](README-CONTRIBUTER.md).
->>>>>>> bf90b53 (ENH: Update the README file with documentation for the two python scripts run through docker)
