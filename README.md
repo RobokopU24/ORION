@@ -17,7 +17,7 @@ ORION can output knowledge graphs in KGX format (jsonl) or ready to use neo4j da
 
 ### Installing and Configuring ORION
 
-The following steps walk through a typical installation of ORION, where Docker images are built and deployed locally using Docker Compose. 
+The following steps walk through a typical installation of ORION, where Docker images are built and deployed locally using Docker Compose.
 
 Alternatively, prebuilt Docker images (on ghcr.io) and helm charts for deploying them are also available (./helm/orion/).
 
@@ -44,7 +44,7 @@ There are two ways to set up the environment.
 
 Use the provided script to create and configure all the required directories and environment variables.
 
-It will ask you to supply paths where directories will be created for ORION, or by default will create ones next to the repository directory. 
+It will ask you to supply paths where directories will be created for ORION, or by default will create ones next to the repository directory.
 
 It will also generate an .env file that will be used by Docker.
 
@@ -53,7 +53,7 @@ cd ~/ORION_root/ORION/
 ./create_env.sh
 ```
 
-##### Option 2: 
+##### Option 2:
 
 Use `.env.example` as an example and create your own directories and environment variables.
 
@@ -65,7 +65,7 @@ Create three new directories where data sources, graphs, and logs will be stored
 
 **ORION_LOGS** - for storing logs
 
-Copy the contents of `.env.example` to a new file named `.env`. 
+Copy the contents of `.env.example` to a new file named `.env`.
 
 Change **ORION_STORAGE**, **ORION_GRAPHS**, **ORION_LOGS** to point to the directories created above.
 
@@ -73,7 +73,7 @@ Alter any of the other example environment variables as needed.
 
 ### Configuring a Graph Specification
 
-Next create or select a Graph Specification yaml file, where the content of knowledge graphs to be built is specified. 
+Next create or select a Graph Specification yaml file, where the content of knowledge graphs to be built is specified.
 
 See the `graph_specs` folder for available Graph Specification files and examples.
 
@@ -82,7 +82,6 @@ Set either of the following values in your .env file, but not both:
 **ORION_GRAPH_SPEC** : the name of a Graph Spec file located in the graph_specs directory of ORION (example: example-graph-spec.yaml)
 
 **ORION_GRAPH_SPEC_URL** : a URL pointing to a Graph Spec yaml file online (example: https://stars.renci.org/var/data_services/graph_specs/default-graph-spec.yaml)
-
 
 #### Building a custom graph
 
@@ -146,7 +145,7 @@ See the `graph_specs` directory for more examples.
 
 ### Running ORION
 
-Install Docker to create and run the necessary containers.
+Install Docker to create and run the necessary containers. Make sure you are logged in from command line.
 
 Use the following command to build the necessary images.
 
