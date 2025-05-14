@@ -220,6 +220,9 @@ class PHAROSLoader(SourceDataLoader):
                         assigned_predicate = self.target_for_predicate
                     else:
                         assigned_predicate = self.genetic_association_predicate
+                    if edge_provenance == "infores:tiga":
+                        skipped_record_counter += 1
+                        continue
                     gene_to_disease_edge = kgxedge(subject_id=gene_id,
                                                    object_id=disease_id,
                                                    predicate=assigned_predicate,
@@ -273,6 +276,9 @@ class PHAROSLoader(SourceDataLoader):
             self.output_file_writer.write_kgx_node(gene_node)
 
             if edge_provenance:
+                if edge_provenance == "infores:tiga":
+                    skipped_record_counter += 1
+                    continue
                 drug_to_gene_edge = kgxedge(
                     subject_id=drug_id,
                     object_id=gene_id,
@@ -329,6 +335,9 @@ class PHAROSLoader(SourceDataLoader):
             self.output_file_writer.write_kgx_node(gene_node)
 
             if edge_provenance:
+                if edge_provenance == "infores:tiga":
+                    skipped_record_counter += 1
+                    continue
                 cmpd_to_gene_edge = kgxedge(subject_id=cmpd_id,
                                             object_id=gene_id,
                                             predicate=predicate,
@@ -425,22 +434,3 @@ class PHAROSLoader(SourceDataLoader):
 
     def sanitize_name(self, name):
         return ''.join([x if ord(x) < 128 else '?' for x in name])
-
-if __name__ == '__main__':
-    # create a command line parser
-    ap = argparse.ArgumentParser(description='Loads the PHAROS data from a MySQL DB and creates KGX import files.')
-
-    # command line should be like: python loadPHAROS.py -p D:\Work\Robokop\ORION\PHAROS_data -m json
-    ap.add_argument('-s', '--data_dir', required=True, help='The location of the output directory')
-
-    # parse the arguments
-    args = vars(ap.parse_args())
-
-    # get the params
-    data_dir: str = args['data_dir']
-
-    # get a reference to the processor
-    pdb = PHAROSLoader()
-
-    # load the data and create KGX output
-    pdb.load(data_dir, data_dir)
