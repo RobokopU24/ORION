@@ -514,25 +514,3 @@ class IALoader(SourceDataLoader):
 
         # return the value to the caller
         return ret_val
-
-
-if __name__ == '__main__':
-    # create a command line parser
-    ap = argparse.ArgumentParser(description='Load IntAct virus interaction data file and create KGX import files.')
-
-    # command line should be like: python loadIA.py -d E:/ORION/IntAct_data
-    ap.add_argument('-i', '--data_dir', required=True, help='The IntAct data file directory')
-
-    # parse the arguments
-    args = vars(ap.parse_args())
-
-    # IntAct_data_dir = 'E:/ORION/IntAct'
-    IntAct_data_dir = args['data_dir']
-    out_mode = args['out_mode']
-
-    # get a reference to the processor
-    # logging.DEBUG
-    ia = IALoader(False)
-
-    # load the data files and create KGX output files
-    ia.load(IntAct_data_dir, IntAct_data_dir)
