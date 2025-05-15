@@ -250,7 +250,7 @@ class PlantGOALoader(GOALoader):
     def __init__(self, test_mode: bool = False, source_data_dir: str = None):
         super().__init__(test_mode=test_mode, source_data_dir=source_data_dir)
         self.goa_data_url = 'http://current.geneontology.org/annotations/'
-        self.goa_data_file = 'goa_uniprot_all.gaf.gz'
+        self.goa_data_file = 'filtered_goa_uniprot_all.gaf.gz'
         self.plant_taxa_url = 'https://stars.renci.org/var/data_services/PlantGOA/'
         self.plant_taxa_file = 'plant_taxa.txt'
         self.data_files = [self.plant_taxa_file, self.goa_data_file]
