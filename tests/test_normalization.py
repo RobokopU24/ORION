@@ -163,6 +163,8 @@ def test_edge_inversion():
     edge_1 = {
         SUBJECT_ID: 'hgnc:1',
         OBJECT_ID: 'hgnc:2',
+        ORIGINAL_SUBJECT: 'orig:1',
+        ORIGINAL_OBJECT: 'orig:2',
         SUBJECT_ASPECT_QUALIFIER: 'some_aspect',
         SUBJECT_DIRECTION_QUALIFIER: 'up',
         f'{OBJECT_ID}_fake_qualifier': 'test_value',
@@ -173,6 +175,8 @@ def test_edge_inversion():
     assert inverted_edge == {
         OBJECT_ID: 'hgnc:1',
         SUBJECT_ID: 'hgnc:2',
+        ORIGINAL_OBJECT: 'orig:1',
+        ORIGINAL_SUBJECT: 'orig:2',
         OBJECT_ASPECT_QUALIFIER: 'some_aspect',
         OBJECT_DIRECTION_QUALIFIER: 'up',
         f'{SUBJECT_ID}_fake_qualifier': 'test_value',
