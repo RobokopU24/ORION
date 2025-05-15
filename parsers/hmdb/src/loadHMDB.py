@@ -28,7 +28,7 @@ class HMDBLoader(SourceDataLoader):
     source_data_url = "https://hmdb.ca/downloads"
     license = "https://hmdb.ca/about"
     attribution = "https://hmdb.ca/about#cite"
-    parsing_version: str = '1.3'
+    parsing_version: str = "1.4"
 
     def __init__(self, test_mode: bool = False, source_data_dir: str = None):
         """
@@ -201,16 +201,22 @@ class HMDBLoader(SourceDataLoader):
 
                         # what type of protein is this
                         if protein_type.text.startswith('Enzyme'):
+                            #Enzymes affect the rate of reactions that either produce or consume metabolites.
                             # create the edge data
-                            subject_id: str = metabolite_id
-                            object_id: str = protein_id
+                            subject_id: str = protein_id
+                            object_id: str = metabolite_id
                             predicate: str = f'{CTD}:affects_abundance_of'
                         # else it must be a transport?
-                        else:
+                        elif protein_type.text.startswith('Transport'):
                             # create the edge data
                             subject_id: str = protein_id
                             object_id: str = metabolite_id
                             predicate: str = f'{CTD}:increases_transport_of'
+                        else: # this should be a protein type of Unknown
+                            # create the edge data
+                            subject_id: str = metabolite_id
+                            object_id: str = protein_id
+                            predicate: str = f'{CTD}:related_to'
 
                         # get the name element
                         el_name: E_Tree.Element = p.find('name')
