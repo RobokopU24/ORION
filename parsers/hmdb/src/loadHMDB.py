@@ -28,7 +28,7 @@ class HMDBLoader(SourceDataLoader):
     source_data_url = "https://hmdb.ca/downloads"
     license = "https://hmdb.ca/about"
     attribution = "https://hmdb.ca/about#cite"
-    parsing_version: str = '1.3'
+    parsing_version: str = "1.4"
 
     def __init__(self, test_mode: bool = False, source_data_dir: str = None):
         """
