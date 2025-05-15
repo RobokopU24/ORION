@@ -109,7 +109,7 @@ class DrugMechDBLoader(SourceDataLoader):
 
         data = load_json(os.path.join(self.data_path,self.drugmechdb_file_name))
 
-         # init the record counters
+        # init the record counters
         record_counter: int = 0
         skipped_record_counter: int = 0
         with open(self.predicate_mapping_file, "r") as pm:
@@ -193,8 +193,13 @@ class DrugMechDBLoader(SourceDataLoader):
                             continue
 
         df = pd.DataFrame(source_target_pair_dict)
-        df = df.groupby(["source_ids","target_ids","predicates","qualified_predicates","object_direction_qualifiers","object_aspect_qualifiers"], as_index=False).agg(list).reset_index(drop=True)
-        df['dmdb_ids'] = df['dmdb_ids'].apply(lambda x: list(set(x))) ###Removes duplicates
+        df = df.groupby(
+            ["source_ids","target_ids","predicates","qualified_predicates","object_direction_qualifiers", "object_aspect_qualifiers"],
+            as_index=False
+        ).agg({
+            'dmdb_ids': lambda x: pd.unique(sum(x, []))
+        }).reset_index(drop=True)
+
         for index, row in df.iterrows():
             edge_props = {"drugmechdb_path_id": row["dmdb_ids"],
                           KNOWLEDGE_LEVEL: KNOWLEDGE_ASSERTION,
