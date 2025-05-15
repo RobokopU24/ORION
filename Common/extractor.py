@@ -1,3 +1,4 @@
+import csv
 from Common.kgxmodel import kgxnode, kgxedge
 from Common.kgx_file_writer import KGXFileWriter
 from Common.biolink_constants import PRIMARY_KNOWLEDGE_SOURCE, AGGREGATOR_KNOWLEDGE_SOURCES
@@ -65,7 +66,8 @@ class Extractor:
                 self.load_metadata['errors'].append(e.__str__())
                 self.load_metadata['skipped_record_counter'] += 1
 
-    def sql_extract(self, cursor, sql_query, subject_extractor, object_extractor, predicate_extractor, subject_property_extractor, object_property_extractor, edge_property_extractor, exclude_unconnected_nodes=False):
+    def sql_extract(self, cursor, sql_query, subject_extractor, object_extractor, predicate_extractor,
+                    subject_property_extractor, object_property_extractor, edge_property_extractor, exclude_unconnected_nodes=False):
         """Read a csv, perform callbacks to retrieve node and edge info per row.
         Assumes that all of the properties extractable for a node occur on the line with the node identifier"""
 
@@ -74,7 +76,8 @@ class Extractor:
         for row in rows:
             self.load_metadata['record_counter'] += 1
             try:
-                self.parse_row(row, subject_extractor, object_extractor, predicate_extractor, subject_property_extractor, object_property_extractor, edge_property_extractor, exclude_unconnected_nodes)
+                self.parse_row(row, subject_extractor, object_extractor, predicate_extractor, subject_property_extractor,
+                               object_property_extractor, edge_property_extractor, exclude_unconnected_nodes)
             except Exception as e:
                 self.load_metadata['errors'].append(e.__str__())
                 self.load_metadata['skipped_record_counter'] += 1
@@ -91,7 +94,8 @@ class Extractor:
         for item in json_array:
             self.load_metadata['record_counter'] += 1
             try:
-                self.parse_row(item, subject_extractor, object_extractor, predicate_extractor, subject_property_extractor, object_property_extractor, edge_property_extractor, exclude_unconnected_nodes)
+                self.parse_row(item, subject_extractor, object_extractor, predicate_extractor, subject_property_extractor,
+                               object_property_extractor, edge_property_extractor, exclude_unconnected_nodes)
             except Exception as e:
                 self.load_metadata['errors'].append(e.__str__())
                 self.load_metadata['skipped_record_counter'] += 1
@@ -109,7 +113,7 @@ class Extractor:
 
         # pull the information out of the edge
         raw_predicates = predicate_extractor(row) if predicate_extractor else None
-        if raw_predicates is None:
+        if exclude_unconnected_nodes and raw_predicates is None:
             return
 
         if isinstance(raw_predicates, str):
@@ -117,10 +121,7 @@ class Extractor:
         elif isinstance(raw_predicates, list) and all(isinstance(p, str) for p in raw_predicates):
             predicates = raw_predicates
         else:
-            return
-
-        if exclude_unconnected_nodes and predicates is None:
-            return
+            predicates = None
 
         raw_edgeprops = edge_property_extractor(row) if edge_property_extractor else {}
 
@@ -173,7 +174,6 @@ class Extractor:
                 self.nodes.append(object_node)
                 self.node_ids.add(object_id)
 
-
         for predicate, edgeprops in predicate_edgeprop_pairs:
             if not all([predicate, subject_id, object_id]):
                 continue
@@ -195,4 +195,3 @@ class Extractor:
             return self.file_writer.written_nodes
         else:
             return self.node_ids
-
