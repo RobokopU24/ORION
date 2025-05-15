@@ -583,26 +583,3 @@ class CTDLoader(SourceDataLoader):
 
         # return to caller with the default
         return 'biolink:related_to'
-
-
-if __name__ == '__main__':
-    """
-    entry point to initiate the parsing outside of the load manager
-    """
-    # create a command line parser
-    ap = argparse.ArgumentParser(description='Load CTD data files and create KGX import files.')
-
-    # command line should be like: python loadVP.py -p /projects/stars/ORION/ctd_data
-    ap.add_argument('-c', '--data_path', required=True, help='The location of the CTD data files')
-
-    # parse the arguments
-    args = vars(ap.parse_args())
-
-    # the path to the data
-    data_path: str = args['data_path']
-
-    # get a reference to the processor
-    ctd: CTDLoader = CTDLoader(False)
-
-    # load the data files and create KGX output
-    ctd.load(data_path, data_path)

@@ -264,23 +264,3 @@ class PlantGOALoader(GOALoader):
             for line in plant_taxa:
                 plant_taxa_set.add(line.strip())
         return plant_taxa_set
-
-
-if __name__ == '__main__':
-    # create a command line parser
-    ap = argparse.ArgumentParser(description='Load plant or human GOA files and create KGX import files.')
-
-    # command line should be like: python loadGOA.py -p goa_storage_path
-    ap.add_argument('-p', '--data_dir', required=True, help='The location to save the KGX files')
-
-    # parse the arguments
-    args = vars(ap.parse_args())
-
-    # get the params
-    data_dir = args['data_dir']
-
-    # TODO - very low priority - add an argument for specifying Human vs Plant and use the appropriate loader class
-    goa = PlantGOALoader(False)
-
-    # load the data files and create KGX output
-    goa.load(f"{data_dir}/nodes", f"{data_dir}/edges")

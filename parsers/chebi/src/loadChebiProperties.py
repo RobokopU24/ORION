@@ -182,21 +182,3 @@ class ChebiPropertiesLoader(SourceDataLoader):
                 ancestor_roles += ancestors[role]
             roles[node].update(ancestor_roles)
         return roles
-
-if __name__ == '__main__':
-    # create a command line parser
-    ap = argparse.ArgumentParser(description='Load Chebi-Properties data files and create KGX import files.')
-
-    ap.add_argument('-r', '--data_dir', required=True, help='The location of the Chebi-Properties data file')
-
-    # parse the arguments
-    args = vars(ap.parse_args())
-
-    # this is the base directory for data files and the resultant KGX files.
-    ch_data_dir: str = args['data_dir']
-
-    # get a reference to the processor
-    ch_ldr = ChebiPropertiesLoader()
-
-    # load the data files and create KGX output
-    ch_ldr.load(ch_data_dir + '/nodes.jsonl')

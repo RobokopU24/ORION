@@ -359,21 +359,3 @@ class GWASCatalogLoader(SourceDataLoader):
                 for predicate, edge in predicate_dict.items():
                     self.final_edge_list.append(edge)
         return mergers
-
-if __name__ == '__main__':
-    # create a command line parser
-    ap = argparse.ArgumentParser(description='Load GWASCatalog data files and create KGX files.')
-
-    ap.add_argument('-r', '--data_dir', required=True, help='The location of the GWASCatalog data file')
-
-    # parse the arguments
-    args = vars(ap.parse_args())
-
-    # this is the base directory for data files and the resultant KGX files.
-    data_dir: str = args['data_dir']
-
-    # get a reference to the processor
-    GWASCatLoader = GWASCatalogLoader()
-
-    # load the data files and create KGX output
-    GWASCatLoader.load(f"{data_dir}/nodes", f"{data_dir}/edges")

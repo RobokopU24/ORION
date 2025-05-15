@@ -371,14 +371,3 @@ class GTExLoader(SourceDataLoader):
 
                 # write out the data to the output file
                 tar_file.write(data)
-
-
-# TODO use argparse to specify output location
-if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description="Retrieve, parse, and convert GTEx data to KGX files.")
-    parser.add_argument('-t', '--test_mode', action='store_true')
-    parser.add_argument('--data_dir', default='.')
-    args = parser.parse_args()
-
-    loader = GTExLoader(test_mode=args.test_mode)
-    loader.load(args.data_dir, 'gtex_kgx')
