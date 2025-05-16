@@ -26,13 +26,17 @@ mkdir -p "$ORION_LOGS"
 read -rp "Filename for Graph Specification file from graph_specs directory (will use [example-graph-spec.yaml] if empty): " ORION_GRAPH_SPEC_INPUT
 ORION_GRAPH_SPEC="${ORION_GRAPH_SPEC_INPUT:-example-graph-spec.yaml}"
 
+# Prompt for python path
+read -rp "Python path (will use [$SCRIPT_DIR] if empty): " PYTHON_PATH_INPUT
+PYTHON_PATH_MORE="${PYTHON_PATH_INPUT:-$SCRIPT_DIR}"
+
 # Write environment variables to .env
 cat > "$ENV_FILE" <<EOF
 ORION_STORAGE=$ORION_STORAGE
 ORION_GRAPHS=$ORION_GRAPHS
 ORION_LOGS=$ORION_LOGS
 ORION_GRAPH_SPEC=$ORION_GRAPH_SPEC
-PYTHONPATH=\$PYTHONPATH:$SCRIPT_DIR
+PYTHONPATH=\$PYTHONPATH:$PYTHON_PATH_MORE
 EOF
 
 echo "✅ Environment setup complete. Variables saved to $ENV_FILE"
