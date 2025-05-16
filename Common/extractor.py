@@ -1,8 +1,13 @@
 import csv
+import os
 from Common.kgxmodel import kgxnode, kgxedge
 from Common.kgx_file_writer import KGXFileWriter
+from Common.utils import LoggingUtil
 from Common.biolink_constants import PRIMARY_KNOWLEDGE_SOURCE, AGGREGATOR_KNOWLEDGE_SOURCES
 
+logger = LoggingUtil.init_logging("ORION.Common.SourceDataManager",
+                                  line_format='medium',
+                                  log_file_path=os.environ['ORION_LOGS'])
 
 class Extractor:
     """
@@ -111,17 +116,20 @@ class Extractor:
                   edge_property_extractor,
                   exclude_unconnected_nodes=False):
 
-        # pull the information out of the edge
         raw_predicates = predicate_extractor(row) if predicate_extractor else None
-        if exclude_unconnected_nodes and raw_predicates is None:
-            return
 
+        # If raw_predicates is None, default to an empty list
+        predicates = []
+
+        # Handle different types gracefully
         if isinstance(raw_predicates, str):
             predicates = [raw_predicates]
-        elif isinstance(raw_predicates, list) and all(isinstance(p, str) for p in raw_predicates):
-            predicates = raw_predicates
-        else:
-            predicates = None
+        elif isinstance(raw_predicates, list):
+            # Filter out non-string items in the list to avoid processing issues
+            predicates = [p for p in raw_predicates if isinstance(p, str)]
+
+        if exclude_unconnected_nodes and raw_predicates is []:
+            return
 
         raw_edgeprops = edge_property_extractor(row) if edge_property_extractor else {}
 
