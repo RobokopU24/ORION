@@ -156,6 +156,8 @@ class CCIDBLoader(SourceDataLoader):
                     skipped_record_counter += 1
                     continue
 
+            # TODO we'd like to include this "combined term" as an original name/id on edges but there's no obvious way
+            # to represent that in biolink right now, original_subject and original_object aren't right they refer to id
             source_combined_term = f'{self.sanitize_ccidb_data(row[CCIDBDATACOLS.SOURCE_CELL.value])}: ' \
                                    f'{self.sanitize_ccidb_data(row[CCIDBDATACOLS.LITERATURE_SOURCE_CELL.value])}'
             source_term_info = term_lookup.get(source_combined_term)
