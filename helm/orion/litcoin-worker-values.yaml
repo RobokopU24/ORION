@@ -1,0 +1,39 @@
+# Values for running ORION worker on Sterling at RENCI
+
+replicaCount: 1
+
+orion:
+  shared_source_data_path: /tmp/shared_data
+  image:
+    repository: ghcr.io/robokopu24/orion
+    pullPolicy: Always
+    tag: litcoin-pipeline-worker-integration
+  neo4jScratchVolume:
+    size: 8Gi
+  resources:
+    limits:
+      cpu: "1"
+      memory: 10Gi
+      ephemeral-storage: 2Gi
+    requests:
+      cpu: "500m"
+      memory: 10Gi
+      ephemeral-storage: 1Gi
+  normalization:
+    nodeNormEndpoint: https://nodenormalization-sri.renci.org/
+    edgeNormEndpoint: https://bl-lookup-sri.renci.org/
+    nameResolverEndpoint: https://name-resolution-sri.renci.org/
+    sapbertEndpoint: https://sap-qdrant.apps.renci.org/
+    predMappingURL: https://pred-mapping.apps.renci.org
+    bl_version: 4.2.6-rc2
+
+  openAI:
+    openAIKey: fake-key-do-not-commit-a-real-one!!!
+    openAIOrg: fake-org-do-not-commit-a-real-one!!!
+
+# Worker-specific settings
+worker:
+  enabled: true  # enable running ORION as a celery worker
+  celery:
+    brokerUrl: "redis://redis:6379/0"
+    resultBackend: "redis://redis:6379/0"

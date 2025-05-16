@@ -12,6 +12,8 @@ services:
       - ORION_STORAGE=/ORION_storage
       - ORION_GRAPHS=/ORION_graphs
       - ORION_LOGS=/ORION_logs
+      - OPENAI_API_KEY=fake-key-do-not-commit-a-real-one!!!
+      - OPENAI_API_ORGANIZATION=fake-org-do-not-commit-a-real-one!!! 
       - ORION_GRAPH_SPEC
       - ORION_GRAPH_SPEC_URL
       - ORION_OUTPUT_URL
