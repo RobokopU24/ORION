@@ -1,13 +1,11 @@
 import os
-import argparse
 import enum
 
 from Common.utils import GetData
 from Common.biolink_constants import ANATOMICAL_CONTEXT_QUALIFIER, CAUSAL_MECHANISM_QUALIFIER, \
     FORM_OR_VARIANT_QUALIFIER, SPECIALIZATION_QUALIFIER, CONTEXT_QUALIFIER, KNOWLEDGE_LEVEL, AGENT_TYPE, \
-    SUBJECT_ASPECT_QUALIFIER, SUBJECT_CONTEXT_QUALIFIER, SUBJECT_FORM_OR_VARIANT_QUALIFIER, \
-    SUBJECT_SPECIALIZATION_QUALIFIER, OBJECT_ASPECT_QUALIFIER, OBJECT_SPECIALIZATION_QUALIFIER, \
-    OBJECT_CONTEXT_QUALIFIER, OBJECT_FORM_OR_VARIANT_QUALIFIER, DISEASE_CONTEXT_QUALIFIER, QUALIFIED_PREDICATE, \
+    SUBJECT_CONTEXT_QUALIFIER, SUBJECT_SPECIALIZATION_QUALIFIER, OBJECT_ASPECT_QUALIFIER, \
+    OBJECT_SPECIALIZATION_QUALIFIER, OBJECT_FORM_OR_VARIANT_QUALIFIER, DISEASE_CONTEXT_QUALIFIER, QUALIFIED_PREDICATE, \
     MANUAL_AGENT, KNOWLEDGE_ASSERTION, PUBLICATIONS
 from Common.loader_interface import SourceDataLoader
 
@@ -123,18 +121,17 @@ class CCIDBLoader(SourceDataLoader):
             if not source_gene_id:
                 unmapped_genes.add(source_gene_id)
                 skipped_record_counter += 1
-                self.logger.warning(f'source_gene_id missing: {row}')
                 continue
 
             target_gene_id = gene_id_lookup.get(self.sanitize_ccidb_data(row[CCIDBDATACOLS.TARGET_GENE.value]))
             if not target_gene_id:
                 unmapped_genes.add(target_gene_id)
                 skipped_record_counter += 1
-                self.logger.warning(f'target_gene_id missing: {row}')
                 continue
 
             effectors = self.sanitize_ccidb_data(row[CCIDBDATACOLS.EFFECTOR.value]).split(",")
-            effector_functions = self.sanitize_ccidb_data(row[CCIDBDATACOLS.EFFECTORS_FUNCTION.value]).split(",")
+            effector_functions = [eff_func.lower() for eff_func in
+                                  self.sanitize_ccidb_data(row[CCIDBDATACOLS.EFFECTORS_FUNCTION.value]).split(",")]
             if len(effectors) != len(effector_functions):
                 if len(effector_functions) == 1:
                     effector_functions = effector_functions * len(effectors)
@@ -145,8 +142,10 @@ class CCIDBLoader(SourceDataLoader):
                     effectors = []
                     effector_functions = []
 
-            phenotypes = self.sanitize_ccidb_data(row[CCIDBDATACOLS.PHENOTYPE.value]).split(",")
-            modes_of_action = self.sanitize_ccidb_data(row[CCIDBDATACOLS.MODE_OF_ACTION.value]).split(",")
+            phenotypes = [pheno.lower() for pheno in
+                          self.sanitize_ccidb_data(row[CCIDBDATACOLS.PHENOTYPE.value]).split(",")]
+            modes_of_action = [mode.lower() for mode in
+                               self.sanitize_ccidb_data(row[CCIDBDATACOLS.MODE_OF_ACTION.value]).split(",")]
             if len(phenotypes) != len(modes_of_action):
                 if len(modes_of_action) == 1:
                     modes_of_action = modes_of_action * len(phenotypes)
@@ -181,6 +180,13 @@ class CCIDBLoader(SourceDataLoader):
             target_term_disease_context_qualifier = target_term_info[CONTEXT_QUALIFIER]
             target_term_form_or_variant_qualifier = target_term_info[FORM_OR_VARIANT_QUALIFIER]
 
+            if source_term_disease_context_qualifier and not target_term_disease_context_qualifier:
+                disease_context_qualifier = source_term_disease_context_qualifier
+            elif target_term_disease_context_qualifier and not source_term_disease_context_qualifier:
+                disease_context_qualifier = target_term_disease_context_qualifier
+            else:
+                disease_context_qualifier = source_term_disease_context_qualifier
+
             pubmed_id = f"PMID:{self.sanitize_ccidb_data(row[CCIDBDATACOLS.PMID.value])}"
 
             self.output_file_writer.write_node(source_gene_id)
@@ -191,12 +197,9 @@ class CCIDBLoader(SourceDataLoader):
             # edge type 1
             # do we make two edges with both disease context qualifiers?
             edge_properties_1 = {
-                # SUBJECT_ANATOMICAL_CONTEXT_QUALIFIER: source_term_id,
                 SUBJECT_SPECIALIZATION_QUALIFIER: source_term_specialization_qualifier,
-                # OBJECT_ANATOMICAL_CONTEXT_QUALIFIER: target_term_id,
                 OBJECT_SPECIALIZATION_QUALIFIER: target_term_specialization_qualifier,
-                DISEASE_CONTEXT_QUALIFIER: source_term_disease_context_qualifier,
-                # DISEASE_CONTEXT_QUALIFIER: target_term_disease_context_qualifier,
+                DISEASE_CONTEXT_QUALIFIER: disease_context_qualifier,
                 KNOWLEDGE_LEVEL: KNOWLEDGE_ASSERTION,
                 AGENT_TYPE: MANUAL_AGENT,
                 PUBLICATIONS: [pubmed_id]
@@ -213,11 +216,9 @@ class CCIDBLoader(SourceDataLoader):
                     OBJECT_ASPECT_QUALIFIER: phenotype,
                     CAUSAL_MECHANISM_QUALIFIER: mode_of_action,
                     SUBJECT_CONTEXT_QUALIFIER: target_gene_id,
-                    # SUBJECT_ANATOMICAL_CONTEXT_QUALIFIER: source_term_id,
                     ANATOMICAL_CONTEXT_QUALIFIER: source_term_id,
                     SUBJECT_SPECIALIZATION_QUALIFIER: source_term_specialization_qualifier,
-                    # OBJECT_DISEASE_CONTEXT_QUALIFIER: target_term_disease_context_qualifier,
-                    DISEASE_CONTEXT_QUALIFIER: target_term_disease_context_qualifier,
+                    DISEASE_CONTEXT_QUALIFIER: disease_context_qualifier,
                     OBJECT_SPECIALIZATION_QUALIFIER: target_term_specialization_qualifier,
                     OBJECT_FORM_OR_VARIANT_QUALIFIER: target_term_form_or_variant_qualifier,
                     KNOWLEDGE_LEVEL: KNOWLEDGE_ASSERTION,
@@ -235,11 +236,9 @@ class CCIDBLoader(SourceDataLoader):
                     OBJECT_ASPECT_QUALIFIER: phenotype,
                     CAUSAL_MECHANISM_QUALIFIER: mode_of_action,
                     SUBJECT_CONTEXT_QUALIFIER: source_gene_id,
-                    # SUBJECT_ANATOMICAL_CONTEXT_QUALIFIER: target_term_id,
                     ANATOMICAL_CONTEXT_QUALIFIER: target_term_id,
                     SUBJECT_SPECIALIZATION_QUALIFIER: target_term_specialization_qualifier,
-                    # OBJECT_DISEASE_CONTEXT_QUALIFIER: target_term_disease_context_qualifier,
-                    DISEASE_CONTEXT_QUALIFIER: target_term_disease_context_qualifier,
+                    DISEASE_CONTEXT_QUALIFIER: disease_context_qualifier,
                     OBJECT_SPECIALIZATION_QUALIFIER: target_term_specialization_qualifier,
                     OBJECT_FORM_OR_VARIANT_QUALIFIER: target_term_form_or_variant_qualifier,
                     KNOWLEDGE_LEVEL: KNOWLEDGE_ASSERTION,
@@ -263,7 +262,6 @@ class CCIDBLoader(SourceDataLoader):
                     QUALIFIED_PREDICATE: self.causes_predicate,
                     OBJECT_ASPECT_QUALIFIER: effector_function,
                     SUBJECT_CONTEXT_QUALIFIER: target_gene_id,
-                    # SUBJECT_ANATOMICAL_CONTEXT_QUALIFIER: source_term_id,
                     ANATOMICAL_CONTEXT_QUALIFIER: source_term_id,
                     SUBJECT_SPECIALIZATION_QUALIFIER: source_term_specialization_qualifier,
                     KNOWLEDGE_LEVEL: KNOWLEDGE_ASSERTION,
@@ -279,7 +277,6 @@ class CCIDBLoader(SourceDataLoader):
                     QUALIFIED_PREDICATE: self.causes_predicate,
                     OBJECT_ASPECT_QUALIFIER: effector_function,
                     SUBJECT_CONTEXT_QUALIFIER: source_gene_id,
-                    # SUBJECT_ANATOMICAL_CONTEXT_QUALIFIER: target_term_id,
                     ANATOMICAL_CONTEXT_QUALIFIER: target_term_id,
                     SUBJECT_SPECIALIZATION_QUALIFIER: target_term_specialization_qualifier,
                     KNOWLEDGE_LEVEL: KNOWLEDGE_ASSERTION,
@@ -297,10 +294,7 @@ class CCIDBLoader(SourceDataLoader):
                         QUALIFIED_PREDICATE: self.causes_predicate,
                         OBJECT_ASPECT_QUALIFIER: phenotype,
                         CAUSAL_MECHANISM_QUALIFIER: mode_of_action,
-                        SUBJECT_CONTEXT_QUALIFIER: source_gene_id,
-                        # SUBJECT_CONTEXT_QUALIFIER: target_gene_id,
-                        # OBJECT_DISEASE_CONTEXT_QUALIFIER: target_term_disease_context_qualifier,
-                        DISEASE_CONTEXT_QUALIFIER: target_term_disease_context_qualifier,
+                        DISEASE_CONTEXT_QUALIFIER: disease_context_qualifier,
                         OBJECT_SPECIALIZATION_QUALIFIER: target_term_specialization_qualifier,
                         OBJECT_FORM_OR_VARIANT_QUALIFIER: target_term_form_or_variant_qualifier,
                         KNOWLEDGE_LEVEL: KNOWLEDGE_ASSERTION,
