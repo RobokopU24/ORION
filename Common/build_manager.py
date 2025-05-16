@@ -541,10 +541,12 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="Merge data sources into complete graphs.")
     parser.add_argument('graph_id',
                         help='ID of the graph to build. Must match an ID from the configured Graph Spec.')
+    parser.add_argument('--graph_specs_dir', type=str, default=None, help='Graph spec directory.')
     args = parser.parse_args()
     graph_id_arg = args.graph_id
+    graph_specs_dir = args.graph_specs_dir
 
-    graph_builder = GraphBuilder()
+    graph_builder = GraphBuilder(graph_specs_dir=graph_specs_dir)
     if graph_id_arg == "all":
         for graph_spec in graph_builder.graph_specs.values():
             graph_builder.build_graph(graph_spec)
