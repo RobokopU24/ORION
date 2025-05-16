@@ -17,6 +17,8 @@ ORION will automatically run each data source specified through the necessary pi
 
 ### Installing and Configuring ORION
 
+#### Initial setup
+
 Create a parent directory:
 
 ```
@@ -30,32 +32,42 @@ cd ~/ORION_root
 git clone https://github.com/RobokopU24/ORION.git
 ```
 
-Next create directories where data sources, graphs, and logs will be stored.
+Next create directories where data sources, graphs, and logs will be stored if you don't want to use defaults.
 
-**ORION_STORAGE** - for storing data sources
+**ORION_STORAGE** - for storing data sources (default: `ORION/../ORION_Storage`)
 
-**ORION_GRAPHS** - for storing knowledge graphs
+**ORION_GRAPHS** - for storing knowledge graphs (default: `ORION/../ORION_logs`)
 
-**ORION_LOGS** - for storing logs
+**ORION_LOGS** - for storing logs (default: `ORION/../ORION_graphs`)
+
+Next create or select a Graph Spec yaml file, where the content of knowledge graphs to be built is specified. `graph_specs` folder has some graph specification files.
+
+#### Setup environment
+
+There are two ways to setup the environment.
+
+##### Option 1: Use a script to create the directories and setup environment.:
+
+```
+cd ~/ORION_root/ORION/
+source ./create_env.sh
+```
+
+This will ask you to supply directory paths, or use defaults. The output is a .env file that will be used by Docker to build images.
+
+##### Option 2: Change .env.sample to the values that you'd like
 
 Copy `.env.sample` to `.env` file, and change **ORION_STORAGE**,
 **ORION_GRAPHS**, **ORION_LOGS** to point to the directories created above.
 
-Next create or select a Graph Spec yaml file, where the content of knowledge graphs to be built is specified.
-
 Set either of the following values in the .env file, but not both:
 
-Option 1: ORION_GRAPH_SPEC - the name of a Graph Spec file located in the graph_specs directory of ORION
+**_ORION_GRAPH_SPEC_** : the name of a Graph Spec file located in the graph_specs directory of ORION (for example example-graph-spec.yaml)
 
-```
-ORION_GRAPH_SPEC=example-graph-spec.yaml
-```
+**_ORION_GRAPH_SPEC_URL_** : a URL pointing to a Graph Spec yaml file (example:
+https://stars.renci.org/var/data_services/graph_specs/default-graph-spec.yaml )
 
-Option 2: ORION_GRAPH_SPEC_URL - a URL pointing to a Graph Spec yaml file
-
-```
-ORION_GRAPH_SPEC_URL=https://stars.renci.org/var/data_services/graph_specs/default-graph-spec.yaml
-```
+#### Building a custom graph
 
 To build a custom graph, alter a Graph Spec file, which is composed of a list of graphs.
 
@@ -111,7 +123,7 @@ graphs:
       - source_id: HGNC
 ```
 
-See the graph_specs directory for more examples.
+See the `graph_specs directory` for more examples.
 
 ### Running ORION
 
