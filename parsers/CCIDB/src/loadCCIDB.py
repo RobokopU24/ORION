@@ -12,7 +12,7 @@ from Common.loader_interface import SourceDataLoader
 import pandas as pd
 
 
-class CCIDBDATACOLS(enum.StrEnum):
+class CCIDBDATACOLS:
     SOURCE_GENE = 'source_gene'
     TARGET_GENE = 'target_gene'
     SOURCE_CELL = 'source_cell'
@@ -117,21 +117,21 @@ class CCIDBLoader(SourceDataLoader):
 
             record_counter += 1
 
-            source_gene_id = gene_id_lookup.get(self.sanitize_ccidb_data(row[CCIDBDATACOLS.SOURCE_GENE.value]))
+            source_gene_id = gene_id_lookup.get(self.sanitize_ccidb_data(row[CCIDBDATACOLS.SOURCE_GENE]))
             if not source_gene_id:
                 unmapped_genes.add(source_gene_id)
                 skipped_record_counter += 1
                 continue
 
-            target_gene_id = gene_id_lookup.get(self.sanitize_ccidb_data(row[CCIDBDATACOLS.TARGET_GENE.value]))
+            target_gene_id = gene_id_lookup.get(self.sanitize_ccidb_data(row[CCIDBDATACOLS.TARGET_GENE]))
             if not target_gene_id:
                 unmapped_genes.add(target_gene_id)
                 skipped_record_counter += 1
                 continue
 
-            effectors = self.sanitize_ccidb_data(row[CCIDBDATACOLS.EFFECTOR.value]).split(",")
-            effector_functions = [eff_func.lower() for eff_func in
-                                  self.sanitize_ccidb_data(row[CCIDBDATACOLS.EFFECTORS_FUNCTION.value]).split(",")]
+            effectors = [eff.strip() for eff in self.sanitize_ccidb_data(row[CCIDBDATACOLS.EFFECTOR]).split(",")]
+            effector_functions = [eff_func.lower().strip() for eff_func in
+                                  self.sanitize_ccidb_data(row[CCIDBDATACOLS.EFFECTORS_FUNCTION]).split(",")]
             if len(effectors) != len(effector_functions):
                 if len(effector_functions) == 1:
                     effector_functions = effector_functions * len(effectors)
@@ -142,10 +142,10 @@ class CCIDBLoader(SourceDataLoader):
                     effectors = []
                     effector_functions = []
 
-            phenotypes = [pheno.lower() for pheno in
-                          self.sanitize_ccidb_data(row[CCIDBDATACOLS.PHENOTYPE.value]).split(",")]
-            modes_of_action = [mode.lower() for mode in
-                               self.sanitize_ccidb_data(row[CCIDBDATACOLS.MODE_OF_ACTION.value]).split(",")]
+            phenotypes = [pheno.lower().strip() for pheno in
+                          self.sanitize_ccidb_data(row[CCIDBDATACOLS.PHENOTYPE]).split(",")]
+            modes_of_action = [mode.lower().strip() for mode in
+                               self.sanitize_ccidb_data(row[CCIDBDATACOLS.MODE_OF_ACTION]).split(",")]
             if len(phenotypes) != len(modes_of_action):
                 if len(modes_of_action) == 1:
                     modes_of_action = modes_of_action * len(phenotypes)
@@ -158,8 +158,8 @@ class CCIDBLoader(SourceDataLoader):
 
             # TODO we'd like to include this "combined term" as an original name/id on edges but there's no obvious way
             # to represent that in biolink right now, original_subject and original_object aren't right they refer to id
-            source_combined_term = f'{self.sanitize_ccidb_data(row[CCIDBDATACOLS.SOURCE_CELL.value])}: ' \
-                                   f'{self.sanitize_ccidb_data(row[CCIDBDATACOLS.LITERATURE_SOURCE_CELL.value])}'
+            source_combined_term = f'{self.sanitize_ccidb_data(row[CCIDBDATACOLS.SOURCE_CELL])}: ' \
+                                   f'{self.sanitize_ccidb_data(row[CCIDBDATACOLS.LITERATURE_SOURCE_CELL])}'
             source_term_info = term_lookup.get(source_combined_term)
             if not source_term_info:
                 unmapped_terms.add(source_combined_term)
@@ -170,8 +170,8 @@ class CCIDBLoader(SourceDataLoader):
             source_term_disease_context_qualifier = source_term_info.get(CONTEXT_QUALIFIER)
             source_term_form_or_variant_qualifier = source_term_info.get(FORM_OR_VARIANT_QUALIFIER)
 
-            target_combined_term = f'{self.sanitize_ccidb_data(row[CCIDBDATACOLS.TARGET_CELL.value])}: ' \
-                                   f'{self.sanitize_ccidb_data(row[CCIDBDATACOLS.LITERATURE_TARGET_CELL.value])}'
+            target_combined_term = f'{self.sanitize_ccidb_data(row[CCIDBDATACOLS.TARGET_CELL])}: ' \
+                                   f'{self.sanitize_ccidb_data(row[CCIDBDATACOLS.LITERATURE_TARGET_CELL])}'
             target_term_info = term_lookup.get(target_combined_term, None)
             if not target_term_info:
                 unmapped_terms.add(target_combined_term)
@@ -189,7 +189,7 @@ class CCIDBLoader(SourceDataLoader):
             else:
                 disease_context_qualifier = source_term_disease_context_qualifier
 
-            pubmed_id = f"PMID:{self.sanitize_ccidb_data(row[CCIDBDATACOLS.PMID.value])}"
+            pubmed_id = f"PMID:{self.sanitize_ccidb_data(row[CCIDBDATACOLS.PMID])}"
 
             self.output_file_writer.write_node(source_gene_id)
             self.output_file_writer.write_node(target_gene_id)
@@ -309,11 +309,11 @@ class CCIDBLoader(SourceDataLoader):
                                                        edge_properties=edge_properties_6)
 
         if unmapped_terms:
-            self.logger.info(f'These terms were not found in the mapping files: {list(unmapped_terms)}')
+            self.logger.info(f'These terms could not be mapped to identifiers: {list(unmapped_terms)}')
         if unmapped_genes:
-            self.logger.info(f'These genes were not found in the mapping files: {list(unmapped_genes)}')
+            self.logger.info(f'These genes could not be mapped to identifiers: {list(unmapped_genes)}')
         if unmapped_effectors:
-            self.logger.info(f'These effectors were not found in the mapping files: {list(unmapped_effectors)}')
+            self.logger.info(f'These effectors could not be mapped to identifiers: {list(unmapped_effectors)}')
         load_metadata: dict = {'num_source_lines': record_counter,
                                'unusable_source_lines': skipped_record_counter,
                                'unmapped_terms': list(unmapped_terms),
