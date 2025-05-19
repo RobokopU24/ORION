@@ -1,13 +1,7 @@
 import csv
-import os
 from Common.kgxmodel import kgxnode, kgxedge
 from Common.kgx_file_writer import KGXFileWriter
-from Common.utils import LoggingUtil
 from Common.biolink_constants import PRIMARY_KNOWLEDGE_SOURCE, AGGREGATOR_KNOWLEDGE_SOURCES
-
-logger = LoggingUtil.init_logging("ORION.Common.SourceDataManager",
-                                  line_format='medium',
-                                  log_file_path=os.environ['ORION_LOGS'])
 
 class Extractor:
     """
