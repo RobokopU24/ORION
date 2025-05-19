@@ -3,6 +3,8 @@ import argparse
 import os
 from collections import defaultdict
 
+import jsonlines
+
 from Common.biolink_constants import NODE_TYPES, SUBJECT_ID, OBJECT_ID, PREDICATE, PRIMARY_KNOWLEDGE_SOURCE, AGGREGATOR_KNOWLEDGE_SOURCES
 from Common.utils import quick_jsonl_file_iterator
 from Common.biolink_utils import BiolinkUtils
@@ -14,6 +16,7 @@ BL_ATTRIBUTE_MAP = {
 
 META_KG_FILENAME = 'meta_knowledge_graph.json'
 TEST_DATA_FILENAME = 'testing_data.json'
+EXAMPLE_DATA_FILENAME = 'example_edges.jsonl'
 
 
 ####
@@ -38,6 +41,8 @@ class MetaKnowledgeGraphBuilder:
             "source_type": "primary",
             "edges": []
         }
+        self.example_nodes = {}
+        self.example_edges = []
         self.analyze_nodes(nodes_file_path)
         self.analyze_edges(edges_file_path)
 
@@ -163,6 +168,7 @@ class MetaKnowledgeGraphBuilder:
                                 for qualifier, qualifier_value in edge_qualifier_values.items()
                             ]
                         edge_type_key_to_example[edge_type_key] = example_edge
+                        self.example_edges.append(edge)
 
         for subject_node_type, object_types_to_predicates in edge_types.items():
             for object_node_type, predicates in object_types_to_predicates.items():
@@ -207,3 +213,8 @@ class MetaKnowledgeGraphBuilder:
     def write_test_data_to_file(self, output_file_path: str):
         with open(output_file_path, 'w') as test_data_file:
             test_data_file.write(json.dumps(self.testing_data, indent=4))
+
+    def write_example_data_to_file(self, output_file_path: str):
+        with open(output_file_path, 'w') as output_file_handler:
+            with jsonlines.Writer(output_file_handler) as writer:
+                writer.write_all(self.example_edges)
