@@ -39,8 +39,8 @@ spec:
           value: {{ .Values.orion.openAI.openAIKey }}
         - name: OPENAI_API_ORGANIZATION
           value: {{ .Values.orion.openAI.openAIOrg }}
-        - name: PRED_MAPPING_URL
-          value: {{ .Values.orion.normalization.predMappingURL }}
+        - name: LITCOIN_PRED_MAPPING_URL
+          value: {{ .Values.orion.normalization.litcoinPredMappingURL }}
         - name: NODE_NORMALIZATION_ENDPOINT
           value: {{ .Values.orion.normalization.nodeNormEndpoint }}
         - name: EDGE_NORMALIZATION_ENDPOINT

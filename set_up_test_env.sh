@@ -24,7 +24,7 @@ export ORION_GRAPH_SPEC=example-graph-spec.yaml
 
 export PYTHONPATH="$PYTHONPATH:$PWD"
 
-export PRED_MAPPING_URL=https://pred-mapping.apps.renci.org/
+export LITCOIN_PRED_MAPPING_URL=https://pred-mapping.apps.renci.org/
 
 #The following environment variables are optional
 # export EDGE_NORMALIZATION_ENDPOINT=https://bl-lookup-sri.renci.org/
