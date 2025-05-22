@@ -62,7 +62,7 @@ class TMKPLoader(SourceDataLoader):
     source_data_url = ""
     license = ""
     attribution = ""
-    parsing_version = "1.2"
+    parsing_version = "1.3"
 
     def __init__(self, test_mode: bool = False, source_data_dir: str = None):
         """
@@ -143,7 +143,7 @@ class TMKPLoader(SourceDataLoader):
                         sentences.append(paper)
 
                 edge_props = {PUBLICATIONS: [paper_id for paper_id in paper_idxs.split('|')],
-                              "biolink:tmkp_confidence_score": float(confidence_score),
+                              "tmkp_confidence_score": float(confidence_score),
                               "sentences": "|".join(sentences),
                               "tmkp_ids": [tmkp_id for tmkp_id in tmpk_idxs.split('|')],
                               KNOWLEDGE_LEVEL: NOT_PROVIDED,
