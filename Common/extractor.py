@@ -3,7 +3,6 @@ from Common.kgxmodel import kgxnode, kgxedge
 from Common.kgx_file_writer import KGXFileWriter
 from Common.biolink_constants import PRIMARY_KNOWLEDGE_SOURCE, AGGREGATOR_KNOWLEDGE_SOURCES
 
-
 class Extractor:
     """
     This is a class so that it can be used to accumulate nodes and edges across multiple files or input streams
@@ -66,7 +65,8 @@ class Extractor:
                 self.load_metadata['errors'].append(e.__str__())
                 self.load_metadata['skipped_record_counter'] += 1
 
-    def sql_extract(self, cursor, sql_query, subject_extractor, object_extractor, predicate_extractor, subject_property_extractor, object_property_extractor, edge_property_extractor, exclude_unconnected_nodes=False):
+    def sql_extract(self, cursor, sql_query, subject_extractor, object_extractor, predicate_extractor,
+                    subject_property_extractor, object_property_extractor, edge_property_extractor, exclude_unconnected_nodes=False):
         """Read a csv, perform callbacks to retrieve node and edge info per row.
         Assumes that all of the properties extractable for a node occur on the line with the node identifier"""
 
@@ -75,7 +75,8 @@ class Extractor:
         for row in rows:
             self.load_metadata['record_counter'] += 1
             try:
-                self.parse_row(row, subject_extractor, object_extractor, predicate_extractor, subject_property_extractor, object_property_extractor, edge_property_extractor, exclude_unconnected_nodes)
+                self.parse_row(row, subject_extractor, object_extractor, predicate_extractor, subject_property_extractor,
+                               object_property_extractor, edge_property_extractor, exclude_unconnected_nodes)
             except Exception as e:
                 self.load_metadata['errors'].append(e.__str__())
                 self.load_metadata['skipped_record_counter'] += 1
@@ -92,7 +93,8 @@ class Extractor:
         for item in json_array:
             self.load_metadata['record_counter'] += 1
             try:
-                self.parse_row(item, subject_extractor, object_extractor, predicate_extractor, subject_property_extractor, object_property_extractor, edge_property_extractor, exclude_unconnected_nodes)
+                self.parse_row(item, subject_extractor, object_extractor, predicate_extractor, subject_property_extractor,
+                               object_property_extractor, edge_property_extractor, exclude_unconnected_nodes)
             except Exception as e:
                 self.load_metadata['errors'].append(e.__str__())
                 self.load_metadata['skipped_record_counter'] += 1
@@ -107,15 +109,50 @@ class Extractor:
                   object_property_extractor,
                   edge_property_extractor,
                   exclude_unconnected_nodes=False):
-        # pull the information out of the edge
-        predicate = predicate_extractor(row) if predicate_extractor is not None else None
-        if exclude_unconnected_nodes and predicate is None:
+
+        raw_predicates = predicate_extractor(row) if predicate_extractor else None
+
+        # If raw_predicates is None, default to an empty list
+        predicates = []
+
+        # Handle different types gracefully
+        if isinstance(raw_predicates, str):
+            predicates = [raw_predicates]
+        elif isinstance(raw_predicates, list):
+            # Filter out non-string items in the list to avoid processing issues
+            predicates = [p for p in raw_predicates if isinstance(p, str)]
+
+        if exclude_unconnected_nodes and raw_predicates is []:
             return
+
+        raw_edgeprops = edge_property_extractor(row) if edge_property_extractor else {}
+
+        if isinstance(raw_edgeprops, dict):
+            # Case 1: shared dict for all predicates
+            predicate_edgeprop_pairs = [(pred, raw_edgeprops) for pred in predicates]
+
+        elif isinstance(raw_edgeprops, list):
+            if len(raw_edgeprops) == len(predicates):
+                # Case 2: one dict per predicate
+                predicate_edgeprop_pairs = list(zip(predicates, raw_edgeprops))
+            else:
+                self.load_metadata['errors'].append(
+                    f"Edge property list length ({len(raw_edgeprops)}) does not match predicate count ({len(predicates)}) at row: {row}"
+                )
+                self.load_metadata['skipped_record_counter'] += 1
+                return
+
+        else:
+            self.load_metadata['errors'].append(
+                f"Unsupported edge property format: {type(raw_edgeprops)} at row: {row}"
+            )
+            self.load_metadata['skipped_record_counter'] += 1
+            return
+
         subject_id = subject_extractor(row)
         object_id = object_extractor(row) if object_extractor is not None else None
         subjectprops = subject_property_extractor(row) if subject_property_extractor is not None else {}
         objectprops = object_property_extractor(row) if object_property_extractor is not None else {}
-        edgeprops = edge_property_extractor(row) if edge_property_extractor is not None else {}
 
         # if we  haven't seen the subject before, add it to nodes
         if subject_id and subject_id not in self.node_ids:
@@ -139,7 +176,9 @@ class Extractor:
                 self.nodes.append(object_node)
                 self.node_ids.add(object_id)
 
-        if subject_id and object_id and predicate:
+        for predicate, edgeprops in predicate_edgeprop_pairs:
+            if not all([predicate, subject_id, object_id]):
+                continue
             primary_knowledge_source = edgeprops.pop(PRIMARY_KNOWLEDGE_SOURCE, None)
             aggregator_knowledge_sources = edgeprops.pop(AGGREGATOR_KNOWLEDGE_SOURCES, None)
             edge = kgxedge(subject_id,
@@ -158,4 +197,3 @@ class Extractor:
             return self.file_writer.written_nodes
         else:
             return self.node_ids
-
