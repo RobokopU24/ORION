@@ -250,7 +250,7 @@ class GTExLoader(SourceDataLoader):
         edge_properties = {'expressed_in': [anatomy_id],
                            P_VALUE: [float(p_value)],
                            'slope': [float(slope)],
-                           KNOWLEDGE_LEVEL: PREDICATION,
+                           KNOWLEDGE_LEVEL: PREDICTION,
                            AGENT_TYPE: COMPUTATIONAL_MODEL}
 
         # write out the coalesced edge for the previous group
@@ -371,14 +371,3 @@ class GTExLoader(SourceDataLoader):
 
                 # write out the data to the output file
                 tar_file.write(data)
-
-
-# TODO use argparse to specify output location
-if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description="Retrieve, parse, and convert GTEx data to KGX files.")
-    parser.add_argument('-t', '--test_mode', action='store_true')
-    parser.add_argument('--data_dir', default='.')
-    args = parser.parse_args()
-
-    loader = GTExLoader(test_mode=args.test_mode)
-    loader.load(args.data_dir, 'gtex_kgx')

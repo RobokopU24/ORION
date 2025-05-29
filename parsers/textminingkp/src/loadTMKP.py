@@ -62,7 +62,7 @@ class TMKPLoader(SourceDataLoader):
     source_data_url = ""
     license = ""
     attribution = ""
-    parsing_version = "1.2"
+    parsing_version = "1.3"
 
     def __init__(self, test_mode: bool = False, source_data_dir: str = None):
         """
@@ -143,7 +143,7 @@ class TMKPLoader(SourceDataLoader):
                         sentences.append(paper)
 
                 edge_props = {PUBLICATIONS: [paper_id for paper_id in paper_idxs.split('|')],
-                              "biolink:tmkp_confidence_score": float(confidence_score),
+                              "tmkp_confidence_score": float(confidence_score),
                               "sentences": "|".join(sentences),
                               "tmkp_ids": [tmkp_id for tmkp_id in tmpk_idxs.split('|')],
                               KNOWLEDGE_LEVEL: NOT_PROVIDED,
@@ -169,22 +169,3 @@ class TMKPLoader(SourceDataLoader):
             'num_source_lines': record_counter,
             'unusable_source_lines': skipped_record_counter}
         return load_metadata
-
-
-if __name__ == '__main__':
-    # create a command line parser
-    ap = argparse.ArgumentParser(description='Load TextMiningKP data files and create KGX import files.')
-
-    ap.add_argument('-r', '--data_dir', required=True, help='The location of the TextMiningKP data file')
-
-    # parse the arguments
-    args = vars(ap.parse_args())
-
-    # this is the base directory for data files and the resultant KGX files.
-    data_dir: str = args['data_dir']
-
-    # get a reference to the processor
-    ldr = TMKPLoader()
-
-    # load the data files and create KGX output
-    ldr.load(data_dir, data_dir)

@@ -67,3 +67,10 @@ drugcentral:
   password:
   db_name:
 
+# Worker-specific settings
+worker:
+  enabled: false  # enable running ORION as a celery worker
+  replicaCount: 1
+  celery:
+    brokerUrl: "redis://redis:6379/0"
+    resultBackend: "redis://redis:6379/0"

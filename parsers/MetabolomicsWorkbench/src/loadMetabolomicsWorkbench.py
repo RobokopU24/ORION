@@ -111,10 +111,3 @@ class MetabolomicsWorkbenchLoader(SourceDataLoader):
             self.final_edge_list.append(edge)
 
         return { 'record_counter': len(edges), 'skipped_record_counter': len(df_missing), 'errors': []}
-
-
-if __name__ == '__main__':
-    source_data_dir = str(os.path.join(os.environ.get("ORION_STORAGE"), "MetabolomicsWorkbench", "2024-05-08"))
-    loader = MetabolomicsWorkbenchLoader(source_data_dir=source_data_dir)
-    loader.get_data()
-    print(loader.parse_data())

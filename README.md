@@ -127,7 +127,7 @@ The following are parameters you can set for the entire graph, or for an individ
 
 **conflation** - True or False flag specifying whether to conflate genes with proteins and chemicals with drugs
 
-For example, we could customize the previous example, turning conflation on and strict normalization off:
+For example, we could customize the previous example, turning `conflation` on and `strict_normalization` off:
 
 ```
 graphs:
@@ -148,25 +148,51 @@ See the `graph_specs` directory for more examples.
 
 Install Docker to create and run the necessary containers.
 
-By default, running `docker compose up` will build every graph in your Graph Spec. It runs the command: python /ORION/Common/build_manager.py all
+Use the following command to build the necessary images.
+
+```
+docker compose build
+```
+
+To build every graph in your Graph Spec use the following command. This runs the command: `python /ORION/Common/build_manager.py all` on the image.
 
 ```
 docker compose up
 ```
 
-If you want to build an individual graph, you can override the default command with a graph_id from the configured Graph Spec:
+#### Building specific graphs
+
+To build an individual graph use `build_manager.py` with a graph_id from the Graph Spec. The script runs the pipeline for each data source and merges them into complete graphs.
+
+Usage: `build_manager.py [-h] graph_id`
+positional arguments:
+`graph_id` : ID of the graph to build. Must match an ID from the configured Graph Spec.
+
+Example command to create a graph from a Graph Spec with the graph_id Example_Graph:
 
 ```
 docker compose run --rm orion python /ORION/Common/build_manager.py Example_Graph
 ```
 
-To run the ORION pipeline for a single data source, you can use the load manager:
+#### Run ORION Pipeline on a single data source.
+
+To run the ORION pipeline for a single data source and transform it into KGX files, you can use the `load_manager` script.
+
+```
+optional arguments:
+  -h, --help : show this help message and exit
+  -t, --test_mode : Test mode will process a small sample version of the data.
+  -f, --fresh_start_mode : Fresh start mode will ignore previous states and overwrite previous data.
+  -l, --lenient_normalization : Lenient normalization mode will allow nodes that do not normalize to persist in the finalized kgx files.
+```
+
+Example command to ingest the data source CTD and convert it into normalized KGX files:
 
 ```
 docker compose run --rm orion python /ORION/Common/load_manager.py CTD
 ```
 
-To see available arguments and a list of supported data sources:
+To see the available arguments and a list of supported data sources:
 
 ```
 docker compose run --rm orion python /ORION/Common/load_manager.py -h
