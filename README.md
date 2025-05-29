@@ -2,22 +2,26 @@
 
 ### Operational Routine for the Ingest and Output of Networks
 
-This package takes data sets from various sources and converts them into Knowledge Graphs.
+ORION ingests data sets from various sources and converts them into interoperable modular knowledge graphs.
 
-Each data source will go through the following pipeline before it can be included in a graph:
+Each data source will go through the following pipeline before it is included in a graph:
 
 1. Fetch (retrieve an original data source)
 2. Parse (convert the data source into KGX files)
 3. Normalize (use normalization services to convert identifiers and ontology terms to preferred synonyms)
 4. Supplement (add supplementary knowledge specific to that source)
 
-To build a graph use a Graph Spec yaml file to specify the sources you want.
+To construct knowledge graphs from a combination of data sources, a simple yaml file is used to specify which data sources should be included in a graph. ORION will automatically run each data source specified through the pipeline and merge them into one knowledge graph.
 
-ORION will automatically run each data source specified through the necessary pipeline. Then it will merge the specified sources into a Knowledge Graph.
+ORION can output knowledge graphs in KGX format (jsonl) or ready to use neo4j database backups.
 
 ### Installing and Configuring ORION
 
-#### Initial setup
+The following steps walk through a typical installation of ORION, where Docker images are built and deployed locally using Docker Compose. 
+
+Alternatively, prebuilt Docker images (on ghcr.io) and helm charts for deploying them are also available (./helm/orion/).
+
+#### Installation
 
 Create a parent directory:
 
@@ -32,50 +36,63 @@ cd ~/ORION_root
 git clone https://github.com/RobokopU24/ORION.git
 ```
 
-Next create directories where data sources, graphs, and logs will be stored if you don't want to use defaults.
-
-**ORION_STORAGE** - for storing data sources (default: `ORION/../ORION_Storage`)
-
-**ORION_GRAPHS** - for storing knowledge graphs (default: `ORION/../ORION_logs`)
-
-**ORION_LOGS** - for storing logs (default: `ORION/../ORION_graphs`)
-
-Next create or select a Graph Spec yaml file, where the content of knowledge graphs to be built is specified. `graph_specs` folder has some graph specification files.
-
 #### Setup environment
 
-There are two ways to setup the environment.
+There are two ways to set up the environment.
 
-##### Option 1: Use a script to create the directories and setup environment.:
+##### Option 1:
+
+Use the provided script to create and configure all the required directories and environment variables.
+
+It will ask you to supply paths where directories will be created for ORION, or by default will create ones next to the repository directory. 
+
+It will also generate an .env file that will be used by Docker.
 
 ```
 cd ~/ORION_root/ORION/
-source ./create_env.sh
+./create_env.sh
 ```
 
-This will ask you to supply directory paths, or use defaults. The output is a .env file that will be used by Docker to build images.
+##### Option 2: 
 
-##### Option 2: Change .env.sample to the values that you'd like
+Use `.env.example` as an example and create your own directories and environment variables.
 
-Copy `.env.sample` to `.env` file, and change **ORION_STORAGE**,
-**ORION_GRAPHS**, **ORION_LOGS** to point to the directories created above.
+Create three new directories where data sources, graphs, and logs will be stored:
 
-Set either of the following values in the .env file, but not both:
+**ORION_STORAGE** - for storing data sources
 
-**_ORION_GRAPH_SPEC_** : the name of a Graph Spec file located in the graph_specs directory of ORION (for example example-graph-spec.yaml)
+**ORION_GRAPHS** - for storing knowledge graphs
 
-**_ORION_GRAPH_SPEC_URL_** : a URL pointing to a Graph Spec yaml file (example:
-https://stars.renci.org/var/data_services/graph_specs/default-graph-spec.yaml )
+**ORION_LOGS** - for storing logs
+
+Copy the contents of `.env.example` to a new file named `.env`. 
+
+Change **ORION_STORAGE**, **ORION_GRAPHS**, **ORION_LOGS** to point to the directories created above.
+
+Alter any of the other example environment variables as needed.
+
+### Configuring a Graph Specification
+
+Next create or select a Graph Specification yaml file, where the content of knowledge graphs to be built is specified. 
+
+See the `graph_specs` folder for available Graph Specification files and examples.
+
+Set either of the following values in your .env file, but not both:
+
+**ORION_GRAPH_SPEC** : the name of a Graph Spec file located in the graph_specs directory of ORION (example: example-graph-spec.yaml)
+
+**ORION_GRAPH_SPEC_URL** : a URL pointing to a Graph Spec yaml file online (example: https://stars.renci.org/var/data_services/graph_specs/default-graph-spec.yaml)
+
 
 #### Building a custom graph
 
-To build a custom graph, alter a Graph Spec file, which is composed of a list of graphs.
+To build a custom graph, alter a Graph Spec yaml file, which is composed of a list of graphs.
 
 For each graph, specify:
 
 **graph_id** - a unique identifier string for the graph, with no spaces
 
-**sources** - a list of sources identifiers for data sources to include in the graph
+**sources** - a list of data source identifiers designating which data sources to include in a graph
 
 See the full list of data sources and their identifiers in the [data sources file](https://github.com/RobokopU24/ORION/blob/master/Common/data_sources.py).
 
@@ -84,7 +101,7 @@ Here is a simple example.
 ```
 graphs:
   - graph_id: Example_Graph
-    graph_name: Example Graph
+    graph_name: Example Graph Name
     graph_description: A free text description of what is in the graph.
     output_format: neo4j
     sources:
@@ -110,7 +127,7 @@ The following are parameters you can set for the entire graph, or for an individ
 
 **conflation** - True or False flag specifying whether to conflate genes with proteins and chemicals with drugs
 
-For example, we could customize the previous example:
+For example, we could customize the previous example, turning conflation on and strict normalization off:
 
 ```
 graphs:
@@ -118,83 +135,57 @@ graphs:
     graph_name: Example Graph
     graph_description: A free text description of what is in the graph.
     output_format: neo4j
+    conflation: True
+    strict_normalization: False
     sources:
       - source_id: CTD
       - source_id: HGNC
 ```
 
-See the `graph_specs directory` for more examples.
+See the `graph_specs` directory for more examples.
 
 ### Running ORION
 
 Install Docker to create and run the necessary containers.
 
-By default, using docker-compose up will build every graph in your Graph Spec. It runs the command: python /ORION/Common/build_manager.py all
+By default, running `docker compose up` will build every graph in your Graph Spec. It runs the command: python /ORION/Common/build_manager.py all
 
 ```
-docker-compose up
+docker compose up
 ```
 
-If you want to build an individual graph, you can override the default command with a graph_id from the Graph Spec:
+If you want to build an individual graph, you can override the default command with a graph_id from the configured Graph Spec:
 
 ```
-docker-compose run --rm orion python /ORION/Common/build_manager.py Example_Graph
+docker compose run --rm orion python /ORION/Common/build_manager.py Example_Graph
 ```
 
 To run the ORION pipeline for a single data source, you can use the load manager:
 
 ```
-docker-compose run --rm orion python /ORION/Common/load_manager.py CTD
+docker compose run --rm orion python /ORION/Common/load_manager.py CTD
 ```
 
 To see available arguments and a list of supported data sources:
 
 ```
-docker-compose run --rm orion python /ORION/Common/load_manager.py -h
+docker compose run --rm orion python /ORION/Common/load_manager.py -h
 ```
-
-### For Developers
-
-To add a new data source to ORION, create a new parser. Each parser extends the SourceDataLoader interface in Common/loader_interface.py.
-
-To implement the interface you will need to write a class that fulfills the following.
-
-Set the class level variables for the source ID and provenance:
-
-```
-source_id: str = 'ExampleSourceID'
-provenance_id: str = 'infores:example_source'
-```
-
-In initialization, call the parent init function first and pass the initialization arguments.
-Then set the file names for the data file or files.
-
-```
-super().__init__(test_mode=test_mode, source_data_dir=source_data_dir)
-
-self.data_file = 'example_file.gz'
-OR
-self.example_file_1 = 'example_file_1.csv'
-self.example_file_2 = 'example_file_2.csv'
-self.data_files = [self.example_file_1, self.example_file_2]
-```
-
-Note that self.data_path is set by the parent class and by default refers to a specific directory for the current version of that source in the storage directory.
-
-Implement get_latest_source_version(). This function should return a string representing the latest available version of the source data.
-
-Implement get_data(). This function should retrieve any source data files. The files should be stored with the file names specified by self.data_file or self.data_files. They should be saved in the directory specified by self.data_path.
-
-Implement parse_data(). This function should parse the data files and populate lists of node and edge objects: self.final_node_list (kgxnode), self.final_edge_list (kgxedge).
-
-Finally, add your source to the list of sources in Common/data_sources.py. The source ID string here should match the one specified in the new parser. Also add your source to the SOURCE_DATA_LOADER_CLASS_IMPORTS dictionary, mapping it to the new parser class.
-
-Now you can use that source ID in a graph spec to include your new source in a graph, or as the source id using load_manager.py.
 
 #### Testing and Troubleshooting
 
-After you alter the codebase, or if you are experiencing issues or errors you may want to run tests:
+If you alter the codebase, or if you are experiencing issues or errors you may want to run tests:
 
 ```
-docker-compose run --rm orion pytest /ORION
+docker compose run --rm orion pytest /ORION
 ```
+
+If you are building the docker image and performance issues occur, setting the correct platform for docker may help:
+
+```
+export DOCKER_PLATFORM=linux/arm64
+```
+
+#### Developers and Contributors
+
+If you would like to contribute to ORION see the [contributing](CONTRIBUTING.md) page.

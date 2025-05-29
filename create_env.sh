@@ -13,12 +13,12 @@ ORION_STORAGE="${ORION_STORAGE_INPUT:-$SCRIPT_DIR/../ORION_storage}"
 mkdir -p "$ORION_STORAGE"
 
 # Prompt for ORION_GRAPHS
-read -rp "Path to store ORION's graphs (will use [$SCRIPT_DIR/../ORION_graphs] if empty): " ORION_GRAPHS_INPUT
+read -rp "Path for ORION's graphs (will use [$SCRIPT_DIR/../ORION_graphs] if empty): " ORION_GRAPHS_INPUT
 ORION_GRAPHS="${ORION_GRAPHS_INPUT:-$SCRIPT_DIR/../ORION_graphs}"
 mkdir -p "$ORION_GRAPHS"
 
 # Prompt for ORION_LOGS
-read -rp "Path to store ORION's logs (will use [$SCRIPT_DIR/../ORION_logs] if empty): " ORION_LOGS_INPUT
+read -rp "Path for ORION's logs (will use [$SCRIPT_DIR/../ORION_logs] if empty): " ORION_LOGS_INPUT
 ORION_LOGS="${ORION_LOGS_INPUT:-$SCRIPT_DIR/../ORION_logs}"
 mkdir -p "$ORION_LOGS"
 
@@ -26,17 +26,22 @@ mkdir -p "$ORION_LOGS"
 read -rp "Filename for Graph Specification file from graph_specs directory (will use [example-graph-spec.yaml] if empty): " ORION_GRAPH_SPEC_INPUT
 ORION_GRAPH_SPEC="${ORION_GRAPH_SPEC_INPUT:-example-graph-spec.yaml}"
 
-# Prompt for python path
-read -rp "Python path (will use [$SCRIPT_DIR] if empty): " PYTHON_PATH_INPUT
-PYTHON_PATH_MORE="${PYTHON_PATH_INPUT:-$SCRIPT_DIR}"
-
 # Write environment variables to .env
 cat > "$ENV_FILE" <<EOF
 ORION_STORAGE=$ORION_STORAGE
 ORION_GRAPHS=$ORION_GRAPHS
 ORION_LOGS=$ORION_LOGS
 ORION_GRAPH_SPEC=$ORION_GRAPH_SPEC
-PYTHONPATH=\$PYTHONPATH:$PYTHON_PATH_MORE
+
+# The following variables are optional
+# BL_VERSION=4.2.1  # biolink version
+# EDGE_NORMALIZATION_ENDPOINT=https://bl-lookup-sri.renci.org/
+# NODE_NORMALIZATION_ENDPOINT=https://nodenormalization-sri.renci.org/
+# NAMERES_URL=https://name-resolution-sri.renci.org/
+# SAPBERT_URL=https://babel-sapbert.apps.renci.org/
+# ORION_OUTPUT_URL=https://localhost/  # this is currently only used to generate metadata
+# OPENAI_API_KEY=fake-key-do-not-commit-a-real-one!!!
+# OPENAI_API_ORGANIZATION=fake-org-do-not-commit-a-real-one!!!
 EOF
 
-echo "✅ Environment setup complete. Variables saved to $ENV_FILE"
+echo "✅  Environment setup complete. Variables saved to $ENV_FILE"
