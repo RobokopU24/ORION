@@ -32,6 +32,7 @@ ORION_STORAGE=$ORION_STORAGE
 ORION_GRAPHS=$ORION_GRAPHS
 ORION_LOGS=$ORION_LOGS
 ORION_GRAPH_SPEC=$ORION_GRAPH_SPEC
+SHARED_SOURCE_DATA_PATH=/tmp/shared_data
 
 # The following variables are optional
 # BL_VERSION=4.2.1  # biolink version
@@ -39,6 +40,7 @@ ORION_GRAPH_SPEC=$ORION_GRAPH_SPEC
 # NODE_NORMALIZATION_ENDPOINT=https://nodenormalization-sri.renci.org/
 # NAMERES_URL=https://name-resolution-sri.renci.org/
 # SAPBERT_URL=https://babel-sapbert.apps.renci.org/
+# LITCOIN_PRED_MAPPING_URL=https://pred-mapping.apps.renci.org/
 # ORION_OUTPUT_URL=https://localhost/  # this is currently only used to generate metadata
 # OPENAI_API_KEY=fake-key-do-not-commit-a-real-one!!!
 # OPENAI_API_ORGANIZATION=fake-org-do-not-commit-a-real-one!!!
