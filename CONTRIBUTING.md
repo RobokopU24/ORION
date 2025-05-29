@@ -1,6 +1,8 @@
 ## Contributing to ORION
 
-ORION is an open source project and welcomes contributions.
+ORION is an open source project and welcomes suggestions or contributions. 
+
+Implementing parsers for new data sources or improving existing ones is always helpful. Feel free to contact the [maintainer](https://github.com/EvanDietzMorris/) or submit a github issue with any questions.
 
 ### Adding a new data source
 
