@@ -1,9 +1,6 @@
 import json
-import argparse
-import os
-from collections import defaultdict
-
 import jsonlines
+from collections import defaultdict
 
 from Common.biolink_constants import NODE_TYPES, SUBJECT_ID, OBJECT_ID, PREDICATE, PRIMARY_KNOWLEDGE_SOURCE, AGGREGATOR_KNOWLEDGE_SOURCES
 from Common.utils import quick_jsonl_file_iterator
@@ -41,7 +38,6 @@ class MetaKnowledgeGraphBuilder:
             "source_type": "primary",
             "edges": []
         }
-        self.example_nodes = {}
         self.example_edges = []
         self.analyze_nodes(nodes_file_path)
         self.analyze_edges(edges_file_path)
