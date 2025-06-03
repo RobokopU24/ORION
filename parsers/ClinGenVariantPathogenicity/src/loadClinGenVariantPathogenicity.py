@@ -1,11 +1,10 @@
 import os
 import csv
+from Common.biolink_constants import PRIMARY_KNOWLEDGE_SOURCE, NODE_TYPES, SEQUENCE_VARIANT, PUBLICATIONS
 from Common.extractor import Extractor
 from Common.loader_interface import SourceDataLoader
-from biolink_constants import PRIMARY_KNOWLEDGE_SOURCE, NODE_TYPES, SEQUENCE_VARIANT
-from Common.prefixes import HGNC
+from Common.prefixes import PUBMED
 from Common.utils import GetData
-from Common.utils import LoggingUtil
 from datetime import date
 
 
@@ -90,7 +89,7 @@ class ClinGenVariantPathogenicityLoader(SourceDataLoader):
                         "Applied Evidence Codes (Not Met)"
                     ],
                     "SUMMARY": line["Summary of interpretation"],
-                    "PUBMED_ARTICLES": line["PubMed Articles"],
+                    PUBLICATIONS: [f'{PUBMED}:{pub.strip()}' for pub in line["PubMed Articles"].split(",")],
                     "EXPERT_PANEL": line["Expert Panel"],
                     "EVIDENCE_REPO_LINK": line["Evidence Repo Link"],
                     "GUIDELINE": line["Guideline"],
