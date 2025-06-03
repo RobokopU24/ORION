@@ -24,10 +24,6 @@ class HMDBLoader(SourceDataLoader):
 
     source_id: str = 'HMDB'
     provenance_id: str = 'infores:hmdb'
-    description = "The Human Metabolome Database (HMDB) is an openly accessible database containing detailed information about small molecule metabolites found in the human body, with links between chemical data, clinical data, and molecular biology/biochemistry data, including protein sequences (enzymes and transporters)."
-    source_data_url = "https://hmdb.ca/downloads"
-    license = "https://hmdb.ca/about"
-    attribution = "https://hmdb.ca/about#cite"
     parsing_version: str = '1.3'
 
     def __init__(self, test_mode: bool = False, source_data_dir: str = None):

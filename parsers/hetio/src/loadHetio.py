@@ -15,10 +15,6 @@ class HetioLoader(SourceDataLoader):
 
     source_id: str = 'Hetio'
     provenance_id: str = 'infores:hetionet'
-    description = "Hetionet is an open-source biomedical heterogeneous information network (hetnet) or graph-based resource describing relationships uncovered by millions of biomedical research studies over the past fifty years."
-    source_data_url = "https://github.com/hetio/hetionet/blob/master/hetnet/json/hetionet-v1.0.json.bz2"
-    license = "https://het.io/about/"
-    attribution = "https://het.io/about/"
     parsing_version: str = '1.5'
 
     def __init__(self, test_mode: bool = False, source_data_dir: str = None):

@@ -21,10 +21,6 @@ class HGNCLoader(SourceDataLoader):
 
     source_id: str = HGNC
     provenance_id: str = 'infores:hgnc'
-    description = "The HUGO Gene Nomenclature Committee (HGNC) database provides open access to HGNC-approved unique symbols and names for human genes, gene groups, and associated resources, including links to genomic, proteomic and phenotypic information."
-    source_data_url = "https://www.genenames.org/download/archive/"
-    license = "https://www.genenames.org/about/"
-    attribution = "https://www.genenames.org/about/"
     parsing_version: str = '1.3'
 
     def __init__(self, test_mode: bool = False, source_data_dir: str = None):

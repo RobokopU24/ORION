@@ -32,10 +32,6 @@ class CAMKPLoader(SourceDataLoader):
     source_id: str = "CAMKP"
     provenance_id: str = "infores:go-cam"
     aggregator_knowledge_source: str = "infores:cam-kp"
-    description = "CAMs (Causal Activity Models) are small knowledge graphs built using the Web Ontology Language (OWL). The CAM database combines many CAM graphs along with a large merged bio-ontology containing the full vocabulary of concepts referenced within the individual CAMs. Each CAM describes an instantiation of some of those concepts in a particular context, modeling the interactions between those instances as an interlinked representation of a complex biological or environmental process."
-    source_data_url = "https://github.com/ExposuresProvider/cam-kp-api"
-    license = "https://github.com/ExposuresProvider/cam-kp-api/blob/master/LICENSE"
-    attribution = "https://github.com/ExposuresProvider/cam-kp-api"
     parsing_version = "1.5"
 
     def __init__(self, test_mode: bool = False, source_data_dir: str = None):

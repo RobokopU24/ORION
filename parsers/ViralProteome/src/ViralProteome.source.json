@@ -1,6 +1,6 @@
 {
     "id": "ViralProteome",
-    "name": "",
+    "name": "Gene Ontology Annotation - Viral Proteome",
     "description": "The Gene Ontology (GO) Consortium\u2019s Viral Proteome resource provides open access to curated assignment of GO terms to proteins and proteome relationships derived from the UniProt KnowledgeBase for all NCBI Taxa considered viruses.",
     "url": "https://www.ebi.ac.uk/GOA/proteomes",
     "attribution": "https://www.ebi.ac.uk/about/terms-of-use",

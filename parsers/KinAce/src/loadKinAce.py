@@ -26,11 +26,6 @@ class KinAceLoader(SourceDataLoader):
 
     source_id: str = 'KinAce'
     provenance_id: str = 'infores:kinace'
-    description = ("The KinAce web portal aggregates and visualizes the network of interactions between "
-                   "protein-kinases and their substrates in the human genome.")
-    source_data_url = "https://kinace.kinametrix.com/"
-    license = "Creative Commons Attribution 4.0 International"
-    attribution = 'https://kinace.kinametrix.com/#section-about'
     parsing_version = '1.2'
 
     KINACE_INFORES_MAPPING = {

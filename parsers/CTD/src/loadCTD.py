@@ -26,10 +26,6 @@ class CTDLoader(SourceDataLoader):
 
     source_id = 'CTD'
     provenance_id = 'infores:ctd'
-    description = "The Comparative Toxicogenomics Database (CTD) is an open-source database that provides manually curated information about chemical-gene/protein, chemical-disease, and gene-disease relationships, with additional support for the curated relationships provided by functional and pathway data."
-    source_data_url = "http://ctdbase.org/reports/"
-    license = "http://ctdbase.org/about/publications/#citing"
-    attribution = "http://ctdbase.org/about/"
     parsing_version: str = '1.5'
 
     # some CTD predicates no longer have mappings in the biolink model, convert them to something that will normalize
