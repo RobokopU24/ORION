@@ -1,3 +1,4 @@
+import json
 import os
 import argparse
 import datetime
@@ -8,6 +9,7 @@ from Common.data_sources import SourceDataLoaderClassFactory, RESOURCE_HOGS, get
 from Common.exceptions import DataVersionError
 from Common.utils import LoggingUtil, GetDataPullError
 from Common.kgx_file_normalizer import KGXFileNormalizer
+from Common.kgx_validation import validate_graph
 from Common.normalization import NormalizationScheme, NodeNormalizer, EdgeNormalizer, NormalizationFailedError
 from Common.metadata import SourceMetadata
 from Common.loader_interface import SourceDataBrokenError, SourceDataFailedError
@@ -513,7 +515,26 @@ class SourceDataManager:
                                                                     supplementation_version=supplementation_version,
                                                                     normalization_version=normalization_version,
                                                                     source_meta_information=source_meta_information)
-        logger.info(f'Generating release version for {source_id}: {release_version}')
+        logger.info(f'Release version for {source_id}: {release_version}')
+
+        composite_normalization_version = normalization_scheme.get_composite_normalization_version()
+        nodes_filepath = self.get_normalized_node_file_path(source_id, source_version, parsing_version,
+                                                            composite_normalization_version)
+        edges_filepath = self.get_normalized_edge_file_path(source_id, source_version, parsing_version,
+                                                            composite_normalization_version)
+        source_version_path = self.get_source_version_path(source_id, source_version)
+        qc_output_filename = f'{source_id}_{release_version}.json'
+        release_qc_output_path = os.path.join(source_version_path, qc_output_filename)
+        if not os.path.exists(release_qc_output_path):
+            logger.info(f'Running QC and validation...')
+            qc_results = validate_graph(nodes_file_path=nodes_filepath,
+                                        edges_file_path=edges_filepath,
+                                        graph_id=source_id,
+                                        graph_version=release_version,
+                                        logger=logger)
+            with open(release_qc_output_path, 'w') as qc_out:
+                qc_out.write(json.dumps(qc_results, indent=4))
+            logger.info(f'QC and validation complete, metadata generated: {qc_output_filename}')
         return release_version
 
     def get_source_metadata(self, source_id: str, source_version):
