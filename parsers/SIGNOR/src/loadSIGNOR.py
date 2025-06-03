@@ -62,13 +62,6 @@ class SIGNORLoader(SourceDataLoader):
     """
     source_id: str = 'SIGNOR'
     provenance_id: str = 'infores:signor'
-    description = ("Signor 3.0 is a resource that annotates experimental evidence about causal interactions between "
-                   "proteins and other entities of biological relevance: stimuli, phenotypes, enzyme inhibitors, "
-                   "complexes, protein families etc. ")
-    source_data_url = "https://signor.uniroma2.it/download_entity.php"
-    license = ("SIGNOR is licensed under a Creative Commons Attribution-NonCommercial 4.0 International "
-               "(CC BY-NC 4.0) license.")
-    attribution = 'https://signor.uniroma2.it/about/'
     parsing_version = '1.6'
 
     def __init__(self, test_mode: bool = False, source_data_dir: str = None):
