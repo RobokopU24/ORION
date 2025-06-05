@@ -67,30 +67,34 @@ class ClinGenGeneDiseaseValidityLoader(SourceDataLoader):
 
     moi_lookup = {
         "AD": {
-            "ClinGen_label": "AD",
-            "normalized_label": "Autosomal Dominant",
-            "HPO": "0000006",
+            "CLINGEN_MODE_OF_INHERITANCE": "AD",
+            "NORMALIZED_MODE_OF_INHERITANCE": "Autosomal Dominant",
+            "HPO_FOR_NORMALIZED_MODE_OF_INHERITANCE": "0000006",
         },
         "AR": {
-            "ClinGen_label": "AR",
-            "normalized_label": "Autosomal Recessive",
-            "HPO": "0000007",
+            "CLINGEN_MODE_OF_INHERITANCE": "AR",
+            "NORMALIZED_MODE_OF_INHERITANCE": "Autosomal Recessive",
+            "HPO_FOR_NORMALIZED_MODE_OF_INHERITANCE": "0000007",
         },
         "MT": {
-            "ClinGen_label": "MT",
-            "normalized_label": "Mitochondrial",
-            "HPO": "0001427",
+            "CLINGEN_MODE_OF_INHERITANCE": "MT",
+            "NORMALIZED_MODE_OF_INHERITANCE": "Mitochondrial",
+            "HPO_FOR_NORMALIZED_MODE_OF_INHERITANCE": "0001427",
         },
         "SD": {
-            "ClinGen_label": "SD",
-            "normalized_label": "Semidominant",
-            "HPO": "0032113",
+            "CLINGEN_MODE_OF_INHERITANCE": "SD",
+            "NORMALIZED_MODE_OF_INHERITANCE": "Semidominant",
+            "HPO_FOR_NORMALIZED_MODE_OF_INHERITANCE": "0032113",
         },
-        "XL": {"ClinGen_label": "XL", "normalized_label": "X-linked", "HPO": "0001417"},
+        "XL": {
+            "CLINGEN_MODE_OF_INHERITANCE": "XL",
+            "NORMALIZED_MODE_OF_INHERITANCE": "X-linked",
+            "HPO_FOR_NORMALIZED_MODE_OF_INHERITANCE": "0001417",
+        },
         "UD": {
-            "ClinGen_label": "UD",
-            "normalized_label": "Undetermined Mode of Inheritance",
-            "HPO": None,
+            "CLINGEN_MODE_OF_INHERITANCE": "UD",
+            "NORMALIZED_MODE_OF_INHERITANCE": "Undetermined Mode of Inheritance",
+            "HPO_FOR_NORMALIZED_MODE_OF_INHERITANCE": None,
         },
     }
 
@@ -98,7 +102,10 @@ class ClinGenGeneDiseaseValidityLoader(SourceDataLoader):
         try:
             normalized_moi = self.moi_lookup[moi]
         except KeyError:
-            normalized_moi = {"label": None, "HPO": None}
+            normalized_moi = {
+                "NORMALIZED_MODE_OF_INHERITANCE": None,
+                "HPO_FOR_NORMALIZED_MODE_OF_INHERITANCE": None,
+            }
             self.logger.info(
                 f"No mapping available for {moi} in the moi lookup dictionary for the gene {gene} - disease {disease} pair"
             )
@@ -128,11 +135,6 @@ class ClinGenGeneDiseaseValidityLoader(SourceDataLoader):
                 lambda line: {},  # subject properties
                 lambda line: {},  # object properties
                 lambda line: {
-                    "MODE_OF_INHERITANCE": self.moi_normalizer(
-                        line[ClinGenGeneDiseaseValidityCOLS.MOI.value],
-                        line[ClinGenGeneDiseaseValidityCOLS.GENE_ID.value],
-                        line[ClinGenGeneDiseaseValidityCOLS.DISEASE_ID.value],
-                    ),
                     "CLINGEN_VALIDITY_CLASSIFICATION": line[
                         ClinGenGeneDiseaseValidityCOLS.CLASSIFICATION.value
                     ],
@@ -142,6 +144,11 @@ class ClinGenGeneDiseaseValidityLoader(SourceDataLoader):
                     "CLINGEN_CLASSIFICATION_REPORT": line[
                         ClinGenGeneDiseaseValidityCOLS.ONLINE_REPORT.value
                     ],
+                    **self.moi_normalizer(
+                        line[ClinGenGeneDiseaseValidityCOLS.MOI.value],
+                        line[ClinGenGeneDiseaseValidityCOLS.GENE_ID.value],
+                        line[ClinGenGeneDiseaseValidityCOLS.DISEASE_ID.value],
+                    ),
                 },  # edge properties
                 comment_character="#",
                 delim=",",
