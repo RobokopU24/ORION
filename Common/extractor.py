@@ -112,28 +112,26 @@ class Extractor:
 
         raw_predicates = predicate_extractor(row) if predicate_extractor else None
 
-        # If raw_predicates is None, default to an empty list
-        predicates = []
-
-        # Handle different types gracefully
+        # Convert raw_predicates to a list of strings (if needed)
         if isinstance(raw_predicates, str):
             predicates = [raw_predicates]
         elif isinstance(raw_predicates, list):
-            # Filter out non-string items in the list to avoid processing issues
-            predicates = [p for p in raw_predicates if isinstance(p, str)]
+            predicates = raw_predicates
+        else:
+            predicates = []
 
-        if exclude_unconnected_nodes and raw_predicates is []:
+        if exclude_unconnected_nodes and not predicates:
             return
 
         raw_edgeprops = edge_property_extractor(row) if edge_property_extractor else {}
 
         if isinstance(raw_edgeprops, dict):
-            # Case 1: shared dict for all predicates
-            predicate_edgeprop_pairs = [(pred, raw_edgeprops) for pred in predicates]
-
+            # One edge property dictionary for all edges, clone per predicate to avoid shared mutation
+            for pred in predicates:
+                predicate_edgeprop_pairs = [(pred, dict(raw_edgeprops)) for pred in predicates]
         elif isinstance(raw_edgeprops, list):
+            # a list of edge properties, but it has to be of equal length to the predicate list
             if len(raw_edgeprops) == len(predicates):
-                # Case 2: one dict per predicate
                 predicate_edgeprop_pairs = list(zip(predicates, raw_edgeprops))
             else:
                 self.load_metadata['errors'].append(
@@ -141,12 +139,13 @@ class Extractor:
                 )
                 self.load_metadata['skipped_record_counter'] += 1
                 return
-
+        # right now raw_edgerpops must be a dictionary or list, if it is not, log it as an error.
         else:
             self.load_metadata['errors'].append(
                 f"Unsupported edge property format: {type(raw_edgeprops)} at row: {row}"
             )
             self.load_metadata['skipped_record_counter'] += 1
+            predicate_edgeprop_pairs = []
             return
 
         subject_id = subject_extractor(row)
