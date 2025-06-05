@@ -1,6 +1,6 @@
 import os
 import csv
-from Common.biolink_constants import PRIMARY_KNOWLEDGE_SOURCE, NODE_TYPES, SEQUENCE_VARIANT, PUBLICATIONS
+from Common.biolink_constants import PRIMARY_KNOWLEDGE_SOURCE,NODE_TYPES,SEQUENCE_VARIANT,PUBLICATIONS,
 from Common.extractor import Extractor
 from Common.loader_interface import SourceDataLoader
 from Common.prefixes import PUBMED
@@ -80,21 +80,24 @@ class ClinGenVariantPathogenicityLoader(SourceDataLoader):
                 lambda line: {
                     PRIMARY_KNOWLEDGE_SOURCE: self.provenance_id,
                     "ASSERTION": line["Assertion"],
-                    "MODE_OF_INHERITANCE": self.moi_normalizer(
-                        line["Mode of Inheritance"],
-                        line["Evidence Repo Link"],
-                    ),
                     "APPLIED_EVIDENCE_CODES_MET": line["Applied Evidence Codes (Met)"],
                     "APPLIED_EVIDENCE_CODES_NOT_MET": line[
                         "Applied Evidence Codes (Not Met)"
                     ],
                     "SUMMARY": line["Summary of interpretation"],
-                    PUBLICATIONS: [f'{PUBMED}:{pub.strip()}' for pub in line["PubMed Articles"].split(",")],
+                    PUBLICATIONS: [
+                        f"{PUBMED}:{pub.strip()}"
+                        for pub in line["PubMed Articles"].split(",")
+                    ],
                     "EXPERT_PANEL": line["Expert Panel"],
                     "EVIDENCE_REPO_LINK": line["Evidence Repo Link"],
                     "GUIDELINE": line["Guideline"],
                     "APPROVAL_DATA": line["Approval Date"],
                     "PUBLISHED_DATE": line["Published Date"],
+                    **self.moi_normalizer(
+                        line["Mode of Inheritance"],
+                        line["Evidence Repo Link"],
+                    ),
                     **self.get_edge_properties(line["Assertion"]),
                 },  # edge properties
                 exclude_unconnected_nodes=True,
@@ -126,18 +129,18 @@ class ClinGenVariantPathogenicityLoader(SourceDataLoader):
             )
             HPO = ""
         # TODO: Check the second HPO for "Autosomal recessive inheritance (with genetic anticipation)" and "Mitochondrial inheritance (primarily or exclusively heteroplasmic)"
-        return {"label": MOI, "HPO": HPO}
+        return {"MODE_OF_INHERITANCE": MOI, "HPO_FOR_MODE_OF_INHERITANCE": HPO}
 
     def get_edge_properties(self, assertion):
         if assertion == "Benign" or assertion == "Likely Benign":
-            return {"direction": "Contradicts", "negated": True}
+            return {"DIRECTION": "Contradicts", "NEGATED": True}
         elif assertion == "Likely Pathogenic" or assertion == "Pathogenic":
-            return {"direction": "Supports", "negated": False}
+            return {"DIRECTION": "Supports", "NEGATED": False}
         elif assertion == "Uncertain Significance":
-            return {"direction": "Inconclusive", "negated": True}
+            return {"DIRECTION": "Inconclusive", "NEGATED": True}
         else:
             return {
-                "Status": "Not evaluated",
-                "direction": "Inconclusive",
-                "negated": True,
+                "STATUS": "Not evaluated",
+                "DIRECTION": "Inconclusive",
+                "NEGATED": True,
             }
