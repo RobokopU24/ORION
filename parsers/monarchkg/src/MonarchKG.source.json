@@ -1,7 +1,7 @@
 {
     "id": "MonarchKG",
     "name": "Monarch Initiative KG",
-    "description": "",
+"description": "The Monarch Initiative is an international consortium that leads key global standards and semantic data integration technologies. Monarch resources and integrated data are foundational to many downstream applications. We collaborate with stakeholders to continuously improve the platform, which is composed of multiple open-source, open-access components. Our mission is to enhance data utility, accessibility, and transparency to improve rare disease diagnosis and treatment.", 
     "url": "https://monarchinitiative.org/",
     "attribution": "https://monarchinitiative.org/",
     "citation": "https://doi.org/10.1093/nar/gkad1082",
