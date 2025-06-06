@@ -447,22 +447,3 @@ class PLoader(SourceDataLoader):
             return (splitted[0], None)
 
         return (splitted)
-
-
-if __name__ == '__main__':
-    # create a command line parser
-    ap = argparse.ArgumentParser(description='Load Panther data files and create KGX import files.')
-
-    ap.add_argument('-r', '--data_dir', required=True, help='The location of the Panther data file')
-
-    # parse the arguments
-    args = vars(ap.parse_args())
-
-    # this is the base directory for data files and the resultant KGX files.
-    data_dir: str = args['data_dir']
-
-    # get a reference to the processor
-    ldr = PLoader()
-
-    # load the data files and create KGX output
-    ldr.load(data_dir, data_dir)

@@ -478,29 +478,3 @@ class UniRefSimLoader(SourceDataLoader):
             cur_group_name = node_list[node_idx]['grp']
 
         self.logger.debug(f'{node_idx} Entry member edges created.')
-
-
-if __name__ == '__main__':
-    # create a command line parser
-    ap = argparse.ArgumentParser(description='Load UniRef data files and create KGX import files.')
-
-    # command line should be like: python loadUniRef2.py -d /projects/stars/ORION/UniRef_data -f uniref50,uniref90,uniref100
-    ap.add_argument('-r', '--data_dir', required=True, help='The location of the UniRef data files')
-    ap.add_argument('-f', '--UniRef_files', required=True, help='Name(s) of input UniRef files (comma delimited)')
-
-    # parse the arguments
-    args = vars(ap.parse_args())
-
-    # this is the base directory for data files and the resultant KGX files.
-    # data_dir = 'E:/ORION/UniRef_data'
-    UniRef_data_dir: str = args['data_dir']
-
-    # create the file list
-    file_list: list = ['UniRef50', 'UniRef90', 'UniRef100']
-    file_list: list = args['UniRef_files'].split(',')
-
-    # get a reference to the processor
-    vp = UniRefSimLoader()
-
-    # load the data files and create KGX output
-    vp.load(UniRef_data_dir, UniRef_data_dir)

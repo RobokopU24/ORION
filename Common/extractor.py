@@ -66,7 +66,7 @@ class Extractor:
                 self.load_metadata['errors'].append(e.__str__())
                 self.load_metadata['skipped_record_counter'] += 1
 
-    def sql_extract(self, cursor, sql_query, subject_extractor, object_extractor, predicate_extractor, subject_property_extractor, object_property_extractor, edge_property_extractor):
+    def sql_extract(self, cursor, sql_query, subject_extractor, object_extractor, predicate_extractor, subject_property_extractor, object_property_extractor, edge_property_extractor, exclude_unconnected_nodes=False):
         """Read a csv, perform callbacks to retrieve node and edge info per row.
         Assumes that all of the properties extractable for a node occur on the line with the node identifier"""
 
@@ -75,23 +75,24 @@ class Extractor:
         for row in rows:
             self.load_metadata['record_counter'] += 1
             try:
-                self.parse_row(row, subject_extractor, object_extractor, predicate_extractor, subject_property_extractor, object_property_extractor, edge_property_extractor)
+                self.parse_row(row, subject_extractor, object_extractor, predicate_extractor, subject_property_extractor, object_property_extractor, edge_property_extractor, exclude_unconnected_nodes)
             except Exception as e:
                 self.load_metadata['errors'].append(e.__str__())
                 self.load_metadata['skipped_record_counter'] += 1
 
     def json_extract(self,
                      json_array,
-                     subject_extractor,
-                     object_extractor,
-                     predicate_extractor,
-                     subject_property_extractor,
-                     object_property_extractor,
-                     edge_property_extractor):
+                     subject_extractor=lambda e: e.get('subject'),
+                     object_extractor=lambda e: e.get('object'),
+                     predicate_extractor=lambda e: e.get('predicate'),
+                     subject_property_extractor=lambda e: e.get('subject_properties'),
+                     object_property_extractor=lambda e: e.get('object_properties'),
+                     edge_property_extractor=lambda e: e.get('edge_properties'),
+                     exclude_unconnected_nodes=False):
         for item in json_array:
             self.load_metadata['record_counter'] += 1
             try:
-                self.parse_row(item, subject_extractor, object_extractor, predicate_extractor, subject_property_extractor, object_property_extractor, edge_property_extractor)
+                self.parse_row(item, subject_extractor, object_extractor, predicate_extractor, subject_property_extractor, object_property_extractor, edge_property_extractor, exclude_unconnected_nodes)
             except Exception as e:
                 self.load_metadata['errors'].append(e.__str__())
                 self.load_metadata['skipped_record_counter'] += 1

@@ -14,7 +14,7 @@ class PHAROSLoader(SourceDataLoader):
 
     source_id = 'PHAROS'
     provenance_id = 'infores:pharos'
-    parsing_version: str = '1.8'
+    parsing_version: str = '1.9'
 
     GENE_TO_DISEASE_QUERY: str = """select distinct x.value, d.did, d.name, p.sym, d.dtype, d.score
                                 from disease d 
@@ -60,12 +60,12 @@ class PHAROSLoader(SourceDataLoader):
     # we might want more granularity here but for now it's one-to-one source with KL/AT
     # we will need to develop a procedure for merging KL/AT moving forward
     PHAROS_KL_AT_lookup = {
-        'CTD': (PREDICATION, MANUAL_AGENT),
+        'CTD': (PREDICTION, MANUAL_AGENT),
         'DisGeNET': (NOT_PROVIDED, NOT_PROVIDED),
         'DrugCentral Indication': (KNOWLEDGE_ASSERTION, MANUAL_AGENT),
         'eRAM': (NOT_PROVIDED, NOT_PROVIDED),
         # For more information about JensenLab Databases: DOI: https://doi.org/10.1093/database/baac019
-        'JensenLab Experiment TIGA': (PREDICATION, AUTOMATED_AGENT),
+        'JensenLab Experiment TIGA': (PREDICTION, AUTOMATED_AGENT),
         'JensenLab Knowledge AmyCo': (KNOWLEDGE_ASSERTION, MANUAL_AGENT),
         'JensenLab Knowledge MedlinePlus': (KNOWLEDGE_ASSERTION, MANUAL_AGENT),
         'JensenLab Knowledge UniProtKB-KW': (KNOWLEDGE_ASSERTION, MANUAL_VALIDATION_OF_AUTOMATED_AGENT),
@@ -216,6 +216,9 @@ class PHAROSLoader(SourceDataLoader):
                         assigned_predicate = self.target_for_predicate
                     else:
                         assigned_predicate = self.genetic_association_predicate
+                    if edge_provenance == "infores:tiga":
+                        skipped_record_counter += 1
+                        continue
                     gene_to_disease_edge = kgxedge(subject_id=gene_id,
                                                    object_id=disease_id,
                                                    predicate=assigned_predicate,
@@ -269,6 +272,9 @@ class PHAROSLoader(SourceDataLoader):
             self.output_file_writer.write_kgx_node(gene_node)
 
             if edge_provenance:
+                if edge_provenance == "infores:tiga":
+                    skipped_record_counter += 1
+                    continue
                 drug_to_gene_edge = kgxedge(
                     subject_id=drug_id,
                     object_id=gene_id,
@@ -325,6 +331,9 @@ class PHAROSLoader(SourceDataLoader):
             self.output_file_writer.write_kgx_node(gene_node)
 
             if edge_provenance:
+                if edge_provenance == "infores:tiga":
+                    skipped_record_counter += 1
+                    continue
                 cmpd_to_gene_edge = kgxedge(subject_id=cmpd_id,
                                             object_id=gene_id,
                                             predicate=predicate,
@@ -421,22 +430,3 @@ class PHAROSLoader(SourceDataLoader):
 
     def sanitize_name(self, name):
         return ''.join([x if ord(x) < 128 else '?' for x in name])
-
-if __name__ == '__main__':
-    # create a command line parser
-    ap = argparse.ArgumentParser(description='Loads the PHAROS data from a MySQL DB and creates KGX import files.')
-
-    # command line should be like: python loadPHAROS.py -p D:\Work\Robokop\ORION\PHAROS_data -m json
-    ap.add_argument('-s', '--data_dir', required=True, help='The location of the output directory')
-
-    # parse the arguments
-    args = vars(ap.parse_args())
-
-    # get the params
-    data_dir: str = args['data_dir']
-
-    # get a reference to the processor
-    pdb = PHAROSLoader()
-
-    # load the data and create KGX output
-    pdb.load(data_dir, data_dir)

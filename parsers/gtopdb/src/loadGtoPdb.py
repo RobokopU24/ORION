@@ -433,24 +433,3 @@ class GtoPdbLoader(SourceDataLoader):
                 if not r['Type'].startswith('Peptide') and not r['Type'].startswith('Antibody'):
                     self.ligands.append(r['Ligand id'])
     '''
-
-if __name__ == '__main__':
-    """
-    entry point to initiate the parsing outside like the load manager
-    """
-    # create a command line parser
-    ap = argparse.ArgumentParser(description='Load GtoPdb data files and create KGX import files.')
-
-    ap.add_argument('-c', '--data_path', required=True, help='The location of the GtoPdb data files')
-
-    # parse the arguments
-    args = vars(ap.parse_args())
-
-    # the path to the data
-    data_path: str = args['data_path']
-
-    # get a reference to the processor
-    gtopdb: GtoPdbLoader = GtoPdbLoader()
-
-    # load the data files and create KGX output
-    gtopdb.load(data_path, data_path)

@@ -569,22 +569,3 @@ class ReactomeLoader(SourceDataLoader):
                      f"RETURN a, labels(a) as a_labels, id(a) as a_id, type(r) as r_type, b, labels(b) as b_labels, id(b) as b_id"
 
         return cypher
-
-if __name__ == '__main__':
-        # create a command line parser
-    ap = argparse.ArgumentParser(description='Load Reactome data files and create KGX import files.')
-
-    ap.add_argument('-r', '--data_dir', required=True, help='The location of the KGs data file')
-
-    # # parse the arguments
-    args = vars(ap.parse_args())
-
-    # # this is the base directory for data files and the resultant KGX files.
-    rct_data_dir: str = args['data_dir']
-
-    # get a reference to the processor
-    ch_ldr = ReactomeLoader()
-
-    # load the data files and create KGX output
-    ch_ldr.load(rct_data_dir + '/nodes.jsonl', rct_data_dir + '/edges.jsonl')
-

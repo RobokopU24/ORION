@@ -62,6 +62,9 @@ class GraphSpec:
 class GraphSource:
     id: str
     merge_strategy: str = None
+    edge_merging_attributes: list = None
+    edge_id_addition: bool = False
+    normalization_scheme: NormalizationScheme = None
     file_paths: list = None
 
     # Version may be generated when requested and differs for subclasses of GraphSource.
@@ -70,6 +73,19 @@ class GraphSource:
             return self.generate_version()
         else:
             return object.__getattribute__(self, name)
+
+    def generate_version(self):
+        return None
+
+    def get_node_file_paths(self):
+        if self.file_paths is None:
+            raise Exception(f'File paths were requested before they were established for GraphSource {self.id}')
+        return [file_path for file_path in self.file_paths if 'node' in file_path]
+
+    def get_edge_file_paths(self):
+        if self.file_paths is None:
+            raise Exception(f'File paths were requested before they were established for GraphSource {self.id}')
+        return [file_path for file_path in self.file_paths if 'edge' in file_path]
 
 
 @dataclass
@@ -102,7 +118,9 @@ class DataSource(GraphSource):
                     'supplementation_version': self.supplementation_version,
                     'normalization_scheme': self.normalization_scheme.get_metadata_representation(),
                     'release_version': self.generate_version(),
-                    'merge_strategy': self.merge_strategy}
+                    'merge_strategy': self.merge_strategy,
+                    'edge_merging_attributes': self.edge_merging_attributes,
+                    'edge_id_addition': self.edge_id_addition}
         if self.release_info:
             metadata.update(self.release_info)
         return metadata

@@ -236,22 +236,3 @@ class FDBLoader(SourceDataLoader):
         # return to the caller
         return load_metadata
 
-
-if __name__ == '__main__':
-    # create a command line parser
-    ap = argparse.ArgumentParser(description='Load UniProtKB human data files and create KGX import files.')
-
-    # command line should be like: python loadFDB.py  -m json
-    ap.add_argument('-o', '--data_path', required=True, help='The location of the FooDB data files')
-
-    # parse the arguments
-    args = vars(ap.parse_args())
-
-    # get the params
-    data_path: str = args['data_path']
-
-    # get a reference to the processor
-    fdb = FDBLoader(False)
-
-    # load the data files and create KGX output
-    fdb.load(data_path, data_path)

@@ -159,19 +159,3 @@ class VPLoader(SourceDataLoader):
                                       comment_character="!", delim='\t')
 
         return extractor.load_metadata
-
-if __name__ == '__main__':
-    # create a command line parser
-    ap = argparse.ArgumentParser(description='Load UniProtKB viral proteome data files and create KGX import files.')
-
-    # command line should be like: python loadVP.py -p /projects/stars/ORION/UniProtKB_data
-    ap.add_argument('-p', '--data_path', required=True, help='The location of the VP data files')
-
-    # parse the arguments
-    args = vars(ap.parse_args())
-
-    UniProtKB_data_dir = args['data_dir']
-    vp = VPLoader()
-
-    # load the data files and create KGX output
-    vp.load(UniProtKB_data_dir, UniProtKB_data_dir)

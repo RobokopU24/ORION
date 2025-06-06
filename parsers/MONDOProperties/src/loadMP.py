@@ -163,22 +163,3 @@ class MPLoader(SourceDataLoader):
 
         # return the split file names so they can be removed if desired
         return load_metadata
-
-
-if __name__ == '__main__':
-    # create a command line parser
-    ap = argparse.ArgumentParser(description='Load MONDOProps data files and create KGX import files.')
-
-    ap.add_argument('-r', '--data_dir', required=True, help='The location of the Ontological-Hierarchy data file')
-
-    # parse the arguments
-    args = vars(ap.parse_args())
-
-    # this is the base directory for data files and the resultant KGX files.
-    data_dir: str = args['data_dir']
-
-    # get a reference to the processor
-    ldr = MPLoader()
-
-    # load the data files and create KGX output
-    ldr.load(data_dir + '/nodes.jsonl', data_dir + '/edges.jsonl')

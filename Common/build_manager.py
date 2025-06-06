@@ -11,7 +11,7 @@ from Common.utils import LoggingUtil, GetDataPullError
 from Common.data_sources import get_available_data_sources
 from Common.exceptions import DataVersionError, GraphSpecError
 from Common.load_manager import SourceDataManager
-from Common.kgx_file_merger import KGXFileMerger
+from Common.kgx_file_merger import KGXFileMerger, DONT_MERGE
 from Common.kgx_validation import validate_graph
 from Common.neo4j_tools import create_neo4j_dump
 from Common.kgxmodel import GraphSpec, SubGraphSource, DataSource
@@ -68,7 +68,6 @@ class GraphBuilder:
         if build_status == Metadata.STABLE:
             self.build_results[graph_id] = {'version': graph_version}
             self.logger.info(f'Graph {graph_id} version {graph_version} was already built.')
-            return True
         else:
             # if we get here we need to build the graph
             self.logger.info(f'Building graph {graph_id} version {graph_version}, checking dependencies...')
@@ -87,10 +86,12 @@ class GraphBuilder:
             graph_metadata.set_graph_spec(graph_spec.get_metadata_representation())
 
             # merge the sources and write the finalized graph kgx files
-            source_merger = KGXFileMerger(output_directory=graph_output_dir)
-            merge_metadata = source_merger.merge(graph_spec,
-                                                 nodes_output_filename=NODES_FILENAME,
-                                                 edges_output_filename=EDGES_FILENAME)
+            source_merger = KGXFileMerger(graph_spec=graph_spec,
+                                          output_directory=graph_output_dir,
+                                          nodes_output_filename=NODES_FILENAME,
+                                          edges_output_filename=EDGES_FILENAME)
+            source_merger.merge()
+            merge_metadata = source_merger.get_merge_metadata()
 
             current_time = datetime.datetime.now().strftime('%m-%d-%y %H:%M:%S')
             if "merge_error" in merge_metadata:
@@ -394,6 +395,8 @@ class GraphBuilder:
                 graph_wide_edge_norm_version = graph_yaml.get('edge_normalization_version', None)
                 graph_wide_conflation = graph_yaml.get('conflation', None)
                 graph_wide_strict_norm = graph_yaml.get('strict_normalization', None)
+                edge_merging_attributes = graph_yaml.get('edge_merging_attributes', None)
+                edge_id_addition = graph_yaml.get('edge_id_addition', None)
                 if graph_wide_node_norm_version == 'latest':
                     graph_wide_node_norm_version = self.source_data_manager.get_latest_node_normalization_version()
                 if graph_wide_edge_norm_version == 'latest':
@@ -407,6 +410,10 @@ class GraphBuilder:
                         data_source.normalization_scheme.edge_normalization_version = graph_wide_edge_norm_version
                     if graph_wide_conflation is not None:
                         data_source.normalization_scheme.conflation = graph_wide_conflation
+                    if edge_merging_attributes is not None and data_source.merge_strategy != DONT_MERGE:
+                        data_source.edge_merging_attributes = edge_merging_attributes
+                    if edge_id_addition is not None and data_source.merge_strategy != DONT_MERGE:
+                        data_source.edge_id_addition = edge_id_addition
                     if graph_wide_strict_norm is not None:
                         data_source.normalization_scheme.strict = graph_wide_strict_norm
 
@@ -534,10 +541,12 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="Merge data sources into complete graphs.")
     parser.add_argument('graph_id',
                         help='ID of the graph to build. Must match an ID from the configured Graph Spec.')
+    parser.add_argument('--graph_specs_dir', type=str, default=None, help='Graph spec directory.')
     args = parser.parse_args()
     graph_id_arg = args.graph_id
+    graph_specs_dir = args.graph_specs_dir
 
-    graph_builder = GraphBuilder()
+    graph_builder = GraphBuilder(graph_specs_dir=graph_specs_dir)
     if graph_id_arg == "all":
         for graph_spec in graph_builder.graph_specs.values():
             graph_builder.build_graph(graph_spec)

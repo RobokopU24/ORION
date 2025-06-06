@@ -290,27 +290,3 @@ def get_bioactivity_predicate(line):
         raise SourceDataBrokenError(f'Predicate mapping for {action_type} not found')
 
     return predicate
-
-
-
-
-
-if __name__ == '__main__':
-    # create a command line parser
-    ap = argparse.ArgumentParser(description='Load drugcentral sqlfile and create KGX import files.')
-
-    # command line should be like: python loadGOA.py -p /projects/stars/ORION/UniProtKB_data -g goa_human.gaf.gz -m json
-    ap.add_argument('-p', '--data_dir', required=True, help='The location of the data files')
-
-    # parse the arguments
-    args = vars(ap.parse_args())
-
-    # get the params
-    data_dir = args['data_dir']
-
-    # get a reference to the processor
-    loader = DrugCentralLoader(False)
-
-    # load the data files and create KGX output
-    loader.load(f"{data_dir}/nodes", f"{data_dir}/edges")
-
