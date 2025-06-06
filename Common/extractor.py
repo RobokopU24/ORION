@@ -127,8 +127,7 @@ class Extractor:
 
         if isinstance(raw_edgeprops, dict):
             # One edge property dictionary for all edges, clone per predicate to avoid shared mutation
-            for pred in predicates:
-                predicate_edgeprop_pairs = [(pred, dict(raw_edgeprops)) for pred in predicates]
+            predicate_edgeprop_pairs = [(pred, dict(raw_edgeprops)) for pred in predicates]
         elif isinstance(raw_edgeprops, list):
             # a list of edge properties, but it has to be of equal length to the predicate list
             if len(raw_edgeprops) == len(predicates):
@@ -139,13 +138,12 @@ class Extractor:
                 )
                 self.load_metadata['skipped_record_counter'] += 1
                 return
-        # right now raw_edgerpops must be a dictionary or list, if it is not, log it as an error.
+        # right now raw_edgeprops must be a dictionary or list, if it is not, log it as an error.
         else:
             self.load_metadata['errors'].append(
                 f"Unsupported edge property format: {type(raw_edgeprops)} at row: {row}"
             )
             self.load_metadata['skipped_record_counter'] += 1
-            predicate_edgeprop_pairs = []
             return
 
         subject_id = subject_extractor(row)
@@ -153,7 +151,7 @@ class Extractor:
         subjectprops = subject_property_extractor(row) if subject_property_extractor is not None else {}
         objectprops = object_property_extractor(row) if object_property_extractor is not None else {}
 
-        # if we  haven't seen the subject before, add it to nodes
+        # if we haven't seen the subject before, add it to nodes
         if subject_id and subject_id not in self.node_ids:
             subject_name = subjectprops.pop('name', '')
             subject_categories = subjectprops.pop('categories', None)
@@ -164,7 +162,7 @@ class Extractor:
                 self.nodes.append(subject_node)
                 self.node_ids.add(subject_id)
 
-        # if we  haven't seen the object before, add it to nodes
+        # if we haven't seen the object before, add it to nodes
         if object_id and object_id not in self.node_ids:
             object_name = objectprops.pop('name', '')
             object_categories = objectprops.pop('categories', None)
