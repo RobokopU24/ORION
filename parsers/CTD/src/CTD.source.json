@@ -1,0 +1,11 @@
+{
+    "id": "CTD",
+    "name": "Comparative Toxicogenomics Database",
+    "description": "The Comparative Toxicogenomics Database (CTD) is an open-source database that provides manually curated information about chemical-gene/protein, chemical-disease, and gene-disease relationships, with additional support for the curated relationships provided by functional and pathway data.",
+    "url": "http://ctdbase.org/",
+    "attribution": "http://ctdbase.org/",
+    "citation": "https://doi.org/10.1093/nar/gkae883",
+    "full_citation": "Davis AP, Wiegers TC, Sciaky D, Barkalow F, Strong M, Wyatt B, Wiegers J, McMorran R, Abrar S, Mattingly CJ Comparative Toxicogenomics Database’s 20th anniversary: update 2025. Nucleic Acids Res. 2024 Oct 10. ",
+    "license": "https://ctdbase.org/about/legal.jsp",
+    "contentUrl": "https://ctdbase.org/downloads/"
+}

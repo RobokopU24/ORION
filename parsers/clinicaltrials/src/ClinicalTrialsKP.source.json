@@ -1,0 +1,11 @@
+{
+    "id": "ClinicalTrialsKP",
+    "name": "Clinical Trials KP",
+    "description": "The Clinical Trials KP, created and maintained by the Multiomics Provider, provides information on Clinical Trials, ultimately derived from researcher submissions to clinicaltrials.gov, via the Aggregate Analysis of Clinical Trials (AACT) database). Information on select trials includes the NCT Identifier of the trial, interventions used, diseases/conditions relevant to the trial, adverse events, etc.",
+    "url": "https://aact.ctti-clinicaltrials.org/",
+    "attribution": "https://github.com/multiomicsKP/clinical_trials_kp/",
+    "citation": "",
+    "full_citation": "",
+    "license": "https://github.com/ctti-clinicaltrials/aact/blob/dev/LICENSE",
+    "contentUrl": "https://aact.ctti-clinicaltrials.org/"
+}

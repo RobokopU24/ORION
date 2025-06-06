@@ -1,0 +1,11 @@
+{
+    "id": "DrugMechDB",
+    "name": "DrugMechDB",
+    "description": "A database of paths that represent the mechanism of action from a drug to a disease in an indication.",
+    "url": "https://sulab.github.io/DrugMechDB/",
+    "attribution": "https://sulab.github.io/DrugMechDB/",
+    "citation": "https://doi.org/10.1038/s41597-023-02534-z",
+    "full_citation": "Gonzalez-Cavazos, A.C., Tanska, A., Mayers, M. et al. DrugMechDB: A Curated Database of Drug Mechanisms. Sci Data 10, 632 (2023).",
+    "license": "Creative Commons Zero v1.0 Universal license",
+    "contentUrl": "https://github.com/SuLab/DrugMechDB/raw/main/indication_paths.json"
+}

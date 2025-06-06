@@ -31,12 +31,6 @@ class ChebiPropertiesLoader(SourceDataLoader):
 
     # Setting the class level variables for the source ID and provenance
     source_id: str = 'CHEBIProps'
-    provenance_id: str = None  # there aren't edges coming from this source currently
-    description = "Chemical Entities of Biological Interest (ChEBI) is a freely available dictionary of molecular " \
-                  "entities focused on ‘small’ chemical compounds."
-    source_data_url = "https://www.ebi.ac.uk/chebi/"
-    license = ""
-    attribution = ""
     parsing_version = '1.2'
     preserve_unconnected_nodes = True
 

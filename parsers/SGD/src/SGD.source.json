@@ -1,0 +1,11 @@
+{
+    "id": "SGD",
+    "name": "Saccharomyces Genome Database (SGD)",
+    "description": "",
+    "url": "https://www.yeastgenome.org/",
+    "attribution": "https://www.yeastgenome.org/",
+    "citation": "https://doi.org/10.1093/genetics/iyae185",
+"full_citation": "Engel SR, Aleksander S, Nash RS, Wong ED, Weng S, Miyasato SR, Sherlock G, Cherry JM (2025) Saccharomyces Genome Database: Advances in Genome Annotation, Expanded Biochemical Pathways, and Other Key Enhancements. Genetics. 2024 Nov 12:iyae185. doi: 10.1093/genetics/iyae185. [PMID:39530598](https://pubmed.ncbi.nlm.nih.gov/39530598/)", 
+    "license": "CC BY 4.0",
+    "contentUrl": ""
+}

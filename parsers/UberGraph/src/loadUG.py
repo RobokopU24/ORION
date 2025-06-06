@@ -12,10 +12,6 @@ class UGLoader(SourceDataLoader):
 
     source_id = 'UbergraphNonredundant'
     provenance_id = 'infores:ubergraph'
-    description = "Ubergraph is an open-source graph database containing integrated ontologies, including GO, CHEBI, HPO, and Uberon’s anatomical ontology."
-    source_data_url = "https://github.com/INCATools/ubergraph#downloads"
-    license = "https://raw.githubusercontent.com/INCATools/ubergraph/master/LICENSE.txt"
-    attribution = "https://github.com/INCATools/ubergraph"
     parsing_version: str = '1.5'
 
     def __init__(self, test_mode: bool = False, source_data_dir: str = None):

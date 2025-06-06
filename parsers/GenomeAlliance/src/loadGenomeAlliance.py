@@ -27,7 +27,6 @@ class GenomeAllianceOrthologLoader(SourceDataLoader):
     source_id: str = 'GenomeAllianceOrthologs'
     provenance_id: str = 'infores:agrkb'
     parsing_version: str = '1.2'
-    source_data_url = 'https://www.alliancegenome.org/'
 
     def __init__(self, test_mode: bool = False, source_data_dir: str = None):
         """

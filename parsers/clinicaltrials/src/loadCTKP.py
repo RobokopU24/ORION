@@ -47,10 +47,6 @@ class EDGESDATACOLS(enum.IntEnum):
 class CTKPLoader(SourceDataLoader):
     source_id: str = "ClinicalTrialsKP"
     provenance_id: str = "infores:biothings-multiomics-clinicaltrials"
-    description = "The Clinical Trials KP, created and maintained by the Multiomics Provider, provides information on Clinical Trials, ultimately derived from researcher submissions to clinicaltrials.gov, via the Aggregate Analysis of Clinical Trials (AACT) database). Information on select trials includes the NCT Identifier of the trial, interventions used, diseases/conditions relevant to the trial, adverse events, etc."
-    source_data_url = "https://aact.ctti-clinicaltrials.org/"
-    license = "https://github.com/ctti-clinicaltrials/aact/blob/dev/LICENSE"
-    attribution = ""
     parsing_version = "1.0"
 
     def __init__(self, test_mode: bool = False, source_data_dir: str = None):
