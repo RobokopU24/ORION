@@ -1,0 +1,11 @@
+{
+    "id": "PlantGOA",
+    "name": "Gene Ontologies Annotations (Plants)",
+    "description": "The Gene Ontology (GO) Consortium\u2019s Human Gene Ontologies Annotations (Human GOA) resource provides open access to curated assignment of GO terms to proteins in the UniProt KnowledgeBase (UniProtKB), RNA molecules from RNACentral, and protein complexes from the Complex Portal.",
+    "url": "https://geneontology.org/",
+    "attribution": "https://geneontology.org/",
+    "citation": "https://doi.org/10.1093/genetics/iyad031",
+    "full_citation": "The Gene Ontology Consortium. The Gene Ontology knowledgebase in 2023. Genetics. 2023 May 4;224(1):iyad031.",
+    "license": "CC BY 4.0",
+    "contentUrl": "http://current.geneontology.org/annotations/goa_uniprot_all.gaf.gz"
+}

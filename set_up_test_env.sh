@@ -24,12 +24,14 @@ export ORION_GRAPH_SPEC=example-graph-spec.yaml
 
 export PYTHONPATH="$PYTHONPATH:$PWD"
 
-
-#The following environment variables are optional
+# The following environment variables are optional
+#
 # export EDGE_NORMALIZATION_ENDPOINT=https://bl-lookup-sri.renci.org/
 # export NODE_NORMALIZATION_ENDPOINT=https://nodenormalization-sri.renci.org/
 # export NAMERES_URL=https://name-resolution-sri.renci.org/
 # export SAPBERT_URL=https://babel-sapbert.apps.renci.org/
+# export LITCOIN_PRED_MAPPING_URL=https://pred-mapping.apps.renci.org/
+
 # export ORION_OUTPUT_URL=https://localhost/  # this is currently only used to generate metadata
 # export BL_VERSION=4.2.1
 

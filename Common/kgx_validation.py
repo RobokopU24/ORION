@@ -127,16 +127,15 @@ def validate_graph(nodes_file_path: str,
                 logger.warning(warning_message)
             else:
                 print(warning_message)
-
-    qc_metadata['primary_knowledge_sources'] = sorted(all_primary_knowledge_sources),
-    qc_metadata['aggregator_knowledge_sources'] = sorted(all_aggregator_knowledge_sources),
-    qc_metadata['predicate_totals'] = sort_dict_by_values({k: v for k, v in predicate_counts.items()}),
+    qc_metadata['primary_knowledge_sources'] = sorted(all_primary_knowledge_sources)
+    qc_metadata['aggregator_knowledge_sources'] = sorted(all_aggregator_knowledge_sources)
+    qc_metadata['predicate_totals'] = sort_dict_by_values({k: v for k, v in predicate_counts.items()})
     qc_metadata['predicates_by_knowledge_source'] = {ks: sort_dict_by_values(
         {predicate: count for predicate, count in ks_to_p.items()})
-        for ks, ks_to_p in predicate_counts_by_ks.items()},
-    qc_metadata['edges_with_publications'] = sort_dict_by_values({k: v for k, v in edges_with_publications.items()}),
-    qc_metadata['edge_properties'] = sorted(all_edge_properties),
-    qc_metadata['node_curie_prefixes'] = sort_dict_by_values({k: v for k, v in node_curie_prefixes.items()}),
+        for ks, ks_to_p in predicate_counts_by_ks.items()}
+    qc_metadata['edges_with_publications'] = sort_dict_by_values({k: v for k, v in edges_with_publications.items()})
+    qc_metadata['edge_properties'] = sorted(all_edge_properties)
+    qc_metadata['node_curie_prefixes'] = sort_dict_by_values({k: v for k, v in node_curie_prefixes.items()})
     qc_metadata['node_properties'] = sorted(all_node_properties)
     qc_metadata['invalid_edges_due_to_predicate_and_node_types'] = invalid_edges_due_to_predicate_and_node_types
     qc_metadata['invalid_edges_due_to_missing_primary_ks'] = invalid_edges_due_to_missing_primary_ks

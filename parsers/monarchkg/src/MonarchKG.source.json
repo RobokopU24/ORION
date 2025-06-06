@@ -1,0 +1,11 @@
+{
+    "id": "MonarchKG",
+    "name": "Monarch Initiative KG",
+"description": "The Monarch Initiative is an international consortium that leads key global standards and semantic data integration technologies. Monarch resources and integrated data are foundational to many downstream applications. We collaborate with stakeholders to continuously improve the platform, which is composed of multiple open-source, open-access components. Our mission is to enhance data utility, accessibility, and transparency to improve rare disease diagnosis and treatment.", 
+    "url": "https://monarchinitiative.org/",
+    "attribution": "https://monarchinitiative.org/",
+    "citation": "https://doi.org/10.1093/nar/gkad1082",
+"full_citation": "Putman TE, Schaper K, Matentzoglu N, Rubinetti VP, Alquaddoomi FS, Cox C, Caufield JH, Elsarboukh G, Gehrke S, Hegde H, Reese JT, Braun I, Bruskiewich RM, Cappelletti L, Carbon S, Caron AR, Chan LE, Chute CG, Cortes KG, De Souza V, Fontana T, Harris NL, Hartley EL, Hurwitz E, Jacobsen JOB, Krishnamurthy M, Laraway BJ, McLaughlin JA, McMurry JA, Moxon SAT, Mullen KR, O'Neil ST, Shefchek KA, Stefancsik R, Toro S, Vasilevsky NA, Walls RL, Whetzel PL, Osumi-Sutherland D, Smedley D, Robinson PN, Mungall CJ, Haendel MA, Munoz-Torres MC. The Monarch Initiative in 2024: an analytic platform integrating phenotypes, genes and diseases across species. Nucleic Acids Res. 2024 Jan 5;52(D1):D938-D949. doi: 10.1093/nar/gkad1082. PMID: 38000386; PMCID: PMC10767791.",
+    "license": "BSD-3-Clause",
+    "contentUrl": ""
+}

@@ -1,0 +1,11 @@
+{
+    "id": "CAM-KP",
+    "name": "Causal Activity Models Knowledge Provider",
+    "description": "CAMs (Causal Activity Models) are small knowledge graphs built using the Web Ontology Language (OWL). The CAM database combines many CAM graphs along with a large merged bio-ontology containing the full vocabulary of concepts referenced within the individual CAMs. Each CAM describes an instantiation of some of those concepts in a particular context, modeling the interactions between those instances as an interlinked representation of a complex biological or environmental process.",
+    "url": "https://github.com/ExposuresProvider/cam-kp-api",
+    "attribution": "https://github.com/ExposuresProvider/cam-kp-api",
+    "citation": "",
+    "full_citation": "",
+    "license": "MIT License",
+    "contentUrl": "https://github.com/ExposuresProvider/cam-kp-api"
+}

@@ -20,10 +20,6 @@ NOTE that FDA_approval_status is in the edges file headers but it should be high
 class MoleProLoader(SourceDataLoader):
     source_id: str = "MolePro"
     provenance_id: str = "infores:molepro"
-    description = "MolePro!"
-    source_data_url = ""
-    license = ""
-    attribution = ""
     parsing_version = "1.0"
 
     def __init__(self, test_mode: bool = False, source_data_dir: str = None):

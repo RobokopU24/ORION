@@ -50,10 +50,6 @@ class BINDINGDBLoader(SourceDataLoader):
 
     source_id: str = 'BINDING-DB'
     provenance_id: str = 'infores:bindingdb'
-    description = "A public, web-accessible database of measured binding affinities, focusing chiefly on the interactions of proteins considered to be candidate drug-targets with ligands that are small, drug-like molecules"
-    source_data_url = "https://www.bindingdb.org/rwd/bind/chemsearch/marvin/SDFdownload.jsp?all_download=yes"
-    license = "All data and download files in bindingDB are freely available under a 'Creative Commons BY 3.0' license.'"
-    attribution = 'https://www.bindingdb.org/rwd/bind/info.jsp'
     parsing_version = '1.6'
 
     def __init__(self, test_mode: bool = False, source_data_dir: str = None):

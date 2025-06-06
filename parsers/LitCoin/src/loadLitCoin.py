@@ -1,4 +1,4 @@
-
+import shutil
 import os
 import json
 import yaml
@@ -10,6 +10,7 @@ from Common.loader_interface import SourceDataLoader
 from Common.biolink_constants import PUBLICATIONS, NEGATED
 from Common.utils import GetData, quick_jsonl_file_iterator
 from Common.normalization import call_name_resolution, NAME_RESOLVER_API_ERROR
+from Common.predicates import call_pred_mapping
 from Common.prefixes import PUBMED
 
 from parsers.LitCoin.src.bagel.bagel_service import call_bagel_service
@@ -26,8 +27,7 @@ class LITCOIN:
     OBJECT_NAME = 'object'
     OBJECT_TYPE = 'object_type'
     OBJECT_QUALIFIER = 'object_qualifier'
-    PREDICATE_MAPPING = 'predicate'
-    PREDICATE = 'mapped_predicate'
+    PREDICATE = 'predicate'
     PREDICATE_NEGATED = 'negated'
     RELATIONSHIP = 'relationship'
     RELATIONSHIP_QUALIFIER = 'statement_qualifier'
@@ -81,7 +81,7 @@ class LitCoinLoader(SourceDataLoader):
         :param source_data_dir - the specific storage directory to save files in
         """
         super().__init__(test_mode=test_mode, source_data_dir=source_data_dir)
-
+        self.shared_source_data_path = os.getenv('SHARED_SOURCE_DATA_PATH', None)
         self.data_url = 'https://stars.renci.org/var/data_services/litcoin/'
         self.version_file = 'litcoin.yaml'
         self.abstracts_file = 'abstracts_CompAndHeal.json'
@@ -95,17 +95,26 @@ class LitCoinLoader(SourceDataLoader):
         self.mentions_predicate = "IAO:0000142"
 
     def get_latest_source_version(self) -> str:
-        version_file_url = f"{self.data_url}{self.version_file}"
-        r = requests.get(version_file_url)
-        version_yaml = yaml.full_load(r.text)
+        if not self.shared_source_data_path:
+            version_file_url = f"{self.data_url}{self.version_file}"
+            r = requests.get(version_file_url)
+            version_yaml = yaml.full_load(r.text)
+        else:
+            with open(os.path.join(self.shared_source_data_path, self.version_file), 'r') as f:
+                version_yaml = yaml.full_load(f)
+
         build_version = str(version_yaml['build'])
         return build_version
 
+
     def get_data(self) -> bool:
         for data_file in self.data_files:
-            source_data_url = f'{self.data_url}{data_file}'
-            data_puller = GetData()
-            data_puller.pull_via_http(source_data_url, self.data_path)
+            if not self.shared_source_data_path:
+                source_data_url = f'{self.data_url}{data_file}'
+                data_puller = GetData()
+                data_puller.pull_via_http(source_data_url, self.data_path)
+            else:
+                shutil.copy(os.path.join(self.shared_source_data_path, data_file), self.data_path)
         return True
 
     def parse_data(self) -> dict:
@@ -169,6 +178,7 @@ class LitCoinLoader(SourceDataLoader):
                     subject_name = subject_node["name"]
                     subject_bagel_synonym_type = subject_node["synonym_type"]
                 else:
+                    self.logger.info('Skipping due to failed subject node bagelization.')
                     skipped_records += 1
                     continue
 
@@ -180,12 +190,22 @@ class LitCoinLoader(SourceDataLoader):
                     object_name = object_node["name"]
                     object_bagel_synonym_type = object_node["synonym_type"]
                 else:
+                    self.logger.info('Skipping due to failed object node bagelization.')
                     skipped_records += 1
                     continue
 
-                predicate_mapping = litcoin_edge[LITCOIN.PREDICATE_MAPPING]
-                predicate = predicate_mapping[LITCOIN.PREDICATE]
-                predicate_negated = True if predicate_mapping[LITCOIN.PREDICATE_NEGATED] == "True" else False
+                predicate_mapping_resp = call_pred_mapping(litcoin_edge[LITCOIN.SUBJECT_NAME],
+                                                           litcoin_edge[LITCOIN.OBJECT_NAME],
+                                                           litcoin_edge[LITCOIN.RELATIONSHIP],
+                                                           abstract_text,
+                                                           logger=self.logger)
+                if predicate_mapping_resp is None:
+                    self.logger.info('Skipping due to failed predicate mapping.')
+                    skipped_records += 1
+                    continue
+
+                predicate = predicate_mapping_resp[LITCOIN.PREDICATE]
+                predicate_negated = predicate_mapping_resp[LITCOIN.PREDICATE_NEGATED]
 
                 self.output_file_writer.write_node(node_id=subject_id,
                                                    node_name=subject_name)
@@ -199,8 +219,8 @@ class LitCoinLoader(SourceDataLoader):
                     ABSTRACT_TITLE_EDGE_PROP: abstract_title,
                     ABSTRACT_TEXT_EDGE_PROP: abstract_text
                 })
-                if predicate_negated:
-                    output_edge_properties[NEGATED] = True
+
+                output_edge_properties[NEGATED] = predicate_negated
 
                 self.output_file_writer.write_edge(subject_id=subject_id,
                                                    object_id=object_id,
@@ -334,7 +354,13 @@ class LitCoinLoader(SourceDataLoader):
         return convert_orion_bagel_result_to_bagel_service_format(orion_bagel_results)
 
     def get_bagel_cache_path(self):
-        return os.path.join(self.data_path, "bagel_cache.json")
+        cache_path = os.path.join(self.data_path, "bagel_cache.json")
+        # cache does not exist in source data path, check whether it exists in the shared source data path
+        if not os.path.exists(cache_path) and self.shared_source_data_path:
+            shared_cache_path = os.path.join(self.shared_source_data_path, "bagel_cache.json")
+            if os.path.exists(shared_cache_path):
+                shutil.copyfile(shared_cache_path, cache_path)
+        return cache_path
 
     def load_bagel_cache(self):
         bagel_cache_file_path = self.get_bagel_cache_path()

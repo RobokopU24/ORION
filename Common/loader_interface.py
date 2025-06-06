@@ -1,5 +1,7 @@
 import logging
 import os
+import json
+import inspect
 from Common.kgx_file_writer import KGXFileWriter
 from Common.utils import LoggingUtil
 
@@ -169,13 +171,25 @@ class SourceDataLoader:
         return self.__class__.__name__
 
     def get_source_meta_information(self):
-        return {
-            'provenance': self.provenance_id,
-            'description': self.description,
-            'source_data_url': self.source_data_url,
-            'license': self.license,
-            'attribution': self.attribution
-        }
+        try:
+            # find the metadata file sitting next to the specific parser, not this interface file
+            parser_class_path = os.path.dirname(os.path.abspath(inspect.getfile(self.__class__)))
+            source_metadata_file = os.path.join(parser_class_path,
+                                                f'{self.source_id}.source.json')
+            with open(source_metadata_file) as f:
+                source_metadata = json.load(f)
+        except FileNotFoundError:
+            self.logger.warning(f'Source metadata file was not found for {self.source_id}, '
+                                f'using attributes from the parser instead.')
+            source_metadata = {
+                'provenance': self.provenance_id,
+                'description': self.description,
+                'source_data_url': self.source_data_url,
+                'license': self.license,
+                'attribution': self.attribution
+            }
+
+        return source_metadata
 
     def write_to_file(self) -> None:
         """

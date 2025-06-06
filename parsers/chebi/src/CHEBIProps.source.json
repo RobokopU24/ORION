@@ -1,0 +1,11 @@
+{
+    "id": "CHEBIProps",
+    "name": "Chemical Entities of Biological Interest",
+    "description": "Chemical Entities of Biological Interest (ChEBI) is a freely available dictionary of molecular entities focused on \u2018small\u2019 chemical compounds.",
+    "url": "https://www.ebi.ac.uk/chebi/",
+    "attribution": "https://www.ebi.ac.uk/chebi/aboutChebiForward.do",
+    "citation": "https://doi.org/10.1093/nar/gkv1031",
+    "full_citation": "Hastings J, Owen G, Dekker A, Ennis M, Kale N, Muthukrishnan V, Turner S, Swainston N, Mendes P, Steinbeck C. (2016). ChEBI in 2016: Improved services and an expanding collection of metabolites. Nucleic Acids Res.",
+    "license": "CC BY 4.0",
+    "contentUrl": "https://www.ebi.ac.uk/chebi/"
+}

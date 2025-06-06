@@ -95,10 +95,6 @@ class ReactomeLoader(SourceDataLoader):
     # Setting the class level variables for the source ID and provenance
     source_id: str = 'Reactome'
     provenance_id: str = 'infores:reactome'
-    description = "Reactome is a free, open-source, curated and peer-reviewed pathway database"
-    source_data_url = "https://reactome.org/"
-    license = "https://reactome.org/license"
-    attribution = "https://academic.oup.com/nar/article/50/D1/D687/6426058?login=false"
     parsing_version = '1.3'
 
     def __init__(self, test_mode: bool = False, source_data_dir: str = None):

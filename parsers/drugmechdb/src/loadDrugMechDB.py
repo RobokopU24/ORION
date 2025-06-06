@@ -26,10 +26,6 @@ class DrugMechDBLoader(SourceDataLoader):
 
     source_id: str = 'DrugMechDB'
     provenance_id: str = 'infores:drugmechdb'
-    description = "A database of paths that represent the mechanism of action from a drug to a disease in an indication."
-    source_data_url = "https://github.com/SuLab/DrugMechDB/raw/main/indication_paths.json"
-    license = "SuLab/DrugMechDB is licensed under the Creative Commons Zero v1.0 Universal license"
-    attribution = 'https://sulab.github.io/DrugMechDB/'
     parsing_version = '1.3'
 
     def __init__(self, test_mode: bool = False, source_data_dir: str = None):

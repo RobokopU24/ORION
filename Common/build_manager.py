@@ -18,7 +18,7 @@ from Common.kgxmodel import GraphSpec, SubGraphSource, DataSource
 from Common.normalization import NORMALIZATION_CODE_VERSION, NormalizationScheme
 from Common.metadata import Metadata, GraphMetadata, SourceMetadata
 from Common.supplementation import SequenceVariantSupplementation
-from Common.meta_kg import MetaKnowledgeGraphBuilder, META_KG_FILENAME, TEST_DATA_FILENAME
+from Common.meta_kg import MetaKnowledgeGraphBuilder, META_KG_FILENAME, TEST_DATA_FILENAME, EXAMPLE_DATA_FILENAME
 from Common.redundant_kg import generate_redundant_kg
 from Common.collapse_qualifiers import generate_collapsed_qualifiers_kg
 
@@ -323,7 +323,8 @@ class GraphBuilder:
     def generate_meta_kg_and_test_data(self,
                                        graph_directory: str,
                                        generate_meta_kg: bool = True,
-                                       generate_test_data: bool = True):
+                                       generate_test_data: bool = True,
+                                       generate_example_data: bool = True):
         graph_nodes_file_path = os.path.join(graph_directory, NODES_FILENAME)
         graph_edges_file_path = os.path.join(graph_directory, EDGES_FILENAME)
         mkgb = MetaKnowledgeGraphBuilder(nodes_file_path=graph_nodes_file_path,
@@ -335,6 +336,9 @@ class GraphBuilder:
         if generate_test_data:
             test_data_file_path = os.path.join(graph_directory, TEST_DATA_FILENAME)
             mkgb.write_test_data_to_file(test_data_file_path)
+        if generate_example_data:
+            example_data_file_path = os.path.join(graph_directory, EXAMPLE_DATA_FILENAME)
+            mkgb.write_example_data_to_file(example_data_file_path)
 
     def load_graph_specs(self, graph_specs_dir=None):
         graph_spec_file = os.environ.get('ORION_GRAPH_SPEC', None)
@@ -541,10 +545,12 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="Merge data sources into complete graphs.")
     parser.add_argument('graph_id',
                         help='ID of the graph to build. Must match an ID from the configured Graph Spec.')
+    parser.add_argument('--graph_specs_dir', type=str, default=None, help='Graph spec directory.')
     args = parser.parse_args()
     graph_id_arg = args.graph_id
+    graph_specs_dir = args.graph_specs_dir
 
-    graph_builder = GraphBuilder()
+    graph_builder = GraphBuilder(graph_specs_dir=graph_specs_dir)
     if graph_id_arg == "all":
         for graph_spec in graph_builder.graph_specs.values():
             graph_builder.build_graph(graph_spec)

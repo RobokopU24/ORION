@@ -1,0 +1,11 @@
+{
+    "id": "STRING-DB-Human",
+    "name": "STRING (Human)",
+    "description": "The Search Tool for the Retrieval of Interacting Genes/Proteins (STRING) database provides information on known and predicted protein-protein interactions (both direct and indirect) derived from genomic context predictions, high-throughput laboratory experiments, conserved co-expression, automated text mining, and aggregated knowledge from primary data sources.",
+    "url": "https://string-db.org",
+    "attribution": "https://string-db.org/",
+    "citation": "https://doi.org/10.1093/nar/gkac1000",
+"full_citation": "Szklarczyk D, Gable AL, Nastou KC, Lyon D, Kirsch R, Pyysalo S, Doncheva NT, Legeay M, Fang T, Bork P, Jensen LJ, von Mering C. The STRING database in 2021: customizable protein-protein networks, and functional characterization of user-uploaded gene/measurement sets. Nucleic Acids Res. 2021 Jan 8;49(D1):D605-D612. doi: 10.1093/nar/gkaa1074. Erratum in: Nucleic Acids Res. 2021 Oct 11;49(18):10800. doi: 10.1093/nar/gkab835. PMID: 33237311; PMCID: PMC7779004.",
+    "license": "CC BY 4.0",
+    "contentUrl": "https://string-db.org"
+}
