@@ -341,13 +341,29 @@ class GraphBuilder:
             mkgb.write_example_data_to_file(example_data_file_path)
 
     def load_graph_specs(self, graph_specs_dir=None):
+
+        # TODO clean this up and reconsider options.. if a user gives a graph_specs_dir do we still load the included
+        #  ones? if a user gives a graph_spec_file and not a directory do we warn them it's not necessary? or do
+        #  we not load all the included ones? They could even provide both a file and a url if we load many graph specs
+
         graph_spec_file = os.environ.get('ORION_GRAPH_SPEC', None)
         graph_spec_url = os.environ.get('ORION_GRAPH_SPEC_URL', None)
-
         if graph_spec_file and graph_spec_url:
             raise GraphSpecError(f'Configuration Error - the environment variables ORION_GRAPH_SPEC and '
                                  f'ORION_GRAPH_SPEC_URL were set. Please choose one or the other. See the README for '
                                  f'details.')
+
+        # just load all the graph specs in the graph_specs dir first
+        included_graph_specs_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'graph_specs')
+        self.logger.info(f'Loading all included graph specs...')
+        for gs_file in os.listdir(included_graph_specs_dir):
+            print(gs_file)
+            graph_spec_path = os.path.join(included_graph_specs_dir, gs_file)
+            print(graph_spec_path)
+            if os.path.isfile(graph_spec_path) and 'yaml' in graph_spec_path or 'yml' in graph_spec_path:
+                with open(graph_spec_path) as gs_fp:
+                    graph_spec_yaml = yaml.safe_load(gs_fp)
+                    self.parse_graph_spec(graph_spec_yaml)
 
         if graph_spec_file:
             if not graph_specs_dir:
