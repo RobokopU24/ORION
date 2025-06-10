@@ -223,6 +223,13 @@ class DiskGraphMerger(GraphMerger):
                             entity_type,
                             add_edge_id=False):
 
+        # TODO there an inefficient aspect of how this works regarding json serialization/decoding
+        # We are serializing the json objects to strings after determining their sorting key, writing to the temp files,
+        # then loading the json back into objects when they get read back in for merging, BUT really if no merge occurs
+        # we don't need to convert them back into objects. Currently this is done to determine the sorting key again,
+        # to determine if a merge is needed but if we stored the key with the objects we could avoid loading the json
+        # again for cases where no merge is needed.
+
         if not file_paths:
             logger.error('get_merged_entities called but no file_paths were provided! Empty source?')
             return
@@ -289,13 +296,13 @@ class MemoryGraphMerger(GraphMerger):
         node_key = node['id']
         if node_key in self.nodes:
             self.merged_node_counter += 1
-            previous_node = self.nodes[node_key]
+            previous_node = quick_json_loads(self.nodes[node_key])
             merged_node = entity_merging_function(previous_node,
                                                   node,
                                                   NODE_PROPERTIES_THAT_SHOULD_BE_SETS)
-            self.nodes[node_key] = merged_node
+            self.nodes[node_key] = quick_json_dumps(merged_node)
         else:
-            self.nodes[node_key] = node
+            self.nodes[node_key] = quick_json_dumps(node)
 
     # merge a list of edges (dictionaries not kgxedge objects!) into the existing list
     def merge_edges(self, edges, additional_edge_attributes=None, add_edge_id=False):
@@ -322,7 +329,7 @@ class MemoryGraphMerger(GraphMerger):
 
     def get_merged_nodes_jsonl(self):
         for node in self.nodes.values():
-            yield f'{quick_json_dumps(node)}\n'
+            yield f'{node}\n'
 
     def get_merged_edges_jsonl(self):
         for edge in self.edges.values():
