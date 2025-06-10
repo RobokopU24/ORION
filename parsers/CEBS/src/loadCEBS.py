@@ -112,6 +112,7 @@ class CEBSLoader(SourceDataLoader):
         elif evidence_level == "Some Evidence":
             kl = OBSERVATION
         else:
+            # we don't want edges that aren't "Clear" or "Some" evidence, so we can bail otherwise
             return {}
 
         species = self.iri_to_curie_converter.compress(line[CEBSCOLUMNS.SPECIES])
