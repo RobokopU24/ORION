@@ -1,6 +1,12 @@
 import os
 import csv
-from Common.biolink_constants import PRIMARY_KNOWLEDGE_SOURCE,NODE_TYPES,SEQUENCE_VARIANT,PUBLICATIONS,
+from Common.biolink_constants import (
+    PRIMARY_KNOWLEDGE_SOURCE,
+    NODE_TYPES,
+    SEQUENCE_VARIANT,
+    PUBLICATIONS,
+    NEGATED,
+)
 from Common.extractor import Extractor
 from Common.loader_interface import SourceDataLoader
 from Common.prefixes import PUBMED
@@ -133,14 +139,14 @@ class ClinGenVariantPathogenicityLoader(SourceDataLoader):
 
     def get_edge_properties(self, assertion):
         if assertion == "Benign" or assertion == "Likely Benign":
-            return {"DIRECTION": "Contradicts", "NEGATED": True}
+            return {"DIRECTION": "Contradicts", NEGATED: True}
         elif assertion == "Likely Pathogenic" or assertion == "Pathogenic":
-            return {"DIRECTION": "Supports", "NEGATED": False}
+            return {"DIRECTION": "Supports", NEGATED: False}
         elif assertion == "Uncertain Significance":
-            return {"DIRECTION": "Inconclusive", "NEGATED": True}
+            return {"DIRECTION": "Inconclusive", NEGATED: True}
         else:
             return {
                 "STATUS": "Not evaluated",
                 "DIRECTION": "Inconclusive",
-                "NEGATED": True,
+                NEGATED: True,
             }
