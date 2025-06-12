@@ -98,5 +98,5 @@ def call_pred_mapping(subject: str, obj: str, predicate: str, abstract: str, ret
         logger.info('Retrying predicate mapping..')
         return call_pred_mapping(subject, obj, predicate, abstract, retries + 1, logger)
 
-    # if no success after having retried 2 times  give up and return the last error
-    return {"api_error": error_message}
+    # if no success after having retried 2 times  give up and return None
+    return None
