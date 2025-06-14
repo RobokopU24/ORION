@@ -81,6 +81,9 @@ def call_pred_mapping(subject: str, obj: str, predicate: str, abstract: str, ret
         else:
             error_message = f'Non-200 result from predicate mapping (url: {PRED_MAPPING_ENDPOINT}, ' \
                             f'payload: {data}). Status code: {resp_result.status_code}.'
+            if resp_result.status_code == 500 or resp_result.status_code == 403:
+                # don't retry if server raises error or denied by ingress modsec security rules
+                retries = 2
     except requests.exceptions.ConnectionError as e:
         error_message = f'Connection Error calling predicate mapping (url: {PRED_MAPPING_ENDPOINT}, ' \
                         f'payload: {data}). Error: {e}.'
