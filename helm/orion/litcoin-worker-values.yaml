@@ -7,7 +7,7 @@ orion:
   image:
     repository: ghcr.io/robokopu24/orion
     pullPolicy: Always
-    tag: litcoin-pipeline-worker-integration
+    tag: litcoin-pipeline
   neo4jScratchVolume:
     size: 8Gi
   resources:
@@ -27,9 +27,9 @@ orion:
     litcoinPredMappingURL: https://pred-mapping.apps.renci.org
     bl_version: 4.2.6-rc2
 
-  openAI:
-    openAIKey: fake-key-do-not-commit-a-real-one!!! 
-    openAIOrg: fake-org-do-not-commit-a-real-one!!!
+  bagel:
+    username: fake-username-do-not-commit-a-real-one!!!
+    password: fake-password-do-not-commit-a-real-one!!!
 
 # Worker-specific settings
 worker:

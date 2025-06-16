@@ -1,4 +1,5 @@
 import requests
+from requests.auth import HTTPBasicAuth
 from Common.config import CONFIG
 
 BAGEL_ENDPOINT = 'https://bagel.apps.renci.org/'
@@ -13,10 +14,10 @@ bagel_sapbert_url += "annotate/"
 bagel_nodenorm_url = CONFIG.get('NODE_NORMALIZATION_ENDPOINT', 'https://nodenormalization-sri.renci.org/')
 bagel_nodenorm_url += 'get_normalized_nodes'
 
-OPENAI_API_KEY = CONFIG.get("OPENAI_API_KEY")
-assert OPENAI_API_KEY
-OPENAI_API_ORGANIZATION = CONFIG.get("OPENAI_API_ORGANIZATION")
-assert OPENAI_API_ORGANIZATION
+BAGEL_SERVICE_USERNAME = CONFIG.get("BAGEL_SERVICE_USERNAME")
+assert BAGEL_SERVICE_USERNAME
+BAGEL_SERVICE_PASSWORD = CONFIG.get("BAGEL_SERVICE_PASSWORD")
+assert BAGEL_SERVICE_PASSWORD
 
 
 def call_bagel_service(text, entity, entity_type=''):
@@ -27,11 +28,12 @@ def call_bagel_service(text, entity, entity_type=''):
         "entity": entity,
         "entity_type": entity_type,
         "config": {
-            "llm_model_name": "gpt-4o-mini",
-            "organization": OPENAI_API_ORGANIZATION,
-            "access_key": OPENAI_API_KEY,
+            "llm_model_name": "google/gemma-3-12b-it",
+            "organization": "",
+            "access_key": "",
+            "url": "http://vllm-server/v1",
             "llm_model_args": {
-              "top_p": 0,
+              "top_p": 0.1,
               "temperature": 0.1
             }
         },
@@ -41,6 +43,7 @@ def call_bagel_service(text, entity, entity_type=''):
     }
     # print(f'Querying bagel with:\n {bagel_json}')
     bagel_response = requests.post(BAGEL_ENDPOINT,
+                                   auth=HTTPBasicAuth(BAGEL_SERVICE_USERNAME, BAGEL_SERVICE_PASSWORD),
                                    json=bagel_json)
 
     if bagel_response.status_code == 200:
