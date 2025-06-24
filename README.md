@@ -57,7 +57,9 @@ cd ~/ORION_root/ORION/
 
 Use `.env.example` as an example and create your own directories and environment variables.
 
-Create three new directories where data sources, graphs, and logs will be stored:
+# Create three new directories where data sources, graphs, and logs will be stored:
+
+Next create directories where data sources, graphs, and logs will be stored.
 
 **ORION_STORAGE** - for storing data sources
 
@@ -69,7 +71,20 @@ Copy the contents of `.env.example` to a new file named `.env`.
 
 Change **ORION_STORAGE**, **ORION_GRAPHS**, **ORION_LOGS** to point to the directories created above.
 
-Alter any of the other example environment variables as needed.
+# Alter any of the other example environment variables as needed.
+
+Option 1: Use this script to create the directories and set the environment variables:
+
+```
+cd ~/ORION_root/ORION/
+source ./set_up_test_env.sh
+```
+
+Option 2: Create three directories and set environment variables specifying paths to the locations of those directories.
+
+```
+mkdir ~/ORION_root/storage/
+export ORION_STORAGE=~/ORION_root/storage/
 
 ### Configuring a Graph Specification
 
@@ -98,14 +113,17 @@ See the full list of data sources and their identifiers in the [data sources fil
 Here is a simple example.
 
 ```
+
 graphs:
-  - graph_id: Example_Graph
-    graph_name: Example Graph Name
-    graph_description: A free text description of what is in the graph.
-    output_format: neo4j
-    sources:
-      - source_id: CTD
-      - source_id: HGNC
+
+- graph_id: Example_Graph
+  graph_name: Example Graph Name
+  graph_description: A free text description of what is in the graph.
+  output_format: neo4j
+  sources:
+  - source_id: CTD
+  - source_id: HGNC
+
 ```
 
 There are variety of ways to further customize a knowledge graph. The following are parameters you can set for a particular data source. Mostly, these parameters are used to indicate that you'd like to use a previously built version of a data source or a specific normalization of a source. If you specify versions that are not the latest, and haven't previously built a data source or graph with those versions, it probably won't work.
@@ -129,16 +147,19 @@ The following are parameters you can set for the entire graph, or for an individ
 For example, we could customize the previous example, turning `conflation` on and `strict_normalization` off:
 
 ```
+
 graphs:
-  - graph_id: Example_Graph
-    graph_name: Example Graph
-    graph_description: A free text description of what is in the graph.
-    output_format: neo4j
-    conflation: True
-    strict_normalization: False
-    sources:
-      - source_id: CTD
-      - source_id: HGNC
+
+- graph_id: Example_Graph
+  graph_name: Example Graph
+  graph_description: A free text description of what is in the graph.
+  output_format: neo4j
+  conflation: True
+  strict_normalization: False
+  sources:
+  - source_id: CTD
+  - source_id: HGNC
+
 ```
 
 See the `graph_specs` directory for more examples.
@@ -150,13 +171,17 @@ Install Docker to create and run the necessary containers.
 Use the following command to build the necessary images.
 
 ```
+
 docker compose build
+
 ```
 
 To build every graph in your Graph Spec use the following command. This runs the command: `python /ORION/Common/build_manager.py all` on the image.
 
 ```
+
 docker compose up
+
 ```
 
 #### Building specific graphs
@@ -170,7 +195,9 @@ positional arguments:
 Example command to create a graph from a Graph Spec with the graph_id Example_Graph:
 
 ```
+
 docker compose run --rm orion python /ORION/Common/build_manager.py Example_Graph
+
 ```
 
 #### Run ORION Pipeline on a single data source.
@@ -178,23 +205,29 @@ docker compose run --rm orion python /ORION/Common/build_manager.py Example_Grap
 To run the ORION pipeline for a single data source and transform it into KGX files, you can use the `load_manager` script.
 
 ```
+
 optional arguments:
-  -h, --help : show this help message and exit
-  -t, --test_mode : Test mode will process a small sample version of the data.
-  -f, --fresh_start_mode : Fresh start mode will ignore previous states and overwrite previous data.
-  -l, --lenient_normalization : Lenient normalization mode will allow nodes that do not normalize to persist in the finalized kgx files.
+-h, --help : show this help message and exit
+-t, --test_mode : Test mode will process a small sample version of the data.
+-f, --fresh_start_mode : Fresh start mode will ignore previous states and overwrite previous data.
+-l, --lenient_normalization : Lenient normalization mode will allow nodes that do not normalize to persist in the finalized kgx files.
+
 ```
 
 Example command to ingest the data source CTD and convert it into normalized KGX files:
 
 ```
+
 docker compose run --rm orion python /ORION/Common/load_manager.py CTD
+
 ```
 
 To see the available arguments and a list of supported data sources:
 
 ```
+
 docker compose run --rm orion python /ORION/Common/load_manager.py -h
+
 ```
 
 #### Testing and Troubleshooting
@@ -202,15 +235,20 @@ docker compose run --rm orion python /ORION/Common/load_manager.py -h
 If you alter the codebase, or if you are experiencing issues or errors you may want to run tests:
 
 ```
+
 docker compose run --rm orion pytest /ORION
+
 ```
 
 If you are building the docker image and performance issues occur, setting the correct platform for docker may help:
 
 ```
+
 export DOCKER_PLATFORM=linux/arm64
+
 ```
 
 #### Developers and Contributors
 
 If you would like to contribute to ORION see the [contributing](CONTRIBUTING.md) page.
+```
