@@ -35,10 +35,10 @@ spec:
           value: /ORION_graphs
         - name: ORION_LOGS
           value: /ORION_logs
-        - name: OPENAI_API_KEY
-          value: {{ .Values.orion.openAI.openAIKey }}
-        - name: OPENAI_API_ORGANIZATION
-          value: {{ .Values.orion.openAI.openAIOrg }}
+        - name: BAGEL_SERVICE_USERNAME
+          value: {{ .Values.orion.bagel.username }}
+        - name: BAGEL_SERVICE_PASSWORD
+          value: {{ .Values.orion.bagel.password }}
         - name: LITCOIN_PRED_MAPPING_URL
           value: {{ .Values.orion.normalization.litcoinPredMappingURL }}
         - name: NODE_NORMALIZATION_ENDPOINT
