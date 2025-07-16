@@ -1,0 +1,11 @@
+{
+    "id": "GTEx",
+    "name": "Genotype-Tissue Expression (GTEx) Project",
+    "description": "The Genotype-Tissue Expression (GTEx) portal provides open access to data on tissue-specific gene expression and regulation, derived from molecular assays (e.g., WGS, WES, RNA-Seq) on 54 non-diseased tissue sites across nearly 1000 individuals.",
+    "url": "https://www.gtexportal.org/",
+    "attribution": "The data used for the analyses described in this manuscript were obtained from: [insert, where appropriate] the GTEx Portal on MM/DD/YY and/or dbGaP accession number phs000424.vN.pN on MM/DD/YYYY.",
+    "citation": "https://doi.org/10.1038/ng.2653",
+    "full_citation": "Lonsdale, J., Thomas, J., Salvatore, M. et al. The Genotype-Tissue Expression (GTEx) project. Nat Genet 45, 580–585 (2013).",
+    "license": "https://www.gtexportal.org/home/license",
+    "contentUrl": "https://www.gtexportal.org/home/downloads/adult-gtex"
+}

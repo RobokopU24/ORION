@@ -1,0 +1,34 @@
+# Default graph spec
+graphs:
+
+  - graph_id: Matrix_RobokopKG
+    graph_name: RobokopKG for Matrix
+    graph_description: 'The ROBOKOP Knowledge Graph (ROBOKOP KG) is an open-source biomedical KG that contains millions of biomedical relationships derived from dozens of integrated and harmonized biological knowledge sources and bio-ontologies. This version is generated for the Matrix project and excludes several sources.'
+    graph_url: http://robokopkg.renci.org/browser/
+    conflation: True
+    output_format: neo4j
+    sources:
+      - source_id: BINDING-DB
+      - source_id: CCIDB
+      - source_id: CHEBIProps
+      - source_id: CTD
+      - source_id: DrugCentral
+      - source_id: DrugMechDB
+      - source_id: GtoPdb
+      - source_id: Hetio
+      - source_id: HGNC
+      - source_id: HMDB
+      - source_id: HumanGOA
+      - source_id: IntAct
+      - source_id: KinAce
+      - source_id: LINCS
+      - source_id: MetabolomicsWorkbench
+      - source_id: MonarchKG
+      - source_id: MONDOProps
+      - source_id: PANTHER
+      - source_id: PHAROS
+      - source_id: Reactome
+      - source_id: textminingkp
+      - source_id: SIGNOR
+      - source_id: STRING-DB-Human
+      - source_id: UbergraphNonredundant

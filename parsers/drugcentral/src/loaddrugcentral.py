@@ -18,10 +18,6 @@ class DrugCentralLoader(SourceDataLoader):
 
     source_id = 'DrugCentral'
     provenance_id = 'infores:drugcentral'
-    description = 'DrugCentral provides open-source data on active ingredients, chemical entities, pharmaceutical products, drug mode of action, indications, and pharmacologic action for approved drugs, derived from information provided by the US Food & Drug Administration, the European Medicines Agency, and the Pharmaceutical and Medical Devices Agency. Caveat: DrugCentral provides limited information on discontinued and drugs approved outside of the US, but users should be aware that that information has not been validated.'
-    source_data_url = "https://drugcentral.org/download"
-    license = "https://drugcentral.org/privacy"
-    attribution = "https://drugcentral.org/about"
     parsing_version: str = '1.6'
 
     omop_relationmap = {'off-label use': 'biolink:applied_to_treat',  # is substance that treats

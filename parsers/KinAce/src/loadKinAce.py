@@ -26,11 +26,6 @@ class KinAceLoader(SourceDataLoader):
 
     source_id: str = 'KinAce'
     provenance_id: str = 'infores:kinace'
-    description = ("The KinAce web portal aggregates and visualizes the network of interactions between "
-                   "protein-kinases and their substrates in the human genome.")
-    source_data_url = "https://kinace.kinametrix.com/session/ff792906de38db0d1c9900ac5882497b/download/download0?w="
-    license = "Creative Commons Attribution 4.0 International"
-    attribution = 'https://kinace.kinametrix.com/#section-about'
     parsing_version = '1.2'
 
     KINACE_INFORES_MAPPING = {
@@ -66,7 +61,6 @@ class KinAceLoader(SourceDataLoader):
         commits = response.json()
         last_commit_date = commits[0]['commit']['committer']['date']
         date_version = last_commit_date[:10]
-
         return f"{date_version}"
 
     def get_data(self) -> int:
@@ -116,7 +110,6 @@ class KinAceLoader(SourceDataLoader):
         extractor = Extractor(file_writer=self.output_file_writer)
 
         with open(os.path.join(self.data_path, self.interactions_file_name)) as csvfile:
-            # change to csv reader
             extractor.csv_extract(csvfile,
                                   subject_extractor=lambda line: f"UniProtKB:{line[DATACOLS.kinase.value]}",
                                   object_extractor=lambda line: f"UniProtKB:{line[DATACOLS.substrate.value]}",

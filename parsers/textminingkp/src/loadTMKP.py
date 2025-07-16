@@ -58,11 +58,7 @@ class TMKPLoader(SourceDataLoader):
 
     source_id: str = "text-mining-provider-targeted"
     provenance_id: str = "infores:text-mining-provider-targeted"
-    description = "The Text Mining Provider KG contains subject-predicate-object assertions derived from the application of natural language processing (NLP) algorithms to the PubMedCentral Open Access collection of publications plus additional titles and abstracts from PubMed."
-    source_data_url = ""
-    license = ""
-    attribution = ""
-    parsing_version = "1.2"
+    parsing_version = "1.3"
 
     def __init__(self, test_mode: bool = False, source_data_dir: str = None):
         """
@@ -143,7 +139,7 @@ class TMKPLoader(SourceDataLoader):
                         sentences.append(paper)
 
                 edge_props = {PUBLICATIONS: [paper_id for paper_id in paper_idxs.split('|')],
-                              "biolink:tmkp_confidence_score": float(confidence_score),
+                              "tmkp_confidence_score": float(confidence_score),
                               "sentences": "|".join(sentences),
                               "tmkp_ids": [tmkp_id for tmkp_id in tmpk_idxs.split('|')],
                               KNOWLEDGE_LEVEL: NOT_PROVIDED,

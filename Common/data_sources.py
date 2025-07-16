@@ -3,6 +3,8 @@ import importlib
 
 BINDING_DB = 'BINDING-DB'
 CAM_KP = 'CAM-KP'
+CCIDB = 'CCIDB'
+CEBS = 'CEBS'
 CHEBI_PROPERTIES = 'CHEBIProps'
 CLINICAL_TRIALS_KP = 'ClinicalTrialsKP'
 CORD19 = 'Cord19'
@@ -58,6 +60,8 @@ RESOURCE_HOGS = [GTEX, GWAS_CATALOG, UNIREF, ONTOLOGICAL_HIERARCHY, UBERGRAPH_RE
 SOURCE_DATA_LOADER_CLASS_IMPORTS = {
     BINDING_DB: ("parsers.BINDING.src.loadBINDINGDB", "BINDINGDBLoader"),
     CAM_KP: ("parsers.camkp.src.loadCAMKP", "CAMKPLoader"),
+    CCIDB: ("parsers.CCIDB.src.loadCCIDB", "CCIDBLoader"),
+    CEBS: ("parsers.CEBS.src.loadCEBS", "CEBSLoader"),
     CHEBI_PROPERTIES: ("parsers.chebi.src.loadChebiProperties", "ChebiPropertiesLoader"),
     CLINICAL_TRIALS_KP: ("parsers.clinicaltrials.src.loadCTKP", "CTKPLoader"),
     CORD19: ("parsers.cord19.src.loadCord19", "Cord19Loader"),

@@ -131,7 +131,7 @@ class KGXFileWriter:
             edge_object[AGGREGATOR_KNOWLEDGE_SOURCES] = aggregator_knowledge_sources
 
         if edge_properties is not None:
-            edge_object.update(edge_properties)
+            edge_object.update({k: v for k, v in edge_properties.items() if v})
 
         self.__write_edge_to_file(edge_object)
 

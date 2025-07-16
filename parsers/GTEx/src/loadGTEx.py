@@ -14,9 +14,6 @@ class GTExLoader(SourceDataLoader):
 
     source_id = 'GTEx'
     provenance_id = 'infores:gtex'
-    description = "The Genotype-Tissue Expression (GTEx) portal provides open access to data on tissue-specific gene expression and regulation, derived from molecular assays (e.g., WGS, WES, RNA-Seq) on 54 non-diseased tissue sites across nearly 1000 individuals."
-    license = "https://www.gtexportal.org/home/documentationPage"
-    attribution = "https://www.gtexportal.org/home/documentationPage"
     parsing_version = '1.3'
     has_sequence_variants = True
 

@@ -11,10 +11,6 @@ from Common.loader_interface import SourceDataLoader
 class EHRMayTreatLoader(SourceDataLoader):
     source_id: str = "EHRMayTreatKP"
     provenance_id: str = "infores:isb-EHRMLA-data"
-    description = "Multiomics EHRMLA May Treat KP."
-    source_data_url = "https://github.com/NCATSTranslator/Translator-All/wiki/Multiomics-EHRMLA-May-Treat-KP"
-    license = "https://github.com/NCATSTranslator/Translator-All/wiki/Multiomics-EHRMLA-May-Treat-KP"
-    attribution = "https://github.com/NCATSTranslator/Translator-All/wiki/Multiomics-EHRMLA-May-Treat-KP"
     parsing_version = "1.0"
 
     def __init__(self, test_mode: bool = False, source_data_dir: str = None):

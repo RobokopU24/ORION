@@ -23,6 +23,7 @@ graphs:
         # conflation: False
         # strict_normalization: True (whether or not data should be discarded when it can not be normalized)
         # merge_strategy: default (used to specify alternative merge strategies)
+      - source_id: CCIDB
       - source_id: CHEBIProps
       - source_id: CTD
       - source_id: DrugCentral

@@ -1,0 +1,11 @@
+{
+    "id": "HGNC",
+    "name": "HUGO Gene Nomenclature Committee (HGNC)",
+    "description": "The HUGO Gene Nomenclature Committee (HGNC) database provides open access to HGNC-approved unique symbols and names for human genes, gene groups, and associated resources, including links to genomic, proteomic and phenotypic information.",
+    "url": "https://www.genenames.org/",
+    "attribution": "https://www.genenames.org/",
+    "citation": "https://doi.org/10.1093/nar/gkac888",
+    "full_citation": "Seal RL, Braschi B, Gray K, Jones TEM, Tweedie S, Haim-Vilmovsky L, Bruford EA. Genenames.org: the HGNC resources in 2023. Nucleic Acids Res. 2023 Jan 6;51(D1):D1003-D1009. doi: 10.1093/nar/gkac888. PMID: 36243972; PMCID: PMC9825485.",
+    "license": "CC0",
+    "contentUrl": "https://www.genenames.org/download/archive/"
+}

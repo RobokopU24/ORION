@@ -1,0 +1,11 @@
+{
+    "id": "UbergraphRedundant",
+    "name": "Ubergraph Redundant",
+    "description": "The redundant version of Ubergraph contains the complete inference closure for all subclass and existential relations, including transitive, reflexive subclass relations.",
+    "url": "https://github.com/INCATools/ubergraph",
+    "attribution": "https://github.com/INCATools/ubergraph",
+    "citation": "https://doi.org/10.5281/zenodo.7249759",
+    "full_citation": "Balhoff, J. P., Bayindir, U., Caron, A. R., Matentzoglu, N., Osumi-Sutherland, D., & Mungall, C. J. (2022, September 28). Ubergraph: integrating OBO ontologies into a unified semantic graph. ICBO 2022: International Conference on Biomedical Ontology (ICBO), Ann Arbor, Michigan, USA.",
+    "license": "https://raw.githubusercontent.com/INCATools/ubergraph/master/LICENSE.txt",
+    "contentUrl": "https://github.com/INCATools/ubergraph"
+}
