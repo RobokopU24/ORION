@@ -9,7 +9,7 @@ from Common.biolink_constants import (
 )
 from Common.extractor import Extractor
 from Common.loader_interface import SourceDataLoader
-from Common.prefixes import PUBMED
+from Common.prefixes import CLINGEN_ALLELE_REGISTRY, PUBMED
 from Common.utils import GetData
 from datetime import date
 
@@ -72,7 +72,7 @@ class ClinGenVariantPathogenicityLoader(SourceDataLoader):
             reader = csv.DictReader(fp, dialect="excel-tab")
             extractor.json_extract(
                 reader,
-                lambda line: f"CLINVARVARIANT:{line['ClinVar Variation Id']}",  # subject id
+                lambda line: f"CAID:{line['Allele Registry Id']}",  # subject id
                 lambda line: line["Mondo Id"],  # object id
                 lambda line: (
                     "causes" if line["Retracted"] == "false" else None
