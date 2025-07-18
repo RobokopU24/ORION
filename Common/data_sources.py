@@ -7,6 +7,7 @@ CCIDB = 'CCIDB'
 CEBS = 'CEBS'
 CHEBI_PROPERTIES = 'CHEBIProps'
 CLINICAL_TRIALS_KP = 'ClinicalTrialsKP'
+CLINGEN_DOSAGE_SENSITIVITY = 'ClinGenDosageSensitivity'
 CLINGEN_GENE_DISEASE_VALIDITY = 'ClinGenGeneDiseaseValidity'
 CORD19 = 'Cord19'
 COHD = 'COHD'
@@ -65,6 +66,7 @@ SOURCE_DATA_LOADER_CLASS_IMPORTS = {
     CEBS: ("parsers.CEBS.src.loadCEBS", "CEBSLoader"),
     CHEBI_PROPERTIES: ("parsers.chebi.src.loadChebiProperties", "ChebiPropertiesLoader"),
     CLINICAL_TRIALS_KP: ("parsers.clinicaltrials.src.loadCTKP", "CTKPLoader"),
+    CLINGEN_DOSAGE_SENSITIVITY: ("parsers.ClinGenDosageSensitivity.src.loadClinGenDosageSensitivity", "ClinGenDosageSensitivityLoader"),
     CLINGEN_GENE_DISEASE_VALIDITY: ("parsers.ClinGenGeneDiseaseValidity.src.loadClinGenGeneDiseaseValidity", "ClinGenGeneDiseaseValidityLoader"),
     CORD19: ("parsers.cord19.src.loadCord19", "Cord19Loader"),
     COHD: ("parsers.cohd.src.loadCOHD", "COHDLoader"),

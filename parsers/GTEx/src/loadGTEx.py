@@ -116,10 +116,11 @@ class GTExLoader(SourceDataLoader):
     def get_data(self):
         # define the urls for the raw data archives and the location to download them to
         gtex_version = self.GTEX_VERSION
-        eqtl_url = f'https://storage.googleapis.com/gtex_analysis_v{gtex_version}/single_tissue_qtl_data/{self.eqtl_tar_file_name}'
+
+        eqtl_url = f'https://storage.googleapis.com/adult-gtex/bulk-qtl/v{gtex_version}/single-tissue-cis-qtl/{self.eqtl_tar_file_name}'
         eqtl_tar_download_path = os.path.join(self.data_path, self.eqtl_tar_file_name)
 
-        sqtl_url = f'https://storage.googleapis.com/gtex_analysis_v{gtex_version}/single_tissue_qtl_data/{self.sqtl_tar_file_name}'
+        sqtl_url = f'https://storage.googleapis.com/adult-gtex/bulk-qtl/v{gtex_version}/single-tissue-cis-qtl/{self.sqtl_tar_file_name}'
         sqtl_tar_download_path = os.path.join(self.data_path, self.sqtl_tar_file_name)
 
         self.logger.info(f'Downloading raw GTEx data files from {eqtl_url}.')

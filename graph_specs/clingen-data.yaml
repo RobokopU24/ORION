@@ -1,0 +1,11 @@
+# testing graph spec
+graphs:
+  - graph_id: clingen_dosage_sensitivity_data
+    graph_name: clingen_dosage_sensitivity_data
+    graph_description: 'Graph build on ClinGen dosage sensitivity curations https://search.clinicalgenome.org/kb/gene-dosage'
+    graph_url: ''
+    output_format: none
+    strict_normalization: False
+    sources:
+      - source_id: ClinGenDosageSensitivity
+
