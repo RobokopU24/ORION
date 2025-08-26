@@ -153,7 +153,11 @@ class BiolinkUtils:
         return self.toolkit.is_qualifier(property_name)
 
     def is_valid_node_type(self, node_type):
-        return self.toolkit.is_category(node_type, mixin=True)
+        if self.toolkit.is_category(node_type, mixin=True):
+            return True
+        if self.toolkit.is_mixin(node_type) and not self.toolkit.is_predicate(node_type):
+            return True
+        return False
 
     @cache
     def validate_edge(self, subject_types, predicate, object_types):
