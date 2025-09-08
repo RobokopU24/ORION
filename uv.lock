@@ -735,68 +735,6 @@ wheels = [
 ]
 
 [[package]]
-name = "orion"
-version = "0.1.0"
-source = { editable = "." }
-dependencies = [
-    { name = "bmt" },
-    { name = "jsonlines" },
-    { name = "orjson" },
-    { name = "python-dotenv" },
-    { name = "pyyaml" },
-    { name = "requests" },
-    { name = "requests-toolbelt" },
-    { name = "robokop-genetics" },
-    { name = "xxhash" },
-]
-
-[package.optional-dependencies]
-robokop = [
-    { name = "beautifulsoup4" },
-    { name = "celery" },
-    { name = "curies" },
-    { name = "intermine" },
-    { name = "mysql-connector-python" },
-    { name = "neo4j" },
-    { name = "openpyxl" },
-    { name = "pandas" },
-    { name = "polars" },
-    { name = "prefixmaps" },
-    { name = "psycopg2-binary" },
-    { name = "pyoxigraph" },
-    { name = "pytest" },
-    { name = "redis" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "beautifulsoup4", marker = "extra == 'robokop'", specifier = ">=4.12.3" },
-    { name = "bmt", specifier = ">=1.4.5" },
-    { name = "celery", marker = "extra == 'robokop'", specifier = ">=5.4.0" },
-    { name = "curies", marker = "extra == 'robokop'", specifier = ">=0.7.9" },
-    { name = "intermine", marker = "extra == 'robokop'", git = "https://github.com/EvanDietzMorris/intermine-ws-python.git" },
-    { name = "jsonlines", specifier = ">=4.0.0" },
-    { name = "mysql-connector-python", marker = "extra == 'robokop'", specifier = ">=9.1.0" },
-    { name = "neo4j", marker = "extra == 'robokop'", specifier = ">=5.20.0" },
-    { name = "openpyxl", marker = "extra == 'robokop'", specifier = ">=3.1.5" },
-    { name = "orjson", specifier = ">=3.10.3" },
-    { name = "pandas", marker = "extra == 'robokop'", specifier = ">=2.2.2" },
-    { name = "polars", marker = "extra == 'robokop'", specifier = ">=1.19.0" },
-    { name = "prefixmaps", marker = "extra == 'robokop'", specifier = ">=0.2.4" },
-    { name = "psycopg2-binary", marker = "extra == 'robokop'", specifier = ">=2.9.9" },
-    { name = "pyoxigraph", marker = "extra == 'robokop'", specifier = ">=0.3.22" },
-    { name = "pytest", marker = "extra == 'robokop'", specifier = ">=8.2.0" },
-    { name = "python-dotenv", specifier = ">=1.0.1" },
-    { name = "pyyaml", specifier = ">=6.0.1" },
-    { name = "redis", marker = "extra == 'robokop'", specifier = ">=5.2.1" },
-    { name = "requests", specifier = ">=2.32.4" },
-    { name = "requests-toolbelt", specifier = ">=1.0.0" },
-    { name = "robokop-genetics", specifier = ">=0.6.2" },
-    { name = "xxhash", specifier = ">=3.4.1" },
-]
-provides-extras = ["robokop"]
-
-[[package]]
 name = "orjson"
 version = "3.10.3"
 source = { registry = "https://pypi.org/simple" }
@@ -1367,6 +1305,68 @@ sdist = { url = "https://files.pythonhosted.org/packages/86/62/6912b264495a3c134
 wheels = [
     { url = "https://files.pythonhosted.org/packages/6f/2f/75fd58f8d0e840c53d7840c6b50cbea36293f2037a14e776ad4180379150/robokop_genetics-0.6.2-py3-none-any.whl", hash = "sha256:a2894045e182dd240d26efee5184f9fd8c6bb1152919419f6b91997b2caac418", size = 18633, upload-time = "2024-12-11T23:45:24.881Z" },
 ]
+
+[[package]]
+name = "robokop-orion"
+version = "0.1.0"
+source = { editable = "." }
+dependencies = [
+    { name = "bmt" },
+    { name = "jsonlines" },
+    { name = "orjson" },
+    { name = "python-dotenv" },
+    { name = "pyyaml" },
+    { name = "requests" },
+    { name = "requests-toolbelt" },
+    { name = "robokop-genetics" },
+    { name = "xxhash" },
+]
+
+[package.optional-dependencies]
+robokop = [
+    { name = "beautifulsoup4" },
+    { name = "celery" },
+    { name = "curies" },
+    { name = "intermine" },
+    { name = "mysql-connector-python" },
+    { name = "neo4j" },
+    { name = "openpyxl" },
+    { name = "pandas" },
+    { name = "polars" },
+    { name = "prefixmaps" },
+    { name = "psycopg2-binary" },
+    { name = "pyoxigraph" },
+    { name = "pytest" },
+    { name = "redis" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "beautifulsoup4", marker = "extra == 'robokop'", specifier = ">=4.12.3" },
+    { name = "bmt", specifier = ">=1.4.5" },
+    { name = "celery", marker = "extra == 'robokop'", specifier = ">=5.4.0" },
+    { name = "curies", marker = "extra == 'robokop'", specifier = ">=0.7.9" },
+    { name = "intermine", marker = "extra == 'robokop'", git = "https://github.com/EvanDietzMorris/intermine-ws-python.git" },
+    { name = "jsonlines", specifier = ">=4.0.0" },
+    { name = "mysql-connector-python", marker = "extra == 'robokop'", specifier = ">=9.1.0" },
+    { name = "neo4j", marker = "extra == 'robokop'", specifier = ">=5.20.0" },
+    { name = "openpyxl", marker = "extra == 'robokop'", specifier = ">=3.1.5" },
+    { name = "orjson", specifier = ">=3.10.3" },
+    { name = "pandas", marker = "extra == 'robokop'", specifier = ">=2.2.2" },
+    { name = "polars", marker = "extra == 'robokop'", specifier = ">=1.19.0" },
+    { name = "prefixmaps", marker = "extra == 'robokop'", specifier = ">=0.2.4" },
+    { name = "psycopg2-binary", marker = "extra == 'robokop'", specifier = ">=2.9.9" },
+    { name = "pyoxigraph", marker = "extra == 'robokop'", specifier = ">=0.3.22" },
+    { name = "pytest", marker = "extra == 'robokop'", specifier = ">=8.2.0" },
+    { name = "python-dotenv", specifier = ">=1.0.1" },
+    { name = "pyyaml", specifier = ">=6.0.1" },
+    { name = "redis", marker = "extra == 'robokop'", specifier = ">=5.2.1" },
+    { name = "requests", specifier = ">=2.32.4" },
+    { name = "requests-toolbelt", specifier = ">=1.0.0" },
+    { name = "robokop-genetics", specifier = ">=0.6.2" },
+    { name = "xxhash", specifier = ">=3.4.1" },
+]
+provides-extras = ["robokop"]
 
 [[package]]
 name = "rpds-py"

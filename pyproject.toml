@@ -3,7 +3,7 @@ requires = ["uv_build >= 0.8.0"]
 build-backend = "uv_build"
 
 [project]
-name = "orion"
+name = "robokop-orion"
 version = "0.1.0"
 description = "ORION ingests data from knowledge sources and converts them into interoperable biolink model compliant knowledge graphs."
 license = "MIT"
@@ -42,6 +42,7 @@ robokop = [
 
 [tool.uv.build-backend]
 module-root = ""
+module-name = "orion"
 
 [tool.uv.sources]
 intermine = { git = "https://github.com/EvanDietzMorris/intermine-ws-python.git" }
