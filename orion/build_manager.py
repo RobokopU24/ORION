@@ -35,7 +35,7 @@ class GraphBuilder:
 
         self.logger = LoggingUtil.init_logging("ORION.Common.GraphBuilder",
                                                line_format='medium',
-                                               log_file_path=os.environ['ORION_LOGS'])
+                                               log_file_path=os.getenv('ORION_LOGS'))
 
         self.graphs_dir = self.get_graphs_dir()  # path to the graphs output directory
         self.source_data_manager = SourceDataManager()  # access to the data sources and their metadata

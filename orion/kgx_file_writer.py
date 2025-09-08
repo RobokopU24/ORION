@@ -13,7 +13,7 @@ class KGXFileWriter:
     logger = LoggingUtil.init_logging("ORION.Common.KGXFileWriter",
                                       line_format='medium',
                                       level=logging.INFO,
-                                      log_file_path=os.environ.get('ORION_LOGS'))
+                                      log_file_path=os.getenv('ORION_LOGS'))
     """
     constructor
     :param nodes_output_file_path: the file path for the nodes file

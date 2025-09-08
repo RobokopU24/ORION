@@ -11,7 +11,7 @@ from orion.load_manager import RESOURCE_HOGS
 
 logger = LoggingUtil.init_logging("ORION.Common.KGXFileMerger",
                                   line_format='medium',
-                                  log_file_path=os.environ['ORION_LOGS'])
+                                  log_file_path=os.getenv('ORION_LOGS'))
 
 CONNECTED_EDGE_SUBSET = 'connected_edge_subset'
 DONT_MERGE = 'dont_merge_edges'
