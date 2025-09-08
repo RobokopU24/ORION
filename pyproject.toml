@@ -1,0 +1,48 @@
+[build-system]
+requires = ["uv_build >= 0.8.0"]
+build-backend = "uv_build"
+
+[project]
+name = "orion"
+version = "0.1.0"
+description = "ORION ingests data from knowledge sources and converts them into interoperable biolink model compliant knowledge graphs."
+license = "MIT"
+license-files = ["LICEN[CS]E*"]
+readme = "README.md"
+requires-python = ">=3.9"
+dependencies = [
+    "bmt>=1.4.5",
+    "jsonlines>=4.0.0",
+    "orjson>=3.10.3",
+    "python-dotenv>=1.0.1",
+    "pyyaml>=6.0.1",
+    "requests>=2.32.4",
+    "requests-toolbelt>=1.0.0",
+    "robokop-genetics>=0.6.2",
+    "xxhash>=3.4.1",
+]
+
+[project.optional-dependencies]
+robokop = [
+    "curies>=0.7.9",
+    "redis>=5.2.1",
+    "psycopg2-binary>=2.9.9",
+    "pyoxigraph>=0.3.22",
+    "beautifulsoup4>=4.12.3",
+    "celery>=5.4.0",
+    "intermine",
+    "mysql-connector-python>=9.1.0",
+    "neo4j>=5.20.0",
+    "openpyxl>=3.1.5",
+    "pandas>=2.2.2",
+    "polars>=1.19.0",
+    "prefixmaps>=0.2.4",
+    "pytest>=8.2.0",
+]
+
+[tool.uv.build-backend]
+module-root = ""
+
+[tool.uv.sources]
+intermine = { git = "https://github.com/EvanDietzMorris/intermine-ws-python.git" }
+
