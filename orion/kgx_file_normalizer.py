@@ -65,8 +65,8 @@ class KGXFileNormalizer:
         self.process_in_memory = process_in_memory
         self.preserve_unconnected_nodes = preserve_unconnected_nodes
         self.default_provenance = default_provenance
-        self.normalization_metadata = {'strict_normalization': normalization_scheme.strict,
-                                       'sequence_variants_pre_normalized': sequence_variants_pre_normalized}
+        self.normalization_metadata = {'strict': normalization_scheme.strict,
+                                       'conflation': normalization_scheme.conflation}
 
         # instances of the normalization service wrappers
         # strict normalization flag tells normalizer to throw away any nodes that don't normalize
@@ -96,7 +96,7 @@ class KGXFileNormalizer:
 
         # get the current node normalizer version
         node_norm_version = self.node_normalizer.get_current_node_norm_version()
-        self.normalization_metadata['regular_node_norm_version'] = node_norm_version
+        self.normalization_metadata['node_norm_version'] = node_norm_version
 
         regular_nodes_pre_norm = 0
         regular_nodes_post_norm = 0
@@ -138,7 +138,7 @@ class KGXFileNormalizer:
                                                            actual_error=e)
                     regular_nodes_post_norm += len(regular_nodes)
                     if regular_nodes:
-                        self.logger.info(f'Normalized {regular_nodes_pre_norm} regular nodes so far...')
+                        self.logger.info(f'Normalized {regular_nodes_pre_norm} nodes so far...')
 
                     variant_nodes_pre_norm += len(variant_nodes)
                     if self.has_sequence_variants:
@@ -167,7 +167,7 @@ class KGXFileNormalizer:
                         self.logger.info(f'Normalized {variant_nodes_pre_norm} variant nodes so far...')
 
                     if regular_nodes:
-                        self.logger.debug(f'Writing regular nodes to file...')
+                        self.logger.debug(f'Writing nodes to file...')
                         output_file_writer.write_normalized_nodes(regular_nodes)
                     if variant_nodes:
                         self.logger.debug(f'Writing sequence variant nodes to file...')
@@ -176,7 +176,7 @@ class KGXFileNormalizer:
                 # grab the number of repeat writes from the file writer
                 # assuming the input file contained all unique node IDs,
                 # this is the number of nodes that started with different IDs but normalized to the same ID as another node
-                merged_node_count = output_file_writer.repeat_node_count
+                discarded_duplicate_node_count = output_file_writer.repeat_node_count
         except IOError as e:
             norm_error_msg = f'Error reading nodes file {self.source_nodes_file_path}'
             raise NormalizationFailedError(error_message=norm_error_msg, actual_error=e)
@@ -203,21 +203,21 @@ class KGXFileNormalizer:
 
         # update the metadata
         self.normalization_metadata.update({
-            'regular_nodes_pre_norm': regular_nodes_pre_norm,
-            'regular_node_norm_failures': len(regular_node_norm_failures),
-            'regular_nodes_post_norm': regular_nodes_post_norm,
+            'node_count_pre_normalization': regular_nodes_pre_norm,
+            'node_count_post_normalization': regular_nodes_post_norm,
+            'node_normalization_failures': len(regular_node_norm_failures),
         })
         if self.has_sequence_variants:
             self.normalization_metadata.update({
                 'variant_nodes_pre_norm': variant_nodes_pre_norm,
                 'variant_node_norm_failures': len(variant_node_norm_failures),
                 'variant_nodes_split_count': variant_nodes_split_count,
-                'variant_nodes_post_norm': variant_nodes_post_norm
+                'variant_nodes_post_norm': variant_nodes_post_norm,
+                'all_nodes_post_norm': regular_nodes_post_norm + variant_nodes_post_norm,
             })
         self.normalization_metadata.update({
-            'all_nodes_post_norm': regular_nodes_post_norm + variant_nodes_post_norm,
-            'merged_nodes_post_norm': merged_node_count,
-            'final_normalized_nodes': regular_nodes_post_norm + variant_nodes_post_norm - merged_node_count
+            'discarded_duplicate_node_count': discarded_duplicate_node_count,
+            'final_normalized_nodes': regular_nodes_post_norm + variant_nodes_post_norm - discarded_duplicate_node_count
         })
 
     # given file paths to the source data edge file and an output file,
@@ -229,7 +229,6 @@ class KGXFileNormalizer:
         normalized_edge_count = 0
         edge_splits = 0
         edges_failed_due_to_nodes = 0
-        edges_failed_due_to_predicates = 0
         subclass_loops_removed = 0
 
         node_norm_lookup = self.node_normalizer.node_normalization_lookup
@@ -369,10 +368,9 @@ class KGXFileNormalizer:
             raise NormalizationFailedError(error_message=norm_error_msg, actual_error=e)
 
         self.normalization_metadata.update({
-            'edge_norm_version': self.edge_normalizer.edge_norm_version,
+            'biolink_version': self.edge_normalizer.edge_norm_version,
             'source_edges': number_of_source_edges,
             'edges_failed_due_to_nodes': edges_failed_due_to_nodes,
-            'edges_failed_due_to_predicates': edges_failed_due_to_predicates,
             # these keep track of how many edges merged into another, or split into multiple edges
             # this should be true: source_edges - failures - mergers + splits = edges post norm
             'edge_splits': edge_splits,
