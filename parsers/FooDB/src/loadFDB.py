@@ -5,10 +5,10 @@ import requests
 
 from bs4 import BeautifulSoup
 from parsers.FooDB.src.FoodSQL import FoodSQL
-from Common.loader_interface import SourceDataLoader, SourceDataFailedError
-from Common.utils import GetData
-from Common.kgxmodel import kgxnode, kgxedge
-from Common.prefixes import NCBITAXON
+from orion.loader_interface import SourceDataLoader, SourceDataFailedError
+from orion.utils import GetData
+from orion.kgxmodel import kgxnode, kgxedge
+from orion.prefixes import NCBITAXON
 
 
 ##############

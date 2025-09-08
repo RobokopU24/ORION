@@ -2,8 +2,8 @@ import logging
 import os
 import json
 import inspect
-from Common.kgx_file_writer import KGXFileWriter
-from Common.utils import LoggingUtil
+from orion.kgx_file_writer import KGXFileWriter
+from orion.utils import LoggingUtil
 
 
 class SourceDataLoader:

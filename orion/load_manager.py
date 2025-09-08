@@ -5,15 +5,15 @@ import datetime
 import time
 from collections import defaultdict
 
-from Common.data_sources import SourceDataLoaderClassFactory, RESOURCE_HOGS, get_available_data_sources
-from Common.exceptions import DataVersionError
-from Common.utils import LoggingUtil, GetDataPullError
-from Common.kgx_file_normalizer import KGXFileNormalizer
-from Common.kgx_validation import validate_graph
-from Common.normalization import NormalizationScheme, NodeNormalizer, EdgeNormalizer, NormalizationFailedError
-from Common.metadata import SourceMetadata
-from Common.loader_interface import SourceDataBrokenError, SourceDataFailedError
-from Common.supplementation import SequenceVariantSupplementation, SupplementationFailedError
+from orion.data_sources import SourceDataLoaderClassFactory, RESOURCE_HOGS, get_available_data_sources
+from orion.exceptions import DataVersionError
+from orion.utils import LoggingUtil, GetDataPullError
+from orion.kgx_file_normalizer import KGXFileNormalizer
+from orion.kgx_validation import validate_graph
+from orion.normalization import NormalizationScheme, NodeNormalizer, EdgeNormalizer, NormalizationFailedError
+from orion.metadata import SourceMetadata
+from orion.loader_interface import SourceDataBrokenError, SourceDataFailedError
+from orion.supplementation import SequenceVariantSupplementation, SupplementationFailedError
 
 
 SOURCE_DATA_LOADER_CLASSES = SourceDataLoaderClassFactory()

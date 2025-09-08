@@ -7,11 +7,11 @@ from io import BytesIO
 from urllib.request import urlopen
 from zipfile import ZipFile
 from collections import defaultdict
-from Common.biolink_constants import *
-from Common.normalization import FALLBACK_EDGE_PREDICATE, NormalizationScheme
-from Common.utils import LoggingUtil
-from Common.kgx_file_writer import KGXFileWriter
-from Common.kgx_file_normalizer import KGXFileNormalizer
+from orion.biolink_constants import *
+from orion.normalization import FALLBACK_EDGE_PREDICATE, NormalizationScheme
+from orion.utils import LoggingUtil
+from orion.kgx_file_writer import KGXFileWriter
+from orion.kgx_file_normalizer import KGXFileNormalizer
 
 SNPEFF_PROVENANCE = "infores:robokop-snpeff"
 

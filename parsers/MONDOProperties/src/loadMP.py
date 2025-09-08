@@ -4,9 +4,9 @@ import pyoxigraph
 
 from collections import defaultdict
 from gzip import GzipFile
-from Common.utils import GetData
-from Common.loader_interface import SourceDataLoader
-from Common.kgxmodel import kgxnode
+from orion.utils import GetData
+from orion.loader_interface import SourceDataLoader
+from orion.kgxmodel import kgxnode
 
 
 #This cutoff defines which MONDO classes will be turned into properties.  To find it, I used yasgui to run

@@ -7,10 +7,10 @@ import orjson
 
 from io import TextIOWrapper
 from zipfile import ZipFile
-from Common.extractor import Extractor
-from Common.loader_interface import SourceDataLoader
-from Common.biolink_constants import *
-from Common.utils import GetData
+from orion.extractor import Extractor
+from orion.loader_interface import SourceDataLoader
+from orion.biolink_constants import *
+from orion.utils import GetData
 
 
 class EDGESDATACOLS(enum.IntEnum):

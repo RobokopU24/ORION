@@ -1,8 +1,8 @@
 import csv
 import argparse
 from collections import defaultdict
-from Common.utils import quick_jsonl_file_iterator
-from Common.biolink_constants import SUBJECT_ID, OBJECT_ID, PREDICATE
+from orion.utils import quick_jsonl_file_iterator
+from orion.biolink_constants import SUBJECT_ID, OBJECT_ID, PREDICATE
 
 
 def convert_jsonl_to_neo4j_csv(nodes_input_file: str,

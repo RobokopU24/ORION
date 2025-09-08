@@ -5,9 +5,9 @@ import logging
 import datetime
 
 from xml.etree import ElementTree as ETree
-from Common.utils import LoggingUtil, GetData
-from Common.kgx_file_writer import KGXFileWriter
-from Common.loader_interface import SourceDataLoader
+from orion.utils import LoggingUtil, GetData
+from orion.kgx_file_writer import KGXFileWriter
+from orion.loader_interface import SourceDataLoader
 
 
 ##############

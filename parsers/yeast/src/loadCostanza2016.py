@@ -2,10 +2,10 @@ import os
 import enum
 import csv
 import requests
-from Common.loader_interface import SourceDataLoader
-from Common.extractor import Extractor
-from Common.biolink_constants import PRIMARY_KNOWLEDGE_SOURCE, PUBLICATIONS
-from Common.prefixes import PUBMED
+from orion.loader_interface import SourceDataLoader
+from orion.extractor import Extractor
+from orion.biolink_constants import PRIMARY_KNOWLEDGE_SOURCE, PUBLICATIONS
+from orion.prefixes import PUBMED
 from intermine.webservice import Service
 
 

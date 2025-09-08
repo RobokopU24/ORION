@@ -3,11 +3,11 @@ import enum
 import gzip
 import requests as rq
 
-from Common.utils import GetData
-from Common.loader_interface import SourceDataLoader
-from Common.extractor import Extractor
-from Common.prefixes import ENSEMBL, NCBITAXON
-from Common.biolink_constants import *
+from orion.utils import GetData
+from orion.loader_interface import SourceDataLoader
+from orion.extractor import Extractor
+from orion.prefixes import ENSEMBL, NCBITAXON
+from orion.biolink_constants import *
 
 
 # Full PPI Data.

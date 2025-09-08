@@ -2,8 +2,8 @@ import json
 import os
 from collections import defaultdict
 
-from Common.config import CONFIG
-from Common.utils import LoggingUtil
+from orion.config import CONFIG
+from orion.utils import LoggingUtil
 
 OPENAI_API_KEY = CONFIG.get("OPENAI_API_KEY")
 

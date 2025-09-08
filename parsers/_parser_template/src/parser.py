@@ -3,11 +3,11 @@ import os
 import enum
 import gzip
 
-from Common.extractor import Extractor
-from Common.loader_interface import SourceDataLoader
-from Common.biolink_constants import PRIMARY_KNOWLEDGE_SOURCE
-from Common.prefixes import HGNC  # only an example, use existing curie prefixes or add your own to the prefixes file
-from Common.utils import GetData
+from orion.extractor import Extractor
+from orion.loader_interface import SourceDataLoader
+from orion.biolink_constants import PRIMARY_KNOWLEDGE_SOURCE
+from orion.prefixes import HGNC  # only an example, use existing curie prefixes or add your own to the prefixes file
+from orion.utils import GetData
 
 
 # if parsing a tsv or csv type file with columns, use a enum to represent each field

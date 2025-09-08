@@ -1,5 +1,5 @@
-from Common.merging import GraphMerger, MemoryGraphMerger, DiskGraphMerger
-from Common.biolink_constants import *
+from orion.merging import GraphMerger, MemoryGraphMerger, DiskGraphMerger
+from orion.biolink_constants import *
 import os
 import json
 

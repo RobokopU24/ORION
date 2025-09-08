@@ -3,11 +3,11 @@ import csv
 import os
 import requests
 
-from Common.utils import GetData
-from Common.loader_interface import SourceDataLoader
-from Common.kgxmodel import kgxnode, kgxedge
-from Common.prefixes import HGNC, HGNC_FAMILY
-from Common.biolink_constants import *
+from orion.utils import GetData
+from orion.loader_interface import SourceDataLoader
+from orion.kgxmodel import kgxnode, kgxedge
+from orion.prefixes import HGNC, HGNC_FAMILY
+from orion.biolink_constants import *
 
 
 ##############

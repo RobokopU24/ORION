@@ -1,7 +1,7 @@
 import argparse
 import os
-from Common.utils import LoggingUtil
-from Common.neo4j_tools import create_neo4j_dump
+from orion.utils import LoggingUtil
+from orion.neo4j_tools import create_neo4j_dump
 
 logger = LoggingUtil.init_logging("ORION.cli.neo4j_dump",
                                   line_format='medium',

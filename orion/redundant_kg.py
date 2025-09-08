@@ -6,11 +6,11 @@ try:
 except ImportError:
     TQDM_AVAILABLE = False
 
-from Common.biolink_utils import get_biolink_model_toolkit
-from Common.biolink_constants import OBJECT_ASPECT_QUALIFIER, OBJECT_DIRECTION_QUALIFIER, SPECIES_CONTEXT_QUALIFIER, \
+from orion.biolink_utils import get_biolink_model_toolkit
+from orion.biolink_constants import OBJECT_ASPECT_QUALIFIER, OBJECT_DIRECTION_QUALIFIER, SPECIES_CONTEXT_QUALIFIER, \
     QUALIFIED_PREDICATE, PREDICATE
-from Common.utils import quick_jsonl_file_iterator, snakify
-from Common.kgx_file_writer import KGXFileWriter
+from orion.utils import quick_jsonl_file_iterator, snakify
+from orion.kgx_file_writer import KGXFileWriter
 
 bmt = get_biolink_model_toolkit()
 

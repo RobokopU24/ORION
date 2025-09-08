@@ -2,9 +2,9 @@ import time
 import json
 import os
 from collections import defaultdict
-from Common.neo4j_tools import Neo4jTools
-from Common.biolink_constants import NAMED_THING
-from Common.biolink_utils import BiolinkUtils
+from orion.neo4j_tools import Neo4jTools
+from orion.biolink_constants import NAMED_THING
+from orion.biolink_utils import BiolinkUtils
 
 
 class Neo4jMetaKGGenerator:

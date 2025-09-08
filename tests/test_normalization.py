@@ -1,8 +1,8 @@
 import pytest
-from Common.biolink_constants import *
-from Common.normalization import NodeNormalizer, EdgeNormalizer, EdgeNormalizationResult, \
+from orion.biolink_constants import *
+from orion.normalization import NodeNormalizer, EdgeNormalizer, EdgeNormalizationResult, \
     FALLBACK_EDGE_PREDICATE, CUSTOM_NODE_TYPES
-from Common.kgx_file_normalizer import invert_edge
+from orion.kgx_file_normalizer import invert_edge
 
 INVALID_NODE_TYPE = "testing:Type1"
 

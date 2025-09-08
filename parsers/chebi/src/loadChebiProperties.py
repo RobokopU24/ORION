@@ -3,10 +3,10 @@ import argparse
 import gzip
 
 from collections import defaultdict
-from Common.utils import GetData
-from Common.loader_interface import SourceDataLoader
-from Common.kgxmodel import kgxnode
-from Common.prefixes import CHEBI
+from orion.utils import GetData
+from orion.loader_interface import SourceDataLoader
+from orion.kgxmodel import kgxnode
+from orion.prefixes import CHEBI
 
 RELATION_TYPE_COLUMN = 1
 RELATION_INIT_ID_COLUMN = 2

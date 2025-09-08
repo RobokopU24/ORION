@@ -1,6 +1,6 @@
 import os
 import requests
-from Common.prefixes import *
+from orion.prefixes import *
 import time
 
 # these are predicates from DGIDB as well as drug and chemical activity types from drug central

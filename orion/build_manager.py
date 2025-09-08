@@ -7,20 +7,20 @@ import requests
 from pathlib import Path
 from xxhash import xxh64_hexdigest
 
-from Common.utils import LoggingUtil, GetDataPullError
-from Common.data_sources import get_available_data_sources
-from Common.exceptions import DataVersionError, GraphSpecError
-from Common.load_manager import SourceDataManager
-from Common.kgx_file_merger import KGXFileMerger, DONT_MERGE
-from Common.kgx_validation import validate_graph
-from Common.neo4j_tools import create_neo4j_dump
-from Common.kgxmodel import GraphSpec, SubGraphSource, DataSource
-from Common.normalization import NORMALIZATION_CODE_VERSION, NormalizationScheme
-from Common.metadata import Metadata, GraphMetadata, SourceMetadata
-from Common.supplementation import SequenceVariantSupplementation
-from Common.meta_kg import MetaKnowledgeGraphBuilder, META_KG_FILENAME, TEST_DATA_FILENAME, EXAMPLE_DATA_FILENAME
-from Common.redundant_kg import generate_redundant_kg
-from Common.collapse_qualifiers import generate_collapsed_qualifiers_kg
+from orion.utils import LoggingUtil, GetDataPullError
+from orion.data_sources import get_available_data_sources
+from orion.exceptions import DataVersionError, GraphSpecError
+from orion.load_manager import SourceDataManager
+from orion.kgx_file_merger import KGXFileMerger, DONT_MERGE
+from orion.kgx_validation import validate_graph
+from orion.neo4j_tools import create_neo4j_dump
+from orion.kgxmodel import GraphSpec, SubGraphSource, DataSource
+from orion.normalization import NORMALIZATION_CODE_VERSION, NormalizationScheme
+from orion.metadata import Metadata, GraphMetadata, SourceMetadata
+from orion.supplementation import SequenceVariantSupplementation
+from orion.meta_kg import MetaKnowledgeGraphBuilder, META_KG_FILENAME, TEST_DATA_FILENAME, EXAMPLE_DATA_FILENAME
+from orion.redundant_kg import generate_redundant_kg
+from orion.collapse_qualifiers import generate_collapsed_qualifiers_kg
 
 NODES_FILENAME = 'nodes.jsonl'
 EDGES_FILENAME = 'edges.jsonl'

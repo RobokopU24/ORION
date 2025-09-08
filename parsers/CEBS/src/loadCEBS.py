@@ -4,13 +4,13 @@ import yaml
 import pandas as pd
 import curies
 
-from Common.biolink_constants import PRIMARY_KNOWLEDGE_SOURCE, KNOWLEDGE_LEVEL, AGENT_TYPE, MANUAL_AGENT, \
+from orion.biolink_constants import PRIMARY_KNOWLEDGE_SOURCE, KNOWLEDGE_LEVEL, AGENT_TYPE, MANUAL_AGENT, \
     KNOWLEDGE_ASSERTION, OBSERVATION, PUBLICATIONS, SPECIES_CONTEXT_QUALIFIER, POPULATION_CONTEXT_QUALIFIER, \
     SEX_QUALIFIER, ANATOMICAL_CONTEXT_QUALIFIER
-from Common.extractor import Extractor
-from Common.loader_interface import SourceDataLoader
-from Common.prefixes import INCHIKEY
-from Common.utils import GetData
+from orion.extractor import Extractor
+from orion.loader_interface import SourceDataLoader
+from orion.prefixes import INCHIKEY
+from orion.utils import GetData
 
 
 class CEBSCOLUMNS:

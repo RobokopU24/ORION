@@ -3,7 +3,7 @@ import pytest
 import requests.exceptions
 
 from unittest.mock import MagicMock
-from Common.build_manager import GraphBuilder, GraphSpecError
+from orion.build_manager import GraphBuilder, GraphSpecError
 
 
 def clear_graph_spec_config():

@@ -8,11 +8,11 @@ import requests
 from io import TextIOWrapper
 from bs4 import BeautifulSoup
 from operator import itemgetter
-from Common.utils import GetData, GetDataPullError
-from Common.loader_interface import SourceDataLoader, SourceDataFailedError
-from Common.kgxmodel import kgxnode, kgxedge
-from Common.prefixes import CTD, NCBITAXON, MESH
-from Common.biolink_constants import *
+from orion.utils import GetData, GetDataPullError
+from orion.loader_interface import SourceDataLoader, SourceDataFailedError
+from orion.kgxmodel import kgxnode, kgxedge
+from orion.prefixes import CTD, NCBITAXON, MESH
+from orion.biolink_constants import *
 
 
 ##############

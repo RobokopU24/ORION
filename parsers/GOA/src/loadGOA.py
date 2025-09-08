@@ -3,12 +3,12 @@ import argparse
 import enum
 import gzip
 
-from Common.loader_interface import SourceDataLoader
-from Common.extractor import Extractor
+from orion.loader_interface import SourceDataLoader
+from orion.extractor import Extractor
 from io import TextIOWrapper
-from Common.utils import GetData
-from Common.biolink_constants import *
-from Common.prefixes import NCBITAXON
+from orion.utils import GetData
+from orion.biolink_constants import *
+from orion.prefixes import NCBITAXON
 
 
 # the data header columns are:

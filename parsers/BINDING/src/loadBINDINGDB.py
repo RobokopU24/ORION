@@ -8,10 +8,10 @@ from zipfile import ZipFile
 from requests.adapters import HTTPAdapter, Retry
 
 from parsers.BINDING.src.bindingdb_constraints import LOG_SCALE_AFFINITY_THRESHOLD #Change the binding affinity threshold here. Default is 10 uM Ki,Kd,EC50,orIC50
-from Common.utils import GetData, GetDataPullError
-from Common.loader_interface import SourceDataLoader
-from Common.extractor import Extractor
-from Common.biolink_constants import PUBLICATIONS, AFFINITY, AFFINITY_PARAMETER, KNOWLEDGE_LEVEL, AGENT_TYPE, \
+from orion.utils import GetData, GetDataPullError
+from orion.loader_interface import SourceDataLoader
+from orion.extractor import Extractor
+from orion.biolink_constants import PUBLICATIONS, AFFINITY, AFFINITY_PARAMETER, KNOWLEDGE_LEVEL, AGENT_TYPE, \
     KNOWLEDGE_ASSERTION, MANUAL_AGENT
 
 # Full Binding Data.

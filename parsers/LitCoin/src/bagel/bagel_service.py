@@ -1,6 +1,6 @@
 import requests
 from requests.auth import HTTPBasicAuth
-from Common.config import CONFIG
+from orion.config import CONFIG
 
 BAGEL_ENDPOINT = 'https://bagel.apps.renci.org/'
 BAGEL_ENDPOINT += 'find_curies_openai'

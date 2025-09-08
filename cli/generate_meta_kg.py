@@ -1,6 +1,6 @@
 import argparse
 import os
-from Common.meta_kg import MetaKnowledgeGraphBuilder, META_KG_FILENAME, TEST_DATA_FILENAME
+from orion.meta_kg import MetaKnowledgeGraphBuilder, META_KG_FILENAME, TEST_DATA_FILENAME
 
 if __name__ == '__main__':
     ap = argparse.ArgumentParser(description='Generate MetaKG and test data files '

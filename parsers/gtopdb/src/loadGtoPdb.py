@@ -6,12 +6,12 @@ import re
 import enum
 
 from bs4 import BeautifulSoup
-from Common.utils import GetData, snakify
-from Common.loader_interface import SourceDataLoader, SourceDataFailedError, SourceDataBrokenError
-from Common.prefixes import GTOPDB, HGNC, ENSEMBL, PUBMED
-from Common.kgxmodel import kgxnode, kgxedge
-from Common.predicates import DGIDB_PREDICATE_MAPPING
-from Common.biolink_constants import *
+from orion.utils import GetData, snakify
+from orion.loader_interface import SourceDataLoader, SourceDataFailedError, SourceDataBrokenError
+from orion.prefixes import GTOPDB, HGNC, ENSEMBL, PUBMED
+from orion.kgxmodel import kgxnode, kgxedge
+from orion.predicates import DGIDB_PREDICATE_MAPPING
+from orion.biolink_constants import *
 
 
 class INTERACTIONS_COLS(enum.Enum):

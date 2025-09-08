@@ -2,10 +2,10 @@ import os
 import enum
 import pandas as pd
 
-from Common.utils import GetData, int_to_roman_numeral
-from Common.loader_interface import SourceDataLoader
-from Common.extractor import Extractor
-from Common.biolink_constants import PRIMARY_KNOWLEDGE_SOURCE
+from orion.utils import GetData, int_to_roman_numeral
+from orion.loader_interface import SourceDataLoader
+from orion.extractor import Extractor
+from orion.biolink_constants import PRIMARY_KNOWLEDGE_SOURCE
 from parsers.yeast.src.yeast_constants import HISTONE_LOCI_FILE, YEAST_GENOME_RESOLUTION
 from parsers.yeast.src.loadHistoneMap import YeastHistoneMapLoader
 

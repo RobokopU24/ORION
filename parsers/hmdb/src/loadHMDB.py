@@ -6,11 +6,11 @@ import xml.etree.cElementTree as E_Tree
 
 from bs4 import BeautifulSoup
 from zipfile import ZipFile
-from Common.biolink_constants import *
-from Common.utils import GetData
-from Common.loader_interface import SourceDataLoader
-from Common.prefixes import CTD, HMDB, OMIM, UNIPROTKB
-from Common.kgxmodel import kgxnode, kgxedge
+from orion.biolink_constants import *
+from orion.utils import GetData
+from orion.loader_interface import SourceDataLoader
+from orion.prefixes import CTD, HMDB, OMIM, UNIPROTKB
+from orion.kgxmodel import kgxnode, kgxedge
 
 
 ##############

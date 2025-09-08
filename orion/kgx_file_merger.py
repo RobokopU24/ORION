@@ -1,16 +1,13 @@
 import os
 import jsonlines
+import json
+from datetime import datetime
 from itertools import chain
-from Common.utils import LoggingUtil, quick_jsonl_file_iterator
-from Common.kgxmodel import GraphSpec, SubGraphSource
-from Common.biolink_constants import SUBJECT_ID, OBJECT_ID
-from Common.merging import GraphMerger, DiskGraphMerger, MemoryGraphMerger
-from Common.load_manager import RESOURCE_HOGS
-
-# import line_profiler
-# import atexit
-# profile = line_profiler.LineProfiler()
-# atexit.register(profile.print_stats)
+from orion.utils import LoggingUtil, quick_jsonl_file_iterator
+from orion.kgxmodel import GraphSpec, GraphSource, SubGraphSource
+from orion.biolink_constants import SUBJECT_ID, OBJECT_ID
+from orion.merging import GraphMerger, DiskGraphMerger, MemoryGraphMerger
+from orion.load_manager import RESOURCE_HOGS
 
 logger = LoggingUtil.init_logging("ORION.Common.KGXFileMerger",
                                   line_format='medium',
@@ -236,3 +233,56 @@ class KGXFileMerger:
 
     def get_merge_metadata(self):
         return self.merge_metadata
+
+
+# This was moved over from the cli implementation - it's a hacky way to merge files without a graph spec
+#
+# given a list of kgx jsonl node files and edge files,
+# create a simple GraphSpec and use KGXFileMerge to merge the files into one node file and one edge file
+def merge_kgx_files(output_dir: str, nodes_files: list = None, edges_files: list = None):
+    if not nodes_files:
+        nodes_files = []
+    else:
+        for node_file in nodes_files:
+            if 'node' not in node_file:
+                print('All node files must contain the text "node" in their file name.')
+                return False
+
+    if not edges_files:
+        edges_files = []
+    else:
+        for edge_file in edges_files:
+            if 'edge' not in edge_file:
+                print(f'All edge files must contain the text "edge" in their file name. This file does not: {edge_file}')
+                return False
+
+    current_time = datetime.now()
+    timestamp = current_time.strftime("%Y/%m/%d %H:%M:%S")
+    # TODO it'd be nice to make this something reproducible from the inputs
+    version = timestamp.replace('/', '_').replace(':', '_').replace(' ', '_')
+    graph_source = GraphSource(id='cli_merge',
+                               file_paths=nodes_files + edges_files)
+    graph_spec = GraphSpec(
+        graph_id='cli_merge',
+        graph_name='',
+        graph_description=f'Merged on {timestamp}',
+        graph_url='',
+        graph_version=version,
+        graph_output_format='jsonl',
+        sources=[graph_source],
+        subgraphs=[]
+    )
+    file_merger = KGXFileMerger(graph_spec=graph_spec,
+                                output_directory=output_dir,
+                                nodes_output_filename=f'{version}_nodes.jsonl',
+                                edges_output_filename=f'{version}_edges.jsonl')
+    file_merger.merge()
+
+    merge_metadata = file_merger.get_merge_metadata()
+    if "merge_error" in merge_metadata:
+        print(f'Merge error occured: {merge_metadata["merge_error"]}')
+        return False
+    else:
+        metadata_output = os.path.join(output_dir, f"{version}_metadata.json")
+        with open(metadata_output, 'w') as metadata_file:
+            metadata_file.write(json.dumps(merge_metadata, indent=4))

@@ -2,7 +2,7 @@ import os
 
 
 def test_pull_via_http():
-    from Common.utils import GetData
+    from orion.utils import GetData
 
     gd = GetData()
 

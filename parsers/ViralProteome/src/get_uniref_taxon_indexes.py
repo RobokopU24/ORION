@@ -1,7 +1,7 @@
 import os
 import argparse
 # from parsers.ViralProteome.src.loadUniRef import UniRefSimLoader
-from Common.utils import LoggingUtil, GetData
+from orion.utils import LoggingUtil, GetData
 from pathlib import Path
 
 # create a logger

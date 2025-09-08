@@ -1,7 +1,7 @@
 from dataclasses import dataclass
-from Common.biolink_constants import NAMED_THING
-from Common.metadata import GraphMetadata, get_source_release_version
-from Common.normalization import NormalizationScheme
+from orion.biolink_constants import NAMED_THING
+from orion.metadata import GraphMetadata, get_source_release_version
+from orion.normalization import NormalizationScheme
 
 
 class kgxnode:

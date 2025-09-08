@@ -4,13 +4,13 @@ try:
 except ImportError:
     TQDM_AVAILABLE = False
 
-from Common.biolink_constants import PREDICATE, QUALIFIED_PREDICATE, SUBJECT_DERIVATIVE_QUALIFIER, SUBJECT_FORM_OR_VARIANT_QUALIFIER, SUBJECT_PART_QUALIFIER, \
+from orion.biolink_constants import PREDICATE, QUALIFIED_PREDICATE, SUBJECT_DERIVATIVE_QUALIFIER, SUBJECT_FORM_OR_VARIANT_QUALIFIER, SUBJECT_PART_QUALIFIER, \
     SUBJECT_DIRECTION_QUALIFIER, SUBJECT_ASPECT_QUALIFIER, OBJECT_DERIVATIVE_QUALIFIER, OBJECT_FORM_OR_VARIANT_QUALIFIER, \
     OBJECT_PART_QUALIFIER, OBJECT_DIRECTION_QUALIFIER, OBJECT_ASPECT_QUALIFIER, CAUSAL_MECHANISM_QUALIFIER, \
     ANATOMICAL_CONTEXT_QUALIFIER, SPECIES_CONTEXT_QUALIFIER
-from Common.biolink_utils import get_biolink_model_toolkit
-from Common.utils import quick_jsonl_file_iterator
-from Common.kgx_file_writer import KGXFileWriter
+from orion.biolink_utils import get_biolink_model_toolkit
+from orion.utils import quick_jsonl_file_iterator
+from orion.kgx_file_writer import KGXFileWriter
 
 ### The goal of this script is to collapse the qualifiers, which are in edge properties, into a single statement, then replace the
 ### existing predicate label with the collapsed qualifier statement.

@@ -4,8 +4,8 @@ import yaml
 import csv
 import json
 
-from Common.utils import GetData
-from Common.loader_interface import SourceDataLoader
+from orion.utils import GetData
+from orion.loader_interface import SourceDataLoader
 
 
 class EHRMayTreatLoader(SourceDataLoader):

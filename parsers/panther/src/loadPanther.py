@@ -6,10 +6,10 @@ import re
 import requests
 
 from bs4 import BeautifulSoup
-from Common.biolink_constants import *
-from Common.utils import GetData
-from Common.loader_interface import SourceDataLoader
-from Common.kgxmodel import kgxnode, kgxedge
+from orion.biolink_constants import *
+from orion.utils import GetData
+from orion.loader_interface import SourceDataLoader
+from orion.kgxmodel import kgxnode, kgxedge
 from functools import partial
 from typing import NamedTuple
 

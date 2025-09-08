@@ -2,9 +2,9 @@ import os
 import jsonlines
 import logging
 
-from Common.utils import LoggingUtil
-from Common.kgxmodel import kgxnode, kgxedge
-from Common.biolink_constants import PRIMARY_KNOWLEDGE_SOURCE, AGGREGATOR_KNOWLEDGE_SOURCES, \
+from orion.utils import LoggingUtil
+from orion.kgxmodel import kgxnode, kgxedge
+from orion.biolink_constants import PRIMARY_KNOWLEDGE_SOURCE, AGGREGATOR_KNOWLEDGE_SOURCES, \
     SUBJECT_ID, OBJECT_ID, PREDICATE
 
 

@@ -5,13 +5,13 @@ import yaml
 
 import requests.exceptions
 
-from Common.biolink_utils import BiolinkUtils
-from Common.loader_interface import SourceDataLoader
-from Common.biolink_constants import PUBLICATIONS, NEGATED
-from Common.utils import GetData, quick_jsonl_file_iterator
-from Common.normalization import call_name_resolution, NAME_RESOLVER_API_ERROR
-from Common.predicates import call_pred_mapping
-from Common.prefixes import PUBMED
+from orion.biolink_utils import BiolinkUtils
+from orion.loader_interface import SourceDataLoader
+from orion.biolink_constants import PUBLICATIONS, NEGATED
+from orion.utils import GetData, quick_jsonl_file_iterator
+from orion.normalization import call_name_resolution, NAME_RESOLVER_API_ERROR
+from orion.predicates import call_pred_mapping
+from orion.prefixes import PUBMED
 
 from parsers.LitCoin.src.bagel.bagel_service import call_bagel_service
 from parsers.LitCoin.src.bagel.bagel import get_orion_bagel_results, extract_best_match, \

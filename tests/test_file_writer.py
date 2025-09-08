@@ -1,9 +1,9 @@
 
 import os
-from Common.utils import quick_jsonl_file_iterator
-from Common.kgx_file_writer import KGXFileWriter
-from Common.kgxmodel import kgxnode, kgxedge
-from Common.biolink_constants import *
+from orion.utils import quick_jsonl_file_iterator
+from orion.kgx_file_writer import KGXFileWriter
+from orion.kgxmodel import kgxnode, kgxedge
+from orion.biolink_constants import *
 
 test_workspace_dir = os.path.dirname(os.path.abspath(__file__)) + '/workspace/'
 # TODO this is hacky and should be done with better design in pytest or somewhere else

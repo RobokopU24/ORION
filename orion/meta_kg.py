@@ -2,9 +2,9 @@ import json
 import jsonlines
 from collections import defaultdict
 
-from Common.biolink_constants import NODE_TYPES, SUBJECT_ID, OBJECT_ID, PREDICATE, PRIMARY_KNOWLEDGE_SOURCE, AGGREGATOR_KNOWLEDGE_SOURCES
-from Common.utils import quick_jsonl_file_iterator
-from Common.biolink_utils import BiolinkUtils
+from orion.biolink_constants import NODE_TYPES, SUBJECT_ID, OBJECT_ID, PREDICATE, PRIMARY_KNOWLEDGE_SOURCE, AGGREGATOR_KNOWLEDGE_SOURCES
+from orion.utils import quick_jsonl_file_iterator
+from orion.biolink_utils import BiolinkUtils
 
 BL_ATTRIBUTE_MAP = {
     "equivalent_identifiers": "biolink:same_as",

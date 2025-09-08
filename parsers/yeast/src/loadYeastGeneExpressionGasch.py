@@ -3,9 +3,9 @@ import enum
 import pandas as pd
 
 from parsers.SGD.src.sgd_source_retriever import SGDAllGenes
-from Common.loader_interface import SourceDataLoader
-from Common.extractor import Extractor
-from Common.biolink_constants import PRIMARY_KNOWLEDGE_SOURCE
+from orion.loader_interface import SourceDataLoader
+from orion.extractor import Extractor
+from orion.biolink_constants import PRIMARY_KNOWLEDGE_SOURCE
 
 
 # Maps Experimental Condition affects Nucleosome edge.

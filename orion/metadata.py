@@ -3,7 +3,7 @@ import os
 import json
 from xxhash import xxh64_hexdigest
 
-from Common.normalization import NormalizationScheme
+from orion.normalization import NormalizationScheme
 
 
 class Metadata:

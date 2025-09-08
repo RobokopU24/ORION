@@ -3,11 +3,11 @@ import os
 import requests
 import json
 
-from Common.biolink_constants import *
-from Common.extractor import Extractor
-from Common.utils import GetData
-from Common.loader_interface import SourceDataLoader
-from Common.utils import GetDataPullError
+from orion.biolink_constants import *
+from orion.extractor import Extractor
+from orion.utils import GetData
+from orion.loader_interface import SourceDataLoader
+from orion.utils import GetDataPullError
 
 
 # the data header columns the nodes files are:

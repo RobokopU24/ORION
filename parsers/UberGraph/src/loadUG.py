@@ -2,9 +2,9 @@ import os
 import tarfile
 
 from io import TextIOWrapper
-from Common.utils import GetData
-from Common.loader_interface import SourceDataLoader
-from Common.biolink_constants import KNOWLEDGE_LEVEL, AGENT_TYPE, KNOWLEDGE_ASSERTION, MANUAL_AGENT
+from orion.utils import GetData
+from orion.loader_interface import SourceDataLoader
+from orion.biolink_constants import KNOWLEDGE_LEVEL, AGENT_TYPE, KNOWLEDGE_ASSERTION, MANUAL_AGENT
 from parsers.UberGraph.src.ubergraph import UberGraphTools
 
 

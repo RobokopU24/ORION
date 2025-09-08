@@ -1,5 +1,5 @@
 import argparse
-from Common.redundant_kg import generate_redundant_kg
+from orion.redundant_kg import generate_redundant_kg
                 
 
 if __name__ == '__main__':

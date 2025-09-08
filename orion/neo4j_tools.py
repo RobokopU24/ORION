@@ -2,9 +2,9 @@ import time
 import os
 import neo4j
 import subprocess
-import Common.kgx_file_converter as kgx_file_converter
-from Common.biolink_constants import NAMED_THING
-from Common.utils import LoggingUtil
+import orion.kgx_file_converter as kgx_file_converter
+from orion.biolink_constants import NAMED_THING
+from orion.utils import LoggingUtil
 
 
 class Neo4jTools:

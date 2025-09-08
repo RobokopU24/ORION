@@ -3,8 +3,8 @@ import os
 import requests
 import yaml
 
-from Common.loader_interface import SourceDataLoader
-from Common.utils import GetData, quick_jsonl_file_iterator
+from orion.loader_interface import SourceDataLoader
+from orion.utils import GetData, quick_jsonl_file_iterator
 
 
 ##############

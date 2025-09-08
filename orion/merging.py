@@ -2,9 +2,9 @@ import os
 import jsonlines
 import secrets
 from xxhash import xxh64_hexdigest
-from Common.biolink_utils import BiolinkUtils
-from Common.biolink_constants import *
-from Common.utils import quick_json_loads, quick_json_dumps, chunk_iterator, LoggingUtil
+from orion.biolink_utils import BiolinkUtils
+from orion.biolink_constants import *
+from orion.utils import quick_json_loads, quick_json_dumps, chunk_iterator, LoggingUtil
 
 NODE_PROPERTIES_THAT_SHOULD_BE_SETS = {SYNONYMS, NODE_TYPES, SYNONYM}
 EDGE_PROPERTIES_THAT_SHOULD_BE_SETS = {AGGREGATOR_KNOWLEDGE_SOURCES, PUBLICATIONS, XREFS}

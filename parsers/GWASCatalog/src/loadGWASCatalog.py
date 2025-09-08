@@ -5,11 +5,11 @@ import enum
 
 from sys import float_info
 from collections import defaultdict
-from Common.utils import GetData
-from Common.loader_interface import SourceDataLoader
-from Common.kgxmodel import kgxnode, kgxedge
-from Common.biolink_constants import *
-from Common.prefixes import DBSNP, EFO, ORPHANET, HP, NCIT, MONDO, GO
+from orion.utils import GetData
+from orion.loader_interface import SourceDataLoader
+from orion.kgxmodel import kgxnode, kgxedge
+from orion.biolink_constants import *
+from orion.prefixes import DBSNP, EFO, ORPHANET, HP, NCIT, MONDO, GO
 
 
 # the data header columns are:

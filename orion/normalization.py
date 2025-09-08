@@ -7,8 +7,8 @@ from requests.adapters import HTTPAdapter, Retry
 from dataclasses import dataclass
 
 from robokop_genetics.genetics_normalization import GeneticsNormalizer
-from Common.biolink_constants import *
-from Common.utils import LoggingUtil
+from orion.biolink_constants import *
+from orion.utils import LoggingUtil
 
 NORMALIZATION_CODE_VERSION = '1.4'
 
