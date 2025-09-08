@@ -4,7 +4,7 @@ build-backend = "uv_build"
 
 [project]
 name = "robokop-orion"
-version = "0.1.0"
+version = "0.1.1"
 description = "ORION ingests data from knowledge sources and converts them into interoperable biolink model compliant knowledge graphs."
 license = "MIT"
 license-files = ["LICEN[CS]E*"]
