@@ -108,7 +108,7 @@ class GetData:
         :param log_level - overrides default log level
         """
         # create a logger
-        self.logger = LoggingUtil.init_logging("ORION.Common.GetData", level=log_level, line_format='medium', log_file_path=os.environ.get('ORION_LOGS'))
+        self.logger = LoggingUtil.init_logging("ORION.Common.GetData", level=log_level, line_format='medium', log_file_path=os.getenv('ORION_LOGS'))
 
     @staticmethod
     def pull_via_ftp_binary(ftp_site, ftp_dir, ftp_file):

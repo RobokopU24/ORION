@@ -49,7 +49,7 @@ class SourceDataLoader:
         self.logger = LoggingUtil.init_logging(f"ORION.parsers.{self.get_name()}",
                                                level=logging.INFO,
                                                line_format='medium',
-                                               log_file_path=os.environ.get('ORION_LOGS'))
+                                               log_file_path=os.getenv('ORION_LOGS'))
 
     def get_latest_source_version(self):
         """Determine and return the latest source version ie. a unique identifier associated with the latest version."""

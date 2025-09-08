@@ -16,7 +16,7 @@ bmt = BiolinkUtils()
 
 logger = LoggingUtil.init_logging("ORION.Common.merging",
                                   line_format='medium',
-                                  log_file_path=os.environ['ORION_LOGS'])
+                                  log_file_path=os.getenv('ORION_LOGS')
 
 
 def node_key_function(node):

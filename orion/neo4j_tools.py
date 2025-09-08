@@ -25,7 +25,7 @@ class Neo4jTools:
         self.neo4j_driver = neo4j.GraphDatabase.driver(self.graph_db_uri, auth=self.graph_db_auth)
         self.logger = LoggingUtil.init_logging("ORION.Common.neo4j_tools",
                                                line_format='medium',
-                                               log_file_path=os.environ['ORION_LOGS'])
+                                               log_file_path=os.getenv('ORION_LOGS')
 
     def import_csv_files(self,
                          graph_directory: str,

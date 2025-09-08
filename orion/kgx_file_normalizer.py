@@ -25,7 +25,7 @@ class KGXFileNormalizer:
     logger = LoggingUtil.init_logging("ORION.Common.KGXFileNormalizer",
                                       line_format='medium',
                                       level=logging.INFO,
-                                      log_file_path=os.environ['ORION_LOGS'])
+                                      log_file_path=os.getenv('ORION_LOGS')
 
     def __init__(self,
                  source_nodes_file_path: str,

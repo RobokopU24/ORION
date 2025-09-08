@@ -20,7 +20,7 @@ SOURCE_DATA_LOADER_CLASSES = SourceDataLoaderClassFactory()
 
 logger = LoggingUtil.init_logging("ORION.Common.SourceDataManager",
                                   line_format='medium',
-                                  log_file_path=os.environ['ORION_LOGS'])
+                                  log_file_path=os.getenv('ORION_LOGS')
 
 
 class SourceDataManager:
