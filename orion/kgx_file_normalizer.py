@@ -2,8 +2,7 @@ import os
 import json
 import jsonlines
 import logging
-from orion.biolink_utils import BiolinkInformationResources, INFORES_STATUS_INVALID, INFORES_STATUS_DEPRECATED
-from orion.biolink_constants import SEQUENCE_VARIANT, PRIMARY_KNOWLEDGE_SOURCE, AGGREGATOR_KNOWLEDGE_SOURCES, \
+from orion.biolink_constants import SEQUENCE_VARIANT, SOURCES, PRIMARY_KNOWLEDGE_SOURCE, AGGREGATOR_KNOWLEDGE_SOURCES, \
     PUBLICATIONS, OBJECT_ID, SUBJECT_ID, PREDICATE, SUBCLASS_OF, ORIGINAL_OBJECT, ORIGINAL_SUBJECT
 from orion.normalization import NormalizationScheme, NodeNormalizer, EdgeNormalizer, EdgeNormalizationResult, \
     NormalizationFailedError
@@ -234,7 +233,6 @@ class KGXFileNormalizer:
         node_norm_lookup = self.node_normalizer.node_normalization_lookup
         edge_norm_lookup = self.edge_normalizer.edge_normalization_lookup
         edge_norm_failures = set()
-        knowledge_sources = set()
 
         try:
             with jsonlines.open(self.source_edges_file_path) as source_json_reader, \
@@ -289,14 +287,8 @@ class KGXFileNormalizer:
                             edge_count = 0
 
                             # ensure edge has a primary knowledge source
-                            if PRIMARY_KNOWLEDGE_SOURCE not in edge:
+                            if SOURCES not in edge and PRIMARY_KNOWLEDGE_SOURCE not in edge:
                                 edge[PRIMARY_KNOWLEDGE_SOURCE] = self.default_provenance
-                                knowledge_sources.add(self.default_provenance)
-                            else:
-                                knowledge_sources.add(edge[PRIMARY_KNOWLEDGE_SOURCE])
-                                if AGGREGATOR_KNOWLEDGE_SOURCES in edge:
-                                    for knowledge_source in edge[AGGREGATOR_KNOWLEDGE_SOURCES]:
-                                        knowledge_sources.add(knowledge_source)
 
                             for norm_subject_id in normalized_subject_ids:
                                 for norm_object_id in normalized_object_ids:
@@ -344,16 +336,6 @@ class KGXFileNormalizer:
             norm_error_msg = f'Error normalizing edges file {self.source_edges_file_path}'
             raise NormalizationFailedError(error_message=norm_error_msg, actual_error=e)
 
-        bl_inforesources = BiolinkInformationResources()
-        deprecated_infores_ids = []
-        invalid_infores_ids = []
-        for knowledge_source in knowledge_sources:
-            infores_status = bl_inforesources.get_infores_status(knowledge_source)
-            if infores_status == INFORES_STATUS_DEPRECATED:
-                deprecated_infores_ids.append(knowledge_source)
-            elif infores_status == INFORES_STATUS_INVALID:
-                invalid_infores_ids.append(knowledge_source)
-
         try:
             self.logger.debug(f'Writing predicate map to file...')
             edge_norm_json = {}
@@ -377,13 +359,6 @@ class KGXFileNormalizer:
             'subclass_loops_removed': subclass_loops_removed,
             'final_normalized_edges': normalized_edge_count
         })
-        if deprecated_infores_ids:
-            self.normalization_metadata['deprecated_infores_ids'] = deprecated_infores_ids
-            self.logger.warning(f'Normalization found deprecated infores identifiers: {deprecated_infores_ids}')
-        if invalid_infores_ids:
-            self.normalization_metadata['invalid_infores_ids'] = invalid_infores_ids
-            self.logger.warning(f'Normalization found invalid infores identifiers: {invalid_infores_ids}')
-
 
 def invert_edge(edge):
     inverted_edge = {}
