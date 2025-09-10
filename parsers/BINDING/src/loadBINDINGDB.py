@@ -133,7 +133,7 @@ class BINDINGDBLoader(SourceDataLoader):
         """
         data_store= dict()
 
-        columns = [[x.value,x.name] for x in BD_EDGEUMAN if x.name not in ['PMID','PUBCHEM_AID','PATENT_NUMBER','PUBCHEM_CID','UNIPROT_TARGET_CHAIN']]
+        measure_types = [(x.value,x.name) for x in BD_EDGEUMAN if x.name not in ['PMID','PUBCHEM_AID','PATENT_NUMBER','PUBCHEM_CID','UNIPROT_TARGET_CHAIN']]
         zipped_data_path = os.path.join(self.data_path, self.bd_archive_file_name)
         for n,row in enumerate(generate_zipfile_rows(zipped_data_path, self.bd_file_name)):
             if n == 0:
@@ -152,9 +152,8 @@ class BINDINGDBLoader(SourceDataLoader):
             assay_id = f"PUBCHEM.AID:{row[BD_EDGEUMAN.PUBCHEM_AID.value]}" if row[BD_EDGEUMAN.PUBCHEM_AID.value] else None
             patent = f"PATENT:{row[BD_EDGEUMAN.PATENT_NUMBER.value]}" if row[BD_EDGEUMAN.PATENT_NUMBER.value] else None
 
-            for column in columns:
-                if row[column[0]] != '':
-                    measure_type = column[1]
+            for measure_index, measure_type in measure_types:
+                if row[measure_index] != '':
                     if measure_type in ["k_on", "k_off"]:
                         # JMB says:
                         # These are just rate terms used to calculate Kd/Ki so each row with a k_on/k_off value
@@ -180,9 +179,9 @@ class BINDINGDBLoader(SourceDataLoader):
 
                     # If there's a > in the result, it means that this is a dead compound, i.e. it won't pass
                     # our activity/inhibition threshold
-                    if ">" in row[column[0]]:
+                    if ">" in row[measure_index]:
                         continue
-                    sa = float(row[column[0]].replace('<', '').replace(' ', '').replace(',', ''))
+                    sa = float(row[measure_index].replace('<', '').replace(' ', '').replace(',', ''))
                     # I don't see how 0 would be a valid affinity value, so we'll skip it
                     if sa == 0:
                         continue
