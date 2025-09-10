@@ -25,8 +25,6 @@ class BD_EDGEUMAN(enum.IntEnum):
     pIC50 = 9
     pKd = 10
     pEC50 = 11
-    k_on = 12
-    k_off = 13
     PMID = 19
     PUBCHEM_AID = 20
     PATENT_NUMBER = 21
@@ -68,8 +66,6 @@ class BINDINGDBLoader(SourceDataLoader):
             "pIC50": "CTD:decreases_activity_of",
             "pKd": "RO:0002436",
             "pEC50": "CTD:increases_activity_of",
-            "k_on": "RO:0002436",
-            "k_off": "RO:0002436"
         }
 
         self.bindingdb_version = None
@@ -154,11 +150,6 @@ class BINDINGDBLoader(SourceDataLoader):
 
             for measure_index, measure_type in measure_types:
                 if row[measure_index] != '':
-                    if measure_type in ["k_on", "k_off"]:
-                        # JMB says:
-                        # These are just rate terms used to calculate Kd/Ki so each row with a k_on/k_off value
-                        # already has another measurement type in the row, and that other measurement has far more value.
-                        continue
                     ligand_protein_measure_key = f"{ligand}~{protein}~{measure_type}"
                     # if we already created an entry with the same ligand-protein-measure_type key, use it
                     if ligand_protein_measure_key in data_store:
