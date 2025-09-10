@@ -8,7 +8,7 @@ from zipfile import ZipFile
 from requests.adapters import HTTPAdapter, Retry
 
 from parsers.BINDING.src.bindingdb_constraints import LOG_SCALE_AFFINITY_THRESHOLD #Change the binding affinity threshold here. Default is 10 uM Ki,Kd,EC50,orIC50
-from Common.utils import GetData, GetDataPullError
+from Common.utils import GetData
 from Common.loader_interface import SourceDataLoader
 from Common.extractor import Extractor
 from Common.biolink_constants import PUBLICATIONS, AFFINITY, AFFINITY_PARAMETER, KNOWLEDGE_LEVEL, AGENT_TYPE, \
@@ -19,8 +19,8 @@ from Common.biolink_constants import PUBLICATIONS, AFFINITY, AFFINITY_PARAMETER,
 #make this reflect the column that the data is found in
 #TODO figure out a way to auto populate the BD_enum class. Woried that later iterations of the data will have a different format
 class BD_EDGEUMAN(enum.IntEnum):
-    PUBCHEM_CID= 29
-    UNIPROT_TARGET_CHAIN = 42
+    PUBCHEM_CID = 31
+    UNIPROT_TARGET_CHAIN = 44
     pKi = 8
     pIC50 = 9
     pKd = 10
@@ -50,7 +50,7 @@ class BINDINGDBLoader(SourceDataLoader):
 
     source_id: str = 'BINDING-DB'
     provenance_id: str = 'infores:bindingdb'
-    parsing_version = '1.6'
+    parsing_version = '1.7'
 
     def __init__(self, test_mode: bool = False, source_data_dir: str = None):
         """
