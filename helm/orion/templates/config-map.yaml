@@ -6,5 +6,5 @@ metadata:
     {{- include "orion.labels" . | nindent 4 }}
 data:
   env-file: |-
-    OPENAI_API_KEY={{ .Values.orion.openAI.openAIKey }}
-    OPENAI_API_ORGANIZATION={{ .Values.orion.openAI.openAIOrg }}
+    BAGEL_SERVICE_USERNAME={{ .Values.orion.bagel.username }}
+    BAGEL_SERVICE_PASSWORD={{ .Values.orion.bagel.password }}
