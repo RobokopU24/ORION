@@ -75,7 +75,7 @@ export ORION_GRAPH_SPEC=example-graph-spec.yaml
 Option 2: ORION_GRAPH_SPEC_URL - a URL pointing to a Graph Spec yaml file
 
 ```
-export ORION_GRAPH_SPEC_URL=https://stars.renci.org/var/data_services/graph_specs/default-graph-spec.yaml
+export ORION_GRAPH_SPEC_URL=https://example.com/graph_specs/example-graph-spec.yaml
 ```
 
 #### Building graph
