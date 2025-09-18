@@ -1,5 +1,4 @@
 import os
-import argparse
 import requests
 import re
 import xml.etree.cElementTree as E_Tree
@@ -7,7 +6,7 @@ import xml.etree.cElementTree as E_Tree
 from bs4 import BeautifulSoup
 from zipfile import ZipFile
 from Common.biolink_constants import *
-from Common.utils import GetData
+from Common.utils import GetData, GetDataPullError
 from Common.loader_interface import SourceDataLoader
 from Common.prefixes import CTD, HMDB, OMIM, UNIPROTKB
 from Common.kgxmodel import kgxnode, kgxedge
@@ -44,15 +43,21 @@ class HMDBLoader(SourceDataLoader):
 
         :return:
         """
-        # this grabs the html from the downloads page and searches for the Current Version on it
-        ret_val: str = 'Not found'
-        html_page: requests.Response = requests.get('https://hmdb.ca/downloads')
-        resp: BeautifulSoup = BeautifulSoup(html_page.content, 'html.parser')
-        search_text = 'Current Version '
-        div_tag = resp.find('a', string=re.compile('Current Version'))
-        if len(div_tag) > 0:
-            ret_val = div_tag.text.split(search_text)[1].strip('() ')
-        return ret_val
+        try:
+            # this grabs the html from the downloads page and searches for the Current Version on it
+            html_page: requests.Response = requests.get('https://hmdb.ca/downloads')
+            html_page.raise_for_status()
+
+            resp: BeautifulSoup = BeautifulSoup(html_page.content, 'html.parser')
+            search_text = 'Current Version '
+            div_tag = resp.find('a', string=re.compile('Current Version'))
+            if len(div_tag) > 0:
+                ret_val = div_tag.text.split(search_text)[1].strip('() ')
+                return ret_val
+            raise Exception('Could not determine latest version from "Current Version" at https://hmdb.ca/downloads')
+        except Exception as e:
+            raise GetDataPullError(error_message=f'Unable to determine latest version for HMDB: {e}')
+
 
     def get_data(self) -> int:
         """

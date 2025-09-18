@@ -1,6 +1,5 @@
 import os
 import csv
-import argparse
 import re
 import tarfile, gzip
 import requests
@@ -86,6 +85,7 @@ class CTDLoader(SourceDataLoader):
         try:
             # load the web page for CTD
             html_page: requests.Response = requests.get('http://ctdbase.org/about/dataStatus.go')
+            html_page.raise_for_status()
 
             # get the html into a parsable object
             resp: BeautifulSoup = BeautifulSoup(html_page.content, 'html.parser')
@@ -97,6 +97,7 @@ class CTDLoader(SourceDataLoader):
             if version is not None:
                 # save the value
                 return version.text.split(':')[1].strip().replace(' ', '_')
+            raise Exception('Could not find version from dataStatus using pgheading')
         except Exception as e:
             raise GetDataPullError(error_message=f'Unable to determine latest version for CTD: {e}')
 
