@@ -6,6 +6,7 @@ graphs:
     graph_url: http://robokopkg.renci.org/browser/
     conflation: True
     output_format: neo4j
+    edge_id_addition: True
     sources:
       - source_id: BINDING-DB
       - source_id: CCIDB
