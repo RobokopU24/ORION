@@ -1,0 +1,36 @@
+graphs:
+
+  - graph_id: Baseline_Nonredundant
+    graph_name: ROBOKOP Baseline Nonredundant
+    graph_description: 'The ROBOKOP Knowledge Graph (ROBOKOP KG) is an open-source biomedical KG that supports the ROBOKOP application and currently contains millions of biomedical relationships derived from dozens of integrated and harmonized biological knowledge sources and bio-ontologies. The ROBOKOP KG includes curated components of most of the Automat KGs, as well as other knowledge sources. Most of the ROBOKOP knowledge sources are curated. However, the ROBOKOP KG also includes text-mined assertions from PubMed and PubMed Central that have been derived from natural language processing (NLP). Note that text-based assertions, while providing valuable information, must be interpreted with caution, as NLP algorithms may introduce false assertions.'
+    graph_url: http://robokopkg.renci.org/browser/
+    conflation: True
+    output_format: neo4j
+    sources:
+      - source_id: BINDING-DB
+      - source_id: CCIDB
+      - source_id: CEBS
+      - source_id: CHEBIProps
+      - source_id: ClinGenDosageSensitivity
+      - source_id: ClinGenGeneDiseaseValidity
+      - source_id: CTD
+      - source_id: DrugCentral
+      - source_id: DrugMechDB
+      - source_id: GtoPdb
+      - source_id: Hetio
+      - source_id: HGNC
+      - source_id: HMDB
+      - source_id: HumanGOA
+      - source_id: IntAct
+      - source_id: KinAce
+      - source_id: LINCS
+      - source_id: MetabolomicsWorkbench
+      - source_id: MonarchKG
+      - source_id: MONDOProps
+      - source_id: PANTHER
+      - source_id: PHAROS
+      - source_id: Reactome
+      - source_id: textminingkp
+      - source_id: SIGNOR
+      - source_id: STRING-DB-Human
+      - source_id: UbergraphNonredundant
