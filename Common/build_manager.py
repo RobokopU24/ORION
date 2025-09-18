@@ -353,17 +353,19 @@ class GraphBuilder:
                                  f'ORION_GRAPH_SPEC_URL were set. Please choose one or the other. See the README for '
                                  f'details.')
 
-        # just load all the graph specs in the graph_specs dir first
-        included_graph_specs_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'graph_specs')
-        self.logger.info(f'Loading all included graph specs...')
-        for gs_file in os.listdir(included_graph_specs_dir):
-            print(gs_file)
-            graph_spec_path = os.path.join(included_graph_specs_dir, gs_file)
-            print(graph_spec_path)
-            if os.path.isfile(graph_spec_path) and 'yaml' in graph_spec_path or 'yml' in graph_spec_path:
-                with open(graph_spec_path) as gs_fp:
-                    graph_spec_yaml = yaml.safe_load(gs_fp)
-                    self.parse_graph_spec(graph_spec_yaml)
+        if not (graph_spec_file or graph_spec_url):
+            # if no graph spec is specified, load all the included ones
+            included_graph_specs_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'graph_specs')
+            self.logger.info(f'Loading all included graph specs...')
+            for gs_file in os.listdir(included_graph_specs_dir):
+                print(gs_file)
+                graph_spec_path = os.path.join(included_graph_specs_dir, gs_file)
+                print(graph_spec_path)
+                if os.path.isfile(graph_spec_path) and 'yaml' in graph_spec_path or 'yml' in graph_spec_path:
+                    with open(graph_spec_path) as gs_fp:
+                        graph_spec_yaml = yaml.safe_load(gs_fp)
+                        self.parse_graph_spec(graph_spec_yaml)
+            return
 
         if graph_spec_file:
             if not graph_specs_dir:
@@ -384,11 +386,6 @@ class GraphBuilder:
             graph_spec_yaml = yaml.safe_load(graph_spec_request.text)
             self.parse_graph_spec(graph_spec_yaml)
             return
-
-        raise GraphSpecError(f'Configuration Error - No Graph Spec was configured. Set the environment variable '
-                             f'ORION_GRAPH_SPEC to the name of a graph spec included in this package, or '
-                             f'ORION_GRAPH_SPEC_URL to a URL of a valid Graph Spec yaml file. '
-                             f'See the README for more info.')
 
     def parse_graph_spec(self, graph_spec_yaml):
         graph_id = None
