@@ -24,7 +24,10 @@ graphs:
         # strict_normalization: True (whether or not data should be discarded when it can not be normalized)
         # merge_strategy: default (used to specify alternative merge strategies)
       - source_id: CCIDB
+      - source_id: CEBS
       - source_id: CHEBIProps
+      - source_id: ClinGenDosageSensitivity
+      - source_id: ClinGenGeneDiseaseValidity
       - source_id: CTD
       - source_id: DrugCentral
       - source_id: DrugMechDB
@@ -58,6 +61,7 @@ graphs:
     subgraphs:
       - graph_id: Baseline
     sources:
+      - source_id: ClinGenVariantPathogenicity
       - source_id: GWASCatalog
       - source_id: GTEx
 
