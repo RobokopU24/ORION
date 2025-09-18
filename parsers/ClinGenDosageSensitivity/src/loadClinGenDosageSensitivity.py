@@ -1,10 +1,12 @@
 import os
+import csv
+from datetime import date
+from collections.abc import Callable
+
 from Common.extractor import Extractor
 from Common.loader_interface import SourceDataLoader
 from Common.biolink_constants import PRIMARY_KNOWLEDGE_SOURCE
 from Common.utils import GetData
-from datetime import date
-import csv
 
 
 # Constants for data processing
@@ -61,7 +63,7 @@ class ClinGenDosageSensitivityLoader(SourceDataLoader):
     def dosage_sensitivity_edge_generator(
         self,
         data_file: str,
-        subject_extractor: str,
+        subject_extractor: Callable,
         predicate: str,
     ):
         """
@@ -168,5 +170,7 @@ def get_edge_properties(score, disease_id):
             return {"negated": True}
         elif score == -1:
             return {"Status": "Not planned to be evaluated", "negated": True}
+        else:
+            raise ValueError(f"Score not expected: {score}")
     else:  # Negate only if no HI disease and TS disease is available for the gene
         return {"negated": True}
