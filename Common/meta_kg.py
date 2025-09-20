@@ -116,17 +116,17 @@ class MetaKnowledgeGraphBuilder:
                     print(error_message)
                 continue
 
-            non_core_edge_attributes = [key for key in edge.keys()
-                                        if key not in core_attributes and edge[key] is not None]
-            edge_attributes = [key for key in non_core_edge_attributes if 'qualifie' not in key]
-            for edge_attribute in edge_attributes:
-                if edge_attribute not in edge_attribute_to_metadata:
-                    edge_attribute_to_metadata[edge_attribute] = self.get_meta_attribute(edge_attribute)
-
-            edge_qualifiers = [key for key in non_core_edge_attributes if 'qualifie' in key]
-            edge_qualifier_values = {
-                edge_qualifier: edge[edge_qualifier] for edge_qualifier in edge_qualifiers
-            }
+            edge_qualifiers = {}
+            edge_attributes = []
+            for key, value in edge.items():
+                if key in core_attributes or value is None:
+                    continue
+                if self.bl_utils.is_qualifier(key):
+                    edge_qualifiers[key] = value
+                else:
+                    edge_attributes.append(key)
+                    if key not in edge_attribute_to_metadata:
+                        edge_attribute_to_metadata[key] = self.get_meta_attribute(key)
 
             predicate = edge[PREDICATE]
             for subject_type in subject_types:
@@ -138,7 +138,7 @@ class MetaKnowledgeGraphBuilder:
 
                     edge_type_key = f'{subject_type}{object_type}{predicate}'
                     edge_type_key_to_attributes[edge_type_key].update(edge_attributes)
-                    for qual, qual_val in edge_qualifier_values.items():
+                    for qual, qual_val in edge_qualifiers.items():
                         try:
                             edge_type_key_to_qualifiers[edge_type_key][qual].add(qual_val)
                         except TypeError as e:
@@ -157,11 +157,11 @@ class MetaKnowledgeGraphBuilder:
                             "subject_id": edge[SUBJECT_ID],
                             "object_id": edge[OBJECT_ID]
                         }
-                        if edge_qualifier_values:
+                        if edge_qualifiers:
                             example_edge['qualifiers'] = [
                                 {"qualifier_type_id": f"biolink:{qualifier}" if not qualifier.startswith("biolink:") else qualifier,
                                  "qualifier_value": qualifier_value}
-                                for qualifier, qualifier_value in edge_qualifier_values.items()
+                                for qualifier, qualifier_value in edge_qualifiers.items()
                             ]
                         edge_type_key_to_example[edge_type_key] = example_edge
                         self.example_edges.append(edge)
