@@ -45,9 +45,11 @@ def convert_jsonl_to_memgraph_cypher(nodes_input_file: str,
                 raise Exception('each node must include required property id')
             if 'name' not in node:
                 raise Exception('each node must include required property name')
+            if 'category' not in node:
+                raise Exception(f'each node must include required property category')
 
             node_id = node["id"]
-            categories = node.get("category", [])
+            categories = node.pop('category')
             if isinstance(categories, str):
                 categories = [categories]
             # memgraph does not allow colons inside label names, so replacing : with _
@@ -57,7 +59,7 @@ def convert_jsonl_to_memgraph_cypher(nodes_input_file: str,
                 for ignore_key in node_property_ignore_list:
                     node.pop(ignore_key, None)
 
-            props = {k: __normalize_value(v) for k, v in node.items() if k not in {"category"}}
+            props = {k: __normalize_value(v) for k, v in node.items()}
             props_str = "{" + ", ".join(f"{k}: {json.dumps(v, ensure_ascii=False)}" for k, v in props.items()) + "}"
             cypher_out.write(
                 f"CREATE (:{labels_str} {props_str});\n"
