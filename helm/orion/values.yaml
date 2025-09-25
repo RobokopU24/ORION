@@ -49,9 +49,9 @@ orion:
   normalization:
     nodeNormEndpoint:
     edgeNormEndpoint:
-  openAI:
-    openAIKey:
-    openAIOrg:
+  bagel:
+    username: fake-username-do-not-commit-a-real-one!!!
+    password: fake-password-do-not-commit-a-real-one!!!
 
 pharos:
   host:
