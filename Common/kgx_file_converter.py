@@ -52,7 +52,7 @@ def convert_jsonl_to_memgraph_cypher(nodes_input_file: str,
             categories = node.pop('category')
             if isinstance(categories, str):
                 categories = [categories]
-            # memgraph does not allow colons inside label names, so replacing : with _
+            # convert categories list to a labels string, add backticks to allow handling colons
             labels_str = ":".join(f"`{c}`" for c in categories) if categories else node_id
 
             if node_property_ignore_list:
