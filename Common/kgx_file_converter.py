@@ -1,8 +1,93 @@
 import csv
+import json
 import argparse
 from collections import defaultdict
 from Common.utils import quick_jsonl_file_iterator
 from Common.biolink_constants import SUBJECT_ID, OBJECT_ID, PREDICATE
+
+
+def __normalize_value(v):
+    # Dicts become JSON strings
+    if isinstance(v, dict):
+        return json.dumps(v, ensure_ascii=False)
+    # Everything else (str, int, float, bool, None) as-is
+    return v
+
+
+def convert_jsonl_to_memgraph_cypher(nodes_input_file: str,
+                                     edges_input_file: str,
+                                     output_cypher_file: str,
+                                     node_property_ignore_list=None,
+                                     edge_property_ignore_list=None):
+    """
+    Convert nodes.jsonl and edges.jsonl into a .cypher file for Memgraph import.
+    Each node becomes a CREATE statement with labels from `category`.
+    Each edge becomes a CREATE statement with relationship type from `predicate`.
+
+    Parameters
+    ----------
+    nodes_input_file : path to input nodes.jsonl file.
+    edges_input_file : path to input edges.jsonl file.
+    output_cypher_file : path to output .cypher file.
+    node_property_ignore_list : set, optional, properties to ignore when writing node properties.
+    edge_property_ignore_list : set, optional, properties to ignore when writing edge properties.
+    """
+    if not nodes_input_file or not nodes_input_file.endswith('jsonl'):
+        raise Exception(f'Empty input node file or invalid file extension')
+    if not edges_input_file or not edges_input_file.endswith('jsonl'):
+        raise Exception(f'Empty input edge file or invalid file extension')
+    if not output_cypher_file or not output_cypher_file.endswith('.cypher'):
+        raise Exception(f'Empty output cypher file or invalid file extension')
+
+    with open(output_cypher_file, "w", encoding="utf-8") as cypher_out:
+        for node in quick_jsonl_file_iterator(nodes_input_file):
+            if 'id' not in node:
+                raise Exception('each node must include required property id')
+            if 'name' not in node:
+                raise Exception('each node must include required property name')
+            if 'category' not in node:
+                raise Exception(f'each node must include required property category')
+
+            node_id = node["id"]
+            categories = node.pop('category')
+            if isinstance(categories, str):
+                categories = [categories]
+            # convert categories list to a labels string, add backticks to allow handling colons
+            labels_str = ":".join(f"`{c}`" for c in categories) if categories else node_id
+
+            if node_property_ignore_list:
+                for ignore_key in node_property_ignore_list:
+                    node.pop(ignore_key, None)
+
+            props = {k: __normalize_value(v) for k, v in node.items()}
+            props_str = "{" + ", ".join(f"{k}: {json.dumps(v, ensure_ascii=False)}" for k, v in props.items()) + "}"
+            cypher_out.write(
+                f"CREATE (:{labels_str} {props_str});\n"
+            )
+        for edge in quick_jsonl_file_iterator(edges_input_file):
+            if SUBJECT_ID not in edge:
+                raise Exception(f'each edge must include required property {SUBJECT_ID}')
+            if OBJECT_ID not in edge:
+                raise Exception(f'each edge must include required property {OBJECT_ID}')
+            if PREDICATE not in edge:
+                raise Exception(f'each edge must include required property {PREDICATE}')
+            subj = edge[SUBJECT_ID]
+            obj = edge[OBJECT_ID]
+            predicate = edge[PREDICATE]
+
+            if edge_property_ignore_list:
+                for ignore_key in edge_property_ignore_list:
+                    edge.pop(ignore_key, None)
+
+            props = {k: __normalize_value(v) for k, v in edge.items() if k not in {SUBJECT_ID, OBJECT_ID, PREDICATE}}
+            props_str = ", ".join(f"{k}: {json.dumps(v, ensure_ascii=False)}" for k, v in props.items())
+            cypher_out.write(
+                f"MATCH (a {{id: {json.dumps(subj, ensure_ascii=False)}}}), "
+                f"(b {{id: {json.dumps(obj, ensure_ascii=False)}}}) "
+                f"CREATE (a)-[:`{predicate}`"
+                + (f" {{{props_str}}}" if props_str else "")
+                + f"]->(b);\n"
+            )
 
 
 def convert_jsonl_to_neo4j_csv(nodes_input_file: str,

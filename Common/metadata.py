@@ -83,8 +83,8 @@ class GraphMetadata(Metadata):
         self.metadata['subgraphs'] = graph_spec['subgraphs']
         self.save_metadata()
 
-    def set_dump_url(self, dump_url: str):
-        self.metadata['neo4j_dump'] = dump_url
+    def set_dump(self, dump_type: str, dump_url: str):
+        self.metadata[f'{dump_type}_dump'] = dump_url
         self.save_metadata()
 
     def has_qc(self):
