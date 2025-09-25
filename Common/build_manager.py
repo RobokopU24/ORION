@@ -157,7 +157,8 @@ class GraphBuilder:
                                              edge_property_ignore_list=edge_property_ignore_list,
                                              logger=self.logger)
             if dump_success:
-                graph_metadata.set_dump_url(f'{graph_output_url}graph_{graph_version}_redundant.db.dump')
+                graph_metadata.set_dump(dump_type="neo4j_redundant",
+                                        dump_url=f'{graph_output_url}graph_{graph_version}_redundant.db.dump')
             
         if 'collapsed_qualifiers_jsonl' in output_formats:
             self.logger.info(f'Generating collapsed qualifier predicates KG for {graph_id}...')
@@ -178,7 +179,9 @@ class GraphBuilder:
                                              edge_property_ignore_list=edge_property_ignore_list,
                                              logger=self.logger)
             if dump_success:
-                graph_metadata.set_dump_url(f'{graph_output_url}graph_{graph_version}_collapsed_qualifiers.db.dump')
+                graph_metadata.set_dump(dump_type="neo4j_collapsed_qualifiers",
+                                        dump_url=f'{graph_output_url}graph_{graph_version}'
+                                                     f'_collapsed_qualifiers.db.dump')
 
         if 'neo4j' in output_formats:
             self.logger.info(f'Starting Neo4j dump pipeline for {graph_id}...')
@@ -191,7 +194,8 @@ class GraphBuilder:
                                              edge_property_ignore_list=edge_property_ignore_list,
                                              logger=self.logger)
             if dump_success:
-                graph_metadata.set_dump_url(f'{graph_output_url}graph_{graph_version}.db.dump')
+                graph_metadata.set_dump(dump_type="neo4j",
+                                        dump_url=f'{graph_output_url}graph_{graph_version}.db.dump')
 
         if 'memgraph' in output_formats:
             self.logger.info(f'Starting memgraph dump pipeline for {graph_id}...')
@@ -204,7 +208,8 @@ class GraphBuilder:
                                                 edge_property_ignore_list=edge_property_ignore_list,
                                                 logger=self.logger)
             if dump_success:
-                graph_metadata.set_dump_url(f'{graph_output_url}graph_{graph_version}.db.dump')
+                graph_metadata.set_dump(dump_type="memgraph",
+                                        dump_url=f'{graph_output_url}memgraph_{graph_version}.cypher')
 
         return True
 
