@@ -34,6 +34,8 @@ class LITCOIN:
     SUBJECT_NAME = 'subject'
     SUBJECT_TYPE = 'subject_type'
     SUBJECT_QUALIFIER = 'subject_qualifier'
+    BAGELIZED_SUBJECT = 'bagelized_subject'
+    BAGELIZED_OBJECT = 'bagelized_object'
 
 
 kg_edge_properties = [
@@ -170,9 +172,13 @@ class LitCoinLoader(SourceDataLoader):
                 continue
 
             try:
-                subject_node = self.bagelize_entity(entity_name=litcoin_edge[LITCOIN.SUBJECT_NAME],
-                                                    abstract_id=abstract_id,
-                                                    abstract_text=abstract_text)
+                if LITCOIN.BAGELIZED_SUBJECT in litcoin_edge:
+                    # entities already bagelized for this edge, no need to call bagelize_entity
+                    subject_node = litcoin_edge[LITCOIN.BAGELIZED_SUBJECT]
+                else:
+                    subject_node = self.bagelize_entity(entity_name=litcoin_edge[LITCOIN.SUBJECT_NAME],
+                                                        abstract_id=abstract_id,
+                                                        abstract_text=abstract_text)
                 if subject_node is not None:
                     subject_id = subject_node["id"]
                     subject_name = subject_node["name"]
@@ -182,9 +188,13 @@ class LitCoinLoader(SourceDataLoader):
                     skipped_records += 1
                     continue
 
-                object_node = self.bagelize_entity(entity_name=litcoin_edge[LITCOIN.OBJECT_NAME],
-                                                   abstract_id=abstract_id,
-                                                   abstract_text=abstract_text)
+                if  LITCOIN.BAGELIZED_OBJECT in litcoin_edge:
+                    # entities already bagelized for this edge, no need to call bagelize_entity
+                    object_node = litcoin_edge[LITCOIN.BAGELIZED_OBJECT]
+                else:
+                    object_node = self.bagelize_entity(entity_name=litcoin_edge[LITCOIN.OBJECT_NAME],
+                                                       abstract_id=abstract_id,
+                                                       abstract_text=abstract_text)
                 if object_node is not None:
                     object_id = object_node["id"]
                     object_name = object_node["name"]
