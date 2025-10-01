@@ -21,6 +21,7 @@ from Common.metadata import Metadata, GraphMetadata, SourceMetadata
 from Common.supplementation import SequenceVariantSupplementation
 from Common.meta_kg import MetaKnowledgeGraphBuilder, META_KG_FILENAME, TEST_DATA_FILENAME, EXAMPLE_DATA_FILENAME
 from Common.redundant_kg import generate_redundant_kg
+from Common.answercoalesce_build import generate_ac_files
 from Common.collapse_qualifiers import generate_collapsed_qualifiers_kg
 
 NODES_FILENAME = 'nodes.jsonl'
@@ -211,6 +212,13 @@ class GraphBuilder:
                 graph_metadata.set_dump(dump_type="memgraph",
                                         dump_url=f'{graph_output_url}memgraph_{graph_version}.cypher')
 
+        if 'answercoalesce' in output_formats:
+            self.logger.info(f'Generating answercoalesce files for {graph_id}...')
+            if 'redundant' in output_formats:
+                edge_filepath_to_use = edges_filepath.replace(EDGES_FILENAME, REDUNDANT_EDGES_FILENAME)
+            else:
+                edge_filepath_to_use = edges_filepath
+            generate_ac_files(nodes_filepath, edge_filepath_to_use)
         return True
 
     # determine a graph version utilizing versions of data sources, or just return the graph version specified
