@@ -36,6 +36,7 @@ class LITCOIN:
     SUBJECT_QUALIFIER = 'subject_qualifier'
     BAGELIZED_SUBJECT = 'bagelized_subject'
     BAGELIZED_OBJECT = 'bagelized_object'
+    NOT_AVAILABLE = 'NA'
 
 
 kg_edge_properties = [
@@ -175,6 +176,8 @@ class LitCoinLoader(SourceDataLoader):
                 if LITCOIN.BAGELIZED_SUBJECT in litcoin_edge:
                     # entities already bagelized for this edge, no need to call bagelize_entity
                     subject_node = litcoin_edge[LITCOIN.BAGELIZED_SUBJECT]
+                    if isinstance(subject_node, str) and subject_node == LITCOIN.NOT_AVAILABLE:
+                        subject_node = None
                 else:
                     subject_node = self.bagelize_entity(entity_name=litcoin_edge[LITCOIN.SUBJECT_NAME],
                                                         abstract_id=abstract_id,
@@ -191,6 +194,8 @@ class LitCoinLoader(SourceDataLoader):
                 if  LITCOIN.BAGELIZED_OBJECT in litcoin_edge:
                     # entities already bagelized for this edge, no need to call bagelize_entity
                     object_node = litcoin_edge[LITCOIN.BAGELIZED_OBJECT]
+                    if isinstance(object_node, str) and object_node == LITCOIN.NOT_AVAILABLE:
+                        object_node = None
                 else:
                     object_node = self.bagelize_entity(entity_name=litcoin_edge[LITCOIN.OBJECT_NAME],
                                                        abstract_id=abstract_id,
