@@ -1,0 +1,11 @@
+# Example graph spec
+graphs:
+  - graph_id: Reactome_Automat
+    graph_name: Reactome Automat Graph
+    graph_description: 'Graph for reactome ingest into ROBOKOP KG.'
+    graph_url: 'https://reactome.org/download/current/reactome.graphdb.dump'
+    conflation: True
+    strict_normalization: True
+    output_format: neo4j
+    sources:
+      - source_id: Reactome
