@@ -239,7 +239,10 @@ class KGXFileMerger:
 #
 # given a list of kgx jsonl node files and edge files,
 # create a simple GraphSpec and use KGXFileMerge to merge the files into one node file and one edge file
-def merge_kgx_files(output_dir: str, nodes_files: list = None, edges_files: list = None):
+def merge_kgx_files(output_dir: str,
+                    nodes_files: list = None,
+                    edges_files: list = None,
+                    graph_id: str = "merged_graph"):
     if not nodes_files:
         nodes_files = []
     else:
@@ -258,8 +261,6 @@ def merge_kgx_files(output_dir: str, nodes_files: list = None, edges_files: list
 
     current_time = datetime.now()
     timestamp = current_time.strftime("%Y/%m/%d %H:%M:%S")
-    # TODO it'd be nice to make this something reproducible from the inputs
-    version = timestamp.replace('/', '_').replace(':', '_').replace(' ', '_')
     graph_source = GraphSource(id='cli_merge',
                                file_paths=nodes_files + edges_files)
     graph_spec = GraphSpec(
@@ -267,15 +268,15 @@ def merge_kgx_files(output_dir: str, nodes_files: list = None, edges_files: list
         graph_name='',
         graph_description=f'Merged on {timestamp}',
         graph_url='',
-        graph_version=version,
+        graph_version=graph_id,
         graph_output_format='jsonl',
         sources=[graph_source],
         subgraphs=[]
     )
     file_merger = KGXFileMerger(graph_spec=graph_spec,
                                 output_directory=output_dir,
-                                nodes_output_filename=f'{version}_nodes.jsonl',
-                                edges_output_filename=f'{version}_edges.jsonl')
+                                nodes_output_filename=f'{graph_id}_nodes.jsonl',
+                                edges_output_filename=f'{graph_id}_edges.jsonl')
     file_merger.merge()
 
     merge_metadata = file_merger.get_merge_metadata()
@@ -283,6 +284,6 @@ def merge_kgx_files(output_dir: str, nodes_files: list = None, edges_files: list
         print(f'Merge error occured: {merge_metadata["merge_error"]}')
         return False
     else:
-        metadata_output = os.path.join(output_dir, f"{version}_metadata.json")
+        metadata_output = os.path.join(output_dir, f"{graph_id}_metadata.json")
         with open(metadata_output, 'w') as metadata_file:
             metadata_file.write(json.dumps(merge_metadata, indent=4))
