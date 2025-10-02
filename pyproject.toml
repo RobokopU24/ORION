@@ -20,6 +20,7 @@ dependencies = [
     "requests-toolbelt>=1.0.0",
     "robokop-genetics>=0.6.2",
     "xxhash>=3.4.1",
+    "python-dateutil>=2.9.0"
 ]
 
 [project.optional-dependencies]
