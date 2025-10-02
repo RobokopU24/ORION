@@ -6,7 +6,7 @@ graphs:
     graph_url: ''
     output_format: neo4j
     sources:
-     # - source_id: CTD
+      - source_id: CTD
         # source_version: November_2024
         # parsing_version: 1.5
         # node_normalization_version: 2.3.18
