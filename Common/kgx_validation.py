@@ -64,6 +64,8 @@ def validate_graph(nodes_file_path: str,
     edges_with_publications = defaultdict(int)  # predicate to num of edges with that predicate and publications
     spo_type_counts = defaultdict(int)
 
+    source_breakdown = {"aggregator": {}}
+
     invalid_edges_due_to_predicate_and_node_types = 0
     invalid_edges_due_to_missing_primary_ks = 0
     invalid_edge_output = open(os.path.join(validation_results_directory, 'invalid_predicate_and_node_types.jsonl')) \
@@ -73,6 +75,8 @@ def validate_graph(nodes_file_path: str,
     for edge_json in quick_jsonl_file_iterator(edges_file_path):
 
         # get references to some edge properties
+        subject_id = edge_json[SUBJECT_ID]
+        object_id = edge_json[OBJECT_ID]
         predicate = edge_json[PREDICATE]
         subject_node_types = node_type_lookup[edge_json[SUBJECT_ID]]
         object_node_types = node_type_lookup[edge_json[OBJECT_ID]]
@@ -90,6 +94,54 @@ def validate_graph(nodes_file_path: str,
             primary_knowledge_source = 'missing_primary_knowledge_source'
             if save_invalid_edges:
                 invalid_edge_output.write(f'{orjson.dumps(edge_json)}\n')
+
+        # Get aggregator knowledge sources
+        aggregator_knowledge_sources = edge_json.get(AGGREGATOR_KNOWLEDGE_SOURCES, ["robokop"])
+
+        # Handle multi-aggregator tracking
+        if len(aggregator_knowledge_sources) > 1:
+            agg = "|".join(sorted(aggregator_knowledge_sources))
+        else:
+            agg = aggregator_knowledge_sources[0]
+
+        # Initialize aggregator entry if it doesn't exist
+        if agg not in source_breakdown["aggregator"]:
+            source_breakdown["aggregator"][agg] = {
+                "primary": {}
+            }
+        agg_entry = source_breakdown["aggregator"][agg]
+
+        # Initialize primary source entry under this aggregator if it doesn't exist
+        if primary_knowledge_source not in agg_entry["primary"]:
+            agg_entry["primary"][primary_knowledge_source] = {
+                "node_count": 0,
+                "edge_count": 0,
+                "subject_prefixes": defaultdict(int),
+                "subject_types": defaultdict(int),
+                "predicates": defaultdict(int),
+                "object_prefixes": defaultdict(int),
+                "object_types": defaultdict(int),
+                "s-p-o_types": defaultdict(int),
+                "node_set": set()
+            }
+        primary_entry = agg_entry["primary"][primary_knowledge_source]
+
+        # Update counts within the primary entry
+        primary_entry["edge_count"] += 1
+        primary_entry["node_set"].add(subject_id)
+        primary_entry["node_set"].add(object_id)
+
+        # Extract prefixes
+        subject_prefix = subject_id.split(":")[0] if ":" in subject_id else subject_id
+        object_prefix = object_id.split(":")[0] if ":" in object_id else object_id
+
+        # Update all the detailed counts
+        primary_entry["subject_prefixes"][subject_prefix] += 1
+        primary_entry["subject_types"][subject_type_str] += 1
+        primary_entry["predicates"][predicate] += 1
+        primary_entry["object_prefixes"][object_prefix] += 1
+        primary_entry["object_types"][object_type_str] += 1
+        primary_entry["s-p-o_types"][spo_type_key] += 1
 
         # update predicate counts
         predicate_counts[predicate] += 1
@@ -117,6 +169,18 @@ def validate_graph(nodes_file_path: str,
     if save_invalid_edges:
         invalid_edge_output.close()
 
+    for agg_data in source_breakdown["aggregator"].values():
+        for prim_data in agg_data["primary"].values():
+            prim_data["node_count"] = len(prim_data["node_set"])
+            del prim_data["node_set"]
+
+            prim_data["subject_prefixes"] = sort_dict_by_values(dict(prim_data["subject_prefixes"]))
+            prim_data["subject_types"] = sort_dict_by_values(dict(prim_data["subject_types"]))
+            prim_data["predicates"] = sort_dict_by_values(dict(prim_data["predicates"]))
+            prim_data["object_prefixes"] = sort_dict_by_values(dict(prim_data["object_prefixes"]))
+            prim_data["object_types"] = sort_dict_by_values(dict(prim_data["object_types"]))
+            prim_data["s-p-o_types"] = sort_dict_by_values(dict(prim_data["s-p-o_types"]))
+
     # validate the knowledge sources with the biolink model
     bl_inforesources = BiolinkInformationResources()
     deprecated_infores_ids = []
@@ -142,16 +206,14 @@ def validate_graph(nodes_file_path: str,
                 print(warning_message)
     qc_metadata['primary_knowledge_sources'] = sorted(all_primary_knowledge_sources)
     qc_metadata['aggregator_knowledge_sources'] = sorted(all_aggregator_knowledge_sources)
-    qc_metadata['s-p-o_types'] = sort_dict_by_values({k: v for k, v in spo_type_counts.items()})
-    qc_metadata['predicate_totals'] = sort_dict_by_values({k: v for k, v in predicate_counts.items()})
-    qc_metadata['predicates_by_knowledge_source'] = {ks: sort_dict_by_values(
-        {predicate: count for predicate, count in ks_to_p.items()})
-        for ks, ks_to_p in predicate_counts_by_ks.items()}
-    qc_metadata['edges_with_publications'] = sort_dict_by_values({k: v for k, v in edges_with_publications.items()})
-    qc_metadata['edge_properties'] = sorted(all_edge_properties)
     qc_metadata['node_curie_prefixes'] = sort_dict_by_values({k: v for k, v in node_curie_prefixes.items()})
     qc_metadata['node_types'] = sort_dict_by_values(node_types)
     qc_metadata['node_properties'] = sorted(all_node_properties)
+    qc_metadata['predicate_totals'] = sort_dict_by_values({k: v for k, v in predicate_counts.items()})
+    qc_metadata['edges_with_publications'] = sort_dict_by_values({k: v for k, v in edges_with_publications.items()})
+    qc_metadata['edge_properties'] = sorted(all_edge_properties)
+    qc_metadata['s-p-o_types'] = sort_dict_by_values({k: v for k, v in spo_type_counts.items()})
+    qc_metadata['source_breakdown'] = source_breakdown
     qc_metadata['invalid_edges_due_to_predicate_and_node_types'] = invalid_edges_due_to_predicate_and_node_types
     qc_metadata['invalid_edges_due_to_missing_primary_ks'] = invalid_edges_due_to_missing_primary_ks
 
