@@ -8,10 +8,10 @@ from zipfile import ZipFile
 from requests.adapters import HTTPAdapter, Retry
 
 from parsers.BINDING.src.bindingdb_constraints import LOG_SCALE_AFFINITY_THRESHOLD #Change the binding affinity threshold here. Default is 10 uM Ki,Kd,EC50,orIC50
-from orion.utils import GetData, GetDataPullError
-from orion.loader_interface import SourceDataLoader
-from orion.extractor import Extractor
-from orion.biolink_constants import PUBLICATIONS, AFFINITY, AFFINITY_PARAMETER, KNOWLEDGE_LEVEL, AGENT_TYPE, \
+from Common.utils import GetData, GetDataPullError
+from Common.loader_interface import SourceDataLoader
+from Common.extractor import Extractor
+from Common.biolink_constants import PUBLICATIONS, AFFINITY, AFFINITY_PARAMETER, KNOWLEDGE_LEVEL, AGENT_TYPE, \
     KNOWLEDGE_ASSERTION, MANUAL_AGENT
 
 # Full Binding Data.
@@ -19,14 +19,12 @@ from orion.biolink_constants import PUBLICATIONS, AFFINITY, AFFINITY_PARAMETER, 
 #make this reflect the column that the data is found in
 #TODO figure out a way to auto populate the BD_enum class. Woried that later iterations of the data will have a different format
 class BD_EDGEUMAN(enum.IntEnum):
-    PUBCHEM_CID= 29
-    UNIPROT_TARGET_CHAIN = 42
+    PUBCHEM_CID = 31
+    UNIPROT_TARGET_CHAIN = 44
     pKi = 8
     pIC50 = 9
     pKd = 10
     pEC50 = 11
-    k_on = 12
-    k_off = 13
     PMID = 19
     PUBCHEM_AID = 20
     PATENT_NUMBER = 21
@@ -50,7 +48,7 @@ class BINDINGDBLoader(SourceDataLoader):
 
     source_id: str = 'BINDING-DB'
     provenance_id: str = 'infores:bindingdb'
-    parsing_version = '1.6'
+    parsing_version = '1.7'
 
     def __init__(self, test_mode: bool = False, source_data_dir: str = None):
         """
@@ -68,8 +66,6 @@ class BINDINGDBLoader(SourceDataLoader):
             "pIC50": "CTD:decreases_activity_of",
             "pKd": "RO:0002436",
             "pEC50": "CTD:increases_activity_of",
-            "k_on": "RO:0002436",
-            "k_off": "RO:0002436"
         }
 
         self.bindingdb_version = None
@@ -133,7 +129,7 @@ class BINDINGDBLoader(SourceDataLoader):
         """
         data_store= dict()
 
-        columns = [[x.value,x.name] for x in BD_EDGEUMAN if x.name not in ['PMID','PUBCHEM_AID','PATENT_NUMBER','PUBCHEM_CID','UNIPROT_TARGET_CHAIN']]
+        measure_types = [(x.value,x.name) for x in BD_EDGEUMAN if x.name not in ['PMID','PUBCHEM_AID','PATENT_NUMBER','PUBCHEM_CID','UNIPROT_TARGET_CHAIN']]
         zipped_data_path = os.path.join(self.data_path, self.bd_archive_file_name)
         for n,row in enumerate(generate_zipfile_rows(zipped_data_path, self.bd_file_name)):
             if n == 0:
@@ -152,14 +148,8 @@ class BINDINGDBLoader(SourceDataLoader):
             assay_id = f"PUBCHEM.AID:{row[BD_EDGEUMAN.PUBCHEM_AID.value]}" if row[BD_EDGEUMAN.PUBCHEM_AID.value] else None
             patent = f"PATENT:{row[BD_EDGEUMAN.PATENT_NUMBER.value]}" if row[BD_EDGEUMAN.PATENT_NUMBER.value] else None
 
-            for column in columns:
-                if row[column[0]] != '':
-                    measure_type = column[1]
-                    if measure_type in ["k_on", "k_off"]:
-                        # JMB says:
-                        # These are just rate terms used to calculate Kd/Ki so each row with a k_on/k_off value
-                        # already has another measurement type in the row, and that other measurement has far more value.
-                        continue
+            for measure_index, measure_type in measure_types:
+                if row[measure_index] != '':
                     ligand_protein_measure_key = f"{ligand}~{protein}~{measure_type}"
                     # if we already created an entry with the same ligand-protein-measure_type key, use it
                     if ligand_protein_measure_key in data_store:
@@ -180,9 +170,9 @@ class BINDINGDBLoader(SourceDataLoader):
 
                     # If there's a > in the result, it means that this is a dead compound, i.e. it won't pass
                     # our activity/inhibition threshold
-                    if ">" in row[column[0]]:
+                    if ">" in row[measure_index]:
                         continue
-                    sa = float(row[column[0]].replace('<', '').replace(' ', '').replace(',', ''))
+                    sa = float(row[measure_index].replace('<', '').replace(' ', '').replace(',', ''))
                     # I don't see how 0 would be a valid affinity value, so we'll skip it
                     if sa == 0:
                         continue

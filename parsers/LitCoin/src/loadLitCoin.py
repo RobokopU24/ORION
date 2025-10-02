@@ -160,13 +160,13 @@ class LitCoinLoader(SourceDataLoader):
                 missing_abstracts.add(abstract_id)
                 skipped_records += 1
                 failed_abstract_lookup += 1
-                self.logger.info(f'Skipping due to failed abstract lookup.')
+                self.logger.info(f'Skipping due to failed abstract lookup - skipped abstract id: {pubmed_id}')
                 continue
 
             output_edge_properties = self.parse_llm_edge(litcoin_edge, logger=self.logger)
             if output_edge_properties is None:
                 skipped_records += 1
-                self.logger.info(f'Skipping due to failed edge property extraction.')
+                self.logger.info(f'Skipping due to failed edge property extraction for abstract id:{pubmed_id}')
                 continue
 
             try:
@@ -178,7 +178,7 @@ class LitCoinLoader(SourceDataLoader):
                     subject_name = subject_node["name"]
                     subject_bagel_synonym_type = subject_node["synonym_type"]
                 else:
-                    self.logger.info('Skipping due to failed subject node bagelization.')
+                    self.logger.info(f'Skipping due to failed subject node bagelization for abstract id: {pubmed_id}')
                     skipped_records += 1
                     continue
 
@@ -190,7 +190,7 @@ class LitCoinLoader(SourceDataLoader):
                     object_name = object_node["name"]
                     object_bagel_synonym_type = object_node["synonym_type"]
                 else:
-                    self.logger.info('Skipping due to failed object node bagelization.')
+                    self.logger.info(f'Skipping due to failed object node bagelization for abstract id: {pubmed_id}.')
                     skipped_records += 1
                     continue
 
@@ -200,7 +200,7 @@ class LitCoinLoader(SourceDataLoader):
                                                            abstract_text,
                                                            logger=self.logger)
                 if predicate_mapping_resp is None:
-                    self.logger.info('Skipping due to failed predicate mapping.')
+                    self.logger.info(f'Skipping due to failed predicate mapping for abstract id: {pubmed_id}')
                     skipped_records += 1
                     continue
 

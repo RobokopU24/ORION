@@ -22,6 +22,7 @@ from orion.meta_kg import MetaKnowledgeGraphBuilder, META_KG_FILENAME, TEST_DATA
 from orion.redundant_kg import generate_redundant_kg
 from orion.collapse_qualifiers import generate_collapsed_qualifiers_kg
 
+
 NODES_FILENAME = 'nodes.jsonl'
 EDGES_FILENAME = 'edges.jsonl'
 REDUNDANT_EDGES_FILENAME = 'redundant_edges.jsonl'
@@ -156,7 +157,8 @@ class GraphBuilder:
                                              edge_property_ignore_list=edge_property_ignore_list,
                                              logger=self.logger)
             if dump_success:
-                graph_metadata.set_dump_url(f'{graph_output_url}graph_{graph_version}_redundant.db.dump')
+                graph_metadata.set_dump(dump_type="neo4j_redundant",
+                                        dump_url=f'{graph_output_url}graph_{graph_version}_redundant.db.dump')
             
         if 'collapsed_qualifiers_jsonl' in output_formats:
             self.logger.info(f'Generating collapsed qualifier predicates KG for {graph_id}...')
@@ -177,7 +179,9 @@ class GraphBuilder:
                                              edge_property_ignore_list=edge_property_ignore_list,
                                              logger=self.logger)
             if dump_success:
-                graph_metadata.set_dump_url(f'{graph_output_url}graph_{graph_version}_collapsed_qualifiers.db.dump')
+                graph_metadata.set_dump(dump_type="neo4j_collapsed_qualifiers",
+                                        dump_url=f'{graph_output_url}graph_{graph_version}'
+                                                     f'_collapsed_qualifiers.db.dump')
 
         if 'neo4j' in output_formats:
             self.logger.info(f'Starting Neo4j dump pipeline for {graph_id}...')
@@ -190,8 +194,23 @@ class GraphBuilder:
                                              edge_property_ignore_list=edge_property_ignore_list,
                                              logger=self.logger)
             if dump_success:
-                graph_metadata.set_dump_url(f'{graph_output_url}graph_{graph_version}.db.dump')
-    
+                graph_metadata.set_dump(dump_type="neo4j",
+                                        dump_url=f'{graph_output_url}graph_{graph_version}.db.dump')
+
+        if 'memgraph' in output_formats:
+            self.logger.info(f'Starting memgraph dump pipeline for {graph_id}...')
+            dump_success = create_memgraph_dump(nodes_filepath=nodes_filepath,
+                                                edges_filepath=edges_filepath,
+                                                output_directory=graph_output_dir,
+                                                graph_id=graph_id,
+                                                graph_version=graph_version,
+                                                node_property_ignore_list=node_property_ignore_list,
+                                                edge_property_ignore_list=edge_property_ignore_list,
+                                                logger=self.logger)
+            if dump_success:
+                graph_metadata.set_dump(dump_type="memgraph",
+                                        dump_url=f'{graph_output_url}memgraph_{graph_version}.cypher')
+
         return True
 
     # determine a graph version utilizing versions of data sources, or just return the graph version specified

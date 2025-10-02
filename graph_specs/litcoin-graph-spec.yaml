@@ -17,7 +17,7 @@ graphs:
     graph_description: A graph for the LitCoin project using the Bagel Service
     conflation: True
     strict_normalization: True
-    output_format: neo4j
+    output_format: memgraph
     edge_merging_attributes:
       - abstract_id
     edge_id_addition: True
