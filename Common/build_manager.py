@@ -215,10 +215,14 @@ class GraphBuilder:
         if 'answercoalesce' in output_formats:
             self.logger.info(f'Generating answercoalesce files for {graph_id}...')
             if 'redundant' in output_formats:
-                edge_filepath_to_use = edges_filepath.replace(EDGES_FILENAME, REDUNDANT_EDGES_FILENAME)
+                edge_filepath_to_use = edges_filepath.replace(EDGES_FILENAME, REDUNDANT_EDGES_FILENAME, graph_output_dir)
             else:
                 edge_filepath_to_use = edges_filepath
-            generate_ac_files(nodes_filepath, edge_filepath_to_use)
+
+            ac_output_dir = os.path.join(graph_output_dir, "answercoalesce")
+            os.makedirs(ac_output_dir, exist_ok=True)
+            generate_ac_files(nodes_filepath, edge_filepath_to_use, ac_output_dir)
+
         return True
 
     # determine a graph version utilizing versions of data sources, or just return the graph version specified

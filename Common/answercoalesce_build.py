@@ -1,3 +1,4 @@
+import os
 from collections import defaultdict
 import json, jsonlines
 import requests
@@ -14,6 +15,7 @@ bmt = get_biolink_model_toolkit()
 # Constants
 FILTER_PREDICATES = ["biolink:related_to_at_concept_level", "biolink:related_to_at_instance_level"]
 BLOCKLIST_URL = "https://raw.githubusercontent.com/NCATSTranslator/Relay/master/config/blocklist.json"
+
 
 
 def str2list(nlabels):
@@ -63,9 +65,7 @@ def get_filter_nodes():
     return set(blocklist)
 
 
-def generate_ac_files(input_node_file, input_edge_file, output_nodelabels,
-                      output_nodenames, output_category_count,
-                      output_prov, output_links, output_backlinks):
+def generate_ac_files(input_node_file, input_edge_file, output_dir):
     """Given a dump of a graph a la robokop, produce 3 files:
     nodelabels.txt which is 2 columns, (id), (list of labels):
     CAID:CA13418922 ['named_thing', 'biological_entity', 'molecular_entity', 'genomic_entity', 'sequence_variant']
@@ -89,11 +89,17 @@ def generate_ac_files(input_node_file, input_edge_file, output_nodelabels,
      True and False (subject) edges into True. Then, in the TRAPI version, we'll need to be careful
      to make sure and look for the right thing, even if the input TRAPI is pointed into a False direction.
     """
+    output_nodelabels_filepath = os.path.join(output_dir, 'nodelabels.txt')
+    output_nodenames_filepath = os.path.join(output_dir, 'nodenames.txt')
+    output_category_count_filepath = os.path.join(output_dir, 'category_count.txt')
+    output_prov_filepath = os.path.join(output_dir, 'prov.txt')
+    output_links_filepath = os.path.join(output_dir, 'links.txt')
+    output_backlinks_filepath = os.path.join(output_dir, 'backlinks.txt')
+
     filter_nodes = get_filter_nodes()
     categories = {}
     catcount = defaultdict(int)
-    with open(output_nodelabels, 'w') as labelfile, open(
-            output_nodenames, 'w') as namefile:
+    with open(output_nodelabels_filepath, 'w') as labelfile, open(output_nodenames_filepath, 'w') as namefile:
         for node in tqdm(quick_jsonl_file_iterator(input_node_file)) if TQDM_AVAILABLE else quick_jsonl_file_iterator(input_node_file):
             node_id = node["id"]
             if node_id.startswith('CAID') or node_id in filter_nodes:
@@ -111,11 +117,12 @@ def generate_ac_files(input_node_file, input_edge_file, output_nodelabels,
             namefile.write(f'{node_id}\t{name}\n')
     nodes_to_links = defaultdict(list)
     edgecounts = defaultdict(int)
-    with open(output_category_count, 'w') as catcountout:
+    with open(output_category_count_filepath, 'w') as catcountout:
         for c, v in catcount.items():
             catcountout.write(f'{c}\t{v}\n')
-
-    with open(output_prov, 'w') as provout:
+    predonlycounts = defaultdict(int)
+    predcounts = {}
+    with open(output_prov_filepath, 'w') as provout:
         nl = 0
         for line in quick_jsonl_file_iterator(input_edge_file):
             if line["subject"].startswith('CAID') or line["object"].startswith('CAID'):
@@ -128,6 +135,13 @@ def generate_ac_files(input_node_file, input_edge_file, output_nodelabels,
                 continue
             if just_predicate in FILTER_PREDICATES:
                 continue
+            predonlycounts[just_predicate] += 1
+            predcounts.setdefault(just_predicate, {})
+            if "qualifier" in pred:
+                if pred in predcounts[just_predicate]:
+                    predcounts[just_predicate][pred] += 1
+                else:
+                    predcounts[just_predicate][pred] = 1
             source_link = (target_id, pred, True)
             #Here's how we're handling symmetric predicates.
             # The source link and count is going to be just the same, but we're going to modify the target link
@@ -144,21 +158,23 @@ def generate_ac_files(input_node_file, input_edge_file, output_nodelabels,
             for scategory in set(categories[source_id]):
                 edgecounts[(target_id, pred, target_is_source, scategory)] += 1
             pkey = f'{source_id} {pred} {target_id}'
-            prov = {x: line[x] for x in ['biolink:primary_knowledge_source', 'biolink:aggregator_knowledge_source'] if
+            prov = {x: line[x] for x in ['primary_knowledge_source', 'aggregator_knowledge_source'] if
                     x in line}
             if not prov or not pkey:
                 continue
             provout.write(f'{pkey}\t{json.dumps(prov)}\n')
             if nl % 1000000 == 0:
                 print(nl)
-        print('node labels and names done')
+        print('node labels, names and prov done')
 
-    with open(output_links, 'w') as outf:
+    with open(output_links_filepath, 'w') as outf:
         for node, links in nodes_to_links.items():
             outf.write(f'{node}\t{json.dumps(links)}\n')
         print('links done')
 
-    with open(output_backlinks, 'w') as outf:
+    with open(output_backlinks_filepath, 'w') as outf:
         for key, value in edgecounts.items():
             outf.write(f'{key}\t{value}\n')
         print('backlinks done')
+
+
