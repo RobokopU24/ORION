@@ -97,9 +97,8 @@ class HGNCLoader(SourceDataLoader):
 
                 # increment the counter
                 record_counter += 1
-
                 # did we get a valid record
-                if len(r['gene_family_id']) > 0:
+                if r['gene_family_id'] and len(r['gene_family_id']) > 0:
                     # create the gene node
                     gene_id = r['hgnc_id']
                     gene_name = r['name']
