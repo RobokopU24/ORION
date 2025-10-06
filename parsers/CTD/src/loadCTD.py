@@ -82,21 +82,50 @@ class CTDLoader(SourceDataLoader):
 
         :return:
         """
-
         try:
-            # load the web page for CTD
-            html_page: requests.Response = requests.get('http://ctdbase.org/about/dataStatus.go')
-
+            # load the web page for CTD with Chrome User-Agent
+            headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/118.0.0.0 Safari/537.36'}
+            html_page: requests.Response = requests.get('https://ctdbase.org/about/dataStatus.go', headers=headers)
             # get the html into a parsable object
             resp: BeautifulSoup = BeautifulSoup(html_page.content, 'html.parser')
 
-            # find the version string
-            version: BeautifulSoup.Tag = resp.find(id='pgheading')
+             # quick check for e.g. a "Human verification" page or captcha content
+            lower_body = resp.text.lower()
+            if "human verification" in lower_body or "captcha" in lower_body:
+                self.logger.warning("Page looks like it requires human verification / captcha. "
+                                "Cannot proceed from this environment. Trying to use the downloads page for CTD")
 
-            # was the version found
-            if version is not None:
-                # save the value
-                return version.text.split(':')[1].strip().replace(' ', '_')
+                headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/118.0.0.0 Safari/537.36'}
+                resp = requests.get('https://ctdbase.org/downloads', headers=headers)
+                resp.raise_for_status()
+
+                # quick check for e.g. a "Human verification" page or captcha content
+                soup = BeautifulSoup(resp.text, "html.parser")
+
+                # compile a loose regex for the target phrase
+                pattern = re.compile(r"ctd\s+data\s+release", re.I)
+
+                for p in soup.find_all("p"):
+                    # use get_text to include text from child tags as well
+                    p_text = p.get_text(" ", strip=True)
+                    if pattern.search(p_text):
+                        a = p.find("a")
+                        if not a:
+                            # found the <p> but no <a> inside it
+                            raise Exception("CTD Download page version retrieval did not work")
+                        link_text = a.get_text(strip=True).rstrip(".")  # remove trailing dot if present
+                        version = link_text.replace(" ", "_")
+                        return version
+            else:
+                # find the version string
+                version: BeautifulSoup.Tag = resp.find(id='pgheading')
+
+                # was the version found
+                if version is not None:
+                    # save the value
+                    return version.text.split(':')[1].strip().replace(' ', '_')
+                else:
+                    raise Exception("Version does not exist on CTD page.")
         except Exception as e:
             raise GetDataPullError(error_message=f'Unable to determine latest version for CTD: {e}')
 
