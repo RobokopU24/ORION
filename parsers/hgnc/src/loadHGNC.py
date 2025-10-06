@@ -8,7 +8,7 @@ from Common.loader_interface import SourceDataLoader
 from Common.kgxmodel import kgxnode, kgxedge
 from Common.prefixes import HGNC, HGNC_FAMILY
 from Common.biolink_constants import *
-
+import pandas as pd
 
 ##############
 # Class: HGNC loader
@@ -73,71 +73,50 @@ class HGNCLoader(SourceDataLoader):
         record_counter: int = 0
         skipped_record_counter: int = 0
 
-        with open(infile_path, 'r', encoding="utf-8") as fp:
-            # get the data columns
-            cols = ['hgnc_id', 'symbol', 'name', 'locus_group', 'locus_type', 'status', 'location', 'location_sortable', 'alias_symbol', 'alias_name', 'prev_symbol',
-                    'prev_name', 'gene_family', 'gene_family_id', 'date_approved_reserved', 'date_symbol_changed', 'date_name_changed', 'date_modified', 'entrez_id',
-                    'ensembl_gene_id', 'vega_id', 'ucsc_id', 'ena', 'refseq_accession', 'ccds_id', 'uniprot_ids', 'pubmed_id', 'mgd_id', 'rgd_id', 'lsdb', 'cosmic',
-                    'omim_id', 'mirbase', 'homeodb', 'snornabase', 'bioparadigms_slc', 'orphanet', 'pseudogene.org', 'horde_id', 'merops', 'imgt', 'iuphar',
-                    'kznf_gene_catalog', 'mamit-trnadb', 'cd', 'lncrnadb', 'enzyme_id', 'intermediate_filament_db', 'rna_central_ids', 'lncipedia', 'gtrnadb', 'agr']
+        # open the data file
+        data = pd.read_csv(infile_path, delimiter='\t', encoding="utf-8", low_memory=False, dtype=str)
+        data.fillna('', inplace=True)
+        record_counter = len(data[data['gene_group_id']!=''])
+        skipped_record_counter = len(data[data['gene_group_id']==''])
+        self.logger.info(f'Parsing {len(data)} records from the HGNC data file: {infile_path}')
+        self.logger.info(f'Parsing {record_counter} records with gene family assignments from the HGNC data file: {infile_path}, skipped {skipped_record_counter} records without gene family assignments.')
+        for _, r in data[data['gene_group_id']!=''].iterrows():
+            # create the gene node
+            gene_id = r['hgnc_id']
+            gene_name = r['name']
+            gene_props = {'locus_group': r['locus_group'], 'symbol': r['symbol'], 'location': r['location']}
+            gene_node = kgxnode(gene_id, name=gene_name, nodeprops=gene_props)
+            self.final_node_list.append(gene_node)
 
-            # get a handle on the input data
-            data = csv.DictReader(filter(lambda row: row[0] != '?', fp), delimiter='\t', fieldnames=cols)
+            # split the gene family ids and create node/edges for each
+            for idx, gene_family_id in enumerate(r['gene_group_id'].split('|')):
+                # split the gene family name
+                gene_family = r['gene_group'].split('|')
 
-            # init the first record flag
-            first: bool = True
+                # save the gene family curie
+                gene_family_curie = f'{HGNC_FAMILY}:' + gene_family_id
 
-            # for each record
-            for r in data:
-                # first record is the column header
-                if first:
-                    # set the flag and skip this record
-                    first = False
-                    continue
+                # create the gene family node
+                gene_family_node = kgxnode(gene_family_curie, name=gene_family[idx])
+                self.final_node_list.append(gene_family_node)
 
-                # increment the counter
-                record_counter += 1
-                # did we get a valid record
-                if r['gene_family_id'] and len(r['gene_family_id']) > 0:
-                    # create the gene node
-                    gene_id = r['hgnc_id']
-                    gene_name = r['name']
-                    gene_props = {'locus_group': r['locus_group'], 'symbol': r['symbol'], 'location': r['location']}
-                    gene_node = kgxnode(gene_id, name=gene_name, nodeprops=gene_props)
-                    self.final_node_list.append(gene_node)
+                # get the baseline properties
+                props = {KNOWLEDGE_LEVEL: KNOWLEDGE_ASSERTION,
+                            AGENT_TYPE: MANUAL_AGENT}
 
-                    # split the gene family ids and create node/edges for each
-                    for idx, gene_family_id in enumerate(r['gene_family_id'].split('|')):
-                        # split the gene family name
-                        gene_family = r['gene_family'].split('|')
+                # were there publications
+                if len(r['pubmed_id']) > 0:
+                    props[PUBLICATIONS] = ['PMID:' + v for v in r['pubmed_id'].split('|')]
 
-                        # save the gene family curie
-                        gene_family_curie = f'{HGNC_FAMILY}:' + gene_family_id
-
-                        # create the gene family node
-                        gene_family_node = kgxnode(gene_family_curie, name=gene_family[idx])
-                        self.final_node_list.append(gene_family_node)
-
-                        # get the baseline properties
-                        props = {KNOWLEDGE_LEVEL: KNOWLEDGE_ASSERTION,
-                                 AGENT_TYPE: MANUAL_AGENT}
-
-                        # were there publications
-                        if len(r['pubmed_id']) > 0:
-                            props[PUBLICATIONS] = ['PMID:' + v for v in r['pubmed_id'].split('|')]
-
-                        # create the gene to gene family edge
-                        new_edge = kgxedge(gene_family_curie,
-                                           gene_id,
-                                           predicate='BFO:0000051',
-                                           primary_knowledge_source=self.provenance_id,
-                                           edgeprops=props)
-                        self.final_edge_list.append(new_edge)
-                else:
-                    skipped_record_counter += 1
+                # create the gene to gene family edge
+                new_edge = kgxedge(gene_family_curie,
+                                    gene_id,
+                                    predicate='BFO:0000051',
+                                    primary_knowledge_source=self.provenance_id,
+                                    edgeprops=props)
+                self.final_edge_list.append(new_edge)
 
         # TODO parse the hgnc genes in group file?, gene_groups_file_name: str
-
         self.logger.debug(f'Parsing data file complete.')
 
         # load up the metadata
