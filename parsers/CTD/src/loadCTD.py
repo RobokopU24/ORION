@@ -83,28 +83,26 @@ class CTDLoader(SourceDataLoader):
         :return:
         """
         try:
-            # load the web page for CTD with Chrome User-Agent
-            headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/118.0.0.0 Safari/537.36'}
-            html_page: requests.Response = requests.get('https://ctdbase.org/about/dataStatus.go', headers=headers)
+            # load the web page for CTD
+            html_page: requests.Response = requests.get('https://ctdbase.org/about/dataStatus.go')
+            html_page.raise_for_status()
+
             # get the html into a parsable object
-            resp: BeautifulSoup = BeautifulSoup(html_page.content, 'html.parser')
+            soup: BeautifulSoup = BeautifulSoup(html_page.content, 'html.parser')
 
              # quick check for e.g. a "Human verification" page or captcha content
-            lower_body = resp.text.lower()
-            if "human verification" in lower_body or "captcha" in lower_body:
-                self.logger.warning("Page looks like it requires human verification / captcha. "
-                                "Cannot proceed from this environment. Trying to use the downloads page for CTD")
+            lower_body = soup.text.lower()
+            if "verify you are a human" in lower_body or "captcha" in lower_body:
+                self.logger.warning("CTD dataStatus is blocked from programmatic access due to human verification / "
+                                    "captcha. Trying to use the downloads page for CTD version instead..")
 
-                headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/118.0.0.0 Safari/537.36'}
-                resp = requests.get('https://ctdbase.org/downloads', headers=headers)
+                resp = requests.get('https://ctdbase.org/downloads')
                 resp.raise_for_status()
 
-                # quick check for e.g. a "Human verification" page or captcha content
                 soup = BeautifulSoup(resp.text, "html.parser")
 
                 # compile a loose regex for the target phrase
                 pattern = re.compile(r"ctd\s+data\s+release", re.I)
-
                 for p in soup.find_all("p"):
                     # use get_text to include text from child tags as well
                     p_text = p.get_text(" ", strip=True)
@@ -112,20 +110,25 @@ class CTDLoader(SourceDataLoader):
                         a = p.find("a")
                         if not a:
                             # found the <p> but no <a> inside it
-                            raise Exception("CTD Download page version retrieval did not work")
+                            raise Exception("CTD downloads page version retrieval did not work. "
+                                            "CTD data release <p> found but could not be parsed successfully.")
                         link_text = a.get_text(strip=True).rstrip(".")  # remove trailing dot if present
                         version = link_text.replace(" ", "_")
                         return version
+                # the search for the version using regex failed
+                raise Exception("CTD downloads page version retrieval did not work. "
+                                "Possibly blocked due to CAPTCHA.")
             else:
-                # find the version string
-                version: BeautifulSoup.Tag = resp.find(id='pgheading')
-
-                # was the version found
+                # dataStatus page has something like:
+                # <h1 id="pgheading">Data Status: October 2025</h1>
+                #
+                # find the pgheading and extract a version from it
+                version: BeautifulSoup.Tag = soup.find(id='pgheading')
                 if version is not None:
                     # save the value
                     return version.text.split(':')[1].strip().replace(' ', '_')
                 else:
-                    raise Exception("Version does not exist on CTD page.")
+                    raise Exception("pgheading could not be found on dataStatus page.")
         except Exception as e:
             raise GetDataPullError(error_message=f'Unable to determine latest version for CTD: {e}')
 
