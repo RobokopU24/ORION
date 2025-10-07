@@ -1,14 +1,13 @@
-import argparse
 import csv
-import os
 import requests
+
+from pathlib import Path
 
 from Common.utils import GetData
 from Common.loader_interface import SourceDataLoader
 from Common.kgxmodel import kgxnode, kgxedge
 from Common.prefixes import HGNC, HGNC_FAMILY
-from Common.biolink_constants import *
-
+from Common.biolink_constants import AGENT_TYPE, MANUAL_AGENT, KNOWLEDGE_ASSERTION, KNOWLEDGE_LEVEL, PUBLICATIONS
 
 ##############
 # Class: HGNC loader
@@ -21,7 +20,7 @@ class HGNCLoader(SourceDataLoader):
 
     source_id: str = HGNC
     provenance_id: str = 'infores:hgnc'
-    parsing_version: str = '1.3'
+    parsing_version: str = '1.4'
 
     def __init__(self, test_mode: bool = False, source_data_dir: str = None):
         """
@@ -34,6 +33,8 @@ class HGNCLoader(SourceDataLoader):
         self.data_file = self.complete_set_file_name
         self.data_url = "https://storage.googleapis.com/public-download-files/hgnc/tsv/tsv/"
 
+        self.has_part_predicate = "BFO:0000051"
+
     def get_latest_source_version(self) -> str:
         """
         gets the version of the data
@@ -42,13 +43,12 @@ class HGNCLoader(SourceDataLoader):
         """
         headers = {"Accept": "application/json"}
         info_response = requests.get('https://www.genenames.org/rest/info', headers=headers)
-        if info_response.ok:
-            info_json = info_response.json()
-            modified_date = info_json['lastModified']
-            latest_version = modified_date.split('T')[0]
-            return latest_version
-        else:
-            info_response.raise_for_status()
+        info_response.raise_for_status()
+
+        info_json = info_response.json()
+        modified_date = info_json['lastModified']
+        latest_version = modified_date.split('T')[0]
+        return latest_version
 
     def get_data(self) -> int:
         """
@@ -66,86 +66,49 @@ class HGNCLoader(SourceDataLoader):
 
         :return: ret_val: metadata about the parsing
         """
-        # get the path to the data file
-        infile_path: str = os.path.join(self.data_path, self.complete_set_file_name)
-
-        # init the record counters
         record_counter: int = 0
         skipped_record_counter: int = 0
-
-        with open(infile_path, 'r', encoding="utf-8") as fp:
-            # get the data columns
-            cols = ['hgnc_id', 'symbol', 'name', 'locus_group', 'locus_type', 'status', 'location', 'location_sortable', 'alias_symbol', 'alias_name', 'prev_symbol',
-                    'prev_name', 'gene_family', 'gene_family_id', 'date_approved_reserved', 'date_symbol_changed', 'date_name_changed', 'date_modified', 'entrez_id',
-                    'ensembl_gene_id', 'vega_id', 'ucsc_id', 'ena', 'refseq_accession', 'ccds_id', 'uniprot_ids', 'pubmed_id', 'mgd_id', 'rgd_id', 'lsdb', 'cosmic',
-                    'omim_id', 'mirbase', 'homeodb', 'snornabase', 'bioparadigms_slc', 'orphanet', 'pseudogene.org', 'horde_id', 'merops', 'imgt', 'iuphar',
-                    'kznf_gene_catalog', 'mamit-trnadb', 'cd', 'lncrnadb', 'enzyme_id', 'intermediate_filament_db', 'rna_central_ids', 'lncipedia', 'gtrnadb', 'agr']
-
-            # get a handle on the input data
-            data = csv.DictReader(filter(lambda row: row[0] != '?', fp), delimiter='\t', fieldnames=cols)
-
-            # init the first record flag
-            first: bool = True
-
-            # for each record
-            for r in data:
-                # first record is the column header
-                if first:
-                    # set the flag and skip this record
-                    first = False
+        data_file = Path(self.data_path) / self.complete_set_file_name
+        with data_file.open('r') as file:
+            dict_reader = csv.DictReader(file, delimiter='\t')
+            for r in dict_reader:
+                if not r["gene_group_id"]:
+                    skipped_record_counter += 1
                     continue
 
-                # increment the counter
-                record_counter += 1
+                # extract gene node information and make a node
+                gene_id = r['hgnc_id']
+                gene_name = r['name']
+                gene_props = {'locus_group': r['locus_group'], 'symbol': r['symbol'], 'location': r['location']}
+                gene_node = kgxnode(gene_id, name=gene_name, nodeprops=gene_props)
+                self.output_file_writer.write_kgx_node(gene_node)
 
-                # did we get a valid record
-                if len(r['gene_family_id']) > 0:
-                    # create the gene node
-                    gene_id = r['hgnc_id']
-                    gene_name = r['name']
-                    gene_props = {'locus_group': r['locus_group'], 'symbol': r['symbol'], 'location': r['location']}
-                    gene_node = kgxnode(gene_id, name=gene_name, nodeprops=gene_props)
-                    self.final_node_list.append(gene_node)
+                # split the gene group ids and names and iterate through them
+                gene_group_ids = r['gene_group_id'].split('|')
+                gene_group_names = r['gene_group'].split('|')
+                for gene_group_id, gene_group_name in zip(gene_group_ids, gene_group_names):
 
-                    # split the gene family ids and create node/edges for each
-                    for idx, gene_family_id in enumerate(r['gene_family_id'].split('|')):
-                        # split the gene family name
-                        gene_family = r['gene_family'].split('|')
+                    # "gene group" is the hgnc family id, make nodes for them
+                    gene_family_id = f'{HGNC_FAMILY}:{gene_group_id}'
+                    gene_family_node = kgxnode(gene_family_id, name=gene_group_name)
+                    self.output_file_writer.write_kgx_node(gene_family_node)
 
-                        # save the gene family curie
-                        gene_family_curie = f'{HGNC_FAMILY}:' + gene_family_id
+                    # make a gene family to gene edge
+                    # include publications as an edge property if there are any
+                    edge_props = {KNOWLEDGE_LEVEL: KNOWLEDGE_ASSERTION,
+                                  AGENT_TYPE: MANUAL_AGENT}
+                    if r['pubmed_id']:
+                        edge_props[PUBLICATIONS] = [f'PMID:{pmid}' for pmid in r['pubmed_id'].split('|')]
+                    new_edge = kgxedge(gene_family_id,
+                                       gene_id,
+                                       predicate=self.has_part_predicate,
+                                       primary_knowledge_source=self.provenance_id,
+                                       edgeprops=edge_props)
+                    self.output_file_writer.write_kgx_edge(new_edge)
+                    record_counter += 1
 
-                        # create the gene family node
-                        gene_family_node = kgxnode(gene_family_curie, name=gene_family[idx])
-                        self.final_node_list.append(gene_family_node)
-
-                        # get the baseline properties
-                        props = {KNOWLEDGE_LEVEL: KNOWLEDGE_ASSERTION,
-                                 AGENT_TYPE: MANUAL_AGENT}
-
-                        # were there publications
-                        if len(r['pubmed_id']) > 0:
-                            props[PUBLICATIONS] = ['PMID:' + v for v in r['pubmed_id'].split('|')]
-
-                        # create the gene to gene family edge
-                        new_edge = kgxedge(gene_family_curie,
-                                           gene_id,
-                                           predicate='BFO:0000051',
-                                           primary_knowledge_source=self.provenance_id,
-                                           edgeprops=props)
-                        self.final_edge_list.append(new_edge)
-                else:
-                    skipped_record_counter += 1
-
-        # TODO parse the hgnc genes in group file?, gene_groups_file_name: str
-
-        self.logger.debug(f'Parsing data file complete.')
-
-        # load up the metadata
         load_metadata: dict = {
             'num_source_lines': record_counter,
             'unusable_source_lines': skipped_record_counter
         }
-
-        # return to the caller
         return load_metadata
