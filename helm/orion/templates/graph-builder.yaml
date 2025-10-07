@@ -1,4 +1,3 @@
-{{- if not .Values.worker.enabled }}
 apiVersion: batch/v1
 kind: Job
 metadata:
@@ -237,4 +236,3 @@ spec:
             name: {{ include "orion.fullname" . }}-app-config
             defaultMode: 0777
   backoffLimit: 0
-{{- end }}
