@@ -14,10 +14,8 @@ bagel_sapbert_url += "annotate/"
 bagel_nodenorm_url = CONFIG.get('NODE_NORMALIZATION_ENDPOINT', 'https://nodenormalization-sri.renci.org/')
 bagel_nodenorm_url += 'get_normalized_nodes'
 
-BAGEL_SERVICE_USERNAME = CONFIG.get("BAGEL_SERVICE_USERNAME")
-assert BAGEL_SERVICE_USERNAME
-BAGEL_SERVICE_PASSWORD = CONFIG.get("BAGEL_SERVICE_PASSWORD")
-assert BAGEL_SERVICE_PASSWORD
+BAGEL_SERVICE_USERNAME = CONFIG.get("BAGEL_SERVICE_USERNAME", 'default_bagel_username')
+BAGEL_SERVICE_PASSWORD = CONFIG.get("BAGEL_SERVICE_PASSWORD", 'default_bagel_password')
 
 
 def call_bagel_service(text, entity, entity_type=''):

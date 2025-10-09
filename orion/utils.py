@@ -4,14 +4,14 @@ import tarfile
 import gzip
 import requests
 import orjson
-from dateutil import parser as dp
 from itertools import islice
+from email.utils import parsedate_to_datetime
 
 from urllib import request
 from zipfile import ZipFile
 from io import TextIOWrapper
 from io import BytesIO
-from csv import reader, DictReader
+from csv import DictReader
 from ftplib import FTP
 from datetime import datetime
 from logging.handlers import RotatingFileHandler
@@ -159,33 +159,32 @@ class GetData:
         :param exclude_day:
         :return:
         """
-        # init the return value
-        ret_val: str = 'Not found'
-
         try:
             # open the FTP connection and go to the directory
             ftp: FTP = FTP(ftp_site)
             ftp.login()
             ftp.cwd(ftp_dir)
 
-            # get the date of the file
-            date_val = ftp.voidcmd(f'MDTM {ftp_file}').split(' ')
+            # get the modify date of the file from the ftp server,
+            # if successful this is a string with a response code and a timestamp like "213 YYYYMMDDhhmmss"
+            mdtm_response = ftp.voidcmd(f'MDTM {ftp_file}')
+            response_code, modification_timestamp = mdtm_response.split()
+            if response_code != "213":
+                raise Exception(f'Non-213 response from ftp server: {response_code}')
+            # parse it to a datetime object
+            modification_datetime = datetime.strptime(modification_timestamp, '%Y%m%d%H%M%S')
+            # return as a string
+            if exclude_day:
+                # if exclude_day return as month_year
+                return modification_datetime.strftime('%-m_%Y')
+            else:
+                # otherwise return as month_day_year
+                return modification_datetime.strftime('%-m_%-d_%Y')
 
-            # did we get something
-            if len(date_val) > 0:
-                if exclude_day:
-                    # if exclude_day format to month_year
-                    file_date = dp.parse(date_val[1]).strftime('%-m_%Y')
-                else:
-                    # otherwise return month_day_year
-                    file_date = dp.parse(date_val[1]).strftime('%-m_%-d_%Y')
-                return file_date
         except Exception as e:
             error_message = f'Error getting modification date for ftp file: {ftp_site}{ftp_dir}{ftp_file}. {e}'
             self.logger.error(error_message)
             raise GetDataPullError(error_message)
-
-        return ret_val
 
     def pull_via_ftp(self, ftp_site: str, ftp_dir: str, ftp_files: list, data_file_path: str) -> int:
         """
@@ -252,7 +251,10 @@ class GetData:
         try:
             r = requests.head(file_url)
             url_time = r.headers['last-modified']
-            return dp.parse(url_time).strftime("%-m_%-d_%Y")
+            # using parsedate_to_datetime from email.utils instead of datetime.strptime because it is designed to parse
+            # this specific format and apparently handles timezones better
+            modified_datetime = parsedate_to_datetime(url_time)
+            return modified_datetime.strftime("%-m_%-d_%Y")
         except Exception as e:
             error_message = f'Error getting modification date for http file: {file_url}. {repr(e)}-{e}'
             self.logger.error(error_message)
