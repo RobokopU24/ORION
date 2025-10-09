@@ -20,7 +20,7 @@ class HGNCLoader(SourceDataLoader):
 
     source_id: str = HGNC
     provenance_id: str = 'infores:hgnc'
-    parsing_version: str = '1.4'
+    parsing_version: str = '1.5'
 
     def __init__(self, test_mode: bool = False, source_data_dir: str = None):
         """
@@ -33,7 +33,7 @@ class HGNCLoader(SourceDataLoader):
         self.data_file = self.complete_set_file_name
         self.data_url = "https://storage.googleapis.com/public-download-files/hgnc/tsv/tsv/"
 
-        self.has_part_predicate = "BFO:0000051"
+        self.member_of_predicate = "RO:0002350"
 
     def get_latest_source_version(self) -> str:
         """
@@ -101,7 +101,7 @@ class HGNCLoader(SourceDataLoader):
                         edge_props[PUBLICATIONS] = [f'PMID:{pmid}' for pmid in r['pubmed_id'].split('|')]
                     new_edge = kgxedge(gene_family_id,
                                        gene_id,
-                                       predicate=self.has_part_predicate,
+                                       predicate=self.member_of_predicate,
                                        primary_knowledge_source=self.provenance_id,
                                        edgeprops=edge_props)
                     self.output_file_writer.write_kgx_edge(new_edge)
