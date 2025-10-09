@@ -32,15 +32,28 @@ def validate_graph(nodes_file_path: str,
     # - count the number of nodes with each curie prefix
     # - store the leaf node types for each node for lookup
     node_curie_prefixes = defaultdict(int)
+    node_type_counts = defaultdict(int)
     node_type_lookup = {}
-    all_node_types = set()
     all_node_properties = set()
     for node in quick_jsonl_file_iterator(nodes_file_path):
         node_curie = node['id']
         node_curie_prefixes[node_curie.split(':')[0]] += 1
-        node_type_lookup[node_curie] = bl_utils.find_biolink_leaves(frozenset(node[NODE_TYPES]))
+
         all_node_properties.update(node.keys())
-        all_node_types.update(node[NODE_TYPES])
+
+        node_type = bl_utils.find_biolink_leaves(frozenset(node[NODE_TYPES]))
+        node_type_lookup[node_curie] = node_type
+        node_type_counts[node_type] += 1
+
+    all_node_types = set()
+    node_type_counts_by_string = {}
+    for node_types, count in node_type_counts.items():
+        # gather the union of all the node types
+        all_node_types.update(node_types)
+        # convert the frozenset dictionary keys into strings for the output
+        node_type_counts_by_string["|".join(node_types)] = count
+    # reassign the converted dict to the right name
+    node_type_counts = node_type_counts_by_string
 
     # make a list of invalid node types according to biolink
     invalid_node_types = []
@@ -70,13 +83,30 @@ def validate_graph(nodes_file_path: str,
         subject_node_types = node_type_lookup[edge_json[SUBJECT_ID]]
         object_node_types = node_type_lookup[edge_json[OBJECT_ID]]
 
-        try:
-            primary_knowledge_source = edge_json[PRIMARY_KNOWLEDGE_SOURCE]
-        except KeyError:
+        # gather metadata about knowledge sources
+        sources = edge_json.get(SOURCES, None)
+        if sources:
+            primary_knowledge_source = None
+            aggregator_knowledge_sources = []
+            for source in sources:
+                resource_role = source["resource_role"]
+                if resource_role == PRIMARY_KNOWLEDGE_SOURCE:
+                    primary_knowledge_source = source["resource_id"]
+                    break
+                elif resource_role == AGGREGATOR_KNOWLEDGE_SOURCES:
+                    aggregator_knowledge_sources.append(source["resource_id"])
+        else:
+            primary_knowledge_source = edge_json.get(PRIMARY_KNOWLEDGE_SOURCE, None)
+            aggregator_knowledge_sources = edge_json.get(AGGREGATOR_KNOWLEDGE_SOURCES, [])
+
+        if not primary_knowledge_source:
             invalid_edges_due_to_missing_primary_ks += 1
             primary_knowledge_source = 'missing_primary_knowledge_source'
             if save_invalid_edges:
                 invalid_edge_output.write(f'{orjson.dumps(edge_json)}\n')
+
+        all_primary_knowledge_sources.add(primary_knowledge_source)
+        all_aggregator_knowledge_sources.update(aggregator_knowledge_sources)
 
         # update predicate counts
         predicate_counts[predicate] += 1
@@ -84,12 +114,6 @@ def validate_graph(nodes_file_path: str,
 
         # add all properties to edge_properties set
         all_edge_properties.update(edge_json.keys())
-
-        # gather metadata about knowledge sources
-        all_primary_knowledge_sources.add(primary_knowledge_source)
-        aggregator_knowledge_sources = edge_json.get(AGGREGATOR_KNOWLEDGE_SOURCES, None)
-        if aggregator_knowledge_sources:
-            all_aggregator_knowledge_sources.update(aggregator_knowledge_sources)
 
         # update publication by predicate counts
         if edge_json.get(PUBLICATIONS, False):
@@ -135,6 +159,7 @@ def validate_graph(nodes_file_path: str,
         for ks, ks_to_p in predicate_counts_by_ks.items()}
     qc_metadata['edges_with_publications'] = sort_dict_by_values({k: v for k, v in edges_with_publications.items()})
     qc_metadata['edge_properties'] = sorted(all_edge_properties)
+    qc_metadata['node_type_counts'] = sort_dict_by_values(node_type_counts)
     qc_metadata['node_curie_prefixes'] = sort_dict_by_values({k: v for k, v in node_curie_prefixes.items()})
     qc_metadata['node_properties'] = sorted(all_node_properties)
     qc_metadata['invalid_edges_due_to_predicate_and_node_types'] = invalid_edges_due_to_predicate_and_node_types
