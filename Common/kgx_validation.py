@@ -32,9 +32,8 @@ def validate_graph(nodes_file_path: str,
     # - count the number of nodes with each curie prefix
     # - store the leaf node types for each node for lookup
     node_curie_prefixes = defaultdict(int)
-    node_types = defaultdict(int)
+    node_type_counts = defaultdict(int)
     node_type_lookup = {}
-    all_node_types = set()
     all_node_properties = set()
     for node in quick_jsonl_file_iterator(nodes_file_path):
         node_curie = node['id']
@@ -44,9 +43,18 @@ def validate_graph(nodes_file_path: str,
 
         node_type = bl_utils.find_biolink_leaves(frozenset(node[NODE_TYPES]))
         node_type_lookup[node_curie] = node_type
-        node_types['|'.join(node_type)] += 1
+        node_type_counts[node_type] += 1
 
-        all_node_types.update(node[NODE_TYPES])
+    all_node_types = set()
+    node_type_counts_by_string = {}
+    for node_types, count in node_type_counts.items():
+        # gather the union of all the node types
+        all_node_types.update(node_types)
+        # convert the frozenset dictionary keys into strings for the output
+        node_type_counts_by_string[node_types.join("|")] = count
+    # TODO move this string conversion down and consolidate the code with other "|" conversions
+    # reassign the converted dict to the right name
+    node_type_counts = node_type_counts_by_string
 
     # make a list of invalid node types according to biolink
     invalid_node_types = []
@@ -78,14 +86,11 @@ def validate_graph(nodes_file_path: str,
         subject_id = edge_json[SUBJECT_ID]
         object_id = edge_json[OBJECT_ID]
         predicate = edge_json[PREDICATE]
-        subject_node_types = node_type_lookup[edge_json[SUBJECT_ID]]
-        object_node_types = node_type_lookup[edge_json[OBJECT_ID]]
-
-        subject_type_str = '|'.join(subject_node_types) if subject_node_types else "Unknown"
-        object_type_str = '|'.join(object_node_types) if object_node_types else "Unknown"
-        spo_type_key = f"{subject_type_str}|{predicate}|{object_type_str}"
-        spo_type_counts[spo_type_key] += 1
-
+        subject_node_types = node_type_lookup[subject_id]
+        object_node_types = node_type_lookup[object_id]
+        # increment a counter for the combination of node types and predicate
+        # TODO we could account for symmetric predicates here, right now it would count either direction separately
+        spo_type_counts[(subject_node_types, predicate, object_node_types)] += 1
 
         try:
             primary_knowledge_source = edge_json[PRIMARY_KNOWLEDGE_SOURCE]
@@ -96,7 +101,8 @@ def validate_graph(nodes_file_path: str,
                 invalid_edge_output.write(f'{orjson.dumps(edge_json)}\n')
 
         # Get aggregator knowledge sources
-        aggregator_knowledge_sources = edge_json.get(AGGREGATOR_KNOWLEDGE_SOURCES, ["robokop"])
+        # TODO discuss whether we treat the graph as an aggregator
+        aggregator_knowledge_sources = edge_json.get(AGGREGATOR_KNOWLEDGE_SOURCES, [graph_id])
 
         # Handle multi-aggregator tracking
         if len(aggregator_knowledge_sources) > 1:
@@ -132,16 +138,16 @@ def validate_graph(nodes_file_path: str,
         primary_entry["node_set"].add(object_id)
 
         # Extract prefixes
-        subject_prefix = subject_id.split(":")[0] if ":" in subject_id else subject_id
-        object_prefix = object_id.split(":")[0] if ":" in object_id else object_id
+        subject_prefix = subject_id.split(":")[0]
+        object_prefix = object_id.split(":")[0]
 
         # Update all the detailed counts
         primary_entry["subject_prefixes"][subject_prefix] += 1
-        primary_entry["subject_types"][subject_type_str] += 1
+        primary_entry["subject_types"][subject_node_types] += 1
         primary_entry["predicates"][predicate] += 1
         primary_entry["object_prefixes"][object_prefix] += 1
-        primary_entry["object_types"][object_type_str] += 1
-        primary_entry["s-p-o_types"][spo_type_key] += 1
+        primary_entry["object_types"][object_node_types] += 1
+        primary_entry["s-p-o_types"][(subject_node_types, predicate, object_node_types)] += 1
 
         # update predicate counts
         predicate_counts[predicate] += 1
@@ -152,6 +158,7 @@ def validate_graph(nodes_file_path: str,
 
         # gather metadata about knowledge sources
         all_primary_knowledge_sources.add(primary_knowledge_source)
+        # TODO don't grab AGG ks twice
         aggregator_knowledge_sources = edge_json.get(AGGREGATOR_KNOWLEDGE_SOURCES, None)
         if aggregator_knowledge_sources:
             all_aggregator_knowledge_sources.update(aggregator_knowledge_sources)
@@ -175,10 +182,13 @@ def validate_graph(nodes_file_path: str,
             del prim_data["node_set"]
 
             prim_data["subject_prefixes"] = sort_dict_by_values(dict(prim_data["subject_prefixes"]))
+            # TODO need to convert to string keys here
             prim_data["subject_types"] = sort_dict_by_values(dict(prim_data["subject_types"]))
             prim_data["predicates"] = sort_dict_by_values(dict(prim_data["predicates"]))
             prim_data["object_prefixes"] = sort_dict_by_values(dict(prim_data["object_prefixes"]))
+            # TODO need to convert to string keys here
             prim_data["object_types"] = sort_dict_by_values(dict(prim_data["object_types"]))
+            # TODO need to convert to string keys here
             prim_data["s-p-o_types"] = sort_dict_by_values(dict(prim_data["s-p-o_types"]))
 
     # validate the knowledge sources with the biolink model
@@ -207,7 +217,7 @@ def validate_graph(nodes_file_path: str,
     qc_metadata['primary_knowledge_sources'] = sorted(all_primary_knowledge_sources)
     qc_metadata['aggregator_knowledge_sources'] = sorted(all_aggregator_knowledge_sources)
     qc_metadata['node_curie_prefixes'] = sort_dict_by_values({k: v for k, v in node_curie_prefixes.items()})
-    qc_metadata['node_types'] = sort_dict_by_values(node_types)
+    qc_metadata['node_types'] = sort_dict_by_values(node_type_counts)
     qc_metadata['node_properties'] = sorted(all_node_properties)
     qc_metadata['predicate_totals'] = sort_dict_by_values({k: v for k, v in predicate_counts.items()})
     qc_metadata['edges_with_publications'] = sort_dict_by_values({k: v for k, v in edges_with_publications.items()})
