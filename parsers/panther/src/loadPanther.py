@@ -43,9 +43,11 @@ class PLoader(SourceDataLoader):
         """
         super().__init__(test_mode=test_mode, source_data_dir=source_data_dir)
 
-        self.data_file: str = None  # data file name changes based on version, will be set below
-        self.data_version: str = None
-        self.get_latest_source_version()
+        # normally we would not fetch the latest version in __init__
+        # but we need it to determine the source data file name
+        self.data_version = None
+        self.data_version: str = self.get_latest_source_version()
+        self.data_file: str = self.get_versioned_data_file_name()
 
         self.member_of_predicate = "RO:0002350"
         self.involved_in_predicate = "RO:0002331"
@@ -88,17 +90,18 @@ class PLoader(SourceDataLoader):
             val = a_tag.text.split(search_text[:-1])[1].strip()
 
             # get the version number by removing the _species part
-            self.data_version = val.split('_')[0]
-
-            # make the versioned data file name
-            self.data_file = f'PTHR{self.data_version}_human'
+            data_version = val.split('_')[0]
 
             # return to the caller
-            return self.data_version
+            return data_version
 
         # missing a_tag means something changed or an error occurred
         raise GetDataPullError(f'Version could not be determined from html for PANTHER')
 
+    def get_versioned_data_file_name(self) -> str:
+        if not self.data_version:
+            self.data_version = self.get_latest_source_version()
+        return f'PTHR{self.data_version}_human'
 
     def get_data(self) -> int:
         """
@@ -120,7 +123,7 @@ class PLoader(SourceDataLoader):
         return file_count
 
     @staticmethod
-    def split_with(input_str, splitter, keys=[], ignore_length_mismatch=False):
+    def split_with(input_str, splitter, keys=None, ignore_length_mismatch=False):
         """
         Splits a string based on splitter. If keys is provided it will return a dictionary where the keys of the dictionary map to
         the splitted values.
@@ -239,7 +242,7 @@ class PLoader(SourceDataLoader):
         fam_id, sub_fam_id = self.get_family_sub_family_ids_from_curie(family.identifier)
 
         # is no sub ids search the list
-        if sub_fam_id == None:
+        if sub_fam_id is None:
             # we are looking for subfamilies
             sub_id_keys = [y for y in self.gene_family_data[fam_id] if y != 'family_name']
 
@@ -406,7 +409,8 @@ class PLoader(SourceDataLoader):
                                    edgeprops=edge_properties)
                 self.final_edge_list.append(new_edge)
 
-    def get_gene_id_from_row(self, row):
+    @staticmethod
+    def get_gene_id_from_row(row):
         gene_data = row['gene_identifier']
         gene_data = gene_data.split('|')
         gene_field = gene_data[1]
@@ -425,7 +429,7 @@ class PLoader(SourceDataLoader):
         Get all information from the Panther.gene_family_data using a panther identifier.
         """
         fam_id, sub_fam_id = self.get_family_sub_family_ids_from_curie(curie)
-        if sub_fam_id == None:
+        if sub_fam_id is None:
             rows = []
             sub_ids = [y for y in list(self.gene_family_data[fam_id].keys()) if y != 'family_name']
             for sub_id in sub_ids:
@@ -444,6 +448,6 @@ class PLoader(SourceDataLoader):
         splitted = curie.split(':')
 
         if len(splitted) == 1:
-            return (splitted[0], None)
+            return splitted[0], None
 
-        return (splitted)
+        return splitted
