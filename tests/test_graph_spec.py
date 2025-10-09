@@ -16,10 +16,16 @@ def reset_graph_spec_config():
     os.environ['ORION_GRAPH_SPEC_URL'] = ''
 
 
-def get_testing_graph_spec_dir():
+@pytest.fixture(scope='module')
+def test_graph_spec_dir():
     # this is ORION/tests/graph_specs not ORION/graph_specs
     testing_specs_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'graph_specs')
     return testing_specs_dir
+
+@pytest.fixture(scope='module')
+def test_graph_output_dir():
+    testing_output_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'workspace')
+    return testing_output_dir
 
 
 def get_source_data_manager_mock():
@@ -29,30 +35,33 @@ def get_source_data_manager_mock():
     return s_d_mock
 
 
-def test_empty_graph_spec_config():
+def test_empty_graph_spec_config(test_graph_spec_dir, test_graph_output_dir):
     clear_graph_spec_config()
     with pytest.raises(GraphSpecError):
-        graph_builder = GraphBuilder(graph_specs_dir=get_testing_graph_spec_dir())
+        graph_builder = GraphBuilder(graph_specs_dir=test_graph_spec_dir,
+                                     graph_output_dir=test_graph_output_dir)
 
 
-def test_invalid_graph_spec_config():
+def test_invalid_graph_spec_config(test_graph_spec_dir, test_graph_output_dir):
     clear_graph_spec_config()
     os.environ['ORION_GRAPH_SPEC'] = 'invalid-spec.yaml'
     with pytest.raises(GraphSpecError):
-        graph_builder = GraphBuilder(graph_specs_dir=get_testing_graph_spec_dir())
+        graph_builder = GraphBuilder(graph_specs_dir=test_graph_spec_dir,
+                                     graph_output_dir=test_graph_output_dir)
 
 
-def test_invalid_graph_spec_url_config():
+def test_invalid_graph_spec_url_config(test_graph_output_dir):
     clear_graph_spec_config()
     os.environ['ORION_GRAPH_SPEC_URL'] = 'http://localhost/invalid_graph_spec_url'
     with pytest.raises(requests.exceptions.ConnectionError):
-        graph_builder = GraphBuilder()
+        graph_builder = GraphBuilder(graph_output_dir=test_graph_output_dir)
 
 
 # the graph spec is loaded up properly but doesn't attempt to determine versions when unspecified
-def test_valid_graph_spec_config():
+def test_valid_graph_spec_config(test_graph_spec_dir, test_graph_output_dir):
     reset_graph_spec_config()
-    graph_builder = GraphBuilder(graph_specs_dir=get_testing_graph_spec_dir())
+    graph_builder = GraphBuilder(graph_specs_dir=test_graph_spec_dir,
+                                 graph_output_dir=test_graph_output_dir)
     assert len(graph_builder.graph_specs)
     testing_graph_spec = graph_builder.graph_specs.get('Testing_Graph', None)
     assert testing_graph_spec is not None
@@ -63,9 +72,10 @@ def test_valid_graph_spec_config():
 
 
 # graph spec sources are able to return versions once source_version(s) are set
-def test_graph_spec_lazy_versions():
+def test_graph_spec_lazy_versions(test_graph_spec_dir, test_graph_output_dir):
     reset_graph_spec_config()
-    graph_builder = GraphBuilder(graph_specs_dir=get_testing_graph_spec_dir())
+    graph_builder =  GraphBuilder(graph_specs_dir=test_graph_spec_dir,
+                                  graph_output_dir=test_graph_output_dir)
     testing_graph_spec = graph_builder.graph_specs.get('Testing_Graph', None)
     for source in testing_graph_spec.sources:
         assert source.version is None
@@ -77,9 +87,10 @@ def test_graph_spec_lazy_versions():
 
 # mock the source_data_manager to return deterministic source_versions
 # then see if a graph with a subgraph can properly determine graph versions
-def test_graph_spec_subgraph_version():
+def test_graph_spec_subgraph_version(test_graph_spec_dir, test_graph_output_dir):
     reset_graph_spec_config()
-    graph_builder = GraphBuilder(graph_specs_dir=get_testing_graph_spec_dir())
+    graph_builder =  GraphBuilder(graph_specs_dir=test_graph_spec_dir,
+                                  graph_output_dir=test_graph_output_dir)
     graph_builder.source_data_manager = get_source_data_manager_mock()
 
     testing_graph_spec = graph_builder.graph_specs.get('Testing_Graph_2', None)
@@ -98,9 +109,10 @@ def test_graph_spec_subgraph_version():
 
 
 # make sure a graph spec with an invalid subgraph fails with the appropriate exception
-def test_graph_spec_invalid_subgraph():
+def test_graph_spec_invalid_subgraph(test_graph_spec_dir, test_graph_output_dir):
     reset_graph_spec_config()
-    graph_builder = GraphBuilder(graph_specs_dir=get_testing_graph_spec_dir())
+    graph_builder =  GraphBuilder(graph_specs_dir=test_graph_spec_dir,
+                                  graph_output_dir=test_graph_output_dir)
     graph_builder.source_data_manager = get_source_data_manager_mock()
     testing_graph_spec = graph_builder.graph_specs.get('Testing_Graph_3', None)
     assert testing_graph_spec.graph_version is None
@@ -109,9 +121,10 @@ def test_graph_spec_invalid_subgraph():
 
 
 # make sure a graph spec with an invalid subgraph version (which is otherwise valid) fails to build
-def test_graph_spec_invalid_subgraph_version():
+def test_graph_spec_invalid_subgraph_version(test_graph_spec_dir, test_graph_output_dir):
     reset_graph_spec_config()
-    graph_builder = GraphBuilder(graph_specs_dir=get_testing_graph_spec_dir())
+    graph_builder =  GraphBuilder(graph_specs_dir=test_graph_spec_dir,
+                                  graph_output_dir=test_graph_output_dir)
     graph_builder.source_data_manager = get_source_data_manager_mock()
     testing_graph_spec = graph_builder.graph_specs.get('Testing_Graph_4', None)
     graph_builder.determine_graph_version(testing_graph_spec)

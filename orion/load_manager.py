@@ -26,6 +26,7 @@ logger = LoggingUtil.init_logging("ORION.Common.SourceDataManager",
 class SourceDataManager:
 
     def __init__(self,
+                 storage_dir: str = None,
                  test_mode: bool = False,
                  fresh_start_mode: bool = False):
 
@@ -37,8 +38,8 @@ class SourceDataManager:
         if fresh_start_mode:
             logger.info(f'SourceDataManager running in fresh start mode... previous state and files ignored.')
 
-        # locate and verify the main storage directory
-        self.storage_dir = self.init_storage_dir()
+        # lazy load the storage directory path
+        self.storage_dir = self.init_storage_dir(storage_dir)
 
         # dict of source_id -> latest source version (to prevent double lookups)
         self.latest_source_version_lookup = {}
@@ -688,16 +689,24 @@ class SourceDataManager:
     def get_source_version_path(self, source_id: str, source_version: str):
         return os.path.join(self.storage_dir, source_id, source_version)
 
-    def init_storage_dir(self):
-        # use the storage directory specified by the environment variable ORION_STORAGE
+    @staticmethod
+    def init_storage_dir(storage_dir: str=None):
+        # if a dir was provided programmatically try to use that
+        if storage_dir is not None:
+            if os.path.isdir(storage_dir):
+                return storage_dir
+            else:
+                raise IOError(f'Storage directory not valid: {storage_dir}')
+        # otherwise use the storage directory specified by the environment variable ORION_STORAGE
         # check to make sure it's set and valid, otherwise fail
-        if "ORION_STORAGE" not in os.environ:
-            raise Exception(f'You must use the environment variable ORION_STORAGE '
-                            f'to specify a storage directory.')
-        if os.path.isdir(os.environ["ORION_STORAGE"]):
-            return os.environ["ORION_STORAGE"]
+        storage_dir_from_env = os.getenv("ORION_STORAGE")
+        if storage_dir_from_env is None:
+            raise Exception(f'No storage directory was specified. You must either provide a path programmatically or '
+                            f'use the environment variable ORION_STORAGE to configure a storage directory.')
+        if os.path.isdir(storage_dir_from_env):
+            return storage_dir_from_env
         else:
-            raise IOError(f'Storage directory not valid: {os.environ["ORION_STORAGE"]}')
+            raise IOError(f'Storage directory not valid: {storage_dir_from_env}')
 
     def init_source_output_dir(self, source_id: str):
         source_dir_path = os.path.join(self.storage_dir, source_id)

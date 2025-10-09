@@ -46,7 +46,7 @@ class LoggingUtil(object):
         formatter = logging.Formatter(format_type)
 
         # set the logging level
-        if 'ORION_TEST_MODE' in os.environ and os.environ['ORION_TEST_MODE']:
+        if os.getenv('ORION_TEST_MODE'):
             level = logging.DEBUG
         logger.setLevel(level)
 

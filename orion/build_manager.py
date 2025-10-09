@@ -32,13 +32,14 @@ COLLAPSED_QUALIFIERS_FILENAME = 'collapsed_qualifier_edges.jsonl'
 class GraphBuilder:
 
     def __init__(self,
-                 graph_specs_dir=None):
+                 graph_specs_dir=None,
+                 graph_output_dir=None):
 
         self.logger = LoggingUtil.init_logging("ORION.Common.GraphBuilder",
                                                line_format='medium',
                                                log_file_path=os.getenv('ORION_LOGS'))
 
-        self.graphs_dir = self.get_graphs_dir()  # path to the graphs output directory
+        self.graphs_dir = graph_output_dir if graph_output_dir else self.get_graph_output_dir()
         self.source_data_manager = SourceDataManager()  # access to the data sources and their metadata
         self.graph_specs = {}   # graph_id -> GraphSpec all potential graphs that could be built, including sub-graphs
         self.load_graph_specs(graph_specs_dir=graph_specs_dir)
@@ -159,7 +160,7 @@ class GraphBuilder:
             if dump_success:
                 graph_metadata.set_dump(dump_type="neo4j_redundant",
                                         dump_url=f'{graph_output_url}graph_{graph_version}_redundant.db.dump')
-            
+
         if 'collapsed_qualifiers_jsonl' in output_formats:
             self.logger.info(f'Generating collapsed qualifier predicates KG for {graph_id}...')
             collapsed_qualifiers_filepath = edges_filepath.replace(EDGES_FILENAME, COLLAPSED_QUALIFIERS_FILENAME)
@@ -360,8 +361,8 @@ class GraphBuilder:
             mkgb.write_example_data_to_file(example_data_file_path)
 
     def load_graph_specs(self, graph_specs_dir=None):
-        graph_spec_file = os.environ.get('ORION_GRAPH_SPEC', None)
-        graph_spec_url = os.environ.get('ORION_GRAPH_SPEC_URL', None)
+        graph_spec_file = os.getenv('ORION_GRAPH_SPEC')
+        graph_spec_url = os.getenv('ORION_GRAPH_SPEC_URL')
 
         if graph_spec_file and graph_spec_url:
             raise GraphSpecError(f'Configuration Error - the environment variables ORION_GRAPH_SPEC and '
@@ -549,11 +550,11 @@ class GraphBuilder:
         return GraphMetadata(graph_id, graph_output_dir)
 
     @staticmethod
-    def get_graphs_dir():
+    def get_graph_output_dir():
         # confirm the directory specified by the environment variable ORION_GRAPHS is valid
-        graphs_dir = os.environ.get('ORION_GRAPHS', None)
+        graphs_dir = os.getenv('ORION_GRAPHS')
         if graphs_dir and Path(graphs_dir).is_dir():
-            return os.environ['ORION_GRAPHS']
+            return graphs_dir
 
         # if invalid or not specified back out
         raise IOError('ORION graphs directory not configured properly. '
