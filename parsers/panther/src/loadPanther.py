@@ -1,13 +1,12 @@
 import os
 import csv
-import argparse
 import re
 
 import requests
 
 from bs4 import BeautifulSoup
 from Common.biolink_constants import *
-from Common.utils import GetData
+from Common.utils import GetData, GetDataPullError
 from Common.loader_interface import SourceDataLoader
 from Common.kgxmodel import kgxnode, kgxedge
 from functools import partial
@@ -35,7 +34,7 @@ class PLoader(SourceDataLoader):
     source_id: str = 'PANTHER'
     source_db: str = 'Protein ANalysis THrough Evolutionary Relationships'
     provenance_id: str = 'infores:panther'
-    parsing_version: str = '1.2'
+    parsing_version: str = '1.3'
 
     def __init__(self, test_mode: bool = False, source_data_dir: str = None):
         """
@@ -47,6 +46,12 @@ class PLoader(SourceDataLoader):
         self.data_file: str = None  # data file name changes based on version, will be set below
         self.data_version: str = None
         self.get_latest_source_version()
+
+        self.member_of_predicate = "RO:0002350"
+        self.involved_in_predicate = "RO:0002331"
+        self.enables_predicate = "RO:0002327"
+        self.located_in_predicate = "RO:0001025"
+        self.has_participant_predicate = "RO:0000057"
 
         # the list of columns in the data
         self.sequence_file_columns = ['gene_identifier', 'protein_id', 'gene_name', 'panther_sf_id', 'panther_family_name',
@@ -68,37 +73,32 @@ class PLoader(SourceDataLoader):
         if self.data_version:
             return self.data_version
 
-        # init the return
-        ret_val: str = 'Not found'
-
-        # load the web page for CTD
+        # Retrieve version from the ftp downloads web page for these specific PANTHER files.
+        # The page has a bunch of versioned links that look like "PTHR19.0_chicken"
+        # We want to extract the "19.0" from one of them
         html_page: requests.Response = requests.get('http://data.pantherdb.org/ftp/sequence_classifications/current_release/PANTHER_Sequence_Classification_files/')
-
-        # get the html into a parsable object
         resp: BeautifulSoup = BeautifulSoup(html_page.content, 'html.parser')
 
-        # set the search text
+        # search for the <a> in one of the links, it should look like:
+        # <li><a href="PTHR19.0_Amborella"> PTHR19.0_Amborella</a></li>
         search_text = 'PTHR*'
-
-        # find the version tag
         a_tag: BeautifulSoup.Tag = resp.find('a', string=re.compile(search_text))
-
-        # was the tag found
-        if a_tag is not None:
-            # strip off the search text
+        if a_tag:
+            # strip off the PTHR part
             val = a_tag.text.split(search_text[:-1])[1].strip()
 
-            # get the actual version number
-            ret_val = val.split('_')[0]
+            # get the version number by removing the _species part
+            self.data_version = val.split('_')[0]
 
-            # save the version for data gathering later
-            self.data_version = ret_val
-
-            # make the data file name correct
+            # make the versioned data file name
             self.data_file = f'PTHR{self.data_version}_human'
 
-        # return to the caller
-        return ret_val
+            # return to the caller
+            return self.data_version
+
+        # missing a_tag means something changed or an error occurred
+        raise GetDataPullError(f'Version could not be determined from html for PANTHER')
+
 
     def get_data(self) -> int:
         """
@@ -262,7 +262,7 @@ class PLoader(SourceDataLoader):
                     edge_properties = {KNOWLEDGE_LEVEL: NOT_PROVIDED,
                                        AGENT_TYPE: NOT_PROVIDED}
                     new_edge = kgxedge(subject_id=g_sub_fam_id,
-                                       predicate='BFO:0000050',
+                                       predicate=self.member_of_predicate,
                                        object_id=family.identifier,
                                        primary_knowledge_source=self.provenance_id,
                                        edgeprops=edge_properties)
@@ -290,7 +290,7 @@ class PLoader(SourceDataLoader):
                 edge_properties = {KNOWLEDGE_LEVEL: NOT_PROVIDED,
                                    AGENT_TYPE: NOT_PROVIDED}
                 gene_family_edge = kgxedge(subject_id=gene_id,
-                                           predicate='BFO:0000050',
+                                           predicate=self.member_of_predicate,
                                            object_id=family.identifier,
                                            primary_knowledge_source=self.provenance_id,
                                            edgeprops=edge_properties)
@@ -317,7 +317,7 @@ class PLoader(SourceDataLoader):
                     edge_properties = {KNOWLEDGE_LEVEL: KNOWLEDGE_ASSERTION,
                                        AGENT_TYPE: MANUAL_AGENT}
                     new_edge = kgxedge(subject_id=family.identifier,
-                                       predicate='RO:0002331',
+                                       predicate=self.involved_in_predicate,
                                        object_id=bio_p_id,
                                        primary_knowledge_source=self.provenance_id,
                                        edgeprops=edge_properties)
@@ -344,7 +344,7 @@ class PLoader(SourceDataLoader):
                     edge_properties = {KNOWLEDGE_LEVEL: KNOWLEDGE_ASSERTION,
                                        AGENT_TYPE: MANUAL_AGENT}
                     new_edge = kgxedge(subject_id=family.identifier,
-                                       predicate='RO:0002327',
+                                       predicate=self.enables_predicate,
                                        object_id=mole_func_id,
                                        primary_knowledge_source=self.provenance_id,
                                        edgeprops=edge_properties)
@@ -371,7 +371,7 @@ class PLoader(SourceDataLoader):
                     edge_properties = {KNOWLEDGE_LEVEL: NOT_PROVIDED,
                                        AGENT_TYPE: NOT_PROVIDED}
                     new_edge = kgxedge(subject_id=family.identifier,
-                                       predicate='RO:0001025',
+                                       predicate=self.located_in_predicate,
                                        object_id=cellular_component_id,
                                        primary_knowledge_source=self.provenance_id,
                                        edgeprops=edge_properties)
@@ -400,7 +400,7 @@ class PLoader(SourceDataLoader):
                 edge_properties = {KNOWLEDGE_LEVEL: NOT_PROVIDED,
                                    AGENT_TYPE: NOT_PROVIDED}
                 new_edge = kgxedge(subject_id=panther_pathway_id,
-                                   predicate='RO:0000057',
+                                   predicate=self.has_participant_predicate,
                                    object_id=family.identifier,
                                    primary_knowledge_source=self.provenance_id,
                                    edgeprops=edge_properties)
