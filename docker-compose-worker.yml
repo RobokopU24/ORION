@@ -4,7 +4,16 @@ services:
       context: .
       dockerfile: Dockerfile
     container_name: orion-worker
-    command: [celery, "-A", "celery_worker.celery_app", "worker", "--loglevel=info", "-Q", "orion"]
+    command:
+      [
+        celery,
+        "-A",
+        "celery_worker.celery_app",
+        "worker",
+        "--loglevel=info",
+        "-Q",
+        "orion",
+      ]
     environment:
       - CELERY_BROKER_URL=redis://redis:6379/0
       - CELERY_RESULT_BACKEND=redis://redis:6379/0
@@ -12,8 +21,9 @@ services:
       - ORION_STORAGE=/ORION_storage
       - ORION_GRAPHS=/ORION_graphs
       - ORION_LOGS=/ORION_logs
+      - PYTHONPATH=/ORION
       - BAGEL_SERVICE_USERNAME=fake-username-do-not-commit-a-real-one!!!
-      - BAGEL_SERVICE_PASSWORD=fake-password-do-not-commit-a-real-one!!!  
+      - BAGEL_SERVICE_PASSWORD=fake-password-do-not-commit-a-real-one!!!
       - ORION_GRAPH_SPEC
       - ORION_GRAPH_SPEC_URL
       - ORION_OUTPUT_URL
