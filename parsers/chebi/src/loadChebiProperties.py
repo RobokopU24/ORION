@@ -1,5 +1,4 @@
 import os
-import argparse
 import gzip
 
 from collections import defaultdict
@@ -8,12 +7,12 @@ from orion.loader_interface import SourceDataLoader
 from orion.kgxmodel import kgxnode
 from orion.prefixes import CHEBI
 
-RELATION_TYPE_COLUMN = 1
+RELATION_TYPE_ID_COLUMN = 1
 RELATION_INIT_ID_COLUMN = 2
 RELATION_FINAL_ID_COLUMN = 3
 
-COMPOUNDS_CHEBI_ID_COLUMN = 2
-COMPOUNDS_CHEBI_NAME_COLUMN = 5
+COMPOUNDS_CHEBI_ID_COLUMN = 6
+COMPOUNDS_CHEBI_NAME_COLUMN = 1
 
 CHEBI_ROLES_TO_IGNORE = ["CHEBI:50906",  # role
                          "CHEBI:24432",  # biological role
@@ -31,7 +30,7 @@ class ChebiPropertiesLoader(SourceDataLoader):
 
     # Setting the class level variables for the source ID and provenance
     source_id: str = 'CHEBIProps'
-    parsing_version = '1.2'
+    parsing_version = '1.3'
     preserve_unconnected_nodes = True
 
     def __init__(self, test_mode: bool = False, source_data_dir: str = None):
@@ -41,9 +40,10 @@ class ChebiPropertiesLoader(SourceDataLoader):
         """
         super().__init__(test_mode=test_mode, source_data_dir=source_data_dir)
 
-        self.data_url: str = 'https://ftp.ebi.ac.uk/pub/databases/chebi/Flat_file_tab_delimited/'
+        self.data_url: str = 'https://ftp.ebi.ac.uk/pub/databases/chebi/flat_files/'
         self.compounds_file: str = 'compounds.tsv.gz'
-        self.relation_file: str = 'relation.tsv'
+        self.relation_file: str = 'relation.tsv.gz'
+        # self.relation_type_file: str = 'relation_type.tsv.gz'
         self.data_files = [self.compounds_file,
                            self.relation_file]
 
@@ -154,17 +154,24 @@ class ChebiPropertiesLoader(SourceDataLoader):
         return ancestors
 
     def read_roles(self):
+        # TODO - there is a new format now where relation types are defined by integer identifiers instead of their
+        #  text like "is_a". If we assume the relation type ids won't change the hardcoded approach below works, but
+        #  we would ideally read in the new relation_type_file and make a map of "id" to "code"
+        #  so that we can determine the text based relation corresponding to the relationship_type_id in the relation
+        #  file. For example, the relation file might have a relation_type_id of 5, we want to determine that means
+        #  "is_a" using the relation_type_file. For now we hard code the two we care about: is_a = 5 and has_role = 4
+
         """This format is not completely obvious, but the triple is (FINAL_ID)-[type]->(INIT_ID)."""
         roles = defaultdict(set)
         is_a_relationships = defaultdict(list)
         relation_file_path = os.path.join(self.data_path, self.relation_file)
-        with open(relation_file_path, 'r') as inf:
-            for line in inf:
+        with gzip.open(relation_file_path, mode="rt", encoding="iso-8859-1") as rf:
+            for line in rf:
                 x = line.strip().split('\t')
-                if x[RELATION_TYPE_COLUMN] == 'has_role':
+                if x[RELATION_TYPE_ID_COLUMN] == "4":  # has_role
                     role_id = str(x[RELATION_INIT_ID_COLUMN])
                     roles[f'{CHEBI}:{x[RELATION_FINAL_ID_COLUMN]}'].add(f'{CHEBI}:{role_id}')
-                elif x[RELATION_TYPE_COLUMN] == 'is_a':
+                elif x[RELATION_TYPE_ID_COLUMN] == "5":  # is_a
                     child = f'{CHEBI}:{x[RELATION_FINAL_ID_COLUMN]}'
                     parent = f'{CHEBI}:{x[RELATION_INIT_ID_COLUMN]}'
                     is_a_relationships[parent].append(child)

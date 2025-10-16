@@ -4,6 +4,7 @@ import zipfile
 import polars as pl
 import yaml
 from yaml import SafeLoader
+from pathlib import Path
 
 from orion.kgxmodel import kgxnode, kgxedge
 from orion.loader_interface import SourceDataLoader
@@ -27,7 +28,8 @@ class LINCSLoader(SourceDataLoader):
         self.data_url = 'https://cfde-drc.s3.amazonaws.com/LINCS/KG%20Assertions'
         self.data_file = "LINCS.zip"
 
-        with open('/ORION/cfde-config.yml', 'r') as file:
+        cfde_config = Path(__file__).resolve().parent.parent.parent.parent / "cfde-config.yml"
+        with cfde_config.open('r') as file:
             yaml_data = list(yaml.load_all(file, Loader=SafeLoader))
         self.config = list(filter(lambda x: x["name"] == self.source_id, yaml_data))[0]
 
