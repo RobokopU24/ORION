@@ -11,6 +11,9 @@ from orion.biolink_constants import *
 def sort_dict_by_values(dict_to_sort):
     return dict(sorted(dict_to_sort.items(), key=lambda item_tuple: item_tuple[1], reverse=True))
 
+def convert_type_count_dict_to_list(type_count_dict):
+    type_count_dict = sort_dict_by_values(type_count_dict)
+    return [{"type": list(types), "count": count} for types, count in type_count_dict.items()]
 
 def validate_graph(nodes_file_path: str,
                    edges_file_path: str,
@@ -46,14 +49,11 @@ def validate_graph(nodes_file_path: str,
         node_type_counts[node_type] += 1
 
     all_node_types = set()
-    node_type_counts_by_string = {}
     for node_types, count in node_type_counts.items():
         # gather the union of all the node types
         all_node_types.update(node_types)
-        # convert the frozenset dictionary keys into strings for the output
-        node_type_counts_by_string["|".join(node_types)] = count
-    # reassign the converted dict to the right name
-    node_type_counts = node_type_counts_by_string
+
+    node_type_counts = convert_type_count_dict_to_list(node_type_counts)
 
     # make a list of invalid node types according to biolink
     invalid_node_types = []
@@ -159,7 +159,7 @@ def validate_graph(nodes_file_path: str,
         for ks, ks_to_p in predicate_counts_by_ks.items()}
     qc_metadata['edges_with_publications'] = sort_dict_by_values({k: v for k, v in edges_with_publications.items()})
     qc_metadata['edge_properties'] = sorted(all_edge_properties)
-    qc_metadata['node_type_counts'] = sort_dict_by_values(node_type_counts)
+    qc_metadata['node_type_counts'] = node_type_counts
     qc_metadata['node_curie_prefixes'] = sort_dict_by_values({k: v for k, v in node_curie_prefixes.items()})
     qc_metadata['node_properties'] = sorted(all_node_properties)
     qc_metadata['invalid_edges_due_to_predicate_and_node_types'] = invalid_edges_due_to_predicate_and_node_types
