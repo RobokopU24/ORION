@@ -11,6 +11,9 @@ from Common.biolink_constants import *
 def sort_dict_by_values(dict_to_sort):
     return dict(sorted(dict_to_sort.items(), key=lambda item_tuple: item_tuple[1], reverse=True))
 
+def convert_type_count_dict_to_list(type_count_dict):
+    type_count_dict = sort_dict_by_values(type_count_dict)
+    return [{"type": list(types), "count": count} for types, count in type_count_dict.items()]
 
 def validate_graph(nodes_file_path: str,
                    edges_file_path: str,
@@ -46,15 +49,14 @@ def validate_graph(nodes_file_path: str,
         node_type_counts[node_type] += 1
 
     all_node_types = set()
-    node_type_counts_by_string = {}
     for node_types, count in node_type_counts.items():
         # gather the union of all the node types
         all_node_types.update(node_types)
-        # convert the frozenset dictionary keys into strings for the output
-        node_type_counts_by_string[node_types.join("|")] = count
-    # TODO move this string conversion down and consolidate the code with other "|" conversions
-    # reassign the converted dict to the right name
-    node_type_counts = node_type_counts_by_string
+
+    # convert the node_type_counts dict (frozenset -> count)
+    # to a format for the output (a list of dicts like {type: node_types, count: count})
+    node_type_counts = sort_dict_by_values(node_type_counts)
+    node_type_counts = convert_type_count_dict_to_list(node_type_counts)
 
     # make a list of invalid node types according to biolink
     invalid_node_types = []
@@ -103,19 +105,19 @@ def validate_graph(nodes_file_path: str,
         # Get aggregator knowledge sources
         # TODO discuss whether we treat the graph as an aggregator
         aggregator_knowledge_sources = edge_json.get(AGGREGATOR_KNOWLEDGE_SOURCES, [graph_id])
+        agg_key = frozenset(sorted(aggregator_knowledge_sources))
+        if aggregator_knowledge_sources:
+            all_aggregator_knowledge_sources.update(aggregator_knowledge_sources)
 
-        # Handle multi-aggregator tracking
-        if len(aggregator_knowledge_sources) > 1:
-            agg = "|".join(sorted(aggregator_knowledge_sources))
-        else:
-            agg = aggregator_knowledge_sources[0]
+        # gather metadata about knowledge sources
+        all_primary_knowledge_sources.add(primary_knowledge_source)
 
         # Initialize aggregator entry if it doesn't exist
-        if agg not in source_breakdown["aggregator"]:
-            source_breakdown["aggregator"][agg] = {
+        if agg_key not in source_breakdown["aggregator"]:
+            source_breakdown["aggregator"][agg_key] = {
                 "primary": {}
             }
-        agg_entry = source_breakdown["aggregator"][agg]
+        agg_entry = source_breakdown["aggregator"][agg_key]
 
         # Initialize primary source entry under this aggregator if it doesn't exist
         if primary_knowledge_source not in agg_entry["primary"]:
@@ -156,13 +158,6 @@ def validate_graph(nodes_file_path: str,
         # add all properties to edge_properties set
         all_edge_properties.update(edge_json.keys())
 
-        # gather metadata about knowledge sources
-        all_primary_knowledge_sources.add(primary_knowledge_source)
-        # TODO don't grab AGG ks twice
-        aggregator_knowledge_sources = edge_json.get(AGGREGATOR_KNOWLEDGE_SOURCES, None)
-        if aggregator_knowledge_sources:
-            all_aggregator_knowledge_sources.update(aggregator_knowledge_sources)
-
         # update publication by predicate counts
         if edge_json.get(PUBLICATIONS, False):
             edges_with_publications[predicate] += 1
@@ -182,14 +177,11 @@ def validate_graph(nodes_file_path: str,
             del prim_data["node_set"]
 
             prim_data["subject_prefixes"] = sort_dict_by_values(dict(prim_data["subject_prefixes"]))
-            # TODO need to convert to string keys here
-            prim_data["subject_types"] = sort_dict_by_values(dict(prim_data["subject_types"]))
+            prim_data["subject_types"] = convert_type_count_dict_to_list(prim_data["subject_types"])
             prim_data["predicates"] = sort_dict_by_values(dict(prim_data["predicates"]))
             prim_data["object_prefixes"] = sort_dict_by_values(dict(prim_data["object_prefixes"]))
-            # TODO need to convert to string keys here
-            prim_data["object_types"] = sort_dict_by_values(dict(prim_data["object_types"]))
-            # TODO need to convert to string keys here
-            prim_data["s-p-o_types"] = sort_dict_by_values(dict(prim_data["s-p-o_types"]))
+            prim_data["object_types"] = convert_type_count_dict_to_list(prim_data["object_types"])
+            prim_data["s-p-o_types"] = convert_type_count_dict_to_list(prim_data["s-p-o_types"])
 
     # validate the knowledge sources with the biolink model
     bl_inforesources = BiolinkInformationResources()
@@ -214,10 +206,11 @@ def validate_graph(nodes_file_path: str,
                 logger.warning(warning_message)
             else:
                 print(warning_message)
+
     qc_metadata['primary_knowledge_sources'] = sorted(all_primary_knowledge_sources)
     qc_metadata['aggregator_knowledge_sources'] = sorted(all_aggregator_knowledge_sources)
     qc_metadata['node_curie_prefixes'] = sort_dict_by_values({k: v for k, v in node_curie_prefixes.items()})
-    qc_metadata['node_types'] = sort_dict_by_values(node_type_counts)
+    qc_metadata['node_types'] = node_type_counts
     qc_metadata['node_properties'] = sorted(all_node_properties)
     qc_metadata['predicate_totals'] = sort_dict_by_values({k: v for k, v in predicate_counts.items()})
     qc_metadata['edges_with_publications'] = sort_dict_by_values({k: v for k, v in edges_with_publications.items()})
