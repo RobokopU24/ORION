@@ -56,12 +56,12 @@ class DrugCentralLoader(SourceDataLoader):
         self.excluded_stys = ['T002', 'T007', 'T034', 'T040', 'T042', 'T058', 'T059', 'T060', 'T061',
                               'T109', 'T121', 'T130', 'T131', 'T167']
 
-        self.chemical_phenotype_query = '''select struct_id, relationship_name, umls_cui, cui_semantic_type
-                                           from public.omop_relationship
-                                           where umls_cui is not null
-                                           and (cui_semantic_type is null or cui_semantic_type not in ('T002', 'T007', 'T034', 'T040', 'T042',
-                                                                                                        'T058', 'T059', 'T060', 'T061', 'T109',
-                                                                                                        'T121', 'T130', 'T131', 'T167'))'''
+        # Build the SQL query using the excluded STYs list
+        excluded_stys_sql = ', '.join(f"'{sty}'" for sty in self.excluded_stys)
+        self.chemical_phenotype_query = f'''select struct_id, relationship_name, umls_cui, cui_semantic_type
+                                            from public.omop_relationship
+                                            where umls_cui is not null
+                                            and (cui_semantic_type is null or cui_semantic_type not in ({excluded_stys_sql}))'''
 
         self.faers_query = 'SELECT struct_id, meddra_code, llr FROM public.faers ' \
                            'WHERE llr > llr_threshold and drug_ae > 25'
