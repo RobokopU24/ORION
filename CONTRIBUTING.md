@@ -1,7 +1,10 @@
 ## Contributing to ORION
-ORION welcomes contributions to the code base. Implementing parsers for new data sources or improving existing ones is always helpful. Feel free to contact the [maintainer](https://github.com/EvanDietzMorris/) or submit a github issue with any questions.
 
-### For Developers
+ORION is an open source project and welcomes suggestions or contributions.
+
+Implementing parsers for new data sources or improving existing ones is always helpful. Feel free to contact the [maintainer](https://github.com/EvanDietzMorris/) or submit a github issue with any questions.
+
+### Adding a new data source
 
 To add a new data source to ORION, create a new parser. Each parser extends the SourceDataLoader interface in Common/loader_interface.py.
 
@@ -38,5 +41,3 @@ Implement parse_data(). This function should parse the data files and populate l
 Finally, add your source to the list of sources in Common/data_sources.py. The source ID string here should match the one specified in the new parser. Also add your source to the SOURCE_DATA_LOADER_CLASS_IMPORTS dictionary, mapping it to the new parser class.
 
 Now you can use that source ID in a graph spec to include your new source in a graph, or as the source id using load_manager.py.
-
-Always run the pytest tests after altering the codebase.
