@@ -1,4 +1,5 @@
 import os
+import re
 import gzip
 
 from collections import defaultdict
@@ -8,11 +9,12 @@ from Common.kgxmodel import kgxnode
 from Common.prefixes import CHEBI
 
 RELATION_TYPE_ID_COLUMN = 1
-RELATION_INIT_ID_COLUMN = 2
-RELATION_FINAL_ID_COLUMN = 3
+RELATION_INIT_ID_COLUMN = 3  # This mistake stemmed from the relation.tsv column swap
+RELATION_FINAL_ID_COLUMN = 2  # This mistake stemmed from the relation.tsv column swap
 
 COMPOUNDS_CHEBI_ID_COLUMN = 6
 COMPOUNDS_CHEBI_NAME_COLUMN = 1
+COMPOUNDS_CHEBI_ASCII_NAME_COLUMN = 8  # The names are currently badly coded, so ascii to the rescue
 
 CHEBI_ROLES_TO_IGNORE = ["CHEBI:50906",  # role
                          "CHEBI:24432",  # biological role
@@ -77,7 +79,7 @@ class ChebiPropertiesLoader(SourceDataLoader):
         """
 
         chebi_roles = self.read_roles()
-
+        print(list(chebi_roles)[0])
         # iterate through the compounds file and create a dictionary of chebi_id -> name
         names = {}
         skipped_header = False
@@ -92,7 +94,9 @@ class ChebiPropertiesLoader(SourceDataLoader):
 
                 compounds_line = line.strip().split('\t')
                 chebi_id = compounds_line[COMPOUNDS_CHEBI_ID_COLUMN]
-                cname = compounds_line[COMPOUNDS_CHEBI_NAME_COLUMN]
+                # cname = compounds_line[COMPOUNDS_CHEBI_NAME_COLUMN]  # The names encoding has some issues for now
+                # if self.has_html(cname):
+                cname = compounds_line[COMPOUNDS_CHEBI_ASCII_NAME_COLUMN]
                 names[chebi_id] = cname
 
         # init the record counters
@@ -138,6 +142,9 @@ class ChebiPropertiesLoader(SourceDataLoader):
         formatted_name = formatted_name.replace("(", "_").replace(")", "_").\
             replace(".*", "").replace("-", "_").replace("__", "_").replace("__", "_")
         return formatted_name
+
+    # def has_html(self, text):
+    #     return bool(re.search(r'<[^>]+>', str(text)))
 
     def update_ancestors(self, ancestors, parent, is_a_relationships):
         kids = is_a_relationships[parent]
