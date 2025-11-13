@@ -198,7 +198,7 @@ def analyze_graph(nodes_file_path: str,
     return {
         "@id": graph_metadata.id,
         "@type": "sc:Dataset",
-        "name": f"translator_{graph_metadata.name}_kg",
+        "name": graph_metadata.name,
         "description": graph_metadata.description,
         "license": graph_metadata.license,
         "url": graph_metadata.url,
