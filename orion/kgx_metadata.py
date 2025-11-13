@@ -1,11 +1,9 @@
-
-import json
 from collections import defaultdict
 from dataclasses import dataclass, field, asdict
 
-from Common.utils import quick_jsonl_file_iterator
-from Common.biolink_utils import BiolinkUtils
-from Common.biolink_constants import *
+from orion.utils import quick_jsonl_file_iterator
+from orion.biolink_utils import BiolinkUtils
+from orion.biolink_constants import *
 
 
 @dataclass
