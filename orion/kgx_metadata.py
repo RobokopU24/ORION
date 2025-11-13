@@ -13,6 +13,7 @@ class KGXSource:
     description: str = ""
     license: str = ""
     url: str = ""
+    version: str = ""
 
 @dataclass
 class KGXNodeType:
