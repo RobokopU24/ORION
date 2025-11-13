@@ -42,7 +42,10 @@ class KGXGraphMetadata:
     description: str = ""
     license: str = ""
     url: str = ""
+    version: str = ""
+    date_created: str = ""
     biolink_version: str = ""
+    babel_version: str = ""
     kgx_sources: list[KGXSource] = field(default_factory=list[KGXSource])
 
 
@@ -201,6 +204,9 @@ def analyze_graph(nodes_file_path: str,
         "description": graph_metadata.description,
         "license": graph_metadata.license,
         "url": graph_metadata.url,
+        "dateCreated": graph_metadata.date_created,
+        "biolinkVersion": graph_metadata.biolink_version,
+        "babelVersion": graph_metadata.babel_version,
         "distribution": [{
             "@id": f"{graph_metadata.name}.tar.xz",
             "@type": "cr:FileObject",
