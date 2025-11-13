@@ -2,10 +2,10 @@ import os
 import orjson
 from collections import defaultdict
 
-from Common.utils import quick_jsonl_file_iterator
-from Common.biolink_utils import BiolinkUtils, BiolinkInformationResources, \
+from orion.utils import quick_jsonl_file_iterator
+from orion.biolink_utils import BiolinkUtils, BiolinkInformationResources, \
     INFORES_STATUS_INVALID, INFORES_STATUS_DEPRECATED
-from Common.biolink_constants import *
+from orion.biolink_constants import *
 
 
 # this just sorts a dicts keys by its values
