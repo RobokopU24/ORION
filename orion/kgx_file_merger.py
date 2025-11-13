@@ -24,14 +24,15 @@ class KGXFileMerger:
                  graph_spec: GraphSpec,
                  output_directory: str = None,
                  nodes_output_filename: str = None,
-                 edges_output_filename: str = None):
+                 edges_output_filename: str = None,
+                 save_memory: bool = False):
         self.graph_spec = graph_spec
         self.output_directory = output_directory
         self.nodes_output_filename = nodes_output_filename
         self.edges_output_filename = edges_output_filename
         self.merge_metadata = self.init_merge_metadata()
-        self.edge_graph_merger: GraphMerger = self.init_edge_graph_merger()
-        self.node_graph_merger = MemoryGraphMerger()
+        self.edge_graph_merger: GraphMerger = self.init_edge_graph_merger(save_memory=save_memory)
+        self.node_graph_merger = MemoryGraphMerger() if not save_memory else DiskGraphMerger()
         # these will be edge files that have a dont_merge merge strategy
         self.unmerged_edge_files = {}
 
@@ -173,7 +174,7 @@ class KGXFileMerger:
             merge_error_msg = f'Merge attempted for {self.graph_spec.graph_id} but merged files already existed!'
             logger.error(merge_error_msg)
             self.merge_metadata['merge_error'] = merge_error_msg
-            return
+            return 0, 0
 
         logger.info(f'Writing merged nodes to file...')
         nodes_written = 0
@@ -207,17 +208,19 @@ class KGXFileMerger:
                     all_unmerged_edges_count += edges_count
         return all_unmerged_edges_count
 
-    def init_edge_graph_merger(self) -> GraphMerger:
-        needs_on_disk_merge = False
-        for graph_source in chain(self.graph_spec.sources, self.graph_spec.subgraphs):
-            if isinstance(graph_source, SubGraphSource):
-                for source_id in graph_source.graph_metadata.get_source_ids():
-                    if source_id in RESOURCE_HOGS:
-                        needs_on_disk_merge = True
-                        break
-            elif graph_source.id in RESOURCE_HOGS:
-                needs_on_disk_merge = True
-                break
+    def init_edge_graph_merger(self, save_memory: bool = False) -> GraphMerger:
+        needs_on_disk_merge = True
+        if not save_memory:
+            needs_on_disk_merge = False
+            for graph_source in chain(self.graph_spec.sources, self.graph_spec.subgraphs):
+                if isinstance(graph_source, SubGraphSource):
+                    for source_id in graph_source.graph_metadata.get_source_ids():
+                        if source_id in RESOURCE_HOGS:
+                            needs_on_disk_merge = True
+                            break
+                elif graph_source.id in RESOURCE_HOGS:
+                    needs_on_disk_merge = True
+                    break
         if needs_on_disk_merge:
             if self.output_directory is None:
                 raise IOError(f'DiskGraphMerger attempted but no output directory was specified.')
