@@ -32,7 +32,8 @@ class KGXFileMerger:
         self.edges_output_filename = edges_output_filename
         self.merge_metadata = self.init_merge_metadata()
         self.edge_graph_merger: GraphMerger = self.init_edge_graph_merger(save_memory=save_memory)
-        self.node_graph_merger = MemoryGraphMerger() if not save_memory else DiskGraphMerger()
+        self.node_graph_merger = MemoryGraphMerger() if not save_memory \
+            else DiskGraphMerger(temp_directory=self.output_directory)
         # these will be edge files that have a dont_merge merge strategy
         self.unmerged_edge_files = {}
 
