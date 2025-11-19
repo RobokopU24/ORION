@@ -17,6 +17,21 @@ logger = LoggingUtil.init_logging("ORION.Common.merging",
                                   line_format='medium',
                                   log_file_path=os.getenv('ORION_LOGS'))
 
+# Key functions for identifying duplicates during entity merging.
+# Add entries to CUSTOM_KEY_FUNCTIONS to define custom matching logic for specific properties.
+
+# Default key function: dictionaries are duplicates if they have identical JSON representation
+def default_dict_merge_key(entity):
+    return quick_json_dumps(entity)
+
+# Retrieval sources are duplicates if they have the same resource id and resource role
+def retrieval_sources_key(retrieval_source):
+    return retrieval_source[RETRIEVAL_SOURCE_ID] + retrieval_source[RETRIEVAL_SOURCE_ROLE]
+
+# Map property names to their custom key functions
+CUSTOM_KEY_FUNCTIONS = {
+    RETRIEVAL_SOURCES: retrieval_sources_key
+}
 
 def node_key_function(node):
     return node['id']
@@ -37,15 +52,14 @@ def entity_merging_function(entity_1, entity_2):
     # for every property of entity 2
     for key, entity_2_value in entity_2.items():
         # if entity 1 also has the property and entity_2_value is not null/empty:
-        # concatenate values if one is a list, otherwise ignore the property from entity 2
         if (key in entity_1) and entity_2_value:
-
-
             entity_1_value = entity_1[key]
+
+            # check if one or both of them are lists so we can combine them
             entity_1_is_list = isinstance(entity_1_value, list)
             entity_2_is_list = isinstance(entity_2_value, list)
             if entity_1_is_list and entity_2_is_list:
-                # if they're both lists just combine them
+                # if they're both lists just concat them
                 entity_1_value.extend(entity_2_value)
             elif entity_1_is_list:
                 # if 1 is a list and 2 isn't, append the value of 2 to the list from 1
@@ -60,9 +74,24 @@ def entity_merging_function(entity_1, entity_2):
             # else:
                 # if neither is a list, do nothing (keep the value from 1)
 
-            # if either is a list cast to set and back to remove duplicate values
+            # if either was a list remove duplicate values
             if entity_1_is_list or entity_2_is_list:
-                entity_1[key] = sorted(list(set(entity_1[key])))
+                # if the list is of dictionaries
+                if isinstance(entity_1[key][0], dict):
+                    # Use a custom key function to determine matches if there is one
+                    key_function = CUSTOM_KEY_FUNCTIONS.get(key, default_dict_merge_key)
+                    # Group dictionaries by their key
+                    grouped = {}
+                    for item in entity_1[key]:
+                        item_key = key_function(item)
+                        if item_key in grouped:
+                            # Recursively merge with existing item
+                            grouped[item_key] = entity_merging_function(grouped[item_key], item)
+                        else:
+                            grouped[item_key] = item
+                    entity_1[key] = list(grouped.values())
+                else:
+                    entity_1[key] = sorted(list(set(entity_1[key])))
         else:
             # if entity 1 doesn't have the property, add the property from entity 2
             entity_1[key] = entity_2_value

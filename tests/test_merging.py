@@ -254,23 +254,62 @@ def test_qualifier_edge_merging():
 
 def remove_duplicates(graph_merger: GraphMerger):
 
-    test_edges = [{SUBJECT_ID: f'NODE:1',
-                   PREDICATE: 'testing:predicate',
-                   OBJECT_ID: f'NODE:2',
-                   'int_property': [1, 2, 3, 4, 5],
-                   'string_property': ["a", "b", "c", "d"]},
-                  {SUBJECT_ID: f'NODE:1',
-                   PREDICATE: 'testing:predicate',
-                   OBJECT_ID: f'NODE:2',
-                   'int_property': [4, 5, 6, 1],
-                   'string_property': ["c", "d", "e", "f"]}
-                  ]
+    test_edges = [
+        {SUBJECT_ID: f'NODE:1',
+         PREDICATE: 'testing:predicate',
+         OBJECT_ID: f'NODE:2',
+         'int_property': [1, 2, 3, 4, 5],
+         'string_property': ["a", "b", "c", "d"],
+         RETRIEVAL_SOURCES: [
+             {"id": "rs1",
+              RETRIEVAL_SOURCE_ID: "source_A",
+              RETRIEVAL_SOURCE_ROLE: "primary",
+              "upstream_resource_ids": ["upstream_1", "upstream_2"]},
+             {"id": "rs2",
+              RETRIEVAL_SOURCE_ID: "source_B",
+              RETRIEVAL_SOURCE_ROLE: "supporting",
+              "upstream_resource_ids": ["upstream_3"]},
+             {"id": "rs3",
+              RETRIEVAL_SOURCE_ID: "source_C",
+              RETRIEVAL_SOURCE_ROLE: "aggregator",
+              "upstream_resource_ids": ["upstream_4", "upstream_5"]}
+         ]},
+        {SUBJECT_ID: f'NODE:1',
+         PREDICATE: 'testing:predicate',
+         OBJECT_ID: f'NODE:2',
+         'int_property': [4, 5, 6, 1],
+         'string_property': ["c", "d", "e", "f"],
+         RETRIEVAL_SOURCES: [
+             {"id": "rs4",  # duplicate, should merge
+              RETRIEVAL_SOURCE_ID: "source_A",
+              RETRIEVAL_SOURCE_ROLE: "primary",
+              "upstream_resource_ids": ["upstream_2", "upstream_6"]},
+             {"id": "rs5",
+              RETRIEVAL_SOURCE_ID: "source_D",
+              RETRIEVAL_SOURCE_ROLE: "aggregator",
+              "upstream_resource_ids": ["upstream_7"]},
+             {"id": "rs6",  # different role, not a duplicate
+              RETRIEVAL_SOURCE_ID: "source_B",
+              RETRIEVAL_SOURCE_ROLE: "aggregator",
+              "upstream_resource_ids": ["upstream_8"]}
+         ]},
+    ]
     graph_merger.merge_edges(test_edges)
 
     merged_edges = [json.loads(edge) for edge in graph_merger.get_merged_edges_jsonl()]
     assert len(merged_edges) == 1
     assert merged_edges[0]['int_property'] == [1, 2, 3, 4, 5, 6]
     assert merged_edges[0]['string_property'] == ["a", "b", "c", "d", "e", "f"]
+    # Should have 5 retrieval sources after merging (source_A+primary merged, rest unique)
+    assert len(merged_edges[0][RETRIEVAL_SOURCES]) == 5
+
+    # Find the merged source_A+primary retrieval source and verify upstream_resource_ids were merged
+    source_a_primary = [rs for rs in merged_edges[0][RETRIEVAL_SOURCES]
+                        if rs[RETRIEVAL_SOURCE_ID] == "source_A"
+                        and rs[RETRIEVAL_SOURCE_ROLE] == "primary"][0]
+    # Should have upstream_1, upstream_2, upstream_6 (upstream_2 deduplicated)
+    assert len(source_a_primary["upstream_resource_ids"]) == 3
+    assert set(source_a_primary["upstream_resource_ids"]) == {"upstream_1", "upstream_2", "upstream_6"}
 
 def test_remove_duplicates_in_memory():
     remove_duplicates(MemoryGraphMerger())
