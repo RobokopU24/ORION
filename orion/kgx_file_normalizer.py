@@ -2,8 +2,9 @@ import os
 import json
 import jsonlines
 import logging
-from orion.biolink_constants import SEQUENCE_VARIANT, SOURCES, PRIMARY_KNOWLEDGE_SOURCE, AGGREGATOR_KNOWLEDGE_SOURCES, \
-    PUBLICATIONS, OBJECT_ID, SUBJECT_ID, PREDICATE, SUBCLASS_OF, ORIGINAL_OBJECT, ORIGINAL_SUBJECT
+from orion.biolink_constants import (SEQUENCE_VARIANT, RETRIEVAL_SOURCES, PRIMARY_KNOWLEDGE_SOURCE,
+                                     AGGREGATOR_KNOWLEDGE_SOURCES, PUBLICATIONS, OBJECT_ID, SUBJECT_ID, PREDICATE,
+                                     SUBCLASS_OF, ORIGINAL_OBJECT, ORIGINAL_SUBJECT)
 from orion.normalization import NormalizationScheme, NodeNormalizer, EdgeNormalizer, EdgeNormalizationResult, \
     NormalizationFailedError
 from orion.utils import LoggingUtil, chunk_iterator
@@ -287,7 +288,7 @@ class KGXFileNormalizer:
                             edge_count = 0
 
                             # ensure edge has a primary knowledge source
-                            if SOURCES not in edge and PRIMARY_KNOWLEDGE_SOURCE not in edge:
+                            if RETRIEVAL_SOURCES not in edge and PRIMARY_KNOWLEDGE_SOURCE not in edge:
                                 edge[PRIMARY_KNOWLEDGE_SOURCE] = self.default_provenance
 
                             for norm_subject_id in normalized_subject_ids:

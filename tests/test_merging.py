@@ -144,12 +144,16 @@ def edge_merging_counts_test(graph_merger: GraphMerger):
         edge = {SUBJECT_ID: f'NODE:{i}',
                 PREDICATE: 'testing:predicate_1',
                 OBJECT_ID: f'NODE:{i+1}',
-                'testing_property': [f'{i}']}
+                'string_property': f'{i}',
+                'string_list_property': [f'edges_1_10_{i}'],
+                'int_property': i}
         edges_1_10_pred_1.append(edge)
         edge = {SUBJECT_ID: f'NODE:{i}',
                 PREDICATE: 'testing:predicate_2',
                 OBJECT_ID: f'NODE:{i+1}',
-                'testing_property': [f'{i}']}
+                'string_property': f'{i}',
+                'string_list_property': [f'edges_1_10_{i}'],
+                'int_property': i}
         edges_1_10_pred_2.append(edge)
     edges_6_20_pred_1 = []
     edges_6_20_pred_2 = []
@@ -157,12 +161,16 @@ def edge_merging_counts_test(graph_merger: GraphMerger):
         edge = {SUBJECT_ID: f'NODE:{i}',
                 PREDICATE: 'testing:predicate_1',
                 OBJECT_ID: f'NODE:{i+1}',
-                'testing_property': [f'{i}']}
+                'string_property': f'{i}',
+                'string_list_property': [f'edges_6_21_{i}'],
+                'int_property': 999999}
         edges_6_20_pred_1.append(edge)
         edge = {SUBJECT_ID: f'NODE:{i}',
                 PREDICATE: 'testing:predicate_2',
                 OBJECT_ID: f'NODE:{i+1}',
-                'testing_property': [f'{i}']}
+                'string_property': f'{i}',
+                'string_list_property': [f'edges_6_21_{i}'],
+                'int_property': 999999}
         edges_6_20_pred_2.append(edge)
 
     input_edge_counter = 0
@@ -176,11 +184,12 @@ def edge_merging_counts_test(graph_merger: GraphMerger):
     assert len(merged_edges) == 40
     for edge in merged_edges:
         if int(edge[SUBJECT_ID].split(':')[1]) < 6:
-            assert len(edge['testing_property']) == 1
+            assert len(edge['string_list_property']) == 1
         elif int(edge[SUBJECT_ID].split(':')[1]) < 11:
-            assert len(edge['testing_property']) == 2
+            assert len(edge['string_list_property']) == 2
         else:
-            assert len(edge['testing_property']) == 1
+            assert len(edge['string_list_property']) == 1
+        assert edge['int_property'] == int(edge[SUBJECT_ID].split(':')[1]) or edge['int_property'] == 999999
 
     assert graph_merger.merged_edge_counter == 10
 
@@ -226,6 +235,7 @@ def test_qualifier_edge_merging():
 
     merged_edges = [json.loads(edge) for edge in graph_merger.get_merged_edges_jsonl()]
     assert len(merged_edges) == 3
+    assert graph_merger.merged_edge_counter == 27
 
     passed_tests = 0
     for edge in merged_edges:
@@ -239,7 +249,33 @@ def test_qualifier_edge_merging():
         elif edge[SUBJECT_DIRECTION_QUALIFIER] == 'down' and SPECIES_CONTEXT_QUALIFIER in edge:
             assert len(edge['testing_prop']) == 5
             passed_tests += 1
-
     assert passed_tests == 3
 
+
+def remove_duplicates(graph_merger: GraphMerger):
+
+    test_edges = [{SUBJECT_ID: f'NODE:1',
+                   PREDICATE: 'testing:predicate',
+                   OBJECT_ID: f'NODE:2',
+                   'int_property': [1, 2, 3, 4, 5],
+                   'string_property': ["a", "b", "c", "d"]},
+                  {SUBJECT_ID: f'NODE:1',
+                   PREDICATE: 'testing:predicate',
+                   OBJECT_ID: f'NODE:2',
+                   'int_property': [4, 5, 6, 1],
+                   'string_property': ["c", "d", "e", "f"]}
+                  ]
+    graph_merger.merge_edges(test_edges)
+
+    merged_edges = [json.loads(edge) for edge in graph_merger.get_merged_edges_jsonl()]
+    assert len(merged_edges) == 1
+    assert merged_edges[0]['int_property'] == [1, 2, 3, 4, 5, 6]
+    assert merged_edges[0]['string_property'] == ["a", "b", "c", "d", "e", "f"]
+
+def test_remove_duplicates_in_memory():
+    remove_duplicates(MemoryGraphMerger())
+
+
+def test_remove_duplicates_on_disk():
+    remove_duplicates(DiskGraphMerger(temp_directory=TEMP_DIRECTORY, chunk_size=8))
 

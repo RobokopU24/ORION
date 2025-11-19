@@ -6,12 +6,11 @@ from orion.biolink_utils import BiolinkUtils
 from orion.biolink_constants import *
 from orion.utils import quick_json_loads, quick_json_dumps, chunk_iterator, LoggingUtil
 
-NODE_PROPERTIES_THAT_SHOULD_BE_SETS = {SYNONYMS, NODE_TYPES, SYNONYM}
-EDGE_PROPERTIES_THAT_SHOULD_BE_SETS = {AGGREGATOR_KNOWLEDGE_SOURCES, PUBLICATIONS, XREFS}
 
 NODE_ENTITY_TYPE = 'node'
 EDGE_ENTITY_TYPE = 'edge'
 
+# TODO ideally we'd make the biolink model version configurable here
 bmt = BiolinkUtils()
 
 logger = LoggingUtil.init_logging("ORION.Common.merging",
@@ -34,12 +33,14 @@ def edge_key_function(edge, custom_key_attributes=None):
         return xxh64_hexdigest(standard_attributes)
 
 
-def entity_merging_function(entity_1, entity_2, properties_that_are_sets):
+def entity_merging_function(entity_1, entity_2):
     # for every property of entity 2
     for key, entity_2_value in entity_2.items():
         # if entity 1 also has the property and entity_2_value is not null/empty:
         # concatenate values if one is a list, otherwise ignore the property from entity 2
         if (key in entity_1) and entity_2_value:
+
+
             entity_1_value = entity_1[key]
             entity_1_is_list = isinstance(entity_1_value, list)
             entity_2_is_list = isinstance(entity_2_value, list)
@@ -57,9 +58,11 @@ def entity_merging_function(entity_1, entity_2, properties_that_are_sets):
                     # if 2 is a list and 1 doesn't have a value, just use the list from 2
                     entity_1[key] = entity_2_value
             # else:
-            # if neither is a list, do nothing (keep the value from 1)
-            if (entity_1_is_list or entity_2_is_list) and (key in properties_that_are_sets):
-                entity_1[key] = list(set(entity_1[key]))
+                # if neither is a list, do nothing (keep the value from 1)
+
+            # if either is a list cast to set and back to remove duplicate values
+            if entity_1_is_list or entity_2_is_list:
+                entity_1[key] = sorted(list(set(entity_1[key])))
         else:
             # if entity 1 doesn't have the property, add the property from entity 2
             entity_1[key] = entity_2_value
@@ -241,10 +244,10 @@ class DiskGraphMerger(GraphMerger):
                 while next_key == min_key:
                     if merged_entity:
                         if entity_type == NODE_ENTITY_TYPE:
-                            merged_entity = merge_function(merged_entity, next_entity, NODE_PROPERTIES_THAT_SHOULD_BE_SETS)
+                            merged_entity = merge_function(merged_entity, next_entity)
                             self.merged_node_counter += 1
                         else:
-                            merged_entity = merge_function(merged_entity, next_entity, EDGE_PROPERTIES_THAT_SHOULD_BE_SETS)
+                            merged_entity = merge_function(merged_entity, next_entity)
                             self.merged_edge_counter += 1
                     else:
                         merged_entity = next_entity
@@ -291,8 +294,7 @@ class MemoryGraphMerger(GraphMerger):
             self.merged_node_counter += 1
             previous_node = self.nodes[node_key]
             merged_node = entity_merging_function(previous_node,
-                                                  node,
-                                                  NODE_PROPERTIES_THAT_SHOULD_BE_SETS)
+                                                  node)
             self.nodes[node_key] = merged_node
         else:
             self.nodes[node_key] = node
@@ -310,8 +312,7 @@ class MemoryGraphMerger(GraphMerger):
         if edge_key in self.edges:
             self.merged_edge_counter += 1
             merged_edge = entity_merging_function(quick_json_loads(self.edges[edge_key]),
-                                                  edge,
-                                                  EDGE_PROPERTIES_THAT_SHOULD_BE_SETS)
+                                                  edge)
             if add_edge_id is True:
                 merged_edge[EDGE_ID] = edge_key
             self.edges[edge_key] = quick_json_dumps(merged_edge)
