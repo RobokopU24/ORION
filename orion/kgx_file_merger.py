@@ -77,17 +77,18 @@ class KGXFileMerger:
             self.merge_metadata["merge_error"] = error_message
             return
 
-        self.merge_metadata['merged_nodes'] = self.node_graph_merger.merged_node_counter
-        self.merge_metadata['merged_edges'] = self.edge_graph_merger.merged_edge_counter
-
-        # NOTE about final counts, the implementation of DiskGraphMerger makes determining final counts impossible until
-        # the output files are written, because that's when the merging actually happens.
+        # NOTE about metadata counts:
+        # The implementation of DiskGraphMerger makes determining final and merging counts impossible until the output
+        # files are written because that's when the merging actually happens. So while you could use this without
+        # writing files, if using DiskGraphMerger the counts won't get updated.
         if self.nodes_output_filename and self.edges_output_filename:
             merged_nodes_written, merged_edges_written = self.__write_merged_graph_to_file()
             unmerged_edges_written = self.__write_unmerged_edges_to_file()
             self.merge_metadata['unmerged_edge_count'] = unmerged_edges_written
             self.merge_metadata['final_node_count'] += merged_nodes_written
             self.merge_metadata['final_edge_count'] += merged_edges_written + unmerged_edges_written
+            self.merge_metadata['merged_nodes'] += self.node_graph_merger.merged_node_counter
+            self.merge_metadata['merged_edges'] += self.edge_graph_merger.merged_edge_counter
 
     def merge_primary_sources(self,
                               graph_sources: list):
@@ -232,6 +233,8 @@ class KGXFileMerger:
     @staticmethod
     def init_merge_metadata():
         return {'sources': {},
+                'merged_nodes': 0,
+                'merged_edges': 0,
                 'final_node_count': 0,
                 'final_edge_count': 0}
 
@@ -285,9 +288,10 @@ def merge_kgx_files(output_dir: str,
 
     merge_metadata = file_merger.get_merge_metadata()
     if "merge_error" in merge_metadata:
-        print(f'Merge error occured: {merge_metadata["merge_error"]}')
+        logger.error(f'Merge error occured: {merge_metadata["merge_error"]}')
         return False
     else:
         metadata_output = os.path.join(output_dir, f"{graph_id}_metadata.json")
         with open(metadata_output, 'w') as metadata_file:
             metadata_file.write(json.dumps(merge_metadata, indent=4))
+        return True
