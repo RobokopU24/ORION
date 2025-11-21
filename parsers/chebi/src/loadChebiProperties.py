@@ -32,7 +32,7 @@ class ChebiPropertiesLoader(SourceDataLoader):
 
     # Setting the class level variables for the source ID and provenance
     source_id: str = 'CHEBIProps'
-    parsing_version = '1.3'
+    parsing_version = '1.4'
     preserve_unconnected_nodes = True
 
     def __init__(self, test_mode: bool = False, source_data_dir: str = None):
@@ -79,7 +79,6 @@ class ChebiPropertiesLoader(SourceDataLoader):
         """
 
         chebi_roles = self.read_roles()
-        print(list(chebi_roles)[0])
         # iterate through the compounds file and create a dictionary of chebi_id -> name
         names = {}
         skipped_header = False
