@@ -255,9 +255,8 @@ class NodeNormalizer:
                     current_node[INFORMATION_CONTENT] = current_node_normalization[INFORMATION_CONTENT]
                 if 'description' in current_node_id_section:
                     current_node[DESCRIPTION] = current_node_id_section['description']
-                # we'd like to do this but there's no biolink node property for it
-                # if 'taxa' in current_node_id_section:
-                #    current_node[something] = current_node_id_section['taxa']
+                if 'taxa' in current_node_id_section:
+                    current_node[TAXON] = current_node_id_section['taxa']
 
                 self.node_normalization_lookup[current_node_id] = [normalized_id]
             else:

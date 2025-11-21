@@ -36,7 +36,7 @@ SYNONYM = 'synonym'
 TRADE_NAME = 'trade_name'
 CHEMICAL_ROLE = 'chemical_role'
 HAS_CHEMICAL_FORMULA = 'has_chemical_formula'
-IN_TAXON = 'in_taxon'
+TAXON = 'taxon'
 ROUTES_OF_DELIVERY = 'routes_of_delivery'
 SYMBOL = 'symbol'
 
@@ -138,7 +138,7 @@ BIOLINK_NODE_PROPERTIES = [
     HAS_CHEMICAL_FORMULA,
     FDA_APPROVAL_STATUS,
     MECHANISM_OF_ACTION,
-    IN_TAXON,
+    TAXON,
     ROUTES_OF_DELIVERY,
     SYMBOL
 ]
