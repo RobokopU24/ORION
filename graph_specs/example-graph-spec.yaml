@@ -4,15 +4,16 @@ graphs:
     graph_name: Example Graph
     graph_description: 'This is a small graph that can be used as an example.'
     graph_url: ''
-    output_format: neo4j
+    output_format:
+    # here are some examples of graph wide graph spec options
+    # node_normalization_version: '2.3.18'
+    # edge_normalization_version: '4.2.1'
+    # conflation: False
+    # strict_normalization: True
     sources:
-      - source_id: CTD
-        # source_version: November_2024
-        # parsing_version: 1.5
-        # node_normalization_version: 2.3.18
-        # edge_normalization_version: 4.2.1
-        # conflation: False
-        # strict_normalization: True
+      - source_id: GtoPdb
+        # here are some examples of source specific graph spec options
+        # source_version: '2025.3'
+        # parsing_version: '1.4'
         # merge_strategy:
       - source_id: HGNC
-      - source_id: GtoPdb

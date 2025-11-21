@@ -47,8 +47,21 @@ class DrugCentralLoader(SourceDataLoader):
 
         self.drug_central_db = None
 
-        self.chemical_phenotype_query = 'select struct_id, relationship_name, umls_cui from public.omop_relationship ' \
-                                        'where umls_cui is not null'
+        # Filter out semantic types that don't represent diseases/conditions that can be treated
+        # T037 (Injury/Poisoning) and T116 (Protein - for cachexia) are kept as legitimate treatment targets
+        # Filtered STYs:
+        # - T002 (Plant), T007 (Bacterium), T034 (Lab Result), T040 (Organism Function), T042 (Organ Function)
+        # - T058 (Health Care Activity), T059 (Lab Procedure), T060 (Diagnostic Procedure), T061 (Therapeutic Procedure)
+        # - T109 (Organic Chemical), T121 (Pharmacologic Substance), T130 (Diagnostic Aid), T131 (Hazardous Substance), T167 (Substance)
+        self.excluded_stys = ['T002', 'T007', 'T034', 'T040', 'T042', 'T058', 'T059', 'T060', 'T061',
+                              'T109', 'T121', 'T130', 'T131', 'T167']
+
+        # Build the SQL query using the excluded STYs list
+        excluded_stys_sql = ', '.join(f"'{sty}'" for sty in self.excluded_stys)
+        self.chemical_phenotype_query = f'''select struct_id, relationship_name, umls_cui, cui_semantic_type
+                                            from public.omop_relationship
+                                            where umls_cui is not null
+                                            and (cui_semantic_type is null or cui_semantic_type not in ({excluded_stys_sql}))'''
 
         self.faers_query = 'SELECT struct_id, meddra_code, llr FROM public.faers ' \
                            'WHERE llr > llr_threshold and drug_ae > 25'

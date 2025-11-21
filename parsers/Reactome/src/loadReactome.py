@@ -264,12 +264,17 @@ class ReactomeLoader(SourceDataLoader):
 
     def get_reference_entity_mapping(self, neo4j_session):
         reference_entity_mapping = {}
-        # The following line excludes Pathways from ID mapping because we only want to map them to GO terms, like 2 lines below.
-        reference_entity_query = "MATCH (a)-[r:referenceEntity|crossReference]->(b) WHERE NOT('Pathway' in labels(a)) return id(a) as identity, b as reference, labels(b) as ref_labels"
+        # Split into two queries to avoid problematic PhysicalEntity/Event crossReferences
+        # Query 1: referenceEntity links (PhysicalEntity instances -> ReferenceEntity definitions)
+        reference_entity_query = "MATCH (a)-[r:referenceEntity]->(b) WHERE NOT('Pathway' in labels(a)) return id(a) as identity, b as reference, labels(b) as ref_labels"
+        # Query 2: crossReference links (ReferenceEntity -> External DBs), excluding PhysicalEntity/Event nodes
+        cross_reference_query = "MATCH (a)-[r:crossReference]->(b) WHERE NOT('Pathway' in labels(a)) AND NOT('PhysicalEntity' in labels(a)) AND NOT('Event' in labels(a)) return id(a) as identity, b as reference, labels(b) as ref_labels"
+        # Query 3: Pathway to GO term mappings
         goBioProcess_query = "MATCH (a:Pathway)-[r:goBiologicalProcess]->(b:GO_Term) WHERE replace(toLower(a.displayName),'-',' ') = replace(toLower(b.displayName),'-',' ') return id(a) as identity, b as reference, labels(b) as ref_labels"
         reference_entity_result = neo4j_session.run(reference_entity_query)
-        goBioProcess_query = neo4j_session.run(goBioProcess_query)
-        all_crossmap_id_results = [reference_entity_result, goBioProcess_query]
+        cross_reference_result = neo4j_session.run(cross_reference_query)
+        goBioProcess_result = neo4j_session.run(goBioProcess_query)
+        all_crossmap_id_results = [reference_entity_result, cross_reference_result, goBioProcess_result]
         for result_set in all_crossmap_id_results:
             for record in result_set:
                 record_data = record.data()
