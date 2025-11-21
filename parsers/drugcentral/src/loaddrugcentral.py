@@ -18,7 +18,7 @@ class DrugCentralLoader(SourceDataLoader):
 
     source_id = 'DrugCentral'
     provenance_id = 'infores:drugcentral'
-    parsing_version: str = '1.6'
+    parsing_version: str = '1.7'
 
     omop_relationmap = {'off-label use': 'biolink:applied_to_treat',  # is substance that treats
                         'reduce risk': 'biolink:preventative_for_condition',  # is substance that treats

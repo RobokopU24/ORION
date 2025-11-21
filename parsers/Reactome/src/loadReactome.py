@@ -79,14 +79,14 @@ TO_WRITE = ('Provenance/Include','Attribute/Include') #Descriptive features of o
 TO_MAP = ('IDMapping/Include', ) # Maps the external identifier of a node from another node
 TO_INCLUDE = ('Include',)
 RDF_EDGES_TO_INCLUDE = ('RDF_edges/Include',)
-MOLE_COMPLEX = ('Include/Complex',) # 
-TO_SWITCH_MOLE_COMPLEX = ('Include/SwitchSO/Complex',) # 
+MOLE_COMPLEX = ('Include/Complex',) #
+TO_SWITCH_MOLE_COMPLEX = ('Include/SwitchSO/Complex',) #
 TO_SWITCH = ('Include/SwitchSO', )
 
 ##############
 # Class: Reactome loader
 #
-# By: Ola Olasunkanmi, Jon-Michael Beasley, and Evan Morris
+# By: Ola Olasunkanmi, Jon-Michael Beasley
 # Date: 7/20/2023
 # Desc: Class that loads/parses the reactome data.
 ##############
@@ -95,7 +95,7 @@ class ReactomeLoader(SourceDataLoader):
     # Setting the class level variables for the source ID and provenance
     source_id: str = 'Reactome'
     provenance_id: str = 'infores:reactome'
-    parsing_version = '1.3'
+    parsing_version = '1.4'
 
     def __init__(self, test_mode: bool = False, source_data_dir: str = None):
         """
@@ -144,7 +144,7 @@ class ReactomeLoader(SourceDataLoader):
         gd.pull_via_http(f'{self.data_url}{self.neo4j_dump_file}',
                          self.data_path, saved_file_name=self.saved_neo4j_dump_file)
         return True
- 
+
     def parse_data(self):
         neo4j_tools = Neo4jTools()
 
@@ -178,7 +178,7 @@ class ReactomeLoader(SourceDataLoader):
         with open(os.path.join(self.triple_path, self.triple_file), 'r') as inf:
             lines = inf.readlines()
             lines_to_process = lines[1:]
-        
+
         for line in lines_to_process:
             line = line.strip().split(',')
             if line[INCLUDE_COLUMN] in RDF_EDGES_TO_INCLUDE:
@@ -230,7 +230,7 @@ class ReactomeLoader(SourceDataLoader):
 
             # TODO Suggested implementation
             reference_entity_mapping = self.get_reference_entity_mapping(neo4j_session=session)
-    
+
             #Map other properties from the nodes summation catalystactivity ...
             # PS: Not currently in use since the content file contains only 'include'
             for cypher_query in queries_to_write:
@@ -261,7 +261,7 @@ class ReactomeLoader(SourceDataLoader):
 
     # TODO Suggested implementation
     #  this has not been tested but I would make a cypher call like this to find all of the reference entity mappings
- 
+
     def get_reference_entity_mapping(self, neo4j_session):
         reference_entity_mapping = {}
         # Split into two queries to avoid problematic PhysicalEntity/Event crossReferences
@@ -294,7 +294,7 @@ class ReactomeLoader(SourceDataLoader):
                             curie = f"{CURIE_PREFIX_MAPPING[record_data['reference']['databaseName']]}:{record_data['reference']['identifier']}"
                         except: #Allow the mapping to fail so we can see what isn't normalizing in failure logs.
                             curie = f"{record_data['reference']['databaseName']}:{record_data['reference']['identifier']}"
-                elif any(x in NORMALIZED_NODES for x in ref_labels): 
+                elif any(x in NORMALIZED_NODES for x in ref_labels):
                     curie = f"{REACTOME}:{record_data['reference']['stId']}"
                 elif ref_labels == ['DatabaseObject', 'DatabaseIdentifier']:
                         try:
@@ -341,7 +341,7 @@ class ReactomeLoader(SourceDataLoader):
             else:
                 skipped_record_count += 1
         return record_count, skipped_record_count
-    
+
     def process_node_from_neo4j(self, reference_entity_mapping, node_identity, node: dict, node_labels: list = None):
         #self.logger.info(f'processing node: {node_identity}')
         node_id = None
@@ -377,7 +377,7 @@ class ReactomeLoader(SourceDataLoader):
         if not node_id:
             self.logger.warning(f'A node ID could not be mapped for: {node_identity} (ref_map_labels: {node_labels})')
             return None
-        
+
         node_properties = {}
         if any(x == 'Complex' for x in node_labels):
             node_categories = [NAMED_THING, MACROMOLECULAR_COMPLEX]
@@ -495,9 +495,9 @@ class ReactomeLoader(SourceDataLoader):
             if s == "Summation":
                 cypher = f"MATCH (props)<-[r0:summation]-(a:{s})-[r1:{p}]->(b:{o}) " \
                         f"RETURN ref as a, labels(a) as a_labels, id(a) as a_id, type(r1) as r_type, b, labels(b) as b_labels, id(b) as b_id"
-        
+
         return cypher
-    
+
     #TODO Either delete the following function or use it in process_nodes_from_neo4j to do on-node mapping.
     """
     def on_node_mapping(self, node_identity, node, node_labels):
