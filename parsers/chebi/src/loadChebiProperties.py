@@ -1,5 +1,5 @@
 import os
-import re
+# import re
 import gzip
 
 from collections import defaultdict
