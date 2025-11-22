@@ -25,6 +25,8 @@ graphs:
         # merge_strategy: default (used to specify alternative merge strategies)
       - source_id: CCIDB
       - source_id: CHEBIProps
+      - source_id: ClinGenDosageSensitivity
+      - source_id: ClinGenGeneDiseaseValidity
       - source_id: CTD
       - source_id: DrugCentral
       - source_id: DrugMechDB
@@ -58,6 +60,7 @@ graphs:
     subgraphs:
       - graph_id: Baseline
     sources:
+      - source_id: ClinGenVariantPathogenicity
       - source_id: GWASCatalog
       - source_id: GTEx
 
@@ -103,7 +106,7 @@ graphs:
  #  graph_name: DisGeNET
  #  graph_description: 'Disease – Gene Network (DisGeNET) is an open-source database on genes and variants associated with human disease. The integrated data are derived from curated repositories, GWAS catalogs, animal models, and the scientific literature.'
  #  graph_url:
- #  output_format: 
+ #  output_format:
  #  sources:
  #    - source_id:
  #    - source_id:
