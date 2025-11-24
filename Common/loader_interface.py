@@ -115,28 +115,33 @@ class SourceDataLoader:
 
         return load_metadata
 
+    ###
+    # Check if the parser has any of these: data_file, data_files, or archive_file
+    # If so, return whether they need to be downloaded or not
+    ###
     def needs_data_download(self):
-        try:
-            # some implementations will have one data_file
-            if self.data_file:
-                downloaded_data = os.path.join(self.data_path, self.data_file)
-                # check if the one file already exists - if it does return false, does not need a download
-                if os.path.exists(downloaded_data):
-                    return False
+
+        if hasattr(self, 'data_file') and self.data_file:
+            downloaded_data = os.path.join(self.data_path, self.data_file)
+            # if the file does not exist return true, needs download
+            if not os.path.exists(downloaded_data):
                 return True
-        except AttributeError:
-            pass
-        try:
-            # and some may have many
-            if self.data_files:
-                # for many files - if any of them do not exist return True to download them
-                for data_file_name in self.data_files:
-                    downloaded_data = os.path.join(self.data_path, data_file_name)
-                    if not os.path.exists(downloaded_data):
-                        return True
-                return False
-        except AttributeError:
-            pass
+
+        if hasattr(self, 'data_files') and self.data_files:
+            # for many files - if any of them do not exist return True to download them
+            for data_file_name in self.data_files:
+                downloaded_data = os.path.join(self.data_path, data_file_name)
+                if not os.path.exists(downloaded_data):
+                    return True
+
+        if hasattr(self, 'archive_file') and self.archive_file:
+            downloaded_archive = os.path.join(self.data_path, self.archive_file)
+            if not os.path.exists(downloaded_archive):
+                return True
+
+        # either no files were declared or they were all downloaded already
+        return False
+
 
     def clean_up(self):
         # as of now we decided to not remove source data after parsing

@@ -47,9 +47,8 @@ class OHDLoader(SourceDataLoader):
 
         self.data_url = 'https://stars.renci.org/var/data_services/ohd/'
         self.version_file = 'ohd.yaml'
-        self.ohd_archive_file = 'unc_omop_2018_2022_kg.zip'
+        self.archive_file = 'unc_omop_2018_2022_kg.zip'
         self.ohd_edges_file = 'unc_omop_2018_2022_kg.csv'
-        self.data_files = [self.ohd_archive_file]
 
     def get_latest_source_version(self) -> str:
         version_file_url = f"{self.data_url}{self.version_file}"
@@ -61,10 +60,9 @@ class OHDLoader(SourceDataLoader):
         return build_version
 
     def get_data(self) -> bool:
-        for data_file in self.data_files:
-            source_data_url = f'{self.data_url}{data_file}'
-            data_puller = GetData()
-            data_puller.pull_via_http(source_data_url, self.data_path)
+        source_data_url = f'{self.data_url}{self.archive_file}'
+        data_puller = GetData()
+        data_puller.pull_via_http(source_data_url, self.data_path)
         return True
 
     def parse_data(self) -> dict:
@@ -75,7 +73,7 @@ class OHDLoader(SourceDataLoader):
         """
         extractor = Extractor(file_writer=self.output_file_writer)
 
-        ohd_archive_file_path: str = os.path.join(self.data_path, self.ohd_archive_file)
+        ohd_archive_file_path: str = os.path.join(self.data_path, self.archive_file)
         with ZipFile(ohd_archive_file_path) as ohd_archive:
             with ohd_archive.open(self.ohd_edges_file, "r") as fp:
                 extractor.csv_extract(TextIOWrapper(fp),

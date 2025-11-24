@@ -72,9 +72,8 @@ class BINDINGDBLoader(SourceDataLoader):
         self.bindingdb_version = self.get_latest_source_version()
         self.bindingdb_data_url = f"https://www.bindingdb.org/rwd/bind/downloads/"
 
-        self.bd_archive_file_name = f"BindingDB_All_{self.bindingdb_version}_tsv.zip"
+        self.archive_file = f"BindingDB_All_{self.bindingdb_version}_tsv.zip"
         self.bd_file_name = f"BindingDB_All.tsv"
-        self.data_files = [self.bd_archive_file_name]
 
     def get_latest_source_version(self) -> str:
         """
@@ -115,7 +114,7 @@ class BINDINGDBLoader(SourceDataLoader):
         """
         # download the zipped data
         data_puller = GetData()
-        source_url = f"{self.bindingdb_data_url}{self.bd_archive_file_name}"
+        source_url = f"{self.bindingdb_data_url}{self.archive_file}"
         data_puller.pull_via_http(source_url, self.data_path)
         return True
 
@@ -130,7 +129,7 @@ class BINDINGDBLoader(SourceDataLoader):
         data_store= dict()
 
         measure_types = [(x.value,x.name) for x in BD_EDGEUMAN if x.name not in ['PMID','PUBCHEM_AID','PATENT_NUMBER','PUBCHEM_CID','UNIPROT_TARGET_CHAIN']]
-        zipped_data_path = os.path.join(self.data_path, self.bd_archive_file_name)
+        zipped_data_path = os.path.join(self.data_path, self.archive_file)
         for n,row in enumerate(generate_zipfile_rows(zipped_data_path, self.bd_file_name)):
             if n == 0:
                 continue
@@ -143,7 +142,7 @@ class BINDINGDBLoader(SourceDataLoader):
             protein = row[BD_EDGEUMAN.UNIPROT_TARGET_CHAIN.value]
             if (ligand == '') or (protein == ''): # Check if Pubchem or UniProt ID is missing.
                 continue
-            
+
             publication = f"PMID:{row[BD_EDGEUMAN.PMID.value]}" if row[BD_EDGEUMAN.PMID.value] else None
             assay_id = f"PUBCHEM.AID:{row[BD_EDGEUMAN.PUBCHEM_AID.value]}" if row[BD_EDGEUMAN.PUBCHEM_AID.value] else None
             patent = f"PATENT:{row[BD_EDGEUMAN.PATENT_NUMBER.value]}" if row[BD_EDGEUMAN.PATENT_NUMBER.value] else None
