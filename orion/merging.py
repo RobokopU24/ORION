@@ -38,11 +38,17 @@ def node_key_function(node):
 
 
 def edge_key_function(edge, custom_key_attributes=None):
-    qualifiers = [f'{key}{value}' for key, value in edge.items() if bmt.is_qualifier(key)]
+    qualifiers = sorted([f'{key}{value}' for key, value in edge.items() if bmt.is_qualifier(key)])
+    primary_knowledge_source = edge.get(PRIMARY_KNOWLEDGE_SOURCE, "")
+    if not primary_knowledge_source:
+        for retrieval_source in edge.get(RETRIEVAL_SOURCES, []):
+            if retrieval_source[RETRIEVAL_SOURCE_ROLE] == PRIMARY_KNOWLEDGE_SOURCE:
+                primary_knowledge_source = retrieval_source[RETRIEVAL_SOURCE_ID]
+                break
     standard_attributes = (f'{edge[SUBJECT_ID]}{edge[PREDICATE]}{edge[OBJECT_ID]}'
-                           f'{edge.get(PRIMARY_KNOWLEDGE_SOURCE, "")}{"".join(qualifiers)}')
+                           f'{primary_knowledge_source}{"".join(qualifiers)}')
     if custom_key_attributes:
-        custom_attributes = [edge[attr] if attr in edge else '' for attr in custom_key_attributes]
+        custom_attributes = [edge.get(attr, "") for attr in custom_key_attributes]
         return xxh64_hexdigest(f'{standard_attributes}{"".join(custom_attributes)}')
     else:
         return xxh64_hexdigest(standard_attributes)
@@ -52,7 +58,7 @@ def entity_merging_function(entity_1, entity_2):
     # for every property of entity 2
     for key, entity_2_value in entity_2.items():
         # if entity 1 also has the property and entity_2_value is not null/empty:
-        if (key in entity_1) and entity_2_value:
+        if (key in entity_1) and (entity_2_value is not None):
             entity_1_value = entity_1[key]
 
             # check if one or both of them are lists so we can combine them
@@ -65,33 +71,40 @@ def entity_merging_function(entity_1, entity_2):
                 # if 1 is a list and 2 isn't, append the value of 2 to the list from 1
                 entity_1_value.append(entity_2_value)
             elif entity_2_is_list:
-                if entity_1_value:
+                if entity_1_value is not None:
                     # if 2 is a list and 1 has a value, add the value of 1 to the list from 2
                     entity_1[key] = [entity_1_value] + entity_2_value
                 else:
                     # if 2 is a list and 1 doesn't have a value, just use the list from 2
                     entity_1[key] = entity_2_value
-            # else:
-                # if neither is a list, do nothing (keep the value from 1)
+            else:
+                # if neither is a list
+                if entity_1_value is None:
+                    # if entity_1's value is None, use entity_2's value
+                    entity_1[key] = entity_2_value
+                # else: keep the value from entity_1
 
             # if either was a list remove duplicate values
             if entity_1_is_list or entity_2_is_list:
+                # if the post-merge list is empty no need to deduplicate
+                if not entity_1[key]:
+                    continue
                 # if the list is of dictionaries
                 if isinstance(entity_1[key][0], dict):
-                    # Use a custom key function to determine matches if there is one
+                    # Use a custom key function to determine equivalence if there is one
                     key_function = CUSTOM_KEY_FUNCTIONS.get(key, default_dict_merge_key)
-                    # Group dictionaries by their key
+                    # Merge dictionaries with matching keys
                     grouped = {}
                     for item in entity_1[key]:
                         item_key = key_function(item)
                         if item_key in grouped:
-                            # Recursively merge with existing item
+                            # Recursively merge equivalent-by-key dictionaries
                             grouped[item_key] = entity_merging_function(grouped[item_key], item)
                         else:
                             grouped[item_key] = item
                     entity_1[key] = list(grouped.values())
                 else:
-                    entity_1[key] = sorted(list(set(entity_1[key])))
+                    entity_1[key] = sorted(set(entity_1[key]))
         else:
             # if entity 1 doesn't have the property, add the property from entity 2
             entity_1[key] = entity_2_value
@@ -342,11 +355,11 @@ class MemoryGraphMerger(GraphMerger):
             self.merged_edge_counter += 1
             merged_edge = entity_merging_function(quick_json_loads(self.edges[edge_key]),
                                                   edge)
-            if add_edge_id is True:
+            if add_edge_id:
                 merged_edge[EDGE_ID] = edge_key
             self.edges[edge_key] = quick_json_dumps(merged_edge)
         else:
-            if add_edge_id is True:
+            if add_edge_id:
                 edge[EDGE_ID] = edge_key
             self.edges[edge_key] = quick_json_dumps(edge)
 
