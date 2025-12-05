@@ -100,7 +100,7 @@ class MetaKnowledgeGraphBuilder:
         edge_attribute_to_metadata = {}
         edge_type_key_to_attributes = defaultdict(set)
         edge_type_key_to_qualifiers = defaultdict(lambda: defaultdict(set))
-        edge_type_key_to_example = {}
+        edge_type_key_to_test_data = {}
         edge_types = defaultdict(lambda: defaultdict(set))  # subject_id to object_id to set of predicates
 
         for edge in quick_jsonl_file_iterator(edges_file_path):
@@ -129,6 +129,7 @@ class MetaKnowledgeGraphBuilder:
                         edge_attribute_to_metadata[key] = self.get_meta_attribute(key)
 
             predicate = edge[PREDICATE]
+            use_as_edge_example = False
             for subject_type in subject_types:
                 for object_type in object_types:
                     edge_types[subject_type][object_type].add(predicate)
@@ -149,7 +150,8 @@ class MetaKnowledgeGraphBuilder:
                             else:
                                 print(error_message)
 
-                    if edge_type_key not in edge_type_key_to_example:
+                    if edge_type_key not in edge_type_key_to_test_data:
+                        use_as_edge_example = True
                         example_edge = {
                             "subject_category": subject_type,
                             "object_category": object_type,
@@ -163,8 +165,9 @@ class MetaKnowledgeGraphBuilder:
                                  "qualifier_value": qualifier_value}
                                 for qualifier, qualifier_value in edge_qualifiers.items()
                             ]
-                        edge_type_key_to_example[edge_type_key] = example_edge
-                        self.example_edges.append(edge)
+                        edge_type_key_to_test_data[edge_type_key] = example_edge
+            if use_as_edge_example:
+                self.example_edges.append(edge)
 
         for subject_node_type, object_types_to_predicates in edge_types.items():
             for object_node_type, predicates in object_types_to_predicates.items():
@@ -181,8 +184,8 @@ class MetaKnowledgeGraphBuilder:
                                        for qualifier, qual_vals in edge_type_key_to_qualifiers[edge_type_key].items()]
                     }
                     self.meta_kg['edges'].append(edge_metadata)
-                    if edge_type_key in edge_type_key_to_example:
-                        self.testing_data['edges'].append(edge_type_key_to_example[edge_type_key])
+                    if edge_type_key in edge_type_key_to_test_data:
+                        self.testing_data['edges'].append(edge_type_key_to_test_data[edge_type_key])
 
     def get_meta_attribute(self, attribute_name):
         original_attribute_name = attribute_name
