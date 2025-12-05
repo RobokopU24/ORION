@@ -85,6 +85,7 @@ class KGXFileNormalizer:
         if not self.preserve_unconnected_nodes:
             unconnected_nodes_removed = remove_unconnected_nodes(self.nodes_output_file_path, self.edges_output_file_path)
             self.normalization_metadata['unconnected_nodes_removed'] = unconnected_nodes_removed
+            self.normalization_metadata['final_normalized_nodes'] -= unconnected_nodes_removed
         else:
             self.normalization_metadata['unconnected_nodes_removed'] = 0
         return self.normalization_metadata
@@ -213,7 +214,6 @@ class KGXFileNormalizer:
                 'variant_node_norm_failures': len(variant_node_norm_failures),
                 'variant_nodes_split_count': variant_nodes_split_count,
                 'variant_nodes_post_norm': variant_nodes_post_norm,
-                'all_nodes_post_norm': regular_nodes_post_norm + variant_nodes_post_norm,
             })
         self.normalization_metadata.update({
             'discarded_duplicate_node_count': discarded_duplicate_node_count,
