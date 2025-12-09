@@ -141,7 +141,10 @@ class MetaKnowledgeGraphBuilder:
                     edge_type_key_to_attributes[edge_type_key].update(edge_attributes)
                     for qual, qual_val in edge_qualifiers.items():
                         try:
-                            edge_type_key_to_qualifiers[edge_type_key][qual].add(qual_val)
+                            if isinstance(qual_val, list):
+                                edge_type_key_to_qualifiers[edge_type_key][qual].update(qual_val)
+                            else:
+                                edge_type_key_to_qualifiers[edge_type_key][qual].add(qual_val)
                         except TypeError as e:
                             error_message = f'Type of value for qualifier not expected: {qual}: {qual_val}, '\
                                             f'ignoring for meta kg. Error: {e}'
