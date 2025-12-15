@@ -204,7 +204,7 @@ class KGXFileMerger:
                             edges_out.write(edge)
                             edges_count += 1
                     edges_filename = edges_file.rsplit('/')[-1]
-                    self.merge_metadata["sources"][graph_source_id][edges_filename]["edges"] = edges_count
+                    self.merge_metadata["sources"][graph_source_id][edges_filename] = {"edges": edges_count}
                     all_unmerged_edges_count += edges_count
         return all_unmerged_edges_count
 
