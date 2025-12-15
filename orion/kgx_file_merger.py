@@ -49,6 +49,7 @@ class KGXFileMerger:
         secondary_sources = []
         dont_merge_sources = []
         for graph_source in chain(self.graph_spec.sources, self.graph_spec.subgraphs):
+            self.merge_metadata["sources"][graph_source.id] = {'release_version': graph_source.version}
             if not graph_source.merge_strategy:
                 primary_sources.append(graph_source)
             elif graph_source.merge_strategy in SECONDARY_MERGE_STRATEGIES:
@@ -95,7 +96,6 @@ class KGXFileMerger:
 
         for i, graph_source in enumerate(graph_sources, start=1):
             logger.info(f"Processing {graph_source.id}. (primary source {i}/{len(graph_sources)})")
-            self.merge_metadata["sources"][graph_source.id] = {'release_version': graph_source.version}
 
             for file_path in graph_source.get_node_file_paths():
                 with jsonlines.open(file_path) as nodes:
@@ -119,8 +119,6 @@ class KGXFileMerger:
             logger.info(f"Processing {graph_source.id}. (secondary source {i}/{len(graph_sources)})")
             if graph_source.merge_strategy == CONNECTED_EDGE_SUBSET:
                 logger.info(f"Merging {graph_source.id} using {CONNECTED_EDGE_SUBSET} merge strategy.")
-
-                self.merge_metadata["sources"][graph_source.id] = {'release_version': graph_source.version}
 
                 # For connected_edge_subset, only merge edges that connect to nodes in primary sources.
                 # Here we establish that list once, before any connected_edge_subset sources are merged in, so we don't
