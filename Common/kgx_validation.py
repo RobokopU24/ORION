@@ -1,5 +1,3 @@
-import os
-import orjson
 from collections import defaultdict
 
 from Common.utils import quick_jsonl_file_iterator
@@ -14,7 +12,7 @@ def sort_dict_by_values(dict_to_sort):
 
 def convert_type_count_dict_to_list(type_count_dict):
     type_count_dict = sort_dict_by_values(type_count_dict)
-    return [{"type": list(types) if types != [None] else None,
+    return [{"type": list(types),
              "count": count} for types, count in type_count_dict.items()]
 
 def convert_spo_count_to_dict(spo_count_dict):
@@ -28,8 +26,6 @@ def validate_graph(nodes_file_path: str,
                    edges_file_path: str,
                    graph_id: str = None,
                    graph_version: str = None,
-                   validation_results_directory: str = None,
-                   save_invalid_edges: bool = False,
                    logger=None):
 
     qc_metadata = {
@@ -79,16 +75,10 @@ def validate_graph(nodes_file_path: str,
     all_aggregator_knowledge_sources = set()
     all_edge_properties = set()
     predicate_counts = defaultdict(int)
-    predicate_counts_by_ks = defaultdict(lambda: defaultdict(int))
     edges_with_publications = defaultdict(int)  # predicate to num of edges with that predicate and publications
     spo_type_counts = defaultdict(int)
 
     source_breakdown = defaultdict(lambda: defaultdict(dict))
-
-    invalid_edges_due_to_predicate_and_node_types = 0
-    invalid_edges_due_to_missing_primary_ks = 0
-    invalid_edge_output = open(os.path.join(validation_results_directory, 'invalid_predicate_and_node_types.jsonl')) \
-        if save_invalid_edges else None
 
     # iterate through every edge
     for edge_json in quick_jsonl_file_iterator(edges_file_path):
@@ -103,14 +93,7 @@ def validate_graph(nodes_file_path: str,
         # TODO we could account for symmetric predicates here, right now it would count either direction separately
         spo_type_counts[(subject_node_types, predicate, object_node_types)] += 1
 
-        try:
-            primary_knowledge_source = edge_json[PRIMARY_KNOWLEDGE_SOURCE]
-        except KeyError:
-            invalid_edges_due_to_missing_primary_ks += 1
-            primary_knowledge_source = 'missing_primary_knowledge_source'
-            if save_invalid_edges:
-                invalid_edge_output.write(f'{orjson.dumps(edge_json)}\n')
-
+        primary_knowledge_source = edge_json.get(PRIMARY_KNOWLEDGE_SOURCE, 'missing_primary_knowledge_source')
         all_primary_knowledge_sources.add(primary_knowledge_source)
 
         # Get aggregator knowledge sources
@@ -118,22 +101,23 @@ def validate_graph(nodes_file_path: str,
         if aggregator_knowledge_sources is not None:
             all_aggregator_knowledge_sources.update(aggregator_knowledge_sources)
         else:
-            # if there isn't one use the graph id as one to organize the source breakdown
             aggregator_knowledge_sources = [None]
 
         agg_key = frozenset(sorted(aggregator_knowledge_sources))
         agg_entry = source_breakdown[agg_key]
-        agg_entry[primary_knowledge_source] = {
-            "node_count": 0,
-            "edge_count": 0,
-            "subject_prefixes": defaultdict(int),
-            "subject_types": defaultdict(int),
-            "predicates": defaultdict(int),
-            "object_prefixes": defaultdict(int),
-            "object_types": defaultdict(int),
-            "s-p-o_types": defaultdict(int),
-            "node_set": set()
-        }
+
+        if primary_knowledge_source not in agg_entry:
+            agg_entry[primary_knowledge_source] = {
+                "node_count": 0,
+                "edge_count": 0,
+                "subject_prefixes": defaultdict(int),
+                "subject_types": defaultdict(int),
+                "predicates": defaultdict(int),
+                "object_prefixes": defaultdict(int),
+                "object_types": defaultdict(int),
+                "s-p-o_types": defaultdict(int),
+                "node_set": set()
+            }
         primary_entry = agg_entry[primary_knowledge_source]
 
         # Update counts within the primary entry
@@ -155,7 +139,6 @@ def validate_graph(nodes_file_path: str,
 
         # update predicate counts
         predicate_counts[predicate] += 1
-        predicate_counts_by_ks[primary_knowledge_source][predicate] += 1
 
         # add all properties to edge_properties set
         all_edge_properties.update(edge_json.keys())
@@ -164,14 +147,6 @@ def validate_graph(nodes_file_path: str,
         if edge_json.get(PUBLICATIONS, False):
             edges_with_publications[predicate] += 1
 
-        # use the leaf node types for the subject and object and validate the predicate against the node types
-        if not bl_utils.validate_edge(subject_node_types, predicate, object_node_types):
-            invalid_edges_due_to_predicate_and_node_types += 1
-            if save_invalid_edges:
-                invalid_edge_output.write(f'{orjson.dumps(edge_json)}\n')
-
-    if save_invalid_edges:
-        invalid_edge_output.close()
 
     for agg_key, agg_data in source_breakdown.items():
         for prim_key, prim_data in agg_data.items():
@@ -222,8 +197,6 @@ def validate_graph(nodes_file_path: str,
     qc_metadata['edge_properties'] = sorted(all_edge_properties)
     qc_metadata['s-p-o_types'] = convert_spo_count_to_dict(spo_type_counts)
     qc_metadata['source_breakdown'] = source_breakdown
-    qc_metadata['invalid_edges_due_to_predicate_and_node_types'] = invalid_edges_due_to_predicate_and_node_types
-    qc_metadata['invalid_edges_due_to_missing_primary_ks'] = invalid_edges_due_to_missing_primary_ks
 
     if deprecated_infores_ids:
         qc_metadata['warnings']['deprecated_knowledge_sources'] = deprecated_infores_ids
