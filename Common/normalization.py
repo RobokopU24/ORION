@@ -602,7 +602,11 @@ def call_name_resolution(name: str, biolink_type: str, retries=0, logger=None):
         print(error_message)
     if retries < 2:
         time.sleep(5)
-        logger.info('Retrying name resolution..')
+        retry_message = 'Retrying name resolution..'
+        if logger:
+            logger.info(retry_message)
+        else:
+            print(retry_message)
         return call_name_resolution(name, biolink_type, retries + 1, logger)
 
     # if retried 2 times already give up and return the last error

@@ -96,7 +96,7 @@ class SubGraphSource(GraphSource):
     def get_metadata_representation(self):
         return {'graph_id': self.id,
                 'graph_version': self.graph_version,
-                'merge_strategy:': self.merge_strategy,
+                'merge_strategy': self.merge_strategy,
                 'graph_metadata': self.graph_metadata.metadata if self.graph_metadata else None}
 
     def generate_version(self):

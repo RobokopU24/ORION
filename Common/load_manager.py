@@ -185,7 +185,7 @@ class SourceDataManager:
                 f"{failed_error.error_message}")
             if retries < 2:
                 logger.error(f"Retrying fetching for {source_id}.. (retry {retries + 1})")
-                self.fetch_source(source_id=source_id, source_version=source_version, retries=retries+1)
+                return self.fetch_source(source_id=source_id, source_version=source_version, retries=retries+1)
             else:
                 source_metadata.set_fetch_error(failed_error.error_message)
                 source_metadata.set_fetch_status(SourceMetadata.FAILED)
@@ -324,8 +324,8 @@ class SourceDataManager:
                                                       composite_normalization_version,
                                                       normalization_scheme=normalization_scheme,
                                                       normalization_status=SourceMetadata.IN_PROGRESS)
+        current_time = datetime.datetime.now().strftime('%m-%d-%y %H:%M:%S')
         try:
-            current_time = datetime.datetime.now().strftime('%m-%d-%y %H:%M:%S')
             nodes_source_file_path = self.get_source_node_file_path(source_id, source_version, parsing_version)
             nodes_norm_file_path = self.get_normalized_node_file_path(source_id, source_version, parsing_version, composite_normalization_version)
             node_norm_map_file_path = self.get_node_norm_map_file_path(source_id, source_version, parsing_version, composite_normalization_version)

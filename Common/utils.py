@@ -371,53 +371,6 @@ class GetData:
         # return the list
         return ret_val
 
-    def get_foodb_files(self, full_url: str, data_dir: str, data_file_name: str, file_list: list) -> (int, str, str):
-        """
-        gets the food db files
-
-        :param full_url: the URL to the data file
-        :param data_dir: the directory to place the file temporarily
-        :param data_file_name: the name of the target file archive
-        :param file_list: list of files to get
-        :return:
-        """
-
-        self.logger.debug('Start of foodb file retrieval')
-
-        # init the file counter
-        file_count: int = 0
-
-        # init the extraction directory
-        foodb_dir: str = ''
-
-        # get the tar file that has the foodb data
-        self.pull_via_http(full_url, data_dir)
-
-        # open the tar file
-        tar = tarfile.open(os.path.join(data_dir, data_file_name), "r")
-
-        # for each member of the tar fiule
-        for member in tar.getmembers():
-            # get the name
-            name = member.name.split('/')
-
-            # if a valid name was found
-            if len(name) > 1:
-                # is the name in the target list
-                if name[1] in file_list:
-                    # save the file
-                    tar.extract(member, data_dir)
-
-                    # save the extraction directory
-                    foodb_dir = name[0]
-
-                    # increment the file counter
-                    file_count += 1
-
-        self.logger.debug(f'End of foodb file retrieval. {file_count} files retrieved.')
-
-        # return the list
-        return file_count, foodb_dir, name[0]
 
     @staticmethod
     def split_file(archive_file_path: str, output_dir: str, data_file_name: str, lines_per_file: int = 500000) -> list:

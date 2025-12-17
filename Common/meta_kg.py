@@ -62,12 +62,8 @@ class MetaKnowledgeGraphBuilder:
             try:
                 leaf_types = self.bl_utils.find_biolink_leaves(frozenset(node[NODE_TYPES]))
             except TypeError:
-                error_message = f'Node types were not a valid list for node: {node}'
-                leaf_types = {}
-                if self.logger:
-                    self.logger.error(error_message)
-                else:
-                    print(error_message)
+                error_message = f'Node types were not a valid list for node ({node}): {node[NODE_TYPES]}'
+                raise RuntimeError(error_message)
 
             # store the leaf types for this node id
             node_id_to_leaf_types[node['id']] = leaf_types
