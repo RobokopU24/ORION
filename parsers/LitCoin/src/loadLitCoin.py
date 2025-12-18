@@ -2,6 +2,7 @@ import shutil
 import os
 import json
 import yaml
+import time
 
 import requests.exceptions
 
@@ -10,7 +11,6 @@ from Common.loader_interface import SourceDataLoader
 from Common.biolink_constants import PUBLICATIONS, NEGATED
 from Common.utils import GetData, quick_jsonl_file_iterator
 from Common.normalization import call_name_resolution, NAME_RESOLVER_API_ERROR
-from Common.predicates import call_pred_mapping
 from Common.prefixes import PUBMED
 
 from parsers.LitCoin.src.bagel.bagel_service import call_bagel_service
@@ -66,6 +66,54 @@ ABSTRACT_TITLE_EDGE_PROP = 'abstract_title'
 ABSTRACT_TEXT_EDGE_PROP = 'abstract_text'
 ABSTRACT_JOURNAL_EDGE_PROP = 'journal'
 
+
+LITCOIN_PRED_MAPPING_URL = os.getenv('LITCOIN_PRED_MAPPING_URL', 'https://pred-mapping.apps.renci.org')
+PRED_MAPPING_ENDPOINT = f'{LITCOIN_PRED_MAPPING_URL}/query/'
+
+
+def call_pred_mapping(subject: str, obj: str, predicate: str, abstract: str, retries=0, logger=None):
+    headers = {
+        "accept": "application/json",
+        "Content-Type": "application/json"
+    }
+    data = [
+        {
+            "abstract": abstract,
+            "subject": subject,
+            "object": obj,
+            "relationship": predicate
+        }
+    ]
+    try:
+        resp_result = requests.post(PRED_MAPPING_ENDPOINT, headers=headers, json=data)
+        if resp_result.status_code == 200:
+            pred_mapping_json = resp_result.json()
+            return pred_mapping_json['results'][0]['top_choice'] \
+                if 'results' in pred_mapping_json and len(pred_mapping_json['results']) > 0 else None
+        else:
+            error_message = f'Non-200 result from predicate mapping (url: {PRED_MAPPING_ENDPOINT}, ' \
+                            f'payload: {data}). Status code: {resp_result.status_code}.'
+            if resp_result.status_code == 500 or resp_result.status_code == 403:
+                # don't retry if server raises error or denied by ingress modsec security rules
+                retries = 2
+    except requests.exceptions.ConnectionError as e:
+        error_message = f'Connection Error calling predicate mapping (url: {PRED_MAPPING_ENDPOINT}, ' \
+                        f'payload: {data}). Error: {e}.'
+    except requests.exceptions.Timeout as t:
+        error_message = f'Calling predicate mapping timed out (url: {PRED_MAPPING_ENDPOINT}, ' \
+                        f'payload: {data}). Error: {t}.'
+
+    # if we get here something went wrong, log error and retry
+    if logger:
+        logger.error(error_message)
+    if retries < 2:
+        time.sleep(5)
+        if logger:
+            logger.info('Retrying predicate mapping..')
+        return call_pred_mapping(subject, obj, predicate, abstract, retries + 1, logger)
+
+    # if no success after having retried 2 times  give up and return None
+    return None
 
 ##############
 # Class: LitCoin source loader
