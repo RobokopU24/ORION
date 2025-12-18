@@ -99,6 +99,8 @@ def run_post_merge_stages(graph_id: str,
             logger.info(f'QC passed for graph {graph_id}.')
         else:
             logger.warning(f'QC failed for graph {graph_id}.')
+    else:
+        logger.info(f'QC already completed for graph {graph_id}...')
 
     needs_meta_kg = not has_meta_kg(graph_directory=graph_output_dir)
     needs_test_data = not has_test_data(graph_directory=graph_output_dir)
@@ -107,6 +109,9 @@ def run_post_merge_stages(graph_id: str,
         generate_meta_kg_and_test_data(graph_directory=graph_output_dir,
                                        generate_meta_kg=needs_meta_kg,
                                        generate_test_data=needs_test_data)
+    else:
+        logger.info(f'MetaKG and test data already completed for {graph_id}...')
+
 
     output_formats = output_format.lower().split('+') if output_format else []
     graph_output_url = get_graph_output_url(graph_id, graph_version)
