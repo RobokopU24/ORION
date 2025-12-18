@@ -28,6 +28,224 @@ EDGES_FILENAME = 'edges.jsonl'
 REDUNDANT_EDGES_FILENAME = 'redundant_edges.jsonl'
 COLLAPSED_QUALIFIERS_FILENAME = 'collapsed_qualifier_edges.jsonl'
 
+logger = LoggingUtil.init_logging("ORION.Common.GraphBuilder",
+                                  line_format='medium',
+                                  log_file_path=os.environ.get('ORION_LOGS', '/tmp'))
+
+
+def get_graph_output_url(graph_id: str, graph_version: str):
+    graph_output_url = os.environ.get('ORION_OUTPUT_URL', "https://localhost/").removesuffix('/')
+    return f'{graph_output_url}/{graph_id}/{graph_version}/'
+
+
+def has_meta_kg(graph_directory: str):
+    return os.path.exists(os.path.join(graph_directory, META_KG_FILENAME))
+
+
+def has_test_data(graph_directory: str):
+    return os.path.exists(os.path.join(graph_directory, TEST_DATA_FILENAME))
+
+
+def generate_meta_kg_and_test_data(graph_directory: str,
+                                   generate_meta_kg: bool = True,
+                                   generate_test_data: bool = True,
+                                   generate_example_data: bool = True):
+    graph_nodes_file_path = os.path.join(graph_directory, NODES_FILENAME)
+    graph_edges_file_path = os.path.join(graph_directory, EDGES_FILENAME)
+    mkgb = MetaKnowledgeGraphBuilder(nodes_file_path=graph_nodes_file_path,
+                                     edges_file_path=graph_edges_file_path,
+                                     logger=logger)
+    if generate_meta_kg:
+        meta_kg_file_path = os.path.join(graph_directory, META_KG_FILENAME)
+        mkgb.write_meta_kg_to_file(meta_kg_file_path)
+    if generate_test_data:
+        test_data_file_path = os.path.join(graph_directory, TEST_DATA_FILENAME)
+        mkgb.write_test_data_to_file(test_data_file_path)
+    if generate_example_data:
+        example_data_file_path = os.path.join(graph_directory, EXAMPLE_DATA_FILENAME)
+        mkgb.write_example_data_to_file(example_data_file_path)
+
+
+def run_post_merge_stages(graph_id: str,
+                          graph_version: str,
+                          graph_output_dir: str,
+                          graph_metadata: GraphMetadata,
+                          output_format: str = None):
+    """
+    Run post-merge stages: QC, MetaKG generation, and output format conversions.
+
+    Args:
+        graph_id: The graph identifier
+        graph_version: The graph version
+        graph_output_dir: Path to the graph output directory
+        graph_metadata: GraphMetadata instance for this graph
+        output_format: Optional output format string (e.g., 'neo4j+redundant_neo4j')
+
+    Returns:
+        True if all stages completed successfully
+    """
+    nodes_filepath = os.path.join(graph_output_dir, NODES_FILENAME)
+    edges_filepath = os.path.join(graph_output_dir, EDGES_FILENAME)
+
+    if not graph_metadata.has_qc():
+        logger.info(f'Running QC for graph {graph_id}...')
+        qc_results = validate_graph(nodes_file_path=nodes_filepath,
+                                    edges_file_path=edges_filepath,
+                                    graph_id=graph_id,
+                                    graph_version=graph_version,
+                                    logger=logger)
+        graph_metadata.set_qc_results(qc_results)
+        if qc_results['pass']:
+            logger.info(f'QC passed for graph {graph_id}.')
+        else:
+            logger.warning(f'QC failed for graph {graph_id}.')
+
+    needs_meta_kg = not has_meta_kg(graph_directory=graph_output_dir)
+    needs_test_data = not has_test_data(graph_directory=graph_output_dir)
+    if needs_meta_kg or needs_test_data:
+        logger.info(f'Generating MetaKG and test data for {graph_id}...')
+        generate_meta_kg_and_test_data(graph_directory=graph_output_dir,
+                                       generate_meta_kg=needs_meta_kg,
+                                       generate_test_data=needs_test_data)
+
+    output_formats = output_format.lower().split('+') if output_format else []
+    graph_output_url = get_graph_output_url(graph_id, graph_version)
+
+    # TODO allow these to be specified in the graph spec
+    node_property_ignore_list = {'robokop_variant_id'}
+    edge_property_ignore_list = None
+
+    if 'redundant_jsonl' in output_formats:
+        logger.info(f'Generating redundant edge KG for {graph_id}...')
+        redundant_filepath = edges_filepath.replace(EDGES_FILENAME, REDUNDANT_EDGES_FILENAME)
+        generate_redundant_kg(edges_filepath, redundant_filepath)
+
+    if 'redundant_neo4j' in output_formats:
+        logger.info(f'Generating redundant edge KG for {graph_id}...')
+        redundant_filepath = edges_filepath.replace(EDGES_FILENAME, REDUNDANT_EDGES_FILENAME)
+        generate_redundant_kg(edges_filepath, redundant_filepath)
+        logger.info(f'Starting Neo4j dump pipeline for redundant {graph_id}...')
+        dump_success = create_neo4j_dump(nodes_filepath=nodes_filepath,
+                                         edges_filepath=redundant_filepath,
+                                         output_directory=graph_output_dir,
+                                         graph_id=graph_id,
+                                         graph_version=graph_version,
+                                         node_property_ignore_list=node_property_ignore_list,
+                                         edge_property_ignore_list=edge_property_ignore_list,
+                                         logger=logger)
+        if dump_success:
+            graph_metadata.set_dump(dump_type="neo4j_redundant",
+                                    dump_url=f'{graph_output_url}graph_{graph_version}_redundant.db.dump')
+
+    if 'collapsed_qualifiers_jsonl' in output_formats:
+        logger.info(f'Generating collapsed qualifier predicates KG for {graph_id}...')
+        collapsed_qualifiers_filepath = edges_filepath.replace(EDGES_FILENAME, COLLAPSED_QUALIFIERS_FILENAME)
+        generate_collapsed_qualifiers_kg(edges_filepath, collapsed_qualifiers_filepath)
+
+    if 'collapsed_qualifiers_neo4j' in output_formats:
+        logger.info(f'Generating collapsed qualifier predicates KG for {graph_id}...')
+        collapsed_qualifiers_filepath = edges_filepath.replace(EDGES_FILENAME, COLLAPSED_QUALIFIERS_FILENAME)
+        generate_collapsed_qualifiers_kg(edges_filepath, collapsed_qualifiers_filepath)
+        logger.info(f'Starting Neo4j dump pipeline for {graph_id} with collapsed qualifiers...')
+        dump_success = create_neo4j_dump(nodes_filepath=nodes_filepath,
+                                         edges_filepath=collapsed_qualifiers_filepath,
+                                         output_directory=graph_output_dir,
+                                         graph_id=graph_id,
+                                         graph_version=graph_version,
+                                         node_property_ignore_list=node_property_ignore_list,
+                                         edge_property_ignore_list=edge_property_ignore_list,
+                                         logger=logger)
+        if dump_success:
+            graph_metadata.set_dump(dump_type="neo4j_collapsed_qualifiers",
+                                    dump_url=f'{graph_output_url}graph_{graph_version}'
+                                                 f'_collapsed_qualifiers.db.dump')
+
+    if 'neo4j' in output_formats:
+        logger.info(f'Starting Neo4j dump pipeline for {graph_id}...')
+        dump_success = create_neo4j_dump(nodes_filepath=nodes_filepath,
+                                         edges_filepath=edges_filepath,
+                                         output_directory=graph_output_dir,
+                                         graph_id=graph_id,
+                                         graph_version=graph_version,
+                                         node_property_ignore_list=node_property_ignore_list,
+                                         edge_property_ignore_list=edge_property_ignore_list,
+                                         logger=logger)
+        if dump_success:
+            graph_metadata.set_dump(dump_type="neo4j",
+                                    dump_url=f'{graph_output_url}graph_{graph_version}.db.dump')
+
+    if 'memgraph' in output_formats:
+        logger.info(f'Starting memgraph dump pipeline for {graph_id}...')
+        dump_success = create_memgraph_dump(nodes_filepath=nodes_filepath,
+                                            edges_filepath=edges_filepath,
+                                            output_directory=graph_output_dir,
+                                            graph_id=graph_id,
+                                            graph_version=graph_version,
+                                            node_property_ignore_list=node_property_ignore_list,
+                                            edge_property_ignore_list=edge_property_ignore_list,
+                                            logger=logger)
+        if dump_success:
+            graph_metadata.set_dump(dump_type="memgraph",
+                                    dump_url=f'{graph_output_url}memgraph_{graph_version}.cypher')
+
+    return True
+
+
+def graph_operations(graph_id: str,
+                     graph_directory: str,
+                     output_format: str = None):
+    """
+    Run post-merge stages (QC, MetaKG, output formats) on an existing graph directory
+    that already contains nodes and edges files.
+
+    Args:
+        graph_id: The graph identifier
+        graph_directory: Path to directory containing nodes.jsonl, edges.jsonl, and metadata
+        output_format: Optional output format string (e.g., 'neo4j+redundant_neo4j')
+
+    Returns:
+        True if successful, False otherwise
+    """
+    logger.info(f'Running post-merge stages for {graph_id} from {graph_directory}...')
+
+    # Validate directory exists
+    if not os.path.isdir(graph_directory):
+        logger.error(f'Graph directory not found: {graph_directory}')
+        return False
+
+    # Validate nodes and edges files exist
+    nodes_filepath = os.path.join(graph_directory, NODES_FILENAME)
+    edges_filepath = os.path.join(graph_directory, EDGES_FILENAME)
+    if not os.path.isfile(nodes_filepath):
+        logger.error(f'Nodes file not found: {nodes_filepath}')
+        return False
+    if not os.path.isfile(edges_filepath):
+        logger.error(f'Edges file not found: {edges_filepath}')
+        return False
+
+    # Require metadata file to exist
+    metadata_file_path = os.path.join(graph_directory, f'{graph_id}.meta.json')
+    if not os.path.isfile(metadata_file_path):
+        logger.error(f'Metadata file not found: {metadata_file_path}')
+        return False
+
+    graph_metadata = GraphMetadata(graph_id, graph_directory)
+    graph_version = graph_metadata.get_graph_version()
+    logger.info(f'Found existing graph version: {graph_version}, '
+                f'build status: {graph_metadata.get_build_status()}')
+
+    # Run post-merge stages
+    success = run_post_merge_stages(graph_id=graph_id,
+                                    graph_version=graph_version,
+                                    graph_output_dir=graph_directory,
+                                    graph_metadata=graph_metadata,
+                                    output_format=output_format)
+
+    if success:
+        logger.info(f'Post-merge stages completed for {graph_id}.')
+
+    return success
+
 
 class GraphBuilder:
 
@@ -107,111 +325,11 @@ class GraphBuilder:
             self.logger.info(f'Building graph {graph_id} complete!')
             self.build_results[graph_id] = {'version': graph_version}
 
-        nodes_filepath = os.path.join(graph_output_dir, NODES_FILENAME)
-        edges_filepath = os.path.join(graph_output_dir, EDGES_FILENAME)
-
-        if not graph_metadata.has_qc():
-            self.logger.info(f'Running QC for graph {graph_id}...')
-            qc_results = validate_graph(nodes_file_path=nodes_filepath,
-                                        edges_file_path=edges_filepath,
-                                        graph_id=graph_id,
-                                        graph_version=graph_version,
-                                        logger=self.logger)
-            graph_metadata.set_qc_results(qc_results)
-            if qc_results['pass']:
-                self.logger.info(f'QC passed for graph {graph_id}.')
-            else:
-                self.logger.warning(f'QC failed for graph {graph_id}.')
-
-        needs_meta_kg = not self.has_meta_kg(graph_directory=graph_output_dir)
-        needs_test_data = not self.has_test_data(graph_directory=graph_output_dir)
-        if needs_meta_kg or needs_test_data:
-            self.logger.info(f'Generating MetaKG and test data for {graph_id}...')
-            self.generate_meta_kg_and_test_data(graph_directory=graph_output_dir,
-                                                generate_meta_kg=needs_meta_kg,
-                                                generate_test_data=needs_test_data)
-
-        output_formats = graph_spec.graph_output_format.lower().split('+') if graph_spec.graph_output_format else []
-        graph_output_url = self.get_graph_output_url(graph_id, graph_version)
-
-        # TODO allow these to be specified in the graph spec
-        node_property_ignore_list = {'robokop_variant_id'}
-        edge_property_ignore_list = None
-
-        if 'redundant_jsonl' in output_formats:
-            self.logger.info(f'Generating redundant edge KG for {graph_id}...')
-            redundant_filepath = edges_filepath.replace(EDGES_FILENAME, REDUNDANT_EDGES_FILENAME)
-            generate_redundant_kg(edges_filepath, redundant_filepath)
-
-        if 'redundant_neo4j' in output_formats:
-            self.logger.info(f'Generating redundant edge KG for {graph_id}...')
-            redundant_filepath = edges_filepath.replace(EDGES_FILENAME, REDUNDANT_EDGES_FILENAME)
-            generate_redundant_kg(edges_filepath, redundant_filepath)
-            self.logger.info(f'Starting Neo4j dump pipeline for redundant {graph_id}...')
-            dump_success = create_neo4j_dump(nodes_filepath=nodes_filepath,
-                                             edges_filepath=redundant_filepath,
-                                             output_directory=graph_output_dir,
-                                             graph_id=graph_id,
-                                             graph_version=graph_version,
-                                             node_property_ignore_list=node_property_ignore_list,
-                                             edge_property_ignore_list=edge_property_ignore_list,
-                                             logger=self.logger)
-            if dump_success:
-                graph_metadata.set_dump(dump_type="neo4j_redundant",
-                                        dump_url=f'{graph_output_url}graph_{graph_version}_redundant.db.dump')
-            
-        if 'collapsed_qualifiers_jsonl' in output_formats:
-            self.logger.info(f'Generating collapsed qualifier predicates KG for {graph_id}...')
-            collapsed_qualifiers_filepath = edges_filepath.replace(EDGES_FILENAME, COLLAPSED_QUALIFIERS_FILENAME)
-            generate_collapsed_qualifiers_kg(edges_filepath, collapsed_qualifiers_filepath)
-
-        if 'collapsed_qualifiers_neo4j' in output_formats:
-            self.logger.info(f'Generating collapsed qualifier predicates KG for {graph_id}...')
-            collapsed_qualifiers_filepath = edges_filepath.replace(EDGES_FILENAME, COLLAPSED_QUALIFIERS_FILENAME)
-            generate_collapsed_qualifiers_kg(edges_filepath, collapsed_qualifiers_filepath)
-            self.logger.info(f'Starting Neo4j dump pipeline for {graph_id} with collapsed qualifiers...')
-            dump_success = create_neo4j_dump(nodes_filepath=nodes_filepath,
-                                             edges_filepath=collapsed_qualifiers_filepath,
-                                             output_directory=graph_output_dir,
-                                             graph_id=graph_id,
-                                             graph_version=graph_version,
-                                             node_property_ignore_list=node_property_ignore_list,
-                                             edge_property_ignore_list=edge_property_ignore_list,
-                                             logger=self.logger)
-            if dump_success:
-                graph_metadata.set_dump(dump_type="neo4j_collapsed_qualifiers",
-                                        dump_url=f'{graph_output_url}graph_{graph_version}'
-                                                     f'_collapsed_qualifiers.db.dump')
-
-        if 'neo4j' in output_formats:
-            self.logger.info(f'Starting Neo4j dump pipeline for {graph_id}...')
-            dump_success = create_neo4j_dump(nodes_filepath=nodes_filepath,
-                                             edges_filepath=edges_filepath,
-                                             output_directory=graph_output_dir,
-                                             graph_id=graph_id,
-                                             graph_version=graph_version,
-                                             node_property_ignore_list=node_property_ignore_list,
-                                             edge_property_ignore_list=edge_property_ignore_list,
-                                             logger=self.logger)
-            if dump_success:
-                graph_metadata.set_dump(dump_type="neo4j",
-                                        dump_url=f'{graph_output_url}graph_{graph_version}.db.dump')
-
-        if 'memgraph' in output_formats:
-            self.logger.info(f'Starting memgraph dump pipeline for {graph_id}...')
-            dump_success = create_memgraph_dump(nodes_filepath=nodes_filepath,
-                                                edges_filepath=edges_filepath,
-                                                output_directory=graph_output_dir,
-                                                graph_id=graph_id,
-                                                graph_version=graph_version,
-                                                node_property_ignore_list=node_property_ignore_list,
-                                                edge_property_ignore_list=edge_property_ignore_list,
-                                                logger=self.logger)
-            if dump_success:
-                graph_metadata.set_dump(dump_type="memgraph",
-                                        dump_url=f'{graph_output_url}memgraph_{graph_version}.cypher')
-
-        return True
+        return run_post_merge_stages(graph_id=graph_id,
+                                      graph_version=graph_version,
+                                      graph_output_dir=graph_output_dir,
+                                      graph_metadata=graph_metadata,
+                                      output_format=graph_spec.graph_output_format)
 
     # determine a graph version utilizing versions of data sources, or just return the graph version specified
     def determine_graph_version(self, graph_spec: GraphSpec):
@@ -243,13 +361,13 @@ class GraphBuilder:
         # make a string that is a composite of versions and their merge strategy for each source
         composite_version_string = ""
         if graph_spec.sources:
-            composite_version_string += '_'.join([graph_source.version + '_' + graph_source.merge_strategy
+            composite_version_string += '_'.join([(graph_source.version + '_' + graph_source.merge_strategy)
                                                   if graph_source.merge_strategy else graph_source.version
                                                   for graph_source in graph_spec.sources])
         if graph_spec.subgraphs:
             if composite_version_string:
                 composite_version_string += '_'
-            composite_version_string += '_'.join([sub_graph_source.version + '_' + sub_graph_source.merge_strategy
+            composite_version_string += '_'.join([(sub_graph_source.version + '_' + sub_graph_source.merge_strategy)
                                                   if sub_graph_source.merge_strategy else sub_graph_source.version
                                                   for sub_graph_source in graph_spec.subgraphs])
         graph_version = xxh64_hexdigest(composite_version_string)
@@ -327,38 +445,6 @@ class GraphBuilder:
                                                                                    data_source.supplementation_version)
         return True
 
-    def has_meta_kg(self, graph_directory: str):
-        if os.path.exists(os.path.join(graph_directory, META_KG_FILENAME)):
-            return True
-        else:
-            return False
-
-    def has_test_data(self, graph_directory: str):
-        if os.path.exists(os.path.join(graph_directory, TEST_DATA_FILENAME)):
-            return True
-        else:
-            return False
-
-    def generate_meta_kg_and_test_data(self,
-                                       graph_directory: str,
-                                       generate_meta_kg: bool = True,
-                                       generate_test_data: bool = True,
-                                       generate_example_data: bool = True):
-        graph_nodes_file_path = os.path.join(graph_directory, NODES_FILENAME)
-        graph_edges_file_path = os.path.join(graph_directory, EDGES_FILENAME)
-        mkgb = MetaKnowledgeGraphBuilder(nodes_file_path=graph_nodes_file_path,
-                                         edges_file_path=graph_edges_file_path,
-                                         logger=self.logger)
-        if generate_meta_kg:
-            meta_kg_file_path = os.path.join(graph_directory, META_KG_FILENAME)
-            mkgb.write_meta_kg_to_file(meta_kg_file_path)
-        if generate_test_data:
-            test_data_file_path = os.path.join(graph_directory, TEST_DATA_FILENAME)
-            mkgb.write_test_data_to_file(test_data_file_path)
-        if generate_example_data:
-            example_data_file_path = os.path.join(graph_directory, EXAMPLE_DATA_FILENAME)
-            mkgb.write_example_data_to_file(example_data_file_path)
-
     def load_graph_specs(self, graph_specs_dir=None):
         graph_spec_file = os.environ.get('ORION_GRAPH_SPEC', None)
         graph_spec_url = os.environ.get('ORION_GRAPH_SPEC_URL', None)
@@ -374,8 +460,8 @@ class GraphBuilder:
             graph_spec_path = os.path.join(graph_specs_dir, graph_spec_file)
             if os.path.exists(graph_spec_path):
                 self.logger.info(f'Loading graph spec: {graph_spec_file}')
-                with open(graph_spec_path) as graph_spec_file:
-                    graph_spec_yaml = yaml.safe_load(graph_spec_file)
+                with open(graph_spec_path) as graph_spec_fp:
+                    graph_spec_yaml = yaml.safe_load(graph_spec_fp)
                     self.parse_graph_spec(graph_spec_yaml)
                     return
             else:
@@ -411,7 +497,7 @@ class GraphBuilder:
                                     for subgraph in graph_yaml.get('subgraphs', [])]
 
                 if not data_sources and not subgraph_sources:
-                    raise GraphSpecError('Error: No sources were provided for graph: {graph_id}.')
+                    raise GraphSpecError(f'Error: No sources were provided for graph: {graph_id}.')
 
                 # see if there are any normalization scheme parameters specified at the graph level
                 graph_wide_node_norm_version = graph_yaml.get('node_normalization_version', None)
@@ -521,11 +607,6 @@ class GraphBuilder:
 
     def get_graph_dir_path(self, graph_id: str, graph_version: str):
         return os.path.join(self.graphs_dir, graph_id, graph_version)
-
-    @staticmethod
-    def get_graph_output_url(graph_id: str, graph_version: str):
-        graph_output_url = os.environ.get('ORION_OUTPUT_URL', "https://localhost/").removesuffix('/')
-        return f'{graph_output_url}/{graph_id}/{graph_version}/'
 
     @staticmethod
     def get_graph_nodes_file_path(graph_output_dir: str):
