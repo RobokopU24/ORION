@@ -1,5 +1,56 @@
-# pycache
-**/__pycache__
-*.pycache
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+pip-wheel-metadata/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual environments
+venv/
+ENV/
+env/
+.venv
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Testing
+.pytest_cache/
+.coverage
+.tox/
+htmlcov/
+
+# Environment variables
 .env
-.idea
+.env.local
+.env.*.local
+
+# Project-specific
+Storage/
+*.log
+
+# Lock files (optional - comment out if you want to track them)
+# uv.lock
