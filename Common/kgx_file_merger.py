@@ -6,15 +6,16 @@ from Common.kgxmodel import GraphSpec, SubGraphSource
 from Common.biolink_constants import SUBJECT_ID, OBJECT_ID
 from Common.merging import GraphMerger, DiskGraphMerger, MemoryGraphMerger
 from Common.load_manager import RESOURCE_HOGS
+from Common.config import Config
 
 # import line_profiler
 # import atexit
 # profile = line_profiler.LineProfiler()
 # atexit.register(profile.print_stats)
-
+config = Config.from_env()
 logger = LoggingUtil.init_logging("ORION.Common.KGXFileMerger",
                                   line_format='medium',
-                                  log_file_path=os.environ['ORION_LOGS'])
+                                  log_file_path=config.orion_logs_path)
 
 CONNECTED_EDGE_SUBSET = 'connected_edge_subset'
 DONT_MERGE = 'dont_merge_edges'

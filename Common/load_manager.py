@@ -14,13 +14,14 @@ from Common.normalization import NormalizationScheme, NodeNormalizer, EdgeNormal
 from Common.metadata import SourceMetadata
 from Common.loader_interface import SourceDataBrokenError, SourceDataFailedError
 from Common.supplementation import SequenceVariantSupplementation, SupplementationFailedError
-
+from Common.config import Config
 
 SOURCE_DATA_LOADER_CLASSES = SourceDataLoaderClassFactory()
 
+config = Config.from_env()
 logger = LoggingUtil.init_logging("ORION.Common.SourceDataManager",
                                   line_format='medium',
-                                  log_file_path=os.environ['ORION_LOGS'])
+                                  log_file_path=config.orion_logs_path)
 
 
 class SourceDataManager:
@@ -691,13 +692,7 @@ class SourceDataManager:
     def init_storage_dir(self):
         # use the storage directory specified by the environment variable ORION_STORAGE
         # check to make sure it's set and valid, otherwise fail
-        if "ORION_STORAGE" not in os.environ:
-            raise Exception(f'You must use the environment variable ORION_STORAGE '
-                            f'to specify a storage directory.')
-        if os.path.isdir(os.environ["ORION_STORAGE"]):
-            return os.environ["ORION_STORAGE"]
-        else:
-            raise IOError(f'Storage directory not valid: {os.environ["ORION_STORAGE"]}')
+        return config.orion_storage_path
 
     def init_source_output_dir(self, source_id: str):
         source_dir_path = os.path.join(self.storage_dir, source_id)
@@ -723,12 +718,8 @@ if __name__ == '__main__':
                              'in the finalized kgx files.')
     args = parser.parse_args()
 
-    if 'ORION_TEST_MODE' in os.environ:
-        test_mode_from_env = os.environ['ORION_TEST_MODE']
-    else:
-        test_mode_from_env = False
-
-    loader_test_mode = args.test_mode or test_mode_from_env
+    test_mode_from_env = config.orion_test_mode
+    loader_test_mode = args.test_mode or test_mode_from_env ## TODO: Is this redundant?
     loader_strict_normalization = (not args.lenient_normalization)
     load_manager = SourceDataManager(test_mode=loader_test_mode,
                                      fresh_start_mode=args.fresh_start_mode)

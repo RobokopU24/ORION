@@ -6,14 +6,15 @@ from Common.utils import LoggingUtil
 from Common.kgxmodel import kgxnode, kgxedge
 from Common.biolink_constants import PRIMARY_KNOWLEDGE_SOURCE, AGGREGATOR_KNOWLEDGE_SOURCES, \
     SUBJECT_ID, OBJECT_ID, PREDICATE
-
+from Common.config import Config
 
 class KGXFileWriter:
 
+    config = Config.from_env()
     logger = LoggingUtil.init_logging("ORION.Common.KGXFileWriter",
                                       line_format='medium',
                                       level=logging.INFO,
-                                      log_file_path=os.environ.get('ORION_LOGS'))
+                                      log_file_path=config.orion_logs_path)
     """
     constructor
     :param nodes_output_file_path: the file path for the nodes file
