@@ -39,6 +39,8 @@ class Config:
     orion_graph_spec_url: str = ""
     orion_output_url: str = "https://localhost/"
 
+    orion_test_mode: bool = False
+
     def __post_init__(self):
         """Initialize paths based on storage_base_path if not already set."""
         # Get the ORION root directory (parent of the Common directory)
@@ -61,13 +63,16 @@ class Config:
             "orion_graphs_dir_name": "ORION_GRAPHS_DIR_NAME",
             "shared_source_dir_name": "SHARED_SOURCE_DIR_NAME",
             "orion_graph_spec": "ORION_GRAPH_SPEC",
-            "orion_graph_spec_url": "ORION_GRAPH_SPEC_URL"
+            "orion_graph_spec_url": "ORION_GRAPH_SPEC_URL",
+            "orion_test_mode": "ORION_TEST_MODE"
         }
         kwargs = {}
         for kwarg, env_var in env_vars.items():
             env_value = os.environ.get(env_var)
             if env_value:
                 kwargs[kwarg] = env_value
+                if kwarg == "ORION_TEST_MODE":
+                    kwargs[kwarg] = False if (env_value and env_value.lower() == "false") else True
         cls_ret = cls(**kwargs)
         ## Add validation for graph spec vs graph spec url.
         if len(cls_ret.orion_graph_spec) > 0 and len(cls_ret.orion_graph_spec_url) > 0:

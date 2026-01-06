@@ -11,8 +11,5 @@ from pathlib import Path
 def test_config_created_from_env_vars():
     cfg = Config.from_env()
 
-    # assert cfg.orion_storage_path == "../tmp/ORION_STORAGE"
-    # assert cfg.orion_graph_path == "../tmp/ORION_KG"
-    # assert cfg.shared_source_data_path == "../../Storage/shared_data"
     assert (Path(cfg.orion_graphs_path).exists())
     assert(Path(cfg.shared_source_data_path).exists())
