@@ -558,7 +558,7 @@ class EdgeNormalizer:
 def call_name_resolution(name: str, biolink_type: str, retries=0, logger=None):
 
     NAME_RESOLVER_URL = config.getenv('NAMERES_URL')
-    NAME_RESOLVER_ENDPOINT = f'{NAME_RESOLVER_URL}/lookup'
+    NAME_RESOLVER_ENDPOINT = f'{NAME_RESOLVER_URL}lookup'
     NAME_RESOLVER_HEADERS = {"accept": "application/json"}
     NAME_RESOLVER_API_ERROR = 'api_error'
 
