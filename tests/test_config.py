@@ -5,7 +5,6 @@ from pathlib import Path
 
 @mock.patch.dict(os.environ, {
     "STORAGE_BASE_PATH":"tmp",
-    "ORION_STORAGE_DIR_NAME": "custom_orion_storage",
     "ORION_GRAPHS_DIR_NAME": "custom_orion_graphs"
 })
 def test_config_created_from_env_vars():
@@ -29,3 +28,8 @@ def test_config_created_from_env_vars():
     orion_graphs_path = cfg.getenv("ORION_GRAPHS_DIR_NAME")
     assert (Path(orion_graphs_path).exists())
     assert (cfg.orion_logs_path == '')
+    storage_path = cfg.getenv("ORION_STORAGE_DIR_NAME")
+    print(storage_path)
+    assert(Path(storage_path).exists())
+
+    assert(cfg.getenv("ORION_GRAPH_SPEC") == "example-graph-spec.yaml" )

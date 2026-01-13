@@ -23,7 +23,7 @@ class Config:
     # Base parent directory for all storage paths (relative to ORION root)
     storage_base_path: str = "Storage"
     base_path: str = ""
-    
+
     # Subdirectories under storage_base_path
     orion_storage_dir_name: str = "ORION_STORAGE"
     orion_graphs_dir_name: str = "ORION_KG"
@@ -47,6 +47,10 @@ class Config:
     name_resolver_url: str = "https://name-resolution-sri.renci.org/"
     litcoin_pred_mapping_url: str = "https://pred-mapping.apps.renci.org/"
     sapbert_url: str = "https://babel-sapbert.apps.renci.org/"
+    bagel_url: str = "https://bagel.apps.renci.org/"
+
+    bagel_service_username : str = "default_bagel_username"
+    bagel_service_password: str = "default_bagel_password"
 
     env_vars = {
             "storage_base_path": "STORAGE_BASE_PATH",
@@ -62,7 +66,8 @@ class Config:
             "edge_normalization_url": "EDGE_NORMALIZATION_ENDPOINT",
             "name_resolver_url": "NAMERES_URL",
             "litcoin_pred_mapping_url": "LITCOIN_PRED_MAPPING_URL",
-            "sapbert_url": "SAPBERT_URL"
+            "sapbert_url": "SAPBERT_URL",
+            "bagel_url": "BAGEL_ENDPOINT"
         }
 
     def __post_init__(self):
@@ -85,35 +90,35 @@ class Config:
             if not Path(self.orion_storage_path).exists():
                 logger.info(f"--- Creating ORION Storage Path: {self.orion_storage_path}")
                 Path(self.orion_storage_path).mkdir(exist_ok=True, parents=True)
-                return self.orion_storage_path
+            return self.orion_storage_path
         elif env_var == "ORION_LOGS_DIR_NAME" and len(self.orion_logs_path) > 0:
             logger.info(f"Checking for existence of ORION Logs Path: {self.orion_logs_path}")
             if not Path(self.orion_logs_path).exists():
                 logger.info(f"--- Creating ORION Logs Path: {self.orion_logs_path}")
                 Path(self.orion_logs_path).mkdir(exist_ok=True, parents=True)
-                return self.orion_logs_path
+            return self.orion_logs_path
         elif env_var == "ORION_GRAPHS_DIR_NAME" and len(self.orion_graphs_path) > 0:
             logger.info(f"Checking for existence of ORION Knowledge Graph Path: {self.orion_graphs_path}")
             if not Path(self.orion_graphs_path).exists():
                 logger.info(f"--- Creating ORION Knowledge Graph Path: {self.orion_graphs_path}")
                 Path(self.orion_graphs_path).mkdir(exist_ok=True, parents=True)
-                return self.orion_graphs_path
+            return self.orion_graphs_path
         elif env_var == "SHARED_SOURCE_DIR_NAME" and len(self.shared_source_data_path) > 0:
             logger.info(f"Checking for existence of ORION Shared Source Path: {self.shared_source_data_path}")
             if not Path(self.shared_source_data_path).exists():
                 logger.info(f"--- Creating ORION Shared Source Path: {self.shared_source_data_path}")
                 Path(self.shared_source_data_path).mkdir(exist_ok=True, parents=True)
-                return self.shared_source_data_path
+            return self.shared_source_data_path
         return None
 
     def getenv(self, env_name:str):
-        if env_name in self. env_vars.values():
+        if env_name in self.env_vars.values():
             if 'DIR_NAME' in env_name.upper():
                 ## This is a directory variable, create the path if needed.
                 value = self.create_path(env_name)
             else:
                 attr_name = [k for k in self.env_vars if self.env_vars[k] == env_name.upper()]
-                value = getattr(self, attr_name) if attr_name is not None else None
+                value = getattr(self, attr_name[0]) if len(attr_name) == 1 else None
             return value
         else:
             return os.environ.get(env_name) 
