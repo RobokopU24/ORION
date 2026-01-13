@@ -7,7 +7,7 @@ from Common.config import Config
 config = Config.from_env()
 logger = LoggingUtil.init_logging("ORION.cli.memgraph_dump",
                                   line_format='medium',
-                                  log_file_path=config.orion_logs_path)
+                                  log_file_path=config.getenv("ORION_LOGS_DIR_NAME"))
 
 if __name__ == '__main__':
     ap = argparse.ArgumentParser(description='')

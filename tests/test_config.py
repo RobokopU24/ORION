@@ -9,7 +9,23 @@ from pathlib import Path
     "ORION_GRAPHS_DIR_NAME": "custom_orion_graphs"
 })
 def test_config_created_from_env_vars():
+    if Path(f"{os.getcwd()}/tmp/").exists():
+        print("Removing already existing storage directory")
+        import shutil
+        shutil.rmtree(f"{os.getcwd()}/tmp/")
+
     cfg = Config.from_env()
 
-    assert (Path(cfg.orion_graphs_path).exists())
-    assert(Path(cfg.shared_source_data_path).exists())
+    print(cfg.base_path)
+    assert("tmp" in str(cfg.base_path))
+    
+    print("-----------")
+    print(cfg.orion_graphs_path)
+    print(Path(cfg.orion_graphs_path).exists())
+
+    assert (not Path(cfg.orion_graphs_path).exists())
+    assert (not Path(cfg.shared_source_data_path).exists())
+
+    orion_graphs_path = cfg.getenv("ORION_GRAPHS_DIR_NAME")
+    assert (Path(orion_graphs_path).exists())
+    assert (cfg.orion_logs_path == '')

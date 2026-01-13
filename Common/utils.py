@@ -51,7 +51,7 @@ class LoggingUtil(object):
         logger.setLevel(level)
 
         # if there was a file path passed in use it
-        if log_file_path is not None:
+        if log_file_path:
             # create a rotating file handler, 100mb max per file with a max number of 10 files
             file_handler = RotatingFileHandler(filename=os.path.join(log_file_path, name + '.log'), maxBytes=100000000, backupCount=10)
 

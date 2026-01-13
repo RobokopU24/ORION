@@ -13,7 +13,7 @@ LLM_RESULTS = []
 config = Config.from_env()
 logger = LoggingUtil.init_logging("ORION.Common.BagelGPT",
                                   line_format='medium',
-                                  log_file_path=config.orion_logs_path)
+                                  log_file_path=config.getenv("ORION_LOGS_DIR_NAME"))
 
 def ask_classes_and_descriptions(text, term, termlist, abstract_id, requests_session):
     """Get GPT results based only on the labels of the terms."""

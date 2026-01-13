@@ -15,7 +15,7 @@ from Common.config import Config
 config = Config.from_env()
 logger = LoggingUtil.init_logging("ORION.Common.KGXFileMerger",
                                   line_format='medium',
-                                  log_file_path=config.orion_logs_path)
+                                  log_file_path=config.getenv("ORION_LOGS_DIR_NAME"))
 
 CONNECTED_EDGE_SUBSET = 'connected_edge_subset'
 DONT_MERGE = 'dont_merge_edges'

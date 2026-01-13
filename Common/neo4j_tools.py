@@ -5,7 +5,9 @@ import subprocess
 import Common.kgx_file_converter as kgx_file_converter
 from Common.biolink_constants import NAMED_THING
 from Common.utils import LoggingUtil
+from Common.config import Config
 
+config = Config.from_env()
 
 class Neo4jTools:
 
@@ -25,7 +27,7 @@ class Neo4jTools:
         self.neo4j_driver = neo4j.GraphDatabase.driver(self.graph_db_uri, auth=self.graph_db_auth)
         self.logger = LoggingUtil.init_logging("ORION.Common.neo4j_tools",
                                                line_format='medium',
-                                               log_file_path=os.environ['ORION_LOGS'])
+                                               log_file_path=config.getenv("ORION_LOGS_DIR_NAME"))
 
     def import_csv_files(self,
                          graph_directory: str,

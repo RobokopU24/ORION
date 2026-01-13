@@ -9,6 +9,7 @@ from dataclasses import dataclass
 from robokop_genetics.genetics_normalization import GeneticsNormalizer
 from Common.biolink_constants import *
 from Common.utils import LoggingUtil
+from Common.config import Config
 
 NORMALIZATION_CODE_VERSION = '1.4'
 
@@ -18,6 +19,7 @@ CUSTOM_NODE_TYPES = 'custom_node_types'
 # predicate to use when normalization fails
 FALLBACK_EDGE_PREDICATE = 'biolink:related_to'
 
+config = Config.from_env()
 
 @dataclass
 class NormalizationScheme:
@@ -49,9 +51,6 @@ class NormalizationFailedError(Exception):
         self.error_message = error_message
         self.actual_error = actual_error
 
-NODE_NORMALIZATION_URL = os.environ.get('NODE_NORMALIZATION_ENDPOINT', 'https://nodenormalization-sri.renci.org/')
-
-
 class NodeNormalizer:
     """
     Class that contains methods relating to node normalization of KGX data.
@@ -81,7 +80,8 @@ class NodeNormalizer:
         self.logger = LoggingUtil.init_logging("ORION.Common.NodeNormalizer",
                                                level=log_level,
                                                line_format='medium',
-                                               log_file_path=os.environ.get('ORION_LOGS'))
+                                               log_file_path=config.getenv("ORION_LOGS_DIR_NAME"))
+        self.node_normalization_url = config.getenv("NODE_NORMALIZATION_ENDPOINT")
         # storage for regular nodes that failed to normalize
         self.failed_to_normalize_ids = set()
         # storage for variant nodes that failed to normalize
@@ -104,7 +104,7 @@ class NodeNormalizer:
 
     def hit_node_norm_service(self, curies, retries=0):
         resp: requests.models.Response = \
-            self.requests_session.post(f'{NODE_NORMALIZATION_URL}get_normalized_nodes',
+            self.requests_session.post(f'{self.node_normalization_url}get_normalized_nodes',
                                        json={'curies': curies,
                                              'conflate': self.conflate_node_types,
                                              'drug_chemical_conflate': self.conflate_node_types,
@@ -116,7 +116,7 @@ class NodeNormalizer:
             if response_json:
                 return response_json
             else:
-                error_message = f"Node Normalization service {NODE_NORMALIZATION_URL} returned 200 " \
+                error_message = f"Node Normalization service {self.node_normalization_url} returned 200 " \
                                 f"but with an empty result for (curies: {curies})"
                 raise NormalizationFailedError(error_message=error_message)
         else:
@@ -350,7 +350,7 @@ class NodeNormalizer:
         Retrieves the current production version from the node normalization service
         """
         # hit the node norm status endpoint
-        node_norm_status_url = f'{NODE_NORMALIZATION_URL}status'
+        node_norm_status_url = f'{self.node_normalization_url}status'
         resp: requests.models.Response = requests.get(node_norm_status_url)
         resp.raise_for_status()
         status: dict = resp.json()
@@ -386,9 +386,6 @@ class EdgeNormalizer:
     """
     Class that contains methods relating to edge normalization.
     """
-
-    DEFAULT_EDGE_NORM_ENDPOINT = f'https://bl-lookup-sri.renci.org/'
-
     def __init__(self,
                  edge_normalization_version: str = 'latest',
                  log_level=logging.INFO):
@@ -397,15 +394,13 @@ class EdgeNormalizer:
         :param log_level - overrides default log level
         """
         # create a logger
-        self.logger = LoggingUtil.init_logging("ORION.Common.EdgeNormalizer", level=log_level, line_format='medium', log_file_path=os.environ.get('ORION_LOGS'))
+        self.logger = LoggingUtil.init_logging("ORION.Common.EdgeNormalizer", level=log_level, line_format='medium', 
+                                               log_file_path=config.getenv("ORION_LOGS_DIR_NAME"))
         # normalization map for future look up of all normalized predicates
         self.edge_normalization_lookup = {}
         self.cached_edge_norms = {}
-
-        if 'EDGE_NORMALIZATION_ENDPOINT' in os.environ and os.environ['EDGE_NORMALIZATION_ENDPOINT']:
-            self.edge_norm_endpoint = os.environ['EDGE_NORMALIZATION_ENDPOINT']
-        else:
-            self.edge_norm_endpoint = self.DEFAULT_EDGE_NORM_ENDPOINT
+        
+        self.edge_norm_endpoint = config.getenv("EDGE_NORMALIZATION_ENDPOINT")
 
         if edge_normalization_version != 'latest':
             if self.check_bl_version_valid(edge_normalization_version):
@@ -560,14 +555,13 @@ class EdgeNormalizer:
             # this shouldn't happen, raise an exception
             resp.raise_for_status()
 
-
-NAME_RESOLVER_URL = os.getenv('NAMERES_URL', 'https://name-resolution-sri.renci.org')
-NAME_RESOLVER_ENDPOINT = f'{NAME_RESOLVER_URL}/lookup'
-NAME_RESOLVER_HEADERS = {"accept": "application/json"}
-NAME_RESOLVER_API_ERROR = 'api_error'
-
-
 def call_name_resolution(name: str, biolink_type: str, retries=0, logger=None):
+
+    NAME_RESOLVER_URL = config.getenv('NAMERES_URL')
+    NAME_RESOLVER_ENDPOINT = f'{NAME_RESOLVER_URL}/lookup'
+    NAME_RESOLVER_HEADERS = {"accept": "application/json"}
+    NAME_RESOLVER_API_ERROR = 'api_error'
+
     nameres_payload = {
         "string": name,
         "biolink_type": biolink_type if biolink_type else "",

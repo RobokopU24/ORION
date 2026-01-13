@@ -21,7 +21,7 @@ SOURCE_DATA_LOADER_CLASSES = SourceDataLoaderClassFactory()
 config = Config.from_env()
 logger = LoggingUtil.init_logging("ORION.Common.SourceDataManager",
                                   line_format='medium',
-                                  log_file_path=config.orion_logs_path)
+                                  log_file_path=config.getenv("ORION_LOGS_DIR_NAME"))
 
 
 class SourceDataManager:
@@ -692,7 +692,7 @@ class SourceDataManager:
     def init_storage_dir(self):
         # use the storage directory specified by the environment variable ORION_STORAGE
         # check to make sure it's set and valid, otherwise fail
-        return config.orion_storage_path
+        return config.getenv("ORION_STORAGE_DIR_NAME")
 
     def init_source_output_dir(self, source_id: str):
         source_dir_path = os.path.join(self.storage_dir, source_id)
@@ -718,7 +718,7 @@ if __name__ == '__main__':
                              'in the finalized kgx files.')
     args = parser.parse_args()
 
-    test_mode_from_env = config.orion_test_mode
+    test_mode_from_env = config.getenv("ORION_TEST_MODE")
     loader_test_mode = args.test_mode or test_mode_from_env ## TODO: Is this redundant?
     loader_strict_normalization = (not args.lenient_normalization)
     load_manager = SourceDataManager(test_mode=loader_test_mode,

@@ -37,7 +37,7 @@ class SourceDataLoader:
             if not os.path.exists(self.data_path):
                 os.mkdir(self.data_path)
         else:
-            self.data_path = config.orion_storage_path
+            self.data_path = config.getenv("ORION_STORAGE_DIR_NAME")
 
         # the final output lists of nodes and edges
         self.final_node_list: list = []
@@ -50,7 +50,7 @@ class SourceDataLoader:
         self.logger = LoggingUtil.init_logging(f"ORION.parsers.{self.get_name()}",
                                                level=logging.INFO,
                                                line_format='medium',
-                                               log_file_path=config.orion_logs_path)
+                                               log_file_path=config.getenv("ORION_LOGS_DIR_NAME"))
 
     def get_latest_source_version(self):
         """Determine and return the latest source version ie. a unique identifier associated with the latest version."""

@@ -5,8 +5,12 @@ import requests
 
 from parsers.LitCoin.src.NER.base import BaseNEREngine
 
+from Common.config import Config
+
 # Configuration: NameRes
-NAMERES_URL = os.getenv('NAMERES_URL', 'https://name-resolution-sri.renci.org/')
+config = Config.from_env()
+
+NAMERES_URL = config.getenv("NAMERES_URL")
 NAMERES_ENDPOINT = f'{NAMERES_URL}lookup'
 NAMERES_RL_ENDPOINT = f'{NAMERES_URL}reverse_lookup'
 

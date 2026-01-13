@@ -12,6 +12,7 @@ from Common.utils import GetData, quick_jsonl_file_iterator
 from Common.normalization import call_name_resolution, NAME_RESOLVER_API_ERROR
 from Common.predicates import call_pred_mapping
 from Common.prefixes import PUBMED
+from Common.config import Config
 
 from parsers.LitCoin.src.bagel.bagel_service import call_bagel_service
 from parsers.LitCoin.src.bagel.bagel import get_orion_bagel_results, extract_best_match, \
@@ -84,7 +85,8 @@ class LitCoinLoader(SourceDataLoader):
         :param source_data_dir - the specific storage directory to save files in
         """
         super().__init__(test_mode=test_mode, source_data_dir=source_data_dir)
-        self.shared_source_data_path = os.getenv('SHARED_SOURCE_DATA_PATH', None)
+        self.config = Config.from_env()
+        self.shared_source_data_path = self.config.getenv("SHARED_SOURCE_DIR_NAME")
         self.data_url = 'https://stars.renci.org/var/data_services/litcoin/'
         self.version_file = 'litcoin.yaml'
         self.abstracts_file = 'abstracts_CompAndHeal.json'

@@ -37,7 +37,7 @@ class GraphBuilder:
         self.config = Config.from_env()
         self.logger = LoggingUtil.init_logging("ORION.Common.GraphBuilder",
                                                line_format='medium',
-                                               log_file_path=self.config.orion_logs_path)
+                                               log_file_path=self.config.getenv("ORION_LOGS_DIR_NAME"))
 
         self.graphs_dir = self.get_graphs_dir()  # path to the graphs output directory
         self.source_data_manager = SourceDataManager()  # access to the data sources and their metadata
@@ -361,8 +361,8 @@ class GraphBuilder:
             mkgb.write_example_data_to_file(example_data_file_path)
 
     def load_graph_specs(self, graph_specs_dir=None):
-        graph_spec_file = self.config.orion_graph_spec
-        graph_spec_url = self.config.orion_graph_spec_url
+        graph_spec_file = self.config.getenv("ORION_GRAPH_SPEC")
+        graph_spec_url = self.config.getenv("ORION_GRAPH_SPEC_URL")
 
         if graph_spec_file and graph_spec_url:
             raise GraphSpecError(f'Configuration Error - the environment variables ORION_GRAPH_SPEC and '
@@ -526,7 +526,7 @@ class GraphBuilder:
     @staticmethod
     def get_graph_output_url(graph_id: str, graph_version: str):
         cfg = Config.from_env()
-        graph_output_url = cfg.orion_output_url
+        graph_output_url = cfg.getenv("ORION_OUTPUT_URL")
         return f'{graph_output_url}/{graph_id}/{graph_version}/'
 
     @staticmethod
@@ -554,7 +554,7 @@ class GraphBuilder:
     def get_graphs_dir():
         # confirm the directory specified by the environment variable ORION_GRAPHS is valid
         cfg = Config.from_env()
-        graphs_dir = cfg.orion_graphs_path
+        graphs_dir = cfg.getenv("ORION_GRAPHS_DIR_NAME")
         if graphs_dir and Path(graphs_dir).is_dir():
             return graphs_dir
 
