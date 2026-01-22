@@ -10,6 +10,7 @@
 from dataclasses import dataclass
 from .utils import LoggingUtil
 from pathlib import Path
+from typing import ClassVar
 from pydantic import field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -42,10 +43,17 @@ class Config(BaseSettings):
     SAPBERT_URL: str="https://babel-sapbert.apps.renci.org/"
     LITCOIN_PRED_MAPPING_URL: str="https://pred-mapping.apps.renci.org/"
     BAGEL_ENDPOINT: str="https://bagel.apps.renci.org/"
+    
+    # class method to get an instance of the class, with an option to be able to reload
+    _instance: ClassVar["Config | None"] = None
 
-    def __getitem__(self, key: str):
-        return getattr(self, key)
+    @classmethod
+    def get(cls, refresh: bool = False) -> "Config":
+        if cls._instance is None or refresh:
+            cls._instance = cls()
+        return cls._instance
 
+    # Validation function for ORION_LOGS
     @field_validator("ORION_LOGS")
     @classmethod
     def validate_logs_path(cls, v: Path | None) -> Path | None:
@@ -78,4 +86,14 @@ class Config(BaseSettings):
             raise ValueError(f"Failed to create {name} directory: {e}")
         return path
 
-CONFIG = Config()
+class ConfigProxy:
+    def __getattr__(self, name: str):
+        return getattr(Config.get(), name)
+    
+    def __getitem__(self, name: str):
+        return getattr(Config.get(), name)
+
+    def refresh(self):
+        Config.get(refresh=True)
+
+CONFIG = ConfigProxy()

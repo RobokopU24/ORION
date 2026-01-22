@@ -4,7 +4,7 @@ import requests.exceptions
 
 from unittest.mock import MagicMock
 from Common.build_manager import GraphBuilder, GraphSpecError
-
+from Common.config import CONFIG
 
 def clear_graph_spec_config():
     os.environ['ORION_GRAPH_SPEC'] = ''
@@ -31,6 +31,8 @@ def get_source_data_manager_mock():
 
 def test_empty_graph_spec_config():
     clear_graph_spec_config()
+    with pytest.raises(ValueError):
+        CONFIG.refresh()
     with pytest.raises(GraphSpecError):
         graph_builder = GraphBuilder(graph_specs_dir=get_testing_graph_spec_dir())
 
@@ -38,6 +40,7 @@ def test_empty_graph_spec_config():
 def test_invalid_graph_spec_config():
     clear_graph_spec_config()
     os.environ['ORION_GRAPH_SPEC'] = 'invalid-spec.yaml'
+    CONFIG.refresh()
     with pytest.raises(GraphSpecError):
         graph_builder = GraphBuilder(graph_specs_dir=get_testing_graph_spec_dir())
 
@@ -45,6 +48,7 @@ def test_invalid_graph_spec_config():
 def test_invalid_graph_spec_url_config():
     clear_graph_spec_config()
     os.environ['ORION_GRAPH_SPEC_URL'] = 'http://localhost/invalid_graph_spec_url'
+    CONFIG.refresh()
     with pytest.raises(requests.exceptions.ConnectionError):
         graph_builder = GraphBuilder()
 
@@ -52,6 +56,7 @@ def test_invalid_graph_spec_url_config():
 # the graph spec is loaded up properly but doesn't attempt to determine versions when unspecified
 def test_valid_graph_spec_config():
     reset_graph_spec_config()
+    CONFIG.refresh()
     graph_builder = GraphBuilder(graph_specs_dir=get_testing_graph_spec_dir())
     assert len(graph_builder.graph_specs)
     testing_graph_spec = graph_builder.graph_specs.get('Testing_Graph', None)
@@ -65,6 +70,7 @@ def test_valid_graph_spec_config():
 # graph spec sources are able to return versions once source_version(s) are set
 def test_graph_spec_lazy_versions():
     reset_graph_spec_config()
+    CONFIG.refresh()
     graph_builder = GraphBuilder(graph_specs_dir=get_testing_graph_spec_dir())
     testing_graph_spec = graph_builder.graph_specs.get('Testing_Graph', None)
     for source in testing_graph_spec.sources:
@@ -79,6 +85,7 @@ def test_graph_spec_lazy_versions():
 # then see if a graph with a subgraph can properly determine graph versions
 def test_graph_spec_subgraph_version():
     reset_graph_spec_config()
+    CONFIG.refresh()
     graph_builder = GraphBuilder(graph_specs_dir=get_testing_graph_spec_dir())
     graph_builder.source_data_manager = get_source_data_manager_mock()
 
@@ -100,6 +107,7 @@ def test_graph_spec_subgraph_version():
 # make sure a graph spec with an invalid subgraph fails with the appropriate exception
 def test_graph_spec_invalid_subgraph():
     reset_graph_spec_config()
+    CONFIG.refresh()
     graph_builder = GraphBuilder(graph_specs_dir=get_testing_graph_spec_dir())
     graph_builder.source_data_manager = get_source_data_manager_mock()
     testing_graph_spec = graph_builder.graph_specs.get('Testing_Graph_3', None)
@@ -111,6 +119,7 @@ def test_graph_spec_invalid_subgraph():
 # make sure a graph spec with an invalid subgraph version (which is otherwise valid) fails to build
 def test_graph_spec_invalid_subgraph_version():
     reset_graph_spec_config()
+    CONFIG.refresh()
     graph_builder = GraphBuilder(graph_specs_dir=get_testing_graph_spec_dir())
     graph_builder.source_data_manager = get_source_data_manager_mock()
     testing_graph_spec = graph_builder.graph_specs.get('Testing_Graph_4', None)
