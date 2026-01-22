@@ -5,15 +5,13 @@ import requests
 
 from parsers.LitCoin.src.NER.base import BaseNEREngine
 
-from Common.config import Config
+from Common.config import CONFIG
 
 # Configuration: NameRes
-config = Config.from_env()
 
-NAMERES_URL = config.getenv("NAMERES_URL")
+NAMERES_URL = CONFIG["NAMERES_URL"]
 NAMERES_ENDPOINT = f'{NAMERES_URL}lookup'
 NAMERES_RL_ENDPOINT = f'{NAMERES_URL}reverse_lookup'
-
 
 class NameResNEREngine(BaseNEREngine):
     def __init__(self, requests_session):

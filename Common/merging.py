@@ -5,7 +5,7 @@ from xxhash import xxh64_hexdigest
 from Common.biolink_utils import BiolinkUtils
 from Common.biolink_constants import *
 from Common.utils import quick_json_loads, quick_json_dumps, chunk_iterator, LoggingUtil
-from Common.config import Config
+from Common.config import CONFIG
 
 NODE_PROPERTIES_THAT_SHOULD_BE_SETS = {SYNONYMS, NODE_TYPES, SYNONYM}
 EDGE_PROPERTIES_THAT_SHOULD_BE_SETS = {AGGREGATOR_KNOWLEDGE_SOURCES, PUBLICATIONS, XREFS}
@@ -14,10 +14,9 @@ NODE_ENTITY_TYPE = 'node'
 EDGE_ENTITY_TYPE = 'edge'
 
 bmt = BiolinkUtils()
-config = Config.from_env()
 logger = LoggingUtil.init_logging("ORION.Common.merging",
                                   line_format='medium',
-                                  log_file_path=config.getenv("ORION_LOGS_DIR_NAME"))
+                                  log_file_path=CONFIG["ORION_LOGS"])
 
 
 def node_key_function(node):

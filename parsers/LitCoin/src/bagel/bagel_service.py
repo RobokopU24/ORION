@@ -1,23 +1,21 @@
 import requests
 from requests.auth import HTTPBasicAuth
-from Common.config import Config
+from Common.config import CONFIG
 
-config = Config.from_env()
-
-BAGEL_ENDPOINT = config.getenv("BAGEL_ENDPOINT")
+BAGEL_ENDPOINT = CONFIG["BAGEL_ENDPOINT"]
 BAGEL_ENDPOINT += 'find_curies_openai'
 
-bagel_nameres_url = config.getenv("NAMERES_URL")
+bagel_nameres_url = CONFIG["NAMERES_URL"]
 bagel_nameres_url += 'lookup?autocomplete=false&offset=0&limit=10&string="'
 
-bagel_sapbert_url = config.getenv("SAPBERT_URL") # This default is different: 'https://sap-qdrant.apps.renci.org/'
+bagel_sapbert_url = CONFIG["SAPBERT_URL"] # This default is different: 'https://sap-qdrant.apps.renci.org/'
 bagel_sapbert_url += "annotate/"
 
-bagel_nodenorm_url = config.getenv("NODE_NORMALIZATION_ENDPOINT")
+bagel_nodenorm_url = CONFIG["NODE_NORMALIZATION_ENDPOINT"]
 bagel_nodenorm_url += 'get_normalized_nodes'
 
-BAGEL_SERVICE_USERNAME = config.getenv("BAGEL_SERVICE_USERNAME")
-BAGEL_SERVICE_PASSWORD = config.getenv("BAGEL_SERVICE_PASSWORD")
+BAGEL_SERVICE_USERNAME = CONFIG["BAGEL_SERVICE_USERNAME"]
+BAGEL_SERVICE_PASSWORD = CONFIG["BAGEL_SERVICE_PASSWORD"]
 
 
 def call_bagel_service(text, entity, entity_type=''):

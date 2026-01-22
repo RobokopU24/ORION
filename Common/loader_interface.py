@@ -4,7 +4,7 @@ import json
 import inspect
 from Common.kgx_file_writer import KGXFileWriter
 from Common.utils import LoggingUtil
-from Common.config import Config
+from Common.config import CONFIG
 
 class SourceDataLoader:
 
@@ -28,7 +28,6 @@ class SourceDataLoader:
     attribution = ""
 
     def __init__(self, test_mode: bool = False, source_data_dir: str = None):
-        config = Config.from_env()
         """Initialize with the option to run in testing mode."""
         self.test_mode: bool = test_mode
 
@@ -37,7 +36,7 @@ class SourceDataLoader:
             if not os.path.exists(self.data_path):
                 os.mkdir(self.data_path)
         else:
-            self.data_path = config.getenv("ORION_STORAGE_DIR_NAME")
+            self.data_path = CONFIG.get_path("ORION_STORAGE")
 
         # the final output lists of nodes and edges
         self.final_node_list: list = []
@@ -50,7 +49,7 @@ class SourceDataLoader:
         self.logger = LoggingUtil.init_logging(f"ORION.parsers.{self.get_name()}",
                                                level=logging.INFO,
                                                line_format='medium',
-                                               log_file_path=config.getenv("ORION_LOGS_DIR_NAME"))
+                                               log_file_path=CONFIG["ORION_LOGS"])
 
     def get_latest_source_version(self):
         """Determine and return the latest source version ie. a unique identifier associated with the latest version."""

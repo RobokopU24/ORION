@@ -9,7 +9,7 @@ from Common.normalization import NormalizationScheme, NodeNormalizer, EdgeNormal
     NormalizationFailedError
 from Common.utils import LoggingUtil, chunk_iterator
 from Common.kgx_file_writer import KGXFileWriter
-from Common.config import Config
+from Common.config import CONFIG
 
 EDGE_PROPERTIES_THAT_SHOULD_BE_SETS = {AGGREGATOR_KNOWLEDGE_SOURCES, PUBLICATIONS}
 NODE_NORMALIZATION_BATCH_SIZE = 1_000_000
@@ -22,11 +22,10 @@ EDGE_NORMALIZATION_BATCH_SIZE = 1_000_000
 #
 class KGXFileNormalizer:
 
-    config = Config.from_env()
     logger = LoggingUtil.init_logging("ORION.Common.KGXFileNormalizer",
                                       line_format='medium',
                                       level=logging.INFO,
-                                      log_file_path=config.getenv("ORION_LOGS_DIR_NAME"))
+                                      log_file_path=CONFIG["ORION_LOGS"])
 
     def __init__(self,
                  source_nodes_file_path: str,

@@ -22,7 +22,7 @@ from Common.supplementation import SequenceVariantSupplementation
 from Common.meta_kg import MetaKnowledgeGraphBuilder, META_KG_FILENAME, TEST_DATA_FILENAME, EXAMPLE_DATA_FILENAME
 from Common.redundant_kg import generate_redundant_kg
 from Common.collapse_qualifiers import generate_collapsed_qualifiers_kg
-from Common.config import Config
+from Common.config import CONFIG
 
 NODES_FILENAME = 'nodes.jsonl'
 EDGES_FILENAME = 'edges.jsonl'
@@ -34,10 +34,9 @@ class GraphBuilder:
 
     def __init__(self,
                  graph_specs_dir=None):
-        self.config = Config.from_env()
         self.logger = LoggingUtil.init_logging("ORION.Common.GraphBuilder",
                                                line_format='medium',
-                                               log_file_path=self.config.getenv("ORION_LOGS_DIR_NAME"))
+                                               log_file_path=CONFIG['ORION_LOGS'])
 
         self.graphs_dir = self.get_graphs_dir()  # path to the graphs output directory
         self.source_data_manager = SourceDataManager()  # access to the data sources and their metadata
@@ -361,8 +360,8 @@ class GraphBuilder:
             mkgb.write_example_data_to_file(example_data_file_path)
 
     def load_graph_specs(self, graph_specs_dir=None):
-        graph_spec_file = self.config.getenv("ORION_GRAPH_SPEC")
-        graph_spec_url = self.config.getenv("ORION_GRAPH_SPEC_URL")
+        graph_spec_file = CONFIG["ORION_GRAPH_SPEC"]
+        graph_spec_url = CONFIG["ORION_GRAPH_SPEC_URL"]
 
         if graph_spec_file and graph_spec_url:
             raise GraphSpecError(f'Configuration Error - the environment variables ORION_GRAPH_SPEC and '
@@ -525,8 +524,7 @@ class GraphBuilder:
 
     @staticmethod
     def get_graph_output_url(graph_id: str, graph_version: str):
-        cfg = Config.from_env()
-        graph_output_url = cfg.getenv("ORION_OUTPUT_URL")
+        graph_output_url = CONFIG["ORION_OUTPUT_URL"]
         return f'{graph_output_url}/{graph_id}/{graph_version}/'
 
     @staticmethod
@@ -553,8 +551,7 @@ class GraphBuilder:
     @staticmethod
     def get_graphs_dir():
         # confirm the directory specified by the environment variable ORION_GRAPHS is valid
-        cfg = Config.from_env()
-        graphs_dir = cfg.getenv("ORION_GRAPHS_DIR_NAME")
+        graphs_dir = CONFIG["ORION_GRAPHS"]
         if graphs_dir and Path(graphs_dir).is_dir():
             return graphs_dir
 

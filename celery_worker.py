@@ -1,7 +1,7 @@
 from celery import Celery
 import subprocess
 import os
-from Common.config import Config
+from Common.config import CONFIG
 
 # Configure Celery to connect to the Redis broker
 celery_app = Celery(
@@ -30,11 +30,10 @@ def run_build_manager(task_data):
     print(f'task_data: {task_data}', flush=True)
     # Run build_manager.py as a subprocess with the provided config
     os.environ["ORION_GRAPH_SPEC"] = task_data["graph_spec_filename"]
-    config = Config.from_env()
     # no need to catch CalledProcessError exception, but rather let it propogate to Celery task handling
     result = subprocess.run(
         ["python", "build_manager.py", task_data["graph_id"], "--graph_specs_dir",
-         config.getenv("SHARED_SOURCE_DIR_NAME")],
+         CONFIG["SHARED_SOURCE_DATA_PATH"]],
         capture_output=True,
         text=True,
         check=True

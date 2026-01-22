@@ -2,7 +2,7 @@ import os
 import requests
 from Common.prefixes import *
 import time
-from Common.config import Config
+from Common.config import CONFIG
 
 # these are predicates from DGIDB as well as drug and chemical activity types from drug central
 DGIDB_PREDICATE_MAPPING = {
@@ -53,8 +53,7 @@ DGIDB_PREDICATE_MAPPING = {
     "xc50": f"RO:0002436"  # This is related to ec50 and ic50 both of which describe binding events
 }
 
-config = Config.from_env()
-LITCOIN_PRED_MAPPING_URL = config.getenv("LITCOIN_PRED_MAPPING_URL")
+LITCOIN_PRED_MAPPING_URL = CONFIG["LITCOIN_PRED_MAPPING_URL"]
 PRED_MAPPING_ENDPOINT = f'{LITCOIN_PRED_MAPPING_URL}query/'
 
 def call_pred_mapping(subject: str, obj: str, predicate: str, abstract: str, retries=0, logger=None):

@@ -2,12 +2,11 @@ import argparse
 import os
 from Common.utils import LoggingUtil
 from Common.neo4j_tools import create_neo4j_dump
-from Common.config import Config
+from Common.config import CONFIG
 
-config = Config.from_env()
 logger = LoggingUtil.init_logging("ORION.cli.neo4j_dump",
                                   line_format='medium',
-                                  log_file_path= config.getenv("ORION_LOGS_DIR_NAME"))
+                                  log_file_path= CONFIG['ORION_LOGS'])
 
 if __name__ == '__main__':
     ap = argparse.ArgumentParser(description='')
