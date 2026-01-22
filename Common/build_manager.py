@@ -551,14 +551,8 @@ class GraphBuilder:
     @staticmethod
     def get_graphs_dir():
         # confirm the directory specified by the environment variable ORION_GRAPHS is valid
-        graphs_dir = CONFIG["ORION_GRAPHS"]
-        if graphs_dir and Path(graphs_dir).is_dir():
-            return graphs_dir
-
-        # if invalid or not specified back out
-        raise IOError('ORION graphs directory not configured properly. '
-                      'Specify a valid directory with environment variable ORION_GRAPHS.')
-
+        graphs_dir = CONFIG.get_path("ORION_GRAPHS")
+        return graphs_dir
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="Merge data sources into complete graphs.")

@@ -49,6 +49,8 @@ class NormalizationFailedError(Exception):
         self.error_message = error_message
         self.actual_error = actual_error
 
+NODE_NORMALIZATION_URL = CONFIG["NODE_NORMALIZATION_ENDPOINT"]
+
 class NodeNormalizer:
     """
     Class that contains methods relating to node normalization of KGX data.
@@ -79,7 +81,6 @@ class NodeNormalizer:
                                                level=log_level,
                                                line_format='medium',
                                                log_file_path=CONFIG["ORION_LOGS"])
-        self.node_normalization_url = CONFIG["NODE_NORMALIZATION_ENDPOINT"]
         # storage for regular nodes that failed to normalize
         self.failed_to_normalize_ids = set()
         # storage for variant nodes that failed to normalize
@@ -102,7 +103,7 @@ class NodeNormalizer:
 
     def hit_node_norm_service(self, curies, retries=0):
         resp: requests.models.Response = \
-            self.requests_session.post(f'{self.node_normalization_url}get_normalized_nodes',
+            self.requests_session.post(f'{NODE_NORMALIZATION_URL}get_normalized_nodes',
                                        json={'curies': curies,
                                              'conflate': self.conflate_node_types,
                                              'drug_chemical_conflate': self.conflate_node_types,
@@ -114,7 +115,7 @@ class NodeNormalizer:
             if response_json:
                 return response_json
             else:
-                error_message = f"Node Normalization service {self.node_normalization_url} returned 200 " \
+                error_message = f"Node Normalization service {NODE_NORMALIZATION_URL} returned 200 " \
                                 f"but with an empty result for (curies: {curies})"
                 raise NormalizationFailedError(error_message=error_message)
         else:
@@ -348,7 +349,7 @@ class NodeNormalizer:
         Retrieves the current production version from the node normalization service
         """
         # hit the node norm status endpoint
-        node_norm_status_url = f'{self.node_normalization_url}status'
+        node_norm_status_url = f'{NODE_NORMALIZATION_URL}status'
         resp: requests.models.Response = requests.get(node_norm_status_url)
         resp.raise_for_status()
         status: dict = resp.json()
@@ -553,13 +554,12 @@ class EdgeNormalizer:
             # this shouldn't happen, raise an exception
             resp.raise_for_status()
 
+NAME_RESOLVER_URL = CONFIG['NAMERES_URL']
+NAME_RESOLVER_ENDPOINT = f'{NAME_RESOLVER_URL}lookup'
+NAME_RESOLVER_HEADERS = {"accept": "application/json"}
+NAME_RESOLVER_API_ERROR = 'api_error'
+
 def call_name_resolution(name: str, biolink_type: str, retries=0, logger=None):
-
-    NAME_RESOLVER_URL = CONFIG['NAMERES_URL']
-    NAME_RESOLVER_ENDPOINT = f'{NAME_RESOLVER_URL}lookup'
-    NAME_RESOLVER_HEADERS = {"accept": "application/json"}
-    NAME_RESOLVER_API_ERROR = 'api_error'
-
     nameres_payload = {
         "string": name,
         "biolink_type": biolink_type if biolink_type else "",
