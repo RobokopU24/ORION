@@ -1,7 +1,7 @@
 
 import json
 from collections import defaultdict
-from dataclasses import dataclass, field, asdict
+from dataclasses import dataclass, field
 
 from Common.utils import quick_jsonl_file_iterator
 from Common.biolink_utils import BiolinkUtils
@@ -14,7 +14,27 @@ class KGXSource:
     name: str = ""
     description: str = ""
     license: str = ""
+    attribution: str = ""
     url: str = ""
+    citation: str = ""
+    fullCitation: str = ""
+    version: str = ""
+    contentUrl: str = ""
+
+    def to_dict(self):
+        return {
+            "@type": "Dataset",
+            "id": self.id,
+            "name": self.name,
+            "description": self.description,
+            "license": self.license,
+            "attribution": self.attribution,
+            "url": self.url,
+            "citation": self.citation,
+            "fullCitation": self.fullCitation,
+            "version": self.version,
+            "contentUrl": self.contentUrl
+        }
 
 @dataclass
 class KGXNodeType:
@@ -44,9 +64,87 @@ class KGXGraphMetadata:
     url: str = ""
     version: str = ""
     date_created: str = ""
+    date_published: str = ""
+    date_modified: str = ""
     biolink_version: str = ""
     babel_version: str = ""
-    kgx_sources: list[KGXSource] = field(default_factory=list[KGXSource])
+    keywords: list[str] = field(default_factory=list)
+    creator: list[dict] = field(default_factory=list)
+    contact_point: list[dict] = field(default_factory=list)
+    funder: list[dict] = field(default_factory=list)
+    conforms_to: list[dict] = field(default_factory=list)
+    schema: dict = field(default_factory=dict)
+    kgx_sources: list[KGXSource] = field(default_factory=list)
+    distribution_file_format: str = "tar.xz"
+    distribution_encoding_format: str = "application/x-xz"
+
+    def to_json(self):
+        result = {
+            "@context": {
+                "@vocab": "https://schema.org/",
+                "cr": "https://mlcommons.org/croissant/"
+            },
+            "@id": self.id,
+            "@type": "Dataset",
+            "name": self.name,
+            "description": self.description,
+            "license": self.license,
+            "url": self.url,
+            "version": self.version,
+            "dateCreated": self.date_created,
+            "datePublished": self.date_published,
+            "dateModified": self.date_modified,
+            "keywords": self.keywords,
+            "creator": self.creator,
+            "contactPoint": self.contact_point,
+            "funder": self.funder,
+            "conformsTo": self.conforms_to,
+            "schema": self.schema,
+            "biolinkVersion": self.biolink_version,
+            "babelVersion": self.babel_version,
+            "distribution": [{
+                "@id": f"{self.name}.{self.distribution_file_format}",
+                "@type": "cr:FileObject",
+                "contentUrl": f"{self.name}.{self.distribution_file_format}",
+                "encodingFormat": self.distribution_encoding_format,
+                "description": "Compressed tar archive containing the KGX files: "
+                               "nodes.jsonl, edges.jsonl, and graph-metadata.json"
+            }],
+            "isBasedOn": [source.to_dict() for source in self.kgx_sources]
+        }
+        return json.dumps(result, indent=2)
+
+
+@dataclass
+class KGXSchema:
+    # Schema document metadata (schema.org DigitalDocument)
+    id: str = ""
+    name: str = ""
+    description: str = ""
+    encoding_format: str = "application/ld+json"
+    kg_id: str = ""
+    kg_name: str = ""
+    schema: dict = field(default_factory=dict)
+
+    def to_json(self):
+        result = {
+            "@context": {
+                "@vocab": "https://schema.org/",
+                "biolink": "https://w3id.org/biolink/"
+            },
+            "@type": "DigitalDocument",
+            "@id": self.id,
+            "name": self.name,
+            "description": self.description,
+            "encodingFormat": self.encoding_format,
+            "isPartOf": {
+                "@type": "Dataset",
+                "@id": self.kg_id,
+                "name": self.kg_name
+            },
+            "schema": self.schema
+        }
+        return json.dumps(result, indent=2)
 
 
 def prepare_to_serialize_nodes(nodes):
@@ -132,14 +230,11 @@ def sort_dict_by_values(dict_to_sort):
     return dict(sorted(dict_to_sort.items(), key=lambda item_tuple: item_tuple[1], reverse=True))
 
 
-def analyze_graph(nodes_file_path: str,
-                  edges_file_path: str,
-                  graph_metadata: KGXGraphMetadata = None):
+def generate_schema(nodes_file_path: str,
+                    edges_file_path: str,
+                    biolink_version: str):
 
-    if not graph_metadata:
-        graph_metadata = KGXGraphMetadata()
-
-    bl_utils = BiolinkUtils(biolink_version=graph_metadata.biolink_version)
+    bl_utils = BiolinkUtils(biolink_version=biolink_version)
 
     # Nodes
     nodes = defaultdict(KGXNodeType)
@@ -197,28 +292,7 @@ def analyze_graph(nodes_file_path: str,
             else:
                 edge_type.attributes[key] += 1
 
-    return {
-        "@id": graph_metadata.id,
-        "@type": "sc:Dataset",
-        "name": f"translator_{graph_metadata.name}_kg",
-        "description": graph_metadata.description,
-        "license": graph_metadata.license,
-        "url": graph_metadata.url,
-        "dateCreated": graph_metadata.date_created,
-        "biolinkVersion": graph_metadata.biolink_version,
-        "babelVersion": graph_metadata.babel_version,
-        "distribution": [{
-            "@id": f"{graph_metadata.name}.tar.xz",
-            "@type": "cr:FileObject",
-            "contentUrl": f"{graph_metadata.name}.tar.xz",
-            "encodingFormat": "application/x-xz",
-            "description": "Compressed tar archive containing the KGX files: nodes.jsonl and edges.jsonl"
-        }],
-        "isBasedOn": [asdict(source) for source in graph_metadata.kgx_sources],
-        "schema":{
-            "nodes": prepare_to_serialize_nodes(nodes),
+    return {"nodes": prepare_to_serialize_nodes(nodes),
             "nodes_summary": generate_nodes_summary(nodes),
             "edges": prepare_to_serialize_edges(edges),
-            "edges_summary": generate_edges_summary(edges)
-        }
-    }
+            "edges_summary": generate_edges_summary(edges)}

@@ -1,4 +1,5 @@
 import os
+import json
 import yaml
 import argparse
 import datetime
@@ -8,7 +9,7 @@ from pathlib import Path
 from xxhash import xxh64_hexdigest
 
 from Common.utils import LoggingUtil, GetDataPullError
-from Common.data_sources import get_available_data_sources
+from Common.data_sources import get_available_data_sources, get_data_source_metadata_path
 from Common.exceptions import DataVersionError, GraphSpecError
 from Common.load_manager import SourceDataManager
 from Common.kgx_file_merger import KGXFileMerger, DONT_MERGE
@@ -22,6 +23,7 @@ from Common.supplementation import SequenceVariantSupplementation
 from Common.meta_kg import MetaKnowledgeGraphBuilder, META_KG_FILENAME, TEST_DATA_FILENAME, EXAMPLE_DATA_FILENAME
 from Common.redundant_kg import generate_redundant_kg
 from Common.collapse_qualifiers import generate_collapsed_qualifiers_kg
+from Common.kgx_metadata import KGXGraphMetadata, KGXSchema, KGXSource, generate_schema
 
 NODES_FILENAME = 'nodes.jsonl'
 EDGES_FILENAME = 'edges.jsonl'
@@ -123,6 +125,15 @@ class GraphBuilder:
             else:
                 self.logger.warning(f'QC failed for graph {graph_id}.')
 
+        # Generate KGX metadata and schema files
+        self.logger.info(f'Generating KGX metadata and schema for {graph_id}...')
+        self.generate_kgx_metadata_files(
+            graph_metadata=graph_metadata,
+            graph_output_dir=graph_output_dir,
+            nodes_filepath=nodes_filepath,
+            edges_filepath=edges_filepath
+        )
+
         needs_meta_kg = not self.has_meta_kg(graph_directory=graph_output_dir)
         needs_test_data = not self.has_test_data(graph_directory=graph_output_dir)
         if needs_meta_kg or needs_test_data:
@@ -159,7 +170,7 @@ class GraphBuilder:
             if dump_success:
                 graph_metadata.set_dump(dump_type="neo4j_redundant",
                                         dump_url=f'{graph_output_url}graph_{graph_version}_redundant.db.dump')
-            
+
         if 'collapsed_qualifiers_jsonl' in output_formats:
             self.logger.info(f'Generating collapsed qualifier predicates KG for {graph_id}...')
             collapsed_qualifiers_filepath = edges_filepath.replace(EDGES_FILENAME, COLLAPSED_QUALIFIERS_FILENAME)
@@ -358,6 +369,89 @@ class GraphBuilder:
         if generate_example_data:
             example_data_file_path = os.path.join(graph_directory, EXAMPLE_DATA_FILENAME)
             mkgb.write_example_data_to_file(example_data_file_path)
+
+    def generate_kgx_metadata_files(self,
+                                    graph_metadata: GraphMetadata,
+                                    graph_output_dir: str,
+                                    nodes_filepath: str,
+                                    edges_filepath: str):
+        metadata = graph_metadata.metadata
+
+        # Get biolink version from the first source's edge normalization version
+        biolink_version = ""
+        if metadata.get('sources'):
+            first_source = metadata['sources'][0]
+            biolink_version = first_source.get('edge_normalization_version', '')
+
+        # Create KGXSource objects by looking up source.json files
+        kgx_sources = []
+        orion_root = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..')
+        for source in metadata.get('sources', []):
+            source_id = source.get('source_id', '')
+            source_version = source.get('source_version', '')
+
+            # Load the source.json metadata file for this source
+            data_source_metadata_path = os.path.join(orion_root, get_data_source_metadata_path(source_id))
+            with open(data_source_metadata_path, 'r') as f:
+                data_source_metadata = json.load(f)
+
+            # Each key in the file is a provenance_id, create a KGXSource for each
+            for provenance_id, source_info in data_source_metadata.items():
+                kgx_source = KGXSource(
+                    id=source_info.get('id', provenance_id),
+                    name=source_info.get('name', ''),
+                    description=source_info.get('description', ''),
+                    license=source_info.get('license', ''),
+                    attribution=source_info.get('attribution', ''),
+                    url=source_info.get('url', ''),
+                    citation=source_info.get('citation', ''),
+                    fullCitation=source_info.get('fullCitation', ''),
+                    version=source_version,
+                    contentUrl=source_info.get('contentUrl', '')
+                )
+                kgx_sources.append(kgx_source)
+
+        # Create KGXGraphMetadata
+        graph_output_url = self.get_graph_output_url(metadata['graph_id'], metadata['graph_version'])
+        kgx_graph_metadata = KGXGraphMetadata(
+            id=graph_output_url,
+            name=metadata.get('graph_name', ''),
+            description=metadata.get('graph_description', ''),
+            url=metadata.get('graph_url', ''),
+            version=metadata.get('graph_version', ''),
+            date_created=metadata.get('build_time', ''),
+            biolink_version=biolink_version,
+            kgx_sources=kgx_sources
+        )
+
+        # Write graph metadata file
+        graph_metadata_filepath = os.path.join(graph_output_dir, 'graph-metadata.json')
+        with open(graph_metadata_filepath, 'w') as f:
+            f.write(kgx_graph_metadata.to_json())
+
+        # Generate schema using generate_schema()
+        schema_data = generate_schema(
+            nodes_file_path=nodes_filepath,
+            edges_file_path=edges_filepath,
+            biolink_version=biolink_version
+        )
+
+        # Create KGXSchema
+        kgx_schema = KGXSchema(
+            id=f"{graph_output_url}schema.json",
+            name=f"{metadata.get('graph_name', '')} Data Schema",
+            description=f"Schema describing the nodes, edges, and attributes in the {metadata.get('graph_name', '')} knowledge graph",
+            kg_id=graph_output_url,
+            kg_name=metadata.get('graph_name', ''),
+            schema=schema_data
+        )
+
+        # Write schema file
+        schema_filepath = os.path.join(graph_output_dir, 'schema.json')
+        with open(schema_filepath, 'w') as f:
+            f.write(kgx_schema.to_json())
+
+        self.logger.info(f'KGX metadata files written to {graph_output_dir}')
 
     def load_graph_specs(self, graph_specs_dir=None):
         graph_spec_file = os.environ.get('ORION_GRAPH_SPEC', None)
