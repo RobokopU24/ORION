@@ -28,6 +28,8 @@ from Common.kgx_metadata import KGXGraphMetadata, KGXSchema, KGXSource, generate
 NODES_FILENAME = 'nodes.jsonl'
 EDGES_FILENAME = 'edges.jsonl'
 REDUNDANT_EDGES_FILENAME = 'redundant_edges.jsonl'
+GRAPH_METADATA_FILENAME = 'graph-metadata.json'
+SCHEMA_FILENAME = 'schema.json'
 COLLAPSED_QUALIFIERS_FILENAME = 'collapsed_qualifier_edges.jsonl'
 
 
@@ -126,13 +128,14 @@ class GraphBuilder:
                 self.logger.warning(f'QC failed for graph {graph_id}.')
 
         # Generate KGX metadata and schema files
-        self.logger.info(f'Generating KGX metadata and schema for {graph_id}...')
-        self.generate_kgx_metadata_files(
-            graph_metadata=graph_metadata,
-            graph_output_dir=graph_output_dir,
-            nodes_filepath=nodes_filepath,
-            edges_filepath=edges_filepath
-        )
+        if not self.has_kgx_metadata_files(graph_output_dir):
+            self.logger.info(f'Generating KGX metadata and schema for {graph_id}...')
+            self.generate_kgx_metadata_files(
+                graph_metadata=graph_metadata,
+                graph_output_dir=graph_output_dir,
+                nodes_filepath=nodes_filepath,
+                edges_filepath=edges_filepath
+            )
 
         needs_meta_kg = not self.has_meta_kg(graph_directory=graph_output_dir)
         needs_test_data = not self.has_test_data(graph_directory=graph_output_dir)
@@ -349,6 +352,11 @@ class GraphBuilder:
             return True
         else:
             return False
+
+    def has_kgx_metadata_files(self, graph_directory: str):
+        graph_metadata_exists = os.path.exists(os.path.join(graph_directory, GRAPH_METADATA_FILENAME))
+        schema_exists = os.path.exists(os.path.join(graph_directory, SCHEMA_FILENAME))
+        return graph_metadata_exists and schema_exists
 
     def generate_meta_kg_and_test_data(self,
                                        graph_directory: str,
