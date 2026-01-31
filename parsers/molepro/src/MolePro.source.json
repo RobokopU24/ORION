@@ -1,11 +1,13 @@
 {
-    "id": "MolePro",
-    "name": "",
-"description": "MolePro"
-    "url": "",
-    "attribution": "",
-    "citation": "",
-    "full_citation": "",
-    "license": "",
-    "contentUrl": ""
+    "infores:molepro": {
+        "id": "infores:molepro",
+        "name": "",
+        "description": "MolePro",
+        "url": "",
+        "attribution": "",
+        "citation": "",
+        "license": "",
+        "contentUrl": "",
+        "fullCitation": ""
+    }
 }

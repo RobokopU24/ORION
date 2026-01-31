@@ -1,11 +1,13 @@
 {
-    "id": "UniRef",
-    "name": "",
-    "description": "",
-    "url": "",
-    "attribution": "",
-    "citation": "",
-    "full_citation": "",
-    "license": "",
-    "contentUrl": ""
+    "infores:goa": {
+        "id": "infores:goa",
+        "name": "",
+        "description": "",
+        "url": "",
+        "attribution": "",
+        "citation": "",
+        "license": "",
+        "contentUrl": "",
+        "fullCitation": ""
+    }
 }

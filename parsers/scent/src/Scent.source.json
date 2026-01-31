@@ -1,11 +1,13 @@
 {
-    "id": "Scent",
-    "name": "",
-    "description": "",
-    "url": "",
-    "attribution": "",
-    "citation": "",
-    "full_citation": "",
-    "license": "",
-    "contentUrl": ""
+    "infores:Scent": {
+        "id": "infores:Scent",
+        "name": "",
+        "description": "",
+        "url": "",
+        "attribution": "",
+        "citation": "",
+        "license": "",
+        "contentUrl": "",
+        "fullCitation": ""
+    }
 }

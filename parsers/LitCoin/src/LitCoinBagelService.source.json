@@ -1,11 +1,13 @@
 {
-    "id": "LitCoinBagelService",
-    "name": "",
-    "description": "",
-    "url": "",
-    "attribution": "",
-    "citation": "",
-    "full_citation": "",
-    "license": "",
-    "contentUrl": ""
+    "infores:litcoin": {
+        "id": "infores:litcoin",
+        "name": "",
+        "description": "",
+        "url": "",
+        "attribution": "",
+        "citation": "",
+        "license": "",
+        "contentUrl": "",
+        "fullCitation": ""
+    }
 }

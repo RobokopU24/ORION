@@ -1,11 +1,13 @@
 {
-    "id": "Costanza2016Data",
-    "name": "",
-    "description": "",
-    "url": "",
-    "attribution": "",
-    "citation": "",
-    "full_citation": "",
-    "license": "",
-    "contentUrl": ""
+    "infores:Yeast": {
+        "id": "infores:Yeast",
+        "name": "",
+        "description": "",
+        "url": "",
+        "attribution": "",
+        "citation": "",
+        "license": "",
+        "contentUrl": "",
+        "fullCitation": ""
+    }
 }
