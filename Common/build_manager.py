@@ -370,6 +370,21 @@ class GraphBuilder:
             example_data_file_path = os.path.join(graph_directory, EXAMPLE_DATA_FILENAME)
             mkgb.write_example_data_to_file(example_data_file_path)
 
+    def collect_sources_from_metadata(self, metadata: dict) -> list:
+        """Recursively collect all sources from metadata, flattening subgraph sources."""
+        all_sources = []
+
+        # Add direct sources
+        all_sources.extend(metadata.get('sources', []))
+
+        # Recursively add sources from subgraphs
+        for subgraph in metadata.get('subgraphs', []):
+            subgraph_metadata = subgraph.get('graph_metadata')
+            if subgraph_metadata:
+                all_sources.extend(self.collect_sources_from_metadata(subgraph_metadata))
+
+        return all_sources
+
     def generate_kgx_metadata_files(self,
                                     graph_metadata: GraphMetadata,
                                     graph_output_dir: str,
@@ -383,10 +398,13 @@ class GraphBuilder:
             first_source = metadata['sources'][0]
             biolink_version = first_source.get('edge_normalization_version', '')
 
+        # Collect all sources, including from subgraphs (flattened)
+        all_sources = self.collect_sources_from_metadata(metadata)
+
         # Create KGXSource objects by looking up source.json files
         kgx_sources = []
         orion_root = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..')
-        for source in metadata.get('sources', []):
+        for source in all_sources:
             source_id = source.get('source_id', '')
             source_version = source.get('source_version', '')
 
