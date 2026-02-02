@@ -290,9 +290,9 @@ def generate_schema(nodes_file_path: str,
             "edges": prepare_to_serialize_edges(edges),
             "edges_summary": generate_edges_summary(edges)}
 
-def generate_kgx_schema_file(nodes_filepath: Path | str,
-                             edges_filepath: Path | str,
-                             output_dir: Path | str,
+def generate_kgx_schema_file(nodes_filepath: str,
+                             edges_filepath: str,
+                             output_dir: str,
                              graph_output_url: str = "",
                              graph_name: str = "",
                              biolink_version: str = None):
@@ -317,4 +317,3 @@ def generate_kgx_schema_file(nodes_filepath: Path | str,
     schema_filepath = Path(output_dir) / 'schema.json'
     with open(schema_filepath, 'w') as f:
         f.write(kgx_schema.to_json())
-
