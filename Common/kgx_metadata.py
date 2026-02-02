@@ -1,5 +1,5 @@
-
 import json
+from pathlib import Path
 from collections import defaultdict
 from dataclasses import dataclass, field
 
@@ -9,17 +9,17 @@ from Common.biolink_constants import *
 
 
 @dataclass
-class KGXSource:
+class KGXKnowledgeSource:
     id: str = ""
     name: str = ""
     description: str = ""
     license: str = ""
     attribution: str = ""
     url: str = ""
+    contentUrl: str = ""
     citation: str = ""
     fullCitation: str = ""
     version: str = ""
-    contentUrl: str = ""
 
     def to_dict(self):
         return {
@@ -30,10 +30,10 @@ class KGXSource:
             "license": self.license,
             "attribution": self.attribution,
             "url": self.url,
+            "contentUrl": self.contentUrl,
             "citation": self.citation,
             "fullCitation": self.fullCitation,
-            "version": self.version,
-            "contentUrl": self.contentUrl
+            "version": self.version
         }
 
 @dataclass
@@ -64,7 +64,6 @@ class KGXGraphMetadata:
     url: str = ""
     version: str = ""
     date_created: str = ""
-    date_published: str = ""
     date_modified: str = ""
     biolink_version: str = ""
     babel_version: str = ""
@@ -74,15 +73,16 @@ class KGXGraphMetadata:
     funder: list[dict] = field(default_factory=list)
     conforms_to: list[dict] = field(default_factory=list)
     schema: dict = field(default_factory=dict)
-    kgx_sources: list[KGXSource] = field(default_factory=list)
-    distribution_file_format: str = "tar.xz"
-    distribution_encoding_format: str = "application/x-xz"
+    kg_sources: list[dict] = field(default_factory=list)
+    knowledge_sources: list[KGXKnowledgeSource] = field(default_factory=list)
+    distribution: list[dict] = field(default_factory=list)
 
     def to_json(self):
         result = {
             "@context": {
                 "@vocab": "https://schema.org/",
-                "cr": "https://mlcommons.org/croissant/"
+                "biolink": "https://w3id.org/biolink/",
+                "orion": "https://github.com/RobokopU24/ORION"
             },
             "@id": self.id,
             "@type": "Dataset",
@@ -92,7 +92,6 @@ class KGXGraphMetadata:
             "url": self.url,
             "version": self.version,
             "dateCreated": self.date_created,
-            "datePublished": self.date_published,
             "dateModified": self.date_modified,
             "keywords": self.keywords,
             "creator": self.creator,
@@ -102,15 +101,9 @@ class KGXGraphMetadata:
             "schema": self.schema,
             "biolinkVersion": self.biolink_version,
             "babelVersion": self.babel_version,
-            "distribution": [{
-                "@id": f"{self.name}.{self.distribution_file_format}",
-                "@type": "cr:FileObject",
-                "contentUrl": f"{self.name}.{self.distribution_file_format}",
-                "encodingFormat": self.distribution_encoding_format,
-                "description": "Compressed tar archive containing the KGX files: "
-                               "nodes.jsonl, edges.jsonl, and graph-metadata.json"
-            }],
-            "isBasedOn": [source.to_dict() for source in self.kgx_sources]
+            "distribution": self.distribution,
+            "hasPart": self.kg_sources,
+            "isBasedOn": [source.to_dict() for source in self.knowledge_sources]
         }
         return json.dumps(result, indent=2)
 
@@ -122,8 +115,8 @@ class KGXSchema:
     name: str = ""
     description: str = ""
     encoding_format: str = "application/ld+json"
-    kg_id: str = ""
-    kg_name: str = ""
+    graph_id: str = ""
+    graph_name: str = ""
     schema: dict = field(default_factory=dict)
 
     def to_json(self):
@@ -139,8 +132,8 @@ class KGXSchema:
             "encodingFormat": self.encoding_format,
             "isPartOf": {
                 "@type": "Dataset",
-                "@id": self.kg_id,
-                "name": self.kg_name
+                "@id": self.graph_id,
+                "name": self.graph_name
             },
             "schema": self.schema
         }
@@ -296,3 +289,32 @@ def generate_schema(nodes_file_path: str,
             "nodes_summary": generate_nodes_summary(nodes),
             "edges": prepare_to_serialize_edges(edges),
             "edges_summary": generate_edges_summary(edges)}
+
+def generate_kgx_schema_file(nodes_filepath: Path | str,
+                             edges_filepath: Path | str,
+                             output_dir: Path | str,
+                             graph_output_url: str = "",
+                             graph_name: str = "",
+                             biolink_version: str = None):
+    # Generate the contents of the schema itself using the nodes and edges files
+    schema = generate_schema(
+        nodes_file_path=nodes_filepath,
+        edges_file_path=edges_filepath,
+        biolink_version=biolink_version
+    )
+
+    # Populate a KGXSchema with everything it needs
+    kgx_schema = KGXSchema(
+        id=f"{graph_output_url}schema.json",
+        name=f"{graph_name} Schema" if graph_name else "Schema",
+        description=f"Schema describing the nodes, edges, and attributes in the {graph_name} knowledge graph",
+        graph_id=graph_output_url,
+        graph_name=graph_name,
+        schema=schema
+    )
+
+    # Convert to json and write to file
+    schema_filepath = Path(output_dir) / 'schema.json'
+    with open(schema_filepath, 'w') as f:
+        f.write(kgx_schema.to_json())
+
