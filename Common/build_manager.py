@@ -136,7 +136,7 @@ class GraphBuilder:
                                              graph_output_url=graph_output_url)
             self.logger.info(f'KGX metadata generated for {graph_id}.')
         if not self.has_kgx_schema(graph_output_dir):
-            self.logger.info(f'Generating KGX Schema for {graph_id}.')
+            self.logger.info(f'Generating KGX Schema for {graph_id}...')
             generate_kgx_schema_file(nodes_filepath=nodes_filepath,
                                      edges_filepath=edges_filepath,
                                      output_dir=graph_output_dir,
@@ -384,8 +384,9 @@ class GraphBuilder:
             example_data_file_path = os.path.join(graph_directory, EXAMPLE_DATA_FILENAME)
             mkgb.write_example_data_to_file(example_data_file_path)
 
-    @staticmethod
-    def generate_kgx_metadata_files(graph_metadata: GraphMetadata,
+    # TODO robokop specific metadata should be configurable
+    def generate_kgx_metadata_files(self,
+                                    graph_metadata: GraphMetadata,
                                     graph_output_dir: str,
                                     graph_output_url: str):
 
@@ -398,15 +399,15 @@ class GraphBuilder:
         for source in all_sources:
             source_id = source.get('source_id', '')
             source_version = source.get('source_version', '')
-
+            source_name = source.get('name', '')
+            release_version = source.get('release_version', '')
             kg_sources.append({
-                'orion:id': source_id,
-                'orion:sourceVersion': source_version,
-                'orion:releaseVersion': source.get('release_version', ''),
+                '@id': self.get_graph_output_url(graph_id=source_id, graph_version=release_version),
+                'name': f"A ROBOKOP Knowledge Graph based on {source_name}",
                 # TODO this is missing potential supplemental nodes and edges but that should be reworked upstream
                 #  to access them in a more sane way
-                'biolink:nodes': source.get('normalized_nodes.jsonl', {}).get("nodes"),
-                'biolink:edges': source.get('normalized_edges.jsonl', {}).get("edges")
+                'orion:nodeCount': source.get('normalized_nodes.jsonl', {}).get("nodes"),
+                'orion:edgeCount': source.get('normalized_edges.jsonl', {}).get("edges")
             })
 
             # Load the parser *.source.json metadata file for this source
@@ -425,12 +426,12 @@ class GraphBuilder:
                     url=source_info.get('url', ''),
                     contentUrl=source_info.get('contentUrl', ''),
                     citation=source_info.get('citation', ''),
-                    fullCitation=source_info.get('fullCitation', '')
+                    fullCitation=source_info.get('fullCitation', ''),
+                    version=source_version
                 )
                 knowledge_sources.append(knowledge_source)
 
         # Create KGXGraphMetadata
-        # TODO this robokop specific metadata should be configurable
         kgx_graph_metadata = KGXGraphMetadata(
             id=graph_output_url,
             name=graph_metadata.get_graph_name(),

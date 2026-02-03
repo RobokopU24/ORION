@@ -31,9 +31,8 @@ class KGXKnowledgeSource:
             "attribution": self.attribution,
             "url": self.url,
             "contentUrl": self.contentUrl,
-            "citation": self.citation,
-            "fullCitation": self.fullCitation,
-            "version": self.version
+            "citation": [self.citation, self.fullCitation],
+            "version": self.version,
         }
 
 @dataclass
