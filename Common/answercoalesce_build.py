@@ -37,17 +37,6 @@ def parse_line(line):
     source_id = line['subject']
     target_id = line['object']
     pred = line['predicate']
-    # Remove variant/anatomy edges from GTEX.  These are going away in the new load anyway
-    if source_id.startswith('CAID'):
-        if target_id.startswith('UBERON'):
-            if pred == 'biolink:affects_expression_of':
-                return source_id, target_id, None, None
-    if source_id.startswith('UBERON'):
-        if target_id.startswith('NCBIGene'):
-            if pred == 'biolink:expresses':
-                return source_id, target_id, None, None
-    if pred == 'biolink:expressed_in' and target_id.startswith('UBERON'):
-        return source_id, target_id, None, None
     predicate_parts = {'predicate': pred}
     for key, value in line.items():
         if biolink_utils.is_qualifier(key):
