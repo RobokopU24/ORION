@@ -1,7 +1,7 @@
 import os
-from collections import defaultdict
-import json, jsonlines
+import json
 import requests
+from collections import defaultdict
 from Common.utils import quick_jsonl_file_iterator
 from Common.biolink_utils import BiolinkUtils
 try:
@@ -15,22 +15,6 @@ biolink_utils = BiolinkUtils()
 # Constants
 FILTER_PREDICATES = ["biolink:related_to_at_concept_level", "biolink:related_to_at_instance_level"]
 BLOCKLIST_URL = "https://raw.githubusercontent.com/NCATSTranslator/Relay/master/config/blocklist.json"
-
-
-
-def str2list(nlabels):
-    x = nlabels[1:-1]  #strip [ ]
-    parts = x.split(',')
-    labs = [pi[1:-1] for pi in parts]  #strip""
-    return labs
-
-
-def add_labels(lfile, nid, nlabels, done):
-    if nid in done:
-        return
-    labs = str2list(nlabels)
-    lfile.write(f'{nid}\t{labs}\n')
-    done.add(nid)
 
 
 def parse_line(line):
@@ -52,6 +36,22 @@ def get_filter_nodes():
 
     blocklist = json.loads(requests.get(BLOCKLIST_URL).text)
     return set(blocklist)
+
+
+# These were unused, not sure if they are still relevant
+# def str2list(nlabels):
+#    x = nlabels[1:-1]  #strip [ ]
+#    parts = x.split(',')
+#    labs = [pi[1:-1] for pi in parts]  #strip""
+#    return labs
+#
+# def add_labels(lfile, nid, nlabels, done):
+#    if nid in done:
+#        return
+#    labs = str2list(nlabels)
+#    lfile.write(f'{nid}\t{labs}\n')
+#    done.add(nid)
+
 
 
 def generate_ac_files(input_node_file, input_edge_file, output_dir):
@@ -109,8 +109,8 @@ def generate_ac_files(input_node_file, input_edge_file, output_dir):
     with open(output_category_count_filepath, 'w') as catcountout:
         for c, v in catcount.items():
             catcountout.write(f'{c}\t{v}\n')
-    predonlycounts = defaultdict(int)
-    predcounts = {}
+    # predonlycounts = defaultdict(int)
+    # predcounts = {}
     with open(output_prov_filepath, 'w') as provout:
         nl = 0
         for line in quick_jsonl_file_iterator(input_edge_file):
@@ -120,17 +120,15 @@ def generate_ac_files(input_node_file, input_edge_file, output_dir):
             source_id, target_id, pred, just_predicate = parse_line(line)
             if source_id in filter_nodes or target_id in filter_nodes:
                 continue
-            if pred is None:
-                continue
             if just_predicate in FILTER_PREDICATES:
                 continue
-            predonlycounts[just_predicate] += 1
-            predcounts.setdefault(just_predicate, {})
-            if "qualifier" in pred:
-                if pred in predcounts[just_predicate]:
-                    predcounts[just_predicate][pred] += 1
-                else:
-                    predcounts[just_predicate][pred] = 1
+            # predonlycounts[just_predicate] += 1
+            # predcounts.setdefault(just_predicate, {})
+            # if "qualifier" in pred:
+            #    if pred in predcounts[just_predicate]:
+            #        predcounts[just_predicate][pred] += 1
+            #    else:
+            #        predcounts[just_predicate][pred] = 1
             source_link = (target_id, pred, True)
             # Here's how we're handling symmetric predicates.
             # The source link and count is going to be just the same, but we're going to modify the target link
@@ -149,7 +147,7 @@ def generate_ac_files(input_node_file, input_edge_file, output_dir):
             pkey = f'{source_id} {pred} {target_id}'
             prov = {x: line[x] for x in ['primary_knowledge_source', 'aggregator_knowledge_source'] if
                     x in line}
-            if not prov or not pkey:
+            if not prov:
                 continue
             provout.write(f'{pkey}\t{json.dumps(prov)}\n')
             if nl % 1000000 == 0:
