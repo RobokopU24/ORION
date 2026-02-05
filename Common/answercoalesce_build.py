@@ -3,14 +3,14 @@ from collections import defaultdict
 import json, jsonlines
 import requests
 from Common.utils import quick_jsonl_file_iterator
-from Common.biolink_utils import get_biolink_model_toolkit
+from Common.biolink_utils import BiolinkUtils
 try:
     from tqdm import tqdm
     TQDM_AVAILABLE = True
 except ImportError:
     TQDM_AVAILABLE = False
 
-bmt = get_biolink_model_toolkit()
+biolink_utils = BiolinkUtils()
 
 # Constants
 FILTER_PREDICATES = ["biolink:related_to_at_concept_level", "biolink:related_to_at_instance_level"]
@@ -48,9 +48,9 @@ def parse_line(line):
                 return source_id, target_id, None, None
     if pred == 'biolink:expressed_in' and target_id.startswith('UBERON'):
         return source_id, target_id, None, None
-    predicate_parts = {'predicate': line['predicate']}
+    predicate_parts = {'predicate': pred}
     for key, value in line.items():
-        if 'qualifier' in key:
+        if biolink_utils.is_qualifier(key):
             predicate_parts[key] = value
     predicate_string = json.dumps(predicate_parts, sort_keys=True)
     return source_id, target_id, predicate_string, pred
@@ -143,10 +143,10 @@ def generate_ac_files(input_node_file, input_edge_file, output_dir):
                 else:
                     predcounts[just_predicate][pred] = 1
             source_link = (target_id, pred, True)
-            #Here's how we're handling symmetric predicates.
+            # Here's how we're handling symmetric predicates.
             # The source link and count is going to be just the same, but we're going to modify the target link
             # to look like it's going from target to source.
-            if bmt.get_element(just_predicate)["symmetric"]:
+            if biolink_utils.is_symmetric(just_predicate):
                 target_is_source = True
             else:
                 target_is_source = False
