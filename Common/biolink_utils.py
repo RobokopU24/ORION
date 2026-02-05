@@ -10,6 +10,8 @@ BIOLINK_MODEL_VERSION = os.environ.get("BL_VERSION", "v4.3.4")
 
 def get_biolink_model_toolkit(biolink_version: str = None) -> Toolkit:
     version = biolink_version if biolink_version else BIOLINK_MODEL_VERSION
+    if not version.startswith("v"):
+        version = "v" + version
     schema_url = f"https://raw.githubusercontent.com/biolink/biolink-model/{version}/biolink-model.yaml"
     predicate_map_url = f"https://raw.githubusercontent.com/biolink/biolink-model/{version}/predicate_mapping.yaml"
     return Toolkit(schema=schema_url, predicate_map=predicate_map_url)
