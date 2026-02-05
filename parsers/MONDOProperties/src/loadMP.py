@@ -106,7 +106,7 @@ class MPLoader(SourceDataLoader):
             # For any mondo ID with a low Information Content, we want to make it a property
             # So we need to find those, and find their names, and find what other MONDOs are subclasses of that thing.
             # Then we can add those as properties to the subclasses and write everything out.
-            for ttl_triple in pyoxigraph.parse(nq_file, mime_type='application/n-quads'):
+            for ttl_triple in pyoxigraph.parse(nq_file, format='application/n-quads'):
 
                 record_counter += 1
 

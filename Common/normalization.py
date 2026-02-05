@@ -70,7 +70,8 @@ class NodeNormalizer:
                  node_normalization_version: str = 'latest',
                  biolink_version: str = 'latest',
                  strict_normalization: bool = True,
-                 conflate_node_types: bool = False):
+                 conflate_node_types: bool = False,
+                 include_taxa: bool = False):
         """
         constructor
         :param log_level - overrides default log level
@@ -91,6 +92,8 @@ class NodeNormalizer:
         self.biolink_compliant_node_types = None
         # whether the normalizer should conflate node types (ie combine genes and proteins)
         self.conflate_node_types = conflate_node_types
+        # whether to include taxa in the responses and assign them to nodes
+        self.include_taxa = include_taxa
         # storage for variant nodes that split into multiple new nodes in normalization
         self.variant_node_splits = {}
         # normalization map for future look up of all normalized node IDs
@@ -105,7 +108,8 @@ class NodeNormalizer:
                                        json={'curies': curies,
                                              'conflate': self.conflate_node_types,
                                              'drug_chemical_conflate': self.conflate_node_types,
-                                             'description': True})
+                                             'description': True,
+                                             'include_taxa': self.include_taxa})
         if resp.status_code == 200:
             # if successful return the json as an object
             response_json = resp.json()
@@ -251,6 +255,8 @@ class NodeNormalizer:
                     current_node[INFORMATION_CONTENT] = current_node_normalization[INFORMATION_CONTENT]
                 if 'description' in current_node_id_section:
                     current_node[DESCRIPTION] = current_node_id_section['description']
+                if 'taxa' in current_node_id_section:
+                    current_node[TAXON] = current_node_id_section['taxa']
 
                 self.node_normalization_lookup[current_node_id] = [normalized_id]
             else:
@@ -343,20 +349,15 @@ class NodeNormalizer:
         """
         Retrieves the current production version from the node normalization service
         """
-        # fetch the node norm openapi spec
-        node_norm_openapi_url = f'{NODE_NORMALIZATION_URL}openapi.json'
-        resp: requests.models.Response = requests.get(node_norm_openapi_url)
+        # hit the node norm status endpoint
+        node_norm_status_url = f'{NODE_NORMALIZATION_URL}status'
+        resp: requests.models.Response = requests.get(node_norm_status_url)
+        resp.raise_for_status()
+        status: dict = resp.json()
+        # extract the version
+        node_norm_version = status['babel_version']
+        return node_norm_version
 
-        # did we get a good status code
-        if resp.status_code == 200:
-            # convert json to dict
-            openapi: dict = resp.json()
-            # extract the version
-            node_norm_version = openapi['info']['version']
-            return node_norm_version
-        else:
-            # this shouldn't happen, raise an exception
-            resp.raise_for_status()
 
     @staticmethod
     def get_normalization_requests_session():
@@ -364,7 +365,8 @@ class NodeNormalizer:
         s = requests.Session()
         retries = Retry(total=8,
                         backoff_factor=1,
-                        status_forcelist=[502, 503, 504, 403, 429])
+                        status_forcelist=[502, 503, 504, 403, 429],
+                        allowed_methods=['GET', 'POST', 'HEAD', 'OPTIONS'])
         s.mount('https://', HTTPAdapter(max_retries=retries, pool_maxsize=pool_maxsize))
         s.mount('http://', HTTPAdapter(max_retries=retries, pool_maxsize=pool_maxsize))
         return s
@@ -600,7 +602,11 @@ def call_name_resolution(name: str, biolink_type: str, retries=0, logger=None):
         print(error_message)
     if retries < 2:
         time.sleep(5)
-        logger.info('Retrying name resolution..')
+        retry_message = 'Retrying name resolution..'
+        if logger:
+            logger.info(retry_message)
+        else:
+            print(retry_message)
         return call_name_resolution(name, biolink_type, retries + 1, logger)
 
     # if retried 2 times already give up and return the last error

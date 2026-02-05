@@ -1,7 +1,9 @@
-import argparse
 import os
 import re
 import enum
+import zipfile
+import io
+import csv
 
 from sys import float_info
 from collections import defaultdict
@@ -43,10 +45,11 @@ class GWASCatalogLoader(SourceDataLoader):
         """
         super().__init__(test_mode=test_mode, source_data_dir=source_data_dir)
 
-        self.data_file: str = 'gwas-catalog-associations_ontology-annotated.tsv'
+        self.archive_file = 'gwas-catalog-associations_ontology-annotated-full.zip'
+        self.archive_data_file: str = 'gwas-catalog-download-associations-alt-full.tsv'
 
         self.ftp_site = 'ftp.ebi.ac.uk'
-        self.ftp_dir = '/pub/databases/gwas/releases/latest'
+        self.ftp_dir = '/pub/databases/gwas/releases/latest/'
 
         self.unrecognized_variants = set()
         self.unrecognized_traits = set()
@@ -63,7 +66,7 @@ class GWASCatalogLoader(SourceDataLoader):
         :return: the data version
         """
         data_puller = GetData()
-        data_file_date = data_puller.get_ftp_file_date(self.ftp_site, self.ftp_dir, self.data_file)
+        data_file_date = data_puller.get_ftp_file_date(self.ftp_site, self.ftp_dir, self.archive_file)
         return data_file_date
 
     def get_data(self) -> int:
@@ -79,7 +82,7 @@ class GWASCatalogLoader(SourceDataLoader):
         #   set up test data instead
         # else:
         # get the complete data set
-        file_count: int = gd.pull_via_ftp(self.ftp_site, self.ftp_dir, [self.data_file], self.data_path)
+        file_count: int = gd.pull_via_ftp(self.ftp_site, self.ftp_dir, [self.archive_file], self.data_path)
 
         # return whether file retrieval was a success or not
         if file_count > 0:
@@ -114,16 +117,15 @@ class GWASCatalogLoader(SourceDataLoader):
             'errors': []
         }
 
-        # open the data file that was downloaded and iterate through it
-        data_path = os.path.join(self.data_path, self.data_file)
-        with open(data_path, 'r') as fp:
-            for i, row in enumerate(fp, start=1):
-                row = row[:-1].split('\t')
-
-                # expecting header row
-                if i == 1:
-                    continue
-
+        data_path = os.path.join(self.data_path, self.archive_file)
+        with (
+            zipfile.ZipFile(data_path, 'r') as zipf,
+            zipf.open(self.archive_data_file, 'r') as fp,
+            io.TextIOWrapper(fp, encoding='utf-8') as text_fp
+        ):
+            reader = csv.reader(text_fp, delimiter='\t')
+            next(reader)  # skip header
+            for i, row in enumerate(reader, start=1):
                 if self.test_mode and i == 30:
                     break
 

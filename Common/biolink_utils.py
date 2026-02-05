@@ -6,14 +6,13 @@ from bmt import Toolkit
 from requests.adapters import HTTPAdapter, Retry
 from functools import cache
 
-BIOLINK_MODEL_VERSION = os.environ.get("BL_VERSION", "4.1.6")
-BIOLINK_MODEL_SCHEMA_URL = f"https://raw.githubusercontent.com/biolink/biolink-model/v{BIOLINK_MODEL_VERSION}/biolink-model.yaml"
-PREDICATE_MAP_URL = f"https://raw.githubusercontent.com/biolink/biolink-model/v{BIOLINK_MODEL_VERSION}/predicate_mapping.yaml"
+BIOLINK_MODEL_VERSION = os.environ.get("BL_VERSION", "4.3.4")
 
-
-def get_biolink_model_toolkit():
-    return Toolkit(schema=BIOLINK_MODEL_SCHEMA_URL, predicate_map=PREDICATE_MAP_URL)
-
+def get_biolink_model_toolkit(biolink_version: str = None) -> Toolkit:
+    version = biolink_version if biolink_version else BIOLINK_MODEL_VERSION
+    schema_url = f"https://raw.githubusercontent.com/biolink/biolink-model/v{version}/biolink-model.yaml"
+    predicate_map_url = f"https://raw.githubusercontent.com/biolink/biolink-model/v{version}/predicate_mapping.yaml"
+    return Toolkit(schema=schema_url, predicate_map=predicate_map_url)
 
 map_data = {
   "attribute_type_map": {
@@ -37,8 +36,8 @@ VALUE_TYPES = map_data['value_type_map']
 # Most of this was adapted (stolen) from Plater
 class BiolinkUtils:
 
-    def __init__(self):
-        self.toolkit = get_biolink_model_toolkit()
+    def __init__(self, biolink_version: str = None):
+        self.toolkit = get_biolink_model_toolkit(biolink_version=biolink_version)
 
     @cache
     def find_biolink_leaves(self, biolink_concepts: frozenset):

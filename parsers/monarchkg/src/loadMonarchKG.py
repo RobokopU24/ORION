@@ -19,7 +19,7 @@ class MonarchKGLoader(SourceDataLoader):
 
     source_id: str = 'MonarchKG'
     provenance_id: str = 'infores:monarchinitiative'
-    parsing_version: str = '1.2'
+    parsing_version: str = '1.3'
 
     def __init__(self, test_mode: bool = False, source_data_dir: str = None):
         """
@@ -65,14 +65,16 @@ class MonarchKGLoader(SourceDataLoader):
 
     def get_latest_source_version(self) -> str:
         """
-        Gets the name of latest monarch kg version from metadata. 
+        Gets the name of latest monarch kg version from metadata.
         """
         latest_version = None
         try:
             metadata_yaml : requests.Response = requests.get("https://data.monarchinitiative.org/monarch-kg-dev/latest/metadata.yaml")
             for line in metadata_yaml.text.split('\n'):
-                if("kg-version:" in line): latest_version = line.replace("kg-version:","").strip()
-            if(latest_version==None):raise ValueError("Cannot find 'kg-version' in Monarch KG metadata yaml.")
+                if "kg-version:" in line:
+                    latest_version = line.replace("kg-version:", "").strip()
+            if latest_version is None:
+                raise ValueError("Cannot find 'kg-version' in Monarch KG metadata yaml.")
         except Exception as e:
             raise GetDataPullError(error_message=f'Unable to determine latest version for Monarch KG: {e}')
         return latest_version
@@ -94,7 +96,7 @@ class MonarchKGLoader(SourceDataLoader):
         skipped_ignore_knowledge_source = 0
         skipped_undesired_predicate = 0
         full_tar_path = os.path.join(self.data_path, self.monarch_graph_archive)
-        protected_edge_labels = [SUBJECT_ID, OBJECT_ID, PREDICATE,PRIMARY_KNOWLEDGE_SOURCE,
+        protected_edge_labels = [SUBJECT_ID, OBJECT_ID, PREDICATE, PRIMARY_KNOWLEDGE_SOURCE,
                                  AGGREGATOR_KNOWLEDGE_SOURCES, KNOWLEDGE_LEVEL, AGENT_TYPE,
                                  PUBLICATIONS, "biolink:primary_knowledge_source", "biolink:aggregator_knowledge_source"]
 
@@ -119,7 +121,11 @@ class MonarchKGLoader(SourceDataLoader):
                     # then check if edge should be ignored due to the knowledge source
                     primary_knowledge_source = self.knowledge_source_mapping.get(monarch_edge[PRIMARY_KNOWLEDGE_SOURCE],
                                                                                  monarch_edge[PRIMARY_KNOWLEDGE_SOURCE])
-                    aggregator_knowledge_sources = [self.knowledge_source_mapping.get(ks, ks) for ks in monarch_edge[AGGREGATOR_KNOWLEDGE_SOURCES]]
+                    if monarch_edge.get(AGGREGATOR_KNOWLEDGE_SOURCES, False):
+                        aggregator_knowledge_sources = [self.knowledge_source_mapping.get(ks, ks)
+                                                        for ks in monarch_edge[AGGREGATOR_KNOWLEDGE_SOURCES]]
+                    else:
+                        aggregator_knowledge_sources = []
                     if primary_knowledge_source in self.knowledge_source_ignore_list or \
                             any([ks in self.knowledge_source_ignore_list for ks in aggregator_knowledge_sources]):
                         skipped_ignore_knowledge_source += 1
@@ -134,7 +140,9 @@ class MonarchKGLoader(SourceDataLoader):
                         edge_properties[PUBLICATIONS] = monarch_edge[PUBLICATIONS]
 
                     for edge_attribute in monarch_edge:
-                        if edge_attribute not in protected_edge_labels and monarch_edge[edge_attribute]:
+                        if edge_attribute not in protected_edge_labels \
+                                and monarch_edge[edge_attribute] \
+                                and edge_attribute != "qualifiers":
                             edge_properties[edge_attribute] = monarch_edge[edge_attribute]
 
                     output_edge = kgxedge(

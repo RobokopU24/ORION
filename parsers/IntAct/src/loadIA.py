@@ -1,5 +1,4 @@
 import os
-import argparse
 import enum
 import re
 
@@ -9,7 +8,7 @@ from operator import itemgetter
 from zipfile import ZipFile
 from Common.biolink_constants import *
 from Common.utils import GetData
-from Common.loader_interface import SourceDataLoader, SourceDataFailedError
+from Common.loader_interface import SourceDataLoader
 from Common.prefixes import NCBITAXON, UNIPROTKB
 from Common.kgxmodel import kgxnode, kgxedge
 
@@ -82,7 +81,7 @@ class IALoader(SourceDataLoader):
 
         self.ftp_site = 'ftp.ebi.ac.uk'
         self.ftp_dir = '/pub/databases/IntAct/current/psimitab/'
-        
+
         self.data_file: str = 'intact.zip'
         self.source_db: str = 'IntAct Molecular Interaction Database'
 
@@ -287,7 +286,7 @@ class IALoader(SourceDataLoader):
                 for suffix in ['a', 'b']:
                     # if this is a uniprot gene get the taxon number node property
                     if prefix == 'u_':
-                        properties = {'taxon': NCBITAXON + item['t_' + suffix].split(':')[1]}
+                        properties = {TAXON: NCBITAXON + item['t_' + suffix].split(':')[1]}
                     # else a taxon doesnt get a taxon property
                     else:
                         properties = None

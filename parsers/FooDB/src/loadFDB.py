@@ -1,5 +1,5 @@
 import os
-import argparse
+import tarfile
 import re
 import requests
 
@@ -74,6 +74,55 @@ class FDBLoader(SourceDataLoader):
         # return to the caller
         return self.archive_name
 
+    # ! this function copied from utils, FooDB was never finished, this retrieval looks broken anyway
+    def get_foodb_files(self, full_url: str, data_dir: str, data_file_name: str, file_list: list) -> (int, str, str):
+        """
+        gets the food db files
+
+        :param full_url: the URL to the data file
+        :param data_dir: the directory to place the file temporarily
+        :param data_file_name: the name of the target file archive
+        :param file_list: list of files to get
+        :return:
+        """
+
+        self.logger.debug('Start of foodb file retrieval')
+
+        # init the file counter
+        file_count: int = 0
+
+        # init the extraction directory
+        foodb_dir: str = ''
+
+        # get the tar file that has the foodb data
+        self.pull_via_http(full_url, data_dir)
+
+        # open the tar file
+        tar = tarfile.open(os.path.join(data_dir, data_file_name), "r")
+
+        # for each member of the tar fiule
+        for member in tar.getmembers():
+            # get the name
+            name = member.name.split('/')
+
+            # if a valid name was found
+            if len(name) > 1:
+                # is the name in the target list
+                if name[1] in file_list:
+                    # save the file
+                    tar.extract(member, data_dir)
+
+                    # save the extraction directory
+                    foodb_dir = name[0]
+
+                    # increment the file counter
+                    file_count += 1
+
+        self.logger.debug(f'End of foodb file retrieval. {file_count} files retrieved.')
+
+        # return the list
+        return file_count, foodb_dir, name[0]
+
     def get_data(self):
         """
         Gets the fooDB data.
@@ -84,7 +133,7 @@ class FDBLoader(SourceDataLoader):
 
         if(self.full_url_path==None): self.get_latest_source_version()
         # get all the files noted above
-        file_count, foodb_dir, self.tar_dir_name = gd.get_foodb_files(self.full_url_path, self.data_path, self.archive_name, self.data_files)
+        file_count, foodb_dir, self.tar_dir_name = self.get_foodb_files(self.full_url_path, self.data_path, self.archive_name, self.data_files)
 
         # abort if we didnt get all the files
         if file_count != len(self.data_files):
