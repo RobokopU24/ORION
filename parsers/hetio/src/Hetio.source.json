@@ -8,6 +8,36 @@
         "citation": "https://doi.org/10.1371/journal.pcbi.1004259",
         "license": "https://het.io/about/",
         "contentUrl": "https://github.com/hetio/hetionet/blob/master/hetnet/json/hetionet-v1.0.json.bz2",
-        "fullCitation": "Heterogeneous Network Edge Prediction: A Data Integration Approach to Prioritize Disease-Associated Genes\nHimmelstein DS, Baranzini SE\nPLOS Computational Biology (2015)"
+        "fullCitation": "Heterogeneous Network Edge Prediction: A Data Integration Approach to Prioritize Disease-Associated Genes\nHimmelstein DS, Baranzini SE\nPLOS Computational Biology (2015)",
+        "isBasedOn": {
+            "infores:bgee": {
+                "id": "infores:bgee",
+                "name": "Bgee",
+                "url": "https://www.bgee.org/",
+                "license": "CC0 1.0",
+                "licenseUrl": "https://www.bgee.org/about/"
+            },
+            "infores:lincs": {
+                "id": "infores:lincs",
+                "name": "Library of Integrated Network-Based Cellular Signatures",
+                "url": "https://lincsproject.org/",
+                "license": "CC BY 4.0",
+                "licenseUrl": "https://lincsportal.ccs.miami.edu/datasets/terms"
+            },
+            "infores:sider": {
+                "id": "infores:sider",
+                "name": "SIDER",
+                "url": "http://sideeffects.embl.de/",
+                "license": "CC BY-NC-SA 4.0",
+                "licenseUrl": "http://sideeffects.embl.de/about/"
+            },
+            "infores:tissues-expression-db": {
+                "id": "infores:tissues-expression-db",
+                "name": "Tissue Expression Database",
+                "url": "https://tissues.jensenlab.org/",
+                "license": "CC BY 4.0",
+                "licenseUrl": "https://tissues.jensenlab.org/About"
+            }
+        }
     }
 }

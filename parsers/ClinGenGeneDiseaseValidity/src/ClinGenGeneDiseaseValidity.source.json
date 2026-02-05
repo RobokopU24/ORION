@@ -1,0 +1,13 @@
+{
+    "infores:clingen": {
+        "id": "infores:clingen",
+        "name": "ClinGen - Gene-Disease Clinical Validity",
+        "description": "The ClinGen Gene-Disease Clinical Validity curation process involves evaluating the strength of evidence supporting or refuting a claim that variation in a particular gene causes a particular monogenic disease.",
+        "url": "https://clinicalgenome.org/",
+        "attribution": "https://clinicalgenome.org/curation-activities/gene-disease-validity/",
+        "citation": "https://doi.org/10.1056/NEJMsr1406261",
+        "license": "CC0 1.0",
+        "contentUrl": "https://search.clinicalgenome.org/kb/gene-validity/download",
+        "fullCitation": "Rehm HL, Berg JS, Brooks LD, Bustamante CD, Evans JP, Landrum MJ, Ledbetter DH, Maglott DR, Martin CL, Nussbaum RL, Plon SE, Ramos EM, Sherry ST, Watson MS; ClinGen. ClinGen--the Clinical Genome Resource. N Engl J Med. 2015 Jun 4;372(23):2235-42. doi: 10.1056/NEJMsr1406261."
+    }
+}

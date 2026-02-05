@@ -8,6 +8,50 @@
         "citation": "https://doi.org/10.1093/nar/gkw993",
         "license": "https://drugcentral.org/privacy",
         "contentUrl": "https://drugcentral.org/download",
-        "fullCitation": "Ursu O, Holmes J, Knockel J, Bologa CG, Yang JJ, Mathias SL, Nelson SJ, Oprea TI. DrugCentral: online drug compendium. Nucleic Acids Res. 2017 Jan 4;45(D1):D932-D939. doi: 10.1093/nar/gkw993. Epub 2016 Oct 26. PMID: 27789690; PMCID: PMC5210665."
+        "fullCitation": "Ursu O, Holmes J, Knockel J, Bologa CG, Yang JJ, Mathias SL, Nelson SJ, Oprea TI. DrugCentral: online drug compendium. Nucleic Acids Res. 2017 Jan 4;45(D1):D932-D939. doi: 10.1093/nar/gkw993. Epub 2016 Oct 26. PMID: 27789690; PMCID: PMC5210665.",
+        "isBasedOn": {
+            "infores:chembl": {
+                "id": "infores:chembl",
+                "name": "ChEMBL",
+                "url": "https://www.ebi.ac.uk/chembl/",
+                "license": "CC BY-SA 3.0",
+                "licenseUrl": "https://chembl.gitbook.io/chembl-interface-documentation/about"
+            },
+            "infores:drugbank": {
+                "id": "infores:drugbank",
+                "name": "DrugBank",
+                "url": "https://go.drugbank.com/",
+                "license": "CC BY-NC 4.0 (Complete Database), CC0 1.0 (Open Data)",
+                "licenseUrl": "https://go.drugbank.com/releases/latest#open-data"
+            },
+            "infores:faers": {
+                "id": "infores:faers",
+                "name": "FDA Adverse Event Reporting System",
+                "url": "https://open.fda.gov/data/faers/",
+                "license": "Public Domain / CC0 1.0",
+                "licenseUrl": "https://open.fda.gov/data/faers/"
+            },
+            "infores:gtopdb": {
+                "id": "infores:gtopdb",
+                "name": "Guide to Pharmacology",
+                "url": "https://www.guidetopharmacology.org/",
+                "license": "CC BY-SA 4.0",
+                "licenseUrl": "https://www.guidetopharmacology.org/download.jsp"
+            },
+            "infores:kegg": {
+                "id": "infores:kegg",
+                "name": "Kyoto Encyclopedia of Genes and Genomes (KEGG)",
+                "url": "https://www.genome.jp/kegg/",
+                "license": "Proprietary (Kanehisa Laboratories) but free for academic web access",
+                "licenseUrl": "https://www.kegg.jp/kegg/legal.html"
+            },
+            "infores:pdsp": {
+                "id": "infores:pdsp",
+                "name": "Psychoactive Drug Screening Program",
+                "url": "https://pdsp.unc.edu/",
+                "license": "CC BY-NC-SA 4.0",
+                "licenseUrl": "https://pdsp.unc.edu/"
+            }
+        }
     }
 }

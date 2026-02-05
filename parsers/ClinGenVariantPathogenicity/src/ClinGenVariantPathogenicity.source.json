@@ -1,0 +1,13 @@
+{
+    "infores:clingen": {
+        "id": "infores:clingen",
+        "name": "ClinGen - Variant Pathogenicity",
+        "description": "ClinGen variant curation utilizes the 2015 American College of Medical Genetics and Genomics (ACMG) guideline for sequence variant interpretation, which provides an evidence-based framework to classify variants. The results of these analyses will be deposited in ClinVar for community access.",
+        "url": "https://clinicalgenome.org/",
+        "attribution": "https://clinicalgenome.org/curation-activities/variant-pathogenicity/",
+        "citation": "https://doi.org/10.1056/NEJMsr1406261",
+        "license": "CC0 1.0",
+        "contentUrl": "http://erepo.clinicalgenome.org/evrepo/api/classifications/all",
+        "fullCitation": "Rehm HL, Berg JS, Brooks LD, Bustamante CD, Evans JP, Landrum MJ, Ledbetter DH, Maglott DR, Martin CL, Nussbaum RL, Plon SE, Ramos EM, Sherry ST, Watson MS; ClinGen. ClinGen--the Clinical Genome Resource. N Engl J Med. 2015 Jun 4;372(23):2235-42. doi: 10.1056/NEJMsr1406261."
+    }
+}
