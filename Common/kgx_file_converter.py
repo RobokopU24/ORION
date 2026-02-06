@@ -194,22 +194,19 @@ def __determine_properties_and_types(file_path: str, required_properties: dict):
             elif isinstance(value, float):
                 property_type_counts[key]["float"] += 1
             elif isinstance(value, list):
-                has_floats = False
-                has_ints = False
-                has_strings = False
-                for item in value:
-                    if isinstance(item, float):
-                        has_floats = True
-                    elif isinstance(item, int):
-                        has_ints = True
-                    else:
-                        has_strings = True
-                if has_strings:
-                    property_type_counts[key]["string[]"] += 1
-                elif has_floats:
-                    property_type_counts[key]["float[]"] += 1
-                elif has_ints:
-                    property_type_counts[key]["int[]"] += 1
+                # detect list-of-dicts and convert it into string since neo4j cannot handle dicts as properties
+                if any(isinstance(v, dict) for v in value):
+                    property_type_counts[key]["string"] += 1
+                else:
+                    has_floats = any(isinstance(v, float) for v in value)
+                    has_ints = any(isinstance(v, int) for v in value)
+                    has_strings = any(isinstance(v, str) for v in value)
+                    if has_strings:
+                        property_type_counts[key]["string[]"] += 1
+                    elif has_floats:
+                        property_type_counts[key]["float[]"] += 1
+                    elif has_ints:
+                        property_type_counts[key]["int[]"] += 1
             else:
                 property_type_counts[key]["string"] += 1
 
@@ -312,6 +309,9 @@ def __convert_to_csv(input_file: str,
                         del item[key]
                 elif property_ignore_list and key in property_ignore_list:
                     del item[key]
+                elif isinstance(item[key], dict):
+                    # 🔥 NEW: dump dict as compact JSON string
+                    item[key] = json.dumps(item[key], separators=(',', ':'), ensure_ascii=False)
                 else:
                     if key in properties_that_are_lists:
                         # convert lists into strings with an array delimiter
