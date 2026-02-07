@@ -312,16 +312,15 @@ def __convert_to_csv(input_file: str,
                 elif isinstance(item[key], dict) or (
                         isinstance(item[key], list) and any(isinstance(v, dict) for v in item[key])
                 ):
-                    # dump dict as compact JSON string
+                    # dump dict as compact JSON string since neo4j cannot handle dict as property
                     item[key] = json.dumps(item[key], separators=(',', ':'), ensure_ascii=False)
                 else:
                     if key in properties_that_are_lists:
                         # convert lists into strings with an array delimiter
                         if isinstance(item[key], list):  # need to doublecheck for cases of properties with mixed types
                             # strip newline and \t characters to prevent neo4j import errors for input such as
-                            # "publications":["\nPMID:18224415\t"]
-                            item[key] = array_delimiter.join(
-                                ''.join(str(value).splitlines()).replace('\t', '') for value in item[key])
+                            # "publications":["\nPMID:\n    18224415\t"]
+                            item[key] = array_delimiter.join(''.join([s.strip() for s in str(value).splitlines()]) for value in item[key])
                     elif key in properties_that_are_boolean:
                         # neo4j handles boolean with string 'true' being true and everything else false
                         item[key] = 'true' if item[key] is True else 'false'
