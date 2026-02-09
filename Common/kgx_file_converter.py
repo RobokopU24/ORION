@@ -6,12 +6,19 @@ from Common.utils import quick_jsonl_file_iterator
 from Common.biolink_constants import SUBJECT_ID, OBJECT_ID, PREDICATE
 
 
+def __is_cypher_primitive(x):
+    return x is None or isinstance(x, (str, int, float, bool))
+
 def __normalize_value(v):
-    # Dicts become JSON strings
-    if isinstance(v, dict):
-        return json.dumps(v, ensure_ascii=False)
-    # Everything else (str, int, float, bool, None) as-is
-    return v
+    if __is_cypher_primitive(v):
+        return v
+
+    # lists are only allowed if all elements are primitives
+    if isinstance(v, list) and all(__is_cypher_primitive(x) for x in v):
+        return v
+
+    # other non-primitive values are not allowed - need to stringify
+    return json.dumps(v, ensure_ascii=False)
 
 
 def convert_jsonl_to_memgraph_cypher(nodes_input_file: str,
