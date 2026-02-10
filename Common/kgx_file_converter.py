@@ -3,11 +3,12 @@ import json
 import argparse
 from collections import defaultdict
 from Common.utils import quick_jsonl_file_iterator
-from Common.biolink_constants import SUBJECT_ID, OBJECT_ID, PREDICATE
+from Common.biolink_constants import SUBJECT_ID, OBJECT_ID, PREDICATE, NAMED_THING
 
 
 def __is_cypher_primitive(x):
     return x is None or isinstance(x, (str, int, float, bool))
+
 
 def __normalize_value(v):
     if __is_cypher_primitive(v):
@@ -25,7 +26,8 @@ def convert_jsonl_to_memgraph_cypher(nodes_input_file: str,
                                      edges_input_file: str,
                                      output_cypher_file: str,
                                      node_property_ignore_list=None,
-                                     edge_property_ignore_list=None):
+                                     edge_property_ignore_list=None,
+                                     edge_batch_size=1000):
     """
     Convert nodes.jsonl and edges.jsonl into a .cypher file for Memgraph import.
     Each node becomes a CREATE statement with labels from `category`.
@@ -46,6 +48,7 @@ def convert_jsonl_to_memgraph_cypher(nodes_input_file: str,
     if not output_cypher_file or not output_cypher_file.endswith('.cypher'):
         raise Exception(f'Empty output cypher file or invalid file extension')
 
+    all_node_labels = set()
     with open(output_cypher_file, "w", encoding="utf-8") as cypher_out:
         for node in quick_jsonl_file_iterator(nodes_input_file):
             if 'id' not in node:
@@ -59,8 +62,12 @@ def convert_jsonl_to_memgraph_cypher(nodes_input_file: str,
             categories = node.pop('category')
             if isinstance(categories, str):
                 categories = [categories]
+
+            for c in categories:
+                all_node_labels.add(c)
+
             # convert categories list to a labels string, add backticks to allow handling colons
-            labels_str = ":".join(f"`{c}`" for c in categories) if categories else node_id
+            labels_str = ":" + ":".join(f"`{c}`" for c in categories) if categories else node_id
 
             if node_property_ignore_list:
                 for ignore_key in node_property_ignore_list:
@@ -69,8 +76,34 @@ def convert_jsonl_to_memgraph_cypher(nodes_input_file: str,
             props = {k: __normalize_value(v) for k, v in node.items()}
             props_str = "{" + ", ".join(f"{k}: {json.dumps(v, ensure_ascii=False)}" for k, v in props.items()) + "}"
             cypher_out.write(
-                f"CREATE (:{labels_str} {props_str});\n"
+                f"CREATE ({labels_str} {props_str});\n"
             )
+
+        # create node name indexes
+        cypher_out.write(f"CREATE INDEX ON :`{NAMED_THING}`(name);\n")
+        for label in sorted(all_node_labels):
+            cypher_out.write(
+                f"CREATE INDEX ON :`{label}`(id);\n"
+            )
+
+        edge_batches = defaultdict(list)
+
+
+        def flush_batches():
+            for predicate, batch in edge_batches.items():
+                if not batch:
+                    continue
+
+                cypher_out.write(
+                    f"UNWIND {json.dumps(batch, ensure_ascii=False)} AS e\n"
+                    f"MATCH (a {{id: e.src}}), (b {{id: e.dst}})\n"
+                    f"CREATE (a)-[r:`{predicate}`]->(b)\n"
+                    f"SET r += e.props;\n\n"
+                )
+
+            edge_batches.clear()
+
+
         for edge in quick_jsonl_file_iterator(edges_input_file):
             if SUBJECT_ID not in edge:
                 raise Exception(f'each edge must include required property {SUBJECT_ID}')
@@ -87,14 +120,16 @@ def convert_jsonl_to_memgraph_cypher(nodes_input_file: str,
                     edge.pop(ignore_key, None)
 
             props = {k: __normalize_value(v) for k, v in edge.items() if k not in {SUBJECT_ID, OBJECT_ID, PREDICATE}}
-            props_str = ", ".join(f"{k}: {json.dumps(v, ensure_ascii=False)}" for k, v in props.items())
-            cypher_out.write(
-                f"MATCH (a {{id: {json.dumps(subj, ensure_ascii=False)}}}), "
-                f"(b {{id: {json.dumps(obj, ensure_ascii=False)}}}) "
-                f"CREATE (a)-[:`{predicate}`"
-                + (f" {{{props_str}}}" if props_str else "")
-                + f"]->(b);\n"
-            )
+            edge_batches[predicate].append({
+                "src": subj,
+                "dst": obj,
+                "props": props
+            })
+
+            if len(edge_batches[predicate]) >= edge_batch_size:
+                flush_batches()
+
+        flush_batches()
 
 
 def convert_jsonl_to_neo4j_csv(nodes_input_file: str,
