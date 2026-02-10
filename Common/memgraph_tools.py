@@ -10,10 +10,15 @@ def create_memgraph_dump(nodes_filepath: str,
                          node_property_ignore_list: set = None,
                          edge_property_ignore_list: set = None,
                          logger=None):
-    output_cypher_node_file = os.path.join(output_directory, f'memgraph_nodes_{graph_id}_{graph_version}.cypher')
+    if graph_version:
+        sub_name = f'_{graph_id}_{graph_version}'
+    else:
+        sub_name = f'_{graph_id}'
+    output_cypher_node_file = os.path.join(output_directory, f'memgraph_{sub_name}_nodes.cypher')
+
     output_cypher_node_idx_file = os.path.join(output_directory,
-                                               f'memgraph_node_index_{graph_id}_{graph_version}.cypher')
-    output_cypher_edge_file = os.path.join(output_directory, f'memgraph_edges_{graph_id}_{graph_version}.cypher')
+                                               f'memgraph_{sub_name}_indexes.cypher')
+    output_cypher_edge_file = os.path.join(output_directory, f'memgraph_{sub_name}_edges.cypher')
     if (os.path.exists(output_cypher_node_file) and os.path.exists(output_cypher_node_idx_file) and
             os.path.exists(output_cypher_edge_file)):
         if logger:
