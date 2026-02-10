@@ -10,18 +10,27 @@ def create_memgraph_dump(nodes_filepath: str,
                          node_property_ignore_list: set = None,
                          edge_property_ignore_list: set = None,
                          logger=None):
-    output_cypher_file = os.path.join(output_directory, f'memgraph_{graph_id}_{graph_version}.cypher')
-    if os.path.exists(output_cypher_file):
+    output_cypher_node_file = os.path.join(output_directory, f'memgraph_nodes_{graph_id}_{graph_version}.cypher')
+    output_cypher_node_idx_file = os.path.join(output_directory,
+                                               f'memgraph_node_index_{graph_id}_{graph_version}.cypher')
+    output_cypher_edge_file = os.path.join(output_directory, f'memgraph_edges_{graph_id}_{graph_version}.cypher')
+    if (os.path.exists(output_cypher_node_file) and os.path.exists(output_cypher_node_idx_file) and
+            os.path.exists(output_cypher_edge_file)):
         if logger:
-            logger.info(f'Memgraph file {output_cypher_file} were already created for {graph_id}({graph_version})')
+            logger.info(f'Memgraph files were already created for {graph_id}({graph_version})')
     else:
         if logger:
-            logger.info(f'Creating memgraph dump cypher file for {graph_id}({graph_version})...')
+            logger.info(f'Creating memgraph dump cypher files for {graph_id}({graph_version})...')
         try:
-            kgx_file_converter.convert_jsonl_to_memgraph_cypher(nodes_input_file=nodes_filepath,
-                                                                edges_input_file=edges_filepath,
-                                                                output_cypher_file=output_cypher_file,
-                                                                node_property_ignore_list=node_property_ignore_list,
+            all_node_labels = kgx_file_converter.convert_nodes_to_memgraph_cypher(
+                nodes_input_file=nodes_filepath,
+                output_cypher_file=output_cypher_node_file,
+                node_property_ignore_list=node_property_ignore_list)
+
+            kgx_file_converter.add_indexes_to_memgraph_cypher(all_node_labels, output_cypher_node_idx_file)
+
+            kgx_file_converter.convert_edges_to_memgraph_cypher(edges_input_file=edges_filepath,
+                                                                output_cypher_file=output_cypher_edge_file,
                                                                 edge_property_ignore_list=edge_property_ignore_list)
         except Exception as e:
             if logger:
