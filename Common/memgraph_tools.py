@@ -10,10 +10,11 @@ def create_memgraph_dump(nodes_filepath: str,
                          node_property_ignore_list: set = None,
                          edge_property_ignore_list: set = None,
                          logger=None):
+
     if graph_version:
-        sub_name = f'_{graph_id}_{graph_version}'
+        sub_name = f'{graph_id}_{graph_version}'
     else:
-        sub_name = f'_{graph_id}'
+        sub_name = f'{graph_id}'
     output_cypher_node_file = os.path.join(output_directory, f'memgraph_{sub_name}_nodes.cypher')
 
     output_cypher_node_idx_file = os.path.join(output_directory,
