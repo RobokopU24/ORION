@@ -22,44 +22,28 @@ def __normalize_value(v):
     return json.dumps(v, ensure_ascii=False)
 
 
-def convert_jsonl_to_memgraph_cypher(nodes_input_file: str,
-                                     edges_input_file: str,
-                                     output_cypher_file: str,
-                                     node_property_ignore_list=None,
-                                     edge_property_ignore_list=None,
-                                     edge_batch_size=1000):
+def convert_nodes_to_memgraph_cypher(nodes_input_file: str, output_cypher_file: str, node_property_ignore_list=None):
     """
-    Convert nodes.jsonl and edges.jsonl into a .cypher file for Memgraph import.
+    Convert nodes_input_file (e.g., nodes.jsonl) into a .cypher file for Memgraph import.
     Each node becomes a CREATE statement with labels from `category`.
-    Each edge becomes a CREATE statement with relationship type from `predicate`.
-
-    Parameters
-    ----------
-    nodes_input_file : path to input nodes.jsonl file.
-    edges_input_file : path to input edges.jsonl file.
-    output_cypher_file : path to output .cypher file.
-    node_property_ignore_list : set, optional, properties to ignore when writing node properties.
-    edge_property_ignore_list : set, optional, properties to ignore when writing edge properties.
+    :param nodes_input_file: path to input nodes jsonl file
+    :param output_cypher_file: path to output .cypher file
+    :param node_property_ignore_list: set, optional, properties to ignore when writing node properties
+    :return: all_node_labels set that includes unique categories of all nodes for later indexing
     """
     if not nodes_input_file or not nodes_input_file.endswith('jsonl'):
         raise Exception(f'Empty input node file or invalid file extension')
-    if not edges_input_file or not edges_input_file.endswith('jsonl'):
-        raise Exception(f'Empty input edge file or invalid file extension')
     if not output_cypher_file or not output_cypher_file.endswith('.cypher'):
         raise Exception(f'Empty output cypher file or invalid file extension')
 
     all_node_labels = set()
+
     with open(output_cypher_file, "w", encoding="utf-8") as cypher_out:
         for node in quick_jsonl_file_iterator(nodes_input_file):
-            if 'id' not in node:
-                raise Exception('each node must include required property id')
-            if 'name' not in node:
-                raise Exception('each node must include required property name')
-            if 'category' not in node:
-                raise Exception(f'each node must include required property category')
+            if "id" not in node or "name" not in node or "category" not in node:
+                raise Exception("Each node must include required properties: id, name, category")
 
-            node_id = node["id"]
-            categories = node.pop('category')
+            categories = node.pop("category")
             if isinstance(categories, str):
                 categories = [categories]
 
@@ -67,7 +51,7 @@ def convert_jsonl_to_memgraph_cypher(nodes_input_file: str,
                 all_node_labels.add(c)
 
             # convert categories list to a labels string, add backticks to allow handling colons
-            labels_str = ":" + ":".join(f"`{c}`" for c in categories) if categories else node_id
+            labels_str = ":" + ":".join(f"`{c}`" for c in categories)
 
             if node_property_ignore_list:
                 for ignore_key in node_property_ignore_list:
@@ -75,19 +59,46 @@ def convert_jsonl_to_memgraph_cypher(nodes_input_file: str,
 
             props = {k: __normalize_value(v) for k, v in node.items()}
             props_str = "{" + ", ".join(f"{k}: {json.dumps(v, ensure_ascii=False)}" for k, v in props.items()) + "}"
-            cypher_out.write(
-                f"CREATE ({labels_str} {props_str});\n"
-            )
 
-        # create node name indexes
+            cypher_out.write(f"CREATE ({labels_str} {props_str});\n")
+
+    return all_node_labels
+
+
+def add_indexes_to_memgraph_cypher(all_node_labels: set, output_cypher_file: str):
+    """
+    add indexes to nodes names and ids for fast edge insertion and query
+    :param all_node_labels: all node labels set returned from convert_nodes_to_memgraph_cypher()
+    :param output_cypher_file: path to output .cypher file
+    :return:
+    """
+    with open(output_cypher_file, "w", encoding="utf-8") as cypher_out:
         cypher_out.write(f"CREATE INDEX ON :`{NAMED_THING}`(name);\n")
+
         for label in sorted(all_node_labels):
-            cypher_out.write(
-                f"CREATE INDEX ON :`{label}`(id);\n"
-            )
+            cypher_out.write(f"CREATE INDEX ON :`{label}`(id);\n")
 
-        edge_batches = defaultdict(list)
 
+def convert_edges_to_memgraph_cypher(edges_input_file: str, output_cypher_file: str,
+                                     edge_property_ignore_list=None,
+                                     edge_batch_size=1000):
+    """
+    Convert edges_input_file (e.g., edges.jsonl) into a .cypher file for Memgraph import.
+    Each edge becomes a CREATE statement with relationship type from `predicate`.
+    :param edges_input_file: path to input edges.jsonl file.
+    :param output_cypher_file: path to output .cypher file.
+    :param edge_property_ignore_list: set, optional, properties to ignore when writing edge properties.
+    :param edge_batch_size: the batch size for committing edge insertions in parallel for better performance
+    :return:
+    """
+    if not edges_input_file or not edges_input_file.endswith('jsonl'):
+        raise Exception(f'Empty input edge file or invalid file extension')
+    if not output_cypher_file or not output_cypher_file.endswith('.cypher'):
+        raise Exception(f'Empty output cypher file or invalid file extension')
+
+    edge_batches = defaultdict(list)
+
+    with open(output_cypher_file, "w", encoding="utf-8") as cypher_out:
 
         def flush_batches():
             for predicate, batch in edge_batches.items():
@@ -103,27 +114,22 @@ def convert_jsonl_to_memgraph_cypher(nodes_input_file: str,
 
             edge_batches.clear()
 
-
         for edge in quick_jsonl_file_iterator(edges_input_file):
-            if SUBJECT_ID not in edge:
-                raise Exception(f'each edge must include required property {SUBJECT_ID}')
-            if OBJECT_ID not in edge:
-                raise Exception(f'each edge must include required property {OBJECT_ID}')
-            if PREDICATE not in edge:
-                raise Exception(f'each edge must include required property {PREDICATE}')
-            subj = edge[SUBJECT_ID]
-            obj = edge[OBJECT_ID]
+            if SUBJECT_ID not in edge or OBJECT_ID not in edge or PREDICATE not in edge:
+                raise Exception(f"Edge missing required fields {SUBJECT_ID}, {OBJECT_ID}, or {PREDICATE}")
+
             predicate = edge[PREDICATE]
 
             if edge_property_ignore_list:
                 for ignore_key in edge_property_ignore_list:
                     edge.pop(ignore_key, None)
 
-            props = {k: __normalize_value(v) for k, v in edge.items() if k not in {SUBJECT_ID, OBJECT_ID, PREDICATE}}
+            props = {
+                k: __normalize_value(v) for k, v in edge.items() if k not in {SUBJECT_ID, OBJECT_ID, PREDICATE}
+            }
+
             edge_batches[predicate].append({
-                "src": subj,
-                "dst": obj,
-                "props": props
+                "src": edge[SUBJECT_ID], "dst": edge[OBJECT_ID], "props": props
             })
 
             if len(edge_batches[predicate]) >= edge_batch_size:
