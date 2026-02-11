@@ -6,16 +6,16 @@ from Common.utils import quick_jsonl_file_iterator
 from Common.biolink_constants import SUBJECT_ID, OBJECT_ID, PREDICATE, NAMED_THING
 
 
-def __is_cypher_primitive(x):
+def _is_cypher_primitive(x):
     return x is None or isinstance(x, (str, int, float, bool))
 
 
-def __normalize_value(v):
-    if __is_cypher_primitive(v):
+def _normalize_value(v):
+    if _is_cypher_primitive(v):
         return v
 
     # lists are only allowed if all elements are primitives
-    if isinstance(v, list) and all(__is_cypher_primitive(x) for x in v):
+    if isinstance(v, list) and all(_is_cypher_primitive(x) for x in v):
         return v
 
     # other non-primitive values are not allowed - need to stringify
@@ -57,7 +57,7 @@ def convert_nodes_to_memgraph_cypher(nodes_input_file: str, output_cypher_file: 
                 for ignore_key in node_property_ignore_list:
                     node.pop(ignore_key, None)
 
-            props = {k: __normalize_value(v) for k, v in node.items()}
+            props = {k: _normalize_value(v) for k, v in node.items()}
             props_str = "{" + ", ".join(f"{k}: {json.dumps(v, ensure_ascii=False)}" for k, v in props.items()) + "}"
 
             cypher_out.write(f"CREATE ({labels_str} {props_str});\n")
@@ -77,6 +77,23 @@ def add_indexes_to_memgraph_cypher(all_node_labels: set, output_cypher_file: str
 
         for label in sorted(all_node_labels):
             cypher_out.write(f"CREATE INDEX ON :`{label}`(id);\n")
+
+
+def _to_cypher_literal(v):
+    if v is None:
+        return "NULL"
+    if isinstance(v, bool):
+        return "true" if v else "false"
+    if isinstance(v, (int, float)):
+        return str(v)
+    if isinstance(v, str):
+        # producing a valid Cypher string literal
+        return json.dumps(v, ensure_ascii=False)
+    if isinstance(v, list):
+        return "[" + ", ".join(_to_cypher_literal(x) for x in v) + "]"
+    if isinstance(v, dict):
+        return "{" + ", ".join(f"{k}: {_to_cypher_literal(val)}" for k, val in v.items()) + "}"
+    raise TypeError(f"Unsupported type: {type(v)}")
 
 
 def convert_edges_to_memgraph_cypher(edges_input_file: str, output_cypher_file: str,
@@ -105,11 +122,14 @@ def convert_edges_to_memgraph_cypher(edges_input_file: str, output_cypher_file: 
                 if not batch:
                     continue
 
+                batch_literal = "[" + ", ".join(_to_cypher_literal(e) for e in batch) + "]"
+
                 cypher_out.write(
-                    f"UNWIND {json.dumps(batch, ensure_ascii=False)} AS e\n"
-                    f"MATCH (a {{id: e.src}}), (b {{id: e.dst}})\n"
+                    f"UNWIND {batch_literal} AS e\n"
+                    f"WITH e.src AS src, e.dst AS dst, e.props AS props\n"
+                    f"MATCH (a {{id: src}}), (b {{id: dst}})\n"
                     f"CREATE (a)-[r:`{predicate}`]->(b)\n"
-                    f"SET r += e.props;\n\n"
+                    f"SET r += props;\n\n"
                 )
 
             edge_batches.clear()
@@ -125,7 +145,7 @@ def convert_edges_to_memgraph_cypher(edges_input_file: str, output_cypher_file: 
                     edge.pop(ignore_key, None)
 
             props = {
-                k: __normalize_value(v) for k, v in edge.items() if k not in {SUBJECT_ID, OBJECT_ID, PREDICATE}
+                k: _normalize_value(v) for k, v in edge.items() if k not in {SUBJECT_ID, OBJECT_ID, PREDICATE}
             }
 
             edge_batches[predicate].append({
