@@ -137,15 +137,15 @@ def convert_edge_jsonl_to_memgraph_csv(edges_input_file: str,
     all_file_names = []
     for rel_type in file_handles.keys():
         input_split_file = f"{base}_{rel_type}{ext}"
-        all_file_names.append(os.path.basename(input_split_file))
+        output_split_file = f"{out_base}_{rel_type}{out_ext}"
         __convert_to_csv(input_file=input_split_file,
-                         output_file=f"{out_base}_{rel_type}{out_ext}",
+                         output_file=output_split_file,
                          properties=edge_properties,
                          output_delimiter=output_delimiter,
                          array_delimiter=array_delimiter,
                          output_target='memgraph',
                          property_ignore_list=edge_property_ignore_list)
-
+        all_file_names.append(os.path.basename(output_split_file))
     # write all edge file names into a text file used for memgraph edge loading
     with open(f'{out_base}_manifest.txt', 'w') as wp:
         for item in all_file_names:
