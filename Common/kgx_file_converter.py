@@ -1,4 +1,5 @@
 import csv
+import os
 import json
 import argparse
 from collections import defaultdict
@@ -6,30 +7,57 @@ from Common.utils import quick_jsonl_file_iterator
 from Common.biolink_constants import SUBJECT_ID, OBJECT_ID, PREDICATE, NAMED_THING
 
 
-def _is_cypher_primitive(x):
-    return x is None or isinstance(x, (str, int, float, bool))
+# these will get converted into headers
+# required properties have unique/specialized types of the following instead of normal variable types
+REQUIRED_NODE_PROPERTIES = {
+    'id': 'ID',
+    'name': 'string',
+    'category': 'LABEL'
+}
+
+REQUIRED_EDGE_PROPERTIES = {
+    SUBJECT_ID: 'START_ID',
+    PREDICATE: 'TYPE',
+    OBJECT_ID: 'END_ID'
+}
 
 
-def _normalize_value(v):
-    if _is_cypher_primitive(v):
-        return v
-
-    # lists are only allowed if all elements are primitives
-    if isinstance(v, list) and all(_is_cypher_primitive(x) for x in v):
-        return v
-
-    # other non-primitive values are not allowed - need to stringify
-    return json.dumps(v, ensure_ascii=False)
-
-
-def convert_nodes_to_memgraph_cypher(nodes_input_file: str, output_cypher_file: str, node_property_ignore_list=None):
+def convert_node_jsonl_to_memgraph_csv(nodes_input_file: str,
+                                       output_file: str,
+                                       output_delimiter='\t',
+                                       array_delimiter=chr(31),  # chr(31) = U+001F - Unit Separator
+                                       node_property_ignore_list=None):
     """
-    Convert nodes_input_file (e.g., nodes.jsonl) into a .cypher file for Memgraph import.
-    Each node becomes a CREATE statement with labels from `category`.
+    Convert nodes_input_file (e.g., nodes.jsonl) into a node csv file for Memgraph import.
     :param nodes_input_file: path to input nodes jsonl file
-    :param output_cypher_file: path to output .cypher file
+    :param output_file: path to output .csv file
+    :param output_delimiter: csv output file delimiter
+    :param array_delimiter: delimiter used to concatenate array of items into a string
     :param node_property_ignore_list: set, optional, properties to ignore when writing node properties
-    :return: all_node_labels set that includes unique categories of all nodes for later indexing
+    :return:
+    """
+    if not nodes_input_file or not nodes_input_file.endswith('jsonl'):
+        raise Exception(f'Empty input node file or invalid file extension')
+    if not output_file or not output_file.endswith('.csv'):
+        raise Exception(f'Empty output file or invalid file extension (output file must be a csv file)')
+
+    node_properties = __determine_properties_and_types(nodes_input_file, REQUIRED_NODE_PROPERTIES)
+
+    __convert_to_csv(input_file=nodes_input_file,
+                     output_file=output_file,
+                     properties=node_properties,
+                     output_delimiter=output_delimiter,
+                     array_delimiter=array_delimiter,
+                     property_ignore_list=node_property_ignore_list,
+                     output_target='memgraph')
+
+
+def add_indexes_to_memgraph_cypher(nodes_input_file: str, output_cypher_file: str):
+    """
+    add indexes to nodes names and ids for fast edge insertion and query
+    :param nodes_input_file: input nodes jsonl file
+    :param output_cypher_file: path to output .cypher file
+    :return:
     """
     if not nodes_input_file or not nodes_input_file.endswith('jsonl'):
         raise Exception(f'Empty input node file or invalid file extension')
@@ -39,6 +67,9 @@ def convert_nodes_to_memgraph_cypher(nodes_input_file: str, output_cypher_file: 
     all_node_labels = set()
 
     with open(output_cypher_file, "w", encoding="utf-8") as cypher_out:
+        cypher_out.write(f"CREATE INDEX ON :`{NAMED_THING}`(name);\n")
+
+        # get a set of all unique node labels for indexing
         for node in quick_jsonl_file_iterator(nodes_input_file):
             if "id" not in node or "name" not in node or "category" not in node:
                 raise Exception("Each node must include required properties: id, name, category")
@@ -50,113 +81,64 @@ def convert_nodes_to_memgraph_cypher(nodes_input_file: str, output_cypher_file: 
             for c in categories:
                 all_node_labels.add(c)
 
-            # convert categories list to a labels string, add backticks to allow handling colons
-            labels_str = ":" + ":".join(f"`{c}`" for c in categories)
-
-            if node_property_ignore_list:
-                for ignore_key in node_property_ignore_list:
-                    node.pop(ignore_key, None)
-
-            props = {k: _normalize_value(v) for k, v in node.items()}
-            props_str = "{" + ", ".join(f"{k}: {json.dumps(v, ensure_ascii=False)}" for k, v in props.items()) + "}"
-
-            cypher_out.write(f"CREATE ({labels_str} {props_str});\n")
-
-    return all_node_labels
-
-
-def add_indexes_to_memgraph_cypher(all_node_labels: set, output_cypher_file: str):
-    """
-    add indexes to nodes names and ids for fast edge insertion and query
-    :param all_node_labels: all node labels set returned from convert_nodes_to_memgraph_cypher()
-    :param output_cypher_file: path to output .cypher file
-    :return:
-    """
-    with open(output_cypher_file, "w", encoding="utf-8") as cypher_out:
-        cypher_out.write(f"CREATE INDEX ON :`{NAMED_THING}`(name);\n")
-
         for label in sorted(all_node_labels):
             cypher_out.write(f"CREATE INDEX ON :`{label}`(id);\n")
 
 
-def _to_cypher_literal(v):
-    if v is None:
-        return "NULL"
-    if isinstance(v, bool):
-        return "true" if v else "false"
-    if isinstance(v, (int, float)):
-        return str(v)
-    if isinstance(v, str):
-        # producing a valid Cypher string literal
-        return json.dumps(v, ensure_ascii=False)
-    if isinstance(v, list):
-        return "[" + ", ".join(_to_cypher_literal(x) for x in v) + "]"
-    if isinstance(v, dict):
-        return "{" + ", ".join(f"{k}: {_to_cypher_literal(val)}" for k, val in v.items()) + "}"
-    raise TypeError(f"Unsupported type: {type(v)}")
-
-
-def convert_edges_to_memgraph_cypher(edges_input_file: str, output_cypher_file: str,
-                                     edge_property_ignore_list=None,
-                                     edge_batch_size=1000):
+def convert_edge_jsonl_to_memgraph_csv(edges_input_file: str,
+                                       output_base_file: str,
+                                       output_delimiter = '\t',
+                                       array_delimiter = chr(31),  # chr(31) = U+001F - Unit Separator
+                                       edge_property_ignore_list=None):
     """
-    Convert edges_input_file (e.g., edges.jsonl) into a .cypher file for Memgraph import.
-    Each edge becomes a CREATE statement with relationship type from `predicate`.
+    Convert edges_input_file (e.g., edges.jsonl) into multiple .csv files split by edge types for Memgraph import.
     :param edges_input_file: path to input edges.jsonl file.
-    :param output_cypher_file: path to output .cypher file.
+    :param output_base_file: path to output base .csv file such as edges.csv which create multiple type-split csv
+    files such as edges_<type1>.csv, edges_<type2>.csv, etc.
+    :param output_delimiter: csv output file delimiter
+    :param array_delimiter: delimiter used to concatenate array of items into a string
     :param edge_property_ignore_list: set, optional, properties to ignore when writing edge properties.
-    :param edge_batch_size: the batch size for committing edge insertions in parallel for better performance
     :return:
     """
     if not edges_input_file or not edges_input_file.endswith('jsonl'):
         raise Exception(f'Empty input edge file or invalid file extension')
-    if not output_cypher_file or not output_cypher_file.endswith('.cypher'):
-        raise Exception(f'Empty output cypher file or invalid file extension')
+    if not output_base_file or not output_base_file.endswith('.csv'):
+        raise Exception(f'Empty output base csv file or invalid file extension')
 
-    edge_batches = defaultdict(list)
+    # split a large edge jsonl file into multiple jsonl files, one per predicate (relationship type)
+    # for subsequent conversions by edge types
+    base, ext = os.path.splitext(edges_input_file)
+    file_handles = {}
 
-    with open(output_cypher_file, "w", encoding="utf-8") as cypher_out:
-
-        def flush_batches():
-            for predicate, batch in edge_batches.items():
-                if not batch:
+    try:
+        with open(edges_input_file, "r", encoding="utf-8") as infile:
+            for line in infile:
+                edge = json.loads(line)
+                rel_type = edge.get(PREDICATE)
+                if not rel_type:
                     continue
+                rel_type = rel_type.replace(":", "_")
+                output_path = f"{base}_{rel_type}{ext}"
 
-                batch_literal = "[" + ", ".join(_to_cypher_literal(e) for e in batch) + "]"
+                if rel_type not in file_handles:
+                    file_handles[rel_type] = open(output_path, "w", encoding="utf-8")
 
-                cypher_out.write(
-                    f"UNWIND {batch_literal} AS e\n"
-                    f"WITH e.src AS src, e.dst AS dst, e.props AS props\n"
-                    f"MATCH (a {{id: src}}), (b {{id: dst}})\n"
-                    f"CREATE (a)-[r:`{predicate}`]->(b)\n"
-                    f"SET r += props;\n\n"
-                )
+                file_handles[rel_type].write(line)
+    finally:
+        for fh in file_handles.values():
+            fh.close()
 
-            edge_batches.clear()
+    edge_properties = __determine_properties_and_types(edges_input_file, REQUIRED_EDGE_PROPERTIES)
 
-        for edge in quick_jsonl_file_iterator(edges_input_file):
-            if SUBJECT_ID not in edge or OBJECT_ID not in edge or PREDICATE not in edge:
-                raise Exception(f"Edge missing required fields {SUBJECT_ID}, {OBJECT_ID}, or {PREDICATE}")
-
-            predicate = edge[PREDICATE]
-
-            if edge_property_ignore_list:
-                for ignore_key in edge_property_ignore_list:
-                    edge.pop(ignore_key, None)
-
-            props = {
-                k: _normalize_value(v) for k, v in edge.items() if k not in {SUBJECT_ID, OBJECT_ID, PREDICATE}
-            }
-
-            edge_batches[predicate].append({
-                "src": edge[SUBJECT_ID], "dst": edge[OBJECT_ID], "props": props
-            })
-
-            if len(edge_batches[predicate]) >= edge_batch_size:
-                flush_batches()
-
-        flush_batches()
-
+    out_base, out_ext = os.path.splitext(output_base_file)
+    for rel_type in file_handles.keys():
+        input_split_file = f"{base}_{rel_type}{ext}"
+        __convert_to_csv(input_file=input_split_file,
+                         output_file=f"{out_base}_{rel_type}{out_ext}",
+                         properties=edge_properties,
+                         output_delimiter=output_delimiter,
+                         array_delimiter=array_delimiter,
+                         property_ignore_list=edge_property_ignore_list)
 
 def convert_jsonl_to_neo4j_csv(nodes_input_file: str,
                                edges_input_file: str,
@@ -172,14 +154,7 @@ def convert_jsonl_to_neo4j_csv(nodes_input_file: str,
     if not edges_output_file:
         edges_output_file = f'{edges_input_file.rsplit(".")[0]}.csv'
 
-    # these will get converted into headers
-    # required properties have unique/specialized types of the following instead of normal variable types
-    required_node_properties = {
-        'id': 'ID',
-        'name': 'string',
-        'category': 'LABEL'
-    }
-    node_properties = __determine_properties_and_types(nodes_input_file, required_node_properties)
+    node_properties = __determine_properties_and_types(nodes_input_file, REQUIRED_NODE_PROPERTIES)
     __convert_to_csv(input_file=nodes_input_file,
                      output_file=nodes_output_file,
                      properties=node_properties,
@@ -188,14 +163,7 @@ def convert_jsonl_to_neo4j_csv(nodes_input_file: str,
                      property_ignore_list=node_property_ignore_list)
     # __verify_conversion(nodes_output_file, node_properties, array_delimiter, output_delimiter)
 
-    # these will get converted into headers
-    # required properties have unique/specialized types of the following instead of normal variable types
-    required_edge_properties = {
-        SUBJECT_ID: 'START_ID',
-        PREDICATE: 'TYPE',
-        OBJECT_ID: 'END_ID'
-    }
-    edge_properties = __determine_properties_and_types(edges_input_file, required_edge_properties)
+    edge_properties = __determine_properties_and_types(edges_input_file, REQUIRED_EDGE_PROPERTIES)
     __convert_to_csv(input_file=edges_input_file,
                      output_file=edges_output_file,
                      properties=edge_properties,
@@ -334,13 +302,22 @@ def __convert_to_csv(input_file: str,
                      properties: dict,  # dictionary of { node/edge property: property_type }
                      array_delimiter: str,
                      output_delimiter: str,
+                     output_target: str = 'neo4j',  # "neo4j" or "memgraph"
                      property_ignore_list: set = None):
 
-    # generate the headers which for neo4j include the property name and the type
-    # for example:
-    # id:ID	name:string	category:LABEL	equivalent_identifiers:string[]	information_content:float
-    headers = {prop: f'{prop.removeprefix("biolink:")}:{prop_type}'
-               for prop, prop_type in properties.items()}
+    if output_target.lower() == 'neo4j':
+        # generate the headers which for neo4j include the property name and the type
+        # for example:
+        # id:ID	name:string	category:LABEL	equivalent_identifiers:string[]	information_content:float
+        headers = {prop: f'{prop.removeprefix("biolink:")}:{prop_type}'
+                   for prop, prop_type in properties.items()}
+    elif output_target.lower() == 'memgraph':
+        headers = {
+            prop: prop.removeprefix("biolink:")
+            for prop in properties.keys()
+        }
+    else:
+        raise Exception(f'{output_target} is not supported - setting it to either neo4j or memgraph.')
 
     # if there is a property_ignore_list, remove them from the headers
     # also filter the list to include only properties that are actually present
@@ -360,7 +337,7 @@ def __convert_to_csv(input_file: str,
                                  if prop_type in {'LABEL', 'string[]', 'float[]', 'int[]'}}
     properties_that_are_boolean = {prop for prop, prop_type in properties.items() if prop_type == 'boolean'}
 
-    with open(output_file, 'w', newline='') as output_file_handler:
+    with open(output_file, 'w', newline='', encoding='utf-8') as output_file_handler:
         csv_file_writer = csv.DictWriter(output_file_handler,
                                          delimiter=output_delimiter,
                                          fieldnames=properties,
@@ -368,6 +345,7 @@ def __convert_to_csv(input_file: str,
                                          extrasaction='ignore',
                                          quoting=csv.QUOTE_MINIMAL)
         csv_file_writer.writerow(headers)
+
         for item in quick_jsonl_file_iterator(input_file):
             for key in list(item.keys()):
                 if item[key] is None:
@@ -392,6 +370,7 @@ def __convert_to_csv(input_file: str,
                     elif key in properties_that_are_boolean:
                         # neo4j handles boolean with string 'true' being true and everything else false
                         item[key] = 'true' if item[key] is True else 'false'
+
             csv_file_writer.writerow(item)
 
 
