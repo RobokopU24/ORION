@@ -138,7 +138,9 @@ def convert_edge_jsonl_to_memgraph_csv(edges_input_file: str,
                          properties=edge_properties,
                          output_delimiter=output_delimiter,
                          array_delimiter=array_delimiter,
+                         output_target='memgraph',
                          property_ignore_list=edge_property_ignore_list)
+
 
 def convert_jsonl_to_neo4j_csv(nodes_input_file: str,
                                edges_input_file: str,
