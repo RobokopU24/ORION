@@ -119,20 +119,25 @@ def convert_edge_jsonl_to_memgraph_csv(edges_input_file: str,
                     continue
                 rel_type = rel_type.replace(":", "_")
                 output_path = f"{base}_{rel_type}{ext}"
+                if not os.path.exists(output_path):
+                    if rel_type not in file_handles:
+                        file_handles[rel_type] = open(output_path, "w", encoding="utf-8")
 
-                if rel_type not in file_handles:
-                    file_handles[rel_type] = open(output_path, "w", encoding="utf-8")
-
-                file_handles[rel_type].write(line)
+                    file_handles[rel_type].write(line)
+                else:
+                    file_handles[rel_type] = None
     finally:
-        for fh in file_handles.values():
-            fh.close()
+        if not os.path.exists(output_path):
+            for fh in file_handles.values():
+                fh.close()
 
     edge_properties = __determine_properties_and_types(edges_input_file, REQUIRED_EDGE_PROPERTIES)
 
     out_base, out_ext = os.path.splitext(output_base_file)
+    all_file_names = []
     for rel_type in file_handles.keys():
         input_split_file = f"{base}_{rel_type}{ext}"
+        all_file_names.append(os.path.basename(input_split_file))
         __convert_to_csv(input_file=input_split_file,
                          output_file=f"{out_base}_{rel_type}{out_ext}",
                          properties=edge_properties,
@@ -140,6 +145,11 @@ def convert_edge_jsonl_to_memgraph_csv(edges_input_file: str,
                          array_delimiter=array_delimiter,
                          output_target='memgraph',
                          property_ignore_list=edge_property_ignore_list)
+
+    # write all edge file names into a text file used for memgraph edge loading
+    with open(f'{out_base}_manifest.txt', 'w') as wp:
+        for item in all_file_names:
+            wp.write(f'{item}\n')
 
 
 def convert_jsonl_to_neo4j_csv(nodes_input_file: str,
