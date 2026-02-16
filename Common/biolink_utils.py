@@ -151,6 +151,10 @@ class BiolinkUtils:
     def is_qualifier(self, property_name):
         return self.toolkit.is_qualifier(property_name)
 
+    @cache
+    def is_symmetric(self, property_name):
+        return self.toolkit.is_symmetric(property_name)
+
     def is_valid_node_type(self, node_type):
         if self.toolkit.is_category(node_type, mixin=True):
             return True
