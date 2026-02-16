@@ -22,42 +22,30 @@ REQUIRED_EDGE_PROPERTIES = {
 }
 
 
-def convert_node_jsonl_to_memgraph_csv(nodes_input_file: str,
-                                       output_file: str,
-                                       output_delimiter='\t',
-                                       array_delimiter=chr(31),  # chr(31) = U+001F - Unit Separator
-                                       node_property_ignore_list=None):
+def _is_cypher_primitive(x):
+    return x is None or isinstance(x, (str, int, float, bool))
+
+
+def _normalize_value(v):
+    if _is_cypher_primitive(v):
+        return v
+
+    # lists are only allowed if all elements are primitives
+    if isinstance(v, list) and all(_is_cypher_primitive(x) for x in v):
+        return v
+
+    # other non-primitive values are not allowed - need to stringify
+    return json.dumps(v, ensure_ascii=False)
+
+
+def convert_nodes_to_memgraph_cypher(nodes_input_file: str, output_cypher_file: str, node_property_ignore_list=None):
     """
-    Convert nodes_input_file (e.g., nodes.jsonl) into a node csv file for Memgraph import.
+    Convert nodes_input_file (e.g., nodes.jsonl) into a .cypher file for Memgraph import.
+    Each node becomes a CREATE statement with labels from `category`.
     :param nodes_input_file: path to input nodes jsonl file
-    :param output_file: path to output .csv file
-    :param output_delimiter: csv output file delimiter
-    :param array_delimiter: delimiter used to concatenate array of items into a string
-    :param node_property_ignore_list: set, optional, properties to ignore when writing node properties
-    :return:
-    """
-    if not nodes_input_file or not nodes_input_file.endswith('jsonl'):
-        raise Exception(f'Empty input node file or invalid file extension')
-    if not output_file or not output_file.endswith('.csv'):
-        raise Exception(f'Empty output file or invalid file extension (output file must be a csv file)')
-
-    node_properties = __determine_properties_and_types(nodes_input_file, REQUIRED_NODE_PROPERTIES)
-
-    __convert_to_csv(input_file=nodes_input_file,
-                     output_file=output_file,
-                     properties=node_properties,
-                     output_delimiter=output_delimiter,
-                     array_delimiter=array_delimiter,
-                     property_ignore_list=node_property_ignore_list,
-                     output_target='memgraph')
-
-
-def add_indexes_to_memgraph_cypher(nodes_input_file: str, output_cypher_file: str):
-    """
-    add indexes to nodes names and ids for fast edge insertion and query
-    :param nodes_input_file: input nodes jsonl file
     :param output_cypher_file: path to output .cypher file
-    :return:
+    :param node_property_ignore_list: set, optional, properties to ignore when writing node properties
+    :return: all_node_labels set that includes unique categories of all nodes for later indexing
     """
     if not nodes_input_file or not nodes_input_file.endswith('jsonl'):
         raise Exception(f'Empty input node file or invalid file extension')
@@ -67,9 +55,6 @@ def add_indexes_to_memgraph_cypher(nodes_input_file: str, output_cypher_file: st
     all_node_labels = set()
 
     with open(output_cypher_file, "w", encoding="utf-8") as cypher_out:
-        cypher_out.write(f"CREATE INDEX ON :`{NAMED_THING}`(name);\n")
-
-        # get a set of all unique node labels for indexing
         for node in quick_jsonl_file_iterator(nodes_input_file):
             if "id" not in node or "name" not in node or "category" not in node:
                 raise Exception("Each node must include required properties: id, name, category")
@@ -80,6 +65,34 @@ def add_indexes_to_memgraph_cypher(nodes_input_file: str, output_cypher_file: st
 
             for c in categories:
                 all_node_labels.add(c)
+
+            # convert categories list to a labels string, add backticks to allow handling colons
+            labels_str = ":" + ":".join(f"`{c}`" for c in categories)
+
+            if node_property_ignore_list:
+                for ignore_key in node_property_ignore_list:
+                    node.pop(ignore_key, None)
+
+            props = {k: _normalize_value(v) for k, v in node.items()}
+            props_str = "{" + ", ".join(f"{k}: {json.dumps(v, ensure_ascii=False)}" for k, v in props.items()) + "}"
+
+            cypher_out.write(f"CREATE ({labels_str} {props_str});\n")
+
+    return all_node_labels
+
+
+def add_indexes_to_memgraph_cypher(all_node_labels: set, output_cypher_file: str):
+    """
+    add indexes to nodes names and ids for fast edge insertion and query
+    :param all_node_labels: all node labels set returned from convert_nodes_to_memgraph_cypher()
+    :param output_cypher_file: path to output .cypher file
+    :return:
+    """
+    if not output_cypher_file or not output_cypher_file.endswith('.cypher'):
+        raise Exception(f'Empty output cypher file or invalid file extension')
+
+    with open(output_cypher_file, "w", encoding="utf-8") as cypher_out:
+        cypher_out.write(f"CREATE INDEX ON :`{NAMED_THING}`(name);\n")
 
         for label in sorted(all_node_labels):
             cypher_out.write(f"CREATE INDEX ON :`{label}`(id);\n")
