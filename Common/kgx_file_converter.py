@@ -74,7 +74,7 @@ def convert_nodes_to_memgraph_cypher(nodes_input_file: str, output_cypher_file: 
                     node.pop(ignore_key, None)
 
             props = {k: _normalize_value(v) for k, v in node.items()}
-            props_str = "{" + ", ".join(f"{k}: {json.dumps(v, ensure_ascii=False)}" for k, v in props.items()) + "}"
+            props_str = "{" + ", ".join(f"`{k}`: {json.dumps(v, ensure_ascii=False)}" for k, v in props.items()) + "}"
 
             cypher_out.write(f"CREATE ({labels_str} {props_str});\n")
 
@@ -140,9 +140,8 @@ def convert_edge_jsonl_to_memgraph_csv(edges_input_file: str,
                 else:
                     file_handles[rel_type] = None
     finally:
-        if not os.path.exists(output_path):
-            for fh in file_handles.values():
-                fh.close()
+        for fh in file_handles.values():
+            fh.close()
 
     edge_properties = __determine_properties_and_types(edges_input_file, REQUIRED_EDGE_PROPERTIES)
 
