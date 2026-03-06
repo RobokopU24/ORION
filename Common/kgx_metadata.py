@@ -15,9 +15,9 @@ class KGXKnowledgeSource:
     description: str = ""
     license: str = ""
     attribution: str = ""
-    url: str | list = ""
+    url: str = ""
     contentUrl: str = ""
-    citation: str | list = ""
+    citation: str = ""
     version: str = ""
     isBasedOn: list["KGXKnowledgeSource"] = field(default_factory=list)
 
