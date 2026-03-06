@@ -108,7 +108,7 @@ def convert_edge_jsonl_to_memgraph_csv(edges_input_file: str,
 
     # split a large edge jsonl file into multiple jsonl files, one per predicate (relationship type)
     # for subsequent conversions by edge types
-    base, ext = os.path.splitext(edges_input_file)
+    out_base, out_ext = os.path.splitext(output_base_file)
     file_handles = {}
 
     try:
@@ -118,8 +118,8 @@ def convert_edge_jsonl_to_memgraph_csv(edges_input_file: str,
                 rel_type = edge.get(PREDICATE)
                 rel_type = rel_type.replace(":", "_")
                 if rel_type not in file_handles:
-                    output_path = f"{base}_{rel_type}{ext}"
-                    file_handles[rel_type] = open(output_path, "w", encoding="utf-8")
+                    split_jsonl_path = f"{out_base}_{rel_type}.jsonl"
+                    file_handles[rel_type] = open(split_jsonl_path, "w", encoding="utf-8")
                 file_handles[rel_type].write(line)
     finally:
         for fh in file_handles.values():
@@ -127,10 +127,9 @@ def convert_edge_jsonl_to_memgraph_csv(edges_input_file: str,
 
     edge_properties = __determine_properties_and_types(edges_input_file, REQUIRED_EDGE_PROPERTIES)
 
-    out_base, out_ext = os.path.splitext(output_base_file)
     all_file_names = []
     for rel_type in file_handles.keys():
-        input_split_file = f"{base}_{rel_type}{ext}"
+        input_split_file = f"{out_base}_{rel_type}.jsonl"
         output_split_file = f"{out_base}_{rel_type}{out_ext}"
         __convert_to_csv(input_file=input_split_file,
                          output_file=output_split_file,
