@@ -415,21 +415,8 @@ class GraphBuilder:
             with open(data_source_metadata_path, 'r') as f:
                 data_source_metadata = json.load(f)
 
-            # Each key in the file is a provenance_id, create a KGXSource for each
-            for provenance_id, source_info in data_source_metadata.items():
-                knowledge_source = KGXKnowledgeSource(
-                    id=source_info.get('id', provenance_id),
-                    name=source_info.get('name', ''),
-                    description=source_info.get('description', ''),
-                    license=source_info.get('license', ''),
-                    attribution=source_info.get('attribution', ''),
-                    url=source_info.get('url', ''),
-                    contentUrl=source_info.get('contentUrl', ''),
-                    citation=source_info.get('citation', ''),
-                    fullCitation=source_info.get('fullCitation', ''),
-                    version=source_version
-                )
-                knowledge_sources.append(knowledge_source)
+            knowledge_source = KGXKnowledgeSource.from_dict(data_source_metadata, version=source_version)
+            knowledge_sources.append(knowledge_source)
 
         # Create KGXGraphMetadata
         kgx_graph_metadata = KGXGraphMetadata(

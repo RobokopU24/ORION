@@ -1,13 +1,15 @@
 {
-    "infores:goa": {
-        "id": "infores:goa",
-        "name": "",
-        "description": "",
-        "url": "",
-        "attribution": "",
-        "citation": "",
-        "license": "",
-        "contentUrl": "",
-        "fullCitation": ""
-    }
+  "@context": "https://schema.org",
+  "@type": "Dataset",
+  "identifier": "infores:goa",
+  "name": "",
+  "description": "",
+  "url": "",
+  "attribution": "",
+  "citation": [
+    "",
+    ""
+  ],
+  "license": "",
+  "contentUrl": ""
 }

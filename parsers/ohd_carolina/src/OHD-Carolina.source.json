@@ -1,13 +1,15 @@
 {
-    "infores:openhealthdata-carolina": {
-        "id": "infores:openhealthdata-carolina",
-        "name": "",
-        "description": "",
-        "url": "",
-        "attribution": "",
-        "citation": "",
-        "license": "",
-        "contentUrl": "",
-        "fullCitation": ""
-    }
+  "@context": "https://schema.org",
+  "@type": "Dataset",
+  "identifier": "infores:openhealthdata-carolina",
+  "name": "",
+  "description": "",
+  "url": "",
+  "attribution": "",
+  "citation": [
+    "",
+    ""
+  ],
+  "license": "",
+  "contentUrl": ""
 }

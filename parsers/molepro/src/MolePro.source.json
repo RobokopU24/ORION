@@ -1,13 +1,15 @@
 {
-    "infores:molepro": {
-        "id": "infores:molepro",
-        "name": "",
-        "description": "MolePro",
-        "url": "",
-        "attribution": "",
-        "citation": "",
-        "license": "",
-        "contentUrl": "",
-        "fullCitation": ""
-    }
+  "@context": "https://schema.org",
+  "@type": "Dataset",
+  "identifier": "infores:molepro",
+  "name": "",
+  "description": "MolePro",
+  "url": "",
+  "attribution": "",
+  "citation": [
+    "",
+    ""
+  ],
+  "license": "",
+  "contentUrl": ""
 }

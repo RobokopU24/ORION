@@ -1,13 +1,15 @@
 {
-    "infores:metabolomics_workbench": {
-        "id": "infores:metabolomics_workbench",
-        "name": "Metabolomics Workbench",
-        "description": "Metabolomics Workbench is a public repository for metabolomics metadata and experimental data spanning various species and experimental platforms, funded by the NIH Common Fund Metabolomics Program. It provides analysis tools, metabolite databases, metabolite standards, protocols, tutorials, and training materials.",
-        "url": "https://www.metabolomicsworkbench.org/",
-        "attribution": "https://www.metabolomicsworkbench.org/about/howtocite.php",
-        "citation": "https://doi.org/10.1093/nar/gkv1042",
-        "license": "CC0 1.0",
-        "contentUrl": "https://cfde-drc.s3.amazonaws.com/Metabolomics/KG%20Assertions",
-        "fullCitation": "Sud M, Fahy E, Cotter D, Azam K, Vadivelu I, Burant C, Edison A, Fiehn O, Higashi R, Nair KS, Sumner S, Subramaniam S. Metabolomics Workbench: An international repository for metabolomics data and metadata, metabolite standards, protocols, tutorials and training, and analysis tools. Nucleic Acids Res. 2016 Jan 4;44(D1):D463-70."
-    }
+  "@context": "https://schema.org",
+  "@type": "Dataset",
+  "identifier": "infores:metabolomics_workbench",
+  "name": "Metabolomics Workbench",
+  "description": "Metabolomics Workbench is a public repository for metabolomics metadata and experimental data spanning various species and experimental platforms, funded by the NIH Common Fund Metabolomics Program. It provides analysis tools, metabolite databases, metabolite standards, protocols, tutorials, and training materials.",
+  "url": "https://www.metabolomicsworkbench.org/",
+  "attribution": "https://www.metabolomicsworkbench.org/about/howtocite.php",
+  "citation": [
+    "https://doi.org/10.1093/nar/gkv1042",
+    "Sud M, Fahy E, Cotter D, Azam K, Vadivelu I, Burant C, Edison A, Fiehn O, Higashi R, Nair KS, Sumner S, Subramaniam S. Metabolomics Workbench: An international repository for metabolomics data and metadata, metabolite standards, protocols, tutorials and training, and analysis tools. Nucleic Acids Res. 2016 Jan 4;44(D1):D463-70."
+  ],
+  "license": "CC0 1.0",
+  "contentUrl": "https://cfde-drc.s3.amazonaws.com/Metabolomics/KG%20Assertions"
 }

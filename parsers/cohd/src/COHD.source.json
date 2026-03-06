@@ -1,13 +1,15 @@
 {
-    "infores:cohd": {
-        "id": "infores:cohd",
-        "name": "Columbia Open Health Data",
-        "description": "Columbia Open Health Data (COHD) is a publicly accessible database of electronic health record (EHR) prevalence and co-occurrence frequencies between conditions, drugs, procedures, and demographics.",
-        "url": "https://cohd.io/",
-        "attribution": "https://cohd.io/",
-        "citation": "https://doi.org/10.1038/sdata.2018.273",
-        "license": "CC BY 4.0",
-        "contentUrl": "https://doi.org/10.6084/m9.figshare.c.4151252",
-        "fullCitation": ""
-    }
+  "@context": "https://schema.org",
+  "@type": "Dataset",
+  "identifier": "infores:cohd",
+  "name": "Columbia Open Health Data",
+  "description": "Columbia Open Health Data (COHD) is a publicly accessible database of electronic health record (EHR) prevalence and co-occurrence frequencies between conditions, drugs, procedures, and demographics.",
+  "url": "https://cohd.io/",
+  "attribution": "https://cohd.io/",
+  "citation": [
+    "https://doi.org/10.1038/sdata.2018.273",
+    ""
+  ],
+  "license": "CC BY 4.0",
+  "contentUrl": "https://doi.org/10.6084/m9.figshare.c.4151252"
 }

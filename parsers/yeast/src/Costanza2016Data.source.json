@@ -1,13 +1,15 @@
 {
-    "infores:Yeast": {
-        "id": "infores:Yeast",
-        "name": "",
-        "description": "",
-        "url": "",
-        "attribution": "",
-        "citation": "",
-        "license": "",
-        "contentUrl": "",
-        "fullCitation": ""
-    }
+  "@context": "https://schema.org",
+  "@type": "Dataset",
+  "identifier": "infores:Yeast",
+  "name": "",
+  "description": "",
+  "url": "",
+  "attribution": "",
+  "citation": [
+    "",
+    ""
+  ],
+  "license": "",
+  "contentUrl": ""
 }

@@ -1,13 +1,15 @@
 {
-    "infores:mondo": {
-        "id": "infores:mondo",
-        "name": "",
-        "description": "",
-        "url": "",
-        "attribution": "",
-        "citation": "",
-        "license": "",
-        "contentUrl": "",
-        "fullCitation": ""
-    }
+  "@context": "https://schema.org",
+  "@type": "Dataset",
+  "identifier": "infores:mondo",
+  "name": "",
+  "description": "",
+  "url": "",
+  "attribution": "",
+  "citation": [
+    "",
+    ""
+  ],
+  "license": "",
+  "contentUrl": ""
 }

@@ -1,13 +1,15 @@
 {
-    "infores:lincs": {
-        "id": "infores:lincs",
-        "name": "Library of Integrated Network-Based Cellular Signatures",
-        "description": "LINCS is an NIH Common Fund program that generates and catalogs perturbation-induced changes in gene expression and other cellular processes, aiming to create a comprehensive network-based understanding of how cells respond to various perturbations including drugs, genetic modifications, and environmental factors.",
-        "url": "https://lincsproject.org/",
-        "attribution": "https://lincsproject.org/LINCS/",
-        "citation": "https://doi.org/10.1016/j.cels.2017.11.001",
-        "license": "CC BY 4.0",
-        "contentUrl": "https://cfde-drc.s3.amazonaws.com/LINCS/KG%20Assertions",
-        "fullCitation": "Keenan AB, et al. The Library of Integrated Network-Based Cellular Signatures NIH Program: System-Level Cataloging of Human Cells Response to Perturbations. Cell Syst. 2018 Jan 24;6(1):13-24. doi: 10.1016/j.cels.2017.11.001. Epub 2017 Nov 29. PMID: 29199020; PMCID: PMC5799026."
-    }
+  "@context": "https://schema.org",
+  "@type": "Dataset",
+  "identifier": "infores:lincs",
+  "name": "Library of Integrated Network-Based Cellular Signatures",
+  "description": "LINCS is an NIH Common Fund program that generates and catalogs perturbation-induced changes in gene expression and other cellular processes, aiming to create a comprehensive network-based understanding of how cells respond to various perturbations including drugs, genetic modifications, and environmental factors.",
+  "url": "https://lincsproject.org/",
+  "attribution": "https://lincsproject.org/LINCS/",
+  "citation": [
+    "https://doi.org/10.1016/j.cels.2017.11.001",
+    "Keenan AB, et al. The Library of Integrated Network-Based Cellular Signatures NIH Program: System-Level Cataloging of Human Cells Response to Perturbations. Cell Syst. 2018 Jan 24;6(1):13-24. doi: 10.1016/j.cels.2017.11.001. Epub 2017 Nov 29. PMID: 29199020; PMCID: PMC5799026."
+  ],
+  "license": "CC BY 4.0",
+  "contentUrl": "https://cfde-drc.s3.amazonaws.com/LINCS/KG%20Assertions"
 }

@@ -1,55 +1,62 @@
 {
-    "infores:agrkb": {
-        "id": "infores:agrkb",
-        "name": "Alliance of Genome Resources",
-        "description": "A consortium of 7 model organism databases (MODs) and the Gene Ontology (GO) Consortium whose goal is to provide an integrated view of their data to all biologists, clinicians and other interested parties.",
-        "url": "https://www.alliancegenome.org/",
-        "attribution": "https://www.alliancegenome.org/",
-        "citation": "https://doi.org/10.1093/genetics/iyae049",
-        "license": "CC BY 4.0",
-        "contentUrl": "https://www.alliancegenome.org/",
-        "fullCitation": "Updates to the Alliance of Genome Resources central infrastructure. 2024. Alliance of Genome Resources Consortium. Genetics. 2024 May 7;227(1):iyae049. doi: 10.1093/genetics/iyae049. PMID: 38552170.",
-        "isBasedOn": {
-            "infores:flybase": {
-                "id": "infores:flybase",
-                "name": "FlyBase",
-                "description": "FlyBase is a database of Drosophila genes and genomes, providing integrated genetic, genomic, and functional data for the model organism Drosophila melanogaster.",
-                "url": "https://flybase.org/",
-                "license": "CC BY 4.0",
-                "licenseUrl": "https://wiki.flybase.org/wiki/FlyBase:About#FlyBase_Licenses_and_Availability"
-            },
-            "infores:mgi": {
-                "id": "infores:mgi",
-                "name": "Mouse Genome Informatics",
-                "description": "MGI is the international database resource for the laboratory mouse, providing integrated genetic, genomic, and biological data to facilitate the study of human health and disease.",
-                "url": "https://www.informatics.jax.org/",
-                "license": "CC BY 4.0",
-                "licenseUrl": "https://www.informatics.jax.org/mgihome/other/copyright.shtml"
-            },
-            "infores:rgd": {
-                "id": "infores:rgd",
-                "name": "Rat Genome Database",
-                "description": "RGD is the premier resource for rat genetic and genomic data, facilitating research using the rat as a model for human disease.",
-                "url": "https://rgd.mcw.edu/",
-                "license": "CC BY 4.0",
-                "licenseUrl": "https://rgd.mcw.edu/wg/disclaimer/"
-            },
-            "infores:sgd": {
-                "id": "infores:sgd",
-                "name": "Saccharomyces Genome Database",
-                "description": "SGD provides comprehensive integrated biological information for the budding yeast Saccharomyces cerevisiae, a widely used model organism for eukaryotic biology.",
-                "url": "https://www.yeastgenome.org/",
-                "license": "CC BY 4.0",
-                "licenseUrl": "https://sites.google.com/view/yeastgenome-help/about"
-            },
-            "infores:zfin": {
-                "id": "infores:zfin",
-                "name": "Zebrafish Information Network",
-                "description": "ZFIN serves as the central repository for genetic, genomic, phenotypic, and developmental data for zebrafish (Danio rerio), a model organism for vertebrate development and human disease.",
-                "url": "https://zfin.org/",
-                "license": "CC BY 4.0",
-                "licenseUrl": "https://zfin.atlassian.net/wiki/spaces/general/pages/1942160112/WARRANTY+AND+LIABILITY+DISCLAIMER+OWNERSHIP+AND+LIMITS+ON+USE"
-            }
-        }
+  "@context": "https://schema.org",
+  "@type": "Dataset",
+  "identifier": "infores:agrkb",
+  "name": "Alliance of Genome Resources",
+  "description": "A consortium of 7 model organism databases (MODs) and the Gene Ontology (GO) Consortium whose goal is to provide an integrated view of their data to all biologists, clinicians and other interested parties.",
+  "url": "https://www.alliancegenome.org/",
+  "attribution": "https://www.alliancegenome.org/",
+  "citation": [
+    "https://doi.org/10.1093/genetics/iyae049",
+    "Updates to the Alliance of Genome Resources central infrastructure. 2024. Alliance of Genome Resources Consortium. Genetics. 2024 May 7;227(1):iyae049. doi: 10.1093/genetics/iyae049. PMID: 38552170."
+  ],
+  "license": "CC BY 4.0",
+  "contentUrl": "https://www.alliancegenome.org/",
+  "isBasedOn": [
+    {
+      "@type": "Dataset",
+      "identifier": "infores:flybase",
+      "name": "FlyBase",
+      "description": "FlyBase is a database of Drosophila genes and genomes, providing integrated genetic, genomic, and functional data for the model organism Drosophila melanogaster.",
+      "url": "https://flybase.org/",
+      "license": "CC BY 4.0",
+      "licenseUrl": "https://wiki.flybase.org/wiki/FlyBase:About#FlyBase_Licenses_and_Availability"
+    },
+    {
+      "@type": "Dataset",
+      "identifier": "infores:mgi",
+      "name": "Mouse Genome Informatics",
+      "description": "MGI is the international database resource for the laboratory mouse, providing integrated genetic, genomic, and biological data to facilitate the study of human health and disease.",
+      "url": "https://www.informatics.jax.org/",
+      "license": "CC BY 4.0",
+      "licenseUrl": "https://www.informatics.jax.org/mgihome/other/copyright.shtml"
+    },
+    {
+      "@type": "Dataset",
+      "identifier": "infores:rgd",
+      "name": "Rat Genome Database",
+      "description": "RGD is the premier resource for rat genetic and genomic data, facilitating research using the rat as a model for human disease.",
+      "url": "https://rgd.mcw.edu/",
+      "license": "CC BY 4.0",
+      "licenseUrl": "https://rgd.mcw.edu/wg/disclaimer/"
+    },
+    {
+      "@type": "Dataset",
+      "identifier": "infores:sgd",
+      "name": "Saccharomyces Genome Database",
+      "description": "SGD provides comprehensive integrated biological information for the budding yeast Saccharomyces cerevisiae, a widely used model organism for eukaryotic biology.",
+      "url": "https://www.yeastgenome.org/",
+      "license": "CC BY 4.0",
+      "licenseUrl": "https://sites.google.com/view/yeastgenome-help/about"
+    },
+    {
+      "@type": "Dataset",
+      "identifier": "infores:zfin",
+      "name": "Zebrafish Information Network",
+      "description": "ZFIN serves as the central repository for genetic, genomic, phenotypic, and developmental data for zebrafish (Danio rerio), a model organism for vertebrate development and human disease.",
+      "url": "https://zfin.org/",
+      "license": "CC BY 4.0",
+      "licenseUrl": "https://zfin.atlassian.net/wiki/spaces/general/pages/1942160112/WARRANTY+AND+LIABILITY+DISCLAIMER+OWNERSHIP+AND+LIMITS+ON+USE"
     }
+  ]
 }

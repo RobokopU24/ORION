@@ -10,30 +10,52 @@ from Common.biolink_constants import *
 
 @dataclass
 class KGXKnowledgeSource:
-    id: str = ""
+    identifier: str = ""
     name: str = ""
     description: str = ""
     license: str = ""
     attribution: str = ""
-    url: str = ""
+    url: str | list = ""
     contentUrl: str = ""
-    citation: str = ""
-    fullCitation: str = ""
+    citation: str | list = ""
     version: str = ""
+    isBasedOn: list["KGXKnowledgeSource"] = field(default_factory=list)
+
+    @classmethod
+    def from_dict(cls, data: dict, version: str = "") -> "KGXKnowledgeSource":
+        return cls(
+            identifier=data['identifier'],
+            name=data['name'],
+            description=data.get('description', ''),
+            license=data.get('license', ''),
+            attribution=data.get('attribution', ''),
+            url=data.get('url', ''),
+            contentUrl=data.get('contentUrl', ''),
+            citation=data.get('citation', ''),
+            version=version,
+            isBasedOn=[cls.from_dict(entry) for entry in data.get('isBasedOn', [])]
+        )
 
     def to_dict(self):
-        return {
+        output_dict = {
             "@type": "Dataset",
-            "id": self.id,
+            "identifier": self.identifier,
             "name": self.name,
             "description": self.description,
             "license": self.license,
             "attribution": self.attribution,
             "url": self.url,
             "contentUrl": self.contentUrl,
-            "citation": [self.citation, self.fullCitation],
+            "citation": self.citation,
             "version": self.version,
         }
+        # just remove these attributes if they are empty
+        for optional_attr in ["attribution", "url", "contentUrl", "citation", "version"]:
+            if not output_dict.get(optional_attr):
+                del output_dict[optional_attr]
+        if self.isBasedOn:
+            output_dict["isBasedOn"] = [ks.to_dict() for ks in self.isBasedOn]
+        return output_dict
 
 @dataclass
 class KGXNodeType:

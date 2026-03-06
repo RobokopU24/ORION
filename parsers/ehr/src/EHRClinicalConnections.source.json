@@ -1,13 +1,15 @@
 {
-    "infores:isb-EHRMLA-data": {
-        "id": "infores:isb-EHRMLA-data",
-        "name": "Multiomics EHRMLA Clinical Connections KP",
-        "description": "Multiomics EHRMLA Clinical Connections KP.",
-        "url": "https://github.com/NCATSTranslator/Translator-All/wiki/Multiomics-EHRMLA-May-Treat-KP",
-        "attribution": "https://github.com/NCATSTranslator/Translator-All/wiki/Multiomics-EHRMLA-May-Treat-KP",
-        "citation": "",
-        "license": "https://github.com/NCATSTranslator/Translator-All/wiki/Multiomics-EHRMLA-May-Treat-KP",
-        "contentUrl": "https://github.com/NCATSTranslator/Translator-All/wiki/Multiomics-EHRMLA-May-Treat-KP",
-        "fullCitation": ""
-    }
+  "@context": "https://schema.org",
+  "@type": "Dataset",
+  "identifier": "infores:isb-EHRMLA-data",
+  "name": "Multiomics EHRMLA Clinical Connections KP",
+  "description": "Multiomics EHRMLA Clinical Connections KP.",
+  "url": "https://github.com/NCATSTranslator/Translator-All/wiki/Multiomics-EHRMLA-May-Treat-KP",
+  "attribution": "https://github.com/NCATSTranslator/Translator-All/wiki/Multiomics-EHRMLA-May-Treat-KP",
+  "citation": [
+    "",
+    ""
+  ],
+  "license": "https://github.com/NCATSTranslator/Translator-All/wiki/Multiomics-EHRMLA-May-Treat-KP",
+  "contentUrl": "https://github.com/NCATSTranslator/Translator-All/wiki/Multiomics-EHRMLA-May-Treat-KP"
 }
