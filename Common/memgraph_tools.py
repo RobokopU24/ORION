@@ -43,9 +43,7 @@ def create_memgraph_dump(nodes_filepath: str,
         except Exception as e:
             if logger:
                 logger.error(f'create_memgraph_dump() failed with exception: {e}')
-                return False
-            else:
-                raise e
+            raise e
         if logger:
             logger.info(f'Memgraph cypher dump file created for {graph_id}({graph_version})...')
     return True

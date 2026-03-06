@@ -116,17 +116,11 @@ def convert_edge_jsonl_to_memgraph_csv(edges_input_file: str,
             for line in infile:
                 edge = json.loads(line)
                 rel_type = edge.get(PREDICATE)
-                if not rel_type:
-                    continue
                 rel_type = rel_type.replace(":", "_")
-                output_path = f"{base}_{rel_type}{ext}"
-                if not os.path.exists(output_path):
-                    if rel_type not in file_handles:
-                        file_handles[rel_type] = open(output_path, "w", encoding="utf-8")
-
-                    file_handles[rel_type].write(line)
-                else:
-                    file_handles[rel_type] = None
+                if rel_type not in file_handles:
+                    output_path = f"{base}_{rel_type}{ext}"
+                    file_handles[rel_type] = open(output_path, "w", encoding="utf-8")
+                file_handles[rel_type].write(line)
     finally:
         for fh in file_handles.values():
             fh.close()
