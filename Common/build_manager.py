@@ -468,7 +468,7 @@ class GraphBuilder:
                 }
             ],
             schema={
-                "@type": "DigitalDocument",
+                "@type": "Dataset",
                 "@id": f"{graph_output_url}schema.json",
                 "name": "RobokopKG Data Schema",
                 "description": "JSON-LD Schema describing the contents of the knowledge graph",
