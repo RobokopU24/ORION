@@ -131,7 +131,6 @@ class KGXGraphMetadata:
 
 @dataclass
 class KGXSchema:
-    # Schema document metadata (schema.org DigitalDocument)
     id: str = ""
     name: str = ""
     description: str = ""
@@ -146,7 +145,7 @@ class KGXSchema:
                 "@vocab": "https://schema.org/",
                 "biolink": "https://w3id.org/biolink/"
             },
-            "@type": "DigitalDocument",
+            "@type": "Dataset",
             "@id": self.id,
             "name": self.name,
             "description": self.description,
