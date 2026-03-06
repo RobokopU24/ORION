@@ -1,11 +1,15 @@
 {
-    "id": "Cord19",
-    "name": "",
-    "description": "",
-    "url": "",
-    "attribution": "",
-    "citation": "",
-    "full_citation": "",
-    "license": "",
-    "contentUrl": ""
+  "@context": "https://schema.org",
+  "@type": "Dataset",
+  "identifier": "infores:cord19",
+  "name": "",
+  "description": "",
+  "url": "",
+  "attribution": "",
+  "citation": [
+    "",
+    ""
+  ],
+  "license": "",
+  "contentUrl": ""
 }

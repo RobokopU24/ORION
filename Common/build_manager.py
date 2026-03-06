@@ -1,4 +1,5 @@
 import os
+import json
 import yaml
 import argparse
 import datetime
@@ -8,7 +9,7 @@ from pathlib import Path
 from xxhash import xxh64_hexdigest
 
 from Common.utils import LoggingUtil, GetDataPullError
-from Common.data_sources import get_available_data_sources
+from Common.data_sources import get_available_data_sources, get_data_source_metadata_path
 from Common.exceptions import DataVersionError, GraphSpecError
 from Common.load_manager import SourceDataManager
 from Common.kgx_file_merger import KGXFileMerger, DONT_MERGE
@@ -23,10 +24,13 @@ from Common.meta_kg import MetaKnowledgeGraphBuilder, META_KG_FILENAME, TEST_DAT
 from Common.redundant_kg import generate_redundant_kg
 from Common.answercoalesce_build import generate_ac_files
 from Common.collapse_qualifiers import generate_collapsed_qualifiers_kg
+from Common.kgx_metadata import KGXGraphMetadata, KGXKnowledgeSource, generate_kgx_schema_file
 
 NODES_FILENAME = 'nodes.jsonl'
 EDGES_FILENAME = 'edges.jsonl'
 REDUNDANT_EDGES_FILENAME = 'redundant_edges.jsonl'
+GRAPH_METADATA_FILENAME = 'graph-metadata.json'
+SCHEMA_FILENAME = 'schema.json'
 COLLAPSED_QUALIFIERS_FILENAME = 'collapsed_qualifier_edges.jsonl'
 
 
@@ -53,6 +57,7 @@ class GraphBuilder:
         graph_version = self.determine_graph_version(graph_spec)
         graph_metadata = self.get_graph_metadata(graph_id, graph_version)
         graph_output_dir = self.get_graph_dir_path(graph_id, graph_version)
+        graph_output_url = self.get_graph_output_url(graph_id, graph_version)
 
         # check for previous builds of this same graph
         build_status = graph_metadata.get_build_status()
@@ -95,7 +100,7 @@ class GraphBuilder:
             source_merger.merge()
             merge_metadata = source_merger.get_merge_metadata()
 
-            current_time = datetime.datetime.now().strftime('%m-%d-%y %H:%M:%S')
+            current_time = datetime.datetime.now().isoformat(timespec='seconds')
             if "merge_error" in merge_metadata:
                 graph_metadata.set_build_error(merge_metadata["merge_error"], current_time)
                 graph_metadata.set_build_status(Metadata.FAILED)
@@ -124,6 +129,23 @@ class GraphBuilder:
             else:
                 self.logger.warning(f'QC failed for graph {graph_id}.')
 
+        # Generate KGX metadata and schema files
+        if not self.has_kgx_metadata(graph_output_dir):
+            self.logger.info(f'Generating KGX metadata for {graph_id}...')
+            self.generate_kgx_metadata_files(graph_metadata=graph_metadata,
+                                             graph_output_dir=graph_output_dir,
+                                             graph_output_url=graph_output_url)
+            self.logger.info(f'KGX metadata generated for {graph_id}.')
+        if not self.has_kgx_schema(graph_output_dir):
+            self.logger.info(f'Generating KGX Schema for {graph_id}...')
+            generate_kgx_schema_file(nodes_filepath=nodes_filepath,
+                                     edges_filepath=edges_filepath,
+                                     output_dir=graph_output_dir,
+                                     graph_output_url=graph_output_url,
+                                     graph_name=graph_spec.graph_name,
+                                     biolink_version=graph_metadata.get_biolink_version())
+            self.logger.info(f'KGX Schema generated for {graph_id}.')
+
         needs_meta_kg = not self.has_meta_kg(graph_directory=graph_output_dir)
         needs_test_data = not self.has_test_data(graph_directory=graph_output_dir)
         if needs_meta_kg or needs_test_data:
@@ -133,7 +155,6 @@ class GraphBuilder:
                                                 generate_test_data=needs_test_data)
 
         output_formats = graph_spec.graph_output_format.lower().split('+') if graph_spec.graph_output_format else []
-        graph_output_url = self.get_graph_output_url(graph_id, graph_version)
 
         # TODO allow these to be specified in the graph spec
         node_property_ignore_list = {'robokop_variant_id'}
@@ -347,17 +368,21 @@ class GraphBuilder:
                                                                                    data_source.supplementation_version)
         return True
 
-    def has_meta_kg(self, graph_directory: str):
-        if os.path.exists(os.path.join(graph_directory, META_KG_FILENAME)):
-            return True
-        else:
-            return False
+    @staticmethod
+    def has_meta_kg(graph_directory: str):
+        return os.path.exists(os.path.join(graph_directory, META_KG_FILENAME))
 
-    def has_test_data(self, graph_directory: str):
-        if os.path.exists(os.path.join(graph_directory, TEST_DATA_FILENAME)):
-            return True
-        else:
-            return False
+    @staticmethod
+    def has_test_data(graph_directory: str):
+        return os.path.exists(os.path.join(graph_directory, TEST_DATA_FILENAME))
+
+    @staticmethod
+    def has_kgx_metadata(graph_directory: str):
+        return os.path.exists(os.path.join(graph_directory, GRAPH_METADATA_FILENAME))
+
+    @staticmethod
+    def has_kgx_schema(graph_directory: str):
+        return os.path.exists(os.path.join(graph_directory, SCHEMA_FILENAME))
 
     def generate_meta_kg_and_test_data(self,
                                        graph_directory: str,
@@ -378,6 +403,112 @@ class GraphBuilder:
         if generate_example_data:
             example_data_file_path = os.path.join(graph_directory, EXAMPLE_DATA_FILENAME)
             mkgb.write_example_data_to_file(example_data_file_path)
+
+    # TODO robokop specific metadata should be configurable
+    def generate_kgx_metadata_files(self,
+                                    graph_metadata: GraphMetadata,
+                                    graph_output_dir: str,
+                                    graph_output_url: str):
+
+        # Collect all source metadata from sources contained in this graph
+        all_sources = graph_metadata.get_all_sources_metadata()
+
+        kg_sources = []
+        knowledge_sources = []
+        orion_root = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..')
+        for source in all_sources:
+            source_id = source.get('source_id', '')
+            source_version = source.get('source_version', '')
+            source_name = source.get('name', '')
+            release_version = source.get('release_version', '')
+            kg_sources.append({
+                '@id': self.get_graph_output_url(graph_id=source_id, graph_version=release_version),
+                'name': f"A ROBOKOP Knowledge Graph based on {source_name}",
+                # TODO this is missing potential supplemental nodes and edges but that should be reworked upstream
+                #  to access them in a more sane way
+                'orion:nodeCount': source.get('normalized_nodes.jsonl', {}).get("nodes"),
+                'orion:edgeCount': source.get('normalized_edges.jsonl', {}).get("edges")
+            })
+
+            # Load the parser *.source.json metadata file for this source
+            data_source_metadata_path = os.path.join(orion_root, get_data_source_metadata_path(source_id))
+            with open(data_source_metadata_path, 'r') as f:
+                data_source_metadata = json.load(f)
+
+            knowledge_source = KGXKnowledgeSource.from_dict(data_source_metadata, version=source_version)
+            knowledge_sources.append(knowledge_source)
+
+        # Create KGXGraphMetadata
+        kgx_graph_metadata = KGXGraphMetadata(
+            id=graph_output_url,
+            name=graph_metadata.get_graph_name(),
+            description=graph_metadata.get_graph_description(),
+            license='https://spdx.org/licenses/MIT',
+            url=graph_output_url,
+            version=graph_metadata.get_graph_version(),
+            date_created=graph_metadata.get_build_time(),
+            date_modified=graph_metadata.get_build_time(),
+            keywords=["knowledge graph", "biomedical", "drug discovery", "translational research", "gene", "disease",
+                      "drug", "phenotype", "pathway"],
+            creator=[{"@type": "Organization",
+                      "@id": "https://ror.org/0130frc33",
+                      "name": "Renaissance Computing Institute (RENCI)",
+                      "url": "https://renci.org"}],
+            contact_point=[{"@type": "ContactPoint",
+                            "contactType": "developer",
+                            "url": "https://github.com/RobokopU24/ORION/issues"}],
+            funder=[
+                {
+                  "@type": "Organization",
+                  "@id": "https://ror.org/05wvpxv85",
+                  "name": "National Center for Advancing Translational Sciences (NCATS)",
+                  "url": "https://ncats.nih.gov"
+                },
+                {
+                  "@type": "Organization",
+                  "@id": "https://ror.org/00j4k1h63",
+                  "name": "National Institute of Environmental Health Sciences (NIEHS)",
+                  "url": "https://www.niehs.nih.gov"
+                },
+                {
+                  "@type": "Organization",
+                  "@id": "https://ror.org/01cwqze88",
+                  "name": "National Institutes of Health (NIH)",
+                  "url": "https://www.nih.gov"
+                }
+            ],
+            conforms_to=[
+                {
+                  "@id": "https://w3id.org/biolink/",
+                  "name": "Biolink Model"
+                },
+                {
+                  "@id": "https://github.com/biolink/kgx/blob/master/docs/kgx_format.md",
+                  "name": "KGX Format"
+                }
+            ],
+            schema={
+                "@type": "Dataset",
+                "@id": f"{graph_output_url}schema.json",
+                "name": "RobokopKG Data Schema",
+                "description": "JSON-LD Schema describing the contents of the knowledge graph",
+                "encodingFormat": "application/ld+json"
+            },
+            biolink_version=graph_metadata.get_biolink_version(),
+            babel_version=graph_metadata.get_babel_version(),
+            kg_sources=kg_sources,
+            knowledge_sources=knowledge_sources,
+            distribution=[{
+                "@type":"DataDownload",
+                "encodingFormat":"biolink:KGX",
+                "contentUrl":graph_output_url,
+            }]
+        )
+
+        # Write graph metadata file
+        graph_metadata_filepath = os.path.join(graph_output_dir, 'graph-metadata.json')
+        with open(graph_metadata_filepath, 'w') as f:
+            f.write(kgx_graph_metadata.to_json())
 
     def load_graph_specs(self, graph_specs_dir=None):
         graph_spec_file = os.environ.get('ORION_GRAPH_SPEC', None)

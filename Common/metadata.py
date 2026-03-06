@@ -121,12 +121,44 @@ class GraphMetadata(Metadata):
     def get_build_status(self):
         return self.metadata['build_status']
 
+    def get_graph_name(self):
+        return self.metadata['graph_name']
+
+    def get_graph_description(self):
+        return self.metadata['graph_description']
+
+    def get_build_time(self):
+        return self.metadata['build_time']
+
     def get_graph_version(self):
         return self.metadata['graph_version']
 
     def get_source_ids(self):
         return [source['source_id'] for source in self.metadata['sources']]
 
+    def get_all_sources_metadata(self):
+        """Collect all sources from metadata, recursively collect sources from subgraphs and flatten into one list."""
+        return self._collect_sources_from_metadata(self.metadata)
+
+    @staticmethod
+    def _collect_sources_from_metadata(metadata: dict) -> list:
+        """Recursively collect sources from a metadata dict, including nested subgraphs."""
+        all_sources = list(metadata.get('sources', []))
+        for subgraph in metadata.get('subgraphs', []):
+            subgraph_metadata = subgraph.get('graph_metadata')
+            if subgraph_metadata:
+                all_sources.extend(GraphMetadata._collect_sources_from_metadata(subgraph_metadata))
+        return all_sources
+
+    def get_biolink_version(self):
+        # TODO this should be a graph wide version..
+        #  it's almost always the same for all sources so this kind of works for now
+        #  but technically someone could make a graph spec that used varying bl versions
+        return self.metadata['sources'][0]['normalization_scheme']['edge_normalization_version']
+
+    def get_babel_version(self):
+        # TODO similar situation as get_biolink_version, should be graph wide
+        return self.metadata['sources'][0]['normalization_scheme']['node_normalization_version']
 
 class SourceMetadata(Metadata):
 
