@@ -6,10 +6,7 @@
   "description": "The Text Mining Provider KG contains subject-predicate-object assertions derived from the application of natural language processing (NLP) algorithms to the PubMedCentral Open Access collection of publications plus additional titles and abstracts from PubMed.",
   "url": "",
   "attribution": "",
-  "citation": [
-    "",
-    ""
-  ],
+  "citation": "",
   "license": "",
   "contentUrl": ""
 }
