@@ -22,6 +22,7 @@ from Common.metadata import Metadata, GraphMetadata, SourceMetadata
 from Common.supplementation import SequenceVariantSupplementation
 from Common.meta_kg import MetaKnowledgeGraphBuilder, META_KG_FILENAME, TEST_DATA_FILENAME, EXAMPLE_DATA_FILENAME
 from Common.redundant_kg import generate_redundant_kg
+from Common.answercoalesce_build import generate_ac_files
 from Common.collapse_qualifiers import generate_collapsed_qualifiers_kg
 from Common.kgx_metadata import KGXGraphMetadata, KGXKnowledgeSource, generate_kgx_schema_file
 
@@ -159,6 +160,13 @@ class GraphBuilder:
         node_property_ignore_list = {'robokop_variant_id'}
         edge_property_ignore_list = None
 
+        # TODO revaluate how the output formats relate to each other, the combinations are getting unwieldy..
+        #  For example, if redundant is requested should that be what is used for neo4j/memgraph etc? or do we output
+        #  multiple db dumps for each possible variant? As of now all desired outputs must be specified independently
+        #  except redundant graphs are always used for AC if present. It might be best to allow specification of
+        #  separate chains of transformations to be processed in order, so that it's easy to be explicit about the
+        #  combinations, like:
+        #  output_format: [['redundant', 'neo4j', 'answercoalesce'], ['collapsed_qualifiers'], ['neo4j']]
         if 'redundant_jsonl' in output_formats:
             self.logger.info(f'Generating redundant edge KG for {graph_id}...')
             redundant_filepath = edges_filepath.replace(EDGES_FILENAME, REDUNDANT_EDGES_FILENAME)
@@ -167,7 +175,8 @@ class GraphBuilder:
         if 'redundant_neo4j' in output_formats:
             self.logger.info(f'Generating redundant edge KG for {graph_id}...')
             redundant_filepath = edges_filepath.replace(EDGES_FILENAME, REDUNDANT_EDGES_FILENAME)
-            generate_redundant_kg(edges_filepath, redundant_filepath)
+            if not os.path.exists(redundant_filepath):
+                generate_redundant_kg(edges_filepath, redundant_filepath)
             self.logger.info(f'Starting Neo4j dump pipeline for redundant {graph_id}...')
             dump_success = create_neo4j_dump(nodes_filepath=nodes_filepath,
                                              edges_filepath=redundant_filepath,
@@ -189,7 +198,8 @@ class GraphBuilder:
         if 'collapsed_qualifiers_neo4j' in output_formats:
             self.logger.info(f'Generating collapsed qualifier predicates KG for {graph_id}...')
             collapsed_qualifiers_filepath = edges_filepath.replace(EDGES_FILENAME, COLLAPSED_QUALIFIERS_FILENAME)
-            generate_collapsed_qualifiers_kg(edges_filepath, collapsed_qualifiers_filepath)
+            if not os.path.exists(collapsed_qualifiers_filepath):
+                generate_collapsed_qualifiers_kg(edges_filepath, collapsed_qualifiers_filepath)
             self.logger.info(f'Starting Neo4j dump pipeline for {graph_id} with collapsed qualifiers...')
             dump_success = create_neo4j_dump(nodes_filepath=nodes_filepath,
                                              edges_filepath=collapsed_qualifiers_filepath,
@@ -231,6 +241,16 @@ class GraphBuilder:
             if dump_success:
                 graph_metadata.set_dump(dump_type="memgraph",
                                         dump_url=f'{graph_output_url}memgraph_{graph_version}.cypher')
+
+        if 'answercoalesce' in output_formats:
+            self.logger.info(f'Generating answercoalesce files for {graph_id}...')
+            if 'redundant_jsonl' in output_formats or 'redundant_neo4j' in output_formats:
+                edge_filepath_to_use = edges_filepath.replace(EDGES_FILENAME, REDUNDANT_EDGES_FILENAME)
+            else:
+                edge_filepath_to_use = edges_filepath
+            ac_output_dir = os.path.join(graph_output_dir, "answercoalesce")
+            os.makedirs(ac_output_dir, exist_ok=True)
+            generate_ac_files(nodes_filepath, edge_filepath_to_use, ac_output_dir)
 
         return True
 
