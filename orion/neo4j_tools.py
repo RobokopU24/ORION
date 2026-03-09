@@ -1,3 +1,4 @@
+import signal
 import time
 import os
 import neo4j
@@ -105,10 +106,52 @@ class Neo4jTools:
 
     def stop_neo4j(self):
         self.logger.info(f'Stopping Neo4j DB...')
-        return self.__issue_neo4j_command('stop')
+        # We would prefer to stop the neo4j using "neo4j stop" it's not working with the current docker image.
+        # Instead, we can find and kill the neo4j process using the pid.
+        #
+        # We could attempt "stop neo4j" and only kill the process as a fallback as follows, but it takes 2 whole minutes
+        # to time out. Seeing as that always happens with the current docker image that's slow and not helpful.
+        # exit_code = self.__issue_neo4j_command('stop')
+        # if exit_code != 0:
+        #     self.logger.warning(f'neo4j stop failed (exit code {exit_code}), falling back to process kill...')
+        exit_code = self.__kill_neo4j_process()
+        return exit_code
+
+    def __kill_neo4j_process(self):
+        # See notes in the stop_neo4j() function. Using a custom docker image broke "stop neo4j", probably due to a
+        # mismatch in pids occurring the way we're running neo4j commands with subprocesses. This is pretty hacky and
+        # not guaranteed to work on setups that don't use the docker container, but it does seem to work so far.
+        try:
+            # Try the PID file first
+            pid_file = os.path.join(os.environ.get('NEO4J_HOME', '/var/lib/neo4j'), 'run', 'neo4j.pid')
+            pid = None
+            if os.path.exists(pid_file):
+                with open(pid_file, 'r') as f:
+                    pid = int(f.read().strip())
+
+            if pid:
+                self.logger.info(f'Sending SIGTERM to Neo4j process (PID {pid})...')
+                os.kill(pid, 15)  # SIGTERM
+            else:
+                self.logger.error(f'Neo4j PID was not found and Neo4j could not be stopped.')
+                return 1
+
+            # Wait for Neo4j to shut down gracefully
+            for i in range(30):
+                check = subprocess.run(['pgrep', '-f', 'org.neo4j'], capture_output=True)
+                if check.returncode != 0:  # Process gone
+                    self.logger.info('Neo4j process stopped successfully.')
+                    return 0
+                time.sleep(1)
+
+            self.logger.error('Neo4j process did not stop within 30 seconds.')
+            return 1
+        except Exception as e:
+            self.logger.error(f'Error killing Neo4j process: {e}')
+            return 1
 
     def __issue_neo4j_command(self, command: str):
-        neo4j_cmd = ['neo4j', f'{command}']
+        neo4j_cmd = ['neo4j', f'{command}', '--verbose']
         neo4j_results: subprocess.CompletedProcess = subprocess.run(neo4j_cmd,
                                                                     capture_output=True)
         self.logger.info(neo4j_results.stdout)
