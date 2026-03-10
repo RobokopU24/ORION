@@ -1,5 +1,4 @@
 import os
-import jsonlines
 import secrets
 from xxhash import xxh64_hexdigest
 from orion.biolink_utils import BiolinkUtils
@@ -48,7 +47,17 @@ def edge_key_function(edge, custom_key_attributes=None):
     standard_attributes = (f'{edge[SUBJECT_ID]}{edge[PREDICATE]}{edge[OBJECT_ID]}'
                            f'{primary_knowledge_source}{"".join(qualifiers)}')
     if custom_key_attributes:
-        custom_attributes = [edge.get(attr, "") for attr in custom_key_attributes]
+        custom_attributes = []
+        for attr in custom_key_attributes:
+            value = edge.get(attr, "")
+            if isinstance(value, dict):
+                raise ValueError(f'Edge merging attribute "{attr}" has a dictionary value. '
+                                 f'Dictionaries are not currently supported as edge key attributes.')
+            if isinstance(value, list):
+                value = str(sorted(str(v) for v in value))
+            else:
+                value = str(value)
+            custom_attributes.append(value)
         return xxh64_hexdigest(f'{standard_attributes}{"".join(custom_attributes)}')
     else:
         return xxh64_hexdigest(standard_attributes)
@@ -113,24 +122,29 @@ def entity_merging_function(entity_1, entity_2):
 
 class GraphMerger:
 
-    def __init__(self):
+    def __init__(self, additional_edge_attributes=None, add_edge_id=False):
         self.merged_node_counter = 0
         self.merged_edge_counter = 0
+        self.additional_edge_attributes = additional_edge_attributes
+        self.add_edge_id = add_edge_id
 
     def merge_nodes(self, nodes_iterable):
         raise NotImplementedError
 
-    def merge_edges(self, edges_iterable, additional_edge_attributes=None, add_edge_id=False):
+    def merge_edges(self, edges_iterable):
         raise NotImplementedError
 
     def merge_node(self, node):
         raise NotImplementedError
 
-    def merge_edge(self, edge, additional_edge_attributes=None, add_edge_id=False):
+    def merge_edge(self, edge):
         raise NotImplementedError
 
     def flush(self):
         pass
+
+    def get_node_ids(self):
+        raise NotImplementedError
 
     def get_merged_nodes_jsonl(self):
         raise NotImplementedError
@@ -141,23 +155,15 @@ class GraphMerger:
 
 class DiskGraphMerger(GraphMerger):
 
-    def __init__(self, temp_directory: str = None, chunk_size: int = 10_000_000):
+    def __init__(self, temp_directory: str = None, chunk_size: int = 10_000_000,
+                 additional_edge_attributes=None, add_edge_id=False):
 
-        super().__init__()
+        super().__init__(additional_edge_attributes=additional_edge_attributes,
+                         add_edge_id=add_edge_id)
 
         self.chunk_size = chunk_size
-        self.probably_unique_temp_file_key = secrets.token_hex(6)
-
-        self.additional_edge_attributes = None
-        self.add_edge_id = False
-
-        self.temp_node_file_paths = []
-        self.current_node_chunk = 0
-
-        self.temp_edge_file_paths = []
-        self.current_edge_chunk = 0
-
         self.temp_directory = temp_directory
+        self.node_ids = set()
         self.temp_file_paths = {
             NODE_ENTITY_TYPE: [],
             EDGE_ENTITY_TYPE: []
@@ -168,7 +174,9 @@ class DiskGraphMerger(GraphMerger):
         }
 
     def merge_node(self, node):
-        self.entity_buffers[NODE_ENTITY_TYPE].append(node)
+        self.node_ids.add(node['id'])
+        key = node_key_function(node)
+        self.entity_buffers[NODE_ENTITY_TYPE].append((key, quick_json_dumps(node)))
         if len(self.entity_buffers[NODE_ENTITY_TYPE]) >= self.chunk_size:
             self.flush_node_buffer()
 
@@ -179,118 +187,128 @@ class DiskGraphMerger(GraphMerger):
             self.merge_node(node)
         return node_count
 
-    def merge_edge(self, edge, additional_edge_attributes=None, add_edge_id=False):
-        self.entity_buffers[EDGE_ENTITY_TYPE].append(edge)
+    def merge_edge(self, edge):
+        key = edge_key_function(edge, custom_key_attributes=self.additional_edge_attributes)
+        if self.add_edge_id:
+            edge[EDGE_ID] = key
+        self.entity_buffers[EDGE_ENTITY_TYPE].append((key, quick_json_dumps(edge)))
         if len(self.entity_buffers[EDGE_ENTITY_TYPE]) >= self.chunk_size:
             self.flush_edge_buffer()
 
-    def merge_edges(self, edges, additional_edge_attributes=None, add_edge_id=False):
-        logger.info(f'additional_edge_attributes: {additional_edge_attributes}, add_edge_id: {add_edge_id}')
-        self.additional_edge_attributes = additional_edge_attributes
-        self.add_edge_id = add_edge_id
+    def merge_edges(self, edges):
         edge_count = 0
         for edge in edges:
             edge_count += 1
             self.merge_edge(edge)
         return edge_count
 
-    def sort_and_write_entities(self,
-                                entities,
-                                entity_sorting_function,
-                                entity_type):
-        entities.sort(key=entity_sorting_function)
+    def sort_and_write_keyed_entities(self, keyed_entities, entity_type):
+        keyed_entities.sort(key=lambda x: x[0])
         temp_file_name = f'{entity_type}_{secrets.token_hex(6)}.temp'
         temp_file_path = os.path.join(self.temp_directory, temp_file_name)
-        with jsonlines.open(temp_file_path, 'w', compact=True) as jsonl_writer:
-            jsonl_writer.write_all(entities)
+        with open(temp_file_path, 'w') as temp_file:
+            for key, entity_json in keyed_entities:
+                temp_file.write(f'{key}{entity_json}\n')
         self.temp_file_paths[entity_type].append(temp_file_path)
+
+    def get_node_ids(self):
+        return self.node_ids
 
     def get_merged_nodes_jsonl(self):
         self.flush_node_buffer()
-        for node in self.get_merged_entities(file_paths=self.temp_file_paths[NODE_ENTITY_TYPE],
-                                             sorting_key_function=node_key_function,
-                                             merge_function=entity_merging_function,
-                                             entity_type=NODE_ENTITY_TYPE):
-            yield f'{quick_json_dumps(node)}\n'
+        for json_line in self.get_merged_entities(file_paths=self.temp_file_paths[NODE_ENTITY_TYPE],
+                                                  merge_function=entity_merging_function,
+                                                  entity_type=NODE_ENTITY_TYPE):
+            yield json_line
         for file_path in self.temp_file_paths[NODE_ENTITY_TYPE]:
             os.remove(file_path)
 
     def flush_node_buffer(self):
         if not self.entity_buffers[NODE_ENTITY_TYPE]:
             return
-        self.sort_and_write_entities(self.entity_buffers[NODE_ENTITY_TYPE],
-                                     node_key_function,
-                                     NODE_ENTITY_TYPE)
+        self.sort_and_write_keyed_entities(self.entity_buffers[NODE_ENTITY_TYPE],
+                                           NODE_ENTITY_TYPE)
         self.entity_buffers[NODE_ENTITY_TYPE] = []
 
     def get_merged_edges_jsonl(self):
         self.flush_edge_buffer()
-        sorting_function = lambda e: edge_key_function(e, custom_key_attributes=self.additional_edge_attributes)
-        for edge in self.get_merged_entities(file_paths=self.temp_file_paths[EDGE_ENTITY_TYPE],
-                                             sorting_key_function=sorting_function,
-                                             merge_function=entity_merging_function,
-                                             entity_type=EDGE_ENTITY_TYPE,
-                                             add_edge_id=self.add_edge_id):
-            yield f'{quick_json_dumps(edge)}\n'
+        for json_line in self.get_merged_entities(file_paths=self.temp_file_paths[EDGE_ENTITY_TYPE],
+                                                  merge_function=entity_merging_function,
+                                                  entity_type=EDGE_ENTITY_TYPE):
+            yield json_line
         for file_path in self.temp_file_paths[EDGE_ENTITY_TYPE]:
             os.remove(file_path)
 
     def flush_edge_buffer(self):
         if not self.entity_buffers[EDGE_ENTITY_TYPE]:
             return
-        self.sort_and_write_entities(self.entity_buffers[EDGE_ENTITY_TYPE],
-                                     edge_key_function,
-                                     EDGE_ENTITY_TYPE)
+        self.sort_and_write_keyed_entities(self.entity_buffers[EDGE_ENTITY_TYPE],
+                                           EDGE_ENTITY_TYPE)
         self.entity_buffers[EDGE_ENTITY_TYPE] = []
+
+    @staticmethod
+    def parse_keyed_line(line):
+        # Split a keyed line into (key, raw_json). The key ends at the first '{'.
+        json_start = line.index('{')
+        return line[:json_start], line[json_start:].rstrip('\n')
 
     def get_merged_entities(self,
                             file_paths,
-                            sorting_key_function,
                             merge_function,
-                            entity_type,
-                            add_edge_id=False):
+                            entity_type):
 
         if not file_paths:
             logger.error('get_merged_entities called but no file_paths were provided! Empty source?')
             return
 
+        merge_counter = 'merged_node_counter' if entity_type == NODE_ENTITY_TYPE else 'merged_edge_counter'
+
         file_handlers = [open(file_path) for file_path in file_paths]
-        json_readers = {i: jsonlines.Reader(file_handler) for i, file_handler in enumerate(file_handlers)}
+        # read the first line from each file
+        next_lines = {}
+        for i, fh in enumerate(file_handlers):
+            line = fh.readline()
+            if line:
+                key, raw_json = self.parse_keyed_line(line)
+                next_lines[i] = (key, raw_json)
+            else:
+                fh.close()
 
-        first_lines = {i: json_reader.read() for i, json_reader in json_readers.items()}
-        next_entities = {i: (sorting_key_function(value), value) for i, value in first_lines.items()}
-
-        min_key = min([key for key, entity in next_entities.values()], default=None)
+        min_key = min([key for key, _ in next_lines.values()], default=None)
         while min_key is not None:
             merged_entity = None
-            for i in list(next_entities.keys()):
-                next_key, next_entity = next_entities[i]
-                while next_key == min_key:
-                    if merged_entity:
-                        if entity_type == NODE_ENTITY_TYPE:
-                            merged_entity = merge_function(merged_entity, next_entity)
-                            self.merged_node_counter += 1
-                        else:
-                            merged_entity = merge_function(merged_entity, next_entity)
-                            self.merged_edge_counter += 1
+            merged_json = None
+            for i in list(next_lines.keys()):
+                key, raw_json = next_lines[i]
+                while key == min_key:
+                    if merged_entity is not None:
+                        # already parsed at least one, parse this one and merge
+                        merged_entity = merge_function(merged_entity, quick_json_loads(raw_json))
+                        setattr(self, merge_counter, getattr(self, merge_counter) + 1)
+                    elif merged_json is not None:
+                        # second entity with same key, now we need to parse both
+                        merged_entity = merge_function(quick_json_loads(merged_json), quick_json_loads(raw_json))
+                        setattr(self, merge_counter, getattr(self, merge_counter) + 1)
+                        merged_json = None
                     else:
-                        merged_entity = next_entity
-                    try:
-                        next_entity = json_readers[i].read()
-                        next_key = sorting_key_function(next_entity)
-                        next_entities[i] = next_key, next_entity
-                    except EOFError:
-                        next_key, next_entity = None, None
-                        del(next_entities[i])
-                        json_readers[i].close()
+                        # first entity with this key, hold the raw json
+                        merged_json = raw_json
+
+                    line = file_handlers[i].readline()
+                    if line:
+                        key, raw_json = self.parse_keyed_line(line)
+                        next_lines[i] = (key, raw_json)
+                    else:
+                        key = None
+                        del next_lines[i]
                         file_handlers[i].close()
 
-            # Add the id attribute if add_edge_id is True
-            if entity_type == EDGE_ENTITY_TYPE and add_edge_id and merged_entity and min_key:
-                merged_entity["id"] = min_key
+            if merged_entity is not None:
+                yield f'{quick_json_dumps(merged_entity)}\n'
+            else:
+                yield f'{merged_json}\n'
 
-            yield merged_entity
-            min_key = min([key for key, entity in next_entities.values()], default=None)
+            min_key = min([key for key, _ in next_lines.values()], default=None)
 
     def flush(self):
         self.flush_node_buffer()
@@ -299,8 +317,9 @@ class DiskGraphMerger(GraphMerger):
 
 class MemoryGraphMerger(GraphMerger):
 
-    def __init__(self):
-        super().__init__()
+    def __init__(self, additional_edge_attributes=None, add_edge_id=False):
+        super().__init__(additional_edge_attributes=additional_edge_attributes,
+                         add_edge_id=add_edge_id)
         self.nodes = {}
         self.edges = {}
 
@@ -324,26 +343,29 @@ class MemoryGraphMerger(GraphMerger):
             self.nodes[node_key] = node
 
     # merge a list of edges (dictionaries not kgxedge objects!) into the existing list
-    def merge_edges(self, edges, additional_edge_attributes=None, add_edge_id=False):
+    def merge_edges(self, edges):
         edge_count = 0
         for edge in edges:
             edge_count += 1
-            self.merge_edge(edge, additional_edge_attributes=additional_edge_attributes, add_edge_id=add_edge_id)
+            self.merge_edge(edge)
         return edge_count
 
-    def merge_edge(self, edge, additional_edge_attributes=None, add_edge_id=False):
-        edge_key = edge_key_function(edge, custom_key_attributes=additional_edge_attributes)
+    def merge_edge(self, edge):
+        edge_key = edge_key_function(edge, custom_key_attributes=self.additional_edge_attributes)
         if edge_key in self.edges:
             self.merged_edge_counter += 1
             merged_edge = entity_merging_function(quick_json_loads(self.edges[edge_key]),
                                                   edge)
-            if add_edge_id:
+            if self.add_edge_id:
                 merged_edge[EDGE_ID] = edge_key
             self.edges[edge_key] = quick_json_dumps(merged_edge)
         else:
-            if add_edge_id:
+            if self.add_edge_id:
                 edge[EDGE_ID] = edge_key
             self.edges[edge_key] = quick_json_dumps(edge)
+
+    def get_node_ids(self):
+        return set(self.nodes.keys())
 
     def get_merged_nodes_jsonl(self):
         for node in self.nodes.values():

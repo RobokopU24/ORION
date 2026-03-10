@@ -105,9 +105,7 @@ class KGXFileMerger:
 
             for file_path in graph_source.get_edge_file_paths():
                 with jsonlines.open(file_path) as edges:
-                    edges_count = self.edge_graph_merger.merge_edges(
-                        edges, additional_edge_attributes=graph_source.edge_merging_attributes,
-                        add_edge_id=graph_source.edge_id_addition)
+                    edges_count = self.edge_graph_merger.merge_edges(edges)
                 source_filename = file_path.rsplit('/')[-1]
                 self.merge_metadata["sources"][graph_source.id][source_filename] = {"edges": edges_count}
         return True
@@ -124,21 +122,17 @@ class KGXFileMerger:
                 # Here we establish that list once, before any connected_edge_subset sources are merged in, so we don't
                 # include edges from one connected_edge_subset that are only connected to another connected_edge_subset.
                 if not primary_node_ids:
-                    primary_node_ids = set(self.node_graph_merger.nodes.keys())
+                    primary_node_ids = self.node_graph_merger.get_node_ids()
 
                 nodes_to_add = set()
                 for edge_file in graph_source.get_edge_file_paths():
                     edge_counter = 0
-                    additional_edge_attributes = graph_source.edge_merging_attributes
-                    add_edge_id = graph_source.edge_id_addition
                     for edge in quick_jsonl_file_iterator(edge_file):
                         edge_subject_connected = edge[SUBJECT_ID] in primary_node_ids
                         edge_object_connected = edge[OBJECT_ID] in primary_node_ids
                         if edge_subject_connected or edge_object_connected:
                             edge_counter += 1
-                            self.edge_graph_merger.merge_edge(edge,
-                                                              additional_edge_attributes=additional_edge_attributes,
-                                                              add_edge_id=add_edge_id)
+                            self.edge_graph_merger.merge_edge(edge)
                             if not edge_subject_connected:
                                 nodes_to_add.add(edge[SUBJECT_ID])
                             elif not edge_object_connected:
@@ -221,12 +215,24 @@ class KGXFileMerger:
                 elif graph_source.id in RESOURCE_HOGS:
                     needs_on_disk_merge = True
                     break
+
+        additional_edge_attributes = None
+        add_edge_id = False
+        for graph_source in chain(self.graph_spec.sources, self.graph_spec.subgraphs):
+            if graph_source.edge_merging_attributes:
+                additional_edge_attributes = graph_source.edge_merging_attributes
+            if graph_source.edge_id_addition:
+                add_edge_id = True
+
         if needs_on_disk_merge:
             if self.output_directory is None:
                 raise IOError(f'DiskGraphMerger attempted but no output directory was specified.')
-            return DiskGraphMerger(temp_directory=self.output_directory)
+            return DiskGraphMerger(temp_directory=self.output_directory,
+                                   additional_edge_attributes=additional_edge_attributes,
+                                   add_edge_id=add_edge_id)
         else:
-            return MemoryGraphMerger()
+            return MemoryGraphMerger(additional_edge_attributes=additional_edge_attributes,
+                                     add_edge_id=add_edge_id)
 
     @staticmethod
     def init_merge_metadata():
