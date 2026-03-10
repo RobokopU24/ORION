@@ -4,7 +4,7 @@ import secrets
 from xxhash import xxh64_hexdigest
 from orion.biolink_utils import BiolinkUtils
 from orion.biolink_constants import *
-from orion.utils import quick_json_loads, quick_json_dumps, chunk_iterator, LoggingUtil
+from orion.utils import quick_json_loads, quick_json_dumps, LoggingUtil
 
 
 NODE_ENTITY_TYPE = 'node'
@@ -173,9 +173,11 @@ class DiskGraphMerger(GraphMerger):
             self.flush_node_buffer()
 
     def merge_nodes(self, nodes):
-        return self.merge_entities(nodes,
-                                   NODE_ENTITY_TYPE,
-                                   node_key_function)
+        node_count = 0
+        for node in nodes:
+            node_count += 1
+            self.merge_node(node)
+        return node_count
 
     def merge_edge(self, edge, additional_edge_attributes=None, add_edge_id=False):
         self.entity_buffers[EDGE_ENTITY_TYPE].append(edge)
@@ -186,31 +188,11 @@ class DiskGraphMerger(GraphMerger):
         logger.info(f'additional_edge_attributes: {additional_edge_attributes}, add_edge_id: {add_edge_id}')
         self.additional_edge_attributes = additional_edge_attributes
         self.add_edge_id = add_edge_id
-        sorting_function = lambda edge: edge_key_function(edge, custom_key_attributes=additional_edge_attributes)
-        return self.merge_entities(edges,
-                                   EDGE_ENTITY_TYPE,
-                                   sorting_function)
-
-    def merge_entities(self, entities, entity_type, entity_sorting_function):
-        entity_counter = 0
-        for chunk_of_entities in chunk_iterator(entities, self.chunk_size):
-            current_chunk_size = len(chunk_of_entities)
-            entity_counter += current_chunk_size
-            if current_chunk_size == self.chunk_size:
-                # this is a full chunk of the max size, go ahead and process it
-                self.sort_and_write_entities(chunk_of_entities,
-                                             entity_sorting_function,
-                                             entity_type)
-            else:
-                # this chunk is smaller than the max chunk size, add it to the buffer
-                self.entity_buffers[entity_type].extend(chunk_of_entities)
-                # if the buffer is full/overfull process it
-                if len(self.entity_buffers[entity_type]) >= self.chunk_size:
-                    self.sort_and_write_entities(self.entity_buffers[entity_type][:self.chunk_size],
-                                                 entity_sorting_function,
-                                                 entity_type)
-                    self.entity_buffers[entity_type] = self.entity_buffers[entity_type][self.chunk_size:]
-        return entity_counter
+        edge_count = 0
+        for edge in edges:
+            edge_count += 1
+            self.merge_edge(edge)
+        return edge_count
 
     def sort_and_write_entities(self,
                                 entities,
