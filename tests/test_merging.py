@@ -159,6 +159,55 @@ def test_edge_id_unique_for_distinct_edges_in_memory():
 def test_edge_id_unique_for_distinct_edges_on_disk(tmp_path):
     edge_id_unique_for_distinct_edges_test(DiskGraphMerger(temp_directory=str(tmp_path), chunk_size=8))
 
+def primary_knowledge_source_merging_test(graph_merger: GraphMerger):
+    # edges with same subject/predicate/object but different primary_knowledge_source should NOT merge
+    edge_source_a = make_edge(1, 2, **{PRIMARY_KNOWLEDGE_SOURCE: 'source_A', 'prop': [1]})
+    edge_source_b = make_edge(1, 2, **{PRIMARY_KNOWLEDGE_SOURCE: 'source_B', 'prop': [2]})
+    # edges with same primary_knowledge_source SHOULD merge
+    edge_source_a_dup = make_edge(1, 2, **{PRIMARY_KNOWLEDGE_SOURCE: 'source_A', 'prop': [3]})
+
+    graph_merger.merge_edges([edge_source_a, edge_source_b, edge_source_a_dup])
+    merged_edges = [json.loads(edge) for edge in graph_merger.get_merged_edges_jsonl()]
+    assert len(merged_edges) == 2
+
+    for edge in merged_edges:
+        if edge[PRIMARY_KNOWLEDGE_SOURCE] == 'source_A':
+            assert edge['prop'] == [1, 3]
+        elif edge[PRIMARY_KNOWLEDGE_SOURCE] == 'source_B':
+            assert edge['prop'] == [2]
+
+
+def primary_knowledge_source_from_retrieval_sources_test(graph_merger: GraphMerger):
+    # when PRIMARY_KNOWLEDGE_SOURCE is not a top-level property,
+    # the primary source should be extracted from RETRIEVAL_SOURCES for the merge key
+    edge_1 = make_edge(1, 2, **{'prop': [1],
+                                RETRIEVAL_SOURCES: [{RETRIEVAL_SOURCE_ID: 'source_A',
+                                                     RETRIEVAL_SOURCE_ROLE: PRIMARY_KNOWLEDGE_SOURCE}]})
+    edge_2 = make_edge(1, 2, **{'prop': [2],
+                                RETRIEVAL_SOURCES: [{RETRIEVAL_SOURCE_ID: 'source_B',
+                                                     RETRIEVAL_SOURCE_ROLE: PRIMARY_KNOWLEDGE_SOURCE}]})
+    edge_3 = make_edge(1, 2, **{'prop': [3],
+                                RETRIEVAL_SOURCES: [{RETRIEVAL_SOURCE_ID: 'source_A',
+                                                     RETRIEVAL_SOURCE_ROLE: PRIMARY_KNOWLEDGE_SOURCE}]})
+
+    graph_merger.merge_edges([edge_1, edge_2, edge_3])
+    merged_edges = [json.loads(edge) for edge in graph_merger.get_merged_edges_jsonl()]
+    assert len(merged_edges) == 2
+
+
+def test_primary_knowledge_source_merging_in_memory():
+    primary_knowledge_source_merging_test(MemoryGraphMerger())
+
+def test_primary_knowledge_source_merging_on_disk(tmp_path):
+    primary_knowledge_source_merging_test(DiskGraphMerger(temp_directory=str(tmp_path), chunk_size=8))
+
+def test_primary_knowledge_source_from_retrieval_sources_in_memory():
+    primary_knowledge_source_from_retrieval_sources_test(MemoryGraphMerger())
+
+def test_primary_knowledge_source_from_retrieval_sources_on_disk(tmp_path):
+    primary_knowledge_source_from_retrieval_sources_test(DiskGraphMerger(temp_directory=str(tmp_path), chunk_size=8))
+
+
 def edge_merging_counts_test(graph_merger: GraphMerger):
 
     edges_1_10_pred_1 = [make_edge(i, i+1, predicate='testing:predicate_1',
