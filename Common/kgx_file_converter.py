@@ -310,17 +310,12 @@ def __convert_to_csv(input_file: str,
                      output_target: str = 'neo4j',  # "neo4j" or "memgraph"
                      property_ignore_list: set = None):
 
-    if output_target.lower() == 'neo4j':
+    if output_target.lower() == 'neo4j' or output_target.lower() == 'memgraph':
         # generate the headers which for neo4j include the property name and the type
         # for example:
         # id:ID	name:string	category:LABEL	equivalent_identifiers:string[]	information_content:float
         headers = {prop: f'{prop.removeprefix("biolink:")}:{prop_type}'
                    for prop, prop_type in properties.items()}
-    elif output_target.lower() == 'memgraph':
-        headers = {
-            prop: prop.removeprefix("biolink:")
-            for prop in properties.keys()
-        }
     else:
         raise Exception(f'{output_target} is not supported - setting it to either neo4j or memgraph.')
 
