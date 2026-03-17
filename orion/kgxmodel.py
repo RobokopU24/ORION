@@ -43,6 +43,8 @@ class GraphSpec:
     graph_url: str
     graph_version: str
     graph_output_format: str
+    add_edge_id: bool = None
+    edge_merging_attributes: list = None
     sources: list = None
     subgraphs: list = None
 
@@ -53,6 +55,8 @@ class GraphSpec:
             'graph_description': self.graph_description,
             'graph_url': self.graph_url,
             'graph_version': self.graph_version,
+            'edge_merging_attributes': self.edge_merging_attributes,
+            'add_edge_id': self.add_edge_id,
             'subgraphs': [subgraph.get_metadata_representation() for subgraph in self.subgraphs] if self.subgraphs else [],
             'sources': [source.get_metadata_representation() for source in self.sources] if self.sources else []
         }
@@ -62,8 +66,6 @@ class GraphSpec:
 class GraphSource:
     id: str
     merge_strategy: str = None
-    edge_merging_attributes: list = None
-    edge_id_addition: bool = False
     normalization_scheme: NormalizationScheme = None
     file_paths: list = None
 
@@ -119,8 +121,7 @@ class DataSource(GraphSource):
                     'normalization_scheme': self.normalization_scheme.get_metadata_representation(),
                     'release_version': self.generate_version(),
                     'merge_strategy': self.merge_strategy,
-                    'edge_merging_attributes': self.edge_merging_attributes,
-                    'edge_id_addition': self.edge_id_addition}
+                    }
         if self.release_info:
             metadata.update(self.release_info)
         return metadata

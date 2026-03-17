@@ -78,8 +78,8 @@ def edge_property_merging_test(graph_merger: GraphMerger):
     assert len(merged_edges[0][PUBLICATIONS]) == 11
     assert 'id' not in merged_edges[0]
 
-def additional_edge_attributes_same_value_test(graph_merger: GraphMerger):
-    # edges with the same additional_edge_attribute(s) value should merge into one
+def edge_merging_attributes_same_value_test(graph_merger: GraphMerger):
+    # edges with the same edge_merging_attributes(s) value should merge into one
     test_edges = [make_edge(1, 2,
                             **{'testing_property': [i],
                                'abstract_id': 'test_abstract_id'})
@@ -92,8 +92,8 @@ def additional_edge_attributes_same_value_test(graph_merger: GraphMerger):
     assert merged_edges[0]['abstract_id'] == 'test_abstract_id'
 
 
-def additional_edge_attributes_different_values_test(graph_merger: GraphMerger):
-    # edges with different additional_edge_attribute values should stay separate
+def edge_merging_attributes_different_values_test(graph_merger: GraphMerger):
+    # edges with different edge_merging_attributes values should stay separate
     test_edges = [make_edge(1, 2,
                             **{'testing_property': [i],
                                'abstract_id': f'test_abstract_id_{i}'})
@@ -105,7 +105,7 @@ def additional_edge_attributes_different_values_test(graph_merger: GraphMerger):
     assert len(merged_edges[0]['testing_property']) == 1
 
 
-def edge_id_addition_test(graph_merger: GraphMerger):
+def add_edge_id_test(graph_merger: GraphMerger):
     # edges should get an 'id' field when add_edge_id=True
     test_edges = [make_edge(1, 2, **{'testing_property': [i]})
                   for i in range(1, 6)]
@@ -135,31 +135,33 @@ def test_edge_property_merging_in_memory():
 def test_edge_property_merging_on_disk(tmp_path):
     edge_property_merging_test(DiskGraphMerger(temp_directory=str(tmp_path), chunk_size=8))
 
-def test_additional_edge_attributes_same_value_in_memory():
-    additional_edge_attributes_same_value_test(MemoryGraphMerger(additional_edge_attributes=['abstract_id']))
+def test_edge_merging_attributes_same_value_in_memory():
+    edge_merging_attributes_same_value_test(MemoryGraphMerger(edge_merging_attributes=['abstract_id']))
 
-def test_additional_edge_attributes_same_value_on_disk(tmp_path):
-    additional_edge_attributes_same_value_test(DiskGraphMerger(temp_directory=str(tmp_path), chunk_size=8,
-                                                               additional_edge_attributes=['abstract_id']))
+def test_edge_merging_attributes_same_value_on_disk(tmp_path):
+    edge_merging_attributes_same_value_test(DiskGraphMerger(temp_directory=str(tmp_path), chunk_size=8,
+                                                            edge_merging_attributes=['abstract_id']))
 
-def test_additional_edge_attributes_different_values_in_memory():
-    additional_edge_attributes_different_values_test(MemoryGraphMerger(additional_edge_attributes=['abstract_id']))
+def test_edge_merging_attributes_different_values_in_memory():
+    edge_merging_attributes_different_values_test(MemoryGraphMerger(edge_merging_attributes=['abstract_id']))
 
-def test_additional_edge_attributes_different_values_on_disk(tmp_path):
-    additional_edge_attributes_different_values_test(DiskGraphMerger(temp_directory=str(tmp_path), chunk_size=8,
-                                                                     additional_edge_attributes=['abstract_id']))
+def test_edge_merging_attributes_different_values_on_disk(tmp_path):
+    edge_merging_attributes_different_values_test(DiskGraphMerger(temp_directory=str(tmp_path), chunk_size=8,
+                                                                  edge_merging_attributes=['abstract_id']))
 
-def test_edge_id_addition_in_memory():
-    edge_id_addition_test(MemoryGraphMerger(add_edge_id=True))
+def test_add_edge_id_in_memory():
+    add_edge_id_test(MemoryGraphMerger(add_edge_id=True))
 
-def test_edge_id_addition_on_disk(tmp_path):
-    edge_id_addition_test(DiskGraphMerger(temp_directory=str(tmp_path), chunk_size=8, add_edge_id=True))
+def test_add_edge_id_on_disk(tmp_path):
+    add_edge_id_test(DiskGraphMerger(temp_directory=str(tmp_path), chunk_size=8, add_edge_id=True))
 
 def test_edge_id_unique_for_distinct_edges_in_memory():
     edge_id_unique_for_distinct_edges_test(MemoryGraphMerger(add_edge_id=True))
 
 def test_edge_id_unique_for_distinct_edges_on_disk(tmp_path):
-    edge_id_unique_for_distinct_edges_test(DiskGraphMerger(temp_directory=str(tmp_path), chunk_size=8, add_edge_id=True))
+    edge_id_unique_for_distinct_edges_test(DiskGraphMerger(temp_directory=str(tmp_path),
+                                                           chunk_size=8,
+                                                           add_edge_id=True))
 
 def primary_knowledge_source_merging_test(graph_merger: GraphMerger):
     # edges with same subject/predicate/object but different primary_knowledge_source should NOT merge

@@ -216,23 +216,15 @@ class KGXFileMerger:
                     needs_on_disk_merge = True
                     break
 
-        additional_edge_attributes = None
-        add_edge_id = False
-        for graph_source in chain(self.graph_spec.sources, self.graph_spec.subgraphs):
-            if graph_source.edge_merging_attributes:
-                additional_edge_attributes = graph_source.edge_merging_attributes
-            if graph_source.edge_id_addition:
-                add_edge_id = True
-
         if needs_on_disk_merge:
             if self.output_directory is None:
                 raise IOError(f'DiskGraphMerger attempted but no output directory was specified.')
             return DiskGraphMerger(temp_directory=self.output_directory,
-                                   additional_edge_attributes=additional_edge_attributes,
-                                   add_edge_id=add_edge_id)
+                                   edge_merging_attributes=self.graph_spec.edge_merging_attributes,
+                                   add_edge_id=self.graph_spec.add_edge_id)
         else:
-            return MemoryGraphMerger(additional_edge_attributes=additional_edge_attributes,
-                                     add_edge_id=add_edge_id)
+            return MemoryGraphMerger(edge_merging_attributes=self.graph_spec.edge_merging_attributes,
+                                     add_edge_id=self.graph_spec.add_edge_id)
 
     @staticmethod
     def init_merge_metadata():

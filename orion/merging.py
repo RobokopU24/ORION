@@ -122,10 +122,10 @@ def entity_merging_function(entity_1, entity_2):
 
 class GraphMerger:
 
-    def __init__(self, additional_edge_attributes=None, add_edge_id=False):
+    def __init__(self, edge_merging_attributes=None, add_edge_id=False):
         self.merged_node_counter = 0
         self.merged_edge_counter = 0
-        self.additional_edge_attributes = additional_edge_attributes
+        self.edge_merging_attributes = edge_merging_attributes
         self.add_edge_id = add_edge_id
 
     def merge_nodes(self, nodes_iterable):
@@ -156,9 +156,9 @@ class GraphMerger:
 class DiskGraphMerger(GraphMerger):
 
     def __init__(self, temp_directory: str = None, chunk_size: int = 10_000_000,
-                 additional_edge_attributes=None, add_edge_id=False):
+                 edge_merging_attributes=None, add_edge_id=False):
 
-        super().__init__(additional_edge_attributes=additional_edge_attributes,
+        super().__init__(edge_merging_attributes=edge_merging_attributes,
                          add_edge_id=add_edge_id)
 
         self.chunk_size = chunk_size
@@ -188,7 +188,7 @@ class DiskGraphMerger(GraphMerger):
         return node_count
 
     def merge_edge(self, edge):
-        key = edge_key_function(edge, custom_key_attributes=self.additional_edge_attributes)
+        key = edge_key_function(edge, custom_key_attributes=self.edge_merging_attributes)
         if self.add_edge_id:
             edge[EDGE_ID] = key
         self.entity_buffers[EDGE_ENTITY_TYPE].append((key, quick_json_dumps(edge)))
@@ -317,8 +317,8 @@ class DiskGraphMerger(GraphMerger):
 
 class MemoryGraphMerger(GraphMerger):
 
-    def __init__(self, additional_edge_attributes=None, add_edge_id=False):
-        super().__init__(additional_edge_attributes=additional_edge_attributes,
+    def __init__(self, edge_merging_attributes=None, add_edge_id=False):
+        super().__init__(edge_merging_attributes=edge_merging_attributes,
                          add_edge_id=add_edge_id)
         self.nodes = {}
         self.edges = {}
@@ -351,7 +351,7 @@ class MemoryGraphMerger(GraphMerger):
         return edge_count
 
     def merge_edge(self, edge):
-        edge_key = edge_key_function(edge, custom_key_attributes=self.additional_edge_attributes)
+        edge_key = edge_key_function(edge, custom_key_attributes=self.edge_merging_attributes)
         if edge_key in self.edges:
             self.merged_edge_counter += 1
             merged_edge = entity_merging_function(quick_json_loads(self.edges[edge_key]),
