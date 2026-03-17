@@ -1,3 +1,4 @@
+import heapq
 import os
 import secrets
 from xxhash import xxh64_hexdigest
@@ -257,58 +258,67 @@ class DiskGraphMerger(GraphMerger):
                             merge_function,
                             entity_type):
 
+        # open all the files, which are chunk_size sized files of sorted and keyed entities
         if not file_paths:
             logger.error('get_merged_entities called but no file_paths were provided! Empty source?')
             return
+        file_handlers = [open(file_path) for file_path in file_paths]
 
+        # store a string that can be used to reference the counter for the appropriate entity type
         merge_counter = 'merged_node_counter' if entity_type == NODE_ENTITY_TYPE else 'merged_edge_counter'
 
-        file_handlers = [open(file_path) for file_path in file_paths]
-        # read the first line from each file
-        next_lines = {}
+        # Here we use a min-heap to organize iterating through the entity files to compare their keys and merge entities
+        # with matching keys. Members of the heap are tuples representing each line from a file:
+        # (key, file_index, raw_json) where key is the previously calculated merging key for an entity, and raw_json
+        # is the raw json string for an entity.
+
+        # First start the heap with the first line from each file.
+        heap = []
         for i, fh in enumerate(file_handlers):
             line = fh.readline()
             if line:
                 key, raw_json = self.parse_keyed_line(line)
-                next_lines[i] = (key, raw_json)
+                heap.append((key, i, raw_json))
             else:
                 fh.close()
+        heapq.heapify(heap)
 
-        min_key = min([key for key, _ in next_lines.values()], default=None)
-        while min_key is not None:
+        # Then use the heap to iterate through all the files and merge matching entities
+        while heap:
+            # If we're here it means it's the first time encountering this key
+            min_key = heap[0][0]
             merged_entity = None
             merged_json = None
-            for i in list(next_lines.keys()):
-                key, raw_json = next_lines[i]
-                while key == min_key:
-                    if merged_entity is not None:
-                        # already parsed at least one, parse this one and merge
-                        merged_entity = merge_function(merged_entity, quick_json_loads(raw_json))
-                        setattr(self, merge_counter, getattr(self, merge_counter) + 1)
-                    elif merged_json is not None:
-                        # second entity with same key, now we need to parse both
-                        merged_entity = merge_function(quick_json_loads(merged_json), quick_json_loads(raw_json))
-                        setattr(self, merge_counter, getattr(self, merge_counter) + 1)
-                        merged_json = None
-                    else:
-                        # first entity with this key, hold the raw json
-                        merged_json = raw_json
+            # Pop all entries with the current minimum key and merge them together
+            while heap and heap[0][0] == min_key:
+                key, i, raw_json = heapq.heappop(heap)
+                # If there's a merged entity it means we already merged entities with this key, use the same object
+                if merged_entity is not None:
+                    merged_entity = merge_function(merged_entity, quick_json_loads(raw_json))
+                    setattr(self, merge_counter, getattr(self, merge_counter) + 1)
+                # Otherwise if there is merged_json it means we encountered a matching entity but didn't merge yet
+                elif merged_json is not None:
+                    merged_entity = merge_function(quick_json_loads(merged_json), quick_json_loads(raw_json))
+                    setattr(self, merge_counter, getattr(self, merge_counter) + 1)
+                    merged_json = None
+                # Otherwise this is the first time seeing this key
+                else:
+                    merged_json = raw_json
 
-                    line = file_handlers[i].readline()
-                    if line:
-                        key, raw_json = self.parse_keyed_line(line)
-                        next_lines[i] = (key, raw_json)
-                    else:
-                        key = None
-                        del next_lines[i]
-                        file_handlers[i].close()
+                # read the next line from this file
+                line = file_handlers[i].readline()
+                if line:
+                    next_key, next_raw_json = self.parse_keyed_line(line)
+                    heapq.heappush(heap, (next_key, i, next_raw_json))
+                else:
+                    file_handlers[i].close()
 
+            # if we did a merge we need to convert back to a json string for writing
             if merged_entity is not None:
                 yield f'{quick_json_dumps(merged_entity)}\n'
+            # otherwise we can just write the raw json to file
             else:
                 yield f'{merged_json}\n'
-
-            min_key = min([key for key, _ in next_lines.values()], default=None)
 
     def flush(self):
         self.flush_node_buffer()
