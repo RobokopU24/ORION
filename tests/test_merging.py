@@ -2,6 +2,7 @@ from orion.merging import GraphMerger, MemoryGraphMerger, DiskGraphMerger, NODE_
 from orion.biolink_constants import *
 import os
 import json
+import uuid
 
 
 def make_node(node_num, **properties):
@@ -427,3 +428,68 @@ def test_disk_merger_temp_file_cleanup(tmp_path):
     # temp files should be cleaned up
     for path in temp_node_paths + temp_edge_paths:
         assert not os.path.exists(path)
+
+
+def uuid_edge_id_test(graph_merger: GraphMerger):
+    # edges should get a valid uuid5 'id' field when edge_id_type='uuid'
+    test_edges = [make_edge(1, 2, **{'testing_property': [i]})
+                  for i in range(1, 6)]
+
+    graph_merger.merge_edges(test_edges)
+    merged_edges = [json.loads(edge) for edge in graph_merger.get_merged_edges_jsonl()]
+    assert len(merged_edges) == 1
+    edge_id = merged_edges[0].get('id')
+    assert edge_id is not None
+    # validate it's a proper uuid
+    parsed = uuid.UUID(edge_id)
+    assert parsed.version == 5
+
+
+def uuid_edge_id_unique_for_distinct_edges_test(graph_merger: GraphMerger):
+    # distinct edges should each get a different uuid
+    test_edges = [make_edge(i, i+1, **{'testing_property': [i]})
+                  for i in range(1, 6)]
+
+    graph_merger.merge_edges(test_edges)
+    merged_edges = [json.loads(edge) for edge in graph_merger.get_merged_edges_jsonl()]
+    assert len(merged_edges) == 5
+    edge_ids = [edge['id'] for edge in merged_edges]
+    assert all(uuid.UUID(eid).version == 5 for eid in edge_ids)
+    assert len(set(edge_ids)) == 5
+
+
+def uuid_edge_id_deterministic_test(graph_merger_factory):
+    # same edge attributes should produce the same uuid across separate mergers
+    edge = make_edge(1, 2, **{'testing_property': [1]})
+
+    merger_1 = graph_merger_factory()
+    merger_1.merge_edges([edge])
+    edges_1 = [json.loads(e) for e in merger_1.get_merged_edges_jsonl()]
+
+    merger_2 = graph_merger_factory()
+    merger_2.merge_edges([make_edge(1, 2, **{'testing_property': [1]})])
+    edges_2 = [json.loads(e) for e in merger_2.get_merged_edges_jsonl()]
+
+    assert edges_1[0]['id'] == edges_2[0]['id']
+
+
+def test_uuid_edge_id_in_memory():
+    uuid_edge_id_test(MemoryGraphMerger(add_edge_id=True, edge_id_type='uuid'))
+
+def test_uuid_edge_id_on_disk(tmp_path):
+    uuid_edge_id_test(DiskGraphMerger(temp_directory=str(tmp_path), chunk_size=8,
+                                      add_edge_id=True, edge_id_type='uuid'))
+
+def test_uuid_edge_id_unique_for_distinct_edges_in_memory():
+    uuid_edge_id_unique_for_distinct_edges_test(MemoryGraphMerger(add_edge_id=True, edge_id_type='uuid'))
+
+def test_uuid_edge_id_unique_for_distinct_edges_on_disk(tmp_path):
+    uuid_edge_id_unique_for_distinct_edges_test(DiskGraphMerger(temp_directory=str(tmp_path), chunk_size=8,
+                                                                 add_edge_id=True, edge_id_type='uuid'))
+
+def test_uuid_edge_id_deterministic_in_memory():
+    uuid_edge_id_deterministic_test(lambda: MemoryGraphMerger(add_edge_id=True, edge_id_type='uuid'))
+
+def test_uuid_edge_id_deterministic_on_disk(tmp_path):
+    uuid_edge_id_deterministic_test(lambda: DiskGraphMerger(temp_directory=str(tmp_path), chunk_size=8,
+                                                             add_edge_id=True, edge_id_type='uuid'))

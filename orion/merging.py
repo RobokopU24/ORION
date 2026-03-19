@@ -1,11 +1,13 @@
 import heapq
 import os
 import secrets
+import uuid_utils as uuid
 from xxhash import xxh64_hexdigest
 from orion.biolink_utils import BiolinkUtils
 from orion.biolink_constants import *
 from orion.utils import quick_json_loads, quick_json_dumps, LoggingUtil
 
+ORION_UUID_NAMESPACE = uuid.UUID('e2a5b21f-4e4d-4a6e-b64a-1f3c78e2a9d0')
 
 NODE_ENTITY_TYPE = 'node'
 EDGE_ENTITY_TYPE = 'edge'
@@ -37,7 +39,7 @@ def node_key_function(node):
     return node['id']
 
 
-def edge_key_function(edge, custom_key_attributes=None):
+def edge_key_function(edge, custom_key_attributes=None, edge_id_type=None):
     qualifiers = sorted([f'{key}{value}' for key, value in edge.items() if bmt.is_qualifier(key)])
     primary_knowledge_source = edge.get(PRIMARY_KNOWLEDGE_SOURCE, "")
     if not primary_knowledge_source:
@@ -59,9 +61,14 @@ def edge_key_function(edge, custom_key_attributes=None):
             else:
                 value = str(value)
             custom_attributes.append(value)
-        return xxh64_hexdigest(f'{standard_attributes}{"".join(custom_attributes)}')
+        key_input = f'{standard_attributes}{"".join(custom_attributes)}'
     else:
-        return xxh64_hexdigest(standard_attributes)
+        key_input = standard_attributes
+
+    if edge_id_type == 'uuid':
+        return str(uuid.uuid5(ORION_UUID_NAMESPACE, key_input))
+    else:
+        return xxh64_hexdigest(key_input)
 
 
 def entity_merging_function(entity_1, entity_2):
@@ -123,11 +130,12 @@ def entity_merging_function(entity_1, entity_2):
 
 class GraphMerger:
 
-    def __init__(self, edge_merging_attributes=None, add_edge_id=False):
+    def __init__(self, edge_merging_attributes=None, add_edge_id=False, edge_id_type=None):
         self.merged_node_counter = 0
         self.merged_edge_counter = 0
         self.edge_merging_attributes = edge_merging_attributes
         self.add_edge_id = add_edge_id
+        self.edge_id_type = edge_id_type
 
     def merge_nodes(self, nodes_iterable):
         raise NotImplementedError
@@ -157,10 +165,11 @@ class GraphMerger:
 class DiskGraphMerger(GraphMerger):
 
     def __init__(self, temp_directory: str = None, chunk_size: int = 10_000_000,
-                 edge_merging_attributes=None, add_edge_id=False):
+                 edge_merging_attributes=None, add_edge_id=False, edge_id_type=None):
 
         super().__init__(edge_merging_attributes=edge_merging_attributes,
-                         add_edge_id=add_edge_id)
+                         add_edge_id=add_edge_id,
+                         edge_id_type=edge_id_type)
 
         self.chunk_size = chunk_size
         self.temp_directory = temp_directory
@@ -189,7 +198,8 @@ class DiskGraphMerger(GraphMerger):
         return node_count
 
     def merge_edge(self, edge):
-        key = edge_key_function(edge, custom_key_attributes=self.edge_merging_attributes)
+        key = edge_key_function(edge, custom_key_attributes=self.edge_merging_attributes,
+                                edge_id_type=self.edge_id_type)
         if self.add_edge_id:
             edge[EDGE_ID] = key
         self.entity_buffers[EDGE_ENTITY_TYPE].append((key, quick_json_dumps(edge)))
@@ -327,9 +337,10 @@ class DiskGraphMerger(GraphMerger):
 
 class MemoryGraphMerger(GraphMerger):
 
-    def __init__(self, edge_merging_attributes=None, add_edge_id=False):
+    def __init__(self, edge_merging_attributes=None, add_edge_id=False, edge_id_type=None):
         super().__init__(edge_merging_attributes=edge_merging_attributes,
-                         add_edge_id=add_edge_id)
+                         add_edge_id=add_edge_id,
+                         edge_id_type=edge_id_type)
         self.nodes = {}
         self.edges = {}
 
@@ -361,7 +372,8 @@ class MemoryGraphMerger(GraphMerger):
         return edge_count
 
     def merge_edge(self, edge):
-        edge_key = edge_key_function(edge, custom_key_attributes=self.edge_merging_attributes)
+        edge_key = edge_key_function(edge, custom_key_attributes=self.edge_merging_attributes,
+                                     edge_id_type=self.edge_id_type)
         if edge_key in self.edges:
             self.merged_edge_counter += 1
             merged_edge = entity_merging_function(quick_json_loads(self.edges[edge_key]),

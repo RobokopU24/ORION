@@ -221,10 +221,12 @@ class KGXFileMerger:
                 raise IOError(f'DiskGraphMerger attempted but no output directory was specified.')
             return DiskGraphMerger(temp_directory=self.output_directory,
                                    edge_merging_attributes=self.graph_spec.edge_merging_attributes,
-                                   add_edge_id=self.graph_spec.add_edge_id)
+                                   add_edge_id=self.graph_spec.add_edge_id,
+                                   edge_id_type=self.graph_spec.edge_id_type)
         else:
             return MemoryGraphMerger(edge_merging_attributes=self.graph_spec.edge_merging_attributes,
-                                     add_edge_id=self.graph_spec.add_edge_id)
+                                     add_edge_id=self.graph_spec.add_edge_id,
+                                     edge_id_type=self.graph_spec.edge_id_type)
 
     @staticmethod
     def init_merge_metadata():
