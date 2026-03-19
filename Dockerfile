@@ -34,6 +34,8 @@ COPY --from=ghcr.io/astral-sh/uv:0.10.9 /uv /uvx /usr/local/bin/
 COPY . /ORION/.
 
 # Install project dependencies from pyproject.toml including optional robokop deps
+# uv pip doesn't read [tool.uv.sources], so install the intermine git fork explicitly
+RUN uv pip install --system git+https://github.com/EvanDietzMorris/intermine-ws-python.git
 RUN cd /ORION && uv pip install --system ".[robokop]"
 
 RUN chmod -R 777 /ORION

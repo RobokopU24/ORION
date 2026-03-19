@@ -960,8 +960,12 @@ robokop = [
     { name = "prefixmaps" },
     { name = "psycopg2-binary" },
     { name = "pyoxigraph" },
-    { name = "pytest" },
     { name = "redis" },
+]
+
+[package.dev-dependencies]
+dev = [
+    { name = "pytest" },
 ]
 
 [package.metadata]
@@ -981,7 +985,6 @@ requires-dist = [
     { name = "prefixmaps", marker = "extra == 'robokop'", specifier = ">=0.2.6" },
     { name = "psycopg2-binary", marker = "extra == 'robokop'", specifier = ">=2.9.9" },
     { name = "pyoxigraph", marker = "extra == 'robokop'", specifier = ">=0.3.22" },
-    { name = "pytest", marker = "extra == 'robokop'", specifier = ">=8.4.2" },
     { name = "python-dotenv", specifier = ">=1.0.1" },
     { name = "pyyaml", specifier = ">=6.0.1" },
     { name = "redis", marker = "extra == 'robokop'", specifier = ">=5.2.1" },
@@ -992,6 +995,9 @@ requires-dist = [
     { name = "xxhash", specifier = ">=3.6.0" },
 ]
 provides-extras = ["robokop"]
+
+[package.metadata.requires-dev]
+dev = [{ name = "pytest", specifier = ">=8.4.2" }]
 
 [[package]]
 name = "rpds-py"

@@ -25,12 +25,9 @@ dependencies = [
 
 [project.optional-dependencies]
 robokop = [
-    "curies>=0.7.9",
-    "redis>=5.2.1",
-    "psycopg2-binary>=2.9.9",
-    "pyoxigraph>=0.3.22",
     "beautifulsoup4>=4.12.3",
     "celery>=5.4.0",
+    "curies>=0.7.9",
     "intermine",
     "mysql-connector-python>=9.4.0",
     "neo4j>=5.28.0",
@@ -38,6 +35,13 @@ robokop = [
     "pandas>=2.3.3",
     "polars>=1.19.0",
     "prefixmaps>=0.2.6",
+    "psycopg2-binary>=2.9.9",
+    "pyoxigraph>=0.3.22",
+    "redis>=5.2.1",
+]
+
+[dependency-groups]
+dev = [
     "pytest>=8.4.2",
 ]
 
