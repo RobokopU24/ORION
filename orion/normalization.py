@@ -124,7 +124,7 @@ class NodeNormalizer:
             self.logger.error(error_message)
             resp.raise_for_status()
 
-    def normalize_node_data(self, node_list: list, batch_size: int = 1000) -> list:
+    def normalize_node_data(self, node_list: list, batch_size: int = 5000) -> list:
         """
         This method calls the NodeNormalization web service and normalizes a list of nodes.
 
