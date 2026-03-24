@@ -20,7 +20,7 @@ class HGNCLoader(SourceDataLoader):
 
     source_id: str = HGNC
     provenance_id: str = 'infores:hgnc'
-    parsing_version: str = '1.5'
+    parsing_version: str = '1.6'
 
     def __init__(self, test_mode: bool = False, source_data_dir: str = None):
         """
@@ -99,8 +99,8 @@ class HGNCLoader(SourceDataLoader):
                                   AGENT_TYPE: MANUAL_AGENT}
                     if r['pubmed_id']:
                         edge_props[PUBLICATIONS] = [f'PMID:{pmid}' for pmid in r['pubmed_id'].split('|')]
-                    new_edge = kgxedge(gene_family_id,
-                                       gene_id,
+                    new_edge = kgxedge(subject_id=gene_id,
+                                       object_id=gene_family_id,
                                        predicate=self.member_of_predicate,
                                        primary_knowledge_source=self.provenance_id,
                                        edgeprops=edge_props)
