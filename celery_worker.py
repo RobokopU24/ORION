@@ -24,7 +24,7 @@ celery_app.conf.update(
 @celery_app.task(name="orion.data_ingestion", queue="orion")
 def run_build_manager(task_data):
     # Ensure we're in the correct directory (ORION root)
-    pwd_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'Common')
+    pwd_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'orion')
     os.chdir(pwd_path)
     print(f'pwd_path: {pwd_path}', flush=True)
     print(f'task_data: {task_data}', flush=True)
