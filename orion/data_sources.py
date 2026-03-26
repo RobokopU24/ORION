@@ -122,6 +122,19 @@ def get_available_data_sources():
     return sorted(list(SOURCE_DATA_LOADER_CLASS_IMPORTS.keys()))
 
 
+def get_data_source_metadata_path(source_id: str) -> str:
+    """Get the path to the source.json file for a given source_id."""
+    if source_id not in SOURCE_DATA_LOADER_CLASS_IMPORTS:
+        raise KeyError(f"Unknown source_id: {source_id}")
+
+    module_path, _ = SOURCE_DATA_LOADER_CLASS_IMPORTS[source_id]
+    # Convert module path to directory path: "parsers.GOA.src.loadGOA" -> "parsers/GOA/src"
+    parts = module_path.split('.')
+    dir_path = '/'.join(parts[:-1])  # Remove the module name (e.g., "loadGOA")
+
+    return f"{dir_path}/{source_id}.source.json"
+
+
 # This class allows defaultdicts to instantiate entries dynamically based on what key is requested
 # Taken from https://stackoverflow.com/a/44731234
 class KeyBasedDefaultDict(defaultdict):

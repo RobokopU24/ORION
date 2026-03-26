@@ -1,0 +1,15 @@
+{
+  "@context": "https://schema.org",
+  "@type": "Dataset",
+  "identifier": "infores:cebs",
+  "name": "Chemical Effects in Biological Systems",
+  "description": "CEBS is a public, web-accessible, manually curated and accessioned repository of individual study data and summarized study data from the National Toxicology Program (NTP) testing program and other toxicology programs and research teams, including studies on carcinogenicity, short-term toxicity, and genetic toxicity.",
+  "url": "https://cebs.niehs.nih.gov/cebs/",
+  "attribution": "https://cebs.niehs.nih.gov/cebs/",
+  "citation": [
+    "https://doi.org/10.22427/NTP-DATA-1",
+    "Chemical Effects in Biological Systems (CEBS). Research Triangle Park, NC (USA): Division of Translational Toxicology, NIEHS (DTT). https://cebs.niehs.nih.gov/cebs"
+  ],
+  "license": "https://cebs.niehs.nih.gov/cebs/support/view/Terms-of-Use.pdf",
+  "contentUrl": "https://cebs.niehs.nih.gov/cebs/"
+}

@@ -36,7 +36,7 @@ class MPLoader(SourceDataLoader):
 
     source_id: str = 'MONDOProperties'
     provenance_id = 'infores:mondo'  # provenance doesn't apply to nodes/properties as of now, just a placeholder here
-    parsing_version: str = '1.1'
+    parsing_version: str = '1.2'
     preserve_unconnected_nodes = True
 
     def __init__(self, test_mode: bool = False, source_data_dir: str = None):
@@ -102,11 +102,11 @@ class MPLoader(SourceDataLoader):
         with GzipFile(archive_file_path) as nq_file:
 
             # Loop through the triples
-            # We're only intereseted in MONDO ids
+            # We're only interested in MONDO ids
             # For any mondo ID with a low Information Content, we want to make it a property
             # So we need to find those, and find their names, and find what other MONDOs are subclasses of that thing.
             # Then we can add those as properties to the subclasses and write everything out.
-            for ttl_triple in pyoxigraph.parse(nq_file, mime_type='application/n-quads'):
+            for ttl_triple in pyoxigraph.parse(nq_file, format='application/n-quads'):
 
                 record_counter += 1
 
@@ -145,7 +145,9 @@ class MPLoader(SourceDataLoader):
             props = {}
             for sc_mc in scs:
                 if sc_mc in mondo_labels and sc_mc in property_mondos:
-                    property_name = f"MONDO_SUPERCLASS_{'_'.join(mondo_labels[sc_mc].split())}"
+                    property_name = f"MONDO_SUPERCLASS_{'_'.join(mondo_labels[sc_mc].split())}".replace(',', '')
+                    # these characters can be problematic in downstream applications, just make them underscores
+                    property_name = property_name.replace('/', '_').replace('-', '_')
                     unique_properties.add(property_name)
                     props[property_name] = True
             if props:

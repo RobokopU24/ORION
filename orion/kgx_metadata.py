@@ -1,5 +1,7 @@
+import json
+from pathlib import Path
 from collections import defaultdict
-from dataclasses import dataclass, field, asdict
+from dataclasses import dataclass, field
 
 from orion.utils import quick_jsonl_file_iterator
 from orion.biolink_utils import BiolinkUtils
@@ -7,19 +9,61 @@ from orion.biolink_constants import *
 
 
 @dataclass
-class KGXSource:
-    id: str = ""
+class KGXKnowledgeSource:
+    identifier: str = ""
     name: str = ""
     description: str = ""
     license: str = ""
+    attribution: str = ""
     url: str = ""
+    contentUrl: str = ""
+    citation: str = ""
     version: str = ""
+    isBasedOn: list["KGXKnowledgeSource"] = field(default_factory=list)
+
+    @classmethod
+    def from_dict(cls, data: dict, version: str = "") -> "KGXKnowledgeSource":
+        return cls(
+            identifier=data['identifier'],
+            name=data['name'],
+            description=data.get('description', ''),
+            license=data.get('license', ''),
+            attribution=data.get('attribution', ''),
+            url=data.get('url', ''),
+            contentUrl=data.get('contentUrl', ''),
+            citation=data.get('citation', ''),
+            version=version,
+            isBasedOn=[cls.from_dict(entry) for entry in data.get('isBasedOn', [])]
+        )
+
+    def to_dict(self):
+        output_dict = {
+            "@type": "Dataset",
+            "identifier": self.identifier,
+            "name": self.name,
+            "description": self.description,
+            "license": self.license,
+            "attribution": self.attribution,
+            "url": self.url,
+            "contentUrl": self.contentUrl,
+            "citation": self.citation,
+            "version": self.version,
+        }
+        # just remove these attributes if they are empty
+        for optional_attr in ["attribution", "url", "contentUrl", "citation", "version"]:
+            if not output_dict.get(optional_attr):
+                del output_dict[optional_attr]
+        if self.isBasedOn:
+            output_dict["isBasedOn"] = [ks.to_dict() for ks in self.isBasedOn]
+        return output_dict
+
 
 @dataclass
 class KGXNodeType:
     categories: list = None
     id_prefixes: defaultdict = field(default_factory=lambda: defaultdict(int))
     attributes: defaultdict = field(default_factory=lambda: defaultdict(int))
+
 
 @dataclass
 class KGXEdgeType:
@@ -43,9 +87,79 @@ class KGXGraphMetadata:
     url: str = ""
     version: str = ""
     date_created: str = ""
+    date_modified: str = ""
     biolink_version: str = ""
     babel_version: str = ""
-    kgx_sources: list[KGXSource] = field(default_factory=list[KGXSource])
+    keywords: list[str] = field(default_factory=list)
+    creator: list[dict] = field(default_factory=list)
+    contact_point: list[dict] = field(default_factory=list)
+    funder: list[dict] = field(default_factory=list)
+    conforms_to: list[dict] = field(default_factory=list)
+    schema: dict = field(default_factory=dict)
+    kg_sources: list[dict] = field(default_factory=list)
+    knowledge_sources: list[KGXKnowledgeSource] = field(default_factory=list)
+    distribution: list[dict] = field(default_factory=list)
+
+    def to_json(self):
+        result = {
+            "@context": {
+                "@vocab": "https://schema.org/",
+                "biolink": "https://w3id.org/biolink/",
+                "orion": "https://github.com/RobokopU24/ORION"
+            },
+            "@id": self.id,
+            "@type": "Dataset",
+            "name": self.name,
+            "description": self.description,
+            "license": self.license,
+            "url": self.url,
+            "version": self.version,
+            "dateCreated": self.date_created,
+            "dateModified": self.date_modified,
+            "keywords": self.keywords,
+            "creator": self.creator,
+            "contactPoint": self.contact_point,
+            "funder": self.funder,
+            "conformsTo": self.conforms_to,
+            "schema": self.schema,
+            "biolinkVersion": self.biolink_version,
+            "babelVersion": self.babel_version,
+            "distribution": self.distribution,
+            "hasPart": self.kg_sources,
+            "isBasedOn": [source.to_dict() for source in self.knowledge_sources]
+        }
+        return json.dumps(result, indent=2)
+
+
+@dataclass
+class KGXSchema:
+    id: str = ""
+    name: str = ""
+    description: str = ""
+    encoding_format: str = "application/ld+json"
+    graph_id: str = ""
+    graph_name: str = ""
+    schema: dict = field(default_factory=dict)
+
+    def to_json(self):
+        result = {
+            "@context": {
+                "@vocab": "https://schema.org/",
+                "biolink": "https://w3id.org/biolink/"
+            },
+            "@type": "Dataset",
+            "@id": self.id,
+            "name": self.name,
+            "description": self.description,
+            "encodingFormat": self.encoding_format,
+            "isPartOf": {
+                "@type": "Dataset",
+                "@id": self.graph_id,
+                "name": self.graph_name
+            },
+            "schema": self.schema
+        }
+        return json.dumps(result, indent=2)
 
 
 def prepare_to_serialize_nodes(nodes):
@@ -131,14 +245,11 @@ def sort_dict_by_values(dict_to_sort):
     return dict(sorted(dict_to_sort.items(), key=lambda item_tuple: item_tuple[1], reverse=True))
 
 
-def analyze_graph(nodes_file_path: str,
-                  edges_file_path: str,
-                  graph_metadata: KGXGraphMetadata = None):
+def generate_schema(nodes_file_path: str,
+                    edges_file_path: str,
+                    biolink_version: str):
 
-    if not graph_metadata:
-        graph_metadata = KGXGraphMetadata()
-
-    bl_utils = BiolinkUtils(biolink_version=graph_metadata.biolink_version)
+    bl_utils = BiolinkUtils(biolink_version=biolink_version)
 
     # Nodes
     nodes = defaultdict(KGXNodeType)
@@ -196,29 +307,35 @@ def analyze_graph(nodes_file_path: str,
             else:
                 edge_type.attributes[key] += 1
 
-    return {
-        "@id": graph_metadata.id,
-        "@type": "sc:Dataset",
-        "name": graph_metadata.name,
-        "description": graph_metadata.description,
-        "license": graph_metadata.license,
-        "url": graph_metadata.url,
-        "version": graph_metadata.version,
-        "dateCreated": graph_metadata.date_created,
-        "biolinkVersion": graph_metadata.biolink_version,
-        "babelVersion": graph_metadata.babel_version,
-        "distribution": [{
-            "@id": f"{graph_metadata.name}.tar.xz",
-            "@type": "cr:FileObject",
-            "contentUrl": f"{graph_metadata.name}.tar.xz",
-            "encodingFormat": "application/x-xz",
-            "description": "Compressed tar archive containing the KGX files: nodes.jsonl and edges.jsonl"
-        }],
-        "isBasedOn": [asdict(source) for source in graph_metadata.kgx_sources],
-        "schema":{
-            "nodes": prepare_to_serialize_nodes(nodes),
+    return {"nodes": prepare_to_serialize_nodes(nodes),
             "nodes_summary": generate_nodes_summary(nodes),
             "edges": prepare_to_serialize_edges(edges),
-            "edges_summary": generate_edges_summary(edges)
-        }
-    }
+            "edges_summary": generate_edges_summary(edges)}
+
+def generate_kgx_schema_file(nodes_filepath: str,
+                             edges_filepath: str,
+                             output_dir: str,
+                             graph_output_url: str = "",
+                             graph_name: str = "",
+                             biolink_version: str = None):
+    # Generate the contents of the schema itself using the nodes and edges files
+    schema = generate_schema(
+        nodes_file_path=nodes_filepath,
+        edges_file_path=edges_filepath,
+        biolink_version=biolink_version
+    )
+
+    # Populate a KGXSchema with everything it needs
+    kgx_schema = KGXSchema(
+        id=f"{graph_output_url}schema.json",
+        name=f"{graph_name} Schema" if graph_name else "Schema",
+        description=f"Schema describing the nodes, edges, and attributes in the {graph_name} knowledge graph",
+        graph_id=graph_output_url,
+        graph_name=graph_name,
+        schema=schema
+    )
+
+    # Convert to json and write to file
+    schema_filepath = Path(output_dir) / 'schema.json'
+    with open(schema_filepath, 'w') as f:
+        f.write(kgx_schema.to_json())

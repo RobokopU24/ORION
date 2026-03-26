@@ -65,7 +65,7 @@ class MonarchKGLoader(SourceDataLoader):
 
     def get_latest_source_version(self) -> str:
         """
-        Gets the name of latest monarch kg version from metadata. 
+        Gets the name of latest monarch kg version from metadata.
         """
         latest_version = None
         try:
@@ -121,7 +121,11 @@ class MonarchKGLoader(SourceDataLoader):
                     # then check if edge should be ignored due to the knowledge source
                     primary_knowledge_source = self.knowledge_source_mapping.get(monarch_edge[PRIMARY_KNOWLEDGE_SOURCE],
                                                                                  monarch_edge[PRIMARY_KNOWLEDGE_SOURCE])
-                    aggregator_knowledge_sources = [self.knowledge_source_mapping.get(ks, ks) for ks in monarch_edge[AGGREGATOR_KNOWLEDGE_SOURCES]]
+                    if monarch_edge.get(AGGREGATOR_KNOWLEDGE_SOURCES, False):
+                        aggregator_knowledge_sources = [self.knowledge_source_mapping.get(ks, ks)
+                                                        for ks in monarch_edge[AGGREGATOR_KNOWLEDGE_SOURCES]]
+                    else:
+                        aggregator_knowledge_sources = []
                     if primary_knowledge_source in self.knowledge_source_ignore_list or \
                             any([ks in self.knowledge_source_ignore_list for ks in aggregator_knowledge_sources]):
                         skipped_ignore_knowledge_source += 1

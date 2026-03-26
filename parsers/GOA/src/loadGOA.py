@@ -218,7 +218,7 @@ def get_goa_predicate(line: list):
 
 def get_goa_subject_props(line: list):
     taxon_id = line[DATACOLS.Taxon_Interacting_taxon].split('|')[0].split(':')[-1]
-    return {"taxon": f'{NCBITAXON}:{taxon_id}'} if taxon_id else {}
+    return {TAXON: f'{NCBITAXON}:{taxon_id}'} if taxon_id else {}
 
 
 class HumanGOALoader(GOALoader):
