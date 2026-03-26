@@ -37,6 +37,6 @@ Implement parse_data(). This function should parse the data files and populate l
 
 Finally, add your source to the list of sources in orion/data_sources.py. The source ID string here should match the one specified in the new parser. Also add your source to the SOURCE_DATA_LOADER_CLASS_IMPORTS dictionary, mapping it to the new parser class.
 
-Now you can use that source ID in a graph spec to include your new source in a graph, or as the source id using load_manager.py.
+Now you can use that source ID in a graph spec to include your new source in a graph, or as the source id using `orion-ingest`.
 
 Always run the pytest tests after altering the codebase.

@@ -7,7 +7,7 @@ from orion.utils import LoggingUtil, quick_jsonl_file_iterator
 from orion.kgxmodel import GraphSpec, GraphSource, SubGraphSource
 from orion.biolink_constants import SUBJECT_ID, OBJECT_ID
 from orion.merging import GraphMerger, DiskGraphMerger, MemoryGraphMerger
-from orion.load_manager import RESOURCE_HOGS
+from orion.ingest_pipeline import RESOURCE_HOGS
 
 logger = LoggingUtil.init_logging("ORION.orion.KGXFileMerger",
                                   line_format='medium',

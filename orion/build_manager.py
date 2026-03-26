@@ -11,7 +11,7 @@ from xxhash import xxh64_hexdigest
 from orion.utils import LoggingUtil, GetDataPullError
 from orion.data_sources import get_available_data_sources, get_data_source_metadata_path
 from orion.exceptions import DataVersionError, GraphSpecError
-from orion.load_manager import SourceDataManager
+from orion.ingest_pipeline import IngestPipeline
 from orion.kgx_file_merger import KGXFileMerger, DONT_MERGE
 from orion.kgx_validation import validate_graph
 from orion.neo4j_tools import create_neo4j_dump
@@ -45,7 +45,7 @@ class GraphBuilder:
                                                log_file_path=os.getenv('ORION_LOGS'))
 
         self.graphs_dir = graph_output_dir if graph_output_dir else self.get_graph_output_dir()
-        self.source_data_manager = SourceDataManager()  # access to the data sources and their metadata
+        self.ingest_pipeline = IngestPipeline()  # access to the data sources and their metadata
         self.graph_specs = {}   # graph_id -> GraphSpec all potential graphs that could be built, including sub-graphs
         self.load_graph_specs(graph_specs_dir=graph_specs_dir)
         self.build_results = {}
@@ -264,7 +264,7 @@ class GraphBuilder:
             # go out and find the latest version for any data source that doesn't have a version specified
             for source in graph_spec.sources:
                 if not source.source_version:
-                    source.source_version = self.source_data_manager.get_latest_source_version(source.id)
+                    source.source_version = self.ingest_pipeline.get_latest_source_version(source.id)
                 self.logger.info(f'Using {source.id} version: {source.version}')
 
             # for sub-graphs, if a graph version isn't specified,
@@ -342,19 +342,19 @@ class GraphBuilder:
 
         for data_source in graph_spec.sources:
             source_id = data_source.id
-            source_metadata: SourceMetadata = self.source_data_manager.get_source_metadata(source_id,
-                                                                                           data_source.source_version)
+            source_metadata: SourceMetadata = self.ingest_pipeline.get_source_metadata(source_id,
+                                                                                       data_source.source_version)
             release_version = data_source.generate_version()
             release_metadata = source_metadata.get_release_info(release_version)
             if release_metadata is None:
                 self.logger.info(
                     f'Attempting to build graph {graph_id}, '
                     f'dependency {source_id} is not ready. Building now...')
-                pipeline_sucess = self.source_data_manager.run_pipeline(source_id,
-                                                                        source_version=data_source.source_version,
-                                                                        parsing_version=data_source.parsing_version,
-                                                                        normalization_scheme=data_source.normalization_scheme,
-                                                                        supplementation_version=data_source.supplementation_version)
+                pipeline_sucess = self.ingest_pipeline.run_pipeline(source_id,
+                                                                    source_version=data_source.source_version,
+                                                                    parsing_version=data_source.parsing_version,
+                                                                    normalization_scheme=data_source.normalization_scheme,
+                                                                    supplementation_version=data_source.supplementation_version)
                 if not pipeline_sucess:
                     self.logger.info(f'While attempting to build {graph_spec.graph_id}, '
                                      f'data source pipeline failed for dependency {source_id}...')
@@ -362,11 +362,11 @@ class GraphBuilder:
                 release_metadata = source_metadata.get_release_info(release_version)
 
             data_source.release_info = release_metadata
-            data_source.file_paths = self.source_data_manager.get_final_file_paths(source_id,
-                                                                                   data_source.source_version,
-                                                                                   data_source.parsing_version,
-                                                                                   data_source.normalization_scheme.get_composite_normalization_version(),
-                                                                                   data_source.supplementation_version)
+            data_source.file_paths = self.ingest_pipeline.get_final_file_paths(source_id,
+                                                                               data_source.source_version,
+                                                                               data_source.parsing_version,
+                                                                               data_source.normalization_scheme.get_composite_normalization_version(),
+                                                                               data_source.supplementation_version)
         return True
 
     @staticmethod
@@ -584,9 +584,9 @@ class GraphBuilder:
                 if edge_id_type is not None and add_edge_id is None or add_edge_id is False:
                     add_edge_id = True
                 if graph_wide_node_norm_version == 'latest':
-                    graph_wide_node_norm_version = self.source_data_manager.get_latest_node_normalization_version()
+                    graph_wide_node_norm_version = self.ingest_pipeline.get_latest_node_normalization_version()
                 if graph_wide_edge_norm_version == 'latest':
-                    graph_wide_edge_norm_version = self.source_data_manager.get_latest_edge_normalization_version()
+                    graph_wide_edge_norm_version = self.ingest_pipeline.get_latest_edge_normalization_version()
 
                 # apply them to all the data sources, this will overwrite anything defined at the source level
                 for data_source in data_sources:
@@ -657,11 +657,11 @@ class GraphBuilder:
         # if normalization versions are not specified, set them to the current latest
         # source_version is intentionally not handled here because we want to do it lazily and avoid if not needed
         if not parsing_version or parsing_version == 'latest':
-            parsing_version = self.source_data_manager.get_latest_parsing_version(source_id)
+            parsing_version = self.ingest_pipeline.get_latest_parsing_version(source_id)
         if not node_normalization_version or node_normalization_version == 'latest':
-            node_normalization_version = self.source_data_manager.get_latest_node_normalization_version()
+            node_normalization_version = self.ingest_pipeline.get_latest_node_normalization_version()
         if not edge_normalization_version or edge_normalization_version == 'latest':
-            edge_normalization_version = self.source_data_manager.get_latest_edge_normalization_version()
+            edge_normalization_version = self.ingest_pipeline.get_latest_edge_normalization_version()
 
         # do some validation
         if type(strict_normalization) != bool:

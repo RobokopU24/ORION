@@ -18,12 +18,12 @@ from orion.supplementation import SequenceVariantSupplementation, Supplementatio
 
 SOURCE_DATA_LOADER_CLASSES = SourceDataLoaderClassFactory()
 
-logger = LoggingUtil.init_logging("ORION.orion.SourceDataManager",
+logger = LoggingUtil.init_logging("ORION.orion.IngestPipeline",
                                   line_format='medium',
                                   log_file_path=os.getenv('ORION_LOGS'))
 
 
-class SourceDataManager:
+class IngestPipeline:
 
     def __init__(self,
                  storage_dir: str = None,
@@ -32,11 +32,11 @@ class SourceDataManager:
 
         self.test_mode = test_mode
         if test_mode:
-            logger.info(f'SourceDataManager running in test mode... test data sets will be used when possible.')
+            logger.info(f'IngestPipeline running in test mode... test data sets will be used when possible.')
 
         self.fresh_start_mode = fresh_start_mode
         if fresh_start_mode:
-            logger.info(f'SourceDataManager running in fresh start mode... previous state and files ignored.')
+            logger.info(f'IngestPipeline running in fresh start mode... previous state and files ignored.')
 
         # lazy load the storage directory path
         self.storage_dir = self.init_storage_dir(storage_dir)
@@ -738,7 +738,7 @@ def main():
 
     loader_test_mode = args.test_mode or test_mode_from_env
     loader_strict_normalization = (not args.lenient_normalization)
-    load_manager = SourceDataManager(test_mode=loader_test_mode,
+    ingest_pipeline = IngestPipeline(test_mode=loader_test_mode,
                                      fresh_start_mode=args.fresh_start_mode)
     for data_source in args.data_source:
         if data_source not in get_available_data_sources():
@@ -746,7 +746,7 @@ def main():
                   f'These are the available data sources: {", ".join(get_available_data_sources())}')
         else:
             cmd_line_normalization_scheme = NormalizationScheme(strict=loader_strict_normalization)
-            release_vers = load_manager.run_pipeline(data_source, normalization_scheme=cmd_line_normalization_scheme)
+            release_vers = ingest_pipeline.run_pipeline(data_source, normalization_scheme=cmd_line_normalization_scheme)
             if release_vers:
                 print(f'Finished running data pipeline for {data_source} (release version {release_vers}).')
 

@@ -42,7 +42,7 @@ robokop = [
 
 [project.scripts]
 orion-build = "orion.build_manager:main"
-orion-load = "orion.load_manager:main"
+orion-ingest = "orion.ingest_pipeline:main"
 orion-merge = "orion.cli.merge_kgs:main"
 orion-meta-kg = "orion.cli.generate_meta_kg:main"
 orion-redundant-kg = "orion.cli.generate_redundant_kg:main"
