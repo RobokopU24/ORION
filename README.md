@@ -2,202 +2,148 @@
 
 ### Operational Routine for the Ingest and Output of Networks
 
-This package takes data sets from various sources and converts them into Knowledge Graphs.
+ORION ingests data from knowledge sources and converts them into [Biolink Model](https://biolink.github.io/biolink-model/) knowledge graphs in [KGX](https://github.com/biolink/kgx) format.
 
-Each data source will go through the following pipeline before it can be included in a graph:
+Each data source goes through the following pipeline:
 
-1. Fetch (retrieve an original data source)
-2. Parse (convert the data source into KGX files)
-3. Normalize (use normalization services to convert identifiers and ontology terms to preferred synonyms)
-4. Supplement (add supplementary knowledge specific to that source)
+1. **Fetch** - retrieve the original data source
+2. **Parse** - transform the data into KGX files
+3. **Normalize** - use normalization services to convert identifiers and ontology terms to preferred synonyms
+4. **Supplement** - add supplementary knowledge specific to that source
 
-To build a graph use a Graph Spec yaml file to specify the sources you want. Some examples live in `graph_specs` folder.
+Sources are defined in a Graph Spec yaml file (see examples in the `graph_specs/` directory). ORION automatically runs each specified source through the pipeline and merges them into a Knowledge Graph.
 
-ORION will automatically run each data source specified through the necessary pipeline. Then it will merge the specified sources into a Knowledge Graph.
+### Installation
 
-### Installing and Configuring ORION
+ORION requires [uv](https://docs.astral.sh/uv/) for dependency management.
 
-Create a parent directory:
-
-```
-mkdir ~/ORION_root
-```
-
-Clone the code repository:
-
-```
-cd ~/ORION_root
+```bash
 git clone https://github.com/RobokopU24/ORION.git
+cd ORION
+uv sync --extra robokop
 ```
 
-Next create directories where data sources, graphs, and logs will be stored.
+The core library is also available on PyPI (`pip install robokop-orion`), but the full repository is needed to utilize ingest modules from the [ROBOKOP](https://robokop.renci.org/) project.
 
-**ORION_STORAGE** - for storing data sources
+### CLI Commands
 
-**ORION_GRAPHS** - for storing knowledge graphs
+After installation, the following commands are available (prefix with `uv run` if not using a uv-managed shell):
 
-**ORION_LOGS** - for storing logs
+| Command | Description                                           |
+|---|-------------------------------------------------------|
+| `orion-build` | Build complete knowledge graphs from a Graph Spec     |
+| `orion-ingest` | Run the ingest pipeline for individual data sources   |
+| `orion-merge` | Merge KGX node/edge files                             |
+| `orion-meta-kg` | Generate MetaKG and test data files                   |
+| `orion-redundant-kg` | Generate edge files with redundant biolink predicates |
+| `orion-ac` | Generate AnswerCoalesce files                         |
+| `orion-neo4j-dump` | Generate Neo4j database dumps                         |
+| `orion-memgraph-dump` | Generate Memgraph database dumps                      |
 
-You can do this manually, or use the script indicated below to set up a default workspace.
+### Configuring ORION
 
-Option 1: Use this script to create the directories and set the environment variables:
+ORION uses three directories for its data, configured via environment variables:
 
-```
-cd ~/ORION_root/ORION/
+| Variable | Purpose                              |
+|---|--------------------------------------|
+| `ORION_STORAGE` | Data ingest pipeline storage |
+| `ORION_GRAPHS` | Knowledge graph outputs              |
+| `ORION_LOGS` | Log files                            |
+
+You can set these up manually or use the provided script:
+
+```bash
 source ./set_up_test_env.sh
 ```
 
-Option 2: Create three directories and set environment variables specifying paths to the locations of those directories.
+#### Graph Spec
 
-```
-mkdir ~/ORION_root/storage/
-export ORION_STORAGE=~/ORION_root/storage/
+A Graph Spec yaml file defines which sources to include in a knowledge graph. Set one of the following environment variables (not both):
 
-mkdir ~/ORION_root/graphs/
-export ORION_GRAPHS=~/ORION_root/graphs/
-
-mkdir ~/ORION_root/logs/
-export ORION_LOGS=~/ORION_root/logs/
-```
-
-#### Specify Graph Spec file.
-
-Next create or select a Graph Spec yaml file, where the content of knowledge graphs to be built is specified.
-
-Set either of the following environment variables, but not both:
-
-Option 1: ORION_GRAPH_SPEC - the name of a Graph Spec file located in the graph_specs directory of ORION
-
-```
+```bash
+# Option 1: Name of a file in the graph_specs/ directory
 export ORION_GRAPH_SPEC=example-graph-spec.yaml
-```
 
-Option 2: ORION_GRAPH_SPEC_URL - a URL pointing to a Graph Spec yaml file
-
-```
+# Option 2: URL pointing to a Graph Spec yaml file
 export ORION_GRAPH_SPEC_URL=https://stars.renci.org/var/data_services/graph_specs/default-graph-spec.yaml
 ```
 
-#### Building graph
+Here is a simple Graph Spec example:
 
-To build a custom graph, alter a Graph Spec file, which is composed of a list of graphs.
-
-For each graph, specify:
-
-**graph_id** - a unique identifier string for the graph, with no spaces
-
-**sources** - a list of sources identifiers for data sources to include in the graph
+```yaml
+graphs:
+  - graph_id: Example_Graph
+    graph_name: Example Graph
+    graph_description: A free text description of what is in the graph.
+    output_format: neo4j
+    sources:
+      - source_id: DrugCentral
+      - source_id: HGNC
+```
 
 See the full list of data sources and their identifiers in the [data sources file](https://github.com/RobokopU24/ORION/blob/master/orion/data_sources.py).
 
-Here is a simple example.
+#### Graph Spec Parameters
 
-```
-graphs:
-  - graph_id: Example_Graph
-    graph_name: Example Graph
-    graph_description: A free text description of what is in the graph.
-    output_format: neo4j
-    sources:
-      - source_id: CTD
-      - source_id: HGNC
-```
+The following parameters can be set per data source:
 
-There are variety of ways to further customize a knowledge graph. The following are parameters you can set for a particular data source. Mostly, these parameters are used to indicate that you'd like to use a previously built version of a data source or a specific normalization of a source. If you specify versions that are not the latest, and haven't previously built a data source or graph with those versions, it probably won't work.
+- **merge_strategy** - alternative merge strategies
+- **strict_normalization** - whether to discard nodes that fail to normalize (true/false)
+- **conflation** - whether to conflate genes with proteins and chemicals with drugs (true/false)
 
-**source_version** - the version of the data source, as determined by ORION
+The following can be set at the graph level:
 
-**parsing_version** - the version of the parsing code in ORION for this source
+- **add_edge_id** - whether to add unique identifiers to edges (true/false)
+- **edge_id_type** - if add_edge_id is true, the type of identifier can be specified (uuid or orion)
 
-**merge_strategy** - used to specify alternative merge strategies
+See the `graph_specs/` directory for more examples.
 
-The following are parameters you can set for the entire graph, or for an individual data source:
+### Running with Docker
 
-**node_normalization_version** - the version of the node normalizer API (see: https://nodenormalization-sri.renci.org/openapi.json)
+Build the image:
 
-**edge_normalization_version** - the version of biolink model used to normalize predicates and validate the KG
-
-**strict_normalization** - True or False specifying whether to discard nodes, node types, and edges connected to those nodes when they fail to normalize
-
-**conflation** - True or False flag specifying whether to conflate genes with proteins and chemicals with drugs
-
-For example, we could customize the previous example:
-
-```
-graphs:
-  - graph_id: Example_Graph
-    graph_name: Example Graph
-    graph_description: A free text description of what is in the graph.
-    output_format: neo4j
-    sources:
-      - source_id: CTD
-      - source_id: HGNC
-```
-
-See the `graph_specs` directory for more examples.
-
-### Running ORION
-
-Install Docker to create and run the necessary containers.
-
-Use the following command to build the necessary images.
-
-```
+```bash
 docker compose build
 ```
 
-To build every graph in your Graph Spec use the following command. This runs `orion-build all` on the image.
+Build all graphs in the configured Graph Spec:
 
-```
+```bash
 docker compose up
 ```
 
-#### Building specific graphs
+Build a specific graph:
 
-To build an individual graph use `orion-build` with a graph_id from the Graph Spec.
-
-Usage: `orion-build [-h] graph_id`
-positional arguments:
-`graph_id` : ID of the graph to build. Must match an ID from the configured Graph Spec.
-
-Example command to create a graph from a Graph Spec with graph_id: Example_Graph:
-
-```
+```bash
 docker compose run --rm orion orion-build Example_Graph
 ```
 
-#### Run ORION Pipeline on a single data source.
+Run the ingest pipeline for a single data source:
 
-To run the ORION pipeline for a single data source and transform it into KGX files, you can use `orion-load`.
-
-```
-optional arguments:
-  -h, --help : show this help message and exit
-  -t, --test_mode : Test mode will process a small sample version of the data.
-  -f, --fresh_start_mode : Fresh start mode will ignore previous states and overwrite previous data.
-  -l, --lenient_normalization : Lenient normalization mode will allow nodes that do not normalize to persist in the finalized kgx files.
+```bash
+docker compose run --rm orion orion-ingest DrugCentral
 ```
 
-Example command to convert data source CTD to KGX files.
+See available data sources and options:
 
-```
-docker compose run --rm orion orion-load CTD
-```
-
-To see the available arguments and a list of supported data sources:
-
-```
-docker compose run --rm orion orion-load -h
+```bash
+docker compose run --rm orion orion-ingest -h
 ```
 
-#### Testing and Troubleshooting
+### Development
 
-If you are experiencing issues or errors you may want to run tests:
+Install dev dependencies with [uv](https://docs.astral.sh/uv/):
 
+```bash
+uv sync --extra robokop --group dev
 ```
-docker-compose run --rm orion pytest /ORION
+
+Run tests:
+
+```bash
+uv run pytest tests/
 ```
 
-#### Contributing to ORION
+### Contributing
 
-Contributions are welcome, see the [Contributer README](README-CONTRIBUTER.md).
+Contributions are welcome, see the [Contributor README](README-CONTRIBUTER.md).
