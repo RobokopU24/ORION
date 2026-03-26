@@ -88,7 +88,7 @@ For each graph, specify:
 
 **sources** - a list of sources identifiers for data sources to include in the graph
 
-See the full list of data sources and their identifiers in the [data sources file](https://github.com/RobokopU24/ORION/blob/master/Common/data_sources.py).
+See the full list of data sources and their identifiers in the [data sources file](https://github.com/RobokopU24/ORION/blob/master/orion/data_sources.py).
 
 Here is a simple example.
 
@@ -146,7 +146,7 @@ Use the following command to build the necessary images.
 docker compose build
 ```
 
-To build every graph in your Graph Spec use the following command. This runs the command: `python /ORION/Common/build_manager.py all` on the image.
+To build every graph in your Graph Spec use the following command. This runs the command: `python /ORION/orion/build_manager.py all` on the image.
 
 ```
 docker compose up
@@ -163,7 +163,7 @@ positional arguments:
 Example command to create a graph from a Graph Spec with graph_id: Example_Graph:
 
 ```
-docker compose run --rm orion python /ORION/Common/build_manager.py Example_Graph
+docker compose run --rm orion python /ORION/orion/build_manager.py Example_Graph
 ```
 
 #### Run ORION Pipeline on a single data source.
@@ -181,13 +181,13 @@ optional arguments:
 Example command to convert data source CTD to KGX files.
 
 ```
-docker compose run --rm orion python /ORION/Common/load_manager.py CTD
+docker compose run --rm orion python /ORION/orion/load_manager.py CTD
 ```
 
 To see the available arguments and a list of supported data sources:
 
 ```
-docker compose run --rm orion python /ORION/Common/load_manager.py -h
+docker compose run --rm orion python /ORION/orion/load_manager.py -h
 ```
 
 #### Testing and Troubleshooting

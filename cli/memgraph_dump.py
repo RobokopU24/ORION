@@ -1,7 +1,7 @@
 import argparse
 import os
-from Common.utils import LoggingUtil
-from Common.memgraph_tools import create_memgraph_dump
+from orion.utils import LoggingUtil
+from orion.memgraph_tools import create_memgraph_dump
 
 logger = LoggingUtil.init_logging("ORION.cli.memgraph_dump",
                                   line_format='medium',

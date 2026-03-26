@@ -3,7 +3,7 @@ ORION welcomes contributions to the code base. Implementing parsers for new data
 
 ### For Developers
 
-To add a new data source to ORION, create a new parser. Each parser extends the SourceDataLoader interface in Common/loader_interface.py.
+To add a new data source to ORION, create a new parser. Each parser extends the SourceDataLoader interface in orion/loader_interface.py.
 
 To implement the interface you will need to write a class that fulfills the following.
 
@@ -35,7 +35,7 @@ Implement get_data(). This function should retrieve any source data files. The f
 
 Implement parse_data(). This function should parse the data files and populate lists of node and edge objects: self.final_node_list (kgxnode), self.final_edge_list (kgxedge).
 
-Finally, add your source to the list of sources in Common/data_sources.py. The source ID string here should match the one specified in the new parser. Also add your source to the SOURCE_DATA_LOADER_CLASS_IMPORTS dictionary, mapping it to the new parser class.
+Finally, add your source to the list of sources in orion/data_sources.py. The source ID string here should match the one specified in the new parser. Also add your source to the SOURCE_DATA_LOADER_CLASS_IMPORTS dictionary, mapping it to the new parser class.
 
 Now you can use that source ID in a graph spec to include your new source in a graph, or as the source id using load_manager.py.
 
