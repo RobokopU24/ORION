@@ -5,7 +5,7 @@ build-backend = "uv_build"
 [project]
 name = "robokop-orion"
 version = "0.1.15"
-description = "ORION ingests data from knowledge sources and converts them into interoperable biolink model compliant knowledge graphs."
+description = "ORION ingests data from knowledge bases and converts it into interoperable Biolink Model knowledge graphs."
 license = "MIT"
 license-files = ["LICEN[CS]E*"]
 readme = "README.md"
@@ -39,6 +39,16 @@ robokop = [
     "pyoxigraph>=0.3.22",
     "redis>=5.2.1",
 ]
+
+[project.scripts]
+orion-build = "orion.build_manager:main"
+orion-load = "orion.load_manager:main"
+orion-merge = "orion.cli.merge_kgs:main"
+orion-meta-kg = "orion.cli.generate_meta_kg:main"
+orion-redundant-kg = "orion.cli.generate_redundant_kg:main"
+orion-ac = "orion.cli.generate_ac_files:main"
+orion-neo4j-dump = "orion.cli.neo4j_dump:main"
+orion-memgraph-dump = "orion.cli.memgraph_dump:main"
 
 [dependency-groups]
 dev = [

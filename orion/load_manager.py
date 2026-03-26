@@ -713,8 +713,7 @@ class SourceDataManager:
         os.makedirs(source_dir_path, exist_ok=True)
 
 
-if __name__ == '__main__':
-
+def main():
     parser = argparse.ArgumentParser(description="Transform data sources into KGX files.")
     parser.add_argument('data_source',
                         nargs="+",
@@ -750,3 +749,7 @@ if __name__ == '__main__':
             release_vers = load_manager.run_pipeline(data_source, normalization_scheme=cmd_line_normalization_scheme)
             if release_vers:
                 print(f'Finished running data pipeline for {data_source} (release version {release_vers}).')
+
+
+if __name__ == '__main__':
+    main()

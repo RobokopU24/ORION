@@ -725,7 +725,7 @@ class GraphBuilder:
                       'Specify a valid directory with environment variable ORION_GRAPHS.')
 
 
-if __name__ == '__main__':
+def main():
     parser = argparse.ArgumentParser(description="Merge data sources into complete graphs.")
     parser.add_argument('graph_id',
                         help='ID of the graph to build. Must match an ID from the configured Graph Spec.')
@@ -746,3 +746,7 @@ if __name__ == '__main__':
             print(f'Invalid graph spec requested: {graph_id_arg}')
     for results_graph_id, results in graph_builder.build_results.items():
         print(f'{results_graph_id}\t{results["version"]}')
+
+
+if __name__ == '__main__':
+    main()

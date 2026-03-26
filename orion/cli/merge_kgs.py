@@ -4,8 +4,7 @@ import sys
 from orion.kgx_file_merger import merge_kgx_files
 
 
-if __name__ == '__main__':
-
+def main():
     ap = argparse.ArgumentParser(description="Given a list of node files and/or a list of edge files "
                                              "in kgx jsonl format, merge them into one node and one edge file.")
     ap.add_argument(
@@ -32,4 +31,8 @@ if __name__ == '__main__':
         sys.exit(1)
 
     merge_kgx_files(args["output_dir"], args["nodes"], args["edges"])
+
+
+if __name__ == '__main__':
+    main()
 

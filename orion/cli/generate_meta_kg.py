@@ -2,7 +2,7 @@ import argparse
 import os
 from orion.meta_kg import MetaKnowledgeGraphBuilder, META_KG_FILENAME, TEST_DATA_FILENAME
 
-if __name__ == '__main__':
+def main():
     ap = argparse.ArgumentParser(description='Generate MetaKG and test data files '
                                              'from a pair of node and edge jsonl files.')
     ap.add_argument('nodes_filepath')
@@ -32,3 +32,7 @@ if __name__ == '__main__':
         print(f'Test data complete ({test_data_output_filepath})')
     else:
         print(f'Test data already exists! Did not overwrite. ({test_data_output_filepath})')
+
+
+if __name__ == '__main__':
+    main()

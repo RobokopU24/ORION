@@ -3,11 +3,11 @@ import os
 from orion.utils import LoggingUtil
 from orion.memgraph_tools import create_memgraph_dump
 
-logger = LoggingUtil.init_logging("ORION.cli.memgraph_dump",
-                                  line_format='medium',
-                                  log_file_path=os.environ['ORION_LOGS'])
+def main():
+    logger = LoggingUtil.init_logging("ORION.cli.memgraph_dump",
+                                      line_format='medium',
+                                      log_file_path=os.environ['ORION_LOGS'])
 
-if __name__ == '__main__':
     ap = argparse.ArgumentParser(description='')
     ap.add_argument('nodes_filepath')
     ap.add_argument('edges_filepath')
@@ -19,4 +19,8 @@ if __name__ == '__main__':
     output_directory = args['output_directory']
 
     create_memgraph_dump(n_filepath, e_filepath, output_directory, logger=logger)
+
+
+if __name__ == '__main__':
+    main()
 

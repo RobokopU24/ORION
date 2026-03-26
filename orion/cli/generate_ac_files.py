@@ -1,7 +1,7 @@
 import argparse
 from orion.answercoalesce_build import generate_ac_files
 
-if __name__ == '__main__':
+def main():
     ap = argparse.ArgumentParser(
         description='Generate node labels, names, links, backlinks, and other AnswerCoalesce files from KGX node/edge files.'
     )
@@ -16,3 +16,7 @@ if __name__ == '__main__':
         input_edge_file=args['edges'],
         output_dir=args['outdir']
     )
+
+
+if __name__ == '__main__':
+    main()

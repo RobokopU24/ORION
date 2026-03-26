@@ -3,11 +3,11 @@ import os
 from orion.utils import LoggingUtil
 from orion.neo4j_tools import create_neo4j_dump
 
-logger = LoggingUtil.init_logging("ORION.cli.neo4j_dump",
-                                  line_format='medium',
-                                  log_file_path=os.environ['ORION_LOGS'])
+def main():
+    logger = LoggingUtil.init_logging("ORION.cli.neo4j_dump",
+                                      line_format='medium',
+                                      log_file_path=os.environ['ORION_LOGS'])
 
-if __name__ == '__main__':
     ap = argparse.ArgumentParser(description='')
     ap.add_argument('nodes_filepath')
     ap.add_argument('edges_filepath')
@@ -22,4 +22,8 @@ if __name__ == '__main__':
                       edges_filepath=e_filepath,
                       output_directory=output_directory,
                       logger=logger)
+
+
+if __name__ == '__main__':
+    main()
 
