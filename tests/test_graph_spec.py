@@ -28,7 +28,7 @@ def test_graph_output_dir():
     return testing_output_dir
 
 
-def get_source_data_manager_mock():
+def get_ingest_pipeline_mock():
     s_d_mock = MagicMock()
     s_d_mock.get_latest_source_version = MagicMock()
     s_d_mock.get_latest_source_version.side_effect = lambda arg: arg + '_v1'
@@ -91,7 +91,7 @@ def test_graph_spec_subgraph_version(test_graph_spec_dir, test_graph_output_dir)
     reset_graph_spec_config()
     graph_builder =  GraphBuilder(graph_specs_dir=test_graph_spec_dir,
                                   graph_output_dir=test_graph_output_dir)
-    graph_builder.source_data_manager = get_source_data_manager_mock()
+    graph_builder.ingest_pipeline = get_ingest_pipeline_mock()
 
     testing_graph_spec = graph_builder.graph_specs.get('Testing_Graph_2', None)
     assert testing_graph_spec.graph_version is None
@@ -113,7 +113,7 @@ def test_graph_spec_invalid_subgraph(test_graph_spec_dir, test_graph_output_dir)
     reset_graph_spec_config()
     graph_builder =  GraphBuilder(graph_specs_dir=test_graph_spec_dir,
                                   graph_output_dir=test_graph_output_dir)
-    graph_builder.source_data_manager = get_source_data_manager_mock()
+    graph_builder.ingest_pipeline = get_ingest_pipeline_mock()
     testing_graph_spec = graph_builder.graph_specs.get('Testing_Graph_3', None)
     assert testing_graph_spec.graph_version is None
     with pytest.raises(GraphSpecError):
@@ -125,7 +125,7 @@ def test_graph_spec_invalid_subgraph_version(test_graph_spec_dir, test_graph_out
     reset_graph_spec_config()
     graph_builder =  GraphBuilder(graph_specs_dir=test_graph_spec_dir,
                                   graph_output_dir=test_graph_output_dir)
-    graph_builder.source_data_manager = get_source_data_manager_mock()
+    graph_builder.ingest_pipeline = get_ingest_pipeline_mock()
     testing_graph_spec = graph_builder.graph_specs.get('Testing_Graph_4', None)
     graph_builder.determine_graph_version(testing_graph_spec)
     assert graph_builder.build_graph(testing_graph_spec) is False
