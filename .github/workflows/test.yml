@@ -7,9 +7,6 @@ jobs:
   test:
     name: test
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        python-version: [3.9]
     steps:
       - name: Checkout the repository
         uses: actions/checkout@v4
@@ -24,15 +21,14 @@ jobs:
           echo "ORION_STORAGE=$PWD/tests/workspace/storage" >> $GITHUB_ENV
           echo "ORION_GRAPHS=$PWD/tests/workspace/graphs" >> $GITHUB_ENV
 
-      - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v4
-        with:
-          python-version: ${{ matrix.python-version }}
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+
+      - name: Set up Python
+        run: uv python install 3.12
 
       - name: Install dependencies
-        run: |
-          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+        run: uv sync --extra robokop --group dev
 
       - name: Run pytest
-        run: |
-          python -m pytest tests/
+        run: uv run pytest tests/

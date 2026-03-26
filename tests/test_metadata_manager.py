@@ -1,6 +1,6 @@
 import os
 import pytest
-from Common.metadata import SourceMetadata
+from orion.metadata import SourceMetadata
 
 test_storage_dir = os.path.dirname(os.path.abspath(__file__)) + '/storage'
 

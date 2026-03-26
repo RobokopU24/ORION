@@ -4,14 +4,14 @@ import psycopg2.extras
 import gzip
 import os
 
-from Common.extractor import Extractor
-from Common.loader_interface import SourceDataLoader, SourceDataFailedError, SourceDataBrokenError
-from Common.utils import GetData, snakify
-from Common.biolink_constants import PRIMARY_KNOWLEDGE_SOURCE, AGGREGATOR_KNOWLEDGE_SOURCES, PUBLICATIONS, \
+from orion.extractor import Extractor
+from orion.loader_interface import SourceDataLoader, SourceDataFailedError, SourceDataBrokenError
+from orion.utils import GetData, snakify
+from orion.biolink_constants import PRIMARY_KNOWLEDGE_SOURCE, AGGREGATOR_KNOWLEDGE_SOURCES, PUBLICATIONS, \
     KNOWLEDGE_LEVEL, KNOWLEDGE_ASSERTION, AGENT_TYPE, MANUAL_AGENT, AFFINITY, AFFINITY_PARAMETER
-from Common.prefixes import DRUGCENTRAL, MEDDRA, UMLS, UNIPROTKB, PUBMED
-from Common.predicates import DGIDB_PREDICATE_MAPPING
-from Common.db_connectors import PostgresConnector
+from orion.prefixes import DRUGCENTRAL, MEDDRA, UMLS, UNIPROTKB, PUBMED
+from orion.predicates import DGIDB_PREDICATE_MAPPING
+from orion.db_connectors import PostgresConnector
 
 
 class DrugCentralLoader(SourceDataLoader):

@@ -4,9 +4,9 @@ import argparse
 import tarfile
 
 from csv import reader
-from Common.utils import GetData
-from Common.extractor import Extractor
-from Common.loader_interface import SourceDataLoader
+from orion.utils import GetData
+from orion.extractor import Extractor
+from orion.loader_interface import SourceDataLoader
 from parsers.GOA.src.loadGOA import get_goa_predicate, get_goa_edge_properties, get_goa_subject_props, DATACOLS
 
 

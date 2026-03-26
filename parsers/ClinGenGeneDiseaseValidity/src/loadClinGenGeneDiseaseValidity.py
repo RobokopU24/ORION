@@ -1,8 +1,8 @@
 import os
 import enum
-from Common.extractor import Extractor
-from Common.loader_interface import SourceDataLoader
-from Common.utils import GetData
+from orion.extractor import Extractor
+from orion.loader_interface import SourceDataLoader
+from orion.utils import GetData
 from datetime import date
 
 

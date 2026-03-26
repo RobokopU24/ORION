@@ -4,11 +4,11 @@ import os
 import pandas as pd
 import ast
 
-from Common.utils import GetData
-from Common.loader_interface import SourceDataLoader
-from Common.kgxmodel import kgxnode, kgxedge
-from Common.extractor import Extractor
-from Common.biolink_constants import KNOWLEDGE_LEVEL, KNOWLEDGE_ASSERTION, AGENT_TYPE, MANUAL_AGENT, \
+from orion.utils import GetData
+from orion.loader_interface import SourceDataLoader
+from orion.kgxmodel import kgxnode, kgxedge
+from orion.extractor import Extractor
+from orion.biolink_constants import KNOWLEDGE_LEVEL, KNOWLEDGE_ASSERTION, AGENT_TYPE, MANUAL_AGENT, \
     QUALIFIED_PREDICATE, OBJECT_ASPECT_QUALIFIER, OBJECT_DIRECTION_QUALIFIER
 
 def load_json(json_data):

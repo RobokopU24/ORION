@@ -3,3 +3,7 @@
 *.pycache
 .env
 .idea
+.DS_Store
+.pytest_cache/
+dist/
+*.egg-info/

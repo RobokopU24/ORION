@@ -3,11 +3,12 @@ import requests
 
 from pathlib import Path
 
-from Common.utils import GetData
-from Common.loader_interface import SourceDataLoader
-from Common.kgxmodel import kgxnode, kgxedge
-from Common.prefixes import HGNC, HGNC_FAMILY
-from Common.biolink_constants import AGENT_TYPE, MANUAL_AGENT, KNOWLEDGE_ASSERTION, KNOWLEDGE_LEVEL, PUBLICATIONS
+from orion.utils import GetData
+from orion.loader_interface import SourceDataLoader
+from orion.kgxmodel import kgxnode, kgxedge
+from orion.prefixes import HGNC, HGNC_FAMILY
+from orion.biolink_constants import AGENT_TYPE, MANUAL_AGENT, KNOWLEDGE_ASSERTION, KNOWLEDGE_LEVEL, PUBLICATIONS
+
 
 ##############
 # Class: HGNC loader
