@@ -2,7 +2,7 @@ services:
   orion:
     build:
       context: .
-    command: [python, /ORION/orion/build_manager.py, all]
+    command: [orion-build, all]
     environment:
       - ORION_STORAGE=/ORION_storage
       - ORION_GRAPHS=/ORION_graphs

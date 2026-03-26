@@ -112,7 +112,7 @@ spec:
         - name: ds-graph-builder
           image: {{ .Values.orion.image.repository }}:{{ .Values.orion.image.tag }}
           imagePullPolicy: {{ .Values.orion.image.pullPolicy }}
-          args: ["python", "/ORION/orion/build_manager.py", {{ .Values.orion.graphID }} ]
+          args: ["orion-build", {{ .Values.orion.graphID }} ]
           volumeMounts:
             - mountPath: /ORION_storage
               name: ds-sources-volume

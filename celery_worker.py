@@ -23,16 +23,12 @@ celery_app.conf.update(
 # so that the data ingestion task can be picked up from the task queue
 @celery_app.task(name="orion.data_ingestion", queue="orion")
 def run_build_manager(task_data):
-    # Ensure we're in the correct directory (ORION root)
-    pwd_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'orion')
-    os.chdir(pwd_path)
-    print(f'pwd_path: {pwd_path}', flush=True)
     print(f'task_data: {task_data}', flush=True)
-    # Run build_manager.py as a subprocess with the provided config
+    # Run orion-build as a subprocess with the provided config
     os.environ["ORION_GRAPH_SPEC"] = task_data["graph_spec_filename"]
     # no need to catch CalledProcessError exception, but rather let it propogate to Celery task handling
     result = subprocess.run(
-        ["python", "build_manager.py", task_data["graph_id"], "--graph_specs_dir",
+        ["orion-build", task_data["graph_id"], "--graph_specs_dir",
          os.getenv('SHARED_SOURCE_DATA_PATH', None)],
         capture_output=True,
         text=True,

@@ -146,7 +146,7 @@ Use the following command to build the necessary images.
 docker compose build
 ```
 
-To build every graph in your Graph Spec use the following command. This runs the command: `python /ORION/orion/build_manager.py all` on the image.
+To build every graph in your Graph Spec use the following command. This runs `orion-build all` on the image.
 
 ```
 docker compose up
@@ -154,21 +154,21 @@ docker compose up
 
 #### Building specific graphs
 
-To build an individual graph use `build_manager.py` with a graph_id from the Graph Spec. The script merges data sources into complete graphs.
+To build an individual graph use `orion-build` with a graph_id from the Graph Spec.
 
-Usage: `build_manager.py [-h] graph_id`
+Usage: `orion-build [-h] graph_id`
 positional arguments:
 `graph_id` : ID of the graph to build. Must match an ID from the configured Graph Spec.
 
 Example command to create a graph from a Graph Spec with graph_id: Example_Graph:
 
 ```
-docker compose run --rm orion python /ORION/orion/build_manager.py Example_Graph
+docker compose run --rm orion orion-build Example_Graph
 ```
 
 #### Run ORION Pipeline on a single data source.
 
-To run the ORION pipeline for a single data source and transform it into KGX files, you can use the `load_manager` script.
+To run the ORION pipeline for a single data source and transform it into KGX files, you can use `orion-load`.
 
 ```
 optional arguments:
@@ -181,13 +181,13 @@ optional arguments:
 Example command to convert data source CTD to KGX files.
 
 ```
-docker compose run --rm orion python /ORION/orion/load_manager.py CTD
+docker compose run --rm orion orion-load CTD
 ```
 
 To see the available arguments and a list of supported data sources:
 
 ```
-docker compose run --rm orion python /ORION/orion/load_manager.py -h
+docker compose run --rm orion orion-load -h
 ```
 
 #### Testing and Troubleshooting
