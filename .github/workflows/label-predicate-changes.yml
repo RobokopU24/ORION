@@ -20,12 +20,9 @@ jobs:
     - name: Set up Python
       run: uv python install 3.12
 
-    - name: Install dependencies
-      run: uv pip install --system requests
-
     - name: Run predicate check
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         ISSUE_NUMBER: ${{ github.event.pull_request.number || github.event.issue.number }}
       run: |
-        python .github/scripts/Bio_QC_check.py
+        uv run --with requests python .github/scripts/Bio_QC_check.py
