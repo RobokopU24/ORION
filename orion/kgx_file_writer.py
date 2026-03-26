@@ -10,7 +10,7 @@ from orion.biolink_constants import PRIMARY_KNOWLEDGE_SOURCE, AGGREGATOR_KNOWLED
 
 class KGXFileWriter:
 
-    logger = LoggingUtil.init_logging("ORION.Common.KGXFileWriter",
+    logger = LoggingUtil.init_logging("ORION.orion.KGXFileWriter",
                                       line_format='medium',
                                       level=logging.INFO,
                                       log_file_path=os.getenv('ORION_LOGS'))

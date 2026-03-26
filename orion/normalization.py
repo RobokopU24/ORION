@@ -78,7 +78,7 @@ class NodeNormalizer:
         :param node_normalization_version - not implemented yet
         """
         # create a logger
-        self.logger = LoggingUtil.init_logging("ORION.Common.NodeNormalizer",
+        self.logger = LoggingUtil.init_logging("ORION.orion.NodeNormalizer",
                                                level=log_level,
                                                line_format='medium',
                                                log_file_path=os.getenv('ORION_LOGS'))
@@ -397,7 +397,7 @@ class EdgeNormalizer:
         :param log_level - overrides default log level
         """
         # create a logger
-        self.logger = LoggingUtil.init_logging("ORION.Common.EdgeNormalizer", level=log_level, line_format='medium', log_file_path=os.getenv('ORION_LOGS'))
+        self.logger = LoggingUtil.init_logging("ORION.orion.EdgeNormalizer", level=log_level, line_format='medium', log_file_path=os.getenv('ORION_LOGS'))
         # normalization map for future look up of all normalized predicates
         self.edge_normalization_lookup = {}
         self.cached_edge_norms = {}

@@ -14,7 +14,7 @@ from orion.kgx_file_writer import KGXFileWriter
 
 bmt = get_biolink_model_toolkit()
 
-# TODO - really we should get the full list of qualifiers from Common/biolink_constants.py,
+# TODO - really we should get the full list of qualifiers from orion/biolink_constants.py,
 #  but because we currently cannot deduce the association types of edges and/or permissible value enumerators,
 #  we have to hard code qualifier handling anyway, we might as well check against a smaller list
 QUALIFIER_KEYS = [OBJECT_ASPECT_QUALIFIER,

@@ -9,7 +9,7 @@ from orion.biolink_constants import SUBJECT_ID, OBJECT_ID
 from orion.merging import GraphMerger, DiskGraphMerger, MemoryGraphMerger
 from orion.load_manager import RESOURCE_HOGS
 
-logger = LoggingUtil.init_logging("ORION.Common.KGXFileMerger",
+logger = LoggingUtil.init_logging("ORION.orion.KGXFileMerger",
                                   line_format='medium',
                                   log_file_path=os.getenv('ORION_LOGS'))
 

@@ -61,7 +61,7 @@ class SequenceVariantSupplementation:
 
     def __init__(self, output_dir="."):
 
-        self.logger = LoggingUtil.init_logging("ORION.Common.SequenceVariantSupplementation",
+        self.logger = LoggingUtil.init_logging("ORION.orion.SequenceVariantSupplementation",
                                                line_format='medium',
                                                log_file_path=os.getenv('ORION_LOGS'))
         workspace_dir = os.getenv("ORION_STORAGE", output_dir)

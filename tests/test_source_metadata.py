@@ -3,8 +3,8 @@ import os
 
 import pytest
 
-from Common.data_sources import SOURCE_DATA_LOADER_CLASS_IMPORTS, get_data_source_metadata_path
-from Common.kgx_metadata import KGXKnowledgeSource
+from orion.data_sources import SOURCE_DATA_LOADER_CLASS_IMPORTS, get_data_source_metadata_path
+from orion.kgx_metadata import KGXKnowledgeSource
 
 ORION_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 

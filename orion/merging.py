@@ -15,7 +15,7 @@ EDGE_ENTITY_TYPE = 'edge'
 # TODO ideally we'd make the biolink model version configurable here
 bmt = BiolinkUtils()
 
-logger = LoggingUtil.init_logging("ORION.Common.merging",
+logger = LoggingUtil.init_logging("ORION.orion.merging",
                                   line_format='medium',
                                   log_file_path=os.getenv('ORION_LOGS'))
 

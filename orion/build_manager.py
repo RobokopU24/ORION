@@ -40,7 +40,7 @@ class GraphBuilder:
                  graph_specs_dir=None,
                  graph_output_dir=None):
 
-        self.logger = LoggingUtil.init_logging("ORION.Common.GraphBuilder",
+        self.logger = LoggingUtil.init_logging("ORION.orion.GraphBuilder",
                                                line_format='medium',
                                                log_file_path=os.getenv('ORION_LOGS'))
 

@@ -10,7 +10,7 @@ OPENAI_API_KEY = CONFIG.get("OPENAI_API_KEY")
 LLM_RESULTS = []
 
 
-logger = LoggingUtil.init_logging("ORION.Common.BagelGPT",
+logger = LoggingUtil.init_logging("ORION.orion.BagelGPT",
                                   line_format='medium',
                                   log_file_path=os.getenv('ORION_LOGS'))
 

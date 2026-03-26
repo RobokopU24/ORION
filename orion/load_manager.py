@@ -18,7 +18,7 @@ from orion.supplementation import SequenceVariantSupplementation, Supplementatio
 
 SOURCE_DATA_LOADER_CLASSES = SourceDataLoaderClassFactory()
 
-logger = LoggingUtil.init_logging("ORION.Common.SourceDataManager",
+logger = LoggingUtil.init_logging("ORION.orion.SourceDataManager",
                                   line_format='medium',
                                   log_file_path=os.getenv('ORION_LOGS'))
 
