@@ -10,25 +10,40 @@ def create_memgraph_dump(nodes_filepath: str,
                          node_property_ignore_list: set = None,
                          edge_property_ignore_list: set = None,
                          logger=None):
-    output_cypher_file = os.path.join(output_directory, f'memgraph_{graph_id}_{graph_version}.cypher')
-    if os.path.exists(output_cypher_file):
+
+    if graph_version:
+        sub_name = f'{graph_id}_{graph_version}'
+    else:
+        sub_name = f'{graph_id}'
+
+    output_csv_node_file = os.path.join(output_directory, f'memgraph_{sub_name}_nodes.csv')
+    output_cypher_node_idx_file = os.path.join(output_directory,
+                                               f'memgraph_{sub_name}_indexes.cypher')
+    output_edge_file = os.path.join(output_directory, f'memgraph_{sub_name}_edges.csv')
+    if (os.path.exists(output_csv_node_file) and os.path.exists(output_cypher_node_idx_file) and
+            os.path.exists(output_edge_file)):
         if logger:
-            logger.info(f'Memgraph file {output_cypher_file} were already created for {graph_id}({graph_version})')
+            logger.info(f'Memgraph files were already created for {graph_id}({graph_version})')
     else:
         if logger:
-            logger.info(f'Creating memgraph dump cypher file for {graph_id}({graph_version})...')
+            logger.info(f'Creating memgraph dump files for {graph_id}({graph_version})...')
         try:
-            kgx_file_converter.convert_jsonl_to_memgraph_cypher(nodes_input_file=nodes_filepath,
-                                                                edges_input_file=edges_filepath,
-                                                                output_cypher_file=output_cypher_file,
-                                                                node_property_ignore_list=node_property_ignore_list,
-                                                                edge_property_ignore_list=edge_property_ignore_list)
+            if not os.path.exists(output_csv_node_file):
+                kgx_file_converter.convert_node_jsonl_to_memgraph_csv(
+                    nodes_input_file=nodes_filepath,
+                    output_file=output_csv_node_file,
+                    node_property_ignore_list=node_property_ignore_list)
+
+            if not os.path.exists(output_cypher_node_idx_file):
+                kgx_file_converter.add_indexes_to_memgraph_cypher(nodes_filepath, output_cypher_node_idx_file)
+
+            kgx_file_converter.convert_edge_jsonl_to_memgraph_csv(edges_input_file=edges_filepath,
+                                                                  output_base_file=output_edge_file,
+                                                                  edge_property_ignore_list=edge_property_ignore_list)
         except Exception as e:
             if logger:
                 logger.error(f'create_memgraph_dump() failed with exception: {e}')
-                return False
-            else:
-                raise e
+            raise e
         if logger:
             logger.info(f'Memgraph cypher dump file created for {graph_id}({graph_version})...')
     return True
