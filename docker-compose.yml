@@ -9,6 +9,7 @@ services:
       - ORION_LOGS=/ORION_logs
       - ORION_GRAPH_SPEC
       - ORION_GRAPH_SPEC_URL
+      - PYTHONPATH=/ORION
       - ORION_OUTPUT_URL
       - EDGE_NORMALIZATION_ENDPOINT
       - NODE_NORMALIZATION_ENDPOINT
@@ -31,5 +32,3 @@ services:
       - "${ORION_GRAPHS}:/ORION_graphs"
       - "${ORION_LOGS}:/ORION_logs"
     user: 7474:7474
-    
-
