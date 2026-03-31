@@ -1,14 +1,9 @@
 import argparse
-import os
-from orion.utils import LoggingUtil
 from orion.memgraph_tools import create_memgraph_dump
 
 def main():
-    logger = LoggingUtil.init_logging("ORION.cli.memgraph_dump",
-                                      line_format='medium',
-                                      log_file_path=os.environ['ORION_LOGS'])
 
-    ap = argparse.ArgumentParser(description='')
+    ap = argparse.ArgumentParser(description='Create memgraph CSV import files from KGX jsonl files.')
     ap.add_argument('nodes_filepath')
     ap.add_argument('edges_filepath')
     ap.add_argument('output_directory')
@@ -18,7 +13,7 @@ def main():
     e_filepath = args['edges_filepath']
     output_directory = args['output_directory']
 
-    create_memgraph_dump(n_filepath, e_filepath, output_directory, logger=logger)
+    create_memgraph_dump(n_filepath, e_filepath, output_directory)
 
 
 if __name__ == '__main__':

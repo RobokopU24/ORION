@@ -15,6 +15,7 @@ from orion.ingest_pipeline import IngestPipeline
 from orion.kgx_file_merger import KGXFileMerger, DONT_MERGE
 from orion.kgx_validation import validate_graph
 from orion.neo4j_tools import create_neo4j_dump
+from orion.memgraph_tools import create_memgraph_dump
 from orion.kgxmodel import GraphSpec, SubGraphSource, DataSource
 from orion.normalization import NORMALIZATION_CODE_VERSION, NormalizationScheme
 from orion.metadata import Metadata, GraphMetadata, SourceMetadata
@@ -185,8 +186,7 @@ class GraphBuilder:
                                              graph_id=graph_id,
                                              graph_version=graph_version,
                                              node_property_ignore_list=node_property_ignore_list,
-                                             edge_property_ignore_list=edge_property_ignore_list,
-                                             logger=self.logger)
+                                             edge_property_ignore_list=edge_property_ignore_list)
             if dump_success:
                 graph_metadata.set_dump(dump_type="neo4j_redundant",
                                         dump_url=f'{graph_output_url}graph_{graph_version}_redundant.db.dump')
@@ -208,8 +208,7 @@ class GraphBuilder:
                                              graph_id=graph_id,
                                              graph_version=graph_version,
                                              node_property_ignore_list=node_property_ignore_list,
-                                             edge_property_ignore_list=edge_property_ignore_list,
-                                             logger=self.logger)
+                                             edge_property_ignore_list=edge_property_ignore_list)
             if dump_success:
                 graph_metadata.set_dump(dump_type="neo4j_collapsed_qualifiers",
                                         dump_url=f'{graph_output_url}graph_{graph_version}'
@@ -223,8 +222,7 @@ class GraphBuilder:
                                              graph_id=graph_id,
                                              graph_version=graph_version,
                                              node_property_ignore_list=node_property_ignore_list,
-                                             edge_property_ignore_list=edge_property_ignore_list,
-                                             logger=self.logger)
+                                             edge_property_ignore_list=edge_property_ignore_list)
             if dump_success:
                 graph_metadata.set_dump(dump_type="neo4j",
                                         dump_url=f'{graph_output_url}graph_{graph_version}.db.dump')
@@ -237,8 +235,7 @@ class GraphBuilder:
                                                 graph_id=graph_id,
                                                 graph_version=graph_version,
                                                 node_property_ignore_list=node_property_ignore_list,
-                                                edge_property_ignore_list=edge_property_ignore_list,
-                                                logger=self.logger)
+                                                edge_property_ignore_list=edge_property_ignore_list)
             if dump_success:
                 graph_metadata.set_dump(dump_type="memgraph",
                                         dump_url=f'{graph_output_url}memgraph_{graph_version}.cypher')

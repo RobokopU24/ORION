@@ -1,4 +1,3 @@
-import signal
 import time
 import os
 import neo4j
@@ -6,6 +5,11 @@ import subprocess
 import orion.kgx_file_converter as kgx_file_converter
 from orion.biolink_constants import NAMED_THING
 from orion.utils import LoggingUtil
+
+
+logger = LoggingUtil.init_logging("ORION.orion.neo4j_tools",
+                                  line_format='medium',
+                                  log_file_path=os.getenv('ORION_LOGS'))
 
 
 class Neo4jTools:
@@ -24,9 +28,18 @@ class Neo4jTools:
         self.graph_db_uri = f'bolt://{neo4j_host}:{bolt_port}'
         self.graph_db_auth = ("neo4j", self.password)
         self.neo4j_driver = neo4j.GraphDatabase.driver(self.graph_db_uri, auth=self.graph_db_auth)
-        self.logger = LoggingUtil.init_logging("ORION.orion.neo4j_tools",
-                                               line_format='medium',
-                                               log_file_path=os.getenv('ORION_LOGS'))
+
+    @staticmethod
+    def __run_command(cmd: list, log_message: str, **kwargs) -> int:
+        logger.info(f'{log_message}...')
+        result = subprocess.run(cmd, capture_output=True, **kwargs)
+        stdout = result.stdout.decode("UTF-8").strip()
+        if stdout:
+            logger.info(stdout)
+        if result.returncode != 0:
+            stderr = result.stderr.decode("UTF-8").strip()
+            logger.error(f'{log_message} failed (ExitCode {result.returncode}): {stderr}')
+        return result.returncode
 
     def import_csv_files(self,
                          graph_directory: str,
@@ -37,23 +50,15 @@ class Neo4jTools:
         if password_exit_code != 0:
             return password_exit_code
 
-        self.logger.info(f'Importing csv files to neo4j...')
-        neo4j_import_cmd = ['neo4j-admin', 'database', 'import', 'full',
-                            f'--nodes={csv_nodes_filename}',
-                            f'--relationships={csv_edges_filename}',
-                            '--delimiter=TAB',
-                            '--array-delimiter=U+001F',
-                            '--overwrite-destination=true']
-        import_results: subprocess.CompletedProcess = subprocess.run(neo4j_import_cmd,
-                                                                     cwd=graph_directory,
-                                                                     capture_output=True)
-        self.logger.info(import_results.stdout)
-        import_results_return_code = import_results.returncode
-        if import_results_return_code != 0:
-            error_message = f'Neo4j import subprocess error (ExitCode {import_results_return_code}): ' \
-                            f'{import_results.stderr.decode("UTF-8")}'
-            self.logger.error(error_message)
-        return import_results_return_code
+        return self.__run_command(
+            ['neo4j-admin', 'database', 'import', 'full',
+             f'--nodes={csv_nodes_filename}',
+             f'--relationships={csv_edges_filename}',
+             '--delimiter=TAB',
+             '--array-delimiter=U+001F',
+             '--overwrite-destination=true'],
+            log_message='Importing csv files to neo4j',
+            cwd=graph_directory)
 
     def load_backup_dump(self,
                          dump_file_path: str = None):
@@ -61,59 +66,40 @@ class Neo4jTools:
         if password_exit_code != 0:
             return password_exit_code
 
-        self.logger.info(f'Loading a neo4j backup dump {dump_file_path}...')
-        neo4j_load_cmd = ['neo4j-admin', 'database', 'load', f'--from-path={dump_file_path}', '--overwrite-destination=true', 'neo4j']
-        load_results: subprocess.CompletedProcess = subprocess.run(neo4j_load_cmd,
-                                                                   capture_output=True)
-        self.logger.info(load_results.stdout)
-        load_results_return_code = load_results.returncode
-        if load_results_return_code != 0:
-            error_message = f'Neo4j load subprocess error (ExitCode {load_results_return_code}): ' \
-                            f'{load_results.stderr.decode("UTF-8")}'
-            self.logger.error(error_message)
-        return load_results_return_code
+        return self.__run_command(
+            ['neo4j-admin', 'database', 'load',
+             f'--from-path={dump_file_path}',
+             '--overwrite-destination=true', 'neo4j'],
+            log_message=f'Loading neo4j backup dump {dump_file_path}')
 
     def migrate_dump_to_neo4j_5(self):
-        self.logger.info(f'Migrating db dump to neo4j 5...')
-        neo4j_migrate_cmd = ['neo4j-admin', 'database', 'migrate', '--force-btree-indexes-to-range', 'neo4j']
-        migrate_results: subprocess.CompletedProcess = subprocess.run(neo4j_migrate_cmd,
-                                                                      capture_output=True)
-        self.logger.info(migrate_results.stdout)
-        results_return_code = migrate_results.returncode
-        if results_return_code != 0:
-            error_message = f'Neo4j migrate subprocess error (ExitCode {results_return_code}): ' \
-                            f'{migrate_results.stderr.decode("UTF-8")}'
-            self.logger.error(error_message)
-        return results_return_code
+        return self.__run_command(
+            ['neo4j-admin', 'database', 'migrate',
+             '--force-btree-indexes-to-range', 'neo4j'],
+            log_message='Migrating db dump to neo4j 5')
 
     def create_backup_dump(self,
                            dump_directory: str = None):
-        self.logger.info(f'Creating a backup dump of the neo4j...')
-        neo4j_dump_cmd = ['neo4j-admin', 'database', 'dump', 'neo4j', f'--to-path={dump_directory}']
-        dump_results: subprocess.CompletedProcess = subprocess.run(neo4j_dump_cmd,
-                                                                   capture_output=True)
-        self.logger.info(dump_results.stdout)
-        dump_results_return_code = dump_results.returncode
-        if dump_results_return_code != 0:
-            error_message = f'Neo4j dump subprocess error (ExitCode {dump_results_return_code}): ' \
-                            f'{dump_results.stderr.decode("UTF-8")}'
-            self.logger.error(error_message)
-        return dump_results_return_code
+        return self.__run_command(
+            ['neo4j-admin', 'database', 'dump', 'neo4j',
+             f'--to-path={dump_directory}'],
+            log_message='Creating a backup dump of neo4j')
 
     def start_neo4j(self):
-        self.logger.info(f'Starting Neo4j DB...')
-        return self.__issue_neo4j_command('start')
+        return self.__run_command(
+            ['neo4j', 'start', '--verbose'],
+            log_message='Starting Neo4j DB')
 
     def stop_neo4j(self):
-        self.logger.info(f'Stopping Neo4j DB...')
+        logger.info('Stopping Neo4j DB...')
         # We would prefer to stop the neo4j using "neo4j stop" it's not working with the current docker image.
         # Instead, we can find and kill the neo4j process using the pid.
         #
         # We could attempt "stop neo4j" and only kill the process as a fallback as follows, but it takes 2 whole minutes
         # to time out. Seeing as that always happens with the current docker image that's slow and not helpful.
-        # exit_code = self.__issue_neo4j_command('stop')
+        # exit_code = self.__run_command(['neo4j', 'stop', '--verbose'], log_message='Stopping Neo4j DB')
         # if exit_code != 0:
-        #     self.logger.warning(f'neo4j stop failed (exit code {exit_code}), falling back to process kill...')
+        #     logger.warning(f'neo4j stop failed (exit code {exit_code}), falling back to process kill...')
         exit_code = self.__kill_neo4j_process()
         return exit_code
 
@@ -130,50 +116,30 @@ class Neo4jTools:
                     pid = int(f.read().strip())
 
             if pid:
-                self.logger.info(f'Sending SIGTERM to Neo4j process (PID {pid})...')
+                logger.info(f'Sending SIGTERM to Neo4j process (PID {pid})...')
                 os.kill(pid, 15)  # SIGTERM
             else:
-                self.logger.error(f'Neo4j PID was not found and Neo4j could not be stopped.')
+                logger.error(f'Neo4j PID was not found and Neo4j could not be stopped.')
                 return 1
 
             # Wait for Neo4j to shut down gracefully
             for i in range(30):
                 check = subprocess.run(['pgrep', '-f', 'org.neo4j'], capture_output=True)
                 if check.returncode != 0:  # Process gone
-                    self.logger.info('Neo4j process stopped successfully.')
+                    logger.info('Neo4j process stopped successfully.')
                     return 0
                 time.sleep(1)
 
-            self.logger.error('Neo4j process did not stop within 30 seconds.')
+            logger.error('Neo4j process did not stop within 30 seconds.')
             return 1
         except Exception as e:
-            self.logger.error(f'Error killing Neo4j process: {e}')
+            logger.error(f'Error killing Neo4j process: {e}')
             return 1
 
-    def __issue_neo4j_command(self, command: str):
-        neo4j_cmd = ['neo4j', f'{command}', '--verbose']
-        neo4j_results: subprocess.CompletedProcess = subprocess.run(neo4j_cmd,
-                                                                    capture_output=True)
-        self.logger.info(neo4j_results.stdout)
-        neo4j_results_return_code = neo4j_results.returncode
-        if neo4j_results_return_code != 0:
-            error_message = f'Neo4j {command} subprocess error (ExitCode {neo4j_results_return_code}): ' \
-                            f'{neo4j_results.stderr.decode("UTF-8")}'
-            self.logger.error(error_message)
-        return neo4j_results_return_code
-
     def set_initial_password(self):
-        self.logger.info('Setting initial password for Neo4j...')
-        neo4j_cmd = ['neo4j-admin', 'dbms', 'set-initial-password', self.password]
-        neo4j_results: subprocess.CompletedProcess = subprocess.run(neo4j_cmd,
-                                                                    capture_output=True)
-        self.logger.info(neo4j_results.stdout)
-        neo4j_results_return_code = neo4j_results.returncode
-        if neo4j_results_return_code != 0:
-            error_message = f'Neo4j {neo4j_cmd} subprocess error (ExitCode {neo4j_results_return_code}): ' \
-                            f'{neo4j_results.stderr.decode("UTF-8")}'
-            self.logger.error(error_message)
-        return neo4j_results_return_code
+        return self.__run_command(
+            ['neo4j-admin', 'dbms', 'set-initial-password', self.password],
+            log_message='Setting initial password for Neo4j')
 
     @staticmethod
     def do_cypher_tx(tx, cypher):
@@ -189,7 +155,7 @@ class Neo4jTools:
             return neo4j_result
 
     def add_db_indexes(self):
-        self.logger.info('Adding indexes to neo4j db...')
+        logger.info('Adding indexes to neo4j db...')
         indexes_added = 0
         index_names = []
         try:
@@ -197,7 +163,7 @@ class Neo4jTools:
 
                 # node name index
                 node_name_index_cypher = f'CREATE INDEX node_name_index FOR (n:`{NAMED_THING}`) ON (n.name)'
-                self.logger.info(f'Adding node name index on {NAMED_THING}.name')
+                logger.info(f'Adding node name index on {NAMED_THING}.name')
                 session.run(node_name_index_cypher).consume()
                 indexes_added += 1
                 index_names.append("node_name_index")
@@ -205,7 +171,7 @@ class Neo4jTools:
                 # node id indexes
                 cypher_result = list(session.run("CALL db.labels()"))
                 node_labels = [result['label'] for result in cypher_result]
-                self.logger.info(f'Adding node id indexes for node labels: {node_labels}')
+                logger.info(f'Adding node id indexes for node labels: {node_labels}')
                 for node_label in node_labels:
                     node_label_index = f'node_id_{node_label.replace(":", "_")}'
                     node_name_index_cypher = f'CREATE CONSTRAINT {node_label_index} FOR (n:`{node_label}`) ' \
@@ -215,11 +181,11 @@ class Neo4jTools:
                     index_names.append(node_label_index)
 
                 # wait for indexes
-                self.logger.info(f'Waiting for indexes to be created...')
+                logger.info(f'Waiting for indexes to be created...')
                 await_indexes_cypher = f'CALL db.awaitIndexes()'
                 session.run(await_indexes_cypher).consume()
 
-                self.logger.info(f'Confirming index creation...')
+                logger.info(f'Confirming index creation...')
                 retrieve_indexes_cypher = f'SHOW INDEXES'
                 retrieve_indexes_results = session.run(retrieve_indexes_cypher)
                 confirmed_index_count = 0
@@ -228,33 +194,33 @@ class Neo4jTools:
                         if result['state'] == 'ONLINE':
                             confirmed_index_count += 1
                         else:
-                            self.logger.error(f"Oh No. Index {result['name']} has state {result['state']} "
+                            logger.error(f"Oh No. Index {result['name']} has state {result['state']} "
                                               f"but should be online.")
                 if indexes_added != confirmed_index_count:
-                    self.logger.error(f"Oh No. Tried to add {indexes_added} indexes "
+                    logger.error(f"Oh No. Tried to add {indexes_added} indexes "
                                       f"but only {confirmed_index_count} were added.")
                     return 1
 
         except neo4j.exceptions.ClientError as e:
-            self.logger.error(f"Adding indexes failed: {e}")
+            logger.error(f"Adding indexes failed: {e}")
             return 1
 
-        self.logger.info(f"Adding indexes successful. {indexes_added} indexes created.")
+        logger.info(f"Adding indexes successful. {indexes_added} indexes created.")
         return 0
 
     def wait_for_neo4j_initialization(self, counter: int = 1, max_retries: int = 10):
         try:
             with self.neo4j_driver.session() as session:
                 session.run("return 1")
-                self.logger.info(f'Neo4j ready at {self.host}:{self.http_port}, {self.graph_db_uri}.')
+                logger.info(f'Neo4j ready at {self.host}:{self.http_port}, {self.graph_db_uri}.')
                 return 0
         except neo4j.exceptions.AuthError as e:
             raise e
         except Exception as e:
             if counter > max_retries:
-                self.logger.error(f'Waited too long for Neo4j initialization... giving up..')
+                logger.error(f'Waited too long for Neo4j initialization... giving up..')
                 return 1
-            self.logger.info(f'Waiting for Neo4j container to finish initialization... {repr(e)}')
+            logger.info(f'Waiting for Neo4j container to finish initialization... {repr(e)}')
             time.sleep(10)
             return self.wait_for_neo4j_initialization(counter + 1)
 
@@ -268,26 +234,22 @@ def create_neo4j_dump(nodes_filepath: str,
                       graph_id: str = 'graph',
                       graph_version: str = '',
                       node_property_ignore_list: set = None,
-                      edge_property_ignore_list: set = None,
-                      logger=None):
+                      edge_property_ignore_list: set = None):
     nodes_csv_filename = 'nodes.temp_csv'
     edges_csv_filename = 'edges.temp_csv'
     csv_nodes_file_path = os.path.join(output_directory, nodes_csv_filename)
     csv_edges_file_path = os.path.join(output_directory, edges_csv_filename)
     if os.path.exists(csv_nodes_file_path) and os.path.exists(csv_edges_file_path):
-        if logger:
-            logger.info(f'CSV files were already created for {graph_id}({graph_version})')
+        logger.info(f'CSV files were already created for {graph_id}({graph_version})')
     else:
-        if logger:
-            logger.info(f'Creating CSV files for {graph_id}({graph_version})...')
+        logger.info(f'Creating CSV files for {graph_id}({graph_version})...')
         kgx_file_converter.convert_jsonl_to_neo4j_csv(nodes_input_file=nodes_filepath,
                                                       edges_input_file=edges_filepath,
                                                       nodes_output_file=csv_nodes_file_path,
                                                       edges_output_file=csv_edges_file_path,
                                                       node_property_ignore_list=node_property_ignore_list,
                                                       edge_property_ignore_list=edge_property_ignore_list)
-        if logger:
-            logger.info(f'CSV files created for {graph_id}({graph_version})...')
+        logger.info(f'CSV files created for {graph_id}({graph_version}).')
 
     # would like to do the following, but apparently you can't specify a custom name for the dump now
     # graph_dump_name = f'graph_{graph_version}.neo4j5.db.dump' if graph_version else 'graph.neo4j5.db.dump'
@@ -295,8 +257,7 @@ def create_neo4j_dump(nodes_filepath: str,
     graph_dump_name = 'neo4j.dump'
     graph_dump_file_path = os.path.join(output_directory, graph_dump_name)
     if os.path.exists(graph_dump_file_path):
-        if logger:
-            logger.info(f'Neo4j dump already exists for {graph_id}({graph_version})')
+        logger.info(f'Neo4j dump already exists for {graph_id}({graph_version})')
         return True
 
     neo4j_access = Neo4jTools()
@@ -330,6 +291,12 @@ def create_neo4j_dump(nodes_filepath: str,
     finally:
         neo4j_access.close()
 
-    if logger:
-        logger.info(f'Success! Neo4j dump created with indexes for {graph_id}({graph_version})')
+    # remove the temp csv files we made to do the neo4j import
+    os.remove(csv_nodes_file_path)
+    os.remove(csv_edges_file_path)
+    # remove the import.report neo4j generates, if successful it's typically empty
+    import_report_path = os.path.join(output_directory, 'import.report')
+    if os.path.exists(import_report_path):
+        os.remove(import_report_path)
+    logger.info(f'Success! Neo4j dump created with indexes for {graph_id}({graph_version})')
     return True
