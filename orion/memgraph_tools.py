@@ -1,5 +1,10 @@
 import os
 import orion.kgx_file_converter as kgx_file_converter
+from orion.utils import LoggingUtil
+
+logger = LoggingUtil.init_logging("ORION.orion.memgraph_tools", 
+                                  line_format='medium',
+                                  log_file_path=os.getenv('ORION_LOGS'))
 
 
 def create_memgraph_dump(nodes_filepath: str,
@@ -8,8 +13,7 @@ def create_memgraph_dump(nodes_filepath: str,
                          graph_id: str = 'graph',
                          graph_version: str = '',
                          node_property_ignore_list: set = None,
-                         edge_property_ignore_list: set = None,
-                         logger=None):
+                         edge_property_ignore_list: set = None):
 
     if graph_version:
         sub_name = f'{graph_id}_{graph_version}'
@@ -22,11 +26,9 @@ def create_memgraph_dump(nodes_filepath: str,
     output_edge_file = os.path.join(output_directory, f'memgraph_{sub_name}_edges.csv')
     if (os.path.exists(output_csv_node_file) and os.path.exists(output_cypher_node_idx_file) and
             os.path.exists(output_edge_file)):
-        if logger:
-            logger.info(f'Memgraph files were already created for {graph_id}({graph_version})')
+        logger.info(f'Memgraph files were already created for {graph_id}({graph_version})')
     else:
-        if logger:
-            logger.info(f'Creating memgraph dump files for {graph_id}({graph_version})...')
+        logger.info(f'Creating memgraph dump files for {graph_id}({graph_version})...')
         try:
             if not os.path.exists(output_csv_node_file):
                 kgx_file_converter.convert_node_jsonl_to_memgraph_csv(
@@ -41,9 +43,7 @@ def create_memgraph_dump(nodes_filepath: str,
                                                                   output_base_file=output_edge_file,
                                                                   edge_property_ignore_list=edge_property_ignore_list)
         except Exception as e:
-            if logger:
-                logger.error(f'create_memgraph_dump() failed with exception: {e}')
+            logger.error(f'create_memgraph_dump() failed with exception: {e}')
             return False
-        if logger:
-            logger.info(f'Memgraph cypher dump file created for {graph_id}({graph_version})...')
+        logger.info(f'Memgraph dump files created for {graph_id}({graph_version}).')
     return True
