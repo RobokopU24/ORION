@@ -8,7 +8,7 @@ graphs:
     output_format: neo4j
     edge_merging_attributes:
       - abstract_id
-    edge_id_addition: True
+    add_edge_id: True
     sources:
       - source_id: LitCoin
 
@@ -20,6 +20,6 @@ graphs:
     output_format: memgraph
     edge_merging_attributes:
       - abstract_id
-    edge_id_addition: True
+    add_edge_id: True
     sources:
       - source_id: LitCoinBagelService

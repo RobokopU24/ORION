@@ -6,11 +6,13 @@ from io import TextIOWrapper
 from csv import reader
 from operator import itemgetter
 from zipfile import ZipFile
-from Common.biolink_constants import *
-from Common.utils import GetData
-from Common.loader_interface import SourceDataLoader
-from Common.prefixes import NCBITAXON, UNIPROTKB
-from Common.kgxmodel import kgxnode, kgxedge
+
+from orion.biolink_constants import *
+from orion.utils import GetData
+from orion.loader_interface import SourceDataLoader
+from orion.prefixes import NCBITAXON, UNIPROTKB
+from orion.kgxmodel import kgxnode, kgxedge
+
 
 
 # data column enumerators

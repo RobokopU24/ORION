@@ -2,7 +2,7 @@ import requests
 import curies
 import tarfile
 from io import TextIOWrapper
-from Common.biolink_utils import get_biolink_prefix_map
+from orion.biolink_utils import get_biolink_prefix_map
 
 OBO_MISSING_MAPPINGS = {
     'NCBIGene': 'http://purl.obolibrary.org/obo/NCBIGene_',

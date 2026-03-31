@@ -5,7 +5,7 @@ from requests.adapters import HTTPAdapter, Retry
 from parsers.LitCoin.src.NER.nameres import NameResNEREngine
 from parsers.LitCoin.src.NER.sapbert import SAPBERTNEREngine
 from parsers.LitCoin.src.bagel.bagel_gpt import ask_classes_and_descriptions, LLM_RESULTS
-from Common.normalization import NODE_NORMALIZATION_URL
+from orion.normalization import NODE_NORMALIZATION_URL
 
 
 BAGEL_SUBJECT_SYN_TYPE = 'subject_bagel_syn_type'

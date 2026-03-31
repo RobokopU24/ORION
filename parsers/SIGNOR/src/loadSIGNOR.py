@@ -8,10 +8,10 @@ import requests as rq
 
 from requests_toolbelt.multipart.encoder import MultipartEncoder
 
-from Common.biolink_constants import *
-from Common.prefixes import *
-from Common.utils import GetData
-from Common.loader_interface import SourceDataLoader
+from orion.biolink_constants import *
+from orion.prefixes import *
+from orion.utils import GetData
+from orion.loader_interface import SourceDataLoader
 
 from parsers.SIGNOR.src.signor_mechanism_predicate_mapping import ptm_dict, mechanism_map, effect_mapping
 

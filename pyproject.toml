@@ -1,0 +1,64 @@
+[build-system]
+requires = ["uv_build >= 0.8.0"]
+build-backend = "uv_build"
+
+[project]
+name = "robokop-orion"
+version = "0.2.0"
+description = "ORION ingests data from knowledge bases and converts it into interoperable Biolink Model knowledge graphs."
+license = "MIT"
+license-files = ["LICEN[CS]E*"]
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "bmt>=1.4.6",
+    "jsonlines>=4.0.0",
+    "orjson>=3.11.7",
+    "python-dotenv>=1.0.1",
+    "pyyaml>=6.0.1",
+    "requests>=2.32.5",
+    "requests-toolbelt>=1.0.0",
+    "robokop-genetics>=0.7.0",
+    "uuid-utils>=0.14.1",
+    "xxhash>=3.6.0",
+]
+
+[project.optional-dependencies]
+robokop = [
+    "beautifulsoup4>=4.12.3",
+    "celery>=5.4.0",
+    "curies>=0.7.9",
+    "intermine",
+    "mysql-connector-python>=9.4.0",
+    "neo4j>=5.28.0",
+    "openpyxl>=3.1.5",
+    "pandas>=2.3.3",
+    "polars>=1.19.0",
+    "prefixmaps>=0.2.6",
+    "psycopg2-binary>=2.9.9",
+    "pyoxigraph>=0.3.22",
+    "redis>=5.2.1",
+]
+
+[project.scripts]
+orion-build = "orion.build_manager:main"
+orion-ingest = "orion.ingest_pipeline:main"
+orion-merge = "orion.cli.merge_kgs:main"
+orion-meta-kg = "orion.cli.generate_meta_kg:main"
+orion-redundant-kg = "orion.cli.generate_redundant_kg:main"
+orion-ac = "orion.cli.generate_ac_files:main"
+orion-neo4j-dump = "orion.cli.neo4j_dump:main"
+orion-memgraph-dump = "orion.cli.memgraph_dump:main"
+
+[dependency-groups]
+dev = [
+    "pytest>=8.4.2",
+]
+
+[tool.uv.build-backend]
+module-root = ""
+module-name = "orion"
+
+[tool.uv.sources]
+intermine = { git = "https://github.com/EvanDietzMorris/intermine-ws-python.git" }
+

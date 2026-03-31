@@ -6,11 +6,11 @@ import yaml
 from yaml import SafeLoader
 from pathlib import Path
 
-from Common.kgxmodel import kgxnode, kgxedge
-from Common.loader_interface import SourceDataLoader
-from Common.biolink_constants import *
-from Common.prefixes import PUBCHEM_COMPOUND
-from Common.utils import GetData
+from orion.kgxmodel import kgxnode, kgxedge
+from orion.loader_interface import SourceDataLoader
+from orion.biolink_constants import *
+from orion.prefixes import PUBCHEM_COMPOUND
+from orion.utils import GetData
 
 
 class MetabolomicsWorkbenchLoader(SourceDataLoader):

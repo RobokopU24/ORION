@@ -3,10 +3,10 @@ import json
 import argparse
 import enum
 
-from Common.biolink_constants import *
-from Common.utils import GetData
-from Common.kgxmodel import kgxedge
-from Common.loader_interface import SourceDataLoader
+from orion.biolink_constants import *
+from orion.utils import GetData
+from orion.kgxmodel import kgxedge
+from orion.loader_interface import SourceDataLoader
 
 from gzip import GzipFile
 

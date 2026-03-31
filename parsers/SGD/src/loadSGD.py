@@ -3,10 +3,10 @@ import enum
 import requests
 
 from parsers.SGD.src.sgd_source_retriever import retrieve_sgd_files
-from Common.loader_interface import SourceDataLoader
-from Common.extractor import Extractor
-from Common.prefixes import PUBMED
-from Common.biolink_constants import PRIMARY_KNOWLEDGE_SOURCE, NODE_TYPES, PUBLICATIONS
+from orion.loader_interface import SourceDataLoader
+from orion.extractor import Extractor
+from orion.prefixes import PUBMED
+from orion.biolink_constants import PRIMARY_KNOWLEDGE_SOURCE, NODE_TYPES, PUBLICATIONS
 from parsers.yeast.src.yeast_constants import SGD_ALL_GENES_FILE
 
 # Maps Genes to GO Terms.

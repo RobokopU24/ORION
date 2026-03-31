@@ -12,21 +12,17 @@ jobs:
 
     steps:
     - name: Check out code
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
+
+    - name: Install uv
+      uses: astral-sh/setup-uv@v6
 
     - name: Set up Python
-      uses: actions/setup-python@v4
-      with:
-        python-version: 3.9
-
-    - name: Install dependencies
-      run: |
-        pip install -r requirements.txt
-        pip install PyGithub 
+      run: uv python install 3.12
 
     - name: Run predicate check
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         ISSUE_NUMBER: ${{ github.event.pull_request.number || github.event.issue.number }}
       run: |
-        python .github/scripts/Bio_QC_check.py
+        uv run --with requests python .github/scripts/Bio_QC_check.py

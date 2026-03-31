@@ -2,12 +2,12 @@ import os
 import argparse
 import re
 
-from Common.loader_interface import SourceDataLoader, SourceDataBrokenError, SourceDataFailedError
-from Common.kgxmodel import kgxnode, kgxedge
-from Common.biolink_constants import *
-from Common.utils import GetData, snakify
-from Common.db_connectors import MySQLConnector
-from Common.predicates import DGIDB_PREDICATE_MAPPING
+from orion.loader_interface import SourceDataLoader, SourceDataBrokenError, SourceDataFailedError
+from orion.kgxmodel import kgxnode, kgxedge
+from orion.biolink_constants import *
+from orion.utils import GetData, snakify
+from orion.db_connectors import MySQLConnector
+from orion.predicates import DGIDB_PREDICATE_MAPPING
 
 
 class PHAROSLoader(SourceDataLoader):

@@ -4,11 +4,11 @@ import json
 import argparse
 import bz2
 
-from Common.utils import GetDataPullError
-from Common.loader_interface import SourceDataLoader
-from Common.extractor import Extractor
-from Common.prefixes import NCBIGENE, DRUGBANK, UBERON, DOID, MESH, UMLS
-from Common.biolink_constants import *
+from orion.utils import GetDataPullError
+from orion.loader_interface import SourceDataLoader
+from orion.extractor import Extractor
+from orion.prefixes import NCBIGENE, DRUGBANK, UBERON, DOID, MESH, UMLS
+from orion.biolink_constants import *
 
 
 class HetioLoader(SourceDataLoader):

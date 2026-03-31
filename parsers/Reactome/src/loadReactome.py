@@ -6,12 +6,12 @@ import json
 import neo4j
 
 from bs4 import BeautifulSoup
-from Common.loader_interface import SourceDataLoader
-from Common.kgxmodel import kgxnode, kgxedge
-from Common.neo4j_tools import Neo4jTools
-from Common.biolink_constants import *
-from Common.prefixes import REACTOME, NCBITAXON, GTOPDB, UNIPROTKB, CHEBI, KEGG_COMPOUND, KEGG_GLYCAN, PUBCHEM_COMPOUND, NCBIGENE, CLINVAR
-from Common.utils import GetData
+from orion.loader_interface import SourceDataLoader
+from orion.kgxmodel import kgxnode, kgxedge
+from orion.neo4j_tools import Neo4jTools
+from orion.biolink_constants import *
+from orion.prefixes import REACTOME, NCBITAXON, GTOPDB, UNIPROTKB, CHEBI, KEGG_COMPOUND, KEGG_GLYCAN, PUBCHEM_COMPOUND, NCBIGENE, CLINVAR
+from orion.utils import GetData
 
 
 SUBJECT_COLUMN = 0
