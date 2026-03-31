@@ -2,10 +2,10 @@ import os
 import enum
 import requests
 
-from Common.utils import GetData
-from Common.loader_interface import SourceDataLoader
-from Common.extractor import Extractor
-from Common.biolink_constants import *
+from orion.utils import GetData
+from orion.loader_interface import SourceDataLoader
+from orion.extractor import Extractor
+from orion.biolink_constants import *
 
 
 ##############

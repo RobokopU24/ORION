@@ -3,11 +3,12 @@ import requests
 
 from pathlib import Path
 
-from Common.utils import GetData
-from Common.loader_interface import SourceDataLoader
-from Common.kgxmodel import kgxnode, kgxedge
-from Common.prefixes import HGNC, HGNC_FAMILY
-from Common.biolink_constants import AGENT_TYPE, MANUAL_AGENT, KNOWLEDGE_ASSERTION, KNOWLEDGE_LEVEL, PUBLICATIONS
+from orion.utils import GetData
+from orion.loader_interface import SourceDataLoader
+from orion.kgxmodel import kgxnode, kgxedge
+from orion.prefixes import HGNC, HGNC_FAMILY
+from orion.biolink_constants import AGENT_TYPE, MANUAL_AGENT, KNOWLEDGE_ASSERTION, KNOWLEDGE_LEVEL, PUBLICATIONS
+
 
 ##############
 # Class: HGNC loader
@@ -20,7 +21,7 @@ class HGNCLoader(SourceDataLoader):
 
     source_id: str = HGNC
     provenance_id: str = 'infores:hgnc'
-    parsing_version: str = '1.5'
+    parsing_version: str = '1.6'
 
     def __init__(self, test_mode: bool = False, source_data_dir: str = None):
         """
@@ -99,8 +100,8 @@ class HGNCLoader(SourceDataLoader):
                                   AGENT_TYPE: MANUAL_AGENT}
                     if r['pubmed_id']:
                         edge_props[PUBLICATIONS] = [f'PMID:{pmid}' for pmid in r['pubmed_id'].split('|')]
-                    new_edge = kgxedge(gene_family_id,
-                                       gene_id,
+                    new_edge = kgxedge(subject_id=gene_id,
+                                       object_id=gene_family_id,
                                        predicate=self.member_of_predicate,
                                        primary_knowledge_source=self.provenance_id,
                                        edgeprops=edge_props)

@@ -4,10 +4,10 @@ import tarfile
 import orjson
 import requests
 
-from Common.loader_interface import SourceDataLoader
-from Common.kgxmodel import kgxedge
-from Common.biolink_constants import *
-from Common.utils import GetData, GetDataPullError
+from orion.loader_interface import SourceDataLoader
+from orion.kgxmodel import kgxedge
+from orion.biolink_constants import *
+from orion.utils import GetData, GetDataPullError
 
 
 ##############

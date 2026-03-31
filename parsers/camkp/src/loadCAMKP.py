@@ -5,10 +5,10 @@ import requests
 import yaml
 import json
 
-from Common.utils import GetData
-from Common.kgxmodel import kgxnode, kgxedge
-from Common.biolink_constants import XREFS, KNOWLEDGE_LEVEL, KNOWLEDGE_ASSERTION, AGENT_TYPE, MANUAL_AGENT
-from Common.loader_interface import SourceDataLoader
+from orion.utils import GetData
+from orion.kgxmodel import kgxnode, kgxedge
+from orion.biolink_constants import XREFS, KNOWLEDGE_LEVEL, KNOWLEDGE_ASSERTION, AGENT_TYPE, MANUAL_AGENT
+from orion.loader_interface import SourceDataLoader
 
 from gzip import GzipFile
 

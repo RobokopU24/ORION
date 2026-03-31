@@ -1,4 +1,4 @@
-from Common.biolink_constants import *
+from orion.biolink_constants import *
 
 ptm_dict = {
             "acetylation": "increased",

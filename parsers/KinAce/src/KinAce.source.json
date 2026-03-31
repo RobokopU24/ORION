@@ -1,11 +1,41 @@
 {
-    "id": "KinAce",
-    "name": "KinAce",
-    "description": "The KinAce web portal aggregates and visualizes the network of interactions between protein-kinases and their substrates in the human genome.",
-    "url": "https://kinace.kinametrix.com/",
-    "attribution": "https://kinace.kinametrix.com/#section-about",
-    "citation": "https://doi.org/10.1101/2023.12.08.570875",
-"full_citation": "Sekar, J.A.P., Li, Y.C., Schlessinger, A. et al. A web portal for exploring kinase-substrate interactions. npj Syst Biol Appl 10, 113 (2024). https://doi.org/10.1038/s41540-024-00442-5",
-    "license": "Creative Commons Attribution 4.0 International",
-    "contentUrl": "https://github.com/GauravPandeyLab/KiNet/raw/master/data/ksi_source_full_dataset.csv"
+  "@context": "https://schema.org",
+  "@type": "Dataset",
+  "identifier": "infores:kinace",
+  "name": "KinAce",
+  "description": "The KinAce web portal aggregates and visualizes the network of interactions between protein-kinases and their substrates in the human genome.",
+  "url": "https://kinace.kinametrix.com/",
+  "attribution": "https://kinace.kinametrix.com/#section-about",
+  "citation": [
+    "https://doi.org/10.1101/2023.12.08.570875",
+    "Sekar, J.A.P., Li, Y.C., Schlessinger, A. et al. A web portal for exploring kinase-substrate interactions. npj Syst Biol Appl 10, 113 (2024). https://doi.org/10.1038/s41540-024-00442-5"
+  ],
+  "license": "Creative Commons Attribution 4.0 International",
+  "contentUrl": "https://github.com/GauravPandeyLab/KiNet/raw/master/data/ksi_source_full_dataset.csv",
+  "isBasedOn": [
+    {
+      "@type": "Dataset",
+      "identifier": "infores:epsd",
+      "name": "EPSD",
+      "url": "https://epsd.biocuckoo.cn/",
+      "license": "No License Mentioned",
+      "licenseUrl": ""
+    },
+    {
+      "@type": "Dataset",
+      "identifier": "infores:iptmnet",
+      "name": "iPTMnet",
+      "url": "https://iptmnet.org/",
+      "license": "CC BY-NC-SA 4.0",
+      "licenseUrl": "https://research.bioinformatics.udel.edu/iptmnet/license"
+    },
+    {
+      "@type": "Dataset",
+      "identifier": "infores:psite-plus",
+      "name": "PhosphoSitePlus",
+      "url": "https://www.phosphosite.org/",
+      "license": "CC BY-NC-SA 3.0",
+      "licenseUrl": "https://www.phosphosite.org/homeAction"
+    }
+  ]
 }

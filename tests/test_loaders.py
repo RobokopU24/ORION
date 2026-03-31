@@ -9,7 +9,7 @@ from parsers.IntAct.src.loadIA import IALoader
 from parsers.GOA.src.loadGOA import GOALoader
 from parsers.UberGraph.src.loadUG import UGLoader
 from parsers.FooDB.src.loadFDB import FDBLoader
-from Common.utils import GetData
+from orion.utils import GetData
 
 
 def test_vp_load():

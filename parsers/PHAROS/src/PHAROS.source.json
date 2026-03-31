@@ -1,11 +1,73 @@
 {
-    "id": "PHAROS",
-    "name": "Pharos",
-    "description": "Pharos is the openly accessible user interface to the Illuminating the Druggable Genome (IDG) program\u2019s Knowledge Management Center (KMC), which aims to develop a comprehensive, integrated knowledge-base for the Druggable Genome (DG) to illuminate the uncharacterized and/or poorly annotated portion of the DG, focusing on three of the most commonly drug-targeted protein families: G-protein-coupled receptors; ion channels; and kinases.",
-    "url": "https://pharos.nih.gov/",
-    "attribution": "",
-    "citation": "https://doi.org/10.1093/nar/gkac1033",
-    "full_citation": "Sheils, T., Mathias, S. et al, \"TCRD and Pharos 2021: mining the human proteome for disease biology\", Nucl. Acids Res., 2021. DOI: 10.1093/nar/gkaa993",
-    "license": "Data accessed from Pharos and TCRD is publicly available from the primary sources listed above. Please respect their individual licenses regarding proper use and redistribution.",
-    "contentUrl": "https://pharos.nih.gov/"
+  "@context": "https://schema.org",
+  "@type": "Dataset",
+  "identifier": "infores:pharos",
+  "name": "Pharos",
+  "description": "Pharos is the openly accessible user interface to the Illuminating the Druggable Genome (IDG) program's Knowledge Management Center (KMC), which aims to develop a comprehensive, integrated knowledge-base for the Druggable Genome (DG) to illuminate the uncharacterized and/or poorly annotated portion of the DG, focusing on three of the most commonly drug-targeted protein families: G-protein-coupled receptors; ion channels; and kinases.",
+  "url": "https://pharos.nih.gov/",
+  "attribution": "",
+  "citation": [
+    "https://doi.org/10.1093/nar/gkac1033",
+    "Sheils, T., Mathias, S. et al, \"TCRD and Pharos 2021: mining the human proteome for disease biology\", Nucl. Acids Res., 2021. DOI: 10.1093/nar/gkaa993"
+  ],
+  "license": "Data accessed from Pharos and TCRD is publicly available from the primary sources listed above. Please respect their individual licenses regarding proper use and redistribution.",
+  "contentUrl": "https://pharos.nih.gov/",
+  "isBasedOn": [
+    {
+      "@type": "Dataset",
+      "identifier": "infores:ctd",
+      "name": "Comparative Toxicogenomics Database",
+      "url": "https://ctdbase.org/",
+      "license": "Custom CTD License",
+      "licenseUrl": "https://ctdbase.org/about/legal.jsp"
+    },
+    {
+      "@type": "Dataset",
+      "identifier": "infores:diseases",
+      "name": "DISEASES",
+      "url": "https://diseases.jensenlab.org/",
+      "license": "CC BY 4.0",
+      "licenseUrl": "https://diseases.jensenlab.org/About"
+    },
+    {
+      "@type": "Dataset",
+      "identifier": "infores:disgenet",
+      "name": "DisGeNET",
+      "url": "https://www.disgenet.org/",
+      "license": "CC BY 4.0",
+      "licenseUrl": "https://disgenet.com/Legal"
+    },
+    {
+      "@type": "Dataset",
+      "identifier": "infores:drugcentral",
+      "name": "DrugCentral",
+      "url": "https://drugcentral.org/",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://drugcentral.org/privacy"
+    },
+    {
+      "@type": "Dataset",
+      "identifier": "infores:eram",
+      "name": "eRAM: encyclopedia of rare disease annotations for precision medicine",
+      "url": "http://www.youreram.cn/",
+      "license": "Custom eRAM License",
+      "licenseUrl": "http://119.3.41.228/eram/download.php"
+    },
+    {
+      "@type": "Dataset",
+      "identifier": "infores:monarchinitiative",
+      "name": "Monarch Initiative",
+      "url": "https://monarchinitiative.org/",
+      "license": "BSD-3-Clause",
+      "licenseUrl": "https://monarchinitiative.org/kg/terms"
+    },
+    {
+      "@type": "Dataset",
+      "identifier": "infores:uniprot",
+      "name": "UniProt Knowledgebase",
+      "url": "https://www.uniprot.org/",
+      "license": "CC BY 4.0",
+      "licenseUrl": "https://www.uniprot.org/help/license"
+    }
+  ]
 }

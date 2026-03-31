@@ -1,11 +1,12 @@
 {
-    "id": "MONDOProps",
-    "name": "",
-    "description": "",
-    "url": "",
-    "attribution": "",
-    "citation": "",
-    "full_citation": "",
-    "license": "",
-    "contentUrl": ""
+  "@context": "https://schema.org",
+  "@type": "Dataset",
+  "identifier": "infores:mondo",
+  "name": "",
+  "description": "",
+  "url": "",
+  "attribution": "",
+  "citation": "",
+  "license": "",
+  "contentUrl": ""
 }

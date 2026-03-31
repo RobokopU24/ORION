@@ -1,11 +1,49 @@
 {
-    "id": "Hetio",
-    "name": "Hetionet",
-    "description": "Hetionet is an open-source biomedical heterogeneous information network (hetnet) or graph-based resource describing relationships uncovered by millions of biomedical research studies over the past fifty years.",
-    "url": "https://het.io/about/",
-    "attribution": "https://het.io/about/",
-    "citation": "https://doi.org/10.1371/journal.pcbi.1004259",
-    "full_citation": "Heterogeneous Network Edge Prediction: A Data Integration Approach to Prioritize Disease-Associated Genes\nHimmelstein DS, Baranzini SE\nPLOS Computational Biology (2015)",
-    "license": "https://het.io/about/",
-    "contentUrl": "https://github.com/hetio/hetionet/blob/master/hetnet/json/hetionet-v1.0.json.bz2"
+  "@context": "https://schema.org",
+  "@type": "Dataset",
+  "identifier": "infores:hetionet",
+  "name": "Hetionet",
+  "description": "Hetionet is an open-source biomedical heterogeneous information network (hetnet) or graph-based resource describing relationships uncovered by millions of biomedical research studies over the past fifty years.",
+  "url": "https://het.io/about/",
+  "attribution": "https://het.io/about/",
+  "citation": [
+    "https://doi.org/10.1371/journal.pcbi.1004259",
+    "Heterogeneous Network Edge Prediction: A Data Integration Approach to Prioritize Disease-Associated Genes\nHimmelstein DS, Baranzini SE\nPLOS Computational Biology (2015)"
+  ],
+  "license": "https://het.io/about/",
+  "contentUrl": "https://github.com/hetio/hetionet/blob/master/hetnet/json/hetionet-v1.0.json.bz2",
+  "isBasedOn": [
+    {
+      "@type": "Dataset",
+      "identifier": "infores:bgee",
+      "name": "Bgee",
+      "url": "https://www.bgee.org/",
+      "license": "CC0 1.0",
+      "licenseUrl": "https://www.bgee.org/about/"
+    },
+    {
+      "@type": "Dataset",
+      "identifier": "infores:lincs",
+      "name": "Library of Integrated Network-Based Cellular Signatures",
+      "url": "https://lincsproject.org/",
+      "license": "CC BY 4.0",
+      "licenseUrl": "https://lincsportal.ccs.miami.edu/datasets/terms"
+    },
+    {
+      "@type": "Dataset",
+      "identifier": "infores:sider",
+      "name": "SIDER",
+      "url": "http://sideeffects.embl.de/",
+      "license": "CC BY-NC-SA 4.0",
+      "licenseUrl": "http://sideeffects.embl.de/about/"
+    },
+    {
+      "@type": "Dataset",
+      "identifier": "infores:tissues-expression-db",
+      "name": "Tissue Expression Database",
+      "url": "https://tissues.jensenlab.org/",
+      "license": "CC BY 4.0",
+      "licenseUrl": "https://tissues.jensenlab.org/About"
+    }
+  ]
 }

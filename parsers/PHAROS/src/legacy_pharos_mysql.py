@@ -1,7 +1,7 @@
 import os
 import mysql.connector
 import logging
-from Common.utils import LoggingUtil, GetData, NodeNormUtils, EdgeNormUtils
+from orion.utils import LoggingUtil, GetData, NodeNormUtils, EdgeNormUtils
 from pathlib import Path
 
 

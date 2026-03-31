@@ -1,0 +1,35 @@
+name: Publish Python 🐍 distribution 📦 to PyPI and TestPyPI
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  test-pypi:
+    name: Publish to TestPyPI
+    runs-on: ubuntu-latest
+    environment:
+      name: release
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - run: uv build
+      - run: uv publish --trusted-publishing always
+        env:
+          UV_PUBLISH_URL: https://test.pypi.org/legacy/
+  pypi:
+    name: Publish to PyPI
+    needs:
+      - test-pypi
+    runs-on: ubuntu-latest
+    environment:
+      name: release
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - run: uv build
+      - run: uv publish --trusted-publishing always

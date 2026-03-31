@@ -1,16 +1,16 @@
 import os
 import csv
-from Common.biolink_constants import (
+from orion.biolink_constants import (
     PRIMARY_KNOWLEDGE_SOURCE,
     NODE_TYPES,
     SEQUENCE_VARIANT,
     PUBLICATIONS,
     NEGATED,
 )
-from Common.extractor import Extractor
-from Common.loader_interface import SourceDataLoader
-from Common.prefixes import CLINGEN_ALLELE_REGISTRY, PUBMED
-from Common.utils import GetData
+from orion.extractor import Extractor
+from orion.loader_interface import SourceDataLoader
+from orion.prefixes import CLINGEN_ALLELE_REGISTRY, PUBMED
+from orion.utils import GetData
 from datetime import date
 
 

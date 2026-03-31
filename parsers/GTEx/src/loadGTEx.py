@@ -3,11 +3,11 @@ import tarfile
 import gzip
 import argparse
 from urllib import request
-from Common.normalization import NodeNormalizer
-from Common.loader_interface import SourceDataLoader
-from Common.biolink_constants import *
-from Common.prefixes import HGVS, UBERON
-from Common.hgvs_utils import convert_variant_to_hgvs
+from orion.normalization import NodeNormalizer
+from orion.loader_interface import SourceDataLoader
+from orion.biolink_constants import *
+from orion.prefixes import HGVS, UBERON
+from orion.hgvs_utils import convert_variant_to_hgvs
 
 
 class GTExLoader(SourceDataLoader):
