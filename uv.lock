@@ -988,7 +988,7 @@ requires-dist = [
     { name = "python-dotenv", specifier = ">=1.0.1" },
     { name = "pyyaml", specifier = ">=6.0.1" },
     { name = "redis", marker = "extra == 'robokop'", specifier = ">=5.2.1" },
-    { name = "requests", specifier = ">=2.33.0" },
+    { name = "requests", specifier = ">=2.33.1" },
     { name = "requests-toolbelt", specifier = ">=1.0.0" },
     { name = "robokop-genetics", specifier = ">=0.7.0" },
     { name = "uuid-utils", specifier = ">=0.14.1" },
