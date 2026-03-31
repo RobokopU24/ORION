@@ -52,7 +52,7 @@ orion-memgraph-dump = "orion.cli.memgraph_dump:main"
 
 [dependency-groups]
 dev = [
-    "pytest>=8.4.2",
+    "pytest>=9.0.2",
 ]
 
 [tool.uv.build-backend]
