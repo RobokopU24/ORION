@@ -139,6 +139,8 @@ def convert_edge_jsonl_to_memgraph_csv(edges_input_file: str,
                          array_delimiter=array_delimiter,
                          output_target='memgraph',
                          property_ignore_list=edge_property_ignore_list)
+        # remove the split edges file it's not needed after the csv is generated
+        os.remove(input_split_file)
         all_file_names.append(os.path.basename(output_split_file))
     # write all edge file names into a text file used for memgraph edge loading
     with open(f'{out_base}_manifest.txt', 'w') as wp:
