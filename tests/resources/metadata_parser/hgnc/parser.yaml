@@ -1,0 +1,74 @@
+source_id: HGNC
+provenance_id: infores:hgnc
+parsing_version: "1.0"
+
+croissant:
+  path: hgnc_croissant.json
+  dataset_id: hgnc
+  version_from: dataset.version
+
+input:
+  distribution: hgnc/hgnc_complete_set_tsv
+  record_set: hgnc/hgnc_complete_set
+  format: tsv
+  header: true
+  delimiter: "\t"
+  test_mode_limit: 50
+
+row_filters:
+  - exists: gene_group_id
+
+emit:
+  nodes:
+    - id:
+        op: field
+        name: hgnc_id
+      name:
+        op: field
+        name: name
+      categories:
+        - biolink:Gene
+      properties:
+        symbol:
+          op: field
+          name: symbol
+        locus_group:
+          op: field
+          name: locus_group
+        location:
+          op: field
+          name: location
+
+    - foreach:
+        op: explode_zip
+        fields: [gene_group_id, gene_group]
+        separator: "|"
+      id:
+        op: template
+        value: "HGNC.FAMILY:{item.0}"
+      name:
+        op: item
+        index: 1
+      categories:
+        - biolink:GeneFamily
+
+  edges:
+    - foreach:
+        op: explode_zip
+        fields: [gene_group_id, gene_group]
+        separator: "|"
+      subject:
+        op: field
+        name: hgnc_id
+      predicate: RO:0002350
+      object:
+        op: template
+        value: "HGNC.FAMILY:{item.0}"
+      properties:
+        publications:
+          op: split_prefix
+          field: pubmed_id
+          separator: "|"
+          prefix: "PMID:"
+        knowledge_level: knowledge_assertion
+        agent_type: manual_agent
