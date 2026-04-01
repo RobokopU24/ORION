@@ -11,9 +11,14 @@ from orion.parser_spec import load_parser_spec
 
 
 TEST_RESOURCE_DIR = Path(__file__).parent / "resources" / "metadata_parser" / "hgnc"
+BINDINGDB_RESOURCE_DIR = Path(__file__).parent / "resources" / "metadata_parser" / "bindingdb"
 
 
 class HGNCTestMetadataLoader(MetadataDrivenLoader):
+    pass
+
+
+class BindingDBTestMetadataLoader(MetadataDrivenLoader):
     pass
 
 
@@ -268,3 +273,69 @@ def test_metadata_driven_loader_supports_fileset_in_zip(tmp_path):
     assert metadata["unusable_source_lines"] == 1
     assert metadata["source_nodes"] == 2
     assert metadata["source_edges"] == 3
+
+
+def test_load_parser_spec_bindingdb_fixture():
+    spec = load_parser_spec(str(BINDINGDB_RESOURCE_DIR / "parser.yaml"))
+    assert spec.source_id == "BINDING-DB"
+    assert spec.aggregate is not None
+    assert spec.input.distribution == "bindingdb/all_tsv_fileset"
+
+
+def test_metadata_driven_loader_bindingdb_aggregation(tmp_path):
+    source_root = tmp_path / "bindingdb_source_root"
+    source_dir = source_root / "source"
+    source_dir.mkdir(parents=True)
+
+    archive_path = source_dir / "BindingDB_All_202603_tsv.zip"
+    with ZipFile(archive_path, "w") as zip_file:
+        zip_file.write(BINDINGDB_RESOURCE_DIR / "BindingDB_All.tsv", arcname="BindingDB_All.tsv")
+
+    loader = BindingDBTestMetadataLoader(
+        parser_spec_path=str(BINDINGDB_RESOURCE_DIR / "parser.yaml"),
+        source_data_dir=str(source_root),
+    )
+
+    nodes_path = tmp_path / "bindingdb_nodes.jsonl"
+    edges_path = tmp_path / "bindingdb_edges.jsonl"
+    metadata = loader.load(str(nodes_path), str(edges_path))
+
+    assert metadata["num_source_lines"] == 5
+    assert metadata["unusable_source_lines"] == 1
+    assert metadata["source_nodes"] == 4
+    assert metadata["source_edges"] == 3
+
+    nodes = _read_jsonl(nodes_path)
+    edges = _read_jsonl(edges_path)
+
+    assert {node["id"] for node in nodes} == {
+        "PUBCHEM.COMPOUND:111",
+        "UniProtKB:P11111",
+        "PUBCHEM.COMPOUND:222",
+        "UniProtKB:P22222",
+    }
+
+    edge_lookup = {
+        (edge["subject"], edge["predicate"], edge["object"]): edge
+        for edge in edges
+    }
+
+    pki_edge = edge_lookup[("PUBCHEM.COMPOUND:111", "biolink:inhibits", "UniProtKB:P11111")]
+    assert pki_edge["affinity_parameter"] == "pKi"
+    assert pki_edge["average_affinity_nm"] == 55.0
+    assert pki_edge["affinity"] == 7.26
+    assert pki_edge["supporting_affinities"] == [100.0, 10.0]
+    assert pki_edge["publications"] == ["PMID:12345", "PMID:23456"]
+    assert pki_edge["pubchem_assay_ids"] == ["PUBCHEM.AID:7001", "PUBCHEM.AID:7002"]
+    assert pki_edge["patent_ids"] == ["PATENT:PAT-1"]
+    assert pki_edge["primary_knowledge_source"] == "infores:bindingdb"
+
+    pic50_edge = edge_lookup[("PUBCHEM.COMPOUND:111", "CTD:decreases_activity_of", "UniProtKB:P11111")]
+    assert pic50_edge["affinity_parameter"] == "pIC50"
+    assert pic50_edge["average_affinity_nm"] == 200.0
+    assert pic50_edge["affinity"] == 6.7
+
+    pec50_edge = edge_lookup[("PUBCHEM.COMPOUND:222", "CTD:increases_activity_of", "UniProtKB:P22222")]
+    assert pec50_edge["affinity_parameter"] == "pEC50"
+    assert pec50_edge["average_affinity_nm"] == 50.0
+    assert pec50_edge["affinity"] == 7.3

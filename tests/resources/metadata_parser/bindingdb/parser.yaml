@@ -1,0 +1,141 @@
+source_id: BINDING-DB
+provenance_id: infores:bindingdb
+parsing_version: "1.0"
+
+croissant:
+  path: bindingdb_croissant.json
+  dataset_id: bindingdb
+  version_from: dataset.version
+
+input:
+  distribution: bindingdb/all_tsv_fileset
+  record_set: bindingdb/binding_data
+  format: tsv
+  header: true
+  delimiter: "\t"
+  archive_member: BindingDB_All.tsv
+  test_mode_limit: 100
+
+derived_fields:
+  ligand_id:
+    op: template
+    value: "PUBCHEM.COMPOUND:{pubchem_cid}"
+  protein_id:
+    op: template
+    value: "UniProtKB:{chain1_swissprot_primary_id}"
+  measurements:
+    op: fanout_measurements
+    measurements:
+      - value_field: ki_nm
+        measurement_type: pKi
+        predicate: biolink:inhibits
+      - value_field: ic50_nm
+        measurement_type: pIC50
+        predicate: CTD:decreases_activity_of
+      - value_field: kd_nm
+        measurement_type: pKd
+        predicate: RO:0002436
+      - value_field: ec50_nm
+        measurement_type: pEC50
+        predicate: CTD:increases_activity_of
+
+row_filters:
+  - exists: pubchem_cid
+  - exists: chain1_swissprot_primary_id
+
+emit:
+  nodes:
+    - id:
+        op: field
+        name: ligand_id
+      categories:
+        - biolink:SmallMolecule
+    - id:
+        op: field
+        name: protein_id
+      categories:
+        - biolink:Protein
+  edges: []
+
+aggregate:
+  foreach:
+    op: field
+    name: measurements
+  group_by:
+    - op: field
+      name: ligand_id
+    - op: field
+      name: protein_id
+    - op: item
+      path: measurement_type
+    - op: item
+      path: predicate
+  reducers:
+    supporting_affinities:
+      op: collect_list
+      value:
+        op: parse_qualified_float
+        value:
+          op: item
+          path: value
+    publications:
+      op: collect_unique
+      value:
+        op: prefix_if_present
+        field: pmid
+        prefix: "PMID:"
+    pubchem_assay_ids:
+      op: collect_unique
+      value:
+        op: prefix_if_present
+        field: pubchem_aid
+        prefix: "PUBCHEM.AID:"
+    patent_ids:
+      op: collect_unique
+      value:
+        op: prefix_if_present
+        field: patent_number
+        prefix: "PATENT:"
+  finalize:
+    average_affinity_nm:
+      op: mean
+      field: supporting_affinities
+    affinity:
+      op: neglog10_nm
+      value:
+        op: aggregate_value
+        name: average_affinity_nm
+      precision: 2
+  emit:
+    edges:
+      - subject:
+          op: group_key
+          index: 0
+        predicate:
+          op: group_key
+          index: 3
+        object:
+          op: group_key
+          index: 1
+        properties:
+          affinity_parameter:
+            op: group_key
+            index: 2
+          affinity:
+            op: aggregate_value
+            name: affinity
+          average_affinity_nm:
+            op: aggregate_value
+            name: average_affinity_nm
+          supporting_affinities:
+            op: aggregate_value
+            name: supporting_affinities
+          publications:
+            op: aggregate_value
+            name: publications
+          pubchem_assay_ids:
+            op: aggregate_value
+            name: pubchem_assay_ids
+          patent_ids:
+            op: aggregate_value
+            name: patent_ids

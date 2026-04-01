@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import math
 import re
 from typing import Any
 
@@ -44,9 +45,18 @@ def render_template(template: str, row: dict[str, Any], item: Any = None) -> str
     return _TEMPLATE_PATTERN.sub(replace, template)
 
 
-def evaluate_transform(spec: Any, row: dict[str, Any], item: Any = None) -> Any:
+def evaluate_transform(
+    spec: Any,
+    row: dict[str, Any],
+    item: Any = None,
+    aggregate: dict[str, Any] | None = None,
+    group_key: tuple[Any, ...] | None = None,
+) -> Any:
     if isinstance(spec, list):
-        return [evaluate_transform(value, row=row, item=item) for value in spec]
+        return [
+            evaluate_transform(value, row=row, item=item, aggregate=aggregate, group_key=group_key)
+            for value in spec
+        ]
 
     if not isinstance(spec, dict) or "op" not in spec:
         return spec
@@ -76,13 +86,13 @@ def evaluate_transform(spec: Any, row: dict[str, Any], item: Any = None) -> Any:
 
     if op == "coalesce":
         for value_spec in spec.get("values", []):
-            value = evaluate_transform(value_spec, row=row, item=item)
+            value = evaluate_transform(value_spec, row=row, item=item, aggregate=aggregate, group_key=group_key)
             if not _is_missing(value):
                 return value
         return None
 
     if op == "prefix":
-        value = evaluate_transform(spec["value"], row=row, item=item)
+        value = evaluate_transform(spec["value"], row=row, item=item, aggregate=aggregate, group_key=group_key)
         if _is_missing(value):
             return None
         return f'{spec["prefix"]}{value}'
@@ -94,7 +104,7 @@ def evaluate_transform(spec: Any, row: dict[str, Any], item: Any = None) -> Any:
         return f'{spec["prefix"]}{field_value}'
 
     if op == "split":
-        value = evaluate_transform(spec["value"], row=row, item=item)
+        value = evaluate_transform(spec["value"], row=row, item=item, aggregate=aggregate, group_key=group_key)
         if _is_missing(value):
             return []
         return [part for part in str(value).split(spec.get("separator", "|")) if part]
@@ -124,8 +134,65 @@ def evaluate_transform(spec: Any, row: dict[str, Any], item: Any = None) -> Any:
         return list(zip(*split_values))
 
     if op == "map_lookup":
-        value = evaluate_transform(spec["value"], row=row, item=item)
+        value = evaluate_transform(spec["value"], row=row, item=item, aggregate=aggregate, group_key=group_key)
         return spec.get("mapping", {}).get(value, spec.get("default"))
+
+    if op == "fanout_measurements":
+        items = []
+        for measurement in spec.get("measurements", []):
+            value_field = measurement["value_field"]
+            raw_value = row.get(value_field)
+            if _is_missing(raw_value):
+                continue
+            items.append(
+                {
+                    "value": raw_value,
+                    "value_field": value_field,
+                    "measurement_type": measurement["measurement_type"],
+                    "predicate": measurement["predicate"],
+                }
+            )
+        return items
+
+    if op == "parse_qualified_float":
+        value = evaluate_transform(spec["value"], row=row, item=item, aggregate=aggregate, group_key=group_key)
+        if _is_missing(value):
+            return None
+        if isinstance(value, (int, float)):
+            return float(value)
+        normalized = str(value).strip().replace(",", "")
+        for operator in spec.get("reject_operators", []):
+            if normalized.startswith(operator):
+                return None
+        for operator in spec.get("strip_operators", ["<"]):
+            if normalized.startswith(operator):
+                normalized = normalized[len(operator):]
+        return float(normalized)
+
+    if op == "aggregate_value":
+        if aggregate is None:
+            raise ValueError("The aggregate_value transform requires aggregate context.")
+        return aggregate.get(spec["name"])
+
+    if op == "group_key":
+        if group_key is None:
+            raise ValueError("The group_key transform requires group_key context.")
+        return group_key[spec["index"]]
+
+    if op == "mean":
+        values = aggregate.get(spec["field"], []) if aggregate is not None else []
+        if not values:
+            return None
+        return sum(values) / len(values)
+
+    if op == "neglog10_nm":
+        value = evaluate_transform(spec["value"], row=row, item=item, aggregate=aggregate, group_key=group_key)
+        if _is_missing(value):
+            return None
+        transformed = -(math.log10(float(value) * (10 ** -9)))
+        if "precision" in spec:
+            return round(transformed, int(spec["precision"]))
+        return transformed
 
     raise ValueError(f"Unsupported metadata transform: {op}")
 
@@ -142,4 +209,3 @@ def row_matches_filter(filter_spec: dict[str, Any], row: dict[str, Any]) -> bool
         condition = filter_spec["not_equals"]
         return row.get(condition["field"]) != condition["value"]
     raise ValueError(f"Unsupported row filter: {filter_spec}")
-

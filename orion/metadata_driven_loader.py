@@ -11,6 +11,7 @@ from zipfile import ZipFile
 from orion.croissant_resolver import CroissantResolver, ResolvedDistribution
 from orion.kgxmodel import kgxedge, kgxnode
 from orion.loader_interface import SourceDataLoader
+from orion.metadata_aggregation import AggregationEngine
 from orion.metadata_transforms import evaluate_transform, row_matches_filter
 from orion.parser_spec import ParserSpec, load_parser_spec
 from orion.utils import GetData
@@ -131,11 +132,17 @@ class MetadataDrivenLoader(SourceDataLoader):
                     for field_name, column_name in field_column_map.items()
                 }
 
-    def _rule_items(self, rule: dict, row: dict[str, str]):
+    def _rule_items(self, rule: dict, row: dict[str, str], aggregate=None, group_key=None):
         foreach_spec = rule.get("foreach")
         if foreach_spec is None:
             return [None]
-        return evaluate_transform(foreach_spec, row=row, item=None)
+        return evaluate_transform(foreach_spec, row=row, item=None, aggregate=aggregate, group_key=group_key)
+
+    def _apply_derived_fields(self, row: dict[str, str]) -> dict[str, object]:
+        enriched_row: dict[str, object] = dict(row)
+        for field_name, transform_spec in self.parser_spec.derived_fields.items():
+            enriched_row[field_name] = evaluate_transform(transform_spec, row=enriched_row)
+        return enriched_row
 
     @staticmethod
     def _clean_properties(raw_properties: dict[str, object]) -> dict[str, object]:
@@ -150,15 +157,27 @@ class MetadataDrivenLoader(SourceDataLoader):
             cleaned[key] = value
         return cleaned
 
-    def _emit_node(self, rule: dict, row: dict[str, str], item) -> None:
-        identifier = evaluate_transform(rule["id"], row=row, item=item)
+    def _emit_node(self, rule: dict, row: dict[str, str], item, aggregate=None, group_key=None) -> None:
+        identifier = evaluate_transform(rule["id"], row=row, item=item, aggregate=aggregate, group_key=group_key)
         if not identifier:
             return
 
-        node_name = evaluate_transform(rule.get("name"), row=row, item=item)
-        categories = evaluate_transform(rule.get("categories"), row=row, item=item)
+        node_name = evaluate_transform(rule.get("name"), row=row, item=item, aggregate=aggregate, group_key=group_key)
+        categories = evaluate_transform(
+            rule.get("categories"),
+            row=row,
+            item=item,
+            aggregate=aggregate,
+            group_key=group_key,
+        )
         properties = {
-            property_name: evaluate_transform(property_spec, row=row, item=item)
+            property_name: evaluate_transform(
+                property_spec,
+                row=row,
+                item=item,
+                aggregate=aggregate,
+                group_key=group_key,
+            )
             for property_name, property_spec in rule.get("properties", {}).items()
         }
 
@@ -166,21 +185,29 @@ class MetadataDrivenLoader(SourceDataLoader):
             kgxnode(identifier=identifier, name=node_name or "", categories=categories, nodeprops=self._clean_properties(properties))
         )
 
-    def _emit_edge(self, rule: dict, row: dict[str, str], item) -> None:
-        subject_id = evaluate_transform(rule["subject"], row=row, item=item)
-        predicate = evaluate_transform(rule["predicate"], row=row, item=item)
-        object_id = evaluate_transform(rule["object"], row=row, item=item)
+    def _emit_edge(self, rule: dict, row: dict[str, str], item, aggregate=None, group_key=None) -> None:
+        subject_id = evaluate_transform(rule["subject"], row=row, item=item, aggregate=aggregate, group_key=group_key)
+        predicate = evaluate_transform(rule["predicate"], row=row, item=item, aggregate=aggregate, group_key=group_key)
+        object_id = evaluate_transform(rule["object"], row=row, item=item, aggregate=aggregate, group_key=group_key)
         if not all((subject_id, predicate, object_id)):
             return
 
         edge_properties = {
-            property_name: evaluate_transform(property_spec, row=row, item=item)
+            property_name: evaluate_transform(
+                property_spec,
+                row=row,
+                item=item,
+                aggregate=aggregate,
+                group_key=group_key,
+            )
             for property_name, property_spec in rule.get("properties", {}).items()
         }
         primary_knowledge_source = evaluate_transform(
             rule.get("primary_knowledge_source"),
             row=row,
             item=item,
+            aggregate=aggregate,
+            group_key=group_key,
         ) or self.provenance_id
 
         self.output_file_writer.write_kgx_edge(
@@ -201,6 +228,7 @@ class MetadataDrivenLoader(SourceDataLoader):
         skipped_record_counter = 0
         errors: list[str] = []
         test_mode_limit = self.parser_spec.input.test_mode_limit
+        aggregation_engine = AggregationEngine(self.parser_spec.aggregate) if self.parser_spec.aggregate else None
 
         for row in self._iter_rows():
             record_counter += 1
@@ -208,20 +236,50 @@ class MetadataDrivenLoader(SourceDataLoader):
                 break
 
             try:
-                if not all(row_matches_filter(filter_spec, row) for filter_spec in self.parser_spec.row_filters):
+                enriched_row = self._apply_derived_fields(row)
+
+                if not all(row_matches_filter(filter_spec, enriched_row) for filter_spec in self.parser_spec.row_filters):
                     skipped_record_counter += 1
                     continue
 
                 for node_rule in self.parser_spec.emit.nodes:
-                    for item in self._rule_items(node_rule, row):
-                        self._emit_node(node_rule, row=row, item=item)
+                    for item in self._rule_items(node_rule, enriched_row):
+                        self._emit_node(node_rule, row=enriched_row, item=item)
 
                 for edge_rule in self.parser_spec.emit.edges:
-                    for item in self._rule_items(edge_rule, row):
-                        self._emit_edge(edge_rule, row=row, item=item)
+                    for item in self._rule_items(edge_rule, enriched_row):
+                        self._emit_edge(edge_rule, row=enriched_row, item=item)
+
+                if aggregation_engine is not None:
+                    aggregation_engine.consume_row(enriched_row)
             except Exception as exc:
                 errors.append(str(exc))
                 skipped_record_counter += 1
+
+        if aggregation_engine is not None:
+            aggregate_emit = self.parser_spec.aggregate.get("emit", {})
+            aggregate_nodes = aggregate_emit.get("nodes", [])
+            aggregate_edges = aggregate_emit.get("edges", [])
+            for group_key, aggregate in aggregation_engine.finalize():
+                for node_rule in aggregate_nodes:
+                    for item in self._rule_items(node_rule, {}, aggregate=aggregate, group_key=group_key):
+                        self._emit_node(
+                            node_rule,
+                            row={},
+                            item=item,
+                            aggregate=aggregate,
+                            group_key=group_key,
+                        )
+
+                for edge_rule in aggregate_edges:
+                    for item in self._rule_items(edge_rule, {}, aggregate=aggregate, group_key=group_key):
+                        self._emit_edge(
+                            edge_rule,
+                            row={},
+                            item=item,
+                            aggregate=aggregate,
+                            group_key=group_key,
+                        )
 
         return {
             "num_source_lines": record_counter,
@@ -248,4 +306,3 @@ class _ZipTextStream:
         if self._raw_stream is not None:
             self._raw_stream.close()
         self._zip_file.close()
-

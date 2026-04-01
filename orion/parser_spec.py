@@ -46,6 +46,8 @@ class ParserSpec:
     croissant: CroissantBindingSpec
     input: InputSpec
     emit: EmitSpec
+    derived_fields: dict[str, dict[str, Any]] = field(default_factory=dict)
+    aggregate: dict[str, Any] | None = None
     row_filters: list[dict[str, Any]] = field(default_factory=list)
     description: str = ""
     preserve_unconnected_nodes: bool = False
@@ -78,7 +80,13 @@ class ParserSpec:
             raise ValueError("Metadata-driven tabular parsing currently requires header=True.")
 
         if not self.emit.nodes and not self.emit.edges:
-            raise ValueError("Parser spec must define at least one node or edge emit rule.")
+            if not self.aggregate:
+                raise ValueError("Parser spec must define at least one node or edge emit rule, or an aggregate section.")
+
+        if self.aggregate:
+            for required_key in ("foreach", "group_by", "reducers", "emit"):
+                if required_key not in self.aggregate:
+                    raise ValueError(f"Aggregate parser spec is missing required key '{required_key}'.")
 
     def get_source_version(self, resolver: CroissantResolver) -> str:
         version_from = self.croissant.version_from
@@ -136,6 +144,8 @@ def load_parser_spec(path: str) -> ParserSpec:
         croissant=CroissantBindingSpec(**croissant_doc),
         input=InputSpec(**document["input"]),
         emit=EmitSpec(**document["emit"]),
+        derived_fields=dict(document.get("derived_fields", {})),
+        aggregate=document.get("aggregate"),
         row_filters=list(document.get("row_filters", [])),
         description=document.get("description", ""),
         preserve_unconnected_nodes=bool(document.get("preserve_unconnected_nodes", False)),
@@ -146,4 +156,3 @@ def load_parser_spec(path: str) -> ParserSpec:
     resolver = spec.get_croissant_resolver()
     spec.validate_against(resolver)
     return spec
-
