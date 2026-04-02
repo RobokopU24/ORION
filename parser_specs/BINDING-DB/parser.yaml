@@ -1,0 +1,159 @@
+source_id: BINDING-DB-Croissant
+provenance_id: infores:bindingdb
+parsing_version: "3.0"
+
+from:
+  croissant: bindingdb_croissant.json
+  dataset_id: bindingdb
+  version_from: dataset.version
+  distribution: bindingdb/all_tsv_fileset
+  record_set: bindingdb/binding_data
+  format: tsv
+  delimiter: "\t"
+  archive_member: BindingDB_All.tsv
+  test_mode_limit: 10000
+
+fields:
+  ligand_id:
+    column: pubchem_cid
+    kind: identifier
+    prefix: PUBCHEM.COMPOUND
+  protein_id:
+    column: chain1_swissprot_primary_id
+    kind: identifier
+    prefix: UniProtKB
+  publication:
+    column: pmid
+    kind: optional_identifier
+    prefix: "PMID:"
+  pubchem_assay_id:
+    column: pubchem_aid
+    kind: optional_identifier
+    prefix: "PUBCHEM.AID:"
+  patent_id:
+    column: patent_number
+    kind: optional_identifier
+    prefix: "PATENT:"
+  measurements:
+    kind: value_columns
+    unit: nM
+    columns:
+      ki_nm:
+        parameter: pKi
+        predicate: "{DGIDB}:inhibitor"
+      ic50_nm:
+        parameter: pIC50
+        predicate: CTD:decreases_activity_of
+      kd_nm:
+        parameter: pKd
+        predicate: RO:0002436
+      ec50_nm:
+        parameter: pEC50
+        predicate: CTD:increases_activity_of
+
+where:
+  - exists: ligand_id
+  - exists: protein_id
+
+views:
+  measurement_rows:
+    from: source
+    unpivot:
+      field: measurements
+      as: measurement
+    select:
+      ligand_id: $ligand_id
+      protein_id: $protein_id
+      parameter: $measurement.parameter
+      predicate: $measurement.predicate
+      affinity_nm:
+        parse_qualified_float:
+          value: $measurement.value
+          reject_operators:
+            - ">"
+          strip_operators:
+            - "<"
+          minimum_exclusive: 0
+      publication: $publication
+      pubchem_assay_id: $pubchem_assay_id
+      patent_id: $patent_id
+
+  aggregated_measurements:
+    from: measurement_rows
+    group_by:
+      ligand_id: $ligand_id
+      protein_id: $protein_id
+      parameter: $parameter
+      predicate: $predicate
+    aggregates:
+      supporting_affinities:
+        when: $affinity_nm
+        list:
+          neglog10_nm:
+            value: $affinity_nm
+            precision: 2
+      publications:
+        when: $affinity_nm
+        unique: $publication
+      pubchem_assay_ids:
+        when: $affinity_nm
+        unique: $pubchem_assay_id
+      patent_ids:
+        when: $affinity_nm
+        unique: $patent_id
+      average_affinity_nm:
+        when: $affinity_nm
+        mean: $affinity_nm
+    let:
+      affinity:
+        neglog10_nm:
+          value: $average_affinity_nm
+          precision: 2
+    having:
+      - exists: average_affinity_nm
+
+graph:
+  nodes:
+    - from: aggregated_measurements
+      id: $ligand_id
+    - from: aggregated_measurements
+      id: $protein_id
+
+  edges:
+    - from: aggregated_measurements
+      subject: $ligand_id
+      predicate: $predicate
+      object: $protein_id
+      props:
+        ligand: $ligand_id
+        protein: $protein_id
+        affinity_parameter: $parameter
+        supporting_affinities: $supporting_affinities
+        publications: $publications
+        pubchem_assay_ids: $pubchem_assay_ids
+        patent_ids: $patent_ids
+        knowledge_level: knowledge_assertion
+        agent_type: manual_agent
+        affinity: $affinity
+
+output:
+  node_order: edge_encounter
+  edge_property_order:
+    - ligand
+    - protein
+    - affinity_parameter
+    - supporting_affinities
+    - publications
+    - pubchem_assay_ids
+    - patent_ids
+    - knowledge_level
+    - agent_type
+    - affinity
+  metadata:
+    drop:
+      - num_source_lines
+      - unusable_source_lines
+    set:
+      record_counter: source_edges
+      skipped_record_counter: 0
+      errors: []
