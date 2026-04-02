@@ -10,6 +10,7 @@ from collections import defaultdict
 from orion.biolink_constants import *
 from orion.normalization import FALLBACK_EDGE_PREDICATE, NormalizationScheme
 from orion.logging import get_orion_logger
+from orion.config import config
 from orion.kgx_file_writer import KGXFileWriter
 from orion.kgx_file_normalizer import KGXFileNormalizer
 
@@ -61,10 +62,12 @@ class SequenceVariantSupplementation:
 
     SUPPLEMENTATION_VERSION = "1.1"
 
-    def __init__(self, output_dir="."):
+    def __init__(self, output_dir=None):
 
-        workspace_dir = os.getenv("ORION_STORAGE", output_dir)
-
+        workspace_dir = output_dir or config.ORION_STORAGE
+        if not path.isdir(workspace_dir):
+            raise RuntimeError(f'Workspace directory not valid for SequenceVariantSupplementation.')
+        
         # if the snpEff dir exists, assume we already downloaded it
         self.snpeff_dir = path.join(workspace_dir, "snpEff")
         if not path.isdir(self.snpeff_dir):

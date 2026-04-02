@@ -2,10 +2,10 @@ import json
 import os
 from collections import defaultdict
 
-from orion.config import CONFIG
+from orion.config import config
 from orion.logging import get_orion_logger
 
-OPENAI_API_KEY = CONFIG.get("OPENAI_API_KEY")
+OPENAI_API_KEY = config.OPENAI_API_KEY
 
 LLM_RESULTS = []
 

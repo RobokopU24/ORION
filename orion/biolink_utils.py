@@ -6,7 +6,9 @@ from bmt import Toolkit
 from requests.adapters import HTTPAdapter, Retry
 from functools import cache
 
-BIOLINK_MODEL_VERSION = os.environ.get("BL_VERSION", "v4.3.4")
+from orion.config import config
+
+BIOLINK_MODEL_VERSION = config.BL_VERSION
 
 def get_biolink_model_toolkit(biolink_version: str = None) -> Toolkit:
     version = biolink_version if biolink_version else BIOLINK_MODEL_VERSION

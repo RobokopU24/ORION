@@ -1,12 +1,12 @@
-import os
 import logging
 
 import requests
 
 from parsers.LitCoin.src.NER.base import BaseNEREngine
+from orion.config import config
 
 # Configuration: NameRes
-NAMERES_URL = os.getenv('NAMERES_URL', 'https://name-resolution-sri.renci.org/')
+NAMERES_URL = config.NAMERES_URL
 NAMERES_ENDPOINT = f'{NAMERES_URL}lookup'
 NAMERES_RL_ENDPOINT = f'{NAMERES_URL}reverse_lookup'
 

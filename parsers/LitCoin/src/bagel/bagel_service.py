@@ -1,21 +1,17 @@
 import requests
 from requests.auth import HTTPBasicAuth
-from orion.config import CONFIG
+from orion.config import config
 
-BAGEL_ENDPOINT = 'https://bagel.apps.renci.org/'
-BAGEL_ENDPOINT += 'find_curies_openai'
+BAGEL_ENDPOINT = config.BAGEL_ENDPOINT + 'find_curies_openai'
 
-bagel_nameres_url = CONFIG.get('NAMERES_ENDPOINT', 'https://name-resolution-sri.renci.org/')
-bagel_nameres_url += 'lookup?autocomplete=false&offset=0&limit=10&string="'
+bagel_nameres_url = config.NAMERES_URL + 'lookup?autocomplete=false&offset=0&limit=10&string="'
 
-bagel_sapbert_url = CONFIG.get('SAPBERT_URL', 'https://sap-qdrant.apps.renci.org/')
-bagel_sapbert_url += "annotate/"
+bagel_sapbert_url = config.SAPBERT_URL + "annotate/"
 
-bagel_nodenorm_url = CONFIG.get('NODE_NORMALIZATION_ENDPOINT', 'https://nodenormalization-sri.renci.org/')
-bagel_nodenorm_url += 'get_normalized_nodes'
+bagel_nodenorm_url = config.NODE_NORMALIZATION_ENDPOINT + 'get_normalized_nodes'
 
-BAGEL_SERVICE_USERNAME = CONFIG.get("BAGEL_SERVICE_USERNAME", 'default_bagel_username')
-BAGEL_SERVICE_PASSWORD = CONFIG.get("BAGEL_SERVICE_PASSWORD", 'default_bagel_password')
+BAGEL_SERVICE_USERNAME = config.BAGEL_SERVICE_USERNAME
+BAGEL_SERVICE_PASSWORD = config.BAGEL_SERVICE_PASSWORD
 
 
 def call_bagel_service(text, entity, entity_type=''):

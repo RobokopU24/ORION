@@ -4,6 +4,7 @@ import json
 import inspect
 from orion.kgx_file_writer import KGXFileWriter
 from orion.logging import get_orion_logger
+from orion.config import config
 
 
 class SourceDataLoader:
@@ -36,7 +37,7 @@ class SourceDataLoader:
             if not os.path.exists(self.data_path):
                 os.mkdir(self.data_path)
         else:
-            self.data_path = os.environ.get("ORION_STORAGE")
+            self.data_path = config.ORION_STORAGE
 
         # the final output lists of nodes and edges
         self.final_node_list: list = []

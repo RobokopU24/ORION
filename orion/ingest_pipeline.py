@@ -9,6 +9,7 @@ from orion.data_sources import SourceDataLoaderClassFactory, RESOURCE_HOGS, get_
 from orion.exceptions import DataVersionError
 from orion.utils import GetDataPullError
 from orion.logging import get_orion_logger
+from orion.config import config
 from orion.kgx_file_normalizer import KGXFileNormalizer
 from orion.kgx_validation import validate_graph
 from orion.normalization import NormalizationScheme, NodeNormalizer, EdgeNormalizer, NormalizationFailedError
@@ -698,14 +699,13 @@ class IngestPipeline:
                 raise IOError(f'Storage directory not valid: {storage_dir}')
         # otherwise use the storage directory specified by the environment variable ORION_STORAGE
         # check to make sure it's set and valid, otherwise fail
-        storage_dir_from_env = os.getenv("ORION_STORAGE")
-        if storage_dir_from_env is None:
+        if config.ORION_STORAGE is None:
             raise Exception(f'No storage directory was specified. You must either provide a path programmatically or '
                             f'use the environment variable ORION_STORAGE to configure a storage directory.')
-        if os.path.isdir(storage_dir_from_env):
-            return storage_dir_from_env
+        if os.path.isdir(config.ORION_STORAGE):
+            return config.ORION_STORAGE
         else:
-            raise IOError(f'Storage directory not valid: {storage_dir_from_env}')
+            raise IOError(f'Storage directory not valid: {config.ORION_STORAGE}')
 
     def init_source_output_dir(self, source_id: str):
         source_dir_path = os.path.join(self.storage_dir, source_id)
@@ -730,12 +730,7 @@ def main():
                              'in the finalized kgx files.')
     args = parser.parse_args()
 
-    if 'ORION_TEST_MODE' in os.environ:
-        test_mode_from_env = os.environ['ORION_TEST_MODE']
-    else:
-        test_mode_from_env = False
-
-    loader_test_mode = args.test_mode or test_mode_from_env
+    loader_test_mode = args.test_mode or config.ORION_TEST_MODE
     loader_strict_normalization = (not args.lenient_normalization)
     ingest_pipeline = IngestPipeline(test_mode=loader_test_mode,
                                      fresh_start_mode=args.fresh_start_mode)

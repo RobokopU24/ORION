@@ -9,6 +9,7 @@ from dataclasses import dataclass
 from robokop_genetics.genetics_normalization import GeneticsNormalizer
 from orion.biolink_constants import *
 from orion.logging import get_orion_logger
+from orion.config import config
 
 logger = get_orion_logger("orion.normalization")
 
@@ -51,7 +52,7 @@ class NormalizationFailedError(Exception):
         self.error_message = error_message
         self.actual_error = actual_error
 
-NODE_NORMALIZATION_URL = os.environ.get('NODE_NORMALIZATION_ENDPOINT', 'https://nodenormalization-sri.renci.org/')
+NODE_NORMALIZATION_URL = config.NODE_NORMALIZATION_URL
 
 
 class NodeNormalizer:
@@ -382,8 +383,6 @@ class EdgeNormalizer:
     Class that contains methods relating to edge normalization.
     """
 
-    DEFAULT_EDGE_NORM_ENDPOINT = f'https://bl-lookup-sri.renci.org/'
-
     def __init__(self,
                  edge_normalization_version: str = 'latest'):
         """
@@ -393,10 +392,7 @@ class EdgeNormalizer:
         self.edge_normalization_lookup = {}
         self.cached_edge_norms = {}
 
-        if 'EDGE_NORMALIZATION_ENDPOINT' in os.environ and os.environ['EDGE_NORMALIZATION_ENDPOINT']:
-            self.edge_norm_endpoint = os.environ['EDGE_NORMALIZATION_ENDPOINT']
-        else:
-            self.edge_norm_endpoint = self.DEFAULT_EDGE_NORM_ENDPOINT
+        self.edge_norm_endpoint = config.EDGE_NORMALIZATION_ENDPOINT
 
         if edge_normalization_version != 'latest':
             if self.check_bl_version_valid(edge_normalization_version):
@@ -552,7 +548,7 @@ class EdgeNormalizer:
             resp.raise_for_status()
 
 
-NAME_RESOLVER_URL = os.getenv('NAMERES_URL', 'https://name-resolution-sri.renci.org')
+NAME_RESOLVER_URL = config.NAMERES_URL
 NAME_RESOLVER_ENDPOINT = f'{NAME_RESOLVER_URL}/lookup'
 NAME_RESOLVER_HEADERS = {"accept": "application/json"}
 NAME_RESOLVER_API_ERROR = 'api_error'

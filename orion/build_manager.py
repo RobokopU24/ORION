@@ -10,6 +10,7 @@ from xxhash import xxh64_hexdigest
 
 from orion.utils import GetDataPullError
 from orion.logging import get_orion_logger
+from orion.config import config
 from orion.data_sources import get_available_data_sources, get_data_source_metadata_path
 from orion.exceptions import DataVersionError, GraphSpecError
 from orion.ingest_pipeline import IngestPipeline
@@ -508,8 +509,8 @@ class GraphBuilder:
             f.write(kgx_graph_metadata.to_json())
 
     def load_graph_specs(self, graph_specs_dir=None):
-        graph_spec_file = os.getenv('ORION_GRAPH_SPEC')
-        graph_spec_url = os.getenv('ORION_GRAPH_SPEC_URL')
+        graph_spec_file = config.ORION_GRAPH_SPEC
+        graph_spec_url = config.ORION_GRAPH_SPEC_URL
 
         if graph_spec_file and graph_spec_url:
             raise GraphSpecError(f'Configuration Error - the environment variables ORION_GRAPH_SPEC and '
@@ -685,7 +686,7 @@ class GraphBuilder:
 
     @staticmethod
     def get_graph_output_url(graph_id: str, graph_version: str):
-        graph_output_url = os.environ.get('ORION_OUTPUT_URL', "https://localhost/").removesuffix('/')
+        graph_output_url = config.ORION_OUTPUT_URL.removesuffix('/')
         return f'{graph_output_url}/{graph_id}/{graph_version}/'
 
     @staticmethod
@@ -712,7 +713,7 @@ class GraphBuilder:
     @staticmethod
     def get_graph_output_dir():
         # confirm the directory specified by the environment variable ORION_GRAPHS is valid
-        graphs_dir = os.getenv('ORION_GRAPHS')
+        graphs_dir = config.ORION_GRAPHS
         if graphs_dir and Path(graphs_dir).is_dir():
             return graphs_dir
 
