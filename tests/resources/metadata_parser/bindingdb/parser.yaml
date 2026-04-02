@@ -1,162 +1,128 @@
 source_id: BINDING-DB
 provenance_id: infores:bindingdb
-parsing_version: "1.0"
+parsing_version: "3.0"
 
-croissant:
-  path: bindingdb_croissant.json
+from:
+  croissant: bindingdb_croissant.json
   dataset_id: bindingdb
   version_from: dataset.version
-
-input:
   distribution: bindingdb/all_tsv_fileset
   record_set: bindingdb/binding_data
   format: tsv
-  header: true
   delimiter: "\t"
   archive_member: BindingDB_All.tsv
   test_mode_limit: 100
 
-derived_fields:
+fields:
   ligand_id:
-    op: template
-    value: "PUBCHEM.COMPOUND:{pubchem_cid}"
+    column: pubchem_cid
+    kind: identifier
+    prefix: PUBCHEM.COMPOUND
   protein_id:
-    op: template
-    value: "UniProtKB:{chain1_swissprot_primary_id}"
+    column: chain1_swissprot_primary_id
+    kind: identifier
+    prefix: UniProtKB
+  publication:
+    column: pmid
+    kind: optional_identifier
+    prefix: "PMID:"
+  pubchem_assay_id:
+    column: pubchem_aid
+    kind: optional_identifier
+    prefix: "PUBCHEM.AID:"
+  patent_id:
+    column: patent_number
+    kind: optional_identifier
+    prefix: "PATENT:"
   measurements:
-    op: fanout_measurements
-    measurements:
-      - value_field: ki_nm
-        measurement_type: pKi
+    kind: value_columns
+    unit: nM
+    columns:
+      ki_nm:
+        parameter: pKi
         predicate: biolink:inhibits
-      - value_field: ic50_nm
-        measurement_type: pIC50
+      ic50_nm:
+        parameter: pIC50
         predicate: CTD:decreases_activity_of
-      - value_field: kd_nm
-        measurement_type: pKd
+      kd_nm:
+        parameter: pKd
         predicate: RO:0002436
-      - value_field: ec50_nm
-        measurement_type: pEC50
+      ec50_nm:
+        parameter: pEC50
         predicate: CTD:increases_activity_of
 
-row_filters:
-  - exists: pubchem_cid
-  - exists: chain1_swissprot_primary_id
+where:
+  - exists: ligand_id
+  - exists: protein_id
 
-emit:
-  nodes: []
-  edges: []
+views:
+  measurement_rows:
+    from: source
+    unpivot:
+      field: measurements
+      as: measurement
+    select:
+      ligand_id: $ligand_id
+      protein_id: $protein_id
+      parameter: $measurement.parameter
+      predicate: $measurement.predicate
+      affinity_nm:
+        parse_qualified_float:
+          value: $measurement.value
+          minimum_exclusive: 0
+      publication: $publication
+      pubchem_assay_id: $pubchem_assay_id
+      patent_id: $patent_id
 
-aggregate:
-  foreach:
-    op: field
-    name: measurements
-  group_by:
-    - op: field
-      name: ligand_id
-    - op: field
-      name: protein_id
-    - op: item
-      path: measurement_type
-    - op: item
-      path: predicate
-  reducers:
-    supporting_affinities:
-      op: collect_list
-      value:
-        op: parse_qualified_float
-        value:
-          op: item
-          path: value
-        minimum_exclusive: 0
-    publications:
-      op: collect_unique
-      when:
-        op: parse_qualified_float
-        value:
-          op: item
-          path: value
-        minimum_exclusive: 0
-      value:
-        op: prefix_if_present
-        field: pmid
-        prefix: "PMID:"
-    pubchem_assay_ids:
-      op: collect_unique
-      when:
-        op: parse_qualified_float
-        value:
-          op: item
-          path: value
-        minimum_exclusive: 0
-      value:
-        op: prefix_if_present
-        field: pubchem_aid
-        prefix: "PUBCHEM.AID:"
-    patent_ids:
-      op: collect_unique
-      when:
-        op: parse_qualified_float
-        value:
-          op: item
-          path: value
-        minimum_exclusive: 0
-      value:
-        op: prefix_if_present
-        field: patent_number
-        prefix: "PATENT:"
-  finalize:
-    average_affinity_nm:
-      op: mean
-      field: supporting_affinities
-    affinity:
-      op: neglog10_nm
-      value:
-        op: aggregate_value
-        name: average_affinity_nm
-      precision: 2
-  emit:
-    nodes:
-      - id:
-          op: group_key
-          index: 0
-        categories:
-          - biolink:SmallMolecule
-      - id:
-          op: group_key
-          index: 1
-        categories:
-          - biolink:Protein
-    edges:
-      - subject:
-          op: group_key
-          index: 0
-        predicate:
-          op: group_key
-          index: 3
-        object:
-          op: group_key
-          index: 1
-        primary_knowledge_source: infores:bindingdb
-        properties:
-          affinity_parameter:
-            op: group_key
-            index: 2
-          affinity:
-            op: aggregate_value
-            name: affinity
-          average_affinity_nm:
-            op: aggregate_value
-            name: average_affinity_nm
-          supporting_affinities:
-            op: aggregate_value
-            name: supporting_affinities
-          publications:
-            op: aggregate_value
-            name: publications
-          pubchem_assay_ids:
-            op: aggregate_value
-            name: pubchem_assay_ids
-          patent_ids:
-            op: aggregate_value
-            name: patent_ids
+  valid_measurement_rows:
+    from: measurement_rows
+    where:
+      - exists: affinity_nm
+
+  aggregated_measurements:
+    from: valid_measurement_rows
+    group_by:
+      ligand_id: $ligand_id
+      protein_id: $protein_id
+      parameter: $parameter
+      predicate: $predicate
+    aggregates:
+      supporting_affinities:
+        list: $affinity_nm
+      publications:
+        unique: $publication
+      pubchem_assay_ids:
+        unique: $pubchem_assay_id
+      patent_ids:
+        unique: $patent_id
+      average_affinity_nm:
+        mean: $affinity_nm
+    let:
+      affinity:
+        neglog10_nm:
+          value: $average_affinity_nm
+          precision: 2
+
+graph:
+  nodes:
+    - from: aggregated_measurements
+      id: $ligand_id
+      category: biolink:SmallMolecule
+    - from: aggregated_measurements
+      id: $protein_id
+      category: biolink:Protein
+
+  edges:
+    - from: aggregated_measurements
+      subject: $ligand_id
+      predicate: $predicate
+      object: $protein_id
+      primary_knowledge_source: infores:bindingdb
+      props:
+        affinity_parameter: $parameter
+        affinity: $affinity
+        average_affinity_nm: $average_affinity_nm
+        supporting_affinities: $supporting_affinities
+        publications: $publications
+        pubchem_assay_ids: $pubchem_assay_ids
+        patent_ids: $patent_ids

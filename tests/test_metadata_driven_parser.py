@@ -92,8 +92,8 @@ def test_load_parser_spec_hgnc_fixture():
     spec = load_parser_spec(str(TEST_RESOURCE_DIR / "parser.yaml"))
     assert spec.source_id == "HGNC"
     assert spec.provenance_id == "infores:hgnc"
-    assert spec.input.record_set == "hgnc/hgnc_complete_set"
-    assert spec.croissant.path == str(TEST_RESOURCE_DIR / "hgnc_croissant.json")
+    assert spec.source.record_set == "hgnc/hgnc_complete_set"
+    assert spec.source.croissant_path == str(TEST_RESOURCE_DIR / "hgnc_croissant.json")
 
 
 def test_metadata_driven_loader_emits_expected_hgnc_graph(tmp_path):
@@ -268,39 +268,55 @@ def test_metadata_driven_loader_supports_fileset_in_zip(tmp_path):
             {
                 "source_id": "HGNC",
                 "provenance_id": "infores:hgnc",
-                "parsing_version": "1.0",
-                "croissant": {
-                    "path": str(croissant_path),
+                "parsing_version": "3.0",
+                "from": {
+                    "croissant": str(croissant_path),
                     "dataset_id": "hgnc",
                     "version_from": "dataset.version",
-                },
-                "input": {
                     "distribution": "hgnc/hgnc_complete_set_fileset",
                     "record_set": "hgnc/hgnc_complete_set",
                     "format": "tsv",
-                    "header": True,
                     "delimiter": "\t",
                     "member_pattern": "*hgnc_complete_set.txt",
                 },
-                "row_filters": [{"exists": "gene_group_id"}],
-                "emit": {
+                "fields": {
+                    "gene_id": {"column": "hgnc_id", "kind": "identifier"},
+                    "gene_name": {"column": "name", "kind": "label"},
+                    "families": {
+                        "kind": "zipped_list",
+                        "separator": "|",
+                        "columns": {
+                            "id": {"column": "gene_group_id", "kind": "identifier", "prefix": "HGNC.FAMILY"},
+                            "name": {"column": "gene_group", "kind": "label"},
+                        },
+                    },
+                },
+                "where": [{"exists": "families"}],
+                "views": {
+                    "gene_family_memberships": {
+                        "from": "source",
+                        "unnest": {"field": "families", "as": "family"},
+                        "select": {
+                            "gene_id": "$gene_id",
+                            "family_id": "$family.id",
+                        },
+                    }
+                },
+                "graph": {
                     "nodes": [
                         {
-                            "id": {"op": "field", "name": "hgnc_id"},
-                            "name": {"op": "field", "name": "name"},
-                            "categories": ["biolink:Gene"],
+                            "from": "source",
+                            "id": "$gene_id",
+                            "name": "$gene_name",
+                            "category": "biolink:Gene",
                         }
                     ],
                     "edges": [
                         {
-                            "foreach": {
-                                "op": "explode_zip",
-                                "fields": ["gene_group_id", "gene_group"],
-                                "separator": "|",
-                            },
-                            "subject": {"op": "field", "name": "hgnc_id"},
+                            "from": "gene_family_memberships",
+                            "subject": "$gene_id",
                             "predicate": "RO:0002350",
-                            "object": {"op": "template", "value": "HGNC.FAMILY:{item.0}"},
+                            "object": "$family_id",
                         }
                     ],
                 },
@@ -326,8 +342,8 @@ def test_metadata_driven_loader_supports_fileset_in_zip(tmp_path):
 def test_load_parser_spec_bindingdb_fixture():
     spec = load_parser_spec(str(BINDINGDB_RESOURCE_DIR / "parser.yaml"))
     assert spec.source_id == "BINDING-DB"
-    assert spec.aggregate is not None
-    assert spec.input.distribution == "bindingdb/all_tsv_fileset"
+    assert "aggregated_measurements" in spec.views
+    assert spec.source.distribution == "bindingdb/all_tsv_fileset"
 
 
 def test_metadata_driven_loader_bindingdb_aggregation(tmp_path):
@@ -406,8 +422,8 @@ def test_hgnc_croissant_loader_matches_legacy_loader(tmp_path):
     croissant_metadata = croissant_loader.load(str(croissant_nodes), str(croissant_edges))
 
     assert legacy_metadata == croissant_metadata
-    assert _sorted_records(legacy_nodes) == _sorted_records(croissant_nodes)
-    assert _sorted_records(legacy_edges) == _sorted_records(croissant_edges)
+    assert legacy_nodes.read_text() == croissant_nodes.read_text()
+    assert legacy_edges.read_text() == croissant_edges.read_text()
 
 
 def test_bindingdb_croissant_loader_matches_legacy_loader_on_compatible_fixture(tmp_path):
@@ -432,13 +448,72 @@ def test_bindingdb_croissant_loader_matches_legacy_loader_on_compatible_fixture(
     croissant_loader = BINDINGDBCroissantLoader(source_data_dir=str(source_root))
     croissant_metadata = croissant_loader.load(str(croissant_nodes), str(croissant_edges))
 
-    assert legacy_metadata["source_nodes"] == croissant_metadata["source_nodes"]
-    assert legacy_metadata["source_edges"] == croissant_metadata["source_edges"]
+    assert legacy_metadata == croissant_metadata
+    assert legacy_nodes.read_text() == croissant_nodes.read_text()
+    assert legacy_edges.read_text() == croissant_edges.read_text()
 
-    legacy_nodes_json = _sorted_records(legacy_nodes)
-    croissant_nodes_json = _sorted_records(croissant_nodes)
-    assert legacy_nodes_json == croissant_nodes_json
 
-    legacy_edges_json = _sorted_records(legacy_edges)
-    croissant_edges_json = _sorted_records(croissant_edges)
-    assert legacy_edges_json == croissant_edges_json
+def test_metadata_driven_loader_can_preserve_empty_string_properties(tmp_path):
+    source_root = tmp_path / "hgnc_preserve_empty"
+    source_dir = source_root / "source"
+    source_dir.mkdir(parents=True)
+    (source_dir / "hgnc_complete_set.txt").write_text(
+        "hgnc_id\tsymbol\tname\tlocus_group\tlocation\tgene_group_id\tgene_group\tpubmed_id\n"
+        "HGNC:1\tGENE1\tGene 1\tprotein-coding gene\t\t5\tFamily 5\t\n"
+    )
+
+    parser_spec_path = tmp_path / "parser.yaml"
+    parser_spec_path.write_text(
+        yaml.safe_dump(
+            {
+                "source_id": "HGNC",
+                "provenance_id": "infores:hgnc",
+                "parsing_version": "1.0",
+                "from": {
+                    "croissant": str(TEST_RESOURCE_DIR / "hgnc_croissant.json"),
+                    "dataset_id": "hgnc",
+                    "distribution": "hgnc/hgnc_complete_set_tsv",
+                    "record_set": "hgnc/hgnc_complete_set",
+                    "format": "tsv",
+                    "delimiter": "\t",
+                },
+                "fields": {
+                    "gene_id": {"column": "hgnc_id", "kind": "identifier"},
+                    "gene_name": {"column": "name", "kind": "label"},
+                    "location": {"column": "location", "kind": "property", "preserve_empty": True},
+                },
+                "graph": {
+                    "nodes": [
+                        {
+                            "from": "source",
+                            "id": "$gene_id",
+                            "name": "$gene_name",
+                            "props": {
+                                "location": {"value": "$location", "preserve_empty": True},
+                            },
+                        }
+                    ],
+                    "edges": [],
+                },
+            },
+            sort_keys=False,
+        )
+    )
+
+    loader = HGNCTestMetadataLoader(
+        source_data_dir=str(source_root),
+        parser_spec_path=str(parser_spec_path),
+    )
+    nodes_path = tmp_path / "nodes.jsonl"
+    edges_path = tmp_path / "edges.jsonl"
+    loader.load(str(nodes_path), str(edges_path))
+
+    nodes = _sorted_records(nodes_path)
+    assert nodes == [
+        {
+            "category": ["biolink:NamedThing"],
+            "id": "HGNC:1",
+            "location": "",
+            "name": "Gene 1",
+        }
+    ]

@@ -1,71 +1,104 @@
 source_id: HGNC
 provenance_id: infores:hgnc
-parsing_version: "2.0"
+parsing_version: "3.0"
 
-croissant:
-  path: hgnc_croissant.json
+from:
+  croissant: hgnc_croissant.json
   dataset_id: hgnc
   version_from: dataset.version
-
-input:
   distribution: hgnc/hgnc_complete_set_tsv
   record_set: hgnc/hgnc_complete_set
   format: tsv
-  header: true
   delimiter: "\t"
   test_mode_limit: 5000
 
-row_filters:
-  - exists: gene_group_id
-
-emit:
-  nodes:
-    - id:
-        op: field
-        name: hgnc_id
-      name:
-        op: field
-        name: name
-      properties:
-        symbol:
-          op: field
-          name: symbol
-        locus_group:
-          op: field
-          name: locus_group
-        location:
-          op: field
-          name: location
-
-    - foreach:
-        op: explode_zip
-        fields: [gene_group_id, gene_group]
-        separator: "|"
+fields:
+  gene_id:
+    column: hgnc_id
+    kind: identifier
+  gene_name:
+    column: name
+    kind: label
+    trim: false
+  symbol:
+    column: symbol
+    kind: property
+  locus_group:
+    column: locus_group
+    kind: property
+  location:
+    column: location
+    kind: property
+    preserve_empty: true
+  families:
+    kind: zipped_list
+    separator: "|"
+    columns:
       id:
-        op: template
-        value: "HGNC.FAMILY:{item.0}"
+        column: gene_group_id
+        kind: identifier
+        prefix: HGNC.FAMILY
       name:
-        op: item
-        index: 1
+        column: gene_group
+        kind: label
+        trim: false
+  publications:
+    column: pubmed_id
+    kind: list
+    separator: "|"
+    prefix: "PMID:"
+
+where:
+  - exists: families
+
+views:
+  gene_family_memberships:
+    from: source
+    unnest:
+      field: families
+      as: family
+    select:
+      gene_id: $gene_id
+      family_id: $family.id
+      family_name: $family.name
+      publications: $publications
+
+graph:
+  nodes:
+    - from: source
+      id: $gene_id
+      name: $gene_name
+      props:
+        locus_group: $locus_group
+        symbol: $symbol
+        location:
+          value: $location
+          preserve_empty: true
+    - from: gene_family_memberships
+      id: $family_id
+      name: $family_name
 
   edges:
-    - foreach:
-        op: explode_zip
-        fields: [gene_group_id, gene_group]
-        separator: "|"
-      subject:
-        op: field
-        name: hgnc_id
+    - from: gene_family_memberships
+      subject: $gene_id
       predicate: RO:0002350
-      object:
-        op: template
-        value: "HGNC.FAMILY:{item.0}"
+      object: $family_id
       primary_knowledge_source: infores:hgnc
-      properties:
-        publications:
-          op: split_prefix
-          field: pubmed_id
-          separator: "|"
-          prefix: "PMID:"
+      props:
         knowledge_level: knowledge_assertion
         agent_type: manual_agent
+        publications: $publications
+
+output:
+  node_order: edge_encounter
+  node_property_order:
+    - locus_group
+    - symbol
+    - location
+  edge_property_order:
+    - knowledge_level
+    - agent_type
+    - publications
+  metadata:
+    set:
+      num_source_lines: source_edges
