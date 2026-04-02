@@ -75,6 +75,8 @@ def evaluate_transform(
     if op == "item":
         if item is None:
             raise ValueError("The item transform requires a foreach context.")
+        if "path" not in spec and "index" not in spec:
+            return item
         if "path" in spec:
             return _resolve_item_value(item, str(spec["path"]))
         if "index" in spec:
@@ -136,6 +138,15 @@ def evaluate_transform(
     if op == "map_lookup":
         value = evaluate_transform(spec["value"], row=row, item=item, aggregate=aggregate, group_key=group_key)
         return spec.get("mapping", {}).get(value, spec.get("default"))
+
+    if op == "map_each":
+        values = evaluate_transform(spec["value"], row=row, item=item, aggregate=aggregate, group_key=group_key)
+        if values is None:
+            return []
+        return [
+            evaluate_transform(spec["with"], row=row, item=current_item, aggregate=aggregate, group_key=group_key)
+            for current_item in values
+        ]
 
     if op == "fanout_measurements":
         items = []
@@ -209,3 +220,19 @@ def row_matches_filter(filter_spec: dict[str, Any], row: dict[str, Any]) -> bool
         condition = filter_spec["not_equals"]
         return row.get(condition["field"]) != condition["value"]
     raise ValueError(f"Unsupported row filter: {filter_spec}")
+
+
+def aggregate_matches_filter(filter_spec: dict[str, Any], aggregate: dict[str, Any]) -> bool:
+    if "exists" in filter_spec:
+        value = aggregate.get(filter_spec["exists"])
+        return not _is_missing(value)
+    if "non_empty" in filter_spec:
+        value = aggregate.get(filter_spec["non_empty"])
+        if value is None:
+            return False
+        return len(value) > 0
+    if "greater_than" in filter_spec:
+        condition = filter_spec["greater_than"]
+        value = aggregate.get(condition["field"])
+        return value is not None and value > condition["value"]
+    raise ValueError(f"Unsupported aggregate filter: {filter_spec}")

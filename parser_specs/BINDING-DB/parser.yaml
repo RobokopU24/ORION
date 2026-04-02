@@ -1,6 +1,6 @@
-source_id: BINDING-DB
+source_id: BINDING-DB-Croissant
 provenance_id: infores:bindingdb
-parsing_version: "1.0"
+parsing_version: "2.0"
 
 croissant:
   path: bindingdb_croissant.json
@@ -14,7 +14,7 @@ input:
   header: true
   delimiter: "\t"
   archive_member: BindingDB_All.tsv
-  test_mode_limit: 100
+  test_mode_limit: 10000
 
 derived_fields:
   ligand_id:
@@ -28,16 +28,16 @@ derived_fields:
     measurements:
       - value_field: ki_nm
         measurement_type: pKi
-        predicate: biolink:inhibits
+        predicate: "{DGIDB}:inhibitor"
       - value_field: ic50_nm
         measurement_type: pIC50
-        predicate: CTD:decreases_activity_of
+        predicate: "CTD:decreases_activity_of"
       - value_field: kd_nm
         measurement_type: pKd
-        predicate: RO:0002436
+        predicate: "RO:0002436"
       - value_field: ec50_nm
         measurement_type: pEC50
-        predicate: CTD:increases_activity_of
+        predicate: "CTD:increases_activity_of"
 
 row_filters:
   - exists: pubchem_cid
@@ -48,13 +48,9 @@ emit:
     - id:
         op: field
         name: ligand_id
-      categories:
-        - biolink:SmallMolecule
     - id:
         op: field
         name: protein_id
-      categories:
-        - biolink:Protein
   edges: []
 
 aggregate:
@@ -71,13 +67,15 @@ aggregate:
     - op: item
       path: predicate
   reducers:
-    supporting_affinities:
+    supporting_affinities_nm:
       op: collect_list
       value:
         op: parse_qualified_float
         value:
           op: item
           path: value
+        reject_operators: [">"]
+        strip_operators: ["<"]
     publications:
       op: collect_unique
       value:
@@ -97,15 +95,24 @@ aggregate:
         field: patent_number
         prefix: "PATENT:"
   finalize:
-    average_affinity_nm:
-      op: mean
-      field: supporting_affinities
     affinity:
       op: neglog10_nm
       value:
-        op: aggregate_value
-        name: average_affinity_nm
+        op: mean
+        field: supporting_affinities_nm
       precision: 2
+    supporting_affinities:
+      op: map_each
+      value:
+        op: aggregate_value
+        name: supporting_affinities_nm
+      with:
+        op: neglog10_nm
+        value:
+          op: item
+        precision: 2
+  filters:
+    - non_empty: supporting_affinities_nm
   emit:
     edges:
       - subject:
@@ -117,17 +124,16 @@ aggregate:
         object:
           op: group_key
           index: 1
-        primary_knowledge_source: infores:bindingdb
         properties:
+          ligand:
+            op: group_key
+            index: 0
+          protein:
+            op: group_key
+            index: 1
           affinity_parameter:
             op: group_key
             index: 2
-          affinity:
-            op: aggregate_value
-            name: affinity
-          average_affinity_nm:
-            op: aggregate_value
-            name: average_affinity_nm
           supporting_affinities:
             op: aggregate_value
             name: supporting_affinities
@@ -140,3 +146,8 @@ aggregate:
           patent_ids:
             op: aggregate_value
             name: patent_ids
+          knowledge_level: knowledge_assertion
+          agent_type: manual_agent
+          affinity:
+            op: aggregate_value
+            name: affinity

@@ -1,6 +1,6 @@
 source_id: HGNC
 provenance_id: infores:hgnc
-parsing_version: "1.0"
+parsing_version: "2.0"
 
 croissant:
   path: hgnc_croissant.json
@@ -13,7 +13,7 @@ input:
   format: tsv
   header: true
   delimiter: "\t"
-  test_mode_limit: 50
+  test_mode_limit: 5000
 
 row_filters:
   - exists: gene_group_id
@@ -26,8 +26,6 @@ emit:
       name:
         op: field
         name: name
-      categories:
-        - biolink:Gene
       properties:
         symbol:
           op: field
@@ -49,8 +47,6 @@ emit:
       name:
         op: item
         index: 1
-      categories:
-        - biolink:GeneFamily
 
   edges:
     - foreach:

@@ -3,7 +3,7 @@ from __future__ import annotations
 from collections import OrderedDict
 from typing import Any
 
-from orion.metadata_transforms import evaluate_transform
+from orion.metadata_transforms import aggregate_matches_filter, evaluate_transform
 
 
 class AggregationEngine:
@@ -73,5 +73,10 @@ class AggregationEngine:
                     aggregate=aggregate,
                     group_key=group_key,
                 )
+            if not all(
+                aggregate_matches_filter(filter_spec, aggregate)
+                for filter_spec in self.aggregate_spec.get("filters", [])
+            ):
+                continue
             finalized_groups.append((group_key, aggregate))
         return finalized_groups

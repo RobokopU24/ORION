@@ -202,13 +202,15 @@ class MetadataDrivenLoader(SourceDataLoader):
             )
             for property_name, property_spec in rule.get("properties", {}).items()
         }
-        primary_knowledge_source = evaluate_transform(
-            rule.get("primary_knowledge_source"),
-            row=row,
-            item=item,
-            aggregate=aggregate,
-            group_key=group_key,
-        ) or self.provenance_id
+        primary_knowledge_source = None
+        if "primary_knowledge_source" in rule:
+            primary_knowledge_source = evaluate_transform(
+                rule.get("primary_knowledge_source"),
+                row=row,
+                item=item,
+                aggregate=aggregate,
+                group_key=group_key,
+            )
 
         self.output_file_writer.write_kgx_edge(
             kgxedge(
@@ -281,11 +283,13 @@ class MetadataDrivenLoader(SourceDataLoader):
                             group_key=group_key,
                         )
 
-        return {
+        metadata = {
             "num_source_lines": record_counter,
             "unusable_source_lines": skipped_record_counter,
-            "errors": errors,
         }
+        if errors:
+            metadata["errors"] = errors
+        return metadata
 
 
 class _ZipTextStream:

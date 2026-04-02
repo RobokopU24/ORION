@@ -1,0 +1,2255 @@
+{
+  "@context": {
+    "@language": "en",
+    "@vocab": "https://schema.org/",
+    "sc": "https://schema.org/",
+    "cr": "http://mlcommons.org/croissant/",
+    "rai": "http://mlcommons.org/croissant/RAI/",
+    "dct": "http://purl.org/dc/terms/",
+    "annotation": "cr:annotation",
+    "arrayShape": "cr:arrayShape",
+    "citeAs": "cr:citeAs",
+    "column": "cr:column",
+    "conformsTo": "dct:conformsTo",
+    "containedIn": "cr:containedIn",
+    "data": {
+      "@id": "cr:data",
+      "@type": "@json"
+    },
+    "dataType": {
+      "@id": "cr:dataType",
+      "@type": "@vocab"
+    },
+    "equivalentProperty": "cr:equivalentProperty",
+    "examples": {
+      "@id": "cr:examples",
+      "@type": "@json"
+    },
+    "excludes": "cr:excludes",
+    "extract": "cr:extract",
+    "field": "cr:field",
+    "fileProperty": "cr:fileProperty",
+    "fileObject": "cr:fileObject",
+    "fileSet": "cr:fileSet",
+    "format": "cr:format",
+    "includes": "cr:includes",
+    "isArray": "cr:isArray",
+    "isLiveDataset": "cr:isLiveDataset",
+    "jsonPath": "cr:jsonPath",
+    "key": "cr:key",
+    "md5": "cr:md5",
+    "parentField": "cr:parentField",
+    "recordSet": "cr:recordSet",
+    "references": "cr:references",
+    "regex": "cr:regex",
+    "readLines": "cr:readLines",
+    "sdVersion": "cr:sdVersion",
+    "separator": "cr:separator",
+    "source": "cr:source",
+    "subField": "cr:subField",
+    "transform": "cr:transform",
+    "unArchive": "cr:unArchive",
+    "value": "cr:value"
+  },
+  "@type": "https://schema.org/Dataset",
+  "@id": "bindingdb",
+  "conformsTo": "http://mlcommons.org/croissant/1.1",
+  "name": "BindingDB",
+  "description": "BindingDB is a public, web-accessible database of measured binding affinities, focusing chiefly on the interactions of proteins considered to be candidate drug-targets with ligands that are small, drug-like molecules. BindingDB supports medicinal chemistry and drug discovery via literature awareness and development of structure-activity relations (SAR and QSAR); validation of computational chemistry and molecular modeling approaches such as docking, scoring and free energy methods; chemical biology and chemical genomics; and basic studies of the physical chemistry of molecular recognition. BindingDB also includes a small collection of host-guest binding data of interest to chemists studying supramolecular systems.",
+  "url": "https://www.bindingdb.org/rwd/bind/index.jsp",
+  "identifier": "https://fairsharing.org/FAIRsharing.3b36hk",
+  "version": "202603",
+  "license": "https://creativecommons.org/licenses/by/3.0/us/",
+  "conditionsOfAccess": "All data curated by BindingDB staff are provided under the Creative Commons Attribution 3.0 License. Data imported from ChEMBL are provided under their Creative Commons Attribution-Share Alike 3.0 Unported License.",
+  "isAccessibleForFree": true,
+  "isLiveDataset": true,
+  "keywords": [
+    "protein-ligand binding",
+    "binding affinity",
+    "drug discovery",
+    "pharmacology",
+    "medicinal chemistry",
+    "small molecules",
+    "enzyme inhibition",
+    "isothermal titration calorimetry",
+    "molecular recognition",
+    "structure-activity relations",
+    "drug targets",
+    "cheminformatics"
+  ],
+  "inLanguage": "en",
+  "dateModified": "2026-03-01",
+  "citeAs": "Liu,T., Hwang, L., Burley,S.K., Nitsche,C.I., Southan,C., Walters,W.P., and Gilson,M.K. BindingDB in 2024: a FAIR knowledgebase of protein-small molecule binding data Nucleic Acids Research 53:D1633-D1644 (2025).",
+  "creator": {
+    "@type": "https://schema.org/Organization",
+    "name": "Skaggs School of Pharmacy and Pharmaceutical Sciences",
+    "url": "https://pharmacy.ucsd.edu/",
+    "parentOrganization": {
+      "@type": "https://schema.org/Organization",
+      "name": "University of California San Diego",
+      "url": "https://ucsd.edu/"
+    }
+  },
+  "funder": {
+    "@type": "https://schema.org/Organization",
+    "name": "National Institute of General Medical Sciences, National Institutes of Health"
+  },
+  "maintainer": {
+    "@type": "https://schema.org/Person",
+    "name": "Michael K. Gilson",
+    "email": "mgilson@health.ucsd.edu"
+  },
+  "relatedLink": "bindingdb_apis.json",
+  "distribution": [
+    {
+      "@type": "http://mlcommons.org/croissant/FileObject",
+      "@id": "bindingdb/all_tsv_zip",
+      "name": "all_tsv_zip",
+      "description": "All binding data in BindingDB as a tab-separated values file in a ZIP archive (3,205,717 measurements, 1,409,251 compounds, 11,414 targets; 525.54 MB, updated 2026-03-01).",
+      "contentUrl": "https://www.bindingdb.org/rwd/bind/downloads/BindingDB_All_202603_tsv.zip",
+      "encodingFormat": "application/zip",
+      "version": "202603",
+      "md5": "1204a116ba13487e3882b7d066b7362e"
+    },
+    {
+      "@type": "http://mlcommons.org/croissant/FileSet",
+      "@id": "bindingdb/all_tsv_fileset",
+      "name": "all_tsv_fileset",
+      "description": "TSV file extracted from BindingDB_All_202603_tsv.zip.",
+      "containedIn": [
+        {
+          "@id": "bindingdb/all_tsv_zip"
+        }
+      ],
+      "encodingFormat": "text/tab-separated-values",
+      "includes": "*.tsv"
+    },
+    {
+      "@type": "http://mlcommons.org/croissant/FileObject",
+      "@id": "bindingdb/articles_tsv_zip",
+      "name": "articles_tsv_zip",
+      "description": "Only data curated from articles by BindingDB (17.82 MB, updated 2026-03-01). Same column schema as all_tsv_zip.",
+      "contentUrl": "https://www.bindingdb.org/rwd/bind/downloads/BindingDB_BindingDB_Articles_202603_tsv.zip",
+      "encodingFormat": "application/zip",
+      "version": "202603",
+      "md5": "fad6e9fa50958f366c196e7322ed9ebc"
+    },
+    {
+      "@type": "http://mlcommons.org/croissant/FileObject",
+      "@id": "bindingdb/chembl_tsv_zip",
+      "name": "chembl_tsv_zip",
+      "description": "Only data in BindingDB drawn from ChEMBL (326.48 MB, updated 2026-03-01). Licensed under CC BY-SA 3.0. Same column schema as all_tsv_zip.",
+      "contentUrl": "https://www.bindingdb.org/rwd/bind/downloads/BindingDB_ChEMBL_202603_tsv.zip",
+      "encodingFormat": "application/zip",
+      "version": "202603",
+      "md5": "451449286a3f037044e023bdad401f70"
+    },
+    {
+      "@type": "http://mlcommons.org/croissant/FileObject",
+      "@id": "bindingdb/patents_tsv_zip",
+      "name": "patents_tsv_zip",
+      "description": "Only data in BindingDB drawn from patents (156.43 MB, updated 2026-03-01). Same column schema as all_tsv_zip.",
+      "contentUrl": "https://www.bindingdb.org/rwd/bind/downloads/BindingDB_Patents_202603_tsv.zip",
+      "encodingFormat": "application/zip",
+      "version": "202603",
+      "md5": "64cf0045b4b4882a31de5bb46bdeb4de"
+    },
+    {
+      "@type": "http://mlcommons.org/croissant/FileObject",
+      "@id": "bindingdb/pubchem_tsv_zip",
+      "name": "pubchem_tsv_zip",
+      "description": "Only data in BindingDB drawn from PubChem (25.40 MB, updated 2026-03-01). Same column schema as all_tsv_zip.",
+      "contentUrl": "https://www.bindingdb.org/rwd/bind/downloads/BindingDB_PubChem_202603_tsv.zip",
+      "encodingFormat": "application/zip",
+      "version": "202603",
+      "md5": "ecd82425844a5dc0bccc57d3443849c0"
+    },
+    {
+      "@type": "http://mlcommons.org/croissant/FileObject",
+      "@id": "bindingdb/pdspki_tsv_zip",
+      "name": "pdspki_tsv_zip",
+      "description": "Only data in BindingDB drawn from PDSP Ki (5.32 MB, updated 2026-03-01). Same column schema as all_tsv_zip.",
+      "contentUrl": "https://www.bindingdb.org/rwd/bind/downloads/BindingDB_PDSPKi_202603_tsv.zip",
+      "encodingFormat": "application/zip",
+      "version": "202603",
+      "md5": "6e12b9285b91dd708acbebe6ca922991"
+    },
+    {
+      "@type": "http://mlcommons.org/croissant/FileObject",
+      "@id": "bindingdb/covid19_tsv_zip",
+      "name": "covid19_tsv_zip",
+      "description": "Covid-19 data in BindingDB (9.30 MB, updated 2026-03-01). Same column schema as all_tsv_zip.",
+      "contentUrl": "https://www.bindingdb.org/rwd/bind/downloads/BindingDB_Covid-19_202603_tsv.zip",
+      "encodingFormat": "application/zip",
+      "version": "202603",
+      "md5": "8f7633f377545d54d1d1f49730f47600"
+    },
+    {
+      "@type": "http://mlcommons.org/croissant/FileObject",
+      "@id": "bindingdb/csar_tsv_zip",
+      "name": "csar_tsv_zip",
+      "description": "Only CSAR data in BindingDB (130.62 KB, updated 2026-03-01). Same column schema as all_tsv_zip.",
+      "contentUrl": "https://www.bindingdb.org/rwd/bind/downloads/BindingDB_CSAR_202603_tsv.zip",
+      "encodingFormat": "application/zip",
+      "version": "202603",
+      "md5": "6804e39d49c5d5d55c8ecb650c723996"
+    },
+    {
+      "@type": "http://mlcommons.org/croissant/FileObject",
+      "@id": "bindingdb/itc_tsv_zip",
+      "name": "itc_tsv_zip",
+      "description": "Only isothermal titration calorimetry (ITC) data in BindingDB, including host-guest systems (141.62 KB, updated 2026-03-01). Same column schema as all_tsv_zip.",
+      "contentUrl": "https://www.bindingdb.org/rwd/bind/downloads/BindingDB_ITC_202603_tsv.zip",
+      "encodingFormat": "application/zip",
+      "version": "202603",
+      "md5": "5fff9d78db212aead3681793a7cd5220"
+    },
+    {
+      "@type": "http://mlcommons.org/croissant/FileObject",
+      "@id": "bindingdb/ptaylorlab_tsv_zip",
+      "name": "ptaylorlab_tsv_zip",
+      "description": "Only data directly provided by Prof. Palmer Taylor, UCSD (5.68 KB, updated 2026-03-01). Same column schema as all_tsv_zip.",
+      "contentUrl": "https://www.bindingdb.org/rwd/bind/downloads/BindingDB_PTaylorLab_UCSD_202603_tsv.zip",
+      "encodingFormat": "application/zip",
+      "version": "202603",
+      "md5": "59c45a10da114c9ea51fbbb56de6488c"
+    },
+    {
+      "@type": "http://mlcommons.org/croissant/FileObject",
+      "@id": "bindingdb/all_2d_sdf_zip",
+      "name": "all_2d_sdf_zip",
+      "description": "All binding data with 2D compound structures (1.39 GB, updated 2026-03-01). SDF property schema documented in BindingDB-SDfile-Specification.pdf.",
+      "contentUrl": "https://www.bindingdb.org/rwd/bind/downloads/BindingDB_All_2D_202603_sdf.zip",
+      "encodingFormat": "application/zip",
+      "version": "202603",
+      "md5": "a5cb47aec03207b616826acad295267b"
+    },
+    {
+      "@type": "http://mlcommons.org/croissant/FileObject",
+      "@id": "bindingdb/all_3d_sdf_zip",
+      "name": "all_3d_sdf_zip",
+      "description": "All binding data with 3D compound structures computed with Vconf (2.81 GB, updated 2026-03-01). SDF property schema documented in BindingDB-SDfile-Specification.pdf.",
+      "contentUrl": "https://www.bindingdb.org/rwd/bind/downloads/BindingDB_All_3D_202603_sdf.zip",
+      "encodingFormat": "application/zip",
+      "version": "202603",
+      "md5": "8554a03d828da3f7b51a6b210f533f91"
+    },
+    {
+      "@type": "http://mlcommons.org/croissant/FileObject",
+      "@id": "bindingdb/articles_2d_sdf_zip",
+      "name": "articles_2d_sdf_zip",
+      "description": "BindingDB-curated articles data with 2D structures (35.17 MB, updated 2026-03-01). SDF property schema documented in BindingDB-SDfile-Specification.pdf.",
+      "contentUrl": "https://www.bindingdb.org/rwd/bind/downloads/BindingDB_BindingDB_Articles_2D_202603_sdf.zip",
+      "encodingFormat": "application/zip",
+      "version": "202603",
+      "md5": "5cbae16480c7426577d6936b215d9634"
+    },
+    {
+      "@type": "http://mlcommons.org/croissant/FileObject",
+      "@id": "bindingdb/articles_3d_sdf_zip",
+      "name": "articles_3d_sdf_zip",
+      "description": "BindingDB-curated articles data with 3D structures (87.61 MB, updated 2026-03-01). SDF property schema documented in BindingDB-SDfile-Specification.pdf.",
+      "contentUrl": "https://www.bindingdb.org/rwd/bind/downloads/BindingDB_BindingDB_Articles_3D_202603_sdf.zip",
+      "encodingFormat": "application/zip",
+      "version": "202603",
+      "md5": "ffd132feef8be47cbebb178046659c31"
+    },
+    {
+      "@type": "http://mlcommons.org/croissant/FileObject",
+      "@id": "bindingdb/chembl_2d_sdf_zip",
+      "name": "chembl_2d_sdf_zip",
+      "description": "ChEMBL-sourced data with 2D structures (885.12 MB, updated 2026-03-01). Licensed CC BY-SA 3.0. SDF property schema documented in BindingDB-SDfile-Specification.pdf.",
+      "contentUrl": "https://www.bindingdb.org/rwd/bind/downloads/BindingDB_ChEMBL_2D_202603_sdf.zip",
+      "encodingFormat": "application/zip",
+      "version": "202603",
+      "md5": "99f0b35a890e72eb981baafc4f4c89db"
+    },
+    {
+      "@type": "http://mlcommons.org/croissant/FileObject",
+      "@id": "bindingdb/chembl_3d_sdf_zip",
+      "name": "chembl_3d_sdf_zip",
+      "description": "ChEMBL-sourced data with 3D structures (1.62 GB, updated 2026-03-01). Licensed CC BY-SA 3.0. SDF property schema documented in BindingDB-SDfile-Specification.pdf.",
+      "contentUrl": "https://www.bindingdb.org/rwd/bind/downloads/BindingDB_ChEMBL_3D_202603_sdf.zip",
+      "encodingFormat": "application/zip",
+      "version": "202603",
+      "md5": "39377d58af5ecb4b7f7f022e181acd10"
+    },
+    {
+      "@type": "http://mlcommons.org/croissant/FileObject",
+      "@id": "bindingdb/patents_2d_sdf_zip",
+      "name": "patents_2d_sdf_zip",
+      "description": "Patent-sourced data with 2D structures (447.06 MB, updated 2026-03-01). SDF property schema documented in BindingDB-SDfile-Specification.pdf.",
+      "contentUrl": "https://www.bindingdb.org/rwd/bind/downloads/BindingDB_Patents_2D_202603_sdf.zip",
+      "encodingFormat": "application/zip",
+      "version": "202603",
+      "md5": "5530b733a2b776fbab0c7f3ff082055f"
+    },
+    {
+      "@type": "http://mlcommons.org/croissant/FileObject",
+      "@id": "bindingdb/patents_3d_sdf_zip",
+      "name": "patents_3d_sdf_zip",
+      "description": "Patent-sourced data with 3D structures (1.03 GB, updated 2026-03-01). SDF property schema documented in BindingDB-SDfile-Specification.pdf.",
+      "contentUrl": "https://www.bindingdb.org/rwd/bind/downloads/BindingDB_Patents_3D_202603_sdf.zip",
+      "encodingFormat": "application/zip",
+      "version": "202603",
+      "md5": "0161869bfc3751fcfbb340fdf1ebe027"
+    },
+    {
+      "@type": "http://mlcommons.org/croissant/FileObject",
+      "@id": "bindingdb/pubchem_2d_sdf_zip",
+      "name": "pubchem_2d_sdf_zip",
+      "description": "PubChem-sourced data with 2D structures (62.53 MB, updated 2026-03-01). SDF property schema documented in BindingDB-SDfile-Specification.pdf.",
+      "contentUrl": "https://www.bindingdb.org/rwd/bind/downloads/BindingDB_PubChem_2D_202603_sdf.zip",
+      "encodingFormat": "application/zip",
+      "version": "202603",
+      "md5": "1eafc863eb86ed8d15c17162809efb70"
+    },
+    {
+      "@type": "http://mlcommons.org/croissant/FileObject",
+      "@id": "bindingdb/pubchem_3d_sdf_zip",
+      "name": "pubchem_3d_sdf_zip",
+      "description": "PubChem-sourced data with 3D structures (107.41 MB, updated 2026-03-01). SDF property schema documented in BindingDB-SDfile-Specification.pdf.",
+      "contentUrl": "https://www.bindingdb.org/rwd/bind/downloads/BindingDB_PubChem_3D_202603_sdf.zip",
+      "encodingFormat": "application/zip",
+      "version": "202603",
+      "md5": "e1a072abed07dfdd720a664e86c723ba"
+    },
+    {
+      "@type": "http://mlcommons.org/croissant/FileObject",
+      "@id": "bindingdb/pdspki_2d_sdf_zip",
+      "name": "pdspki_2d_sdf_zip",
+      "description": "PDSP Ki data with 2D structures (15.40 MB, updated 2026-03-01). SDF property schema documented in BindingDB-SDfile-Specification.pdf.",
+      "contentUrl": "https://www.bindingdb.org/rwd/bind/downloads/BindingDB_PDSPKi_2D_202603_sdf.zip",
+      "encodingFormat": "application/zip",
+      "version": "202603",
+      "md5": "18a17efd66e58b757724cac50caea9c8"
+    },
+    {
+      "@type": "http://mlcommons.org/croissant/FileObject",
+      "@id": "bindingdb/pdspki_3d_sdf_zip",
+      "name": "pdspki_3d_sdf_zip",
+      "description": "PDSP Ki data with 3D structures (31.70 MB, updated 2026-03-01). SDF property schema documented in BindingDB-SDfile-Specification.pdf.",
+      "contentUrl": "https://www.bindingdb.org/rwd/bind/downloads/BindingDB_PDSPKi_3D_202603_sdf.zip",
+      "encodingFormat": "application/zip",
+      "version": "202603",
+      "md5": "9c65d8d57c9bfa7bded5835fe9f0e685"
+    },
+    {
+      "@type": "http://mlcommons.org/croissant/FileObject",
+      "@id": "bindingdb/covid19_2d_sdf_zip",
+      "name": "covid19_2d_sdf_zip",
+      "description": "Covid-19 data with 2D structures (17.95 MB, updated 2026-03-01). SDF property schema documented in BindingDB-SDfile-Specification.pdf.",
+      "contentUrl": "https://www.bindingdb.org/rwd/bind/downloads/BindingDB_Covid-19_2D_202603_sdf.zip",
+      "encodingFormat": "application/zip",
+      "version": "202603",
+      "md5": "8d54d897e1a5c1cf65fe874d400b0d5d"
+    },
+    {
+      "@type": "http://mlcommons.org/croissant/FileObject",
+      "@id": "bindingdb/covid19_3d_sdf_zip",
+      "name": "covid19_3d_sdf_zip",
+      "description": "Covid-19 data with 3D structures (29.35 MB, updated 2026-03-01). SDF property schema documented in BindingDB-SDfile-Specification.pdf.",
+      "contentUrl": "https://www.bindingdb.org/rwd/bind/downloads/BindingDB_Covid-19_3D_202603_sdf.zip",
+      "encodingFormat": "application/zip",
+      "version": "202603",
+      "md5": "d365641daaedba61f2eab7939cba59aa"
+    },
+    {
+      "@type": "http://mlcommons.org/croissant/FileObject",
+      "@id": "bindingdb/csar_2d_sdf_zip",
+      "name": "csar_2d_sdf_zip",
+      "description": "CSAR data with 2D structures (342.90 KB, updated 2026-03-01). SDF property schema documented in BindingDB-SDfile-Specification.pdf.",
+      "contentUrl": "https://www.bindingdb.org/rwd/bind/downloads/BindingDB_CSAR_2D_202603_sdf.zip",
+      "encodingFormat": "application/zip",
+      "version": "202603",
+      "md5": "1c0c81f04ac14d2db6fbb0018513007e"
+    },
+    {
+      "@type": "http://mlcommons.org/croissant/FileObject",
+      "@id": "bindingdb/csar_3d_sdf_zip",
+      "name": "csar_3d_sdf_zip",
+      "description": "CSAR data with 3D structures (724.57 KB, updated 2026-03-01). SDF property schema documented in BindingDB-SDfile-Specification.pdf.",
+      "contentUrl": "https://www.bindingdb.org/rwd/bind/downloads/BindingDB_CSAR_3D_202603_sdf.zip",
+      "encodingFormat": "application/zip",
+      "version": "202603",
+      "md5": "eaa190e810835bc5f04ba84efa04746f"
+    },
+    {
+      "@type": "http://mlcommons.org/croissant/FileObject",
+      "@id": "bindingdb/itc_2d_sdf_zip",
+      "name": "itc_2d_sdf_zip",
+      "description": "ITC data with 2D structures (286.85 KB, updated 2026-03-01). SDF property schema documented in BindingDB-SDfile-Specification.pdf.",
+      "contentUrl": "https://www.bindingdb.org/rwd/bind/downloads/BindingDB_ITC_2D_202603_sdf.zip",
+      "encodingFormat": "application/zip",
+      "version": "202603",
+      "md5": "862d9c948a6da516d7d75e5aec1d1266"
+    },
+    {
+      "@type": "http://mlcommons.org/croissant/FileObject",
+      "@id": "bindingdb/itc_3d_sdf_zip",
+      "name": "itc_3d_sdf_zip",
+      "description": "ITC data with 3D structures (577.68 KB, updated 2026-03-01). SDF property schema documented in BindingDB-SDfile-Specification.pdf.",
+      "contentUrl": "https://www.bindingdb.org/rwd/bind/downloads/BindingDB_ITC_3D_202603_sdf.zip",
+      "encodingFormat": "application/zip",
+      "version": "202603",
+      "md5": "fd31c72567f84ba3890ab4028d7f45f8"
+    },
+    {
+      "@type": "http://mlcommons.org/croissant/FileObject",
+      "@id": "bindingdb/hostguest_2d_sdf_zip",
+      "name": "hostguest_2d_sdf_zip",
+      "description": "Host-guest ITC data with 2D structures (161.46 KB, updated 2026-03-01). SDF property schema documented in BindingDB-SDfile-Specification.pdf.",
+      "contentUrl": "https://www.bindingdb.org/rwd/bind/downloads/BindingDB_HostGuest_2D_202603_sdf.zip",
+      "encodingFormat": "application/zip",
+      "version": "202603",
+      "md5": "e5d891ee7d761222b31f8d29142815d9"
+    },
+    {
+      "@type": "http://mlcommons.org/croissant/FileObject",
+      "@id": "bindingdb/hostguest_3d_sdf_zip",
+      "name": "hostguest_3d_sdf_zip",
+      "description": "Host-guest ITC data with 3D structures (375.72 KB, updated 2026-03-01). SDF property schema documented in BindingDB-SDfile-Specification.pdf.",
+      "contentUrl": "https://www.bindingdb.org/rwd/bind/downloads/BindingDB_HostGuest_3D_202603_sdf.zip",
+      "encodingFormat": "application/zip",
+      "version": "202603",
+      "md5": "fee776f72066d40cc7aba22e6d4fdbd7"
+    },
+    {
+      "@type": "http://mlcommons.org/croissant/FileObject",
+      "@id": "bindingdb/ptaylorlab_2d_sdf_zip",
+      "name": "ptaylorlab_2d_sdf_zip",
+      "description": "PTaylorLab UCSD data with 2D structures (7.59 KB, updated 2026-03-01). SDF property schema documented in BindingDB-SDfile-Specification.pdf.",
+      "contentUrl": "https://www.bindingdb.org/rwd/bind/downloads/BindingDB_PTaylorLab_UCSD_2D_202603_sdf.zip",
+      "encodingFormat": "application/zip",
+      "version": "202603",
+      "md5": "71ba5b34453ecf9113ceb73cd06feed2"
+    },
+    {
+      "@type": "http://mlcommons.org/croissant/FileObject",
+      "@id": "bindingdb/ptaylorlab_3d_sdf_zip",
+      "name": "ptaylorlab_3d_sdf_zip",
+      "description": "PTaylorLab UCSD data with 3D structures (12.76 KB, updated 2026-03-01). SDF property schema documented in BindingDB-SDfile-Specification.pdf.",
+      "contentUrl": "https://www.bindingdb.org/rwd/bind/downloads/BindingDB_PTaylorLab_UCSD_3D_202603_sdf.zip",
+      "encodingFormat": "application/zip",
+      "version": "202603",
+      "md5": "5c93ef51419b21d669705fc00764367d"
+    },
+    {
+      "@type": "http://mlcommons.org/croissant/FileObject",
+      "@id": "bindingdb/target_fasta",
+      "name": "target_fasta",
+      "description": "FASTA format protein sequences for all protein targets in BindingDB (7.23 MB, updated 2026-02-02).",
+      "contentUrl": "https://www.bindingdb.org/rwd/bind/BindingDBTargetSequences.fasta",
+      "encodingFormat": "text/x-fasta",
+      "md5": "af58431ae66d4925ee9a29b23bf77ee7"
+    },
+    {
+      "@type": "http://mlcommons.org/croissant/FileObject",
+      "@id": "bindingdb/mysql_dump_zip",
+      "name": "mysql_dump_zip",
+      "description": "Full BindingDB database as a MySQL dump in a ZIP archive (276.16 MB, updated 2026-02-28).",
+      "contentUrl": "https://www.bindingdb.org/rwd/bind/BDB-mySQL_All_202603_dmp.zip",
+      "encodingFormat": "application/zip",
+      "version": "202603",
+      "md5": "ff6a5d861ff6ef6af954b5e26b2a1bf2"
+    },
+    {
+      "@type": "http://mlcommons.org/croissant/FileObject",
+      "@id": "bindingdb/oracle_dump_zip",
+      "name": "oracle_dump_zip",
+      "description": "Full BindingDB database as an Oracle dump in a ZIP archive. Discontinued as of 2025 (837.50 MB, updated 2025-03-26).",
+      "contentUrl": "https://www.bindingdb.org/rwd/bind/BDB-Oracle_All_202502_dmp.zip",
+      "encodingFormat": "application/zip",
+      "version": "202502",
+      "md5": "fa9512f1d7da04f3c1fce2644974e5ed"
+    },
+    {
+      "@type": "http://mlcommons.org/croissant/FileObject",
+      "@id": "bindingdb/cid_txt",
+      "name": "cid_txt",
+      "description": "Mapping of BindingDB monomer (compound) IDs to PubChem CIDs. Two tab-separated columns, no header row (22.87 MB, updated 2026-03-05).",
+      "contentUrl": "https://www.bindingdb.org/rwd/bind/BindingDB_CID.txt",
+      "encodingFormat": "text/tab-separated-values",
+      "md5": "fc6c56f4d4751b2eab11ef1c03c1f834"
+    },
+    {
+      "@type": "http://mlcommons.org/croissant/FileObject",
+      "@id": "bindingdb/sid_txt",
+      "name": "sid_txt",
+      "description": "Mapping of BindingDB monomer (compound) IDs to PubChem SIDs. Two tab-separated columns, no header row (23.66 MB, updated 2026-03-05).",
+      "contentUrl": "https://www.bindingdb.org/rwd/bind/BindingDB_SID.txt",
+      "encodingFormat": "text/tab-separated-values",
+      "md5": "969015fb752c48a4232333fed1f2ea91"
+    },
+    {
+      "@type": "http://mlcommons.org/croissant/FileObject",
+      "@id": "bindingdb/uniprot_txt",
+      "name": "uniprot_txt",
+      "description": "Mapping of BindingDB polymer (single protein) IDs to UniProt IDs. Tab-separated with header row (568.40 KB, updated 2026-03-05).",
+      "contentUrl": "https://www.bindingdb.org/rwd/bind/BindingDB_UniProt.txt",
+      "encodingFormat": "text/tab-separated-values",
+      "md5": "ed1acaeef8a126fc19573e0b4940b933"
+    },
+    {
+      "@type": "http://mlcommons.org/croissant/FileObject",
+      "@id": "bindingdb/drugbank_txt",
+      "name": "drugbank_txt",
+      "description": "Mapping of BindingDB monomer (compound) IDs to DrugBank IDs. Two tab-separated columns, no header row (41.02 KB, updated 2026-03-05).",
+      "contentUrl": "https://www.bindingdb.org/rwd/bind/BindingDB_DrugBankID.txt",
+      "encodingFormat": "text/tab-separated-values",
+      "md5": "d212bc3dbc7c2350cf6d87245b9673c5"
+    },
+    {
+      "@type": "http://mlcommons.org/croissant/FileObject",
+      "@id": "bindingdb/pubmed_txt",
+      "name": "pubmed_txt",
+      "description": "Collection of PubMed IDs in BindingDB. Single column, no header row (387.05 KB, updated 2026-03-08).",
+      "contentUrl": "https://www.bindingdb.org/rwd/bind/BindingDB_PubMed.txt",
+      "encodingFormat": "text/plain",
+      "md5": "95e6a7e9d57c087e3ca71e548df0c6a3"
+    }
+  ],
+  "recordSet": [
+    {
+      "@type": "http://mlcommons.org/croissant/RecordSet",
+      "@id": "bindingdb/binding_data",
+      "name": "binding_data",
+      "description": "Binding affinity measurements from BindingDB. Each row represents one binding measurement with ligand, target, affinity value, and provenance. Schema sourced from header of BindingDB_All_202603_tsv.zip. All subset TSV files share this same column structure.",
+      "field": [
+        {
+          "@type": "http://mlcommons.org/croissant/Field",
+          "@id": "bindingdb/binding_data/reactant_set_id",
+          "name": "reactant_set_id",
+          "description": "Unique identifier for the binding measurement (Reactant Set ID).",
+          "dataType": "sc:Text",
+          "source": {
+            "fileSet": {
+              "@id": "bindingdb/all_tsv_fileset"
+            },
+            "extract": {
+              "column": "BindingDB Reactant_set_id"
+            }
+          }
+        },
+        {
+          "@type": "http://mlcommons.org/croissant/Field",
+          "@id": "bindingdb/binding_data/ligand_smiles",
+          "name": "ligand_smiles",
+          "description": "SMILES string representation of the ligand.",
+          "dataType": "sc:Text",
+          "source": {
+            "fileSet": {
+              "@id": "bindingdb/all_tsv_fileset"
+            },
+            "extract": {
+              "column": "Ligand SMILES"
+            }
+          }
+        },
+        {
+          "@type": "http://mlcommons.org/croissant/Field",
+          "@id": "bindingdb/binding_data/ligand_inchi",
+          "name": "ligand_inchi",
+          "description": "InChI string of the ligand.",
+          "dataType": "sc:Text",
+          "source": {
+            "fileSet": {
+              "@id": "bindingdb/all_tsv_fileset"
+            },
+            "extract": {
+              "column": "Ligand InChI"
+            }
+          }
+        },
+        {
+          "@type": "http://mlcommons.org/croissant/Field",
+          "@id": "bindingdb/binding_data/ligand_inchi_key",
+          "name": "ligand_inchi_key",
+          "description": "InChI Key of the ligand.",
+          "dataType": "sc:Text",
+          "source": {
+            "fileSet": {
+              "@id": "bindingdb/all_tsv_fileset"
+            },
+            "extract": {
+              "column": "Ligand InChI Key"
+            }
+          }
+        },
+        {
+          "@type": "http://mlcommons.org/croissant/Field",
+          "@id": "bindingdb/binding_data/monomer_id",
+          "name": "monomer_id",
+          "description": "BindingDB internal monomer (compound) identifier.",
+          "dataType": "sc:Integer",
+          "source": {
+            "fileSet": {
+              "@id": "bindingdb/all_tsv_fileset"
+            },
+            "extract": {
+              "column": "BindingDB MonomerID"
+            }
+          }
+        },
+        {
+          "@type": "http://mlcommons.org/croissant/Field",
+          "@id": "bindingdb/binding_data/ligand_name",
+          "name": "ligand_name",
+          "description": "Name of the ligand as recorded in BindingDB.",
+          "dataType": "sc:Text",
+          "source": {
+            "fileSet": {
+              "@id": "bindingdb/all_tsv_fileset"
+            },
+            "extract": {
+              "column": "BindingDB Ligand Name"
+            }
+          }
+        },
+        {
+          "@type": "http://mlcommons.org/croissant/Field",
+          "@id": "bindingdb/binding_data/target_name",
+          "name": "target_name",
+          "description": "Name of the protein target.",
+          "dataType": "sc:Text",
+          "source": {
+            "fileSet": {
+              "@id": "bindingdb/all_tsv_fileset"
+            },
+            "extract": {
+              "column": "Target Name"
+            }
+          }
+        },
+        {
+          "@type": "http://mlcommons.org/croissant/Field",
+          "@id": "bindingdb/binding_data/target_source_organism",
+          "name": "target_source_organism",
+          "description": "Source organism of the target protein.",
+          "dataType": "sc:Text",
+          "source": {
+            "fileSet": {
+              "@id": "bindingdb/all_tsv_fileset"
+            },
+            "extract": {
+              "column": "Target Source Organism According to Curator or DataSource"
+            }
+          }
+        },
+        {
+          "@type": "http://mlcommons.org/croissant/Field",
+          "@id": "bindingdb/binding_data/ki_nm",
+          "name": "ki_nm",
+          "description": "Inhibition constant Ki in nanomolar units.",
+          "dataType": "sc:Float",
+          "source": {
+            "fileSet": {
+              "@id": "bindingdb/all_tsv_fileset"
+            },
+            "extract": {
+              "column": "Ki (nM)"
+            }
+          }
+        },
+        {
+          "@type": "http://mlcommons.org/croissant/Field",
+          "@id": "bindingdb/binding_data/ic50_nm",
+          "name": "ic50_nm",
+          "description": "Half-maximal inhibitory concentration IC50 in nanomolar units.",
+          "dataType": "sc:Float",
+          "source": {
+            "fileSet": {
+              "@id": "bindingdb/all_tsv_fileset"
+            },
+            "extract": {
+              "column": "IC50 (nM)"
+            }
+          }
+        },
+        {
+          "@type": "http://mlcommons.org/croissant/Field",
+          "@id": "bindingdb/binding_data/kd_nm",
+          "name": "kd_nm",
+          "description": "Dissociation constant Kd in nanomolar units.",
+          "dataType": "sc:Float",
+          "source": {
+            "fileSet": {
+              "@id": "bindingdb/all_tsv_fileset"
+            },
+            "extract": {
+              "column": "Kd (nM)"
+            }
+          }
+        },
+        {
+          "@type": "http://mlcommons.org/croissant/Field",
+          "@id": "bindingdb/binding_data/ec50_nm",
+          "name": "ec50_nm",
+          "description": "Half-maximal effective concentration EC50 in nanomolar units.",
+          "dataType": "sc:Float",
+          "source": {
+            "fileSet": {
+              "@id": "bindingdb/all_tsv_fileset"
+            },
+            "extract": {
+              "column": "EC50 (nM)"
+            }
+          }
+        },
+        {
+          "@type": "http://mlcommons.org/croissant/Field",
+          "@id": "bindingdb/binding_data/kon",
+          "name": "kon",
+          "description": "Association rate constant kon in M-1 s-1.",
+          "dataType": "sc:Float",
+          "source": {
+            "fileSet": {
+              "@id": "bindingdb/all_tsv_fileset"
+            },
+            "extract": {
+              "column": "kon (M-1-s-1)"
+            }
+          }
+        },
+        {
+          "@type": "http://mlcommons.org/croissant/Field",
+          "@id": "bindingdb/binding_data/koff",
+          "name": "koff",
+          "description": "Dissociation rate constant koff in s-1.",
+          "dataType": "sc:Float",
+          "source": {
+            "fileSet": {
+              "@id": "bindingdb/all_tsv_fileset"
+            },
+            "extract": {
+              "column": "koff (s-1)"
+            }
+          }
+        },
+        {
+          "@type": "http://mlcommons.org/croissant/Field",
+          "@id": "bindingdb/binding_data/ph",
+          "name": "ph",
+          "description": "pH at which the measurement was made.",
+          "dataType": "sc:Float",
+          "source": {
+            "fileSet": {
+              "@id": "bindingdb/all_tsv_fileset"
+            },
+            "extract": {
+              "column": "pH"
+            }
+          }
+        },
+        {
+          "@type": "http://mlcommons.org/croissant/Field",
+          "@id": "bindingdb/binding_data/temp_c",
+          "name": "temp_c",
+          "description": "Temperature in Celsius at which the measurement was made.",
+          "dataType": "sc:Float",
+          "source": {
+            "fileSet": {
+              "@id": "bindingdb/all_tsv_fileset"
+            },
+            "extract": {
+              "column": "Temp (C)"
+            }
+          }
+        },
+        {
+          "@type": "http://mlcommons.org/croissant/Field",
+          "@id": "bindingdb/binding_data/curation_datasource",
+          "name": "curation_datasource",
+          "description": "Source of the data: BindingDB curated, ChEMBL, PubChem, Patent, etc.",
+          "dataType": "sc:Text",
+          "source": {
+            "fileSet": {
+              "@id": "bindingdb/all_tsv_fileset"
+            },
+            "extract": {
+              "column": "Curation/DataSource"
+            }
+          }
+        },
+        {
+          "@type": "http://mlcommons.org/croissant/Field",
+          "@id": "bindingdb/binding_data/article_doi",
+          "name": "article_doi",
+          "description": "DOI of the source article.",
+          "dataType": "sc:Text",
+          "source": {
+            "fileSet": {
+              "@id": "bindingdb/all_tsv_fileset"
+            },
+            "extract": {
+              "column": "Article DOI"
+            }
+          }
+        },
+        {
+          "@type": "http://mlcommons.org/croissant/Field",
+          "@id": "bindingdb/binding_data/entry_doi",
+          "name": "entry_doi",
+          "description": "DOI assigned to this BindingDB entry.",
+          "dataType": "sc:Text",
+          "source": {
+            "fileSet": {
+              "@id": "bindingdb/all_tsv_fileset"
+            },
+            "extract": {
+              "column": "BindingDB Entry DOI"
+            }
+          }
+        },
+        {
+          "@type": "http://mlcommons.org/croissant/Field",
+          "@id": "bindingdb/binding_data/pmid",
+          "name": "pmid",
+          "description": "PubMed identifier of the source article.",
+          "dataType": "sc:Integer",
+          "source": {
+            "fileSet": {
+              "@id": "bindingdb/all_tsv_fileset"
+            },
+            "extract": {
+              "column": "PMID"
+            }
+          }
+        },
+        {
+          "@type": "http://mlcommons.org/croissant/Field",
+          "@id": "bindingdb/binding_data/pubchem_aid",
+          "name": "pubchem_aid",
+          "description": "PubChem BioAssay identifier (AID).",
+          "dataType": "sc:Integer",
+          "source": {
+            "fileSet": {
+              "@id": "bindingdb/all_tsv_fileset"
+            },
+            "extract": {
+              "column": "PubChem AID"
+            }
+          }
+        },
+        {
+          "@type": "http://mlcommons.org/croissant/Field",
+          "@id": "bindingdb/binding_data/patent_number",
+          "name": "patent_number",
+          "description": "Patent number if the data source is a patent.",
+          "dataType": "sc:Text",
+          "source": {
+            "fileSet": {
+              "@id": "bindingdb/all_tsv_fileset"
+            },
+            "extract": {
+              "column": "Patent Number"
+            }
+          }
+        },
+        {
+          "@type": "http://mlcommons.org/croissant/Field",
+          "@id": "bindingdb/binding_data/authors",
+          "name": "authors",
+          "description": "Authors of the source publication.",
+          "dataType": "sc:Text",
+          "source": {
+            "fileSet": {
+              "@id": "bindingdb/all_tsv_fileset"
+            },
+            "extract": {
+              "column": "Authors"
+            }
+          }
+        },
+        {
+          "@type": "http://mlcommons.org/croissant/Field",
+          "@id": "bindingdb/binding_data/date_of_publication",
+          "name": "date_of_publication",
+          "description": "Publication date of the source article or patent.",
+          "dataType": "sc:Date",
+          "source": {
+            "fileSet": {
+              "@id": "bindingdb/all_tsv_fileset"
+            },
+            "extract": {
+              "column": "Date of publication"
+            }
+          }
+        },
+        {
+          "@type": "http://mlcommons.org/croissant/Field",
+          "@id": "bindingdb/binding_data/date_in_bindingdb",
+          "name": "date_in_bindingdb",
+          "description": "Date this measurement was curated into BindingDB.",
+          "dataType": "sc:Date",
+          "source": {
+            "fileSet": {
+              "@id": "bindingdb/all_tsv_fileset"
+            },
+            "extract": {
+              "column": "Date in BindingDB"
+            }
+          }
+        },
+        {
+          "@type": "http://mlcommons.org/croissant/Field",
+          "@id": "bindingdb/binding_data/institution",
+          "name": "institution",
+          "description": "Institution associated with the source publication.",
+          "dataType": "sc:Text",
+          "source": {
+            "fileSet": {
+              "@id": "bindingdb/all_tsv_fileset"
+            },
+            "extract": {
+              "column": "Institution"
+            }
+          }
+        },
+        {
+          "@type": "http://mlcommons.org/croissant/Field",
+          "@id": "bindingdb/binding_data/link_to_ligand",
+          "name": "link_to_ligand",
+          "description": "URL to the ligand record in BindingDB.",
+          "dataType": "sc:URL",
+          "source": {
+            "fileSet": {
+              "@id": "bindingdb/all_tsv_fileset"
+            },
+            "extract": {
+              "column": "Link to Ligand in BindingDB"
+            }
+          }
+        },
+        {
+          "@type": "http://mlcommons.org/croissant/Field",
+          "@id": "bindingdb/binding_data/link_to_target",
+          "name": "link_to_target",
+          "description": "URL to the target record in BindingDB.",
+          "dataType": "sc:URL",
+          "source": {
+            "fileSet": {
+              "@id": "bindingdb/all_tsv_fileset"
+            },
+            "extract": {
+              "column": "Link to Target in BindingDB"
+            }
+          }
+        },
+        {
+          "@type": "http://mlcommons.org/croissant/Field",
+          "@id": "bindingdb/binding_data/link_to_pair",
+          "name": "link_to_pair",
+          "description": "URL to the ligand-target pair page in BindingDB.",
+          "dataType": "sc:URL",
+          "source": {
+            "fileSet": {
+              "@id": "bindingdb/all_tsv_fileset"
+            },
+            "extract": {
+              "column": "Link to Ligand-Target Pair in BindingDB"
+            }
+          }
+        },
+        {
+          "@type": "http://mlcommons.org/croissant/Field",
+          "@id": "bindingdb/binding_data/ligand_het_id_pdb",
+          "name": "ligand_het_id_pdb",
+          "description": "PDB HET group identifier for the ligand.",
+          "dataType": "sc:Text",
+          "source": {
+            "fileSet": {
+              "@id": "bindingdb/all_tsv_fileset"
+            },
+            "extract": {
+              "column": "Ligand HET ID in PDB"
+            }
+          }
+        },
+        {
+          "@type": "http://mlcommons.org/croissant/Field",
+          "@id": "bindingdb/binding_data/pdb_ids_complex",
+          "name": "pdb_ids_complex",
+          "description": "PDB structure IDs for the ligand-target complex (pipe-delimited if multiple).",
+          "dataType": "sc:Text",
+          "source": {
+            "fileSet": {
+              "@id": "bindingdb/all_tsv_fileset"
+            },
+            "extract": {
+              "column": "PDB ID(s) for Ligand-Target Complex"
+            }
+          }
+        },
+        {
+          "@type": "http://mlcommons.org/croissant/Field",
+          "@id": "bindingdb/binding_data/pubchem_cid",
+          "name": "pubchem_cid",
+          "description": "PubChem Compound identifier (CID) of the ligand.",
+          "dataType": "sc:Integer",
+          "source": {
+            "fileSet": {
+              "@id": "bindingdb/all_tsv_fileset"
+            },
+            "extract": {
+              "column": "PubChem CID"
+            }
+          }
+        },
+        {
+          "@type": "http://mlcommons.org/croissant/Field",
+          "@id": "bindingdb/binding_data/pubchem_sid",
+          "name": "pubchem_sid",
+          "description": "PubChem Substance identifier (SID) of the ligand.",
+          "dataType": "sc:Integer",
+          "source": {
+            "fileSet": {
+              "@id": "bindingdb/all_tsv_fileset"
+            },
+            "extract": {
+              "column": "PubChem SID"
+            }
+          }
+        },
+        {
+          "@type": "http://mlcommons.org/croissant/Field",
+          "@id": "bindingdb/binding_data/chebi_id",
+          "name": "chebi_id",
+          "description": "ChEBI identifier of the ligand.",
+          "dataType": "sc:Text",
+          "source": {
+            "fileSet": {
+              "@id": "bindingdb/all_tsv_fileset"
+            },
+            "extract": {
+              "column": "ChEBI ID of Ligand"
+            }
+          }
+        },
+        {
+          "@type": "http://mlcommons.org/croissant/Field",
+          "@id": "bindingdb/binding_data/chembl_id",
+          "name": "chembl_id",
+          "description": "ChEMBL identifier of the ligand.",
+          "dataType": "sc:Text",
+          "source": {
+            "fileSet": {
+              "@id": "bindingdb/all_tsv_fileset"
+            },
+            "extract": {
+              "column": "ChEMBL ID of Ligand"
+            }
+          }
+        },
+        {
+          "@type": "http://mlcommons.org/croissant/Field",
+          "@id": "bindingdb/binding_data/drugbank_id",
+          "name": "drugbank_id",
+          "description": "DrugBank identifier of the ligand.",
+          "dataType": "sc:Text",
+          "source": {
+            "fileSet": {
+              "@id": "bindingdb/all_tsv_fileset"
+            },
+            "extract": {
+              "column": "DrugBank ID of Ligand"
+            }
+          }
+        },
+        {
+          "@type": "http://mlcommons.org/croissant/Field",
+          "@id": "bindingdb/binding_data/iuphar_grac_id",
+          "name": "iuphar_grac_id",
+          "description": "IUPHAR/BPS Guide to Pharmacology identifier.",
+          "dataType": "sc:Text",
+          "source": {
+            "fileSet": {
+              "@id": "bindingdb/all_tsv_fileset"
+            },
+            "extract": {
+              "column": "IUPHAR_GRAC ID of Ligand"
+            }
+          }
+        },
+        {
+          "@type": "http://mlcommons.org/croissant/Field",
+          "@id": "bindingdb/binding_data/kegg_id",
+          "name": "kegg_id",
+          "description": "KEGG compound identifier of the ligand.",
+          "dataType": "sc:Text",
+          "source": {
+            "fileSet": {
+              "@id": "bindingdb/all_tsv_fileset"
+            },
+            "extract": {
+              "column": "KEGG ID of Ligand"
+            }
+          }
+        },
+        {
+          "@type": "http://mlcommons.org/croissant/Field",
+          "@id": "bindingdb/binding_data/zinc_id",
+          "name": "zinc_id",
+          "description": "ZINC compound identifier of the ligand.",
+          "dataType": "sc:Text",
+          "source": {
+            "fileSet": {
+              "@id": "bindingdb/all_tsv_fileset"
+            },
+            "extract": {
+              "column": "ZINC ID of Ligand"
+            }
+          }
+        },
+        {
+          "@type": "http://mlcommons.org/croissant/Field",
+          "@id": "bindingdb/binding_data/num_protein_chains",
+          "name": "num_protein_chains",
+          "description": "Number of protein chains in the target.",
+          "dataType": "sc:Integer",
+          "source": {
+            "fileSet": {
+              "@id": "bindingdb/all_tsv_fileset"
+            },
+            "extract": {
+              "column": "Number of Protein Chains in Target (>1 implies a multichain complex)"
+            }
+          }
+        },
+        {
+          "@type": "http://mlcommons.org/croissant/Field",
+          "@id": "bindingdb/binding_data/chain1_sequence",
+          "name": "chain1_sequence",
+          "description": "BindingDB Target Chain Sequence 1 (chain 1 of up to 6).",
+          "dataType": "sc:Text",
+          "source": {
+            "fileSet": {
+              "@id": "bindingdb/all_tsv_fileset"
+            },
+            "extract": {
+              "column": "BindingDB Target Chain Sequence 1"
+            }
+          }
+        },
+        {
+          "@type": "http://mlcommons.org/croissant/Field",
+          "@id": "bindingdb/binding_data/chain1_pdb_ids",
+          "name": "chain1_pdb_ids",
+          "description": "PDB ID(s) of Target Chain 1 (chain 1 of up to 6).",
+          "dataType": "sc:Text",
+          "source": {
+            "fileSet": {
+              "@id": "bindingdb/all_tsv_fileset"
+            },
+            "extract": {
+              "column": "PDB ID(s) of Target Chain 1"
+            }
+          }
+        },
+        {
+          "@type": "http://mlcommons.org/croissant/Field",
+          "@id": "bindingdb/binding_data/chain1_swissprot_name",
+          "name": "chain1_swissprot_name",
+          "description": "UniProt (SwissProt) Recommended Name of Target Chain 1 (chain 1 of up to 6).",
+          "dataType": "sc:Text",
+          "source": {
+            "fileSet": {
+              "@id": "bindingdb/all_tsv_fileset"
+            },
+            "extract": {
+              "column": "UniProt (SwissProt) Recommended Name of Target Chain 1"
+            }
+          }
+        },
+        {
+          "@type": "http://mlcommons.org/croissant/Field",
+          "@id": "bindingdb/binding_data/chain1_swissprot_entry",
+          "name": "chain1_swissprot_entry",
+          "description": "UniProt (SwissProt) Entry Name of Target Chain 1 (chain 1 of up to 6).",
+          "dataType": "sc:Text",
+          "source": {
+            "fileSet": {
+              "@id": "bindingdb/all_tsv_fileset"
+            },
+            "extract": {
+              "column": "UniProt (SwissProt) Entry Name of Target Chain 1"
+            }
+          }
+        },
+        {
+          "@type": "http://mlcommons.org/croissant/Field",
+          "@id": "bindingdb/binding_data/chain1_swissprot_primary_id",
+          "name": "chain1_swissprot_primary_id",
+          "description": "UniProt (SwissProt) Primary ID of Target Chain 1 (chain 1 of up to 6).",
+          "dataType": "sc:Text",
+          "source": {
+            "fileSet": {
+              "@id": "bindingdb/all_tsv_fileset"
+            },
+            "extract": {
+              "column": "UniProt (SwissProt) Primary ID of Target Chain 1"
+            }
+          }
+        },
+        {
+          "@type": "http://mlcommons.org/croissant/Field",
+          "@id": "bindingdb/binding_data/chain1_swissprot_sec_ids",
+          "name": "chain1_swissprot_sec_ids",
+          "description": "UniProt (SwissProt) Secondary ID(s) of Target Chain 1 (chain 1 of up to 6).",
+          "dataType": "sc:Text",
+          "source": {
+            "fileSet": {
+              "@id": "bindingdb/all_tsv_fileset"
+            },
+            "extract": {
+              "column": "UniProt (SwissProt) Secondary ID(s) of Target Chain 1"
+            }
+          }
+        },
+        {
+          "@type": "http://mlcommons.org/croissant/Field",
+          "@id": "bindingdb/binding_data/chain1_swissprot_alt_ids",
+          "name": "chain1_swissprot_alt_ids",
+          "description": "UniProt (SwissProt) Alternative ID(s) of Target Chain 1 (chain 1 of up to 6).",
+          "dataType": "sc:Text",
+          "source": {
+            "fileSet": {
+              "@id": "bindingdb/all_tsv_fileset"
+            },
+            "extract": {
+              "column": "UniProt (SwissProt) Alternative ID(s) of Target Chain 1"
+            }
+          }
+        },
+        {
+          "@type": "http://mlcommons.org/croissant/Field",
+          "@id": "bindingdb/binding_data/chain1_trembl_submitted",
+          "name": "chain1_trembl_submitted",
+          "description": "UniProt (TrEMBL) Submitted Name of Target Chain 1 (chain 1 of up to 6).",
+          "dataType": "sc:Text",
+          "source": {
+            "fileSet": {
+              "@id": "bindingdb/all_tsv_fileset"
+            },
+            "extract": {
+              "column": "UniProt (TrEMBL) Submitted Name of Target Chain 1"
+            }
+          }
+        },
+        {
+          "@type": "http://mlcommons.org/croissant/Field",
+          "@id": "bindingdb/binding_data/chain1_trembl_entry",
+          "name": "chain1_trembl_entry",
+          "description": "UniProt (TrEMBL) Entry Name of Target Chain 1 (chain 1 of up to 6).",
+          "dataType": "sc:Text",
+          "source": {
+            "fileSet": {
+              "@id": "bindingdb/all_tsv_fileset"
+            },
+            "extract": {
+              "column": "UniProt (TrEMBL) Entry Name of Target Chain 1"
+            }
+          }
+        },
+        {
+          "@type": "http://mlcommons.org/croissant/Field",
+          "@id": "bindingdb/binding_data/chain1_trembl_primary_id",
+          "name": "chain1_trembl_primary_id",
+          "description": "UniProt (TrEMBL) Primary ID of Target Chain 1 (chain 1 of up to 6).",
+          "dataType": "sc:Text",
+          "source": {
+            "fileSet": {
+              "@id": "bindingdb/all_tsv_fileset"
+            },
+            "extract": {
+              "column": "UniProt (TrEMBL) Primary ID of Target Chain 1"
+            }
+          }
+        },
+        {
+          "@type": "http://mlcommons.org/croissant/Field",
+          "@id": "bindingdb/binding_data/chain1_trembl_sec_ids",
+          "name": "chain1_trembl_sec_ids",
+          "description": "UniProt (TrEMBL) Secondary ID(s) of Target Chain 1 (chain 1 of up to 6).",
+          "dataType": "sc:Text",
+          "source": {
+            "fileSet": {
+              "@id": "bindingdb/all_tsv_fileset"
+            },
+            "extract": {
+              "column": "UniProt (TrEMBL) Secondary ID(s) of Target Chain 1"
+            }
+          }
+        },
+        {
+          "@type": "http://mlcommons.org/croissant/Field",
+          "@id": "bindingdb/binding_data/chain1_trembl_alt_ids",
+          "name": "chain1_trembl_alt_ids",
+          "description": "UniProt (TrEMBL) Alternative ID(s) of Target Chain 1 (chain 1 of up to 6).",
+          "dataType": "sc:Text",
+          "source": {
+            "fileSet": {
+              "@id": "bindingdb/all_tsv_fileset"
+            },
+            "extract": {
+              "column": "UniProt (TrEMBL) Alternative ID(s) of Target Chain 1"
+            }
+          }
+        },
+        {
+          "@type": "http://mlcommons.org/croissant/Field",
+          "@id": "bindingdb/binding_data/chain2_sequence",
+          "name": "chain2_sequence",
+          "description": "BindingDB Target Chain Sequence 2 (chain 2 of up to 6).",
+          "dataType": "sc:Text",
+          "source": {
+            "fileSet": {
+              "@id": "bindingdb/all_tsv_fileset"
+            },
+            "extract": {
+              "column": "BindingDB Target Chain Sequence 2"
+            }
+          }
+        },
+        {
+          "@type": "http://mlcommons.org/croissant/Field",
+          "@id": "bindingdb/binding_data/chain2_pdb_ids",
+          "name": "chain2_pdb_ids",
+          "description": "PDB ID(s) of Target Chain 2 (chain 2 of up to 6).",
+          "dataType": "sc:Text",
+          "source": {
+            "fileSet": {
+              "@id": "bindingdb/all_tsv_fileset"
+            },
+            "extract": {
+              "column": "PDB ID(s) of Target Chain 2"
+            }
+          }
+        },
+        {
+          "@type": "http://mlcommons.org/croissant/Field",
+          "@id": "bindingdb/binding_data/chain2_swissprot_name",
+          "name": "chain2_swissprot_name",
+          "description": "UniProt (SwissProt) Recommended Name of Target Chain 2 (chain 2 of up to 6).",
+          "dataType": "sc:Text",
+          "source": {
+            "fileSet": {
+              "@id": "bindingdb/all_tsv_fileset"
+            },
+            "extract": {
+              "column": "UniProt (SwissProt) Recommended Name of Target Chain 2"
+            }
+          }
+        },
+        {
+          "@type": "http://mlcommons.org/croissant/Field",
+          "@id": "bindingdb/binding_data/chain2_swissprot_entry",
+          "name": "chain2_swissprot_entry",
+          "description": "UniProt (SwissProt) Entry Name of Target Chain 2 (chain 2 of up to 6).",
+          "dataType": "sc:Text",
+          "source": {
+            "fileSet": {
+              "@id": "bindingdb/all_tsv_fileset"
+            },
+            "extract": {
+              "column": "UniProt (SwissProt) Entry Name of Target Chain 2"
+            }
+          }
+        },
+        {
+          "@type": "http://mlcommons.org/croissant/Field",
+          "@id": "bindingdb/binding_data/chain2_swissprot_primary_id",
+          "name": "chain2_swissprot_primary_id",
+          "description": "UniProt (SwissProt) Primary ID of Target Chain 2 (chain 2 of up to 6).",
+          "dataType": "sc:Text",
+          "source": {
+            "fileSet": {
+              "@id": "bindingdb/all_tsv_fileset"
+            },
+            "extract": {
+              "column": "UniProt (SwissProt) Primary ID of Target Chain 2"
+            }
+          }
+        },
+        {
+          "@type": "http://mlcommons.org/croissant/Field",
+          "@id": "bindingdb/binding_data/chain2_swissprot_sec_ids",
+          "name": "chain2_swissprot_sec_ids",
+          "description": "UniProt (SwissProt) Secondary ID(s) of Target Chain 2 (chain 2 of up to 6).",
+          "dataType": "sc:Text",
+          "source": {
+            "fileSet": {
+              "@id": "bindingdb/all_tsv_fileset"
+            },
+            "extract": {
+              "column": "UniProt (SwissProt) Secondary ID(s) of Target Chain 2"
+            }
+          }
+        },
+        {
+          "@type": "http://mlcommons.org/croissant/Field",
+          "@id": "bindingdb/binding_data/chain2_swissprot_alt_ids",
+          "name": "chain2_swissprot_alt_ids",
+          "description": "UniProt (SwissProt) Alternative ID(s) of Target Chain 2 (chain 2 of up to 6).",
+          "dataType": "sc:Text",
+          "source": {
+            "fileSet": {
+              "@id": "bindingdb/all_tsv_fileset"
+            },
+            "extract": {
+              "column": "UniProt (SwissProt) Alternative ID(s) of Target Chain 2"
+            }
+          }
+        },
+        {
+          "@type": "http://mlcommons.org/croissant/Field",
+          "@id": "bindingdb/binding_data/chain2_trembl_submitted",
+          "name": "chain2_trembl_submitted",
+          "description": "UniProt (TrEMBL) Submitted Name of Target Chain 2 (chain 2 of up to 6).",
+          "dataType": "sc:Text",
+          "source": {
+            "fileSet": {
+              "@id": "bindingdb/all_tsv_fileset"
+            },
+            "extract": {
+              "column": "UniProt (TrEMBL) Submitted Name of Target Chain 2"
+            }
+          }
+        },
+        {
+          "@type": "http://mlcommons.org/croissant/Field",
+          "@id": "bindingdb/binding_data/chain2_trembl_entry",
+          "name": "chain2_trembl_entry",
+          "description": "UniProt (TrEMBL) Entry Name of Target Chain 2 (chain 2 of up to 6).",
+          "dataType": "sc:Text",
+          "source": {
+            "fileSet": {
+              "@id": "bindingdb/all_tsv_fileset"
+            },
+            "extract": {
+              "column": "UniProt (TrEMBL) Entry Name of Target Chain 2"
+            }
+          }
+        },
+        {
+          "@type": "http://mlcommons.org/croissant/Field",
+          "@id": "bindingdb/binding_data/chain2_trembl_primary_id",
+          "name": "chain2_trembl_primary_id",
+          "description": "UniProt (TrEMBL) Primary ID of Target Chain 2 (chain 2 of up to 6).",
+          "dataType": "sc:Text",
+          "source": {
+            "fileSet": {
+              "@id": "bindingdb/all_tsv_fileset"
+            },
+            "extract": {
+              "column": "UniProt (TrEMBL) Primary ID of Target Chain 2"
+            }
+          }
+        },
+        {
+          "@type": "http://mlcommons.org/croissant/Field",
+          "@id": "bindingdb/binding_data/chain2_trembl_sec_ids",
+          "name": "chain2_trembl_sec_ids",
+          "description": "UniProt (TrEMBL) Secondary ID(s) of Target Chain 2 (chain 2 of up to 6).",
+          "dataType": "sc:Text",
+          "source": {
+            "fileSet": {
+              "@id": "bindingdb/all_tsv_fileset"
+            },
+            "extract": {
+              "column": "UniProt (TrEMBL) Secondary ID(s) of Target Chain 2"
+            }
+          }
+        },
+        {
+          "@type": "http://mlcommons.org/croissant/Field",
+          "@id": "bindingdb/binding_data/chain2_trembl_alt_ids",
+          "name": "chain2_trembl_alt_ids",
+          "description": "UniProt (TrEMBL) Alternative ID(s) of Target Chain 2 (chain 2 of up to 6).",
+          "dataType": "sc:Text",
+          "source": {
+            "fileSet": {
+              "@id": "bindingdb/all_tsv_fileset"
+            },
+            "extract": {
+              "column": "UniProt (TrEMBL) Alternative ID(s) of Target Chain 2"
+            }
+          }
+        },
+        {
+          "@type": "http://mlcommons.org/croissant/Field",
+          "@id": "bindingdb/binding_data/chain3_sequence",
+          "name": "chain3_sequence",
+          "description": "BindingDB Target Chain Sequence 3 (chain 3 of up to 6).",
+          "dataType": "sc:Text",
+          "source": {
+            "fileSet": {
+              "@id": "bindingdb/all_tsv_fileset"
+            },
+            "extract": {
+              "column": "BindingDB Target Chain Sequence 3"
+            }
+          }
+        },
+        {
+          "@type": "http://mlcommons.org/croissant/Field",
+          "@id": "bindingdb/binding_data/chain3_pdb_ids",
+          "name": "chain3_pdb_ids",
+          "description": "PDB ID(s) of Target Chain 3 (chain 3 of up to 6).",
+          "dataType": "sc:Text",
+          "source": {
+            "fileSet": {
+              "@id": "bindingdb/all_tsv_fileset"
+            },
+            "extract": {
+              "column": "PDB ID(s) of Target Chain 3"
+            }
+          }
+        },
+        {
+          "@type": "http://mlcommons.org/croissant/Field",
+          "@id": "bindingdb/binding_data/chain3_swissprot_name",
+          "name": "chain3_swissprot_name",
+          "description": "UniProt (SwissProt) Recommended Name of Target Chain 3 (chain 3 of up to 6).",
+          "dataType": "sc:Text",
+          "source": {
+            "fileSet": {
+              "@id": "bindingdb/all_tsv_fileset"
+            },
+            "extract": {
+              "column": "UniProt (SwissProt) Recommended Name of Target Chain 3"
+            }
+          }
+        },
+        {
+          "@type": "http://mlcommons.org/croissant/Field",
+          "@id": "bindingdb/binding_data/chain3_swissprot_entry",
+          "name": "chain3_swissprot_entry",
+          "description": "UniProt (SwissProt) Entry Name of Target Chain 3 (chain 3 of up to 6).",
+          "dataType": "sc:Text",
+          "source": {
+            "fileSet": {
+              "@id": "bindingdb/all_tsv_fileset"
+            },
+            "extract": {
+              "column": "UniProt (SwissProt) Entry Name of Target Chain 3"
+            }
+          }
+        },
+        {
+          "@type": "http://mlcommons.org/croissant/Field",
+          "@id": "bindingdb/binding_data/chain3_swissprot_primary_id",
+          "name": "chain3_swissprot_primary_id",
+          "description": "UniProt (SwissProt) Primary ID of Target Chain 3 (chain 3 of up to 6).",
+          "dataType": "sc:Text",
+          "source": {
+            "fileSet": {
+              "@id": "bindingdb/all_tsv_fileset"
+            },
+            "extract": {
+              "column": "UniProt (SwissProt) Primary ID of Target Chain 3"
+            }
+          }
+        },
+        {
+          "@type": "http://mlcommons.org/croissant/Field",
+          "@id": "bindingdb/binding_data/chain3_swissprot_sec_ids",
+          "name": "chain3_swissprot_sec_ids",
+          "description": "UniProt (SwissProt) Secondary ID(s) of Target Chain 3 (chain 3 of up to 6).",
+          "dataType": "sc:Text",
+          "source": {
+            "fileSet": {
+              "@id": "bindingdb/all_tsv_fileset"
+            },
+            "extract": {
+              "column": "UniProt (SwissProt) Secondary ID(s) of Target Chain 3"
+            }
+          }
+        },
+        {
+          "@type": "http://mlcommons.org/croissant/Field",
+          "@id": "bindingdb/binding_data/chain3_swissprot_alt_ids",
+          "name": "chain3_swissprot_alt_ids",
+          "description": "UniProt (SwissProt) Alternative ID(s) of Target Chain 3 (chain 3 of up to 6).",
+          "dataType": "sc:Text",
+          "source": {
+            "fileSet": {
+              "@id": "bindingdb/all_tsv_fileset"
+            },
+            "extract": {
+              "column": "UniProt (SwissProt) Alternative ID(s) of Target Chain 3"
+            }
+          }
+        },
+        {
+          "@type": "http://mlcommons.org/croissant/Field",
+          "@id": "bindingdb/binding_data/chain3_trembl_submitted",
+          "name": "chain3_trembl_submitted",
+          "description": "UniProt (TrEMBL) Submitted Name of Target Chain 3 (chain 3 of up to 6).",
+          "dataType": "sc:Text",
+          "source": {
+            "fileSet": {
+              "@id": "bindingdb/all_tsv_fileset"
+            },
+            "extract": {
+              "column": "UniProt (TrEMBL) Submitted Name of Target Chain 3"
+            }
+          }
+        },
+        {
+          "@type": "http://mlcommons.org/croissant/Field",
+          "@id": "bindingdb/binding_data/chain3_trembl_entry",
+          "name": "chain3_trembl_entry",
+          "description": "UniProt (TrEMBL) Entry Name of Target Chain 3 (chain 3 of up to 6).",
+          "dataType": "sc:Text",
+          "source": {
+            "fileSet": {
+              "@id": "bindingdb/all_tsv_fileset"
+            },
+            "extract": {
+              "column": "UniProt (TrEMBL) Entry Name of Target Chain 3"
+            }
+          }
+        },
+        {
+          "@type": "http://mlcommons.org/croissant/Field",
+          "@id": "bindingdb/binding_data/chain3_trembl_primary_id",
+          "name": "chain3_trembl_primary_id",
+          "description": "UniProt (TrEMBL) Primary ID of Target Chain 3 (chain 3 of up to 6).",
+          "dataType": "sc:Text",
+          "source": {
+            "fileSet": {
+              "@id": "bindingdb/all_tsv_fileset"
+            },
+            "extract": {
+              "column": "UniProt (TrEMBL) Primary ID of Target Chain 3"
+            }
+          }
+        },
+        {
+          "@type": "http://mlcommons.org/croissant/Field",
+          "@id": "bindingdb/binding_data/chain3_trembl_sec_ids",
+          "name": "chain3_trembl_sec_ids",
+          "description": "UniProt (TrEMBL) Secondary ID(s) of Target Chain 3 (chain 3 of up to 6).",
+          "dataType": "sc:Text",
+          "source": {
+            "fileSet": {
+              "@id": "bindingdb/all_tsv_fileset"
+            },
+            "extract": {
+              "column": "UniProt (TrEMBL) Secondary ID(s) of Target Chain 3"
+            }
+          }
+        },
+        {
+          "@type": "http://mlcommons.org/croissant/Field",
+          "@id": "bindingdb/binding_data/chain3_trembl_alt_ids",
+          "name": "chain3_trembl_alt_ids",
+          "description": "UniProt (TrEMBL) Alternative ID(s) of Target Chain 3 (chain 3 of up to 6).",
+          "dataType": "sc:Text",
+          "source": {
+            "fileSet": {
+              "@id": "bindingdb/all_tsv_fileset"
+            },
+            "extract": {
+              "column": "UniProt (TrEMBL) Alternative ID(s) of Target Chain 3"
+            }
+          }
+        },
+        {
+          "@type": "http://mlcommons.org/croissant/Field",
+          "@id": "bindingdb/binding_data/chain4_sequence",
+          "name": "chain4_sequence",
+          "description": "BindingDB Target Chain Sequence 4 (chain 4 of up to 6).",
+          "dataType": "sc:Text",
+          "source": {
+            "fileSet": {
+              "@id": "bindingdb/all_tsv_fileset"
+            },
+            "extract": {
+              "column": "BindingDB Target Chain Sequence 4"
+            }
+          }
+        },
+        {
+          "@type": "http://mlcommons.org/croissant/Field",
+          "@id": "bindingdb/binding_data/chain4_pdb_ids",
+          "name": "chain4_pdb_ids",
+          "description": "PDB ID(s) of Target Chain 4 (chain 4 of up to 6).",
+          "dataType": "sc:Text",
+          "source": {
+            "fileSet": {
+              "@id": "bindingdb/all_tsv_fileset"
+            },
+            "extract": {
+              "column": "PDB ID(s) of Target Chain 4"
+            }
+          }
+        },
+        {
+          "@type": "http://mlcommons.org/croissant/Field",
+          "@id": "bindingdb/binding_data/chain4_swissprot_name",
+          "name": "chain4_swissprot_name",
+          "description": "UniProt (SwissProt) Recommended Name of Target Chain 4 (chain 4 of up to 6).",
+          "dataType": "sc:Text",
+          "source": {
+            "fileSet": {
+              "@id": "bindingdb/all_tsv_fileset"
+            },
+            "extract": {
+              "column": "UniProt (SwissProt) Recommended Name of Target Chain 4"
+            }
+          }
+        },
+        {
+          "@type": "http://mlcommons.org/croissant/Field",
+          "@id": "bindingdb/binding_data/chain4_swissprot_entry",
+          "name": "chain4_swissprot_entry",
+          "description": "UniProt (SwissProt) Entry Name of Target Chain 4 (chain 4 of up to 6).",
+          "dataType": "sc:Text",
+          "source": {
+            "fileSet": {
+              "@id": "bindingdb/all_tsv_fileset"
+            },
+            "extract": {
+              "column": "UniProt (SwissProt) Entry Name of Target Chain 4"
+            }
+          }
+        },
+        {
+          "@type": "http://mlcommons.org/croissant/Field",
+          "@id": "bindingdb/binding_data/chain4_swissprot_primary_id",
+          "name": "chain4_swissprot_primary_id",
+          "description": "UniProt (SwissProt) Primary ID of Target Chain 4 (chain 4 of up to 6).",
+          "dataType": "sc:Text",
+          "source": {
+            "fileSet": {
+              "@id": "bindingdb/all_tsv_fileset"
+            },
+            "extract": {
+              "column": "UniProt (SwissProt) Primary ID of Target Chain 4"
+            }
+          }
+        },
+        {
+          "@type": "http://mlcommons.org/croissant/Field",
+          "@id": "bindingdb/binding_data/chain4_swissprot_sec_ids",
+          "name": "chain4_swissprot_sec_ids",
+          "description": "UniProt (SwissProt) Secondary ID(s) of Target Chain 4 (chain 4 of up to 6).",
+          "dataType": "sc:Text",
+          "source": {
+            "fileSet": {
+              "@id": "bindingdb/all_tsv_fileset"
+            },
+            "extract": {
+              "column": "UniProt (SwissProt) Secondary ID(s) of Target Chain 4"
+            }
+          }
+        },
+        {
+          "@type": "http://mlcommons.org/croissant/Field",
+          "@id": "bindingdb/binding_data/chain4_swissprot_alt_ids",
+          "name": "chain4_swissprot_alt_ids",
+          "description": "UniProt (SwissProt) Alternative ID(s) of Target Chain 4 (chain 4 of up to 6).",
+          "dataType": "sc:Text",
+          "source": {
+            "fileSet": {
+              "@id": "bindingdb/all_tsv_fileset"
+            },
+            "extract": {
+              "column": "UniProt (SwissProt) Alternative ID(s) of Target Chain 4"
+            }
+          }
+        },
+        {
+          "@type": "http://mlcommons.org/croissant/Field",
+          "@id": "bindingdb/binding_data/chain4_trembl_submitted",
+          "name": "chain4_trembl_submitted",
+          "description": "UniProt (TrEMBL) Submitted Name of Target Chain 4 (chain 4 of up to 6).",
+          "dataType": "sc:Text",
+          "source": {
+            "fileSet": {
+              "@id": "bindingdb/all_tsv_fileset"
+            },
+            "extract": {
+              "column": "UniProt (TrEMBL) Submitted Name of Target Chain 4"
+            }
+          }
+        },
+        {
+          "@type": "http://mlcommons.org/croissant/Field",
+          "@id": "bindingdb/binding_data/chain4_trembl_entry",
+          "name": "chain4_trembl_entry",
+          "description": "UniProt (TrEMBL) Entry Name of Target Chain 4 (chain 4 of up to 6).",
+          "dataType": "sc:Text",
+          "source": {
+            "fileSet": {
+              "@id": "bindingdb/all_tsv_fileset"
+            },
+            "extract": {
+              "column": "UniProt (TrEMBL) Entry Name of Target Chain 4"
+            }
+          }
+        },
+        {
+          "@type": "http://mlcommons.org/croissant/Field",
+          "@id": "bindingdb/binding_data/chain4_trembl_primary_id",
+          "name": "chain4_trembl_primary_id",
+          "description": "UniProt (TrEMBL) Primary ID of Target Chain 4 (chain 4 of up to 6).",
+          "dataType": "sc:Text",
+          "source": {
+            "fileSet": {
+              "@id": "bindingdb/all_tsv_fileset"
+            },
+            "extract": {
+              "column": "UniProt (TrEMBL) Primary ID of Target Chain 4"
+            }
+          }
+        },
+        {
+          "@type": "http://mlcommons.org/croissant/Field",
+          "@id": "bindingdb/binding_data/chain4_trembl_sec_ids",
+          "name": "chain4_trembl_sec_ids",
+          "description": "UniProt (TrEMBL) Secondary ID(s) of Target Chain 4 (chain 4 of up to 6).",
+          "dataType": "sc:Text",
+          "source": {
+            "fileSet": {
+              "@id": "bindingdb/all_tsv_fileset"
+            },
+            "extract": {
+              "column": "UniProt (TrEMBL) Secondary ID(s) of Target Chain 4"
+            }
+          }
+        },
+        {
+          "@type": "http://mlcommons.org/croissant/Field",
+          "@id": "bindingdb/binding_data/chain4_trembl_alt_ids",
+          "name": "chain4_trembl_alt_ids",
+          "description": "UniProt (TrEMBL) Alternative ID(s) of Target Chain 4 (chain 4 of up to 6).",
+          "dataType": "sc:Text",
+          "source": {
+            "fileSet": {
+              "@id": "bindingdb/all_tsv_fileset"
+            },
+            "extract": {
+              "column": "UniProt (TrEMBL) Alternative ID(s) of Target Chain 4"
+            }
+          }
+        },
+        {
+          "@type": "http://mlcommons.org/croissant/Field",
+          "@id": "bindingdb/binding_data/chain5_sequence",
+          "name": "chain5_sequence",
+          "description": "BindingDB Target Chain Sequence 5 (chain 5 of up to 6).",
+          "dataType": "sc:Text",
+          "source": {
+            "fileSet": {
+              "@id": "bindingdb/all_tsv_fileset"
+            },
+            "extract": {
+              "column": "BindingDB Target Chain Sequence 5"
+            }
+          }
+        },
+        {
+          "@type": "http://mlcommons.org/croissant/Field",
+          "@id": "bindingdb/binding_data/chain5_pdb_ids",
+          "name": "chain5_pdb_ids",
+          "description": "PDB ID(s) of Target Chain 5 (chain 5 of up to 6).",
+          "dataType": "sc:Text",
+          "source": {
+            "fileSet": {
+              "@id": "bindingdb/all_tsv_fileset"
+            },
+            "extract": {
+              "column": "PDB ID(s) of Target Chain 5"
+            }
+          }
+        },
+        {
+          "@type": "http://mlcommons.org/croissant/Field",
+          "@id": "bindingdb/binding_data/chain5_swissprot_name",
+          "name": "chain5_swissprot_name",
+          "description": "UniProt (SwissProt) Recommended Name of Target Chain 5 (chain 5 of up to 6).",
+          "dataType": "sc:Text",
+          "source": {
+            "fileSet": {
+              "@id": "bindingdb/all_tsv_fileset"
+            },
+            "extract": {
+              "column": "UniProt (SwissProt) Recommended Name of Target Chain 5"
+            }
+          }
+        },
+        {
+          "@type": "http://mlcommons.org/croissant/Field",
+          "@id": "bindingdb/binding_data/chain5_swissprot_entry",
+          "name": "chain5_swissprot_entry",
+          "description": "UniProt (SwissProt) Entry Name of Target Chain 5 (chain 5 of up to 6).",
+          "dataType": "sc:Text",
+          "source": {
+            "fileSet": {
+              "@id": "bindingdb/all_tsv_fileset"
+            },
+            "extract": {
+              "column": "UniProt (SwissProt) Entry Name of Target Chain 5"
+            }
+          }
+        },
+        {
+          "@type": "http://mlcommons.org/croissant/Field",
+          "@id": "bindingdb/binding_data/chain5_swissprot_primary_id",
+          "name": "chain5_swissprot_primary_id",
+          "description": "UniProt (SwissProt) Primary ID of Target Chain 5 (chain 5 of up to 6).",
+          "dataType": "sc:Text",
+          "source": {
+            "fileSet": {
+              "@id": "bindingdb/all_tsv_fileset"
+            },
+            "extract": {
+              "column": "UniProt (SwissProt) Primary ID of Target Chain 5"
+            }
+          }
+        },
+        {
+          "@type": "http://mlcommons.org/croissant/Field",
+          "@id": "bindingdb/binding_data/chain5_swissprot_sec_ids",
+          "name": "chain5_swissprot_sec_ids",
+          "description": "UniProt (SwissProt) Secondary ID(s) of Target Chain 5 (chain 5 of up to 6).",
+          "dataType": "sc:Text",
+          "source": {
+            "fileSet": {
+              "@id": "bindingdb/all_tsv_fileset"
+            },
+            "extract": {
+              "column": "UniProt (SwissProt) Secondary ID(s) of Target Chain 5"
+            }
+          }
+        },
+        {
+          "@type": "http://mlcommons.org/croissant/Field",
+          "@id": "bindingdb/binding_data/chain5_swissprot_alt_ids",
+          "name": "chain5_swissprot_alt_ids",
+          "description": "UniProt (SwissProt) Alternative ID(s) of Target Chain 5 (chain 5 of up to 6).",
+          "dataType": "sc:Text",
+          "source": {
+            "fileSet": {
+              "@id": "bindingdb/all_tsv_fileset"
+            },
+            "extract": {
+              "column": "UniProt (SwissProt) Alternative ID(s) of Target Chain 5"
+            }
+          }
+        },
+        {
+          "@type": "http://mlcommons.org/croissant/Field",
+          "@id": "bindingdb/binding_data/chain5_trembl_submitted",
+          "name": "chain5_trembl_submitted",
+          "description": "UniProt (TrEMBL) Submitted Name of Target Chain 5 (chain 5 of up to 6).",
+          "dataType": "sc:Text",
+          "source": {
+            "fileSet": {
+              "@id": "bindingdb/all_tsv_fileset"
+            },
+            "extract": {
+              "column": "UniProt (TrEMBL) Submitted Name of Target Chain 5"
+            }
+          }
+        },
+        {
+          "@type": "http://mlcommons.org/croissant/Field",
+          "@id": "bindingdb/binding_data/chain5_trembl_entry",
+          "name": "chain5_trembl_entry",
+          "description": "UniProt (TrEMBL) Entry Name of Target Chain 5 (chain 5 of up to 6).",
+          "dataType": "sc:Text",
+          "source": {
+            "fileSet": {
+              "@id": "bindingdb/all_tsv_fileset"
+            },
+            "extract": {
+              "column": "UniProt (TrEMBL) Entry Name of Target Chain 5"
+            }
+          }
+        },
+        {
+          "@type": "http://mlcommons.org/croissant/Field",
+          "@id": "bindingdb/binding_data/chain5_trembl_primary_id",
+          "name": "chain5_trembl_primary_id",
+          "description": "UniProt (TrEMBL) Primary ID of Target Chain 5 (chain 5 of up to 6).",
+          "dataType": "sc:Text",
+          "source": {
+            "fileSet": {
+              "@id": "bindingdb/all_tsv_fileset"
+            },
+            "extract": {
+              "column": "UniProt (TrEMBL) Primary ID of Target Chain 5"
+            }
+          }
+        },
+        {
+          "@type": "http://mlcommons.org/croissant/Field",
+          "@id": "bindingdb/binding_data/chain5_trembl_sec_ids",
+          "name": "chain5_trembl_sec_ids",
+          "description": "UniProt (TrEMBL) Secondary ID(s) of Target Chain 5 (chain 5 of up to 6).",
+          "dataType": "sc:Text",
+          "source": {
+            "fileSet": {
+              "@id": "bindingdb/all_tsv_fileset"
+            },
+            "extract": {
+              "column": "UniProt (TrEMBL) Secondary ID(s) of Target Chain 5"
+            }
+          }
+        },
+        {
+          "@type": "http://mlcommons.org/croissant/Field",
+          "@id": "bindingdb/binding_data/chain5_trembl_alt_ids",
+          "name": "chain5_trembl_alt_ids",
+          "description": "UniProt (TrEMBL) Alternative ID(s) of Target Chain 5 (chain 5 of up to 6).",
+          "dataType": "sc:Text",
+          "source": {
+            "fileSet": {
+              "@id": "bindingdb/all_tsv_fileset"
+            },
+            "extract": {
+              "column": "UniProt (TrEMBL) Alternative ID(s) of Target Chain 5"
+            }
+          }
+        },
+        {
+          "@type": "http://mlcommons.org/croissant/Field",
+          "@id": "bindingdb/binding_data/chain6_sequence",
+          "name": "chain6_sequence",
+          "description": "BindingDB Target Chain Sequence 6 (chain 6 of up to 6).",
+          "dataType": "sc:Text",
+          "source": {
+            "fileSet": {
+              "@id": "bindingdb/all_tsv_fileset"
+            },
+            "extract": {
+              "column": "BindingDB Target Chain Sequence 6"
+            }
+          }
+        },
+        {
+          "@type": "http://mlcommons.org/croissant/Field",
+          "@id": "bindingdb/binding_data/chain6_pdb_ids",
+          "name": "chain6_pdb_ids",
+          "description": "PDB ID(s) of Target Chain 6 (chain 6 of up to 6).",
+          "dataType": "sc:Text",
+          "source": {
+            "fileSet": {
+              "@id": "bindingdb/all_tsv_fileset"
+            },
+            "extract": {
+              "column": "PDB ID(s) of Target Chain 6"
+            }
+          }
+        },
+        {
+          "@type": "http://mlcommons.org/croissant/Field",
+          "@id": "bindingdb/binding_data/chain6_swissprot_name",
+          "name": "chain6_swissprot_name",
+          "description": "UniProt (SwissProt) Recommended Name of Target Chain 6 (chain 6 of up to 6).",
+          "dataType": "sc:Text",
+          "source": {
+            "fileSet": {
+              "@id": "bindingdb/all_tsv_fileset"
+            },
+            "extract": {
+              "column": "UniProt (SwissProt) Recommended Name of Target Chain 6"
+            }
+          }
+        },
+        {
+          "@type": "http://mlcommons.org/croissant/Field",
+          "@id": "bindingdb/binding_data/chain6_swissprot_entry",
+          "name": "chain6_swissprot_entry",
+          "description": "UniProt (SwissProt) Entry Name of Target Chain 6 (chain 6 of up to 6).",
+          "dataType": "sc:Text",
+          "source": {
+            "fileSet": {
+              "@id": "bindingdb/all_tsv_fileset"
+            },
+            "extract": {
+              "column": "UniProt (SwissProt) Entry Name of Target Chain 6"
+            }
+          }
+        },
+        {
+          "@type": "http://mlcommons.org/croissant/Field",
+          "@id": "bindingdb/binding_data/chain6_swissprot_primary_id",
+          "name": "chain6_swissprot_primary_id",
+          "description": "UniProt (SwissProt) Primary ID of Target Chain 6 (chain 6 of up to 6).",
+          "dataType": "sc:Text",
+          "source": {
+            "fileSet": {
+              "@id": "bindingdb/all_tsv_fileset"
+            },
+            "extract": {
+              "column": "UniProt (SwissProt) Primary ID of Target Chain 6"
+            }
+          }
+        },
+        {
+          "@type": "http://mlcommons.org/croissant/Field",
+          "@id": "bindingdb/binding_data/chain6_swissprot_sec_ids",
+          "name": "chain6_swissprot_sec_ids",
+          "description": "UniProt (SwissProt) Secondary ID(s) of Target Chain 6 (chain 6 of up to 6).",
+          "dataType": "sc:Text",
+          "source": {
+            "fileSet": {
+              "@id": "bindingdb/all_tsv_fileset"
+            },
+            "extract": {
+              "column": "UniProt (SwissProt) Secondary ID(s) of Target Chain 6"
+            }
+          }
+        },
+        {
+          "@type": "http://mlcommons.org/croissant/Field",
+          "@id": "bindingdb/binding_data/chain6_swissprot_alt_ids",
+          "name": "chain6_swissprot_alt_ids",
+          "description": "UniProt (SwissProt) Alternative ID(s) of Target Chain 6 (chain 6 of up to 6).",
+          "dataType": "sc:Text",
+          "source": {
+            "fileSet": {
+              "@id": "bindingdb/all_tsv_fileset"
+            },
+            "extract": {
+              "column": "UniProt (SwissProt) Alternative ID(s) of Target Chain 6"
+            }
+          }
+        },
+        {
+          "@type": "http://mlcommons.org/croissant/Field",
+          "@id": "bindingdb/binding_data/chain6_trembl_submitted",
+          "name": "chain6_trembl_submitted",
+          "description": "UniProt (TrEMBL) Submitted Name of Target Chain 6 (chain 6 of up to 6).",
+          "dataType": "sc:Text",
+          "source": {
+            "fileSet": {
+              "@id": "bindingdb/all_tsv_fileset"
+            },
+            "extract": {
+              "column": "UniProt (TrEMBL) Submitted Name of Target Chain 6"
+            }
+          }
+        },
+        {
+          "@type": "http://mlcommons.org/croissant/Field",
+          "@id": "bindingdb/binding_data/chain6_trembl_entry",
+          "name": "chain6_trembl_entry",
+          "description": "UniProt (TrEMBL) Entry Name of Target Chain 6 (chain 6 of up to 6).",
+          "dataType": "sc:Text",
+          "source": {
+            "fileSet": {
+              "@id": "bindingdb/all_tsv_fileset"
+            },
+            "extract": {
+              "column": "UniProt (TrEMBL) Entry Name of Target Chain 6"
+            }
+          }
+        },
+        {
+          "@type": "http://mlcommons.org/croissant/Field",
+          "@id": "bindingdb/binding_data/chain6_trembl_primary_id",
+          "name": "chain6_trembl_primary_id",
+          "description": "UniProt (TrEMBL) Primary ID of Target Chain 6 (chain 6 of up to 6).",
+          "dataType": "sc:Text",
+          "source": {
+            "fileSet": {
+              "@id": "bindingdb/all_tsv_fileset"
+            },
+            "extract": {
+              "column": "UniProt (TrEMBL) Primary ID of Target Chain 6"
+            }
+          }
+        },
+        {
+          "@type": "http://mlcommons.org/croissant/Field",
+          "@id": "bindingdb/binding_data/chain6_trembl_sec_ids",
+          "name": "chain6_trembl_sec_ids",
+          "description": "UniProt (TrEMBL) Secondary ID(s) of Target Chain 6 (chain 6 of up to 6).",
+          "dataType": "sc:Text",
+          "source": {
+            "fileSet": {
+              "@id": "bindingdb/all_tsv_fileset"
+            },
+            "extract": {
+              "column": "UniProt (TrEMBL) Secondary ID(s) of Target Chain 6"
+            }
+          }
+        },
+        {
+          "@type": "http://mlcommons.org/croissant/Field",
+          "@id": "bindingdb/binding_data/chain6_trembl_alt_ids",
+          "name": "chain6_trembl_alt_ids",
+          "description": "UniProt (TrEMBL) Alternative ID(s) of Target Chain 6 (chain 6 of up to 6).",
+          "dataType": "sc:Text",
+          "source": {
+            "fileSet": {
+              "@id": "bindingdb/all_tsv_fileset"
+            },
+            "extract": {
+              "column": "UniProt (TrEMBL) Alternative ID(s) of Target Chain 6"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "@type": "http://mlcommons.org/croissant/RecordSet",
+      "@id": "bindingdb/uniprot_mapping",
+      "name": "uniprot_mapping",
+      "description": "Mapping of BindingDB polymer (protein chain) IDs to UniProt accessions and names.",
+      "field": [
+        {
+          "@type": "http://mlcommons.org/croissant/Field",
+          "@id": "bindingdb/uniprot_mapping/polymerid",
+          "name": "polymerid",
+          "description": "BindingDB internal polymer (protein chain) identifier.",
+          "dataType": "sc:Integer",
+          "source": {
+            "fileObject": {
+              "@id": "bindingdb/uniprot_txt"
+            },
+            "extract": {
+              "column": "polymerid"
+            }
+          }
+        },
+        {
+          "@type": "http://mlcommons.org/croissant/Field",
+          "@id": "bindingdb/uniprot_mapping/uniprot_id",
+          "name": "uniprot_id",
+          "description": "UniProt accession identifier.",
+          "dataType": "sc:Text",
+          "source": {
+            "fileObject": {
+              "@id": "bindingdb/uniprot_txt"
+            },
+            "extract": {
+              "column": "UniProt"
+            }
+          }
+        },
+        {
+          "@type": "http://mlcommons.org/croissant/Field",
+          "@id": "bindingdb/uniprot_mapping/bindingdb_name",
+          "name": "bindingdb_name",
+          "description": "BindingDB name for the protein chain.",
+          "dataType": "sc:Text",
+          "source": {
+            "fileObject": {
+              "@id": "bindingdb/uniprot_txt"
+            },
+            "extract": {
+              "column": "BindingDB Name"
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

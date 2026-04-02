@@ -7,6 +7,9 @@ import yaml
 
 from orion.croissant_resolver import CroissantResolver
 from orion.metadata_driven_loader import MetadataDrivenLoader
+from parsers.BINDING.src.loadBINDINGDB import BINDINGDBLoader
+from parsers.hgnc.src.loadHGNC import HGNCLoader
+from parsers.metadata_driven.src.loadMetadataDriven import BINDINGDBCroissantLoader, HGNCCroissantLoader
 from orion.parser_spec import load_parser_spec
 
 
@@ -25,6 +28,49 @@ class BindingDBTestMetadataLoader(MetadataDrivenLoader):
 def _read_jsonl(path: Path) -> list[dict]:
     with path.open("r") as handle:
         return [json.loads(line) for line in handle]
+
+
+def _sorted_records(path: Path) -> list[dict]:
+    return sorted(_read_jsonl(path), key=lambda record: json.dumps(record, sort_keys=True))
+
+
+def _bindingdb_legacy_archive(path: Path) -> None:
+    header = [f"col{i}" for i in range(46)]
+    header[8] = "Ki (nM)"
+    header[9] = "IC50 (nM)"
+    header[10] = "Kd (nM)"
+    header[11] = "EC50 (nM)"
+    header[19] = "PMID"
+    header[20] = "PubChem AID"
+    header[21] = "Patent Number"
+    header[31] = "PubChem CID"
+    header[44] = "UniProt (SwissProt) Primary ID of Target Chain 1"
+
+    def row(pubchem_cid, protein, ki="", ic50="", kd="", ec50="", pmid="", aid="", patent=""):
+        values = ["" for _ in range(46)]
+        values[8] = ki
+        values[9] = ic50
+        values[10] = kd
+        values[11] = ec50
+        values[19] = pmid
+        values[20] = aid
+        values[21] = patent
+        values[31] = pubchem_cid
+        values[44] = protein
+        return values
+
+    rows = [
+        header,
+        row("111", "P11111", ki="100", pmid="12345", aid="7001", patent="PAT-1"),
+        row("111", "P11111", ki="10", pmid="23456", aid="7002", patent="PAT-1"),
+        row("111", "P11111", ic50="200", pmid="12345", aid="7001"),
+        row("222", "P22222", ec50="50", pmid="34567", aid="8001", patent="PAT-2"),
+        row("", "P99999", ki="25", pmid="99999", aid="9999", patent="PAT-X"),
+    ]
+
+    tsv_content = "\n".join("\t".join(row_values) for row_values in rows) + "\n"
+    with ZipFile(path, "w") as zip_file:
+        zip_file.writestr("BindingDB_All.tsv", tsv_content)
 
 
 def test_croissant_resolver_hgnc_fixture():
@@ -339,3 +385,58 @@ def test_metadata_driven_loader_bindingdb_aggregation(tmp_path):
     assert pec50_edge["affinity_parameter"] == "pEC50"
     assert pec50_edge["average_affinity_nm"] == 50.0
     assert pec50_edge["affinity"] == 7.3
+
+
+def test_hgnc_croissant_loader_matches_legacy_loader(tmp_path):
+    source_root = tmp_path / "hgnc_parity_source"
+    source_dir = source_root / "source"
+    source_dir.mkdir(parents=True)
+    shutil.copyfile(TEST_RESOURCE_DIR / "hgnc_complete_set.txt", source_dir / "hgnc_complete_set.txt")
+
+    legacy_nodes = tmp_path / "legacy_hgnc_nodes.jsonl"
+    legacy_edges = tmp_path / "legacy_hgnc_edges.jsonl"
+    legacy_loader = HGNCLoader(source_data_dir=str(source_root))
+    legacy_metadata = legacy_loader.load(str(legacy_nodes), str(legacy_edges))
+
+    croissant_nodes = tmp_path / "croissant_hgnc_nodes.jsonl"
+    croissant_edges = tmp_path / "croissant_hgnc_edges.jsonl"
+    croissant_loader = HGNCCroissantLoader(source_data_dir=str(source_root))
+    croissant_metadata = croissant_loader.load(str(croissant_nodes), str(croissant_edges))
+
+    assert legacy_metadata == croissant_metadata
+    assert _sorted_records(legacy_nodes) == _sorted_records(croissant_nodes)
+    assert _sorted_records(legacy_edges) == _sorted_records(croissant_edges)
+
+
+def test_bindingdb_croissant_loader_matches_legacy_loader_on_compatible_fixture(tmp_path):
+    source_root = tmp_path / "bindingdb_parity_source"
+    source_dir = source_root / "source"
+    source_dir.mkdir(parents=True)
+    archive_path = source_dir / "BindingDB_All_202603_tsv.zip"
+    _bindingdb_legacy_archive(archive_path)
+
+    original_get_latest = BINDINGDBLoader.get_latest_source_version
+    BINDINGDBLoader.get_latest_source_version = lambda self: "202603"
+    try:
+        legacy_nodes = tmp_path / "legacy_binding_nodes.jsonl"
+        legacy_edges = tmp_path / "legacy_binding_edges.jsonl"
+        legacy_loader = BINDINGDBLoader(source_data_dir=str(source_root))
+        legacy_metadata = legacy_loader.load(str(legacy_nodes), str(legacy_edges))
+    finally:
+        BINDINGDBLoader.get_latest_source_version = original_get_latest
+
+    croissant_nodes = tmp_path / "croissant_binding_nodes.jsonl"
+    croissant_edges = tmp_path / "croissant_binding_edges.jsonl"
+    croissant_loader = BINDINGDBCroissantLoader(source_data_dir=str(source_root))
+    croissant_metadata = croissant_loader.load(str(croissant_nodes), str(croissant_edges))
+
+    assert legacy_metadata["source_nodes"] == croissant_metadata["source_nodes"]
+    assert legacy_metadata["source_edges"] == croissant_metadata["source_edges"]
+
+    legacy_nodes_json = _sorted_records(legacy_nodes)
+    croissant_nodes_json = _sorted_records(croissant_nodes)
+    assert legacy_nodes_json == croissant_nodes_json
+
+    legacy_edges_json = _sorted_records(legacy_edges)
+    croissant_edges_json = _sorted_records(croissant_edges)
+    assert legacy_edges_json == croissant_edges_json

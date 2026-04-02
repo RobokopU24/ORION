@@ -2,6 +2,7 @@ from collections import defaultdict
 import importlib
 
 BINDING_DB = 'BINDING-DB'
+BINDING_DB_CROISSANT = 'BINDING-DB-Croissant'
 CAM_KP = 'CAM-KP'
 CCIDB = 'CCIDB'
 CEBS = 'CEBS'
@@ -62,6 +63,7 @@ RESOURCE_HOGS = [GTEX, GWAS_CATALOG, UNIREF, ONTOLOGICAL_HIERARCHY, UBERGRAPH_RE
 
 SOURCE_DATA_LOADER_CLASS_IMPORTS = {
     BINDING_DB: ("parsers.BINDING.src.loadBINDINGDB", "BINDINGDBLoader"),
+    BINDING_DB_CROISSANT: ("parsers.metadata_driven.src.loadMetadataDriven", "BINDINGDBCroissantLoader"),
     CAM_KP: ("parsers.camkp.src.loadCAMKP", "CAMKPLoader"),
     CCIDB: ("parsers.CCIDB.src.loadCCIDB", "CCIDBLoader"),
     CEBS: ("parsers.CEBS.src.loadCEBS", "CEBSLoader"),
@@ -80,7 +82,7 @@ SOURCE_DATA_LOADER_CLASS_IMPORTS = {
     GTOPDB: ("parsers.gtopdb.src.loadGtoPdb", "GtoPdbLoader"),
     GWAS_CATALOG: ("parsers.GWASCatalog.src.loadGWASCatalog", "GWASCatalogLoader"),
     HETIO: ("parsers.hetio.src.loadHetio", "HetioLoader"),
-    HGNC: ("parsers.hgnc.src.loadHGNC", "HGNCLoader"),
+    HGNC: ("parsers.metadata_driven.src.loadMetadataDriven", "HGNCCroissantLoader"),
     HMDB: ("parsers.hmdb.src.loadHMDB", "HMDBLoader"),
     HUMAN_GOA: ("parsers.GOA.src.loadGOA", "HumanGOALoader"),
     HUMAN_STRING: ("parsers.STRING.src.loadSTRINGDB", "HumanSTRINGDBLoader"),
@@ -167,4 +169,3 @@ def get_data_loader_class(key):
 class SourceDataLoaderClassFactory(KeyBasedDefaultDict):
     def __init__(self):
         super(KeyBasedDefaultDict, self).__init__(get_data_loader_class)
-
