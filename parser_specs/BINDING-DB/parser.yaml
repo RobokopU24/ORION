@@ -44,13 +44,7 @@ row_filters:
   - exists: chain1_swissprot_primary_id
 
 emit:
-  nodes:
-    - id:
-        op: field
-        name: ligand_id
-    - id:
-        op: field
-        name: protein_id
+  nodes: []
   edges: []
 
 aggregate:
@@ -76,20 +70,45 @@ aggregate:
           path: value
         reject_operators: [">"]
         strip_operators: ["<"]
+        minimum_exclusive: 0
     publications:
       op: collect_unique
+      when:
+        op: parse_qualified_float
+        value:
+          op: item
+          path: value
+        reject_operators: [">"]
+        strip_operators: ["<"]
+        minimum_exclusive: 0
       value:
         op: prefix_if_present
         field: pmid
         prefix: "PMID:"
     pubchem_assay_ids:
       op: collect_unique
+      when:
+        op: parse_qualified_float
+        value:
+          op: item
+          path: value
+        reject_operators: [">"]
+        strip_operators: ["<"]
+        minimum_exclusive: 0
       value:
         op: prefix_if_present
         field: pubchem_aid
         prefix: "PUBCHEM.AID:"
     patent_ids:
       op: collect_unique
+      when:
+        op: parse_qualified_float
+        value:
+          op: item
+          path: value
+        reject_operators: [">"]
+        strip_operators: ["<"]
+        minimum_exclusive: 0
       value:
         op: prefix_if_present
         field: patent_number
@@ -114,6 +133,13 @@ aggregate:
   filters:
     - non_empty: supporting_affinities_nm
   emit:
+    nodes:
+      - id:
+          op: group_key
+          index: 0
+      - id:
+          op: group_key
+          index: 1
     edges:
       - subject:
           op: group_key

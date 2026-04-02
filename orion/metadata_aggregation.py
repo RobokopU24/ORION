@@ -30,6 +30,10 @@ class AggregationEngine:
         row: dict[str, Any],
         item: Any,
     ) -> None:
+        when_spec = reducer_spec.get("when")
+        if when_spec is not None and not evaluate_transform(when_spec, row=row, item=item):
+            return
+
         reducer_op = reducer_spec["op"]
 
         if reducer_op == "collect_list":

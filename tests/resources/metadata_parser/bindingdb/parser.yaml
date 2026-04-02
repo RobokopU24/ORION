@@ -44,17 +44,7 @@ row_filters:
   - exists: chain1_swissprot_primary_id
 
 emit:
-  nodes:
-    - id:
-        op: field
-        name: ligand_id
-      categories:
-        - biolink:SmallMolecule
-    - id:
-        op: field
-        name: protein_id
-      categories:
-        - biolink:Protein
+  nodes: []
   edges: []
 
 aggregate:
@@ -78,20 +68,39 @@ aggregate:
         value:
           op: item
           path: value
+        minimum_exclusive: 0
     publications:
       op: collect_unique
+      when:
+        op: parse_qualified_float
+        value:
+          op: item
+          path: value
+        minimum_exclusive: 0
       value:
         op: prefix_if_present
         field: pmid
         prefix: "PMID:"
     pubchem_assay_ids:
       op: collect_unique
+      when:
+        op: parse_qualified_float
+        value:
+          op: item
+          path: value
+        minimum_exclusive: 0
       value:
         op: prefix_if_present
         field: pubchem_aid
         prefix: "PUBCHEM.AID:"
     patent_ids:
       op: collect_unique
+      when:
+        op: parse_qualified_float
+        value:
+          op: item
+          path: value
+        minimum_exclusive: 0
       value:
         op: prefix_if_present
         field: patent_number
@@ -107,6 +116,17 @@ aggregate:
         name: average_affinity_nm
       precision: 2
   emit:
+    nodes:
+      - id:
+          op: group_key
+          index: 0
+        categories:
+          - biolink:SmallMolecule
+      - id:
+          op: group_key
+          index: 1
+        categories:
+          - biolink:Protein
     edges:
       - subject:
           op: group_key

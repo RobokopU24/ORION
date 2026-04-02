@@ -170,15 +170,23 @@ def evaluate_transform(
         if _is_missing(value):
             return None
         if isinstance(value, (int, float)):
-            return float(value)
-        normalized = str(value).strip().replace(",", "")
-        for operator in spec.get("reject_operators", []):
-            if normalized.startswith(operator):
-                return None
-        for operator in spec.get("strip_operators", ["<"]):
-            if normalized.startswith(operator):
-                normalized = normalized[len(operator):]
-        return float(normalized)
+            parsed_value = float(value)
+        else:
+            normalized = str(value).strip().replace(",", "")
+            for operator in spec.get("reject_operators", []):
+                if normalized.startswith(operator):
+                    return None
+            for operator in spec.get("strip_operators", ["<"]):
+                if normalized.startswith(operator):
+                    normalized = normalized[len(operator):]
+            parsed_value = float(normalized)
+        minimum_exclusive = spec.get("minimum_exclusive")
+        if minimum_exclusive is not None and parsed_value <= float(minimum_exclusive):
+            return None
+        minimum_inclusive = spec.get("minimum_inclusive")
+        if minimum_inclusive is not None and parsed_value < float(minimum_inclusive):
+            return None
+        return parsed_value
 
     if op == "aggregate_value":
         if aggregate is None:

@@ -63,9 +63,11 @@ def _bindingdb_legacy_archive(path: Path) -> None:
         header,
         row("111", "P11111", ki="100", pmid="12345", aid="7001", patent="PAT-1"),
         row("111", "P11111", ki="10", pmid="23456", aid="7002", patent="PAT-1"),
+        row("111", "P11111", ki="0", pmid="34567", aid="7003"),
         row("111", "P11111", ic50="200", pmid="12345", aid="7001"),
         row("222", "P22222", ec50="50", pmid="34567", aid="8001", patent="PAT-2"),
         row("", "P99999", ki="25", pmid="99999", aid="9999", patent="PAT-X"),
+        ["malformed", "row"],
     ]
 
     tsv_content = "\n".join("\t".join(row_values) for row_values in rows) + "\n"
