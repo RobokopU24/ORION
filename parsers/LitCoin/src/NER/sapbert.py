@@ -7,7 +7,7 @@ from orion.config import config
 
 # Configuration: get the SAPBERT URL and figure out the annotate path.
 SAPBERT_URL = config.SAPBERT_URL
-SAPBERT_ANNOTATE_ENDPOINT = SAPBERT_URL + 'annotate/'
+SAPBERT_ANNOTATE_ENDPOINT = f'{SAPBERT_URL}/annotate/'
 SAPBERT_MODEL_NAME = "sapbert"
 SAPBERT_COUNT = 1000  # We've found that 1000 is about the minimum you need for reasonable results.
 

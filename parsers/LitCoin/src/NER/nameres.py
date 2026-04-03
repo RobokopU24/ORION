@@ -7,8 +7,8 @@ from orion.config import config
 
 # Configuration: NameRes
 NAMERES_URL = config.NAMERES_URL
-NAMERES_ENDPOINT = f'{NAMERES_URL}lookup'
-NAMERES_RL_ENDPOINT = f'{NAMERES_URL}reverse_lookup'
+NAMERES_ENDPOINT = f'{NAMERES_URL}/lookup'
+NAMERES_RL_ENDPOINT = f'{NAMERES_URL}/reverse_lookup'
 
 
 class NameResNEREngine(BaseNEREngine):

@@ -686,8 +686,7 @@ class GraphBuilder:
 
     @staticmethod
     def get_graph_output_url(graph_id: str, graph_version: str):
-        graph_output_url = config.ORION_OUTPUT_URL.removesuffix('/')
-        return f'{graph_output_url}/{graph_id}/{graph_version}/'
+        return f'{config.ORION_OUTPUT_URL}/{graph_id}/{graph_version}/'
 
     @staticmethod
     def get_graph_nodes_file_path(graph_output_dir: str):

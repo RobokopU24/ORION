@@ -2,13 +2,13 @@ import requests
 from requests.auth import HTTPBasicAuth
 from orion.config import config
 
-BAGEL_ENDPOINT = config.BAGEL_ENDPOINT + 'find_curies_openai'
+BAGEL_ENDPOINT = f'{config.BAGEL_URL}/find_curies_openai'
 
-bagel_nameres_url = config.NAMERES_URL + 'lookup?autocomplete=false&offset=0&limit=10&string="'
+bagel_nameres_url = f'{config.NAMERES_URL}/lookup?autocomplete=false&offset=0&limit=10&string="'
 
-bagel_sapbert_url = config.SAPBERT_URL + "annotate/"
+bagel_sapbert_url = f'{config.SAPBERT_URL}/annotate/'
 
-bagel_nodenorm_url = config.NODE_NORMALIZATION_ENDPOINT + 'get_normalized_nodes'
+bagel_nodenorm_url = f'{config.NODE_NORMALIZATION_URL}/get_normalized_nodes'
 
 BAGEL_SERVICE_USERNAME = config.BAGEL_SERVICE_USERNAME
 BAGEL_SERVICE_PASSWORD = config.BAGEL_SERVICE_PASSWORD

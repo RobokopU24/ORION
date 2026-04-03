@@ -100,7 +100,7 @@ class NodeNormalizer:
 
     def hit_node_norm_service(self, curies, retries=0):
         resp: requests.models.Response = \
-            self.requests_session.post(f'{NODE_NORMALIZATION_URL}get_normalized_nodes',
+            self.requests_session.post(f'{NODE_NORMALIZATION_URL}/get_normalized_nodes',
                                        json={'curies': curies,
                                              'conflate': self.conflate_node_types,
                                              'drug_chemical_conflate': self.conflate_node_types,
@@ -346,7 +346,7 @@ class NodeNormalizer:
         Retrieves the current production version from the node normalization service
         """
         # hit the node norm status endpoint
-        node_norm_status_url = f'{NODE_NORMALIZATION_URL}status'
+        node_norm_status_url = f'{NODE_NORMALIZATION_URL}/status'
         resp: requests.models.Response = requests.get(node_norm_status_url)
         resp.raise_for_status()
         status: dict = resp.json()
@@ -392,7 +392,7 @@ class EdgeNormalizer:
         self.edge_normalization_lookup = {}
         self.cached_edge_norms = {}
 
-        self.edge_norm_endpoint = config.EDGE_NORMALIZATION_ENDPOINT
+        self.edge_norm_endpoint = config.EDGE_NORMALIZATION_URL
 
         if edge_normalization_version != 'latest':
             if self.check_bl_version_valid(edge_normalization_version):
@@ -443,7 +443,7 @@ class EdgeNormalizer:
             predicate_chunk: list = predicates_to_normalize_list[start_index: end_index]
 
             # hit the edge normalization service
-            request_url = f'{self.edge_norm_endpoint}resolve_predicate?version={self.edge_norm_version}&predicate='
+            request_url = f'{self.edge_norm_endpoint}/resolve_predicate?version={self.edge_norm_version}&predicate='
             request_url += '&predicate='.join(predicate_chunk)
             logger.debug(f'Sending request: {request_url}')
             resp: requests.models.Response = requests.get(request_url)
@@ -515,7 +515,7 @@ class EdgeNormalizer:
 
     def get_available_versions(self):
         # call the versions endpoint
-        edge_norm_versions_url = f'{self.edge_norm_endpoint}versions'
+        edge_norm_versions_url = f'{self.edge_norm_endpoint}/versions'
         resp: requests.models.Response = requests.get(edge_norm_versions_url)
 
         # did we get a good status code
@@ -535,7 +535,7 @@ class EdgeNormalizer:
 
     def get_valid_node_types(self):
         # call the descendants endpoint with the root node type
-        edge_norm_descendants_url = f'{self.edge_norm_endpoint}bl/{NAMED_THING}/descendants?version={self.edge_norm_version}'
+        edge_norm_descendants_url = f'{self.edge_norm_endpoint}/bl/{NAMED_THING}/descendants?version={self.edge_norm_version}'
         resp: requests.models.Response = requests.get(edge_norm_descendants_url)
 
         # did we get a good status code
