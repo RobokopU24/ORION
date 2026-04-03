@@ -5,7 +5,7 @@ import logging
 import datetime
 
 from xml.etree import ElementTree as ETree
-from orion.utils import LoggingUtil, GetData
+from orion.utils import GetData
 from orion.kgx_file_writer import KGXFileWriter
 from orion.loader_interface import SourceDataLoader
 
@@ -81,7 +81,7 @@ class UniRefSimLoader(SourceDataLoader):
         """
 
         # get a reference to the get data util class
-        gd: GetData = GetData(self.logger.level)
+        gd: GetData = GetData()
 
         # are we in test mode
         if not self.test_mode:

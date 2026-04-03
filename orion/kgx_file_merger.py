@@ -3,15 +3,14 @@ import jsonlines
 import json
 from datetime import datetime
 from itertools import chain
-from orion.utils import LoggingUtil, quick_jsonl_file_iterator
+from orion.utils import quick_jsonl_file_iterator
+from orion.logging import get_orion_logger
 from orion.kgxmodel import GraphSpec, GraphSource, SubGraphSource
 from orion.biolink_constants import SUBJECT_ID, OBJECT_ID
 from orion.merging import GraphMerger, DiskGraphMerger, MemoryGraphMerger
 from orion.ingest_pipeline import RESOURCE_HOGS
 
-logger = LoggingUtil.init_logging("ORION.orion.KGXFileMerger",
-                                  line_format='medium',
-                                  log_file_path=os.getenv('ORION_LOGS'))
+logger = get_orion_logger("orion.kgx_file_merger")
 
 CONNECTED_EDGE_SUBSET = 'connected_edge_subset'
 DONT_MERGE = 'dont_merge_edges'

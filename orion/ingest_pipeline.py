@@ -7,7 +7,8 @@ from collections import defaultdict
 
 from orion.data_sources import SourceDataLoaderClassFactory, RESOURCE_HOGS, get_available_data_sources
 from orion.exceptions import DataVersionError
-from orion.utils import LoggingUtil, GetDataPullError
+from orion.utils import GetDataPullError
+from orion.logging import get_orion_logger
 from orion.kgx_file_normalizer import KGXFileNormalizer
 from orion.kgx_validation import validate_graph
 from orion.normalization import NormalizationScheme, NodeNormalizer, EdgeNormalizer, NormalizationFailedError
@@ -18,9 +19,7 @@ from orion.supplementation import SequenceVariantSupplementation, Supplementatio
 
 SOURCE_DATA_LOADER_CLASSES = SourceDataLoaderClassFactory()
 
-logger = LoggingUtil.init_logging("ORION.orion.IngestPipeline",
-                                  line_format='medium',
-                                  log_file_path=os.getenv('ORION_LOGS'))
+logger = get_orion_logger("orion.ingest_pipeline")
 
 
 class IngestPipeline:

@@ -8,7 +8,9 @@ from dataclasses import dataclass
 
 from robokop_genetics.genetics_normalization import GeneticsNormalizer
 from orion.biolink_constants import *
-from orion.utils import LoggingUtil
+from orion.logging import get_orion_logger
+
+logger = get_orion_logger("orion.normalization")
 
 NORMALIZATION_CODE_VERSION = '1.4'
 
@@ -66,7 +68,6 @@ class NodeNormalizer:
     """
 
     def __init__(self,
-                 log_level=logging.INFO,
                  node_normalization_version: str = 'latest',
                  biolink_version: str = 'latest',
                  strict_normalization: bool = True,
@@ -74,14 +75,8 @@ class NodeNormalizer:
                  include_taxa: bool = False):
         """
         constructor
-        :param log_level - overrides default log level
         :param node_normalization_version - not implemented yet
         """
-        # create a logger
-        self.logger = LoggingUtil.init_logging("ORION.orion.NodeNormalizer",
-                                               level=log_level,
-                                               line_format='medium',
-                                               log_file_path=os.getenv('ORION_LOGS'))
         # storage for regular nodes that failed to normalize
         self.failed_to_normalize_ids = set()
         # storage for variant nodes that failed to normalize
@@ -121,7 +116,7 @@ class NodeNormalizer:
                 raise NormalizationFailedError(error_message=error_message)
         else:
             error_message = f'Node norm response code: {resp.status_code} (curies: {curies})'
-            self.logger.error(error_message)
+            logger.error(error_message)
             resp.raise_for_status()
 
     def normalize_node_data(self, node_list: list, batch_size: int = 5000) -> list:
@@ -282,7 +277,7 @@ class NodeNormalizer:
             if self.strict_normalization:
                 node_list[:] = [d for d in node_list if d is not None]
 
-        self.logger.debug(f'End of normalize_node_data.')
+        logger.debug(f'End of normalize_node_data.')
 
         # return the failed list to the caller
         return failed_to_normalize
@@ -390,14 +385,10 @@ class EdgeNormalizer:
     DEFAULT_EDGE_NORM_ENDPOINT = f'https://bl-lookup-sri.renci.org/'
 
     def __init__(self,
-                 edge_normalization_version: str = 'latest',
-                 log_level=logging.INFO):
+                 edge_normalization_version: str = 'latest'):
         """
         constructor
-        :param log_level - overrides default log level
         """
-        # create a logger
-        self.logger = LoggingUtil.init_logging("ORION.orion.EdgeNormalizer", level=log_level, line_format='medium', log_file_path=os.getenv('ORION_LOGS'))
         # normalization map for future look up of all normalized predicates
         self.edge_normalization_lookup = {}
         self.cached_edge_norms = {}
@@ -458,7 +449,7 @@ class EdgeNormalizer:
             # hit the edge normalization service
             request_url = f'{self.edge_norm_endpoint}resolve_predicate?version={self.edge_norm_version}&predicate='
             request_url += '&predicate='.join(predicate_chunk)
-            self.logger.debug(f'Sending request: {request_url}')
+            logger.debug(f'Sending request: {request_url}')
             resp: requests.models.Response = requests.get(request_url)
 
             # if we get a success status code
@@ -473,7 +464,7 @@ class EdgeNormalizer:
             else:
                 # this is a real error with the edge normalizer so we bail
                 error_message = f'Edge norm response code: {resp.status_code}'
-                self.logger.error(error_message)
+                logger.error(error_message)
                 resp.raise_for_status()
 
             # move on down the list
@@ -505,7 +496,7 @@ class EdgeNormalizer:
 
         # if something failed to normalize output it
         # if failed_to_normalize:
-        #    self.logger.error(f'Failed to normalize: {", ".join(failed_to_normalize)}')
+        #    logger.error(f'Failed to normalize: {", ".join(failed_to_normalize)}')
 
         # return the failed list to the caller
         return failed_to_normalize

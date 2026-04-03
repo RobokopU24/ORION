@@ -5,7 +5,8 @@ import uuid_utils as uuid
 from xxhash import xxh64_hexdigest
 from orion.biolink_utils import BiolinkUtils
 from orion.biolink_constants import *
-from orion.utils import quick_json_loads, quick_json_dumps, LoggingUtil
+from orion.utils import quick_json_loads, quick_json_dumps
+from orion.logging import get_orion_logger
 
 ORION_UUID_NAMESPACE = uuid.UUID('e2a5b21f-4e4d-4a6e-b64a-1f3c78e2a9d0')
 
@@ -15,9 +16,7 @@ EDGE_ENTITY_TYPE = 'edge'
 # TODO ideally we'd make the biolink model version configurable here
 bmt = BiolinkUtils()
 
-logger = LoggingUtil.init_logging("ORION.orion.merging",
-                                  line_format='medium',
-                                  log_file_path=os.getenv('ORION_LOGS'))
+logger = get_orion_logger("orion.merging")
 
 # Key functions for identifying duplicates during entity merging.
 # Add entries to CUSTOM_KEY_FUNCTIONS to define custom matching logic for specific properties.

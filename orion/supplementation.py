@@ -9,9 +9,11 @@ from zipfile import ZipFile
 from collections import defaultdict
 from orion.biolink_constants import *
 from orion.normalization import FALLBACK_EDGE_PREDICATE, NormalizationScheme
-from orion.utils import LoggingUtil
+from orion.logging import get_orion_logger
 from orion.kgx_file_writer import KGXFileWriter
 from orion.kgx_file_normalizer import KGXFileNormalizer
+
+logger = get_orion_logger("orion.supplementation")
 
 SNPEFF_PROVENANCE = "infores:robokop-snpeff"
 
@@ -61,15 +63,12 @@ class SequenceVariantSupplementation:
 
     def __init__(self, output_dir="."):
 
-        self.logger = LoggingUtil.init_logging("ORION.orion.SequenceVariantSupplementation",
-                                               line_format='medium',
-                                               log_file_path=os.getenv('ORION_LOGS'))
         workspace_dir = os.getenv("ORION_STORAGE", output_dir)
 
         # if the snpEff dir exists, assume we already downloaded it
         self.snpeff_dir = path.join(workspace_dir, "snpEff")
         if not path.isdir(self.snpeff_dir):
-            self.logger.info('SNPEFF not found, downloading and installing..')
+            logger.info('SNPEFF not found, downloading and installing..')
 
             # TODO
             # Snpeff is building their latest versions with Java 21 which is not compatible with the docker
@@ -98,15 +97,15 @@ class SequenceVariantSupplementation:
         workspace_dir = supp_nodes_norm_file_path.rsplit("/", 1)[0]
         vcf_file_path = f'{workspace_dir}/variants.vcf'
 
-        self.logger.info('Creating VCF file from source nodes..')
+        logger.info('Creating VCF file from source nodes..')
         self.create_vcf_from_variant_nodes(nodes_file_path,
                                            vcf_file_path)
-        self.logger.info('Running SNPEFF, creating annotated VCF..')
+        logger.info('Running SNPEFF, creating annotated VCF..')
         annotated_vcf_path = f'{workspace_dir}/variants_ann.vcf'
         self.run_snpeff(vcf_file_path,
                         annotated_vcf_path)
 
-        self.logger.info('Converting annotated VCF to KGX File..')
+        logger.info('Converting annotated VCF to KGX File..')
         supplementation_metadata = self.convert_snpeff_to_kgx(annotated_vcf_path,
                                                               supp_nodes_file_path,
                                                               supp_edges_file_path)
@@ -114,7 +113,7 @@ class SequenceVariantSupplementation:
         os.remove(vcf_file_path)
         os.remove(annotated_vcf_path)
 
-        self.logger.info('Normalizing Supplemental KGX File..')
+        logger.info('Normalizing Supplemental KGX File..')
         file_normalizer = KGXFileNormalizer(source_nodes_file_path=supp_nodes_file_path,
                                             nodes_output_file_path=supp_nodes_norm_file_path,
                                             node_norm_map_file_path=supp_node_norm_map_file_path,
@@ -148,7 +147,7 @@ class SequenceVariantSupplementation:
             if snpeff_results.returncode != 0:
                 error_message = f'SNPEFF subprocess error (ExitCode {snpeff_results.returncode}): ' \
                                 f'{snpeff_results.stderr.decode("UTF-8")}'
-                self.logger.error(error_message)
+                logger.error(error_message)
                 raise SupplementationFailedError(error_message)
 
     def convert_snpeff_to_kgx(self,
