@@ -53,7 +53,7 @@ ORION uses three directories for its data, configured via environment variables:
 You can set these up manually or use the provided script:
 
 ```bash
-source ./set_up_test_env.sh
+source ./set_up_dev_env.sh
 ```
 
 #### Graph Spec
