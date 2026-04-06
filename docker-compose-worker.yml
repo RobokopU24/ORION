@@ -5,40 +5,23 @@ services:
       dockerfile: Dockerfile
     container_name: orion-worker
     command: [celery, "-A", "celery_worker.celery_app", "worker", "--loglevel=info", "-Q", "orion"]
+    env_file:
+      - .env
     environment:
-      - CELERY_BROKER_URL=redis://redis:6379/0
-      - CELERY_RESULT_BACKEND=redis://redis:6379/0
-      - SHARED_SOURCE_DATA_PATH=/tmp/shared_data
+      # override paths from env, use paths volumes are mounted to inside the container
       - ORION_STORAGE=/ORION_storage
       - ORION_GRAPHS=/ORION_graphs
       - ORION_LOGS=/ORION_logs
-      - BAGEL_SERVICE_USERNAME=fake-username-do-not-commit-a-real-one!!!
-      - BAGEL_SERVICE_PASSWORD=fake-password-do-not-commit-a-real-one!!!  
-      - ORION_GRAPH_SPEC
-      - ORION_GRAPH_SPEC_URL
-      - ORION_OUTPUT_URL
-      - EDGE_NORMALIZATION_ENDPOINT
-      - NODE_NORMALIZATION_ENDPOINT
-      - NAMERES_URL
-      - SAPBERT_URL
-      - LITCOIN_PRED_MAPPING_URL
-      - BL_VERSION
-      - PHAROS_DB_HOST
-      - PHAROS_DB_USER
-      - PHAROS_DB_PASSWORD
-      - PHAROS_DB_NAME
-      - PHAROS_DB_PORT
-      - DRUGCENTRAL_DB_HOST
-      - DRUGCENTRAL_DB_USER
-      - DRUGCENTRAL_DB_PASSWORD
-      - DRUGCENTRAL_DB_NAME
-      - DRUGCENTRAL_DB_PORT
+      - SHARED_SOURCE_DATA_PATH=/tmp/shared_data
+      # specific to celery
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
     volumes:
       - .:/ORION
-      - "${SHARED_SOURCE_DATA_PATH}:/tmp/shared_data"
       - "${ORION_STORAGE}:/ORION_storage"
       - "${ORION_GRAPHS}:/ORION_graphs"
       - "${ORION_LOGS}:/ORION_logs"
+      - "${SHARED_SOURCE_DATA_PATH}:/tmp/shared_data"
     user: 1000:7474
     networks:
       - app-network
