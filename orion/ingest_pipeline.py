@@ -39,7 +39,9 @@ class IngestPipeline:
             logger.info(f'IngestPipeline running in fresh start mode... previous state and files ignored.')
 
         # lazy load the storage directory path
-        self.storage_dir = self.init_storage_dir(storage_dir)
+        # store the storage_dir parameter to override the Config if provided programmatically or through CLI
+        self._storage_dir_override = storage_dir
+        self._storage_dir = None
 
         # dict of source_id -> latest source version (to prevent double lookups)
         self.latest_source_version_lookup = {}
@@ -689,8 +691,14 @@ class IngestPipeline:
     def get_source_version_path(self, source_id: str, source_version: str):
         return os.path.join(self.storage_dir, source_id, source_version)
 
+    @property
+    def storage_dir(self):
+        if self._storage_dir is None:
+            self._storage_dir = self._resolve_storage_dir(self._storage_dir_override)
+        return self._storage_dir
+
     @staticmethod
-    def init_storage_dir(storage_dir: str=None):
+    def _resolve_storage_dir(storage_dir: str = None):
         # if a dir was provided programmatically try to use that
         if storage_dir is not None:
             if os.path.isdir(storage_dir):
