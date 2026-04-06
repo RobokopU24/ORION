@@ -4,15 +4,14 @@ services:
       context: .
     command: [orion-build, all]
     env_file:
-      - .env
+      - path: .env
+        required: false
     environment:
       # override paths from env, use paths volumes are mounted to inside the container
       - ORION_STORAGE=/ORION_storage
       - ORION_GRAPHS=/ORION_graphs
-      - ORION_LOGS=/ORION_logs
     volumes:
       - .:/ORION
       - "${ORION_STORAGE}:/ORION_storage"
       - "${ORION_GRAPHS}:/ORION_graphs"
-      - "${ORION_LOGS}:/ORION_logs"
     user: 7474:7474

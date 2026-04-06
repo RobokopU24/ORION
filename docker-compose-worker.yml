@@ -6,7 +6,8 @@ services:
     container_name: orion-worker
     command: [celery, "-A", "celery_worker.celery_app", "worker", "--loglevel=info", "-Q", "orion"]
     env_file:
-      - .env
+      - path: .env
+        required: false
     environment:
       # override paths from env, use paths volumes are mounted to inside the container
       - ORION_STORAGE=/ORION_storage
