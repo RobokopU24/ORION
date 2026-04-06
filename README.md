@@ -42,31 +42,34 @@ After installation, the following commands are available (prefix with `uv run` i
 
 ### Configuring ORION
 
-ORION uses three directories for its data, configured via environment variables:
+ORION is configured via environment variables, which can be set directly or through an `.env` file. 
 
-| Variable | Purpose                              |
-|---|--------------------------------------|
-| `ORION_STORAGE` | Data ingest pipeline storage |
-| `ORION_GRAPHS` | Knowledge graph outputs              |
-| `ORION_LOGS` | Log files                            |
-
-You can set these up manually or use the provided script:
+In most cases, you can simply use this provided script to set up a local environment. It will create directories for ORION outputs next to where ORION was installed and set env vars pointing to them.
 
 ```bash
 source ./set_up_dev_env.sh
 ```
 
+For more customization and settings, use an .env file. Copy or rename the `.env.example` file to `.env`.
+
+Then uncommment and edit `.env` as desired to set values for your environment.
+
+| Variable | Purpose                                                    | Default |
+|---|------------------------------------------------------------|---|
+| `ORION_STORAGE` | Path to a directory for data ingest pipeline storage       | (required) |
+| `ORION_GRAPHS` | Path to a directory for Knowledge Graph outputs            | (required) |
+| `ORION_LOGS` | Path to a Log file directory (if unset, logs go to stdout) | `None` |
+| `ORION_GRAPH_SPEC` | Graph Spec filename from `graph_specs/`                    | `example-graph-spec.yaml` |
+| `ORION_GRAPH_SPEC_URL` | URL to a remote Graph Spec file                            | |
+
+Configuration is managed by [pydantic-settings](https://docs.pydantic.dev/latest/concepts/pydantic_settings/) — environment variables override `.env` file values, and sensible defaults are provided where possible. See `orion/config.py` for the full list of settings.
+
 #### Graph Spec
 
-A Graph Spec yaml file defines which sources to include in a knowledge graph. Set one of the following environment variables (not both):
+A Graph Spec yaml file defines which sources to include in a knowledge graph. Set one of the following (not both):
 
-```bash
-# Option 1: Name of a file in the graph_specs/ directory
-export ORION_GRAPH_SPEC=example-graph-spec.yaml
-
-# Option 2: URL pointing to a Graph Spec yaml file
-export ORION_GRAPH_SPEC_URL=https://stars.renci.org/var/data_services/graph_specs/default-graph-spec.yaml
-```
+- `ORION_GRAPH_SPEC` - name of a file in the `graph_specs/` directory
+- `ORION_GRAPH_SPEC_URL` - URL pointing to a Graph Spec yaml file
 
 Here is a simple Graph Spec example:
 
@@ -100,6 +103,8 @@ See the `graph_specs/` directory for more examples.
 
 ### Running with Docker
 
+Make sure environment variables are set or an `.env` file is configured with at least `ORION_STORAGE`, and `ORION_GRAPHS` pointing to valid host directories. The compose file reads these env vars and mounts those directories as volumes in the container.
+
 Build the image:
 
 ```bash
@@ -115,19 +120,19 @@ docker compose up
 Build a specific graph:
 
 ```bash
-docker compose run --rm orion orion-build Example_Graph
+docker compose run orion orion-build Example_Graph
 ```
 
 Run the ingest pipeline for a single data source:
 
 ```bash
-docker compose run --rm orion orion-ingest DrugCentral
+docker compose run orion orion-ingest DrugCentral
 ```
 
 See available data sources and options:
 
 ```bash
-docker compose run --rm orion orion-ingest -h
+docker compose run orion orion-ingest -h
 ```
 
 ### Development
