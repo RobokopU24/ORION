@@ -1,0 +1,741 @@
+{
+  "@context": {
+    "@language": "en",
+    "@vocab": "https://schema.org/",
+    "sc": "https://schema.org/",
+    "cr": "http://mlcommons.org/croissant/",
+    "rai": "http://mlcommons.org/croissant/RAI/",
+    "dct": "http://purl.org/dc/terms/",
+    "annotation": "cr:annotation",
+    "arrayShape": "cr:arrayShape",
+    "citeAs": "cr:citeAs",
+    "column": "cr:column",
+    "conformsTo": "dct:conformsTo",
+    "containedIn": "cr:containedIn",
+    "data": {"@id": "cr:data", "@type": "@json"},
+    "dataType": {"@id": "cr:dataType", "@type": "@vocab"},
+    "equivalentProperty": "cr:equivalentProperty",
+    "examples": {"@id": "cr:examples", "@type": "@json"},
+    "excludes": "cr:excludes",
+    "extract": "cr:extract",
+    "field": "cr:field",
+    "fileProperty": "cr:fileProperty",
+    "fileObject": "cr:fileObject",
+    "fileSet": "cr:fileSet",
+    "format": "cr:format",
+    "includes": "cr:includes",
+    "isArray": "cr:isArray",
+    "isLiveDataset": "cr:isLiveDataset",
+    "jsonPath": "cr:jsonPath",
+    "key": "cr:key",
+    "md5": "cr:md5",
+    "parentField": "cr:parentField",
+    "recordSet": "cr:recordSet",
+    "references": "cr:references",
+    "regex": "cr:regex",
+    "readLines": "cr:readLines",
+    "sdVersion": "cr:sdVersion",
+    "separator": "cr:separator",
+    "source": "cr:source",
+    "subField": "cr:subField",
+    "transform": "cr:transform",
+    "unArchive": "cr:unArchive",
+    "value": "cr:value"
+  },
+  "@type": "https://schema.org/Dataset",
+  "@id": "hgnc",
+  "conformsTo": "http://mlcommons.org/croissant/1.1",
+  "name": "HGNC",
+  "description": "The HGNC is a resource for approved human gene nomenclature containing ~42000 gene symbols and names and 1300+ gene families and sets",
+  "url": "https://www.genenames.org",
+  "identifier": "RRID:SCR_002827",
+  "version": "2026-03-06",
+  "dateModified": "2026-03-06",
+  "license": "https://creativecommons.org/publicdomain/zero/1.0/",
+  "conditionsOfAccess": "No restrictions are imposed on access to, or use of, the data provided by the HGNC, which are provided to enhance knowledge and encourage progress in the scientific community. The HGNC provides these data in good faith, but make no warranty, express or implied, nor assume any legal liability or responsibility for any purpose for which they are used.",
+  "isAccessibleForFree": true,
+  "inLanguage": "en",
+  "keywords": [
+    "gene nomenclature",
+    "human genes",
+    "gene symbols",
+    "HGNC",
+    "bioinformatics",
+    "genomics"
+  ],
+  "citeAs": "Seal RL, Braschi B, Gray K, McClay J, Tweedie S, Bruford EA. Genenames.org: the HGNC and PGNC resources in 2026. Nucleic Acids Res. 2025 Nov 25:gkaf1229. DOI: 10.1093/nar/gkaf1229. PMID: 41287213",
+  "citation": "Seal RL, Braschi B, Gray K, McClay J, Tweedie S, Bruford EA. Genenames.org: the HGNC and PGNC resources in 2026. Nucleic Acids Res. 2025 Nov 25:gkaf1229. DOI: 10.1093/nar/gkaf1229. PMID: 41287213",
+  "creator": {
+    "@type": "https://schema.org/Organization",
+    "name": "HUGO Gene Nomenclature Committee (HGNC)",
+    "url": "https://www.genenames.org",
+    "parentOrganization": {
+      "@type": "https://schema.org/Organization",
+      "name": "University of Cambridge"
+    }
+  },
+  "funder": {
+    "@type": "https://schema.org/Organization",
+    "name": "US National Human Genome Research Institute (NHGRI)"
+  },
+  "relatedLink": "hgnc_apis.json",
+  "distribution": [
+    {
+      "@type": "http://mlcommons.org/croissant/FileObject",
+      "@id": "hgnc/hgnc_complete_set_tsv",
+      "name": "hgnc_complete_set_tsv",
+      "description": "Complete HGNC approved dataset in tab-separated values (TSV) format. Multiple-valued fields are double-quoted and pipe-delimited within the quotes.",
+      "contentUrl": "https://storage.googleapis.com/public-download-files/hgnc/tsv/tsv/hgnc_complete_set.txt",
+      "encodingFormat": "text/tab-separated-values",
+      "md5": "16ae644b4598083157299c44a6eb418f"
+    },
+    {
+      "@type": "http://mlcommons.org/croissant/FileObject",
+      "@id": "hgnc/hgnc_complete_set_json",
+      "name": "hgnc_complete_set_json",
+      "description": "Complete HGNC approved dataset in JSON format (no indentation or whitespace). Intended for loading into a JSON parser within a script or program.",
+      "contentUrl": "https://storage.googleapis.com/public-download-files/hgnc/json/json/hgnc_complete_set.json",
+      "encodingFormat": "application/json",
+      "md5": "39d7981d6408775e85ce9d2a552c4ef4"
+    },
+    {
+      "@type": "http://mlcommons.org/croissant/FileObject",
+      "@id": "hgnc/withdrawn_tsv",
+      "name": "withdrawn_tsv",
+      "description": "Withdrawn HGNC symbol reports in tab-separated values (TSV) format.",
+      "contentUrl": "https://storage.googleapis.com/public-download-files/hgnc/tsv/tsv/withdrawn.txt",
+      "encodingFormat": "text/tab-separated-values",
+      "md5": "9aca8b1084453db66ad44f36e4ab9dcf"
+    },
+    {
+      "@type": "http://mlcommons.org/croissant/FileObject",
+      "@id": "hgnc/withdrawn_json",
+      "name": "withdrawn_json",
+      "description": "Withdrawn HGNC symbol reports in JSON format.",
+      "contentUrl": "https://storage.googleapis.com/public-download-files/hgnc/json/json/withdrawn.json",
+      "encodingFormat": "application/json",
+      "md5": "9517b7ff47ec62ca04a7513b0269fcb1"
+    },
+    {
+      "@type": "http://mlcommons.org/croissant/FileObject",
+      "@id": "hgnc/hgnc_owl",
+      "name": "hgnc_owl",
+      "description": "HGNC OWL file created by SciBite. Contains all genes in HGNC organised in a shallow hierarchy, classified by locus type and gene group. Includes approved gene symbol, approved gene name, previous names and symbols, and mappings to external databases.",
+      "contentUrl": "https://storage.googleapis.com/public-download-files/hgnc/owl/owl/hgnc.owl",
+      "encodingFormat": "application/rdf+xml",
+      "md5": "8db14e98e8121034754ee8ae6f696b66"
+    },
+    {
+      "@type": "http://mlcommons.org/croissant/FileObject",
+      "@id": "hgnc/gene_groups_tsv",
+      "name": "gene_groups_tsv",
+      "description": "Complete HGNC gene groups dataset in tab-separated values (TSV) format, containing all genes assigned to gene groups with their group associations.",
+      "contentUrl": "https://genenames.org/cgi-bin/genegroup/download-all",
+      "encodingFormat": "text/tab-separated-values",
+      "md5": "7b351f57ba56565f12c23e01745e452f"
+    },
+    {
+      "@type": "http://mlcommons.org/croissant/FileObject",
+      "@id": "hgnc/gene_groups_json",
+      "name": "gene_groups_json",
+      "description": "Complete HGNC gene groups dataset in JSON format.",
+      "contentUrl": "https://genenames.org/cgi-bin/genegroup/download-all?format=json",
+      "encodingFormat": "application/json",
+      "md5": "503aa01299efcf8522feff3eb8440eac"
+    }
+  ],
+  "recordSet": [
+    {
+      "@type": "http://mlcommons.org/croissant/RecordSet",
+      "@id": "hgnc/hgnc_complete_set",
+      "name": "hgnc_complete_set",
+      "description": "Complete HGNC approved gene symbol dataset. Each record represents one approved human gene locus with its symbol, name, locus information, cross-references to external databases, and nomenclature history.",
+      "field": [
+        {
+          "@type": "http://mlcommons.org/croissant/Field",
+          "@id": "hgnc/hgnc_complete_set/hgnc_id",
+          "name": "hgnc_id",
+          "description": "HGNC ID. A unique ID created by the HGNC for every approved symbol.",
+          "dataType": "sc:Text",
+          "source": {"fileObject": {"@id": "hgnc/hgnc_complete_set_tsv"}, "extract": {"column": "hgnc_id"}}
+        },
+        {
+          "@type": "http://mlcommons.org/croissant/Field",
+          "@id": "hgnc/hgnc_complete_set/symbol",
+          "name": "symbol",
+          "description": "The HGNC approved gene symbol. Equates to the Approved symbol field within the gene symbol report.",
+          "dataType": "sc:Text",
+          "source": {"fileObject": {"@id": "hgnc/hgnc_complete_set_tsv"}, "extract": {"column": "symbol"}}
+        },
+        {
+          "@type": "http://mlcommons.org/croissant/Field",
+          "@id": "hgnc/hgnc_complete_set/name",
+          "name": "name",
+          "description": "HGNC approved name for the gene. Equates to the Approved name field within the gene symbol report.",
+          "dataType": "sc:Text",
+          "source": {"fileObject": {"@id": "hgnc/hgnc_complete_set_tsv"}, "extract": {"column": "name"}}
+        },
+        {
+          "@type": "http://mlcommons.org/croissant/Field",
+          "@id": "hgnc/hgnc_complete_set/locus_group",
+          "name": "locus_group",
+          "description": "A group name for a set of related locus types as defined by the HGNC (e.g. non-coding RNA).",
+          "dataType": "sc:Text",
+          "source": {"fileObject": {"@id": "hgnc/hgnc_complete_set_tsv"}, "extract": {"column": "locus_group"}}
+        },
+        {
+          "@type": "http://mlcommons.org/croissant/Field",
+          "@id": "hgnc/hgnc_complete_set/locus_type",
+          "name": "locus_type",
+          "description": "The locus type as set by the HGNC.",
+          "dataType": "sc:Text",
+          "source": {"fileObject": {"@id": "hgnc/hgnc_complete_set_tsv"}, "extract": {"column": "locus_type"}}
+        },
+        {
+          "@type": "http://mlcommons.org/croissant/Field",
+          "@id": "hgnc/hgnc_complete_set/status",
+          "name": "status",
+          "description": "Status of the symbol report, which can be either Approved or Entry Withdrawn.",
+          "dataType": "sc:Text",
+          "source": {"fileObject": {"@id": "hgnc/hgnc_complete_set_tsv"}, "extract": {"column": "status"}}
+        },
+        {
+          "@type": "http://mlcommons.org/croissant/Field",
+          "@id": "hgnc/hgnc_complete_set/location",
+          "name": "location",
+          "description": "Cytogenetic location of the gene (e.g. 2q34).",
+          "dataType": "sc:Text",
+          "source": {"fileObject": {"@id": "hgnc/hgnc_complete_set_tsv"}, "extract": {"column": "location"}}
+        },
+        {
+          "@type": "http://mlcommons.org/croissant/Field",
+          "@id": "hgnc/hgnc_complete_set/location_sortable",
+          "name": "location_sortable",
+          "description": "Same as location but single digit chromosomes are prefixed with a 0 enabling them to be sorted in correct numerical order (e.g. 02q34).",
+          "dataType": "sc:Text",
+          "source": {"fileObject": {"@id": "hgnc/hgnc_complete_set_tsv"}, "extract": {"column": "location_sortable"}}
+        },
+        {
+          "@type": "http://mlcommons.org/croissant/Field",
+          "@id": "hgnc/hgnc_complete_set/alias_symbol",
+          "name": "alias_symbol",
+          "description": "Other symbols used to refer to this gene as seen in the Alias symbols field in the gene symbol report. Multiple values pipe-delimited within double quotes.",
+          "dataType": "sc:Text",
+          "source": {"fileObject": {"@id": "hgnc/hgnc_complete_set_tsv"}, "extract": {"column": "alias_symbol"}}
+        },
+        {
+          "@type": "http://mlcommons.org/croissant/Field",
+          "@id": "hgnc/hgnc_complete_set/alias_name",
+          "name": "alias_name",
+          "description": "Other names used to refer to this gene as seen in the Alias names field in the gene symbol report. Multiple values pipe-delimited within double quotes.",
+          "dataType": "sc:Text",
+          "source": {"fileObject": {"@id": "hgnc/hgnc_complete_set_tsv"}, "extract": {"column": "alias_name"}}
+        },
+        {
+          "@type": "http://mlcommons.org/croissant/Field",
+          "@id": "hgnc/hgnc_complete_set/prev_symbol",
+          "name": "prev_symbol",
+          "description": "Gene symbols previously approved by the HGNC for this gene. Equates to the Previous symbols field within the gene symbol report. Multiple values pipe-delimited within double quotes.",
+          "dataType": "sc:Text",
+          "source": {"fileObject": {"@id": "hgnc/hgnc_complete_set_tsv"}, "extract": {"column": "prev_symbol"}}
+        },
+        {
+          "@type": "http://mlcommons.org/croissant/Field",
+          "@id": "hgnc/hgnc_complete_set/prev_name",
+          "name": "prev_name",
+          "description": "Gene names previously approved by the HGNC for this gene. Equates to the Previous names field within the gene symbol report. Multiple values pipe-delimited within double quotes.",
+          "dataType": "sc:Text",
+          "source": {"fileObject": {"@id": "hgnc/hgnc_complete_set_tsv"}, "extract": {"column": "prev_name"}}
+        },
+        {
+          "@type": "http://mlcommons.org/croissant/Field",
+          "@id": "hgnc/hgnc_complete_set/gene_group",
+          "name": "gene_group",
+          "description": "The gene group name as set by the HGNC and seen at the top of the gene group reports. Multiple values pipe-delimited within double quotes.",
+          "dataType": "sc:Text",
+          "source": {"fileObject": {"@id": "hgnc/hgnc_complete_set_tsv"}, "extract": {"column": "gene_group"}}
+        },
+        {
+          "@type": "http://mlcommons.org/croissant/Field",
+          "@id": "hgnc/hgnc_complete_set/gene_group_id",
+          "name": "gene_group_id",
+          "description": "ID used to designate a gene group the gene has been assigned to. Multiple values pipe-delimited within double quotes.",
+          "dataType": "sc:Text",
+          "source": {"fileObject": {"@id": "hgnc/hgnc_complete_set_tsv"}, "extract": {"column": "gene_group_id"}}
+        },
+        {
+          "@type": "http://mlcommons.org/croissant/Field",
+          "@id": "hgnc/hgnc_complete_set/date_approved_reserved",
+          "name": "date_approved_reserved",
+          "description": "The date the entry was first approved.",
+          "dataType": "sc:Date",
+          "source": {"fileObject": {"@id": "hgnc/hgnc_complete_set_tsv"}, "extract": {"column": "date_approved_reserved"}}
+        },
+        {
+          "@type": "http://mlcommons.org/croissant/Field",
+          "@id": "hgnc/hgnc_complete_set/date_symbol_changed",
+          "name": "date_symbol_changed",
+          "description": "The date the approved symbol was last changed.",
+          "dataType": "sc:Date",
+          "source": {"fileObject": {"@id": "hgnc/hgnc_complete_set_tsv"}, "extract": {"column": "date_symbol_changed"}}
+        },
+        {
+          "@type": "http://mlcommons.org/croissant/Field",
+          "@id": "hgnc/hgnc_complete_set/date_name_changed",
+          "name": "date_name_changed",
+          "description": "The date the approved name was last changed.",
+          "dataType": "sc:Date",
+          "source": {"fileObject": {"@id": "hgnc/hgnc_complete_set_tsv"}, "extract": {"column": "date_name_changed"}}
+        },
+        {
+          "@type": "http://mlcommons.org/croissant/Field",
+          "@id": "hgnc/hgnc_complete_set/date_modified",
+          "name": "date_modified",
+          "description": "Date the entry was last modified.",
+          "dataType": "sc:Date",
+          "source": {"fileObject": {"@id": "hgnc/hgnc_complete_set_tsv"}, "extract": {"column": "date_modified"}}
+        },
+        {
+          "@type": "http://mlcommons.org/croissant/Field",
+          "@id": "hgnc/hgnc_complete_set/entrez_id",
+          "name": "entrez_id",
+          "description": "NCBI gene ID. Found within the Gene resources section of the gene symbol report.",
+          "dataType": "sc:Text",
+          "source": {"fileObject": {"@id": "hgnc/hgnc_complete_set_tsv"}, "extract": {"column": "entrez_id"}}
+        },
+        {
+          "@type": "http://mlcommons.org/croissant/Field",
+          "@id": "hgnc/hgnc_complete_set/ensembl_gene_id",
+          "name": "ensembl_gene_id",
+          "description": "Ensembl gene ID. Found within the Gene resources section of the gene symbol report.",
+          "dataType": "sc:Text",
+          "source": {"fileObject": {"@id": "hgnc/hgnc_complete_set_tsv"}, "extract": {"column": "ensembl_gene_id"}}
+        },
+        {
+          "@type": "http://mlcommons.org/croissant/Field",
+          "@id": "hgnc/hgnc_complete_set/vega_id",
+          "name": "vega_id",
+          "description": "Vega gene ID. Found within the Gene resources section of the gene symbol report.",
+          "dataType": "sc:Text",
+          "source": {"fileObject": {"@id": "hgnc/hgnc_complete_set_tsv"}, "extract": {"column": "vega_id"}}
+        },
+        {
+          "@type": "http://mlcommons.org/croissant/Field",
+          "@id": "hgnc/hgnc_complete_set/ucsc_id",
+          "name": "ucsc_id",
+          "description": "UCSC gene ID. Found within the Gene resources section of the gene symbol report.",
+          "dataType": "sc:Text",
+          "source": {"fileObject": {"@id": "hgnc/hgnc_complete_set_tsv"}, "extract": {"column": "ucsc_id"}}
+        },
+        {
+          "@type": "http://mlcommons.org/croissant/Field",
+          "@id": "hgnc/hgnc_complete_set/ena",
+          "name": "ena",
+          "description": "International Nucleotide Sequence Database Collaboration (GenBank, ENA and DDBJ) accession number(s). Found within the Nucleotide resources section of the gene symbol report. Multiple values pipe-delimited within double quotes.",
+          "dataType": "sc:Text",
+          "source": {"fileObject": {"@id": "hgnc/hgnc_complete_set_tsv"}, "extract": {"column": "ena"}}
+        },
+        {
+          "@type": "http://mlcommons.org/croissant/Field",
+          "@id": "hgnc/hgnc_complete_set/refseq_accession",
+          "name": "refseq_accession",
+          "description": "RefSeq nucleotide accession(s). Found within the Nucleotide resources section of the gene symbol report. Multiple values pipe-delimited within double quotes.",
+          "dataType": "sc:Text",
+          "source": {"fileObject": {"@id": "hgnc/hgnc_complete_set_tsv"}, "extract": {"column": "refseq_accession"}}
+        },
+        {
+          "@type": "http://mlcommons.org/croissant/Field",
+          "@id": "hgnc/hgnc_complete_set/ccds_id",
+          "name": "ccds_id",
+          "description": "Consensus CDS ID. Found within the Nucleotide resources section of the gene symbol report. Multiple values pipe-delimited within double quotes.",
+          "dataType": "sc:Text",
+          "source": {"fileObject": {"@id": "hgnc/hgnc_complete_set_tsv"}, "extract": {"column": "ccds_id"}}
+        },
+        {
+          "@type": "http://mlcommons.org/croissant/Field",
+          "@id": "hgnc/hgnc_complete_set/uniprot_ids",
+          "name": "uniprot_ids",
+          "description": "UniProt protein accession. Found within the Protein resource section of the gene symbol report. Multiple values pipe-delimited within double quotes.",
+          "dataType": "sc:Text",
+          "source": {"fileObject": {"@id": "hgnc/hgnc_complete_set_tsv"}, "extract": {"column": "uniprot_ids"}}
+        },
+        {
+          "@type": "http://mlcommons.org/croissant/Field",
+          "@id": "hgnc/hgnc_complete_set/pubmed_id",
+          "name": "pubmed_id",
+          "description": "Pubmed and Europe Pubmed Central PMID(s). Multiple values pipe-delimited within double quotes.",
+          "dataType": "sc:Text",
+          "source": {"fileObject": {"@id": "hgnc/hgnc_complete_set_tsv"}, "extract": {"column": "pubmed_id"}}
+        },
+        {
+          "@type": "http://mlcommons.org/croissant/Field",
+          "@id": "hgnc/hgnc_complete_set/mgd_id",
+          "name": "mgd_id",
+          "description": "Mouse genome informatics database ID. Found within the Homologs section of the gene symbol report. Multiple values pipe-delimited within double quotes.",
+          "dataType": "sc:Text",
+          "source": {"fileObject": {"@id": "hgnc/hgnc_complete_set_tsv"}, "extract": {"column": "mgd_id"}}
+        },
+        {
+          "@type": "http://mlcommons.org/croissant/Field",
+          "@id": "hgnc/hgnc_complete_set/rgd_id",
+          "name": "rgd_id",
+          "description": "Rat genome database gene ID. Found within the Homologs section of the gene symbol report. Multiple values pipe-delimited within double quotes.",
+          "dataType": "sc:Text",
+          "source": {"fileObject": {"@id": "hgnc/hgnc_complete_set_tsv"}, "extract": {"column": "rgd_id"}}
+        },
+        {
+          "@type": "http://mlcommons.org/croissant/Field",
+          "@id": "hgnc/hgnc_complete_set/lsdb",
+          "name": "lsdb",
+          "description": "The name of the Locus Specific Mutation Database and URL for the gene separated by a | character, e.g. Mutations of the ATP-binding Cassette Transporter Retina|http://www.retina-international.org/files/sci-news/abcrmut.htm. Multiple entries pipe-delimited within double quotes.",
+          "dataType": "sc:Text",
+          "source": {"fileObject": {"@id": "hgnc/hgnc_complete_set_tsv"}, "extract": {"column": "lsdb"}}
+        },
+        {
+          "@type": "http://mlcommons.org/croissant/Field",
+          "@id": "hgnc/hgnc_complete_set/cosmic",
+          "name": "cosmic",
+          "description": "Symbol used within the Catalogue of somatic mutations in cancer for the gene. (No longer updated!).",
+          "dataType": "sc:Text",
+          "source": {"fileObject": {"@id": "hgnc/hgnc_complete_set_tsv"}, "extract": {"column": "cosmic"}}
+        },
+        {
+          "@type": "http://mlcommons.org/croissant/Field",
+          "@id": "hgnc/hgnc_complete_set/omim_id",
+          "name": "omim_id",
+          "description": "Online Mendelian Inheritance in Man (OMIM) ID. Multiple values pipe-delimited within double quotes.",
+          "dataType": "sc:Text",
+          "source": {"fileObject": {"@id": "hgnc/hgnc_complete_set_tsv"}, "extract": {"column": "omim_id"}}
+        },
+        {
+          "@type": "http://mlcommons.org/croissant/Field",
+          "@id": "hgnc/hgnc_complete_set/mirbase",
+          "name": "mirbase",
+          "description": "miRBase ID.",
+          "dataType": "sc:Text",
+          "source": {"fileObject": {"@id": "hgnc/hgnc_complete_set_tsv"}, "extract": {"column": "mirbase"}}
+        },
+        {
+          "@type": "http://mlcommons.org/croissant/Field",
+          "@id": "hgnc/hgnc_complete_set/homeodb",
+          "name": "homeodb",
+          "description": "Homeobox Database ID.",
+          "dataType": "sc:Text",
+          "source": {"fileObject": {"@id": "hgnc/hgnc_complete_set_tsv"}, "extract": {"column": "homeodb"}}
+        },
+        {
+          "@type": "http://mlcommons.org/croissant/Field",
+          "@id": "hgnc/hgnc_complete_set/snornabase",
+          "name": "snornabase",
+          "description": "snoRNABase ID.",
+          "dataType": "sc:Text",
+          "source": {"fileObject": {"@id": "hgnc/hgnc_complete_set_tsv"}, "extract": {"column": "snornabase"}}
+        },
+        {
+          "@type": "http://mlcommons.org/croissant/Field",
+          "@id": "hgnc/hgnc_complete_set/bioparadigms_slc",
+          "name": "bioparadigms_slc",
+          "description": "Symbol used to link to the SLC tables database at bioparadigms.org for the gene.",
+          "dataType": "sc:Text",
+          "source": {"fileObject": {"@id": "hgnc/hgnc_complete_set_tsv"}, "extract": {"column": "bioparadigms_slc"}}
+        },
+        {
+          "@type": "http://mlcommons.org/croissant/Field",
+          "@id": "hgnc/hgnc_complete_set/orphanet",
+          "name": "orphanet",
+          "description": "Orphanet ID.",
+          "dataType": "sc:Text",
+          "source": {"fileObject": {"@id": "hgnc/hgnc_complete_set_tsv"}, "extract": {"column": "orphanet"}}
+        },
+        {
+          "@type": "http://mlcommons.org/croissant/Field",
+          "@id": "hgnc/hgnc_complete_set/pseudogene_org",
+          "name": "pseudogene_org",
+          "description": "Pseudogene.org ID.",
+          "dataType": "sc:Text",
+          "source": {"fileObject": {"@id": "hgnc/hgnc_complete_set_tsv"}, "extract": {"column": "pseudogene.org"}}
+        },
+        {
+          "@type": "http://mlcommons.org/croissant/Field",
+          "@id": "hgnc/hgnc_complete_set/horde_id",
+          "name": "horde_id",
+          "description": "Symbol used within HORDE for the gene.",
+          "dataType": "sc:Text",
+          "source": {"fileObject": {"@id": "hgnc/hgnc_complete_set_tsv"}, "extract": {"column": "horde_id"}}
+        },
+        {
+          "@type": "http://mlcommons.org/croissant/Field",
+          "@id": "hgnc/hgnc_complete_set/merops",
+          "name": "merops",
+          "description": "ID used to link to the MEROPS peptidase database.",
+          "dataType": "sc:Text",
+          "source": {"fileObject": {"@id": "hgnc/hgnc_complete_set_tsv"}, "extract": {"column": "merops"}}
+        },
+        {
+          "@type": "http://mlcommons.org/croissant/Field",
+          "@id": "hgnc/hgnc_complete_set/imgt",
+          "name": "imgt",
+          "description": "Symbol used within international ImMunoGeneTics information system. Multiple values pipe-delimited within double quotes.",
+          "dataType": "sc:Text",
+          "source": {"fileObject": {"@id": "hgnc/hgnc_complete_set_tsv"}, "extract": {"column": "imgt"}}
+        },
+        {
+          "@type": "http://mlcommons.org/croissant/Field",
+          "@id": "hgnc/hgnc_complete_set/iuphar",
+          "name": "iuphar",
+          "description": "The objectId used to link to the IUPHAR/BPS Guide to PHARMACOLOGY database.",
+          "dataType": "sc:Text",
+          "source": {"fileObject": {"@id": "hgnc/hgnc_complete_set_tsv"}, "extract": {"column": "iuphar"}}
+        },
+        {
+          "@type": "http://mlcommons.org/croissant/Field",
+          "@id": "hgnc/hgnc_complete_set/kznf_gene_catalog",
+          "name": "kznf_gene_catalog",
+          "description": "Column present in the TSV file header; no description found on the data dictionary help page.",
+          "dataType": "sc:Text",
+          "source": {"fileObject": {"@id": "hgnc/hgnc_complete_set_tsv"}, "extract": {"column": "kznf_gene_catalog"}}
+        },
+        {
+          "@type": "http://mlcommons.org/croissant/Field",
+          "@id": "hgnc/hgnc_complete_set/mamit_trnadb",
+          "name": "mamit_trnadb",
+          "description": "ID to link to the Mamit-tRNA database.",
+          "dataType": "sc:Text",
+          "source": {"fileObject": {"@id": "hgnc/hgnc_complete_set_tsv"}, "extract": {"column": "mamit-trnadb"}}
+        },
+        {
+          "@type": "http://mlcommons.org/croissant/Field",
+          "@id": "hgnc/hgnc_complete_set/cd",
+          "name": "cd",
+          "description": "Symbol used within the Human Cell Differentiation Molecule database for the gene.",
+          "dataType": "sc:Text",
+          "source": {"fileObject": {"@id": "hgnc/hgnc_complete_set_tsv"}, "extract": {"column": "cd"}}
+        },
+        {
+          "@type": "http://mlcommons.org/croissant/Field",
+          "@id": "hgnc/hgnc_complete_set/lncrnadb",
+          "name": "lncrnadb",
+          "description": "lncRNA Database ID - Resource is now defunct.",
+          "dataType": "sc:Text",
+          "source": {"fileObject": {"@id": "hgnc/hgnc_complete_set_tsv"}, "extract": {"column": "lncrnadb"}}
+        },
+        {
+          "@type": "http://mlcommons.org/croissant/Field",
+          "@id": "hgnc/hgnc_complete_set/enzyme_id",
+          "name": "enzyme_id",
+          "description": "ENZYME EC accession number. Multiple values pipe-delimited within double quotes.",
+          "dataType": "sc:Text",
+          "source": {"fileObject": {"@id": "hgnc/hgnc_complete_set_tsv"}, "extract": {"column": "enzyme_id"}}
+        },
+        {
+          "@type": "http://mlcommons.org/croissant/Field",
+          "@id": "hgnc/hgnc_complete_set/intermediate_filament_db",
+          "name": "intermediate_filament_db",
+          "description": "ID used to link to the Human Intermediate Filament Database.",
+          "dataType": "sc:Text",
+          "source": {"fileObject": {"@id": "hgnc/hgnc_complete_set_tsv"}, "extract": {"column": "intermediate_filament_db"}}
+        },
+        {
+          "@type": "http://mlcommons.org/croissant/Field",
+          "@id": "hgnc/hgnc_complete_set/rna_central_id",
+          "name": "rna_central_id",
+          "description": "RNAcentral ID. Multiple values pipe-delimited within double quotes.",
+          "dataType": "sc:Text",
+          "source": {"fileObject": {"@id": "hgnc/hgnc_complete_set_tsv"}, "extract": {"column": "rna_central_id"}}
+        },
+        {
+          "@type": "http://mlcommons.org/croissant/Field",
+          "@id": "hgnc/hgnc_complete_set/lncipedia",
+          "name": "lncipedia",
+          "description": "The gene symbol used for a gene report within LNCipedia - A comprehensive compendium of human long non-coding RNAs.",
+          "dataType": "sc:Text",
+          "source": {"fileObject": {"@id": "hgnc/hgnc_complete_set_tsv"}, "extract": {"column": "lncipedia"}}
+        },
+        {
+          "@type": "http://mlcommons.org/croissant/Field",
+          "@id": "hgnc/hgnc_complete_set/gtrnadb",
+          "name": "gtrnadb",
+          "description": "GtRNAdb (Genomic tRNA Database) ID.",
+          "dataType": "sc:Text",
+          "source": {"fileObject": {"@id": "hgnc/hgnc_complete_set_tsv"}, "extract": {"column": "gtrnadb"}}
+        },
+        {
+          "@type": "http://mlcommons.org/croissant/Field",
+          "@id": "hgnc/hgnc_complete_set/agr",
+          "name": "agr",
+          "description": "The HGNC ID that the Alliance of Genome Resources (AGR) have linked to their record of the gene.",
+          "dataType": "sc:Text",
+          "source": {"fileObject": {"@id": "hgnc/hgnc_complete_set_tsv"}, "extract": {"column": "agr"}}
+        },
+        {
+          "@type": "http://mlcommons.org/croissant/Field",
+          "@id": "hgnc/hgnc_complete_set/mane_select",
+          "name": "mane_select",
+          "description": "NCBI and Ensembl transcript IDs/accessions including the version number for one high-quality representative transcript per protein-coding gene that is well-supported by experimental data and represents the biology of the gene. The IDs are delimited by |.",
+          "dataType": "sc:Text",
+          "source": {"fileObject": {"@id": "hgnc/hgnc_complete_set_tsv"}, "extract": {"column": "mane_select"}}
+        },
+        {
+          "@type": "http://mlcommons.org/croissant/Field",
+          "@id": "hgnc/hgnc_complete_set/gencc",
+          "name": "gencc",
+          "description": "The HGNC ID used within the GenCC database as the unique identifier of their gene reports.",
+          "dataType": "sc:Text",
+          "source": {"fileObject": {"@id": "hgnc/hgnc_complete_set_tsv"}, "extract": {"column": "gencc"}}
+        }
+      ]
+    },
+    {
+      "@type": "http://mlcommons.org/croissant/RecordSet",
+      "@id": "hgnc/withdrawn",
+      "name": "withdrawn",
+      "description": "Withdrawn HGNC symbol reports. Each record represents a symbol that has been withdrawn, with its withdrawal status and any symbol it was merged into.",
+      "field": [
+        {
+          "@type": "http://mlcommons.org/croissant/Field",
+          "@id": "hgnc/withdrawn/HGNC_ID",
+          "name": "HGNC_ID",
+          "description": "HGNC ID. A unique ID created by the HGNC for every approved symbol.",
+          "dataType": "sc:Text",
+          "source": {"fileObject": {"@id": "hgnc/withdrawn_tsv"}, "extract": {"column": "HGNC_ID"}}
+        },
+        {
+          "@type": "http://mlcommons.org/croissant/Field",
+          "@id": "hgnc/withdrawn/STATUS",
+          "name": "STATUS",
+          "description": "Status of the withdrawn symbol report.",
+          "dataType": "sc:Text",
+          "source": {"fileObject": {"@id": "hgnc/withdrawn_tsv"}, "extract": {"column": "STATUS"}}
+        },
+        {
+          "@type": "http://mlcommons.org/croissant/Field",
+          "@id": "hgnc/withdrawn/WITHDRAWN_SYMBOL",
+          "name": "WITHDRAWN_SYMBOL",
+          "description": "The gene symbol that was withdrawn.",
+          "dataType": "sc:Text",
+          "source": {"fileObject": {"@id": "hgnc/withdrawn_tsv"}, "extract": {"column": "WITHDRAWN_SYMBOL"}}
+        },
+        {
+          "@type": "http://mlcommons.org/croissant/Field",
+          "@id": "hgnc/withdrawn/merged_into_reports",
+          "name": "merged_into_reports",
+          "description": "The HGNC ID, symbol, and status of the report(s) this withdrawn entry was merged into, formatted as HGNC_ID|SYMBOL|STATUS. Multiple entries pipe-delimited.",
+          "dataType": "sc:Text",
+          "source": {"fileObject": {"@id": "hgnc/withdrawn_tsv"}, "extract": {"column": "MERGED_INTO_REPORT(S) (i.e HGNC_ID|SYMBOL|STATUS)"}}
+        }
+      ]
+    },
+    {
+      "@type": "http://mlcommons.org/croissant/RecordSet",
+      "@id": "hgnc/gene_groups",
+      "name": "gene_groups",
+      "description": "HGNC gene groups dataset. Each record represents one gene assigned to a gene group, with its nomenclature and group association details.",
+      "field": [
+        {
+          "@type": "http://mlcommons.org/croissant/Field",
+          "@id": "hgnc/gene_groups/HGNC_ID",
+          "name": "HGNC_ID",
+          "description": "HGNC ID. A unique ID created by the HGNC for every approved symbol.",
+          "dataType": "sc:Text",
+          "source": {"fileObject": {"@id": "hgnc/gene_groups_tsv"}, "extract": {"column": "HGNC ID"}}
+        },
+        {
+          "@type": "http://mlcommons.org/croissant/Field",
+          "@id": "hgnc/gene_groups/Approved_symbol",
+          "name": "Approved_symbol",
+          "description": "The HGNC approved gene symbol.",
+          "dataType": "sc:Text",
+          "source": {"fileObject": {"@id": "hgnc/gene_groups_tsv"}, "extract": {"column": "Approved symbol"}}
+        },
+        {
+          "@type": "http://mlcommons.org/croissant/Field",
+          "@id": "hgnc/gene_groups/Approved_name",
+          "name": "Approved_name",
+          "description": "HGNC approved name for the gene.",
+          "dataType": "sc:Text",
+          "source": {"fileObject": {"@id": "hgnc/gene_groups_tsv"}, "extract": {"column": "Approved name"}}
+        },
+        {
+          "@type": "http://mlcommons.org/croissant/Field",
+          "@id": "hgnc/gene_groups/Status",
+          "name": "Status",
+          "description": "Status of the symbol report.",
+          "dataType": "sc:Text",
+          "source": {"fileObject": {"@id": "hgnc/gene_groups_tsv"}, "extract": {"column": "Status"}}
+        },
+        {
+          "@type": "http://mlcommons.org/croissant/Field",
+          "@id": "hgnc/gene_groups/Locus_type",
+          "name": "Locus_type",
+          "description": "The locus type as set by the HGNC.",
+          "dataType": "sc:Text",
+          "source": {"fileObject": {"@id": "hgnc/gene_groups_tsv"}, "extract": {"column": "Locus type"}}
+        },
+        {
+          "@type": "http://mlcommons.org/croissant/Field",
+          "@id": "hgnc/gene_groups/Previous_symbols",
+          "name": "Previous_symbols",
+          "description": "Gene symbols previously approved by the HGNC for this gene.",
+          "dataType": "sc:Text",
+          "source": {"fileObject": {"@id": "hgnc/gene_groups_tsv"}, "extract": {"column": "Previous symbols"}}
+        },
+        {
+          "@type": "http://mlcommons.org/croissant/Field",
+          "@id": "hgnc/gene_groups/Alias_symbols",
+          "name": "Alias_symbols",
+          "description": "Other symbols used to refer to this gene.",
+          "dataType": "sc:Text",
+          "source": {"fileObject": {"@id": "hgnc/gene_groups_tsv"}, "extract": {"column": "Alias symbols"}}
+        },
+        {
+          "@type": "http://mlcommons.org/croissant/Field",
+          "@id": "hgnc/gene_groups/Chromosome",
+          "name": "Chromosome",
+          "description": "Chromosome on which the gene is located.",
+          "dataType": "sc:Text",
+          "source": {"fileObject": {"@id": "hgnc/gene_groups_tsv"}, "extract": {"column": "Chromosome"}}
+        },
+        {
+          "@type": "http://mlcommons.org/croissant/Field",
+          "@id": "hgnc/gene_groups/NCBI_Gene_ID",
+          "name": "NCBI_Gene_ID",
+          "description": "NCBI gene ID.",
+          "dataType": "sc:Text",
+          "source": {"fileObject": {"@id": "hgnc/gene_groups_tsv"}, "extract": {"column": "NCBI Gene ID"}}
+        },
+        {
+          "@type": "http://mlcommons.org/croissant/Field",
+          "@id": "hgnc/gene_groups/Ensembl_gene_ID",
+          "name": "Ensembl_gene_ID",
+          "description": "Ensembl gene ID.",
+          "dataType": "sc:Text",
+          "source": {"fileObject": {"@id": "hgnc/gene_groups_tsv"}, "extract": {"column": "Ensembl gene ID"}}
+        },
+        {
+          "@type": "http://mlcommons.org/croissant/Field",
+          "@id": "hgnc/gene_groups/Vega_gene_ID",
+          "name": "Vega_gene_ID",
+          "description": "Vega gene ID.",
+          "dataType": "sc:Text",
+          "source": {"fileObject": {"@id": "hgnc/gene_groups_tsv"}, "extract": {"column": "Vega gene ID"}}
+        },
+        {
+          "@type": "http://mlcommons.org/croissant/Field",
+          "@id": "hgnc/gene_groups/Group_ID",
+          "name": "Group_ID",
+          "description": "ID used to designate the gene group.",
+          "dataType": "sc:Text",
+          "source": {"fileObject": {"@id": "hgnc/gene_groups_tsv"}, "extract": {"column": "Group ID"}}
+        },
+        {
+          "@type": "http://mlcommons.org/croissant/Field",
+          "@id": "hgnc/gene_groups/Group_name",
+          "name": "Group_name",
+          "description": "The gene group name as set by the HGNC.",
+          "dataType": "sc:Text",
+          "source": {"fileObject": {"@id": "hgnc/gene_groups_tsv"}, "extract": {"column": "Group name"}}
+        }
+      ]
+    }
+  ]
+}

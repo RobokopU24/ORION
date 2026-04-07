@@ -1,0 +1,4 @@
+hgnc_id	symbol	name	locus_group	location	gene_group_id	gene_group	pubmed_id
+HGNC:1	A1BG	alpha-1-B glycoprotein	protein-coding gene	19q13.43	5|7	Signal family|Carrier family	12345|23456
+HGNC:2	A2M	alpha-2-macroglobulin	protein-coding gene	12p13.31			
+HGNC:3	NAT1	N-acetyltransferase 1	protein-coding gene	8p22	9	Transferase family	
