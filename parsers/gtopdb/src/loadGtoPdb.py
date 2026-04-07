@@ -105,7 +105,7 @@ class GtoPdbLoader(SourceDataLoader):
             raise SourceDataFailedError('Failed to parse guidetopharmacology html for the latest source version.')
 
     def get_data(self):
-        gd: GetData = GetData(self.logger.level)
+        gd: GetData = GetData()
         for data_file in self.data_files:
             data_file_url = self.data_url + data_file
             gd.pull_via_http(url=data_file_url, data_dir=self.data_path)

@@ -88,7 +88,7 @@ class DrugCentralLoader(SourceDataLoader):
         return '11_1_2023'
 
     def get_data(self):
-        gd: GetData = GetData(self.logger.level)
+        gd: GetData = GetData()
         byte_count: int = gd.pull_via_http(f'{self.data_url}{self.data_file}',
                                            self.data_path)
         if not byte_count:

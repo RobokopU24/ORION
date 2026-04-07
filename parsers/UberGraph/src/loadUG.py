@@ -39,7 +39,7 @@ class UGLoader(SourceDataLoader):
 
     def get_data(self):
         archive_url = f'{self.data_url}{self.data_file}'
-        gd = GetData(self.logger.level)
+        gd = GetData()
         gd.pull_via_http(archive_url,
                          self.data_path)
         return True

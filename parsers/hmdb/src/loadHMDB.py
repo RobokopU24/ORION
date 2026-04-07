@@ -61,7 +61,7 @@ class HMDBLoader(SourceDataLoader):
         """
         Gets the hmdb data.
         """
-        gd: GetData = GetData(self.logger.level)
+        gd: GetData = GetData()
         byte_count: int = gd.pull_via_http(f'{self.data_url}{self.data_file}',
                                            self.data_path)
         return byte_count

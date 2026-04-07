@@ -105,7 +105,7 @@ class GOALoader(SourceDataLoader):
         ret_val: str = 'Not found'
 
         # and get a reference to the data gatherer
-        gd: GetData = GetData(self.logger.level)
+        gd: GetData = GetData()
 
         # the name of the file that has the version date
         summary_file_name: str = 'summary.txt'
@@ -141,7 +141,7 @@ class GOALoader(SourceDataLoader):
 
         """
         # and get a reference to the data gatherer
-        gd: GetData = GetData(self.logger.level)
+        gd: GetData = GetData()
 
         # get the GOA data file
         for (url, file) in zip(self.data_urls, self.data_files):

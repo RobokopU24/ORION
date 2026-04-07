@@ -97,7 +97,7 @@ class IALoader(SourceDataLoader):
         :return:
         """
         # get the util object
-        gd = GetData(self.logger.level)
+        gd = GetData()
 
         # get the file date
         ret_val: str = gd.get_ftp_file_date(self.ftp_site, self.ftp_dir, self.data_file)
@@ -111,7 +111,7 @@ class IALoader(SourceDataLoader):
 
         """
         # get a reference to the data gathering class
-        gd: GetData = GetData(self.logger.level)
+        gd: GetData = GetData()
         file_count: int = gd.pull_via_ftp(self.ftp_site, self.ftp_dir, [self.data_file],
                                           self.data_path)
         return file_count
