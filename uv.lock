@@ -931,16 +931,16 @@ wheels = [
 
 [[package]]
 name = "robokop-genetics"
-version = "0.7.0"
+version = "0.8.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "bmt" },
     { name = "redis" },
     { name = "requests" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/41/a6/75b9edf1186d3dbfb485910b40570ea9c7452ffce195934de2a40d17167f/robokop_genetics-0.7.0.tar.gz", hash = "sha256:87eb12250867c18f7e149d869fe9173f664f83e90d6c7b910303fd9ba9efc931", size = 18837, upload-time = "2025-10-07T07:18:29.144Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/a7/17/063c21735ef3ce7fb5abb3d3c7bae122db37e45185ecec510bcab3dfb2b2/robokop_genetics-0.8.0.tar.gz", hash = "sha256:4aeb333e5b373b7e2d72f4d56329748a559f4196d0360e7b7d23d4c1a58a1985", size = 18669, upload-time = "2026-04-07T04:08:32.127Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/7f/96/7e941b2ad392429aac56b0826965534e79edff20784eb767c702cab8fbef/robokop_genetics-0.7.0-py3-none-any.whl", hash = "sha256:fe33f004138f5feb5c43157411b146411bf249b97a1a6900348607f874dd8494", size = 18695, upload-time = "2025-10-07T07:18:27.895Z" },
+    { url = "https://files.pythonhosted.org/packages/ae/e8/dd70c2cc4e0e076d31a0266aaeb710620d987016eddc65c84f2dee08d07f/robokop_genetics-0.8.0-py3-none-any.whl", hash = "sha256:3ea16f1c72d8c0f3a4f73f9e5c7122347c304b425aafc3d67906ebc68d56fefe", size = 18313, upload-time = "2026-04-07T04:08:30.278Z" },
 ]
 
 [[package]]
@@ -1004,7 +1004,7 @@ requires-dist = [
     { name = "redis", marker = "extra == 'robokop'", specifier = ">=5.2.1" },
     { name = "requests", specifier = ">=2.33.1" },
     { name = "requests-toolbelt", specifier = ">=1.0.0" },
-    { name = "robokop-genetics", specifier = ">=0.7.0" },
+    { name = "robokop-genetics", specifier = ">=0.8.0" },
     { name = "uuid-utils", specifier = ">=0.14.1" },
     { name = "xxhash", specifier = ">=3.6.0" },
 ]
