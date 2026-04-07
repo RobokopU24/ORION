@@ -11,29 +11,28 @@ jobs:
     push_to_registry:
         name: Push Docker image to GitHub Packages tagged with "latest" and version number.
         runs-on: ubuntu-latest
+        permissions:
+            contents: read
+            packages: write
         steps:
             - name: Check out the repo
               uses: actions/checkout@v4
-            - name: Get the version
-              id: get_version
-              run: echo ::set-output name=VERSION::${GITHUB_REF/refs\/tags\//}
             - name: Login to ghcr
-              uses: docker/login-action@f4ef78c080cd8ba55a85445d5b36e214a81df20a
+              uses: docker/login-action@v3
               with:
                   registry: ${{ env.REGISTRY }}
                   username: ${{ github.actor }}
                   password: ${{ secrets.GITHUB_TOKEN }}
             - name: Extract metadata (tags, labels) for Docker
               id: meta
-              uses: docker/metadata-action@9ec57ed1fcdbf14dcef7dfbe97b2010124a938b7
+              uses: docker/metadata-action@v5
               with:
                 images:
                   ghcr.io/${{ github.repository }}
             - name: Push to GitHub Packages
-              uses: docker/build-push-action@3b5e8027fcad23fda98b2e3ac259d8d67585f671
+              uses: docker/build-push-action@v6
               with:
                   context: .
                   push: true
                   tags: ${{ steps.meta.outputs.tags }}
                   labels: ${{ steps.meta.outputs.labels }}
-                  build-args: VERSION=${{ steps.get_version.outputs.VERSION }}

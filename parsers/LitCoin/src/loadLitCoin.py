@@ -12,6 +12,7 @@ from orion.biolink_constants import PUBLICATIONS, NEGATED
 from orion.utils import GetData, quick_jsonl_file_iterator
 from orion.normalization import call_name_resolution, NAME_RESOLVER_API_ERROR
 from orion.prefixes import PUBMED
+from orion.config import config
 
 
 from parsers.LitCoin.src.bagel.bagel_service import call_bagel_service
@@ -68,7 +69,7 @@ ABSTRACT_TEXT_EDGE_PROP = 'abstract_text'
 ABSTRACT_JOURNAL_EDGE_PROP = 'journal'
 
 
-LITCOIN_PRED_MAPPING_URL = os.getenv('LITCOIN_PRED_MAPPING_URL', 'https://pred-mapping.apps.renci.org')
+LITCOIN_PRED_MAPPING_URL = config.LITCOIN_PRED_MAPPING_URL
 PRED_MAPPING_ENDPOINT = f'{LITCOIN_PRED_MAPPING_URL}/query/'
 
 
@@ -133,7 +134,7 @@ class LitCoinLoader(SourceDataLoader):
         :param source_data_dir - the specific storage directory to save files in
         """
         super().__init__(test_mode=test_mode, source_data_dir=source_data_dir)
-        self.shared_source_data_path = os.getenv('SHARED_SOURCE_DATA_PATH', None)
+        self.shared_source_data_path = config.SHARED_SOURCE_DATA_PATH
         self.data_url = 'https://stars.renci.org/var/data_services/litcoin/'
         self.version_file = 'litcoin.yaml'
         self.abstracts_file = 'abstracts_CompAndHeal.json'

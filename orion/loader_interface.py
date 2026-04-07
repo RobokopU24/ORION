@@ -3,7 +3,8 @@ import os
 import json
 import inspect
 from orion.kgx_file_writer import KGXFileWriter
-from orion.utils import LoggingUtil
+from orion.logging import get_orion_logger
+from orion.config import config
 
 
 class SourceDataLoader:
@@ -36,7 +37,7 @@ class SourceDataLoader:
             if not os.path.exists(self.data_path):
                 os.mkdir(self.data_path)
         else:
-            self.data_path = os.environ.get("ORION_STORAGE")
+            self.data_path = config.ORION_STORAGE
 
         # the final output lists of nodes and edges
         self.final_node_list: list = []
@@ -46,10 +47,8 @@ class SourceDataLoader:
         self.output_file_writer: KGXFileWriter = None
 
         # create a logger
-        self.logger = LoggingUtil.init_logging(f"ORION.parsers.{self.get_name()}",
-                                               level=logging.INFO,
-                                               line_format='medium',
-                                               log_file_path=os.getenv('ORION_LOGS'))
+        # this uses an instance level logger instead of a module level because the name changes based on the ingest
+        self.logger = get_orion_logger(f"parsers.{self.get_name()}")
 
     def get_latest_source_version(self):
         """Determine and return the latest source version ie. a unique identifier associated with the latest version."""

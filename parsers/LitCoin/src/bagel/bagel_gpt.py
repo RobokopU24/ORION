@@ -2,17 +2,15 @@ import json
 import os
 from collections import defaultdict
 
-from orion.config import CONFIG
-from orion.utils import LoggingUtil
+from orion.config import config
+from orion.logging import get_orion_logger
 
-OPENAI_API_KEY = CONFIG.get("OPENAI_API_KEY")
+OPENAI_API_KEY = config.OPENAI_API_KEY
 
 LLM_RESULTS = []
 
 
-logger = LoggingUtil.init_logging("ORION.orion.BagelGPT",
-                                  line_format='medium',
-                                  log_file_path=os.getenv('ORION_LOGS'))
+logger = get_orion_logger("orion.bagel_gpt")
 
 def ask_classes_and_descriptions(text, term, termlist, abstract_id, requests_session):
     """Get GPT results based only on the labels of the terms."""

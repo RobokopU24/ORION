@@ -2,18 +2,16 @@ import os
 import jsonlines
 import logging
 
-from orion.utils import LoggingUtil
+from orion.logging import get_orion_logger
 from orion.kgxmodel import kgxnode, kgxedge
 from orion.biolink_constants import PRIMARY_KNOWLEDGE_SOURCE, AGGREGATOR_KNOWLEDGE_SOURCES, \
     SUBJECT_ID, OBJECT_ID, PREDICATE
 
 
-class KGXFileWriter:
+logger = get_orion_logger("orion.kgx_file_writer")
 
-    logger = LoggingUtil.init_logging("ORION.orion.KGXFileWriter",
-                                      line_format='medium',
-                                      level=logging.INFO,
-                                      log_file_path=os.getenv('ORION_LOGS'))
+
+class KGXFileWriter:
     """
     constructor
     :param nodes_output_file_path: the file path for the nodes file
@@ -35,7 +33,7 @@ class KGXFileWriter:
         if nodes_output_file_path:
             if os.path.isfile(nodes_output_file_path):
                 # TODO verify - do we really want to overwrite existing files? we could remove them on previous errors instead
-                self.logger.warning(f'KGXFileWriter warning.. file already existed: {nodes_output_file_path}! Overwriting it!')
+                logger.warning(f'KGXFileWriter warning.. file already existed: {nodes_output_file_path}! Overwriting it!')
             self.nodes_output_file_handler = open(nodes_output_file_path, 'w')
             self.nodes_jsonl_writer = jsonlines.Writer(self.nodes_output_file_handler)
 
@@ -43,7 +41,7 @@ class KGXFileWriter:
         if edges_output_file_path:
             if os.path.isfile(edges_output_file_path):
                 # TODO verify - do we really want to overwrite existing files? we could remove them on previous errors instead
-                self.logger.warning(f'KGXFileWriter warning.. file already existed: {edges_output_file_path}! Overwriting it!')
+                logger.warning(f'KGXFileWriter warning.. file already existed: {edges_output_file_path}! Overwriting it!')
             self.edges_output_file_handler = open(edges_output_file_path, 'w')
             self.edges_jsonl_writer = jsonlines.Writer(self.edges_output_file_handler)
 
@@ -103,7 +101,7 @@ class KGXFileWriter:
             self.nodes_jsonl_writer.write(node)
             self.nodes_written += 1
         except jsonlines.InvalidLineError as e:
-            self.logger.error(f'KGXFileWriter: Failed to write json data: {e.line}.')
+            logger.error(f'KGXFileWriter: Failed to write json data: {e.line}.')
             raise e
 
     def write_edge(self,
@@ -155,5 +153,5 @@ class KGXFileWriter:
             self.edges_jsonl_writer.write(edge)
             self.edges_written += 1
         except jsonlines.InvalidLineError as e:
-            self.logger.error(f'KGXFileWriter: Failed to write json data: {e.line}.')
+            logger.error(f'KGXFileWriter: Failed to write json data: {e.line}.')
             raise e

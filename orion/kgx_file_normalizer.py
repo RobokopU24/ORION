@@ -7,7 +7,8 @@ from orion.biolink_constants import (SEQUENCE_VARIANT, RETRIEVAL_SOURCES, PRIMAR
                                      SUBCLASS_OF, ORIGINAL_OBJECT, ORIGINAL_SUBJECT)
 from orion.normalization import NormalizationScheme, NodeNormalizer, EdgeNormalizer, EdgeNormalizationResult, \
     NormalizationFailedError
-from orion.utils import LoggingUtil, chunk_iterator
+from orion.utils import chunk_iterator
+from orion.logging import get_orion_logger
 from orion.kgx_file_writer import KGXFileWriter
 
 
@@ -16,16 +17,11 @@ NODE_NORMALIZATION_BATCH_SIZE = 1_000_000
 EDGE_NORMALIZATION_BATCH_SIZE = 1_000_000
 
 
-#
-# This piece takes KGX-like files and normalizes the nodes and edges for biolink compliance.
-# Then it writes the normalized nodes and edges to new files.
-#
-class KGXFileNormalizer:
+logger = get_orion_logger("orion.kgx_file_normalizer")
 
-    logger = LoggingUtil.init_logging("ORION.orion.KGXFileNormalizer",
-                                      line_format='medium',
-                                      level=logging.INFO,
-                                      log_file_path=os.getenv('ORION_LOGS'))
+# KGXFileNormalizer takes KGX jsonl files, normalizes nodes using Babel's Node Normalizer and converts edge
+# predicates to biolink compliant curies according to biolink model predicate mappings, outputting normalized KGX files.
+class KGXFileNormalizer:
 
     def __init__(self,
                  source_nodes_file_path: str,
@@ -105,7 +101,7 @@ class KGXFileNormalizer:
         variant_nodes_split_count = 0
         variant_nodes_post_norm = 0
 
-        self.logger.info(f'Normalizing nodes and writing to file...')
+        logger.info(f'Normalizing nodes and writing to file...')
         try:
             with jsonlines.open(self.source_nodes_file_path) as source_json_reader,\
                     KGXFileWriter(nodes_output_file_path=self.nodes_output_file_path) as output_file_writer:
@@ -131,7 +127,7 @@ class KGXFileNormalizer:
                     # because nodes that fail to normalize are removed from the list
                     regular_nodes_pre_norm += len(regular_nodes)
                     if regular_nodes:
-                        self.logger.debug(f'Normalizing {len(regular_nodes)} regular nodes...')
+                        logger.debug(f'Normalizing {len(regular_nodes)} regular nodes...')
                         try:
                             self.node_normalizer.normalize_node_data(regular_nodes)
                         except Exception as e:
@@ -139,12 +135,12 @@ class KGXFileNormalizer:
                                                            actual_error=e)
                     regular_nodes_post_norm += len(regular_nodes)
                     if regular_nodes:
-                        self.logger.info(f'Normalized {regular_nodes_pre_norm} nodes so far...')
+                        logger.info(f'Normalized {regular_nodes_pre_norm} nodes so far...')
 
                     variant_nodes_pre_norm += len(variant_nodes)
                     if self.has_sequence_variants:
                         if not self.sequence_variants_pre_normalized:
-                            self.logger.debug(f'Normalizing {len(variant_nodes)} sequence variant nodes...')
+                            logger.debug(f'Normalizing {len(variant_nodes)} sequence variant nodes...')
                             self.node_normalizer.normalize_sequence_variants(variant_nodes)
                         else:
                             # skip normalizing variants but still
@@ -165,13 +161,13 @@ class KGXFileNormalizer:
                         variant_nodes_split_count = 0
                     variant_nodes_post_norm += len(variant_nodes)
                     if variant_nodes:
-                        self.logger.info(f'Normalized {variant_nodes_pre_norm} variant nodes so far...')
+                        logger.info(f'Normalized {variant_nodes_pre_norm} variant nodes so far...')
 
                     if regular_nodes:
-                        self.logger.debug(f'Writing nodes to file...')
+                        logger.debug(f'Writing nodes to file...')
                         output_file_writer.write_normalized_nodes(regular_nodes)
                     if variant_nodes:
-                        self.logger.debug(f'Writing sequence variant nodes to file...')
+                        logger.debug(f'Writing sequence variant nodes to file...')
                         output_file_writer.write_normalized_nodes(variant_nodes)
 
                 # grab the number of repeat writes from the file writer
@@ -186,7 +182,7 @@ class KGXFileNormalizer:
                              f'{e.line}'
             raise NormalizationFailedError(error_message=norm_error_msg, actual_error=e)
 
-        self.logger.debug(f'Writing normalization map to file...')
+        logger.debug(f'Writing normalization map to file...')
         normalization_map_info = {'normalization_map': self.node_normalizer.node_normalization_lookup}
         with open(self.node_norm_map_file_path, "w") as node_norm_map_file:
             json.dump(normalization_map_info, node_norm_map_file, indent=4)
@@ -195,7 +191,7 @@ class KGXFileNormalizer:
         regular_node_norm_failures = self.node_normalizer.failed_to_normalize_ids
         variant_node_norm_failures = self.node_normalizer.failed_to_normalize_variant_ids
         if regular_node_norm_failures or variant_node_norm_failures:
-            self.logger.debug(f'Writing normalization failures to file...')
+            logger.debug(f'Writing normalization failures to file...')
             with open(self.node_norm_failures_file_path, "w") as failed_norm_file:
                 for failed_node_id in regular_node_norm_failures:
                     failed_norm_file.write(f'{failed_node_id}\n')
@@ -247,7 +243,7 @@ class KGXFileNormalizer:
                         current_edge_norm_failures = self.edge_normalizer.normalize_edge_data(edges_subset)
                         if current_edge_norm_failures:
                             edge_norm_failures.update(current_edge_norm_failures)
-                            self.logger.error(
+                            logger.error(
                                 f'Edge normalization service failed to return results for {edge_norm_failures}')
 
                     for edge in edges_subset:
@@ -263,7 +259,7 @@ class KGXFileNormalizer:
                             else:
                                 normalized_object_ids = node_norm_lookup[edge[OBJECT_ID]]
                         except KeyError as e:
-                            self.logger.error(f"One of the node IDs from the edge file was missing from the normalizer look up, "
+                            logger.error(f"One of the node IDs from the edge file was missing from the normalizer look up, "
                                               f"it's probably not in the node file. ({e})")
                         if not (normalized_subject_ids and normalized_object_ids):
                             edges_failed_due_to_nodes += 1
@@ -277,7 +273,7 @@ class KGXFileNormalizer:
                                     normalized_edge_properties = edge_norm_result.properties
                                 except KeyError as e:
                                     norm_error_msg = f'Edge norm lookup failure - missing {edge[PREDICATE]}!'
-                                    self.logger.error(norm_error_msg)
+                                    logger.error(norm_error_msg)
                                     raise NormalizationFailedError(error_message=norm_error_msg, actual_error=e)
                             else:
                                 normalized_predicate = edge[PREDICATE]
@@ -331,14 +327,14 @@ class KGXFileNormalizer:
                             if edge_count > 1:
                                 edge_splits += edge_count - 1
 
-                    self.logger.info(f'Processed {number_of_source_edges} edges so far...')
+                    logger.info(f'Processed {number_of_source_edges} edges so far...')
 
         except OSError as e:
             norm_error_msg = f'Error normalizing edges file {self.source_edges_file_path}'
             raise NormalizationFailedError(error_message=norm_error_msg, actual_error=e)
 
         try:
-            self.logger.debug(f'Writing predicate map to file...')
+            logger.debug(f'Writing predicate map to file...')
             edge_norm_json = {}
             for original_predicate, edge_normalization in edge_norm_lookup.items():
                 edge_norm_json[original_predicate] = edge_normalization.__dict__

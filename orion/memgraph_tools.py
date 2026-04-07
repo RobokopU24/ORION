@@ -1,10 +1,8 @@
 import os
 import orion.kgx_file_converter as kgx_file_converter
-from orion.utils import LoggingUtil
+from orion.logging import get_orion_logger
 
-logger = LoggingUtil.init_logging("ORION.orion.memgraph_tools", 
-                                  line_format='medium',
-                                  log_file_path=os.getenv('ORION_LOGS'))
+logger = get_orion_logger("orion.memgraph_tools")
 
 
 def create_memgraph_dump(nodes_filepath: str,

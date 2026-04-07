@@ -1,12 +1,13 @@
 import os
 import mysql.connector
 import logging
-from orion.utils import LoggingUtil, GetData, NodeNormUtils, EdgeNormUtils
+from orion.utils import GetData, NodeNormUtils, EdgeNormUtils
+from orion.logging import get_orion_logger
 from pathlib import Path
 
 
 # create a logger
-logger = LoggingUtil.init_logging("ORION.PHAROS.PHAROSLoader", line_format='medium', log_file_path=os.path.join(Path(__file__).parents[2], 'logs'))
+logger = get_orion_logger("parsers.pharos")
 
 class PharosMySQL():
     def __init__(self, context):

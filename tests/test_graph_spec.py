@@ -4,16 +4,21 @@ import requests.exceptions
 
 from unittest.mock import MagicMock
 from orion.build_manager import GraphBuilder, GraphSpecError
+from orion import config as config_module
+
+
+def set_config(**overrides):
+    """Override the config"""
+    for key, value in overrides.items():
+        object.__setattr__(config_module.config, key, value)
 
 
 def clear_graph_spec_config():
-    os.environ['ORION_GRAPH_SPEC'] = ''
-    os.environ['ORION_GRAPH_SPEC_URL'] = ''
+    set_config(ORION_GRAPH_SPEC='', ORION_GRAPH_SPEC_URL='')
 
 
 def reset_graph_spec_config():
-    os.environ['ORION_GRAPH_SPEC'] = 'testing-graph-spec.yaml'
-    os.environ['ORION_GRAPH_SPEC_URL'] = ''
+    set_config(ORION_GRAPH_SPEC='testing-graph-spec.yaml', ORION_GRAPH_SPEC_URL='')
 
 
 @pytest.fixture(scope='module')
@@ -43,16 +48,14 @@ def test_empty_graph_spec_config(test_graph_spec_dir, test_graph_output_dir):
 
 
 def test_invalid_graph_spec_config(test_graph_spec_dir, test_graph_output_dir):
-    clear_graph_spec_config()
-    os.environ['ORION_GRAPH_SPEC'] = 'invalid-spec.yaml'
+    set_config(ORION_GRAPH_SPEC='invalid-spec.yaml', ORION_GRAPH_SPEC_URL='')
     with pytest.raises(GraphSpecError):
         graph_builder = GraphBuilder(graph_specs_dir=test_graph_spec_dir,
                                      graph_output_dir=test_graph_output_dir)
 
 
 def test_invalid_graph_spec_url_config(test_graph_output_dir):
-    clear_graph_spec_config()
-    os.environ['ORION_GRAPH_SPEC_URL'] = 'http://localhost/invalid_graph_spec_url'
+    set_config(ORION_GRAPH_SPEC='', ORION_GRAPH_SPEC_URL='http://localhost/invalid_graph_spec_url')
     with pytest.raises(requests.exceptions.ConnectionError):
         graph_builder = GraphBuilder(graph_output_dir=test_graph_output_dir)
 

@@ -14,11 +14,11 @@ dependencies = [
     "bmt>=1.4.6",
     "jsonlines>=4.0.0",
     "orjson>=3.11.7",
-    "python-dotenv>=1.0.1",
+    "pydantic-settings>=2.13.0",
     "pyyaml>=6.0.1",
     "requests>=2.33.1",
     "requests-toolbelt>=1.0.0",
-    "robokop-genetics>=0.7.0",
+    "robokop-genetics>=0.8.0",
     "uuid-utils>=0.14.1",
     "xxhash>=3.6.0",
 ]

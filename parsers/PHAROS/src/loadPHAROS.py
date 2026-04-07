@@ -108,7 +108,7 @@ class PHAROSLoader(SourceDataLoader):
         return 'v6_13_4'
 
     def get_data(self):
-        gd: GetData = GetData(self.logger.level)
+        gd: GetData = GetData()
         byte_count: int = gd.pull_via_http(f'{self.data_url}{self.data_file}',
                                            self.data_path)
         if not byte_count:

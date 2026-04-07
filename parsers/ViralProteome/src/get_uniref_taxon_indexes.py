@@ -1,11 +1,12 @@
 import os
 import argparse
 # from parsers.ViralProteome.src.loadUniRef import UniRefSimLoader
-from orion.utils import LoggingUtil, GetData
+from orion.utils import GetData
+from orion.logging import get_orion_logger
 from pathlib import Path
 
 # create a logger
-logger = LoggingUtil.init_logging("ORION.ViralProteome.get_uniref_taxon_indexes", line_format='medium', log_file_path=os.path.join(Path(__file__).parents[2], 'logs'))
+logger = get_orion_logger("parsers.get_uniref_taxon_indexes")
 
 
 if __name__ == '__main__':

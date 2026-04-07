@@ -1,6 +1,4 @@
 import os
-import logging
-import tarfile
 import gzip
 import requests
 import orjson
@@ -14,82 +12,9 @@ from io import BytesIO
 from csv import DictReader
 from ftplib import FTP
 from datetime import datetime
-from logging.handlers import RotatingFileHandler
+from orion.logging import get_orion_logger
 
-
-class LoggingUtil(object):
-    """
-    creates and configures a logger
-    """
-    @staticmethod
-    def init_logging(name, level=logging.INFO, line_format='minimum', log_file_path=None):
-        """
-            Logging utility controlling format and setting initial logging level
-        """
-
-        # get the logger with the specified name
-        logger = logging.getLogger(name)
-
-        # if it already has handlers, it was already instantiated - return it
-        if logger.hasHandlers():
-            return logger
-
-        # define the various output formats
-        format_type = {
-            "minimum": '%(message)s',
-            "short": '%(funcName)s(): %(message)s',
-            "medium": '%(asctime)-15s - %(funcName)s(): %(message)s',
-            "long": '%(asctime)-15s  - %(filename)s %(funcName)s() %(levelname)s: %(message)s'
-        }[line_format]
-
-        # create a formatter
-        formatter = logging.Formatter(format_type)
-
-        # set the logging level
-        if os.getenv('ORION_TEST_MODE'):
-            level = logging.DEBUG
-        logger.setLevel(level)
-
-        # if there was a file path passed in use it
-        if log_file_path is not None:
-            # create a rotating file handler, 100mb max per file with a max number of 10 files
-            file_handler = RotatingFileHandler(filename=os.path.join(log_file_path, name + '.log'), maxBytes=100000000, backupCount=10)
-
-            # set the formatter
-            file_handler.setFormatter(formatter)
-
-            # set the log level
-            file_handler.setLevel(level)
-
-            # add the handler to the logger
-            logger.addHandler(file_handler)
-
-        # create a stream handler as well (default to console)
-        stream_handler = logging.StreamHandler()
-
-        # set the formatter on the console stream
-        stream_handler.setFormatter(formatter)
-
-        # add the console handler to the logger
-        logger.addHandler(stream_handler)
-
-        # return to the caller
-        return logger
-
-    @staticmethod
-    def print_debug_msg(msg: str):
-        """
-        Adds a timestamp to a printed message
-
-        :param msg: the message that gets appended onto a timestamp and output to console
-        :return: None
-        """
-
-        # get the timestamp
-        now: datetime = datetime.now()
-
-        # output the text
-        print(f'{now.strftime("%Y/%m/%d %H:%M:%S")} - {msg}')
+logger = get_orion_logger("orion.utils")
 
 
 class GetDataPullError(Exception):
@@ -102,13 +27,10 @@ class GetData:
     Class that contains methods that can be used to get various data sets.
     """
 
-    def __init__(self, log_level=logging.INFO):
+    def __init__(self):
         """
         constructor
-        :param log_level - overrides default log level
         """
-        # create a logger
-        self.logger = LoggingUtil.init_logging("ORION.orion.GetData", level=log_level, line_format='medium', log_file_path=os.getenv('ORION_LOGS'))
 
     @staticmethod
     def pull_via_ftp_binary(ftp_site, ftp_dir, ftp_file):
@@ -183,7 +105,7 @@ class GetData:
 
         except Exception as e:
             error_message = f'Error getting modification date for ftp file: {ftp_site}{ftp_dir}{ftp_file}. {e}'
-            self.logger.error(error_message)
+            logger.error(error_message)
             raise GetDataPullError(error_message)
 
     def pull_via_ftp(self, ftp_site: str, ftp_dir: str, ftp_files: list, data_file_path: str) -> int:
@@ -212,7 +134,7 @@ class GetData:
 
             # for each file requested
             for f in ftp_files:
-                self.logger.debug(f'Retrieving {ftp_site}{ftp_dir}{f} -> {data_file_path}')
+                logger.debug(f'Retrieving {ftp_site}{ftp_dir}{f} -> {data_file_path}')
 
                 # does the file exist and has data in it
                 try:
@@ -233,15 +155,15 @@ class GetData:
 
                 # progress output
                 if file_counter % 50 == 0:
-                    self.logger.debug(f'{file_counter} files retrieved, {len(ftp_files) - file_counter} to go.')
+                    logger.debug(f'{file_counter} files retrieved, {len(ftp_files) - file_counter} to go.')
 
-            self.logger.debug(f'{file_counter} file(s) retrieved of {len(ftp_files)} requested.')
+            logger.debug(f'{file_counter} file(s) retrieved of {len(ftp_files)} requested.')
 
             # close the ftp object
             ftp.quit()
         except Exception as e:
             error_message = f'GetDataPullError pull_via_ftp() failed for {ftp_site}. Exception: {e}'
-            self.logger.error(error_message)
+            logger.error(error_message)
             raise GetDataPullError(error_message)
 
         # return pass/fail to the caller
@@ -257,7 +179,7 @@ class GetData:
             return modified_datetime.strftime("%-m_%-d_%Y")
         except Exception as e:
             error_message = f'Error getting modification date for http file: {file_url}. {repr(e)}-{e}'
-            self.logger.error(error_message)
+            logger.error(error_message)
             raise GetDataPullError(error_message)
 
     def pull_via_http(self, url: str, data_dir: str, is_gzip=False, saved_file_name: str = None) -> int:
@@ -286,7 +208,7 @@ class GetData:
         # check if the file exists already
         if not os.path.exists(os.path.join(data_dir, data_file)):
 
-            self.logger.debug(f'Retrieving {url} -> {data_dir}')
+            logger.debug(f'Retrieving {url} -> {data_dir}')
             try:
                 hdr = {'User-Agent': 'Mozilla/5.0 (Windows NT 6.1; Win64; x64)'}
                 req = request.Request(url, headers=hdr)
@@ -314,7 +236,7 @@ class GetData:
                         fp.write(buffer)
             except Exception as e:
                 error_message = f'GetDataPullError pull_via_http() failed. URL: {url}. Exception: {e}'
-                self.logger.error(error_message)
+                logger.error(error_message)
                 raise GetDataPullError(error_message)
 
         else:
@@ -333,7 +255,7 @@ class GetData:
         :return: a set of uniprot kb ids
         """
 
-        self.logger.debug('Start of swiss-prot curated uniprot id retrieval')
+        logger.debug('Start of swiss-prot curated uniprot id retrieval')
 
         # init the return value
         ret_val: set = set()
@@ -362,11 +284,11 @@ class GetData:
                         ret_val.add(item.strip(';\n'))
 
         # do not remove the file if in debug mode
-        # if self.logger.level != logging.DEBUG and not debug_mode:
+        # if logger.level != logging.DEBUG and not debug_mode:
         #     # remove the target file
         #     os.remove(os.path.join(data_dir, data_file_name))
 
-        self.logger.debug(f'End of swiss-prot uniprot id retrieval. {len(ret_val)} retrieved.')
+        logger.debug(f'End of swiss-prot uniprot id retrieval. {len(ret_val)} retrieved.')
 
         # return the list
         return ret_val

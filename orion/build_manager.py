@@ -8,7 +8,9 @@ import requests
 from pathlib import Path
 from xxhash import xxh64_hexdigest
 
-from orion.utils import LoggingUtil, GetDataPullError
+from orion.utils import GetDataPullError
+from orion.logging import get_orion_logger
+from orion.config import config
 from orion.data_sources import get_available_data_sources, get_data_source_metadata_path
 from orion.exceptions import DataVersionError, GraphSpecError
 from orion.ingest_pipeline import IngestPipeline
@@ -27,6 +29,8 @@ from orion.collapse_qualifiers import generate_collapsed_qualifiers_kg
 from orion.kgx_metadata import KGXGraphMetadata, KGXKnowledgeSource, generate_kgx_schema_file
 
 
+logger = get_orion_logger("orion.build_manager")
+
 NODES_FILENAME = 'nodes.jsonl'
 EDGES_FILENAME = 'edges.jsonl'
 REDUNDANT_EDGES_FILENAME = 'redundant_edges.jsonl'
@@ -41,10 +45,6 @@ class GraphBuilder:
                  graph_specs_dir=None,
                  graph_output_dir=None):
 
-        self.logger = LoggingUtil.init_logging("ORION.orion.GraphBuilder",
-                                               line_format='medium',
-                                               log_file_path=os.getenv('ORION_LOGS'))
-
         self.graphs_dir = graph_output_dir if graph_output_dir else self.get_graph_output_dir()
         self.ingest_pipeline = IngestPipeline()  # access to the data sources and their metadata
         self.graph_specs = {}   # graph_id -> GraphSpec all potential graphs that could be built, including sub-graphs
@@ -54,7 +54,7 @@ class GraphBuilder:
     def build_graph(self, graph_spec: GraphSpec):
 
         graph_id = graph_spec.graph_id
-        self.logger.info(f'Building graph {graph_id}...')
+        logger.info(f'Building graph {graph_id}...')
 
         graph_version = self.determine_graph_version(graph_spec)
         graph_metadata = self.get_graph_metadata(graph_id, graph_version)
@@ -64,28 +64,28 @@ class GraphBuilder:
         # check for previous builds of this same graph
         build_status = graph_metadata.get_build_status()
         if build_status == Metadata.IN_PROGRESS:
-            self.logger.info(f'Graph {graph_id} version {graph_version} has status: in progress. '
+            logger.info(f'Graph {graph_id} version {graph_version} has status: in progress. '
                              f'This means either the graph is already in the process of being built, '
                              f'or an error occurred previously that could not be handled. '
                              f'You may need to clean up and/or remove the failed build.')
             return False
 
         if build_status == Metadata.BROKEN or build_status == Metadata.FAILED:
-            self.logger.info(f'Graph {graph_id} version {graph_version} previously failed to build. Skipping..')
+            logger.info(f'Graph {graph_id} version {graph_version} previously failed to build. Skipping..')
             return False
 
         if build_status == Metadata.STABLE:
             self.build_results[graph_id] = {'version': graph_version}
-            self.logger.info(f'Graph {graph_id} version {graph_version} was already built.')
+            logger.info(f'Graph {graph_id} version {graph_version} was already built.')
         else:
             # if we get here we need to build the graph
-            self.logger.info(f'Building graph {graph_id} version {graph_version}, checking dependencies...')
+            logger.info(f'Building graph {graph_id} version {graph_version}, checking dependencies...')
             if not self.build_dependencies(graph_spec):
-                self.logger.warning(f'Aborting graph {graph_spec.graph_id} version {graph_version}, building '
+                logger.warning(f'Aborting graph {graph_spec.graph_id} version {graph_version}, building '
                                     f'dependencies failed.')
                 return False
 
-            self.logger.info(f'Building graph {graph_id} version {graph_version}. '
+            logger.info(f'Building graph {graph_id} version {graph_version}. '
                              f'Dependencies ready, merging sources...')
             graph_metadata.set_build_status(Metadata.IN_PROGRESS)
             graph_metadata.set_graph_version(graph_version)
@@ -106,52 +106,52 @@ class GraphBuilder:
             if "merge_error" in merge_metadata:
                 graph_metadata.set_build_error(merge_metadata["merge_error"], current_time)
                 graph_metadata.set_build_status(Metadata.FAILED)
-                self.logger.error(f'Merge error occured while building graph {graph_id}: '
+                logger.error(f'Merge error occured while building graph {graph_id}: '
                                   f'{merge_metadata["merge_error"]}')
                 return False
 
             graph_metadata.set_build_info(merge_metadata, current_time)
             graph_metadata.set_build_status(Metadata.STABLE)
-            self.logger.info(f'Building graph {graph_id} complete!')
+            logger.info(f'Building graph {graph_id} complete!')
             self.build_results[graph_id] = {'version': graph_version}
 
         nodes_filepath = os.path.join(graph_output_dir, NODES_FILENAME)
         edges_filepath = os.path.join(graph_output_dir, EDGES_FILENAME)
 
         if not graph_metadata.has_qc():
-            self.logger.info(f'Running QC for graph {graph_id}...')
+            logger.info(f'Running QC for graph {graph_id}...')
             qc_results = validate_graph(nodes_file_path=nodes_filepath,
                                         edges_file_path=edges_filepath,
                                         graph_id=graph_id,
                                         graph_version=graph_version,
-                                        logger=self.logger)
+                                        logger=logger)
             graph_metadata.set_qc_results(qc_results)
             if qc_results['pass']:
-                self.logger.info(f'QC passed for graph {graph_id}.')
+                logger.info(f'QC passed for graph {graph_id}.')
             else:
-                self.logger.warning(f'QC failed for graph {graph_id}.')
+                logger.warning(f'QC failed for graph {graph_id}.')
 
         # Generate KGX metadata and schema files
         if not self.has_kgx_metadata(graph_output_dir):
-            self.logger.info(f'Generating KGX metadata for {graph_id}...')
+            logger.info(f'Generating KGX metadata for {graph_id}...')
             self.generate_kgx_metadata_files(graph_metadata=graph_metadata,
                                              graph_output_dir=graph_output_dir,
                                              graph_output_url=graph_output_url)
-            self.logger.info(f'KGX metadata generated for {graph_id}.')
+            logger.info(f'KGX metadata generated for {graph_id}.')
         if not self.has_kgx_schema(graph_output_dir):
-            self.logger.info(f'Generating KGX Schema for {graph_id}...')
+            logger.info(f'Generating KGX Schema for {graph_id}...')
             generate_kgx_schema_file(nodes_filepath=nodes_filepath,
                                      edges_filepath=edges_filepath,
                                      output_dir=graph_output_dir,
                                      graph_output_url=graph_output_url,
                                      graph_name=graph_spec.graph_name,
                                      biolink_version=graph_metadata.get_biolink_version())
-            self.logger.info(f'KGX Schema generated for {graph_id}.')
+            logger.info(f'KGX Schema generated for {graph_id}.')
 
         needs_meta_kg = not self.has_meta_kg(graph_directory=graph_output_dir)
         needs_test_data = not self.has_test_data(graph_directory=graph_output_dir)
         if needs_meta_kg or needs_test_data:
-            self.logger.info(f'Generating MetaKG and test data for {graph_id}...')
+            logger.info(f'Generating MetaKG and test data for {graph_id}...')
             self.generate_meta_kg_and_test_data(graph_directory=graph_output_dir,
                                                 generate_meta_kg=needs_meta_kg,
                                                 generate_test_data=needs_test_data)
@@ -170,16 +170,16 @@ class GraphBuilder:
         #  combinations, like:
         #  output_format: [['redundant', 'neo4j', 'answercoalesce'], ['collapsed_qualifiers'], ['neo4j']]
         if 'redundant_jsonl' in output_formats:
-            self.logger.info(f'Generating redundant edge KG for {graph_id}...')
+            logger.info(f'Generating redundant edge KG for {graph_id}...')
             redundant_filepath = edges_filepath.replace(EDGES_FILENAME, REDUNDANT_EDGES_FILENAME)
             generate_redundant_kg(edges_filepath, redundant_filepath)
 
         if 'redundant_neo4j' in output_formats:
-            self.logger.info(f'Generating redundant edge KG for {graph_id}...')
+            logger.info(f'Generating redundant edge KG for {graph_id}...')
             redundant_filepath = edges_filepath.replace(EDGES_FILENAME, REDUNDANT_EDGES_FILENAME)
             if not os.path.exists(redundant_filepath):
                 generate_redundant_kg(edges_filepath, redundant_filepath)
-            self.logger.info(f'Starting Neo4j dump pipeline for redundant {graph_id}...')
+            logger.info(f'Starting Neo4j dump pipeline for redundant {graph_id}...')
             dump_success = create_neo4j_dump(nodes_filepath=nodes_filepath,
                                              edges_filepath=redundant_filepath,
                                              output_directory=graph_output_dir,
@@ -192,16 +192,16 @@ class GraphBuilder:
                                         dump_url=f'{graph_output_url}graph_{graph_version}_redundant.db.dump')
 
         if 'collapsed_qualifiers_jsonl' in output_formats:
-            self.logger.info(f'Generating collapsed qualifier predicates KG for {graph_id}...')
+            logger.info(f'Generating collapsed qualifier predicates KG for {graph_id}...')
             collapsed_qualifiers_filepath = edges_filepath.replace(EDGES_FILENAME, COLLAPSED_QUALIFIERS_FILENAME)
             generate_collapsed_qualifiers_kg(edges_filepath, collapsed_qualifiers_filepath)
 
         if 'collapsed_qualifiers_neo4j' in output_formats:
-            self.logger.info(f'Generating collapsed qualifier predicates KG for {graph_id}...')
+            logger.info(f'Generating collapsed qualifier predicates KG for {graph_id}...')
             collapsed_qualifiers_filepath = edges_filepath.replace(EDGES_FILENAME, COLLAPSED_QUALIFIERS_FILENAME)
             if not os.path.exists(collapsed_qualifiers_filepath):
                 generate_collapsed_qualifiers_kg(edges_filepath, collapsed_qualifiers_filepath)
-            self.logger.info(f'Starting Neo4j dump pipeline for {graph_id} with collapsed qualifiers...')
+            logger.info(f'Starting Neo4j dump pipeline for {graph_id} with collapsed qualifiers...')
             dump_success = create_neo4j_dump(nodes_filepath=nodes_filepath,
                                              edges_filepath=collapsed_qualifiers_filepath,
                                              output_directory=graph_output_dir,
@@ -215,7 +215,7 @@ class GraphBuilder:
                                                      f'_collapsed_qualifiers.db.dump')
 
         if 'neo4j' in output_formats:
-            self.logger.info(f'Starting Neo4j dump pipeline for {graph_id}...')
+            logger.info(f'Starting Neo4j dump pipeline for {graph_id}...')
             dump_success = create_neo4j_dump(nodes_filepath=nodes_filepath,
                                              edges_filepath=edges_filepath,
                                              output_directory=graph_output_dir,
@@ -228,7 +228,7 @@ class GraphBuilder:
                                         dump_url=f'{graph_output_url}graph_{graph_version}.db.dump')
 
         if 'memgraph' in output_formats:
-            self.logger.info(f'Starting memgraph dump pipeline for {graph_id}...')
+            logger.info(f'Starting memgraph dump pipeline for {graph_id}...')
             dump_success = create_memgraph_dump(nodes_filepath=nodes_filepath,
                                                 edges_filepath=edges_filepath,
                                                 output_directory=graph_output_dir,
@@ -241,7 +241,7 @@ class GraphBuilder:
                                         dump_url=f'{graph_output_url}memgraph_{graph_version}.cypher')
 
         if 'answercoalesce' in output_formats:
-            self.logger.info(f'Generating answercoalesce files for {graph_id}...')
+            logger.info(f'Generating answercoalesce files for {graph_id}...')
             if 'redundant_jsonl' in output_formats or 'redundant_neo4j' in output_formats:
                 edge_filepath_to_use = edges_filepath.replace(EDGES_FILENAME, REDUNDANT_EDGES_FILENAME)
             else:
@@ -262,7 +262,7 @@ class GraphBuilder:
             for source in graph_spec.sources:
                 if not source.source_version:
                     source.source_version = self.ingest_pipeline.get_latest_source_version(source.id)
-                self.logger.info(f'Using {source.id} version: {source.version}')
+                logger.info(f'Using {source.id} version: {source.version}')
 
             # for sub-graphs, if a graph version isn't specified,
             # use the graph spec for that subgraph to determine a graph version
@@ -271,7 +271,7 @@ class GraphBuilder:
                     subgraph_graph_spec = self.graph_specs.get(subgraph.id, None)
                     if subgraph_graph_spec:
                         subgraph.graph_version = self.determine_graph_version(subgraph_graph_spec)
-                        self.logger.info(f'Using subgraph {graph_spec.graph_id} version: {subgraph.graph_version}')
+                        logger.info(f'Using subgraph {graph_spec.graph_id} version: {subgraph.graph_version}')
                     else:
                         raise GraphSpecError(f'Subgraph {subgraph.id} requested for graph {graph_spec.graph_id} '
                                              f'but the version was not specified and could not be determined without '
@@ -293,7 +293,7 @@ class GraphBuilder:
                                                   for sub_graph_source in graph_spec.subgraphs])
         graph_version = xxh64_hexdigest(composite_version_string)
         graph_spec.graph_version = graph_version
-        self.logger.info(f'Version determined for graph {graph_spec.graph_id}: {graph_version} ({composite_version_string})')
+        logger.info(f'Version determined for graph {graph_spec.graph_id}: {graph_version} ({composite_version_string})')
         return graph_version
 
     def build_dependencies(self, graph_spec: GraphSpec):
@@ -306,12 +306,12 @@ class GraphBuilder:
                 # subgraph as generated by the current graph spec, otherwise we won't be able to build it.
                 subgraph_graph_spec = self.graph_specs.get(subgraph_id, None)
                 if not subgraph_graph_spec:
-                    self.logger.warning(f'Subgraph {subgraph_id} version {subgraph_version} was requested for graph '
+                    logger.warning(f'Subgraph {subgraph_id} version {subgraph_version} was requested for graph '
                                         f'{graph_id} but it was not found and could not be built without a Graph Spec.')
                     return False
 
                 if subgraph_version != subgraph_graph_spec.graph_version:
-                    self.logger.error(f'Subgraph {subgraph_id} version {subgraph_version} was specified, but that '
+                    logger.error(f'Subgraph {subgraph_id} version {subgraph_version} was specified, but that '
                                       f'version of the graph could not be found. It can not be built now because the '
                                       f'current version is {subgraph_graph_spec.graph_version}. Either specify a '
                                       f'version that is already built, or remove the subgraph version specification to '
@@ -319,7 +319,7 @@ class GraphBuilder:
                     return False
 
                 # here the graph specs and versions all look right, but we still need to build the subgraph
-                self.logger.warning(f'Graph {graph_id}, subgraph dependency {subgraph_id} is not ready. Building now..')
+                logger.warning(f'Graph {graph_id}, subgraph dependency {subgraph_id} is not ready. Building now..')
                 subgraph_build_success = self.build_graph(subgraph_graph_spec)
                 if not subgraph_build_success:
                     return False
@@ -333,7 +333,7 @@ class GraphBuilder:
                 subgraph_edges_path = self.get_graph_edges_file_path(subgraph_dir)
                 subgraph_source.file_paths = [subgraph_nodes_path, subgraph_edges_path]
             else:
-                self.logger.warning(f'Attempting to build graph {graph_id} failed, dependency subgraph {subgraph_id} '
+                logger.warning(f'Attempting to build graph {graph_id} failed, dependency subgraph {subgraph_id} '
                                     f'version {subgraph_version} was not built successfully.')
                 return False
 
@@ -344,7 +344,7 @@ class GraphBuilder:
             release_version = data_source.generate_version()
             release_metadata = source_metadata.get_release_info(release_version)
             if release_metadata is None:
-                self.logger.info(
+                logger.info(
                     f'Attempting to build graph {graph_id}, '
                     f'dependency {source_id} is not ready. Building now...')
                 pipeline_sucess = self.ingest_pipeline.run_pipeline(source_id,
@@ -353,7 +353,7 @@ class GraphBuilder:
                                                                     normalization_scheme=data_source.normalization_scheme,
                                                                     supplementation_version=data_source.supplementation_version)
                 if not pipeline_sucess:
-                    self.logger.info(f'While attempting to build {graph_spec.graph_id}, '
+                    logger.info(f'While attempting to build {graph_spec.graph_id}, '
                                      f'data source pipeline failed for dependency {source_id}...')
                     return False
                 release_metadata = source_metadata.get_release_info(release_version)
@@ -391,7 +391,7 @@ class GraphBuilder:
         graph_edges_file_path = os.path.join(graph_directory, EDGES_FILENAME)
         mkgb = MetaKnowledgeGraphBuilder(nodes_file_path=graph_nodes_file_path,
                                          edges_file_path=graph_edges_file_path,
-                                         logger=self.logger)
+                                         logger=logger)
         if generate_meta_kg:
             meta_kg_file_path = os.path.join(graph_directory, META_KG_FILENAME)
             mkgb.write_meta_kg_to_file(meta_kg_file_path)
@@ -509,8 +509,8 @@ class GraphBuilder:
             f.write(kgx_graph_metadata.to_json())
 
     def load_graph_specs(self, graph_specs_dir=None):
-        graph_spec_file = os.getenv('ORION_GRAPH_SPEC')
-        graph_spec_url = os.getenv('ORION_GRAPH_SPEC_URL')
+        graph_spec_file = config.ORION_GRAPH_SPEC
+        graph_spec_url = config.ORION_GRAPH_SPEC_URL
 
         if graph_spec_file and graph_spec_url:
             raise GraphSpecError(f'Configuration Error - the environment variables ORION_GRAPH_SPEC and '
@@ -522,7 +522,7 @@ class GraphBuilder:
                 graph_specs_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'graph_specs')
             graph_spec_path = os.path.join(graph_specs_dir, graph_spec_file)
             if os.path.exists(graph_spec_path):
-                self.logger.info(f'Loading graph spec: {graph_spec_file}')
+                logger.info(f'Loading graph spec: {graph_spec_file}')
                 with open(graph_spec_path) as graph_spec_file:
                     graph_spec_yaml = yaml.safe_load(graph_spec_file)
                     self.parse_graph_spec(graph_spec_yaml)
@@ -634,7 +634,7 @@ class GraphBuilder:
         source_id = source_yml['source_id']
         if source_id not in get_available_data_sources():
             error_message = f'Data source {source_id} is not a valid data source id.'
-            self.logger.error(error_message + " " +
+            logger.error(error_message + " " +
                               f'Valid sources are: {", ".join(get_available_data_sources())}')
             raise GraphSpecError(error_message)
 
@@ -686,8 +686,7 @@ class GraphBuilder:
 
     @staticmethod
     def get_graph_output_url(graph_id: str, graph_version: str):
-        graph_output_url = os.environ.get('ORION_OUTPUT_URL', "https://localhost/").removesuffix('/')
-        return f'{graph_output_url}/{graph_id}/{graph_version}/'
+        return f'{config.ORION_OUTPUT_URL}/{graph_id}/{graph_version}/'
 
     @staticmethod
     def get_graph_nodes_file_path(graph_output_dir: str):
@@ -713,7 +712,7 @@ class GraphBuilder:
     @staticmethod
     def get_graph_output_dir():
         # confirm the directory specified by the environment variable ORION_GRAPHS is valid
-        graphs_dir = os.getenv('ORION_GRAPHS')
+        graphs_dir = config.ORION_GRAPHS
         if graphs_dir and Path(graphs_dir).is_dir():
             return graphs_dir
 

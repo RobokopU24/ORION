@@ -70,15 +70,15 @@ spec:
             - name: BL_VERSION
               value: {{ .Values.orion.normalization.bl_version }}
             {{- if .Values.orion.normalization.nodeNormEndpoint }}
-            - name: NODE_NORMALIZATION_ENDPOINT
+            - name: NODE_NORMALIZATION_URL
               value: {{ .Values.orion.normalization.nodeNormEndpoint }}
             {{- end }}
             {{- if .Values.orion.normalization.edgeNormEndpoint }}
-            - name: EDGE_NORMALIZATION_ENDPOINT
+            - name: EDGE_NORMALIZATION_URL
               value: {{ .Values.orion.normalization.edgeNormEndpoint }}
             {{- end }}
             {{- if .Values.orion.normalization.nameResolverEndpoint }}
-            - name: NAMERES_ENDPOINT
+            - name: NAMERES_URL
               value: {{ .Values.orion.normalization.nameResolverEndpoint }}
             {{- end }}
             {{- if .Values.orion.normalization.sapbertEndpoint }}
@@ -157,15 +157,15 @@ spec:
             - name: BL_VERSION
               value: {{ .Values.orion.normalization.bl_version }}
             {{- if .Values.orion.normalization.nodeNormEndpoint }}
-            - name: NODE_NORMALIZATION_ENDPOINT
+            - name: NODE_NORMALIZATION_URL
               value: {{ .Values.orion.normalization.nodeNormEndpoint }}
             {{- end }}
             {{- if .Values.orion.normalization.edgeNormEndpoint }}
-            - name: EDGE_NORMALIZATION_ENDPOINT
+            - name: EDGE_NORMALIZATION_URL
               value: {{ .Values.orion.normalization.edgeNormEndpoint }}
             {{- end }}
             {{- if .Values.orion.normalization.nameResolverEndpoint }}
-            - name: NAMERES_ENDPOINT
+            - name: NAMERES_URL
               value: {{ .Values.orion.normalization.nameResolverEndpoint }}
             {{- end }}
             {{- if .Values.orion.normalization.sapbertEndpoint }}
