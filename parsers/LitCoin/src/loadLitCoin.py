@@ -175,9 +175,16 @@ class LitCoinLoader(SourceDataLoader):
             try:
                 if LITCOIN.BAGELIZED_SUBJECT in litcoin_edge:
                     # entities already bagelized for this edge, no need to call bagelize_entity
-                    subject_node = litcoin_edge[LITCOIN.BAGELIZED_SUBJECT]
-                    if isinstance(subject_node, str) and subject_node == LITCOIN.NOT_AVAILABLE:
+                    bagel_subject_node = litcoin_edge[LITCOIN.BAGELIZED_SUBJECT]
+                    if isinstance(bagel_subject_node, str) and bagel_subject_node == LITCOIN.NOT_AVAILABLE:
                         subject_node = None
+                    else:
+                        # convert subject_node to required format for subsequent processing
+                        key, val = bagel_subject_node.popitem()
+                        subject_node = {
+                            "id": key,
+                            **val
+                        }
                 else:
                     subject_node = self.bagelize_entity(entity_name=litcoin_edge[LITCOIN.SUBJECT_NAME],
                                                         abstract_id=abstract_id,
@@ -191,11 +198,18 @@ class LitCoinLoader(SourceDataLoader):
                     skipped_records += 1
                     continue
 
-                if  LITCOIN.BAGELIZED_OBJECT in litcoin_edge:
+                if LITCOIN.BAGELIZED_OBJECT in litcoin_edge:
                     # entities already bagelized for this edge, no need to call bagelize_entity
-                    object_node = litcoin_edge[LITCOIN.BAGELIZED_OBJECT]
-                    if isinstance(object_node, str) and object_node == LITCOIN.NOT_AVAILABLE:
+                    bagel_object_node = litcoin_edge[LITCOIN.BAGELIZED_OBJECT]
+                    if isinstance(bagel_object_node, str) and bagel_object_node == LITCOIN.NOT_AVAILABLE:
                         object_node = None
+                    else:
+                        # convert object_node to required format for subsequent processing
+                        key, val = bagel_object_node.popitem()
+                        object_node = {
+                            "id": key,
+                            **val
+                        }
                 else:
                     object_node = self.bagelize_entity(entity_name=litcoin_edge[LITCOIN.OBJECT_NAME],
                                                        abstract_id=abstract_id,
