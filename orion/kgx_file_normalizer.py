@@ -199,9 +199,7 @@ class KGXFileNormalizer:
 
         # compute per-prefix normalization stats
         prefix_stats = self.compute_by_prefix_stats(
-            node_norm_lookup=self.node_normalizer.node_normalization_lookup,
-            regular_failures=regular_node_norm_failures,
-            variant_failures=set(variant_node_norm_failures.keys())
+            node_norm_lookup=self.node_normalizer.node_normalization_lookup
         )
 
         # update the metadata
@@ -366,21 +364,19 @@ class KGXFileNormalizer:
         })
 
     @staticmethod
-    def compute_by_prefix_stats(node_norm_lookup: dict,
-                                regular_failures: set,
-                                variant_failures: set):
-        # count totals per prefix from lookup keys
+    def compute_by_prefix_stats(node_norm_lookup: dict):
+        # count totals, failures, and post-normalization prefixes per original prefix
         prefix_total = defaultdict(int)
-        for node_id in node_norm_lookup:
-            prefix = node_id.split(':')[0]
-            prefix_total[prefix] += 1
-
-        # count failures per prefix
         prefix_failed = defaultdict(int)
-        for node_id in regular_failures:
-            prefix_failed[node_id.split(':')[0]] += 1
-        for node_id in variant_failures:
-            prefix_failed[node_id.split(':')[0]] += 1
+        prefix_normalized_to = defaultdict(lambda: defaultdict(int))
+        for node_id, normalized_ids in node_norm_lookup.items():
+            original_prefix = node_id.split(':')[0]
+            prefix_total[original_prefix] += 1
+            if normalized_ids:
+                for normalized_id in normalized_ids:
+                    prefix_normalized_to[original_prefix][normalized_id.split(':')[0]] += 1
+            else:
+                prefix_failed[original_prefix] += 1
 
         prefix_stats = {}
         for prefix in sorted(prefix_total):
@@ -388,7 +384,13 @@ class KGXFileNormalizer:
             total = prefix_total[prefix]
             succeeded = total - failed
             percentage = round(succeeded * 100 / total, 1)
-            prefix_stats[prefix] = {'succeeded': succeeded, 'failed': failed, 'total': total, 'success_rate': percentage}
+            prefix_stats[prefix] = {
+                'succeeded': succeeded,
+                'failed': failed,
+                'total': total,
+                'success_rate': percentage,
+                'normalized_to': dict(prefix_normalized_to.get(prefix, {})),
+            }
             if succeeded == 0:
                 logger.error(f'ATTENTION: Curie prefix "{prefix}" failed normalization for all nodes!!!')
             elif percentage < 50:
