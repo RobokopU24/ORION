@@ -379,20 +379,23 @@ class KGXFileNormalizer:
                 prefix_failed[original_prefix] += 1
 
         prefix_stats = {}
-        for prefix in sorted(prefix_total):
+        # sort the prefixes by their total count, the most common prefix is at the top of the list
+        for prefix in sorted(prefix_total, key=prefix_total.get, reverse=True):
             failed = prefix_failed.get(prefix, 0)
             total = prefix_total[prefix]
             succeeded = total - failed
-            percentage = round(succeeded * 100 / total, 1)
+            percentage = int(succeeded / total * 10000) / 100  # truncate percentage to two decimal places
             prefix_stats[prefix] = {
                 'succeeded': succeeded,
                 'failed': failed,
                 'total': total,
                 'success_rate': percentage,
-                'normalized_to': dict(prefix_normalized_to.get(prefix, {})),
+                # sort normalized_to by curie counts, not alphabetically
+                'normalized_to': dict(sorted(prefix_normalized_to.get(prefix, {}).items(),
+                                             key=lambda x: x[1], reverse=True)),
             }
             if succeeded == 0:
-                logger.error(f'ATTENTION: Curie prefix "{prefix}" failed normalization for all nodes!!!')
+                logger.error(f'!!! --- ATTENTION: Curie prefix "{prefix}" failed normalization for all nodes! --- !!!')
             elif percentage < 50:
                 logger.warning(f'WARNING: Curie prefix "{prefix}" only normalized {percentage}% of nodes!!!')
         return prefix_stats
