@@ -44,6 +44,7 @@ class GraphSpec:
     graph_version: str
     graph_output_format: str
     add_edge_id: bool = None
+    overwrite_edge_ids: bool = True
     edge_id_type: str = None
     edge_merging_attributes: list = None
     sources: list = None
@@ -58,6 +59,7 @@ class GraphSpec:
             'graph_version': self.graph_version,
             'edge_merging_attributes': self.edge_merging_attributes,
             'add_edge_id': self.add_edge_id,
+            'overwrite_edge_ids': self.overwrite_edge_ids,
             'edge_id_type': self.edge_id_type,
             'subgraphs': [subgraph.get_metadata_representation() for subgraph in self.subgraphs] if self.subgraphs else [],
             'sources': [source.get_metadata_representation() for source in self.sources] if self.sources else []

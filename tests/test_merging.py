@@ -493,3 +493,165 @@ def test_uuid_edge_id_deterministic_in_memory():
 def test_uuid_edge_id_deterministic_on_disk(tmp_path):
     uuid_edge_id_deterministic_test(lambda: DiskGraphMerger(temp_directory=str(tmp_path), chunk_size=8,
                                                              add_edge_id=True, edge_id_type='uuid'))
+
+
+def overwrite_edge_ids_replaces_existing_test(graph_merger: GraphMerger):
+    # default: add_edge_id=True, overwrite_edge_ids=True — existing ids are always replaced
+    test_edges = [make_edge(1, 2, **{EDGE_ID: 'original_edge_id', 'prop': [i]})
+                  for i in range(1, 4)]
+    graph_merger.merge_edges(test_edges)
+    merged_edges = [json.loads(e) for e in graph_merger.get_merged_edges_jsonl()]
+    assert len(merged_edges) == 1
+    assert merged_edges[0][EDGE_ID] != 'original_edge_id'
+    assert graph_merger.get_pre_merge_edge_id_mapping() == {}
+
+
+def test_overwrite_edge_ids_replaces_existing_in_memory():
+    overwrite_edge_ids_replaces_existing_test(MemoryGraphMerger(add_edge_id=True))
+
+
+def test_overwrite_edge_ids_replaces_existing_on_disk(tmp_path):
+    overwrite_edge_ids_replaces_existing_test(DiskGraphMerger(temp_directory=str(tmp_path), chunk_size=4,
+                                                              add_edge_id=True))
+
+
+def preserve_singleton_with_existing_id_test(graph_merger: GraphMerger):
+    # add_edge_id=True, overwrite_edge_ids=False — a singleton edge with an id keeps its id
+    graph_merger.merge_edges([make_edge(1, 2, **{EDGE_ID: 'original_edge_id'})])
+    merged_edges = [json.loads(e) for e in graph_merger.get_merged_edges_jsonl()]
+    assert len(merged_edges) == 1
+    assert merged_edges[0][EDGE_ID] == 'original_edge_id'
+    assert graph_merger.get_pre_merge_edge_id_mapping() == {}
+
+
+def test_preserve_singleton_with_existing_id_in_memory():
+    preserve_singleton_with_existing_id_test(
+        MemoryGraphMerger(add_edge_id=True, overwrite_edge_ids=False))
+
+
+def test_preserve_singleton_with_existing_id_on_disk(tmp_path):
+    preserve_singleton_with_existing_id_test(
+        DiskGraphMerger(temp_directory=str(tmp_path), chunk_size=4,
+                        add_edge_id=True, overwrite_edge_ids=False))
+
+
+def preserve_singleton_without_id_gets_generated_test(graph_merger: GraphMerger):
+    # add_edge_id=True, overwrite_edge_ids=False — a singleton edge with no id gets a new one;
+    # it is NOT recorded in the mapping (no original to map from)
+    graph_merger.merge_edges([make_edge(1, 2)])
+    merged_edges = [json.loads(e) for e in graph_merger.get_merged_edges_jsonl()]
+    assert len(merged_edges) == 1
+    assert merged_edges[0].get(EDGE_ID) is not None
+    assert graph_merger.get_pre_merge_edge_id_mapping() == {}
+
+
+def test_preserve_singleton_without_id_in_memory():
+    preserve_singleton_without_id_gets_generated_test(
+        MemoryGraphMerger(add_edge_id=True, overwrite_edge_ids=False))
+
+
+def test_preserve_singleton_without_id_on_disk(tmp_path):
+    preserve_singleton_without_id_gets_generated_test(
+        DiskGraphMerger(temp_directory=str(tmp_path), chunk_size=4,
+                        add_edge_id=True, overwrite_edge_ids=False))
+
+
+def preserve_merge_records_original_ids_test(graph_merger: GraphMerger):
+    # add_edge_id=True, overwrite_edge_ids=False — merged edges get a new id (the merge key),
+    # and the mapping records each original pre-merge id
+    test_edges = [make_edge(1, 2, **{EDGE_ID: f'orig_{i}', 'prop': [i]})
+                  for i in range(1, 4)]
+    graph_merger.merge_edges(test_edges)
+    merged_edges = [json.loads(e) for e in graph_merger.get_merged_edges_jsonl()]
+    assert len(merged_edges) == 1
+    new_id = merged_edges[0][EDGE_ID]
+    assert new_id not in {'orig_1', 'orig_2', 'orig_3'}
+    mapping = graph_merger.get_pre_merge_edge_id_mapping()
+    assert set(mapping.keys()) == {new_id}
+    assert sorted(mapping[new_id]) == ['orig_1', 'orig_2', 'orig_3']
+
+
+def test_preserve_merge_records_original_ids_in_memory():
+    preserve_merge_records_original_ids_test(
+        MemoryGraphMerger(add_edge_id=True, overwrite_edge_ids=False))
+
+
+def test_preserve_merge_records_original_ids_on_disk(tmp_path):
+    preserve_merge_records_original_ids_test(
+        DiskGraphMerger(temp_directory=str(tmp_path), chunk_size=4,
+                        add_edge_id=True, overwrite_edge_ids=False))
+
+
+def preserve_merge_partial_ids_test(graph_merger: GraphMerger):
+    # add_edge_id=True, overwrite_edge_ids=False — when only some merged edges had ids,
+    # the mapping records only those
+    test_edges = [
+        make_edge(1, 2, **{EDGE_ID: 'orig_A', 'prop': [1]}),
+        make_edge(1, 2, **{'prop': [2]}),
+        make_edge(1, 2, **{EDGE_ID: 'orig_C', 'prop': [3]}),
+    ]
+    graph_merger.merge_edges(test_edges)
+    merged_edges = [json.loads(e) for e in graph_merger.get_merged_edges_jsonl()]
+    assert len(merged_edges) == 1
+    new_id = merged_edges[0][EDGE_ID]
+    mapping = graph_merger.get_pre_merge_edge_id_mapping()
+    assert sorted(mapping[new_id]) == ['orig_A', 'orig_C']
+
+
+def test_preserve_merge_partial_ids_in_memory():
+    preserve_merge_partial_ids_test(
+        MemoryGraphMerger(add_edge_id=True, overwrite_edge_ids=False))
+
+
+def test_preserve_merge_partial_ids_on_disk(tmp_path):
+    preserve_merge_partial_ids_test(
+        DiskGraphMerger(temp_directory=str(tmp_path), chunk_size=4,
+                        add_edge_id=True, overwrite_edge_ids=False))
+
+
+def preserve_merge_no_original_ids_test(graph_merger: GraphMerger):
+    # add_edge_id=True, overwrite_edge_ids=False — a merge where no edges had ids
+    # still assigns the generated key to the result but leaves the mapping empty
+    test_edges = [make_edge(1, 2, **{'prop': [i]}) for i in range(1, 4)]
+    graph_merger.merge_edges(test_edges)
+    merged_edges = [json.loads(e) for e in graph_merger.get_merged_edges_jsonl()]
+    assert len(merged_edges) == 1
+    assert merged_edges[0].get(EDGE_ID) is not None
+    assert graph_merger.get_pre_merge_edge_id_mapping() == {}
+
+
+def test_preserve_merge_no_original_ids_in_memory():
+    preserve_merge_no_original_ids_test(
+        MemoryGraphMerger(add_edge_id=True, overwrite_edge_ids=False))
+
+
+def test_preserve_merge_no_original_ids_on_disk(tmp_path):
+    preserve_merge_no_original_ids_test(
+        DiskGraphMerger(temp_directory=str(tmp_path), chunk_size=4,
+                        add_edge_id=True, overwrite_edge_ids=False))
+
+
+def preserve_flag_ignored_without_add_edge_id_test(graph_merger: GraphMerger):
+    # add_edge_id=False with overwrite_edge_ids=False — flag has no effect;
+    # no ids are added, existing ones are untouched, mapping is empty
+    test_edges = [
+        make_edge(1, 2, **{EDGE_ID: 'orig_A', 'prop': [1]}),
+        make_edge(1, 2, **{'prop': [2]}),
+    ]
+    graph_merger.merge_edges(test_edges)
+    merged_edges = [json.loads(e) for e in graph_merger.get_merged_edges_jsonl()]
+    assert len(merged_edges) == 1
+    # the stored edge is whichever was seen first; its id (if any) is whatever the merge function kept
+    # but no NEW id should have been assigned by the merger itself
+    assert graph_merger.get_pre_merge_edge_id_mapping() == {}
+
+
+def test_preserve_flag_ignored_without_add_edge_id_in_memory():
+    preserve_flag_ignored_without_add_edge_id_test(
+        MemoryGraphMerger(add_edge_id=False, overwrite_edge_ids=False))
+
+
+def test_preserve_flag_ignored_without_add_edge_id_on_disk(tmp_path):
+    preserve_flag_ignored_without_add_edge_id_test(
+        DiskGraphMerger(temp_directory=str(tmp_path), chunk_size=4,
+                        add_edge_id=False, overwrite_edge_ids=False))
