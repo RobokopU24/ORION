@@ -114,10 +114,12 @@ def entity_merging_function(entity_1, entity_2):
                         existing_sub_value = entity_1_value[sub_key]
                         if isinstance(existing_sub_value, dict) and isinstance(sub_value, dict):
                             entity_1_value[sub_key] = entity_merging_function(existing_sub_value, sub_value)
-                        elif existing_sub_value is None:
+                        elif not existing_sub_value:
                             entity_1_value[sub_key] = sub_value
+                        elif not sub_value:
+                            pass  # keep entity_1; sub_value is falsy
                         elif existing_sub_value != sub_value:
-                            # keep entity_1's value, matching the scalar policy below
+                            # both truthy and differ; keep entity_1 and record the drop
                             _dropped_properties.add(key)
                     else:
                         entity_1_value[sub_key] = sub_value
@@ -137,12 +139,14 @@ def entity_merging_function(entity_1, entity_2):
                     # if 2 is a list and 1 doesn't have a value, just use the list from 2
                     entity_1[key] = entity_2_value
             else:
-                # if neither is a list
-                if entity_1_value is None:
-                    # if entity_1's value is None, use entity_2's value
+                # scalar/scalar: prefer the truthy value. Falsy values (None, 0, "", False)
+                # lose to any truthy value from the other entity.
+                if not entity_1_value:
                     entity_1[key] = entity_2_value
+                elif not entity_2_value:
+                    pass  # keep entity_1; entity_2 is falsy, nothing meaningful to drop
                 elif entity_1_value != entity_2_value:
-                    # keep the value from entity_1, entity_2's differing value is dropped
+                    # both truthy and differ; keep entity_1 and record that entity_2 was dropped
                     _dropped_properties.add(key)
 
             # if either was a list remove duplicate values
