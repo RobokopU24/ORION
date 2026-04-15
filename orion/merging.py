@@ -6,6 +6,7 @@ import uuid_utils as uuid
 from xxhash import xxh64_hexdigest
 from orion.biolink_utils import BiolinkUtils
 from orion.biolink_constants import *
+import orjson
 from orion.utils import quick_json_loads, quick_json_dumps
 from orion.logging import get_orion_logger
 
@@ -42,9 +43,10 @@ def flush_merge_warnings():
 # Key functions for identifying duplicates during entity merging.
 # Add entries to CUSTOM_KEY_FUNCTIONS to define custom matching logic for specific properties.
 
-# Default key function: dictionaries are duplicates if they have identical JSON representation
+# Default key function: dictionaries are duplicates if they have identical JSON representation.
+# Sort keys so two logically-equal dicts with different insertion order produce the same key.
 def default_dict_merge_key(entity):
-    return quick_json_dumps(entity)
+    return orjson.dumps(entity, option=orjson.OPT_SORT_KEYS)
 
 # Retrieval sources are duplicates if they have the same resource id and resource role
 def retrieval_sources_key(retrieval_source):
