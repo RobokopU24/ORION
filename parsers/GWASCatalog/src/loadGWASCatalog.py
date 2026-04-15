@@ -75,7 +75,7 @@ class GWASCatalogLoader(SourceDataLoader):
 
         """
         # get a reference to the data gathering class
-        gd: GetData = GetData(self.logger.level)
+        gd: GetData = GetData()
 
         # TODO test data set
         # if self.test_mode:

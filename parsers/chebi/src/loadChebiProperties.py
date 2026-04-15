@@ -57,7 +57,7 @@ class ChebiPropertiesLoader(SourceDataLoader):
         """
         #Get the version for the compounds dataset
         file_url = f'{self.data_url}{self.compounds_file}'
-        gd = GetData(self.logger.level)
+        gd = GetData()
         latest_source_version = gd.get_http_file_modified_date(file_url)
         return latest_source_version
 
@@ -67,7 +67,7 @@ class ChebiPropertiesLoader(SourceDataLoader):
 
         """
         # get a reference to the data gatherer
-        gd: GetData = GetData(self.logger.level)
+        gd: GetData = GetData()
         for dt_file in self.data_files:
             gd.pull_via_http(f'{self.data_url}{dt_file}',
                              self.data_path)

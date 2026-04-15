@@ -140,7 +140,7 @@ class ReactomeLoader(SourceDataLoader):
             html_page.raise_for_status()
 
     def get_data(self) -> bool:
-        gd: GetData = GetData(self.logger.level)
+        gd: GetData = GetData()
         gd.pull_via_http(f'{self.data_url}{self.neo4j_dump_file}',
                          self.data_path, saved_file_name=self.saved_neo4j_dump_file)
         return True

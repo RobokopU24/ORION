@@ -129,7 +129,7 @@ class FDBLoader(SourceDataLoader):
 
         """
         # and get a reference to the data gatherer
-        gd: GetData = GetData(self.logger.level)
+        gd: GetData = GetData()
 
         if(self.full_url_path==None): self.get_latest_source_version()
         # get all the files noted above

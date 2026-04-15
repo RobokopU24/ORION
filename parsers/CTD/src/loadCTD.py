@@ -136,7 +136,7 @@ class CTDLoader(SourceDataLoader):
         Gets the CTD data
         """
         # and get a reference to the data gatherer
-        gd: GetData = GetData(self.logger.level)
+        gd: GetData = GetData()
         for data_file in self.ctd_data_files:
             gd.pull_via_http(f'{self.ctd_data_url}{data_file}', data_dir=self.data_path)
 

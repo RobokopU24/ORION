@@ -110,7 +110,7 @@ class PLoader(SourceDataLoader):
 
         """
         # get a reference to the data gathering class
-        gd: GetData = GetData(self.logger.level)
+        gd: GetData = GetData()
 
         # do the real thing if we arent in debug mode
         if not self.test_mode:
