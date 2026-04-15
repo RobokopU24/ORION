@@ -25,8 +25,7 @@ _mismatched_dict_properties = set()
 # properties where two entities had different values that could not be reconciled.
 _dropped_properties = set()
 
-# use this flush pattern so we can emit warnings after each merge, even if there are many
-# (ie after each set of node/edge files)
+# Emit collected warnings, clear them, and return the collected lists for metadata capture.
 def flush_merge_warnings():
     mismatched = sorted(_mismatched_dict_properties)
     dropped = sorted(_dropped_properties)
@@ -96,19 +95,18 @@ def edge_key_function(edge, custom_key_attributes=None, edge_id_type=None):
 def entity_merging_function(entity_1, entity_2):
     # for every property of entity 2
     for key, entity_2_value in entity_2.items():
-        # if entity 1 also has the property and entity_2_value is not null/empty:
+        # if entity 1 also has the property and entity_2_value is not null:
         if (key in entity_1) and (entity_2_value is not None):
             entity_1_value = entity_1[key]
 
-            # check if one or both of them are lists so we can combine them
+            # classify both values so we can pick the right merge strategy
             entity_1_is_list = isinstance(entity_1_value, list)
             entity_2_is_list = isinstance(entity_2_value, list)
             entity_1_is_dict = isinstance(entity_1_value, dict)
             entity_2_is_dict = isinstance(entity_2_value, dict)
             if entity_1_is_dict and entity_2_is_dict:
-                # Dict-shaped biolink slots are id-keyed by construction, so merging by key is
-                # lossless at the key level. For colliding keys whose values are themselves
-                # schema-shaped dicts, recurse so nested list/dict/scalar slots merge correctly.
+                # merge by key; recursively merging entities in dict values,
+                # truthy-prefer on scalars otherwise keep entity 1's
                 for sub_key, sub_value in entity_2_value.items():
                     if sub_key in entity_1_value:
                         existing_sub_value = entity_1_value[sub_key]
@@ -132,11 +130,10 @@ def entity_merging_function(entity_1, entity_2):
                 # if 1 is a list and 2 isn't, append the value of 2 to the list from 1
                 entity_1_value.append(entity_2_value)
             elif entity_2_is_list:
+                # if 2 is a list and 1 is a non-null scalar, prepend 1 into the list from 2
                 if entity_1_value is not None:
-                    # if 2 is a list and 1 has a value, add the value of 1 to the list from 2
                     entity_1[key] = [entity_1_value] + entity_2_value
                 else:
-                    # if 2 is a list and 1 doesn't have a value, just use the list from 2
                     entity_1[key] = entity_2_value
             else:
                 # scalar/scalar: prefer the truthy value. Falsy values (None, 0, "", False)
@@ -170,8 +167,8 @@ def entity_merging_function(entity_1, entity_2):
                     entity_1[key] = list(grouped.values())
                 else:
                     entity_1[key] = sorted(set(entity_1[key]))
-        else:
-            # if entity 1 doesn't have the property, add the property from entity 2
+        elif key not in entity_1:
+            # entity 1 doesn't have the property, copy it from entity 2
             entity_1[key] = entity_2_value
     return entity_1
 
