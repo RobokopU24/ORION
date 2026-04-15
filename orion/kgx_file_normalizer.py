@@ -1,10 +1,10 @@
 import os
 import json
 import jsonlines
-import logging
-from orion.biolink_constants import (SEQUENCE_VARIANT, RETRIEVAL_SOURCES, PRIMARY_KNOWLEDGE_SOURCE,
-                                     AGGREGATOR_KNOWLEDGE_SOURCES, PUBLICATIONS, OBJECT_ID, SUBJECT_ID, PREDICATE,
-                                     SUBCLASS_OF, ORIGINAL_OBJECT, ORIGINAL_SUBJECT)
+from collections import defaultdict
+
+from orion.biolink_constants import (SEQUENCE_VARIANT, RETRIEVAL_SOURCES, PRIMARY_KNOWLEDGE_SOURCE, OBJECT_ID,
+                                     SUBJECT_ID, PREDICATE, SUBCLASS_OF, ORIGINAL_OBJECT, ORIGINAL_SUBJECT)
 from orion.normalization import NormalizationScheme, NodeNormalizer, EdgeNormalizer, EdgeNormalizationResult, \
     NormalizationFailedError
 from orion.utils import chunk_iterator
@@ -12,7 +12,6 @@ from orion.logging import get_orion_logger
 from orion.kgx_file_writer import KGXFileWriter
 
 
-EDGE_PROPERTIES_THAT_SHOULD_BE_SETS = {AGGREGATOR_KNOWLEDGE_SOURCES, PUBLICATIONS}
 NODE_NORMALIZATION_BATCH_SIZE = 1_000_000
 EDGE_NORMALIZATION_BATCH_SIZE = 1_000_000
 
@@ -198,11 +197,17 @@ class KGXFileNormalizer:
                 for failed_node_id, error_message in variant_node_norm_failures.items():
                     failed_norm_file.write(f'{failed_node_id}\t{error_message}\n')
 
+        # compute per-prefix normalization stats
+        prefix_stats = self.compute_by_prefix_stats(
+            node_norm_lookup=self.node_normalizer.node_normalization_lookup
+        )
+
         # update the metadata
         self.normalization_metadata.update({
             'node_count_pre_normalization': regular_nodes_pre_norm,
             'node_count_post_normalization': regular_nodes_post_norm,
             'node_normalization_failures': len(regular_node_norm_failures),
+            'normalization_by_prefix': prefix_stats,
         })
         if self.has_sequence_variants:
             self.normalization_metadata.update({
@@ -278,6 +283,7 @@ class KGXFileNormalizer:
                             else:
                                 normalized_predicate = edge[PREDICATE]
                                 edge_inverted_by_normalization = False
+                                normalized_edge_properties = None
 
                             # a counter for the number of normalized edges coming from a single source edge
                             # it's only used to determine how many edge splits occurred
@@ -356,6 +362,44 @@ class KGXFileNormalizer:
             'subclass_loops_removed': subclass_loops_removed,
             'final_normalized_edges': normalized_edge_count
         })
+
+    @staticmethod
+    def compute_by_prefix_stats(node_norm_lookup: dict):
+        # count totals, failures, and post-normalization prefixes per original prefix
+        prefix_total = defaultdict(int)
+        prefix_failed = defaultdict(int)
+        prefix_normalized_to = defaultdict(lambda: defaultdict(int))
+        for node_id, normalized_ids in node_norm_lookup.items():
+            original_prefix = node_id.split(':')[0]
+            prefix_total[original_prefix] += 1
+            if normalized_ids:
+                for normalized_id in normalized_ids:
+                    prefix_normalized_to[original_prefix][normalized_id.split(':')[0]] += 1
+            else:
+                prefix_failed[original_prefix] += 1
+
+        prefix_stats = {}
+        # sort the prefixes by their total count, the most common prefix is at the top of the list
+        for prefix in sorted(prefix_total, key=prefix_total.get, reverse=True):
+            failed = prefix_failed.get(prefix, 0)
+            total = prefix_total[prefix]
+            succeeded = total - failed
+            percentage = int(succeeded / total * 10000) / 100  # truncate percentage to two decimal places
+            prefix_stats[prefix] = {
+                'succeeded': succeeded,
+                'failed': failed,
+                'total': total,
+                'success_rate': percentage,
+                # sort normalized_to by curie counts, not alphabetically
+                'normalized_to': dict(sorted(prefix_normalized_to.get(prefix, {}).items(),
+                                             key=lambda x: x[1], reverse=True)),
+            }
+            if succeeded == 0:
+                logger.error(f'!!! --- ATTENTION: Curie prefix "{prefix}" failed normalization for all nodes! --- !!!')
+            elif percentage < 50:
+                logger.warning(f'WARNING: Curie prefix "{prefix}" only normalized {percentage}% of nodes!!!')
+        return prefix_stats
+
 
 def invert_edge(edge):
     inverted_edge = {}

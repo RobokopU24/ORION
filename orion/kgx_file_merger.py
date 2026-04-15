@@ -89,6 +89,11 @@ class KGXFileMerger:
             self.merge_metadata['final_edge_count'] += merged_edges_written + unmerged_edges_written
             self.merge_metadata['merged_nodes'] += self.node_graph_merger.merged_node_counter
             self.merge_metadata['merged_edges'] += self.edge_graph_merger.merged_edge_counter
+            for merger in (self.node_graph_merger, self.edge_graph_merger):
+                for warning_type in ('mismatched_properties', 'dropped_properties'):
+                    existing = set(self.merge_metadata['merge_warnings'][warning_type])
+                    existing.update(merger.merge_warnings[warning_type])
+                    self.merge_metadata['merge_warnings'][warning_type] = sorted(existing)
 
     def merge_primary_sources(self,
                               graph_sources: list):
@@ -215,23 +220,33 @@ class KGXFileMerger:
                     needs_on_disk_merge = True
                     break
 
+        pre_merge_mapping_file_path = None
+        if self.graph_spec.add_edge_id and not self.graph_spec.overwrite_edge_ids and self.output_directory:
+            pre_merge_mapping_file_path = os.path.join(self.output_directory, 'pre_merge_edge_id_mapping.jsonl')
+
         if needs_on_disk_merge:
             if self.output_directory is None:
                 raise IOError(f'DiskGraphMerger attempted but no output directory was specified.')
             return DiskGraphMerger(temp_directory=self.output_directory,
                                    edge_merging_attributes=self.graph_spec.edge_merging_attributes,
                                    add_edge_id=self.graph_spec.add_edge_id,
-                                   edge_id_type=self.graph_spec.edge_id_type)
+                                   edge_id_type=self.graph_spec.edge_id_type,
+                                   overwrite_edge_ids=self.graph_spec.overwrite_edge_ids,
+                                   pre_merge_mapping_file_path=pre_merge_mapping_file_path)
         else:
             return MemoryGraphMerger(edge_merging_attributes=self.graph_spec.edge_merging_attributes,
                                      add_edge_id=self.graph_spec.add_edge_id,
-                                     edge_id_type=self.graph_spec.edge_id_type)
+                                     edge_id_type=self.graph_spec.edge_id_type,
+                                     overwrite_edge_ids=self.graph_spec.overwrite_edge_ids,
+                                     pre_merge_mapping_file_path=pre_merge_mapping_file_path)
 
     @staticmethod
     def init_merge_metadata():
         return {'sources': {},
                 'merged_nodes': 0,
                 'merged_edges': 0,
+                'merge_warnings': {'mismatched_properties': [],
+                                   'dropped_properties': []},
                 'final_node_count': 0,
                 'final_edge_count': 0}
 
