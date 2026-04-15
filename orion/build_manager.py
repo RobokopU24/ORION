@@ -569,6 +569,7 @@ class GraphBuilder:
                 graph_wide_strict_norm = graph_yaml.get('strict_normalization', None)
                 add_edge_id = graph_yaml.get('add_edge_id', None)
                 edge_id_type = graph_yaml.get('edge_id_type', None)
+                overwrite_edge_ids = graph_yaml.get('overwrite_edge_ids', True)
                 edge_merging_attributes = graph_yaml.get('edge_merging_attributes', None)
                 if graph_wide_conflation is not None and type(graph_wide_conflation) != bool:
                     raise GraphSpecError(f'Invalid type (conflation: {graph_wide_conflation}), must be true or false.')
@@ -578,6 +579,8 @@ class GraphBuilder:
                     raise GraphSpecError(f'Invalid type (add_edge_id: {add_edge_id}), must be true or false.')
                 if edge_id_type is not None and edge_id_type not in ('orion', 'uuid'):
                     raise GraphSpecError(f'Invalid edge_id_type: {edge_id_type}, must be "orion" or "uuid".')
+                if type(overwrite_edge_ids) != bool:
+                    raise GraphSpecError(f'Invalid type (overwrite_edge_ids: {overwrite_edge_ids}), must be true or false.')
                 if edge_id_type is not None and add_edge_id is None or add_edge_id is False:
                     add_edge_id = True
                 if graph_wide_node_norm_version == 'latest':
@@ -608,6 +611,7 @@ class GraphBuilder:
                                        graph_output_format=graph_output_format,
                                        add_edge_id=add_edge_id,
                                        edge_id_type=edge_id_type,
+                                       overwrite_edge_ids=overwrite_edge_ids,
                                        edge_merging_attributes=edge_merging_attributes,
                                        subgraphs=subgraph_sources,
                                        sources=data_sources)
