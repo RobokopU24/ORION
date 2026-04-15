@@ -19,6 +19,26 @@ bmt = BiolinkUtils()
 
 logger = get_orion_logger("orion.merging")
 
+# mismatches where one entity has a dict for a property and another has another type.
+_mismatched_dict_properties = set()
+# properties where two entities had different values that could not be reconciled.
+_dropped_properties = set()
+
+# use this flush pattern so we can emit warnings after each merge, even if there are many
+# (ie after each set of node/edge files)
+def flush_merge_warnings():
+    mismatched = sorted(_mismatched_dict_properties)
+    dropped = sorted(_dropped_properties)
+    if mismatched:
+        logger.warning(f'Mismatched types encountered while merging properties: '
+                       f'{mismatched}. entity_1 values were kept.')
+    if dropped:
+        logger.warning(f'Property value collisions encountered while merging properties: '
+                       f'{dropped}. entity_1 values were kept, entity_2 values were dropped.')
+    _mismatched_dict_properties.clear()
+    _dropped_properties.clear()
+    return {'mismatched_properties': mismatched, 'dropped_properties': dropped}
+
 # Key functions for identifying duplicates during entity merging.
 # Add entries to CUSTOM_KEY_FUNCTIONS to define custom matching logic for specific properties.
 
@@ -81,7 +101,27 @@ def entity_merging_function(entity_1, entity_2):
             # check if one or both of them are lists so we can combine them
             entity_1_is_list = isinstance(entity_1_value, list)
             entity_2_is_list = isinstance(entity_2_value, list)
-            if entity_1_is_list and entity_2_is_list:
+            entity_1_is_dict = isinstance(entity_1_value, dict)
+            entity_2_is_dict = isinstance(entity_2_value, dict)
+            if entity_1_is_dict and entity_2_is_dict:
+                # Dict-shaped biolink slots are id-keyed by construction, so merging by key is
+                # lossless at the key level. For colliding keys whose values are themselves
+                # schema-shaped dicts, recurse so nested list/dict/scalar slots merge correctly.
+                for sub_key, sub_value in entity_2_value.items():
+                    if sub_key in entity_1_value:
+                        existing_sub_value = entity_1_value[sub_key]
+                        if isinstance(existing_sub_value, dict) and isinstance(sub_value, dict):
+                            entity_1_value[sub_key] = entity_merging_function(existing_sub_value, sub_value)
+                        elif existing_sub_value is None:
+                            entity_1_value[sub_key] = sub_value
+                        elif existing_sub_value != sub_value:
+                            # keep entity_1's value, matching the scalar policy below
+                            _dropped_properties.add(key)
+                    else:
+                        entity_1_value[sub_key] = sub_value
+            elif entity_1_is_dict or entity_2_is_dict:
+                _mismatched_dict_properties.add(key)
+            elif entity_1_is_list and entity_2_is_list:
                 # if they're both lists just concat them
                 entity_1_value.extend(entity_2_value)
             elif entity_1_is_list:
@@ -99,7 +139,9 @@ def entity_merging_function(entity_1, entity_2):
                 if entity_1_value is None:
                     # if entity_1's value is None, use entity_2's value
                     entity_1[key] = entity_2_value
-                # else: keep the value from entity_1
+                elif entity_1_value != entity_2_value:
+                    # keep the value from entity_1, entity_2's differing value is dropped
+                    _dropped_properties.add(key)
 
             # if either was a list remove duplicate values
             if entity_1_is_list or entity_2_is_list:
@@ -137,6 +179,7 @@ class GraphMerger:
                  overwrite_edge_ids=True):
         self.merged_node_counter = 0
         self.merged_edge_counter = 0
+        self.merge_warnings = {'mismatched_properties': set(), 'dropped_properties': set()}
         self.edge_merging_attributes = edge_merging_attributes
         self.add_edge_id = add_edge_id
         self.edge_id_type = edge_id_type
@@ -173,6 +216,10 @@ class GraphMerger:
 
     def get_pre_merge_edge_id_mapping(self):
         raise NotImplementedError
+
+    def _record_merge_warnings(self, warnings):
+        self.merge_warnings['mismatched_properties'].update(warnings['mismatched_properties'])
+        self.merge_warnings['dropped_properties'].update(warnings['dropped_properties'])
 
 
 class DiskGraphMerger(GraphMerger):
@@ -259,12 +306,15 @@ class DiskGraphMerger(GraphMerger):
 
     def get_merged_nodes_jsonl(self):
         self.flush_node_buffer()
-        for json_line in self.get_merged_entities(file_paths=self.temp_file_paths[NODE_ENTITY_TYPE],
-                                                  merge_function=entity_merging_function,
-                                                  entity_type=NODE_ENTITY_TYPE):
-            yield json_line
-        for file_path in self.temp_file_paths[NODE_ENTITY_TYPE]:
-            os.remove(file_path)
+        try:
+            for json_line in self.get_merged_entities(file_paths=self.temp_file_paths[NODE_ENTITY_TYPE],
+                                                      merge_function=entity_merging_function,
+                                                      entity_type=NODE_ENTITY_TYPE):
+                yield json_line
+            for file_path in self.temp_file_paths[NODE_ENTITY_TYPE]:
+                os.remove(file_path)
+        finally:
+            self._record_merge_warnings(flush_merge_warnings())
 
     def flush_node_buffer(self):
         if not self.entity_buffers[NODE_ENTITY_TYPE]:
@@ -290,6 +340,7 @@ class DiskGraphMerger(GraphMerger):
             if self._pre_merge_mapping_file is not None:
                 self._pre_merge_mapping_file.close()
                 self._pre_merge_mapping_file = None
+            self._record_merge_warnings(flush_merge_warnings())
 
     def flush_edge_buffer(self):
         if not self.entity_buffers[EDGE_ENTITY_TYPE]:
@@ -498,6 +549,7 @@ class MemoryGraphMerger(GraphMerger):
     def get_merged_nodes_jsonl(self):
         for node in self.nodes.values():
             yield f'{quick_json_dumps(node)}\n'
+        self._record_merge_warnings(flush_merge_warnings())
 
     def get_merged_edges_jsonl(self):
         for edge in self.edges.values():
@@ -506,6 +558,7 @@ class MemoryGraphMerger(GraphMerger):
             with open(self.pre_merge_mapping_file_path, 'w') as f:
                 for post_merge_id, pre_merge_ids in self.pre_merge_edge_id_mapping.items():
                     f.write(f'{quick_json_dumps({"post_merge_id": post_merge_id, "pre_merge_ids": pre_merge_ids})}\n')
+        self._record_merge_warnings(flush_merge_warnings())
 
     def get_pre_merge_edge_id_mapping(self):
         return self.pre_merge_edge_id_mapping
