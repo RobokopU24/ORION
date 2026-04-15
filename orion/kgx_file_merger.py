@@ -89,12 +89,11 @@ class KGXFileMerger:
             self.merge_metadata['final_edge_count'] += merged_edges_written + unmerged_edges_written
             self.merge_metadata['merged_nodes'] += self.node_graph_merger.merged_node_counter
             self.merge_metadata['merged_edges'] += self.edge_graph_merger.merged_edge_counter
-            for entity_type, merger in (('nodes', self.node_graph_merger),
-                                        ('edges', self.edge_graph_merger)):
+            for merger in (self.node_graph_merger, self.edge_graph_merger):
                 for warning_type in ('mismatched_properties', 'dropped_properties'):
-                    existing = set(self.merge_metadata['merge_warnings'][entity_type][warning_type])
+                    existing = set(self.merge_metadata['merge_warnings'][warning_type])
                     existing.update(merger.merge_warnings[warning_type])
-                    self.merge_metadata['merge_warnings'][entity_type][warning_type] = sorted(existing)
+                    self.merge_metadata['merge_warnings'][warning_type] = sorted(existing)
 
     def merge_primary_sources(self,
                               graph_sources: list):
@@ -246,10 +245,8 @@ class KGXFileMerger:
         return {'sources': {},
                 'merged_nodes': 0,
                 'merged_edges': 0,
-                'merge_warnings': {'nodes': {'mismatched_properties': [],
-                                             'dropped_properties': []},
-                                   'edges': {'mismatched_properties': [],
-                                             'dropped_properties': []}},
+                'merge_warnings': {'mismatched_properties': [],
+                                   'dropped_properties': []},
                 'final_node_count': 0,
                 'final_edge_count': 0}
 
