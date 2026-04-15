@@ -660,3 +660,58 @@ def test_preserve_flag_ignored_without_add_edge_id_on_disk(tmp_path):
     preserve_flag_ignored_without_add_edge_id_test(
         DiskGraphMerger(temp_directory=str(tmp_path), chunk_size=4,
                         add_edge_id=False, overwrite_edge_ids=False))
+
+
+def truthy_scalar_collision_test(graph_merger: GraphMerger):
+    # scalar/scalar merges: the truthy value always wins regardless of which entity has it.
+    # falsy values (None, 0, "", False) lose to any truthy value from the other entity,
+    # and when both are truthy-but-different the first one wins and the second is recorded as dropped.
+    test_edges = [
+        # falsy on left, truthy on right -> right wins, no drop recorded
+        make_edge(1, 2, zero_then_int=0,     empty_then_str="",    none_then_str=None),
+        make_edge(1, 2, zero_then_int=5,     empty_then_str="foo", none_then_str="bar"),
+        # truthy on left, falsy on right -> left wins, no drop recorded
+        make_edge(3, 4, int_then_zero=5,     str_then_empty="foo", str_then_none="bar"),
+        make_edge(3, 4, int_then_zero=0,     str_then_empty="",    str_then_none=None),
+        # both truthy but differ -> first wins, second dropped
+        make_edge(5, 6, conflicting="first"),
+        make_edge(5, 6, conflicting="second"),
+        # both truthy and equal -> no drop recorded
+        make_edge(7, 8, agreeing="same"),
+        make_edge(7, 8, agreeing="same"),
+    ]
+    graph_merger.merge_edges(test_edges)
+    merged_edges = [json.loads(e) for e in graph_merger.get_merged_edges_jsonl()]
+    edges_by_subject = {e[SUBJECT_ID]: e for e in merged_edges}
+
+    falsy_left = edges_by_subject['NODE:1']
+    assert falsy_left['zero_then_int'] == 5
+    assert falsy_left['empty_then_str'] == "foo"
+    assert falsy_left['none_then_str'] == "bar"
+
+    truthy_left = edges_by_subject['NODE:3']
+    assert truthy_left['int_then_zero'] == 5
+    assert truthy_left['str_then_empty'] == "foo"
+    assert truthy_left['str_then_none'] == "bar"
+
+    conflict = edges_by_subject['NODE:5']
+    assert conflict['conflicting'] == "first"
+
+    agreeing = edges_by_subject['NODE:7']
+    assert agreeing['agreeing'] == "same"
+
+    # only the genuine truthy/truthy collision should be recorded as dropped;
+    # falsy-vs-truthy and equal-value merges must not show up here
+    dropped = graph_merger.merge_warnings['dropped_properties']
+    assert 'conflicting' in dropped
+    for name in ('zero_then_int', 'empty_then_str', 'none_then_str',
+                 'int_then_zero', 'str_then_empty', 'str_then_none', 'agreeing'):
+        assert name not in dropped
+
+
+def test_truthy_scalar_collision_in_memory():
+    truthy_scalar_collision_test(MemoryGraphMerger())
+
+
+def test_truthy_scalar_collision_on_disk(tmp_path):
+    truthy_scalar_collision_test(DiskGraphMerger(temp_directory=str(tmp_path), chunk_size=4))
