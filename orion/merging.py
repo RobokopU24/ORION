@@ -314,9 +314,10 @@ class DiskGraphMerger(GraphMerger):
                                                       merge_function=entity_merging_function,
                                                       entity_type=NODE_ENTITY_TYPE):
                 yield json_line
-            for file_path in self.temp_file_paths[NODE_ENTITY_TYPE]:
-                os.remove(file_path)
         finally:
+            for file_path in self.temp_file_paths[NODE_ENTITY_TYPE]:
+                if os.path.exists(file_path):
+                    os.remove(file_path)
             self._record_merge_warnings(flush_merge_warnings())
 
     def flush_node_buffer(self):
@@ -337,9 +338,10 @@ class DiskGraphMerger(GraphMerger):
                                                       entity_type=EDGE_ENTITY_TYPE,
                                                       track_pre_merge_ids=track_pre_merge_ids):
                 yield json_line
-            for file_path in self.temp_file_paths[EDGE_ENTITY_TYPE]:
-                os.remove(file_path)
         finally:
+            for file_path in self.temp_file_paths[EDGE_ENTITY_TYPE]:
+                if os.path.exists(file_path):
+                    os.remove(file_path)
             if self._pre_merge_mapping_file is not None:
                 self._pre_merge_mapping_file.close()
                 self._pre_merge_mapping_file = None
