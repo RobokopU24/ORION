@@ -179,7 +179,7 @@ class DiskGraphMerger(GraphMerger):
 
     def __init__(self, temp_directory: str = None, chunk_size: int = 10_000_000,
                  edge_merging_attributes=None, add_edge_id=False, edge_id_type=None,
-                 overwrite_edge_ids=True):
+                 overwrite_edge_ids=True, pre_merge_mapping_file_path=None):
 
         super().__init__(edge_merging_attributes=edge_merging_attributes,
                          add_edge_id=add_edge_id,
@@ -197,7 +197,11 @@ class DiskGraphMerger(GraphMerger):
             NODE_ENTITY_TYPE: [],
             EDGE_ENTITY_TYPE: []
         }
-        self.pre_merge_edge_id_mapping = {}
+        self.pre_merge_mapping_file_path = pre_merge_mapping_file_path
+        # Transient handle opened by get_merged_edges_jsonl and written to as each merged
+        # key is finalized inside get_merged_entities. Avoids buffering the full mapping
+        # in memory, which would defeat the purpose of DiskGraphMerger.
+        self._pre_merge_mapping_file = None
 
     def merge_node(self, node):
         self.node_ids.add(node['id'])
@@ -271,13 +275,21 @@ class DiskGraphMerger(GraphMerger):
 
     def get_merged_edges_jsonl(self):
         self.flush_edge_buffer()
-        for json_line in self.get_merged_entities(file_paths=self.temp_file_paths[EDGE_ENTITY_TYPE],
-                                                  merge_function=entity_merging_function,
-                                                  entity_type=EDGE_ENTITY_TYPE,
-                                                  track_pre_merge_ids=self.add_edge_id and not self.overwrite_edge_ids):
-            yield json_line
-        for file_path in self.temp_file_paths[EDGE_ENTITY_TYPE]:
-            os.remove(file_path)
+        track_pre_merge_ids = self.add_edge_id and not self.overwrite_edge_ids
+        try:
+            if track_pre_merge_ids and self.pre_merge_mapping_file_path:
+                self._pre_merge_mapping_file = open(self.pre_merge_mapping_file_path, 'w')
+            for json_line in self.get_merged_entities(file_paths=self.temp_file_paths[EDGE_ENTITY_TYPE],
+                                                      merge_function=entity_merging_function,
+                                                      entity_type=EDGE_ENTITY_TYPE,
+                                                      track_pre_merge_ids=track_pre_merge_ids):
+                yield json_line
+            for file_path in self.temp_file_paths[EDGE_ENTITY_TYPE]:
+                os.remove(file_path)
+        finally:
+            if self._pre_merge_mapping_file is not None:
+                self._pre_merge_mapping_file.close()
+                self._pre_merge_mapping_file = None
 
     def flush_edge_buffer(self):
         if not self.entity_buffers[EDGE_ENTITY_TYPE]:
@@ -385,15 +397,25 @@ class DiskGraphMerger(GraphMerger):
                 if track_pre_merge_ids:
                     # It looks like we're overwriting all edge ids, but you don't get here without a merge occurring
                     merged_entity[EDGE_ID] = min_key
-                    if pre_merge_ids:
-                        self.pre_merge_edge_id_mapping[min_key] = pre_merge_ids
+                    if pre_merge_ids and self._pre_merge_mapping_file is not None:
+                        self._pre_merge_mapping_file.write(
+                            f'{quick_json_dumps({"post_merge_id": min_key, "pre_merge_ids": pre_merge_ids})}\n')
                 yield f'{quick_json_dumps(merged_entity)}\n'
             # otherwise we can just write the raw json to file
             else:
                 yield f'{merged_json}\n'
 
     def get_pre_merge_edge_id_mapping(self):
-        return self.pre_merge_edge_id_mapping
+        # Read the mapping back from the streamed file. Primarily for test/debug use;
+        # production flow writes the file directly and does not re-read it.
+        if not self.pre_merge_mapping_file_path or not os.path.exists(self.pre_merge_mapping_file_path):
+            return {}
+        result = {}
+        with open(self.pre_merge_mapping_file_path) as f:
+            for line in f:
+                entry = quick_json_loads(line)
+                result[entry['post_merge_id']] = entry['pre_merge_ids']
+        return result
 
     def flush(self):
         self.flush_node_buffer()
@@ -406,7 +428,8 @@ class MemoryGraphMerger(GraphMerger):
                  edge_merging_attributes=None,
                  add_edge_id=False,
                  edge_id_type=None,
-                 overwrite_edge_ids=True):
+                 overwrite_edge_ids=True,
+                 pre_merge_mapping_file_path=None):
         super().__init__(edge_merging_attributes=edge_merging_attributes,
                          add_edge_id=add_edge_id,
                          edge_id_type=edge_id_type,
@@ -414,6 +437,7 @@ class MemoryGraphMerger(GraphMerger):
         self.nodes = {}
         self.edges = {}
         self.pre_merge_edge_id_mapping = defaultdict(list)
+        self.pre_merge_mapping_file_path = pre_merge_mapping_file_path
 
     # merge a list of nodes (dictionaries not kgxnode objects!) into the existing set
     def merge_nodes(self, nodes):
@@ -478,6 +502,10 @@ class MemoryGraphMerger(GraphMerger):
     def get_merged_edges_jsonl(self):
         for edge in self.edges.values():
             yield f'{edge}\n'
+        if self.pre_merge_mapping_file_path and self.pre_merge_edge_id_mapping:
+            with open(self.pre_merge_mapping_file_path, 'w') as f:
+                for post_merge_id, pre_merge_ids in self.pre_merge_edge_id_mapping.items():
+                    f.write(f'{quick_json_dumps({"post_merge_id": post_merge_id, "pre_merge_ids": pre_merge_ids})}\n')
 
     def get_pre_merge_edge_id_mapping(self):
         return self.pre_merge_edge_id_mapping

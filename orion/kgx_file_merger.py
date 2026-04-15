@@ -3,7 +3,7 @@ import jsonlines
 import json
 from datetime import datetime
 from itertools import chain
-from orion.utils import quick_jsonl_file_iterator, quick_json_dumps
+from orion.utils import quick_jsonl_file_iterator
 from orion.logging import get_orion_logger
 from orion.kgxmodel import GraphSpec, GraphSource, SubGraphSource
 from orion.biolink_constants import SUBJECT_ID, OBJECT_ID
@@ -183,15 +183,6 @@ class KGXFileMerger:
                 edges_out.write(edge_line)
                 edges_written += 1
 
-        if self.graph_spec.add_edge_id and not self.graph_spec.overwrite_edge_ids:
-            mapping = self.edge_graph_merger.get_pre_merge_edge_id_mapping()
-            mapping_filename = f'pre_merge_edge_id_mapping.jsonl'
-            mapping_file_path = os.path.join(self.output_directory, mapping_filename)
-            logger.info(f'Writing pre-merge edge ID mapping to file...')
-            with open(mapping_file_path, 'w') as mf:
-                for post_merge_id, pre_merge_ids in mapping.items():
-                    mf.write(f'{quick_json_dumps({"post_merge_id": post_merge_id, "pre_merge_ids": pre_merge_ids})}\n')
-
         return nodes_written, edges_written
 
     def __write_unmerged_edges_to_file(self):
@@ -224,6 +215,10 @@ class KGXFileMerger:
                     needs_on_disk_merge = True
                     break
 
+        pre_merge_mapping_file_path = None
+        if self.graph_spec.add_edge_id and not self.graph_spec.overwrite_edge_ids and self.output_directory:
+            pre_merge_mapping_file_path = os.path.join(self.output_directory, 'pre_merge_edge_id_mapping.jsonl')
+
         if needs_on_disk_merge:
             if self.output_directory is None:
                 raise IOError(f'DiskGraphMerger attempted but no output directory was specified.')
@@ -231,12 +226,14 @@ class KGXFileMerger:
                                    edge_merging_attributes=self.graph_spec.edge_merging_attributes,
                                    add_edge_id=self.graph_spec.add_edge_id,
                                    edge_id_type=self.graph_spec.edge_id_type,
-                                   overwrite_edge_ids=self.graph_spec.overwrite_edge_ids)
+                                   overwrite_edge_ids=self.graph_spec.overwrite_edge_ids,
+                                   pre_merge_mapping_file_path=pre_merge_mapping_file_path)
         else:
             return MemoryGraphMerger(edge_merging_attributes=self.graph_spec.edge_merging_attributes,
                                      add_edge_id=self.graph_spec.add_edge_id,
                                      edge_id_type=self.graph_spec.edge_id_type,
-                                     overwrite_edge_ids=self.graph_spec.overwrite_edge_ids)
+                                     overwrite_edge_ids=self.graph_spec.overwrite_edge_ids,
+                                     pre_merge_mapping_file_path=pre_merge_mapping_file_path)
 
     @staticmethod
     def init_merge_metadata():

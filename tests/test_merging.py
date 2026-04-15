@@ -532,7 +532,8 @@ def test_preserve_singleton_with_existing_id_in_memory():
 def test_preserve_singleton_with_existing_id_on_disk(tmp_path):
     preserve_singleton_with_existing_id_test(
         DiskGraphMerger(temp_directory=str(tmp_path), chunk_size=4,
-                        add_edge_id=True, overwrite_edge_ids=False))
+                        add_edge_id=True, overwrite_edge_ids=False,
+                        pre_merge_mapping_file_path=str(tmp_path / 'mapping.jsonl')))
 
 
 def preserve_singleton_without_id_gets_generated_test(graph_merger: GraphMerger):
@@ -553,7 +554,8 @@ def test_preserve_singleton_without_id_in_memory():
 def test_preserve_singleton_without_id_on_disk(tmp_path):
     preserve_singleton_without_id_gets_generated_test(
         DiskGraphMerger(temp_directory=str(tmp_path), chunk_size=4,
-                        add_edge_id=True, overwrite_edge_ids=False))
+                        add_edge_id=True, overwrite_edge_ids=False,
+                        pre_merge_mapping_file_path=str(tmp_path / 'mapping.jsonl')))
 
 
 def preserve_merge_records_original_ids_test(graph_merger: GraphMerger):
@@ -579,7 +581,8 @@ def test_preserve_merge_records_original_ids_in_memory():
 def test_preserve_merge_records_original_ids_on_disk(tmp_path):
     preserve_merge_records_original_ids_test(
         DiskGraphMerger(temp_directory=str(tmp_path), chunk_size=4,
-                        add_edge_id=True, overwrite_edge_ids=False))
+                        add_edge_id=True, overwrite_edge_ids=False,
+                        pre_merge_mapping_file_path=str(tmp_path / 'mapping.jsonl')))
 
 
 def preserve_merge_partial_ids_test(graph_merger: GraphMerger):
@@ -606,7 +609,8 @@ def test_preserve_merge_partial_ids_in_memory():
 def test_preserve_merge_partial_ids_on_disk(tmp_path):
     preserve_merge_partial_ids_test(
         DiskGraphMerger(temp_directory=str(tmp_path), chunk_size=4,
-                        add_edge_id=True, overwrite_edge_ids=False))
+                        add_edge_id=True, overwrite_edge_ids=False,
+                        pre_merge_mapping_file_path=str(tmp_path / 'mapping.jsonl')))
 
 
 def preserve_merge_no_original_ids_test(graph_merger: GraphMerger):
@@ -628,7 +632,8 @@ def test_preserve_merge_no_original_ids_in_memory():
 def test_preserve_merge_no_original_ids_on_disk(tmp_path):
     preserve_merge_no_original_ids_test(
         DiskGraphMerger(temp_directory=str(tmp_path), chunk_size=4,
-                        add_edge_id=True, overwrite_edge_ids=False))
+                        add_edge_id=True, overwrite_edge_ids=False,
+                        pre_merge_mapping_file_path=str(tmp_path / 'mapping.jsonl')))
 
 
 def preserve_flag_ignored_without_add_edge_id_test(graph_merger: GraphMerger):
