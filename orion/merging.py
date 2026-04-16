@@ -56,6 +56,12 @@ CUSTOM_KEY_FUNCTIONS = {
     RETRIEVAL_SOURCES: retrieval_sources_key
 }
 
+# Properties that are part of the merge key (guaranteed identical) or
+# expected to differ (id) — skip them to avoid false collision warnings
+# and unnecessary comparisons.
+_MERGE_SKIP_KEYS = frozenset({'id', SUBJECT_ID, OBJECT_ID, PREDICATE, PRIMARY_KNOWLEDGE_SOURCE})
+
+
 def node_key_function(node):
     return node['id']
 
@@ -87,7 +93,7 @@ def edge_key_function(edge, custom_key_attributes=None, edge_id_type=None):
         key_input = standard_attributes
 
     if edge_id_type == 'uuid':
-        return str(uuid.uuid5(ORION_UUID_NAMESPACE, key_input))
+        return f"urn:uuid:{uuid.uuid5(ORION_UUID_NAMESPACE, key_input)}"
     else:
         return xxh64_hexdigest(key_input)
 
@@ -95,6 +101,8 @@ def edge_key_function(edge, custom_key_attributes=None, edge_id_type=None):
 def entity_merging_function(entity_1, entity_2):
     # for every property of entity 2
     for key, entity_2_value in entity_2.items():
+        if key in _MERGE_SKIP_KEYS:
+            continue
         # if entity 1 also has the property and entity_2_value is not null:
         if (key in entity_1) and (entity_2_value is not None):
             entity_1_value = entity_1[key]
