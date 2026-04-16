@@ -12,12 +12,11 @@ from orion.ingest_pipeline import RESOURCE_HOGS
 
 logger = get_orion_logger("orion.kgx_file_merger")
 
-CONNECTED_EDGE_SUBSET = 'connected_edge_subset'
-DONT_MERGE = 'dont_merge_edges'
-SECONDARY_MERGE_STRATEGIES = [CONNECTED_EDGE_SUBSET]
-
-
 class KGXFileMerger:
+
+    CONNECTED_EDGE_SUBSET = 'connected_edge_subset'
+    DONT_MERGE = 'dont_merge_edges'
+    SECONDARY_MERGE_STRATEGIES = [CONNECTED_EDGE_SUBSET]
 
     def __init__(self,
                  graph_spec: GraphSpec,
@@ -51,9 +50,9 @@ class KGXFileMerger:
             self.merge_metadata["sources"][graph_source.id] = {'release_version': graph_source.version}
             if not graph_source.merge_strategy:
                 primary_sources.append(graph_source)
-            elif graph_source.merge_strategy in SECONDARY_MERGE_STRATEGIES:
+            elif graph_source.merge_strategy in self.SECONDARY_MERGE_STRATEGIES:
                 secondary_sources.append(graph_source)
-            elif graph_source.merge_strategy == DONT_MERGE:
+            elif graph_source.merge_strategy == self.DONT_MERGE:
                 dont_merge_sources.append(graph_source)
             else:
                 self.merge_metadata['merge_error'] = f'Unsupported merge strategy specified: ' \
@@ -119,8 +118,8 @@ class KGXFileMerger:
         primary_node_ids = None
         for i, graph_source in enumerate(graph_sources, start=1):
             logger.info(f"Processing {graph_source.id}. (secondary source {i}/{len(graph_sources)})")
-            if graph_source.merge_strategy == CONNECTED_EDGE_SUBSET:
-                logger.info(f"Merging {graph_source.id} using {CONNECTED_EDGE_SUBSET} merge strategy.")
+            if graph_source.merge_strategy == self.CONNECTED_EDGE_SUBSET:
+                logger.info(f"Merging {graph_source.id} using {self.CONNECTED_EDGE_SUBSET} merge strategy.")
 
                 # For connected_edge_subset, only merge edges that connect to nodes in primary sources.
                 # Here we establish that list once, before any connected_edge_subset sources are merged in, so we don't

@@ -14,7 +14,7 @@ from orion.config import config
 from orion.data_sources import get_available_data_sources, get_data_source_metadata_path
 from orion.exceptions import DataVersionError, GraphSpecError
 from orion.ingest_pipeline import IngestPipeline
-from orion.kgx_file_merger import KGXFileMerger, DONT_MERGE
+from orion.kgx_file_merger import KGXFileMerger
 from orion.kgx_validation import validate_graph
 from orion.neo4j_tools import create_neo4j_dump
 from orion.memgraph_tools import create_memgraph_dump
@@ -590,7 +590,7 @@ class GraphBuilder:
 
                 # apply them to all the data sources, this will overwrite anything defined at the source level
                 for data_source in data_sources:
-                    if data_source.merge_strategy == DONT_MERGE and add_edge_id is not None:
+                    if data_source.merge_strategy == KGXFileMerger.DONT_MERGE and add_edge_id is not None:
                         raise GraphSpecError(f'Graph {graph_id}, source {data_source.name} has merge_strategy:'
                                              f' dont_merge, which is incompatible with add_edge_id.')
                     if graph_wide_node_norm_version is not None:
