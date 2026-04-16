@@ -4,10 +4,18 @@ graphs:
     graph_name: Example Graph
     graph_description: 'This is a small graph that can be used as an example.'
     graph_url: ''
-    output_format:
     # here are some examples of graph wide graph spec options
-    # node_normalization_version: '2.3.18'
-    # edge_normalization_version: '4.2.1'
+    #
+    # Edge ID options:
+    # add_edge_id: true         - generate a deterministic id for each edge based on its merge key
+    #                             (subject + predicate + object + primary_knowledge_source + qualifiers).
+    # edge_id_type: uuid        - optionally use urn:uuid: formatted uuid5 ids instead of default xxhash ids.
+    # overwrite_edge_ids: false - preserve original edge ids for edges that are not involved in a merge.
+    #                             When a merge does occur, the merged edge gets the generated id and
+    #                             a mapping from the new id to the original pre-merge ids is recorded.
+    #                             When true (default), all edge ids are replaced with generated ids.
+    #
+    # output_format: neo4j
     # conflation: False
     # strict_normalization: True
     sources:
