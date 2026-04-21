@@ -77,12 +77,8 @@ class IngestPipeline:
             return False
 
         if not normalization_scheme:
-            logger.debug(f"No normalization scheme provided, using defaults/latest...")
+            logger.debug(f"No normalization scheme provided, using defaults...")
             normalization_scheme = NormalizationScheme()
-        if normalization_scheme.node_normalization_version == 'latest':
-            normalization_scheme.node_normalization_version = self.get_latest_node_normalization_version()
-        if normalization_scheme.edge_normalization_version == 'latest':
-            normalization_scheme.edge_normalization_version = self.get_latest_edge_normalization_version()
 
         if not self.run_normalization_stage(source_id,
                                             source_version,
@@ -380,14 +376,6 @@ class IngestPipeline:
                                                           normalization_error=repr(e),
                                                           normalization_time=current_time)
             return False
-
-    def get_latest_node_normalization_version(self):
-        if self.latest_node_normalization_version is not None:
-            return self.latest_node_normalization_version
-        node_normalizer = NodeNormalizer()
-        node_norm_version = node_normalizer.get_current_node_norm_version()
-        self.latest_node_normalization_version = node_norm_version
-        return node_norm_version
 
     def get_latest_edge_normalization_version(self):
         if self.latest_edge_normalization_version is not None:

@@ -39,9 +39,7 @@ class KGXFileNormalizer:
                  default_provenance: str = None,
                  process_in_memory: bool = True,
                  preserve_unconnected_nodes: bool = False):
-        if not normalization_scheme:
-            normalization_scheme = NormalizationScheme()
-        self.normalization_scheme = normalization_scheme
+        self.normalization_scheme = normalization_scheme if normalization_scheme is not None else NormalizationScheme()
         self.source_nodes_file_path = source_nodes_file_path
         self.nodes_output_file_path = nodes_output_file_path
         self.node_norm_map_file_path = node_norm_map_file_path
@@ -60,8 +58,7 @@ class KGXFileNormalizer:
         self.process_in_memory = process_in_memory
         self.preserve_unconnected_nodes = preserve_unconnected_nodes
         self.default_provenance = default_provenance
-        self.normalization_metadata = {'strict': normalization_scheme.strict,
-                                       'conflation': normalization_scheme.conflation}
+        self.normalization_metadata = self.normalization_scheme.get_metadata_representation()
 
         # instances of the normalization service wrappers
         # strict normalization flag tells normalizer to throw away any nodes that don't normalize
@@ -89,10 +86,6 @@ class KGXFileNormalizer:
     # normalize the nodes and write them to the new file
     # also write a file with the node ids that did not successfully normalize
     def normalize_node_file(self):
-
-        # get the current node normalizer version
-        node_norm_version = self.node_normalizer.get_current_node_norm_version()
-        self.normalization_metadata['node_norm_version'] = node_norm_version
 
         regular_nodes_pre_norm = 0
         regular_nodes_post_norm = 0

@@ -2,10 +2,11 @@
 import requests
 from requests.adapters import HTTPAdapter, Retry
 
+from orion.config import config
+
 from parsers.LitCoin.src.NER.nameres import NameResNEREngine
 from parsers.LitCoin.src.NER.sapbert import SAPBERTNEREngine
 from parsers.LitCoin.src.bagel.bagel_gpt import ask_classes_and_descriptions, LLM_RESULTS
-from orion.normalization import NODE_NORMALIZATION_URL
 
 
 BAGEL_SUBJECT_SYN_TYPE = 'subject_bagel_syn_type'
@@ -119,7 +120,7 @@ def augment_results(terms, nameres, taxes):
     augs = nameres.reverse_lookup(curies)
     for curie in augs:
         terms[curie].update(augs[curie])
-        resp = requests.get(f"{NODE_NORMALIZATION_URL}/get_normalized_nodes?curie="+curie+"&conflate=true&drug_chemical_conflate=true&description=true")
+        resp = requests.get(f"{config.NODE_NORMALIZATION_URL}/get_normalized_nodes?curie="+curie+"&conflate=true&drug_chemical_conflate=true&description=true")
         if resp.status_code == 200:
             result = resp.json()
             try:
@@ -131,7 +132,7 @@ def augment_results(terms, nameres, taxes):
         if len(annotation["taxa"]) > 0:
             tax_id = annotation["taxa"][0]
             if tax_id not in taxes:
-                resp = requests.get(f"{NODE_NORMALIZATION_URL}/get_normalized_nodes?curie="+tax_id)
+                resp = requests.get(f"{config.NODE_NORMALIZATION_URL}/get_normalized_nodes?curie="+tax_id)
                 if resp.status_code == 200:
                     result = resp.json()
                     try:

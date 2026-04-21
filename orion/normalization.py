@@ -1,5 +1,5 @@
 import os
-import logging
+import functools
 import requests
 import time
 
@@ -13,7 +13,22 @@ from orion.config import config
 
 logger = get_orion_logger("orion.normalization")
 
-NORMALIZATION_CODE_VERSION = '1.4'
+NORMALIZATION_CODE_VERSION = '1.4.0'
+
+
+@functools.lru_cache(maxsize=1)
+def get_current_node_norm_version():
+    """Retrieve the current version of the Node Normalizer API."""
+    resp = requests.get(f'{config.NODE_NORMALIZATION_URL}/openapi.json')
+    resp.raise_for_status()
+    return resp.json()['info']['version']
+
+@functools.lru_cache(maxsize=1)
+def get_current_babel_version():
+    """Retrieve the version of Babel the Node Normalizer is currently backed by"""
+    resp = requests.get(f'{config.NODE_NORMALIZATION_URL}/status')
+    resp.raise_for_status()
+    return resp.json()['babel_version']
 
 # node property name for node types that did not normalize
 CUSTOM_NODE_TYPES = 'custom_node_types'
@@ -24,15 +39,23 @@ FALLBACK_EDGE_PREDICATE = 'biolink:related_to'
 
 @dataclass
 class NormalizationScheme:
-    node_normalization_version: str = 'latest'
+    node_normalization_version: str = None
     edge_normalization_version: str = 'latest'
+    babel_version: str = None
     normalization_code_version: str = NORMALIZATION_CODE_VERSION
     strict: bool = True
     conflation: bool = False
 
+    def __post_init__(self):
+        if self.node_normalization_version is None:
+            self.node_normalization_version = get_current_node_norm_version()
+        if self.babel_version is None:
+            self.babel_version = get_current_babel_version()
+
     def get_composite_normalization_version(self):
-        composite_normalization_version = f'{self.node_normalization_version}_' \
-                                f'{self.edge_normalization_version}_{self.normalization_code_version}'
+        composite_normalization_version = f'{self.babel_version}_' \
+                                f'{self.edge_normalization_version}_{self.normalization_code_version}_' \
+                                f'{self.node_normalization_version}'
         if self.conflation:
             composite_normalization_version += '_conflated'
         if self.strict:
@@ -42,6 +65,7 @@ class NormalizationScheme:
     def get_metadata_representation(self):
         return {'node_normalization_version': self.node_normalization_version,
                 'edge_normalization_version': self.edge_normalization_version,
+                'babel_version': self.babel_version,
                 'normalization_code_version': self.normalization_code_version,
                 'conflation': self.conflation,
                 'strict': self.strict}
@@ -52,7 +76,6 @@ class NormalizationFailedError(Exception):
         self.error_message = error_message
         self.actual_error = actual_error
 
-NODE_NORMALIZATION_URL = config.NODE_NORMALIZATION_URL
 
 
 class NodeNormalizer:
@@ -100,7 +123,7 @@ class NodeNormalizer:
 
     def hit_node_norm_service(self, curies, retries=0):
         resp: requests.models.Response = \
-            self.requests_session.post(f'{NODE_NORMALIZATION_URL}/get_normalized_nodes',
+            self.requests_session.post(f'{config.NODE_NORMALIZATION_URL}/get_normalized_nodes',
                                        json={'curies': curies,
                                              'conflate': self.conflate_node_types,
                                              'drug_chemical_conflate': self.conflate_node_types,
@@ -112,7 +135,7 @@ class NodeNormalizer:
             if response_json:
                 return response_json
             else:
-                error_message = f"Node Normalization service {NODE_NORMALIZATION_URL} returned 200 " \
+                error_message = f"Node Normalization service {config.NODE_NORMALIZATION_URL} returned 200 " \
                                 f"but with an empty result for (curies: {curies})"
                 raise NormalizationFailedError(error_message=error_message)
         else:
@@ -341,18 +364,6 @@ class NodeNormalizer:
 
         return variant_nodes
 
-    def get_current_node_norm_version(self):
-        """
-        Retrieves the current production version from the node normalization service
-        """
-        # hit the node norm status endpoint
-        node_norm_status_url = f'{NODE_NORMALIZATION_URL}/status'
-        resp: requests.models.Response = requests.get(node_norm_status_url)
-        resp.raise_for_status()
-        status: dict = resp.json()
-        # extract the version
-        node_norm_version = status['babel_version']
-        return node_norm_version
 
 
     @staticmethod
