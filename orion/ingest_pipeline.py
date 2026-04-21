@@ -47,7 +47,6 @@ class IngestPipeline:
         self.latest_source_version_lookup = {}
         self.latest_parsing_version_lookup = {}
         # placeholders for lazy loading
-        self.latest_node_normalization_version = None
         self.latest_edge_normalization_version = None
         self.latest_supplementation_version = None
 

@@ -77,7 +77,6 @@ class NormalizationFailedError(Exception):
         self.actual_error = actual_error
 
 
-
 class NodeNormalizer:
     """
     Class that contains methods relating to node normalization of KGX data.
@@ -363,7 +362,6 @@ class NodeNormalizer:
                 self.node_normalization_lookup[variant_id] = split_ids
 
         return variant_nodes
-
 
 
     @staticmethod

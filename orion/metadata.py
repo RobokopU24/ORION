@@ -2,8 +2,6 @@ import os
 import json
 from xxhash import xxh64_hexdigest
 
-from orion.normalization import NormalizationScheme
-
 
 class Metadata:
 
