@@ -8,6 +8,7 @@ from dataclasses import dataclass
 
 from robokop_genetics.genetics_normalization import GeneticsNormalizer
 from orion.biolink_constants import *
+from orion.biolink_utils import BiolinkUtils
 from orion.logging import get_orion_logger
 from orion.config import config
 
@@ -92,7 +93,7 @@ class NodeNormalizer:
 
     def __init__(self,
                  node_normalization_version: str = 'latest',
-                 biolink_version: str = 'latest',
+                 biolink_version: str = None,
                  strict_normalization: bool = True,
                  conflate_node_types: bool = False,
                  include_taxa: bool = False):
@@ -155,8 +156,7 @@ class NodeNormalizer:
         # look up all valid biolink node types if needed
         # this is used when strict normalization is off to ensure only valid types go into the graph as NODE_TYPES
         if not self.strict_normalization and not self.biolink_compliant_node_types:
-            biolink_lookup = EdgeNormalizer(edge_normalization_version=self.biolink_version)
-            self.biolink_compliant_node_types = biolink_lookup.get_valid_node_types()
+            self.biolink_compliant_node_types = BiolinkUtils(biolink_version=self.biolink_version).get_valid_node_types()
 
         # make a list of the node ids, we used to deduplicate here, but now we expect the list to be unique ids
         to_normalize: list = [node['id'] for node in node_list]
@@ -536,25 +536,6 @@ class EdgeNormalizer:
             # this shouldn't happen, raise an exception
             resp.raise_for_status()
 
-    def check_node_type_valid(self, node_type: str):
-        if node_type in self.get_valid_node_types():
-            return True
-        else:
-            return False
-
-    def get_valid_node_types(self):
-        # call the descendants endpoint with the root node type
-        edge_norm_descendants_url = f'{self.edge_norm_endpoint}/bl/{NAMED_THING}/descendants?version={self.edge_norm_version}'
-        resp: requests.models.Response = requests.get(edge_norm_descendants_url)
-
-        # did we get a good status code
-        if resp.status_code == 200:
-            # parse json
-            descendants = resp.json()
-            return descendants  # array of descendants
-        else:
-            # this shouldn't happen, raise an exception
-            resp.raise_for_status()
 
 
 NAME_RESOLVER_URL = config.NAMERES_URL

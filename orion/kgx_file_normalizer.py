@@ -67,7 +67,11 @@ class KGXFileNormalizer:
                                                   strict_normalization=normalization_scheme.strict,
                                                   conflate_node_types=normalization_scheme.conflation,
                                                   biolink_version=normalization_scheme.edge_normalization_version)
-            self.edge_normalizer = EdgeNormalizer(edge_normalization_version=normalization_scheme.edge_normalization_version)
+            # when predicates are pre-normalized we never hit the edge normalization (bl_lookup) service
+            if self.predicates_pre_normalized:
+                self.edge_normalizer = None
+            else:
+                self.edge_normalizer = EdgeNormalizer(edge_normalization_version=normalization_scheme.edge_normalization_version)
         except Exception as e:
             raise NormalizationFailedError(error_message=repr(e), actual_error=e)
 
@@ -226,7 +230,7 @@ class KGXFileNormalizer:
         subclass_loops_removed = 0
 
         node_norm_lookup = self.node_normalizer.node_normalization_lookup
-        edge_norm_lookup = self.edge_normalizer.edge_normalization_lookup
+        edge_norm_lookup = self.edge_normalizer.edge_normalization_lookup if self.edge_normalizer else {}
         edge_norm_failures = set()
 
         try:
@@ -332,21 +336,22 @@ class KGXFileNormalizer:
             norm_error_msg = f'Error normalizing edges file {self.source_edges_file_path}'
             raise NormalizationFailedError(error_message=norm_error_msg, actual_error=e)
 
-        try:
-            logger.debug(f'Writing predicate map to file...')
-            edge_norm_json = {}
-            for original_predicate, edge_normalization in edge_norm_lookup.items():
-                edge_norm_json[original_predicate] = edge_normalization.__dict__
-            predicate_map_info = {'predicate_map': edge_norm_json,
-                                  'predicate_norm_failures': list(edge_norm_failures)}
-            with open(self.edge_norm_predicate_map_file_path, "w") as predicate_map_file:
-                json.dump(predicate_map_info, predicate_map_file, sort_keys=True, indent=4)
-        except OSError as e:
-            norm_error_msg = f'Error writing edge predicate map file {self.edge_norm_predicate_map_file_path}'
-            raise NormalizationFailedError(error_message=norm_error_msg, actual_error=e)
+        if not self.predicates_pre_normalized:
+            try:
+                logger.debug(f'Writing predicate map to file...')
+                edge_norm_json = {}
+                for original_predicate, edge_normalization in edge_norm_lookup.items():
+                    edge_norm_json[original_predicate] = edge_normalization.__dict__
+                predicate_map_info = {'predicate_map': edge_norm_json,
+                                      'predicate_norm_failures': list(edge_norm_failures)}
+                with open(self.edge_norm_predicate_map_file_path, "w") as predicate_map_file:
+                    json.dump(predicate_map_info, predicate_map_file, sort_keys=True, indent=4)
+            except OSError as e:
+                norm_error_msg = f'Error writing edge predicate map file {self.edge_norm_predicate_map_file_path}'
+                raise NormalizationFailedError(error_message=norm_error_msg, actual_error=e)
 
         self.normalization_metadata.update({
-            'biolink_version': self.edge_normalizer.edge_norm_version,
+            'biolink_version': self.normalization_scheme.edge_normalization_version,
             'source_edges': number_of_source_edges,
             'edges_failed_due_to_nodes': edges_failed_due_to_nodes,
             # these keep track of how many edges merged into another, or split into multiple edges
