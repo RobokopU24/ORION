@@ -1,4 +1,3 @@
-
 import os
 import json
 from xxhash import xxh64_hexdigest
@@ -248,7 +247,6 @@ class SourceMetadata(Metadata):
     def update_normalization_metadata(self,
                                       parsing_version: str,
                                       normalization_version: str,
-                                      normalization_scheme: NormalizationScheme = None,
                                       normalization_status: str = None,
                                       normalization_info: dict = None,
                                       normalization_time: str = None,
@@ -256,7 +254,6 @@ class SourceMetadata(Metadata):
         if normalization_version not in self.metadata['parsings'][parsing_version]['normalizations']:
             normalization_dict = {
                 'normalization_status': self.NOT_STARTED,
-                'normalization_metadata': None,
                 'normalization_time': None,
                 'supplementations': dict()
             }
@@ -267,11 +264,6 @@ class SourceMetadata(Metadata):
             normalization_dict['normalization_status'] = normalization_status
         if normalization_info:
             normalization_dict['normalization_info'] = normalization_info
-        if normalization_scheme:
-            normalization_dict['node_normalization_version'] = normalization_scheme.node_normalization_version
-            normalization_dict['edge_normalization_version'] = normalization_scheme.edge_normalization_version
-            normalization_dict['strict_normalization'] = normalization_scheme.strict
-            normalization_dict['conflation'] = normalization_scheme.conflation
         if normalization_time:
             normalization_dict['normalization_time'] = normalization_time
         if normalization_error:
