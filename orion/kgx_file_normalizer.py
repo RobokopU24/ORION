@@ -39,9 +39,7 @@ class KGXFileNormalizer:
                  default_provenance: str = None,
                  process_in_memory: bool = True,
                  preserve_unconnected_nodes: bool = False):
-        if not normalization_scheme:
-            normalization_scheme = NormalizationScheme()
-        self.normalization_scheme = normalization_scheme
+        self.normalization_scheme = normalization_scheme if normalization_scheme is not None else NormalizationScheme()
         self.source_nodes_file_path = source_nodes_file_path
         self.nodes_output_file_path = nodes_output_file_path
         self.node_norm_map_file_path = node_norm_map_file_path
@@ -60,17 +58,20 @@ class KGXFileNormalizer:
         self.process_in_memory = process_in_memory
         self.preserve_unconnected_nodes = preserve_unconnected_nodes
         self.default_provenance = default_provenance
-        self.normalization_metadata = {'strict': normalization_scheme.strict,
-                                       'conflation': normalization_scheme.conflation}
+        self.normalization_metadata = self.normalization_scheme.get_metadata_representation()
 
         # instances of the normalization service wrappers
         # strict normalization flag tells normalizer to throw away any nodes that don't normalize
         try:
-            self.node_normalizer = NodeNormalizer(node_normalization_version=normalization_scheme.node_normalization_version,
-                                                  strict_normalization=normalization_scheme.strict,
-                                                  conflate_node_types=normalization_scheme.conflation,
-                                                  biolink_version=normalization_scheme.edge_normalization_version)
-            self.edge_normalizer = EdgeNormalizer(edge_normalization_version=normalization_scheme.edge_normalization_version)
+            self.node_normalizer = NodeNormalizer(node_normalization_version=self.normalization_scheme.node_normalization_version,
+                                                  strict_normalization=self.normalization_scheme.strict,
+                                                  conflate_node_types=self.normalization_scheme.conflation,
+                                                  biolink_version=self.normalization_scheme.edge_normalization_version)
+            # when predicates are pre-normalized we never hit the edge normalization (bl_lookup) service
+            if self.predicates_pre_normalized:
+                self.edge_normalizer = None
+            else:
+                self.edge_normalizer = EdgeNormalizer(edge_normalization_version=self.normalization_scheme.edge_normalization_version)
         except Exception as e:
             raise NormalizationFailedError(error_message=repr(e), actual_error=e)
 
@@ -89,10 +90,6 @@ class KGXFileNormalizer:
     # normalize the nodes and write them to the new file
     # also write a file with the node ids that did not successfully normalize
     def normalize_node_file(self):
-
-        # get the current node normalizer version
-        node_norm_version = self.node_normalizer.get_current_node_norm_version()
-        self.normalization_metadata['node_norm_version'] = node_norm_version
 
         regular_nodes_pre_norm = 0
         regular_nodes_post_norm = 0
@@ -233,7 +230,7 @@ class KGXFileNormalizer:
         subclass_loops_removed = 0
 
         node_norm_lookup = self.node_normalizer.node_normalization_lookup
-        edge_norm_lookup = self.edge_normalizer.edge_normalization_lookup
+        edge_norm_lookup = self.edge_normalizer.edge_normalization_lookup if self.edge_normalizer else {}
         edge_norm_failures = set()
 
         try:
@@ -339,21 +336,22 @@ class KGXFileNormalizer:
             norm_error_msg = f'Error normalizing edges file {self.source_edges_file_path}'
             raise NormalizationFailedError(error_message=norm_error_msg, actual_error=e)
 
-        try:
-            logger.debug(f'Writing predicate map to file...')
-            edge_norm_json = {}
-            for original_predicate, edge_normalization in edge_norm_lookup.items():
-                edge_norm_json[original_predicate] = edge_normalization.__dict__
-            predicate_map_info = {'predicate_map': edge_norm_json,
-                                  'predicate_norm_failures': list(edge_norm_failures)}
-            with open(self.edge_norm_predicate_map_file_path, "w") as predicate_map_file:
-                json.dump(predicate_map_info, predicate_map_file, sort_keys=True, indent=4)
-        except OSError as e:
-            norm_error_msg = f'Error writing edge predicate map file {self.edge_norm_predicate_map_file_path}'
-            raise NormalizationFailedError(error_message=norm_error_msg, actual_error=e)
+        if not self.predicates_pre_normalized:
+            try:
+                logger.debug(f'Writing predicate map to file...')
+                edge_norm_json = {}
+                for original_predicate, edge_normalization in edge_norm_lookup.items():
+                    edge_norm_json[original_predicate] = edge_normalization.__dict__
+                predicate_map_info = {'predicate_map': edge_norm_json,
+                                      'predicate_norm_failures': list(edge_norm_failures)}
+                with open(self.edge_norm_predicate_map_file_path, "w") as predicate_map_file:
+                    json.dump(predicate_map_info, predicate_map_file, sort_keys=True, indent=4)
+            except OSError as e:
+                norm_error_msg = f'Error writing edge predicate map file {self.edge_norm_predicate_map_file_path}'
+                raise NormalizationFailedError(error_message=norm_error_msg, actual_error=e)
 
         self.normalization_metadata.update({
-            'biolink_version': self.edge_normalizer.edge_norm_version,
+            'biolink_version': self.normalization_scheme.edge_normalization_version,
             'source_edges': number_of_source_edges,
             'edges_failed_due_to_nodes': edges_failed_due_to_nodes,
             # these keep track of how many edges merged into another, or split into multiple edges

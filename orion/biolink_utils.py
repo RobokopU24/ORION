@@ -1,11 +1,11 @@
 import requests
 import yaml
-import os
 
 from bmt import Toolkit
 from requests.adapters import HTTPAdapter, Retry
 from functools import cache
 
+from orion.biolink_constants import NAMED_THING
 from orion.config import config
 
 BIOLINK_MODEL_VERSION = config.BL_VERSION
@@ -60,6 +60,12 @@ class BiolinkUtils:
             ancestry_set = ancestry_set.union(ancestors)
         leaf_set = biolink_concepts - ancestry_set - unknown_elements
         return leaf_set
+
+    def get_valid_node_types(self) -> frozenset:
+        """
+        Return the set of CURIE-formatted biolink categories (descendants of biolink:NamedThing, inclusive).
+        """
+        return frozenset(self.toolkit.get_descendants(NAMED_THING, formatted=True, reflexive=True))
 
     def invert_predicate(self, biolink_predicate):
         """Given a biolink predicate, find its inverse, return None if one does not exist"""

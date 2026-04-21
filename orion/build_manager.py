@@ -19,7 +19,7 @@ from orion.kgx_validation import validate_graph
 from orion.neo4j_tools import create_neo4j_dump
 from orion.memgraph_tools import create_memgraph_dump
 from orion.kgxmodel import GraphSpec, SubGraphSource, DataSource
-from orion.normalization import NORMALIZATION_CODE_VERSION, NormalizationScheme
+from orion.normalization import NormalizationScheme, get_current_node_norm_version
 from orion.metadata import Metadata, GraphMetadata, SourceMetadata
 from orion.supplementation import SequenceVariantSupplementation
 from orion.meta_kg import MetaKnowledgeGraphBuilder, META_KG_FILENAME, TEST_DATA_FILENAME, EXAMPLE_DATA_FILENAME
@@ -584,7 +584,7 @@ class GraphBuilder:
                 if edge_id_type is not None and add_edge_id is None or add_edge_id is False:
                     add_edge_id = True
                 if graph_wide_node_norm_version == 'latest':
-                    graph_wide_node_norm_version = self.ingest_pipeline.get_latest_node_normalization_version()
+                    graph_wide_node_norm_version = get_current_node_norm_version()
                 if graph_wide_edge_norm_version == 'latest':
                     graph_wide_edge_norm_version = self.ingest_pipeline.get_latest_edge_normalization_version()
 
@@ -653,14 +653,11 @@ class GraphBuilder:
 
         # supplementation and normalization code version cannot be specified, set them to the current version
         supplementation_version = SequenceVariantSupplementation.SUPPLEMENTATION_VERSION
-        normalization_code_version = NORMALIZATION_CODE_VERSION
 
-        # if normalization versions are not specified, set them to the current latest
+        # if versions are not specified, set them to the current latest
         # source_version is intentionally not handled here because we want to do it lazily and avoid if not needed
         if not parsing_version or parsing_version == 'latest':
             parsing_version = self.ingest_pipeline.get_latest_parsing_version(source_id)
-        if not node_normalization_version or node_normalization_version == 'latest':
-            node_normalization_version = self.ingest_pipeline.get_latest_node_normalization_version()
         if not edge_normalization_version or edge_normalization_version == 'latest':
             edge_normalization_version = self.ingest_pipeline.get_latest_edge_normalization_version()
 
@@ -674,7 +671,6 @@ class GraphBuilder:
 
         normalization_scheme = NormalizationScheme(node_normalization_version=node_normalization_version,
                                                    edge_normalization_version=edge_normalization_version,
-                                                   normalization_code_version=normalization_code_version,
                                                    strict=strict_normalization,
                                                    conflation=conflation)
         data_source = DataSource(id=source_id,
