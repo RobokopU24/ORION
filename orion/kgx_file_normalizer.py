@@ -63,15 +63,15 @@ class KGXFileNormalizer:
         # instances of the normalization service wrappers
         # strict normalization flag tells normalizer to throw away any nodes that don't normalize
         try:
-            self.node_normalizer = NodeNormalizer(node_normalization_version=normalization_scheme.node_normalization_version,
-                                                  strict_normalization=normalization_scheme.strict,
-                                                  conflate_node_types=normalization_scheme.conflation,
-                                                  biolink_version=normalization_scheme.edge_normalization_version)
+            self.node_normalizer = NodeNormalizer(node_normalization_version=self.normalization_scheme.node_normalization_version,
+                                                  strict_normalization=self.normalization_scheme.strict,
+                                                  conflate_node_types=self.normalization_scheme.conflation,
+                                                  biolink_version=self.normalization_scheme.edge_normalization_version)
             # when predicates are pre-normalized we never hit the edge normalization (bl_lookup) service
             if self.predicates_pre_normalized:
                 self.edge_normalizer = None
             else:
-                self.edge_normalizer = EdgeNormalizer(edge_normalization_version=normalization_scheme.edge_normalization_version)
+                self.edge_normalizer = EdgeNormalizer(edge_normalization_version=self.normalization_scheme.edge_normalization_version)
         except Exception as e:
             raise NormalizationFailedError(error_message=repr(e), actual_error=e)
 
