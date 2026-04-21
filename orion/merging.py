@@ -36,7 +36,7 @@ def flush_merge_warnings():
                        f'{mismatched}. Some instances were dictionaries and some were not. Mismatches were discarded.')
     if dropped:
         logger.warning(f'Property value collisions encountered while merging properties: '
-                       f'{dropped}. Values were discarded from merged edges.')
+                       f'{dropped}. Some conflicting values were discarded from merged edges.')
     _mismatched_dict_properties.clear()
     _dropped_properties.clear()
     return {'mismatched_properties': mismatched, 'dropped_properties': dropped}
