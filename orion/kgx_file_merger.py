@@ -7,7 +7,7 @@ from orion.utils import quick_jsonl_file_iterator
 from orion.logging import get_orion_logger
 from orion.kgxmodel import GraphSpec, GraphSource, SubGraphSource
 from orion.biolink_constants import SUBJECT_ID, OBJECT_ID
-from orion.merging import GraphMerger, DiskGraphMerger, MemoryGraphMerger
+from orion.merging import GraphMerger, DiskGraphMerger, MemoryGraphMerger, MERGING_CODE_VERSION
 from orion.ingest_pipeline import RESOURCE_HOGS
 
 logger = get_orion_logger("orion.kgx_file_merger")
@@ -242,6 +242,7 @@ class KGXFileMerger:
     @staticmethod
     def init_merge_metadata():
         return {'sources': {},
+                'merging_code_version': MERGING_CODE_VERSION,
                 'merged_nodes': 0,
                 'merged_edges': 0,
                 'merge_warnings': {'mismatched_properties': [],
