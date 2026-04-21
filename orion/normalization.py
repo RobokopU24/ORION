@@ -53,9 +53,9 @@ class NormalizationScheme:
             self.babel_version = get_current_babel_version()
 
     def get_composite_normalization_version(self):
-        composite_normalization_version = f'{self.babel_version}_' \
-                                f'{self.edge_normalization_version}_{self.normalization_code_version}_' \
-                                f'{self.node_normalization_version}'
+        composite_normalization_version = f'{self.babel_version}_{self.node_normalization_version}_' \
+                                f'{self.edge_normalization_version}_{self.normalization_code_version}'
+
         if self.conflation:
             composite_normalization_version += '_conflated'
         if self.strict:
