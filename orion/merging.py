@@ -33,10 +33,10 @@ def flush_merge_warnings():
     dropped = sorted(_dropped_properties)
     if mismatched:
         logger.warning(f'Mismatched types encountered while merging properties: '
-                       f'{mismatched}. entity_1 values were kept.')
+                       f'{mismatched}. Some instances were dictionaries are some were not. Mismatches were discarded.')
     if dropped:
         logger.warning(f'Property value collisions encountered while merging properties: '
-                       f'{dropped}. entity_1 values were kept, entity_2 values were dropped.')
+                       f'{dropped}. Values were discarded from merged edges.')
     _mismatched_dict_properties.clear()
     _dropped_properties.clear()
     return {'mismatched_properties': mismatched, 'dropped_properties': dropped}
