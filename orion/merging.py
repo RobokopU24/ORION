@@ -20,6 +20,8 @@ bmt = BiolinkUtils()
 
 logger = get_orion_logger("orion.merging")
 
+MERGING_CODE_VERSION = '2.0.0'
+
 # mismatches where one entity has a dict for a property and another has another type.
 _mismatched_dict_properties = set()
 # properties where two entities had different values that could not be reconciled.
