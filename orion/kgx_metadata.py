@@ -246,8 +246,8 @@ def sort_dict_by_values(dict_to_sort):
 
 
 def generate_schema(nodes_file_path: str,
-                    edges_file_path: str,
-                    biolink_version: str):
+                    edges_file_path: str = None,
+                    biolink_version: str = None):
 
     bl_utils = BiolinkUtils(biolink_version=biolink_version)
 
@@ -275,7 +275,8 @@ def generate_schema(nodes_file_path: str,
     # Edges
     core_attributes = {SUBJECT_ID, PREDICATE, OBJECT_ID, PRIMARY_KNOWLEDGE_SOURCE, "sources"}
     edges = defaultdict(KGXEdgeType)
-    for edge in quick_jsonl_file_iterator(edges_file_path):
+    edge_iterator = quick_jsonl_file_iterator(edges_file_path) if edges_file_path else iter(())
+    for edge in edge_iterator:
         # get references to some edge properties
         subject_id = edge[SUBJECT_ID]
         object_id = edge[OBJECT_ID]
