@@ -2,6 +2,8 @@ import argparse
 from orion.neo4j_tools import create_neo4j_dump
 
 def main():
+    from orion.logging import configure_cli_logging
+    configure_cli_logging()
 
     ap = argparse.ArgumentParser(description='Create a neo4j dump from KGX jsonl files.')
     ap.add_argument('nodes_filepath')

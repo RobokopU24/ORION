@@ -2,6 +2,8 @@ import argparse
 from orion.memgraph_tools import create_memgraph_dump
 
 def main():
+    from orion.logging import configure_cli_logging
+    configure_cli_logging()
 
     ap = argparse.ArgumentParser(description='Create memgraph CSV import files from KGX jsonl files.')
     ap.add_argument('nodes_filepath')

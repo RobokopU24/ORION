@@ -707,6 +707,9 @@ class IngestPipeline:
 
 
 def main():
+    from orion.logging import configure_cli_logging
+    configure_cli_logging()
+
     parser = argparse.ArgumentParser(description="Transform data sources into KGX files.")
     parser.add_argument('data_source',
                         nargs="+",

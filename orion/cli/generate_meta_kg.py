@@ -3,6 +3,9 @@ import os
 from orion.meta_kg import MetaKnowledgeGraphBuilder, META_KG_FILENAME, TEST_DATA_FILENAME
 
 def main():
+    from orion.logging import configure_cli_logging
+    configure_cli_logging()
+
     ap = argparse.ArgumentParser(description='Generate MetaKG and test data files '
                                              'from a pair of node and edge jsonl files.')
     ap.add_argument('nodes_filepath')
