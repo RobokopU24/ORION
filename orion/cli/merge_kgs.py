@@ -5,6 +5,9 @@ from orion.kgx_file_merger import merge_kgx_files
 
 
 def main():
+    from orion.logging import configure_cli_logging
+    configure_cli_logging()
+
     ap = argparse.ArgumentParser(description="Given a list of node files and/or a list of edge files "
                                              "in kgx jsonl format, merge them into one node and one edge file.")
     ap.add_argument(

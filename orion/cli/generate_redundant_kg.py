@@ -3,6 +3,9 @@ from orion.redundant_kg import generate_redundant_kg
                 
 
 def main():
+    from orion.logging import configure_cli_logging
+    configure_cli_logging()
+
     ap = argparse.ArgumentParser(description='Generate redundant edge files. '
                                              'currently expanding from predicate and qualified_predicate.')
     ap.add_argument('-i', '--infile', help='Input edge file path', required=True)

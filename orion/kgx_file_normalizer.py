@@ -29,7 +29,7 @@ class KGXFileNormalizer:
                  node_norm_failures_file_path: str,
                  source_edges_file_path: str,
                  edges_output_file_path: str,
-                 edge_norm_predicate_map_file_path: str,
+                 edge_norm_predicate_map_file_path: str = None,
                  normalization_scheme: NormalizationScheme = None,
                  edge_subject_pre_normalized: bool = False,
                  edge_object_pre_normalized: bool = False,

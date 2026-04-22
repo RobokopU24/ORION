@@ -320,7 +320,6 @@ class IngestPipeline:
         source_metadata = self.get_source_metadata(source_id, source_version)
         source_metadata.update_normalization_metadata(parsing_version,
                                                       composite_normalization_version,
-                                                      normalization_scheme=normalization_scheme,
                                                       normalization_status=SourceMetadata.IN_PROGRESS)
         current_time = datetime.datetime.now().strftime('%m-%d-%y %H:%M:%S')
         try:
@@ -708,6 +707,9 @@ class IngestPipeline:
 
 
 def main():
+    from orion.logging import configure_cli_logging
+    configure_cli_logging()
+
     parser = argparse.ArgumentParser(description="Transform data sources into KGX files.")
     parser.add_argument('data_source',
                         nargs="+",

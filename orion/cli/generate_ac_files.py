@@ -2,6 +2,9 @@ import argparse
 from orion.answercoalesce_build import generate_ac_files
 
 def main():
+    from orion.logging import configure_cli_logging
+    configure_cli_logging()
+
     ap = argparse.ArgumentParser(
         description='Generate node labels, names, links, backlinks, and other AnswerCoalesce files from KGX node/edge files.'
     )

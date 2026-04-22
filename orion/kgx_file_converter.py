@@ -378,6 +378,9 @@ def __convert_to_csv(input_file: str,
 
 
 if __name__ == '__main__':
+    from orion.logging import configure_cli_logging
+    configure_cli_logging()
+
     parser = argparse.ArgumentParser(description='Convert jsonl kgx files to csv neo4j import files')
     parser.add_argument('nodes', help='file with nodes in jsonl format')
     parser.add_argument('edges', help='file with edges in jsonl format')

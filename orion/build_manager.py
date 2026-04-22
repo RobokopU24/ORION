@@ -722,6 +722,9 @@ class GraphBuilder:
 
 
 def main():
+    from orion.logging import configure_cli_logging
+    configure_cli_logging()
+
     parser = argparse.ArgumentParser(description="Merge data sources into complete graphs.")
     parser.add_argument('graph_id',
                         help='ID of the graph to build. Must match an ID from the configured Graph Spec.')

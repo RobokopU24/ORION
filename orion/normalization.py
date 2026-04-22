@@ -48,9 +48,9 @@ class NormalizationScheme:
     conflation: bool = False
 
     def __post_init__(self):
-        if self.node_normalization_version is None:
+        if self.node_normalization_version in (None, 'latest'):
             self.node_normalization_version = get_current_node_norm_version()
-        if self.babel_version is None:
+        if self.babel_version in (None, 'latest'):
             self.babel_version = get_current_babel_version()
 
     def get_composite_normalization_version(self):
