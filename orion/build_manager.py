@@ -366,15 +366,34 @@ class GraphBuilder:
             release_version = data_source.generate_version()
             release_metadata = source_metadata.get_release_info(release_version)
             if release_metadata is None:
+                # Before running the source data pipeline, check if a previously
+                # built single-source graph can satisfy this dependency. If so, use its nodes/edges directly.
+                substitute_files = self.find_source_graph_substitute(source_id, release_version)
+                if substitute_files is not None:
+                    logger.info(f'Graph {graph_id}, dependency {source_id} '
+                                f'release {release_version} satisfied by a '
+                                f'previously-built single-source graph at '
+                                f'{os.path.dirname(substitute_files[0])}.')
+                    data_source.file_paths = substitute_files
+                    data_source.release_info = {
+                        'source_version': data_source.source_version,
+                        'parsing_version': data_source.parsing_version,
+                        'normalization_version':
+                            data_source.normalization_scheme.get_composite_normalization_version(),
+                        'supplementation_version': data_source.supplementation_version,
+                    }
+                    continue
+
+                # If not, run the ingest pipeline for this source.
                 logger.info(
                     f'Attempting to build graph {graph_id}, '
                     f'dependency {source_id} is not ready. Building now...')
-                pipeline_sucess = self.ingest_pipeline.run_pipeline(source_id,
+                pipeline_success = self.ingest_pipeline.run_pipeline(source_id,
                                                                     source_version=data_source.source_version,
                                                                     parsing_version=data_source.parsing_version,
                                                                     normalization_scheme=data_source.normalization_scheme,
                                                                     supplementation_version=data_source.supplementation_version)
-                if not pipeline_sucess:
+                if not pipeline_success:
                     logger.info(f'While attempting to build {graph_spec.graph_id}, '
                                      f'data source pipeline failed for dependency {source_id}...')
                     return False
@@ -387,6 +406,53 @@ class GraphBuilder:
                                                                                data_source.normalization_scheme.get_composite_normalization_version(),
                                                                                data_source.supplementation_version)
         return True
+
+    # Look for a previously built single-source graph that can substitute for
+    # running this source's data pipeline. Match criteria:
+    #   - a directory at {graphs_dir}/{source_id}/<graph_version>/ exists
+    #   - that directory contains GRAPH_METADATA_FILENAME
+    #   - the metadata's hasPart array has exactly one entry
+    #   - the @id of that entry is shaped <prefix>/<source_id>/<release_version>/
+    #     and release_version matches the requested release_version
+    #   - the directory contains nodes and edges files (jsonl or jsonl.gz)
+    # Returns [nodes_path, edges_path] for the first matching graph version
+    # (.gz if present, otherwise raw jsonl), or None if nothing matches.
+    def find_source_graph_substitute(self, source_id: str, release_version: str):
+        source_graph_root = os.path.join(self.graphs_dir, source_id)
+        if not os.path.isdir(source_graph_root):
+            return None
+        for entry in os.listdir(source_graph_root):
+            graph_dir = os.path.join(source_graph_root, entry)
+            if not os.path.isdir(graph_dir):
+                continue
+            kgx_metadata_path = os.path.join(graph_dir, GRAPH_METADATA_FILENAME)
+            if not os.path.exists(kgx_metadata_path):
+                continue
+            try:
+                with open(kgx_metadata_path) as f:
+                    kgx_metadata = json.load(f)
+            except (json.JSONDecodeError, OSError):
+                continue
+            kg_sources = kgx_metadata.get('hasPart', [])
+            if len(kg_sources) != 1:
+                continue
+            kg_source_id = kg_sources[0].get('@id', '')
+            url_parts = kg_source_id.rstrip('/').split('/')
+            if (len(url_parts) < 2
+                    or url_parts[-2] != source_id
+                    or url_parts[-1] != release_version):
+                continue
+            nodes_path = self.get_graph_nodes_file_path(graph_dir)
+            edges_path = self.get_graph_edges_file_path(graph_dir)
+            # Prefer the .gz variant if it's present (the merger handles both).
+            if os.path.exists(nodes_path + '.gz'):
+                nodes_path = nodes_path + '.gz'
+            if os.path.exists(edges_path + '.gz'):
+                edges_path = edges_path + '.gz'
+            if not os.path.exists(nodes_path) or not os.path.exists(edges_path):
+                continue
+            return [nodes_path, edges_path]
+        return None
 
     # Stream-gzip jsonl_path to jsonl_path + '.gz' and remove the original.
     # Writes to a temp file and renames so a crash mid-compression won't leave
