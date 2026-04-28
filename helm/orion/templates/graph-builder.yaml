@@ -40,12 +40,14 @@ spec:
               subPath: {{ .Values.orion.extraVolume.nfs_mount_subpath }}
               {{- end }}
             {{- end }}
+            {{- if .Values.orion.buildMode }}
             - mountPath: /data
               name: ds-neo4j-scratch-volume
               subPath: neo4j_data
             - mountPath: /logs
               name: ds-neo4j-scratch-volume
               subPath: neo4j_logs
+            {{- end }}
             - mountPath: /ORION/.env
               name: app-config
               subPath: env-file
@@ -222,6 +224,7 @@ spec:
             server: {{ .Values.orion.extraVolume.nfs_server }}
             path: {{ .Values.orion.extraVolume.nfs_path }}
         {{- end }}
+        {{- if .Values.orion.buildMode }}
         - name: ds-neo4j-scratch-volume
           ephemeral:
             volumeClaimTemplate:
@@ -231,6 +234,7 @@ spec:
                 resources:
                   requests:
                     storage: {{ .Values.orion.neo4jScratchVolume.size }}
+        {{- end }}
         - name: app-config
           configMap:
             name: {{ include "orion.fullname" . }}-app-config
