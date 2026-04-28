@@ -539,10 +539,8 @@ class GraphBuilder:
             kg_sources.append({
                 '@id': self.get_graph_output_url(graph_id=source_id, graph_version=release_version),
                 'name': f"A ROBOKOP Knowledge Graph based on {source_name}",
-                # TODO this is missing potential supplemental nodes and edges but that should be reworked upstream
-                #  to access them in a more sane way
-                'orion:nodeCount': source.get('normalized_nodes.jsonl', {}).get("nodes"),
-                'orion:edgeCount': source.get('normalized_edges.jsonl', {}).get("edges")
+                'orion:nodeCount': source.get('node_count'),
+                'orion:edgeCount': source.get('edge_count'),
             })
 
             # Load the parser *.source.json metadata file for this source

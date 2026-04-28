@@ -47,7 +47,12 @@ class KGXFileMerger:
         secondary_sources = []
         dont_merge_sources = []
         for graph_source in chain(self.graph_spec.sources, self.graph_spec.subgraphs):
-            self.merge_metadata["sources"][graph_source.id] = {'release_version': graph_source.version}
+            self.merge_metadata["sources"][graph_source.id] = {
+                'release_version': graph_source.version,
+                'node_count': 0,
+                'edge_count': 0,
+                'files': {},
+            }
             if not graph_source.merge_strategy:
                 primary_sources.append(graph_source)
             elif graph_source.merge_strategy in self.SECONDARY_MERGE_STRATEGIES:
@@ -102,14 +107,22 @@ class KGXFileMerger:
 
             for file_path in graph_source.get_node_file_paths():
                 nodes_count = self.node_graph_merger.merge_nodes(quick_jsonl_file_iterator(file_path))
-                source_filename = file_path.rsplit('/')[-1]
-                self.merge_metadata["sources"][graph_source.id][source_filename] = {"nodes": nodes_count}
+                self._record_source_file(graph_source.id, file_path, nodes=nodes_count)
 
             for file_path in graph_source.get_edge_file_paths():
                 edges_count = self.edge_graph_merger.merge_edges(quick_jsonl_file_iterator(file_path))
-                source_filename = file_path.rsplit('/')[-1]
-                self.merge_metadata["sources"][graph_source.id][source_filename] = {"edges": edges_count}
+                self._record_source_file(graph_source.id, file_path, edges=edges_count)
         return True
+
+    def _record_source_file(self, source_id: str, file_path: str, nodes: int = None, edges: int = None):
+        src_meta = self.merge_metadata["sources"][source_id]
+        filename = file_path.rsplit('/')[-1]
+        if nodes is not None:
+            src_meta["files"][filename] = {"nodes": nodes}
+            src_meta["node_count"] += nodes
+        if edges is not None:
+            src_meta["files"][filename] = {"edges": edges}
+            src_meta["edge_count"] += edges
 
     def merge_secondary_sources(self,
                                 graph_sources: list):
@@ -138,8 +151,7 @@ class KGXFileMerger:
                                 nodes_to_add.add(edge[SUBJECT_ID])
                             elif not edge_object_connected:
                                 nodes_to_add.add(edge[OBJECT_ID])
-                    source_filename = edge_file.rsplit('/')[-1]
-                    self.merge_metadata["sources"][graph_source.id][source_filename] = {"edges": edge_counter}
+                    self._record_source_file(graph_source.id, edge_file, edges=edge_counter)
 
                 for node_file in graph_source.get_node_file_paths():
                     node_counter = 0
@@ -147,16 +159,14 @@ class KGXFileMerger:
                         if node['id'] in nodes_to_add:
                             node_counter += 1
                             self.node_graph_merger.merge_node(node)
-                    source_filename = node_file.rsplit('/')[-1]
-                    self.merge_metadata["sources"][graph_source.id][source_filename] = {"nodes": node_counter}
+                    self._record_source_file(graph_source.id, node_file, nodes=node_counter)
 
     def merge_dont_merge_sources(self, graph_sources: list):
         for graph_source in graph_sources:
             # merge in the nodes
             for file_path in graph_source.get_node_file_paths():
                 nodes_count = self.node_graph_merger.merge_nodes(quick_jsonl_file_iterator(file_path))
-                source_filename = file_path.rsplit('/')[-1]
-                self.merge_metadata["sources"][graph_source.id][source_filename] = {"nodes": nodes_count}
+                self._record_source_file(graph_source.id, file_path, nodes=nodes_count)
 
             # just queue up the edges files
             self.unmerged_edge_files[graph_source.id] = graph_source.get_edge_file_paths()
@@ -198,8 +208,7 @@ class KGXFileMerger:
                         for edge in edges:
                             edges_out.write(edge)
                             edges_count += 1
-                    edges_filename = edges_file.rsplit('/')[-1]
-                    self.merge_metadata["sources"][graph_source_id][edges_filename] = {"edges": edges_count}
+                    self._record_source_file(graph_source_id, edges_file, edges=edges_count)
                     all_unmerged_edges_count += edges_count
         return all_unmerged_edges_count
 
