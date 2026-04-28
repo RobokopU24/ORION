@@ -1,5 +1,5 @@
 import os
-import jsonlines
+import gzip
 import json
 from datetime import datetime
 from itertools import chain
@@ -101,14 +101,12 @@ class KGXFileMerger:
             logger.info(f"Processing {graph_source.id}. (primary source {i}/{len(graph_sources)})")
 
             for file_path in graph_source.get_node_file_paths():
-                with jsonlines.open(file_path) as nodes:
-                    nodes_count = self.node_graph_merger.merge_nodes(nodes)
+                nodes_count = self.node_graph_merger.merge_nodes(quick_jsonl_file_iterator(file_path))
                 source_filename = file_path.rsplit('/')[-1]
                 self.merge_metadata["sources"][graph_source.id][source_filename] = {"nodes": nodes_count}
 
             for file_path in graph_source.get_edge_file_paths():
-                with jsonlines.open(file_path) as edges:
-                    edges_count = self.edge_graph_merger.merge_edges(edges)
+                edges_count = self.edge_graph_merger.merge_edges(quick_jsonl_file_iterator(file_path))
                 source_filename = file_path.rsplit('/')[-1]
                 self.merge_metadata["sources"][graph_source.id][source_filename] = {"edges": edges_count}
         return True
@@ -156,8 +154,7 @@ class KGXFileMerger:
         for graph_source in graph_sources:
             # merge in the nodes
             for file_path in graph_source.get_node_file_paths():
-                with jsonlines.open(file_path) as nodes:
-                    nodes_count = self.node_graph_merger.merge_nodes(nodes)
+                nodes_count = self.node_graph_merger.merge_nodes(quick_jsonl_file_iterator(file_path))
                 source_filename = file_path.rsplit('/')[-1]
                 self.merge_metadata["sources"][graph_source.id][source_filename] = {"nodes": nodes_count}
 
@@ -196,7 +193,8 @@ class KGXFileMerger:
             for graph_source_id, edges_files in self.unmerged_edge_files.items():
                 for edges_file in edges_files:
                     edges_count = 0
-                    with open(edges_file) as edges:
+                    edges_opener = gzip.open if edges_file.endswith('.gz') else open
+                    with edges_opener(edges_file, 'rt') as edges:
                         for edge in edges:
                             edges_out.write(edge)
                             edges_count += 1
