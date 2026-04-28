@@ -1,5 +1,7 @@
 import os
+import gzip
 import json
+import shutil
 import yaml
 import argparse
 import datetime
@@ -117,6 +119,12 @@ class GraphBuilder:
 
         nodes_filepath = os.path.join(graph_output_dir, NODES_FILENAME)
         edges_filepath = os.path.join(graph_output_dir, EDGES_FILENAME)
+
+        # On re-runs of an already-built graph, the raw jsonl files may have been
+        # gzipped and removed by a previous run. Restore them so the trailing steps
+        # (QC, metadata, neo4j/memgraph/AC dumps, etc.) can read raw jsonl.
+        self.ensure_jsonl_uncompressed(nodes_filepath)
+        self.ensure_jsonl_uncompressed(edges_filepath)
 
         if not graph_metadata.has_qc():
             logger.info(f'Running QC for graph {graph_id}...')
@@ -250,6 +258,20 @@ class GraphBuilder:
             os.makedirs(ac_output_dir, exist_ok=True)
             generate_ac_files(nodes_filepath, edge_filepath_to_use, ac_output_dir)
 
+        # All processing is complete. Replace the final jsonl files with gzipped
+        # versions so downloads are smaller/faster.
+        logger.info(f'Compressing final jsonl files for {graph_id}...')
+        jsonl_files_to_compress = [nodes_filepath, edges_filepath]
+        if 'redundant_jsonl' in output_formats or 'redundant_neo4j' in output_formats:
+            jsonl_files_to_compress.append(
+                edges_filepath.replace(EDGES_FILENAME, REDUNDANT_EDGES_FILENAME))
+        if ('collapsed_qualifiers_jsonl' in output_formats
+                or 'collapsed_qualifiers_neo4j' in output_formats):
+            jsonl_files_to_compress.append(
+                edges_filepath.replace(EDGES_FILENAME, COLLAPSED_QUALIFIERS_FILENAME))
+        for jsonl_path in jsonl_files_to_compress:
+            self.compress_jsonl_to_gzip(jsonl_path)
+
         return True
 
     # determine a graph version utilizing versions of data sources, or just return the graph version specified
@@ -365,6 +387,35 @@ class GraphBuilder:
                                                                                data_source.normalization_scheme.get_composite_normalization_version(),
                                                                                data_source.supplementation_version)
         return True
+
+    # Stream-gzip jsonl_path to jsonl_path + '.gz' and remove the original.
+    # Writes to a temp file and renames so a crash mid-compression won't leave
+    # a half-written .gz next to the original.
+    @staticmethod
+    def compress_jsonl_to_gzip(jsonl_path: str):
+        if not os.path.exists(jsonl_path):
+            return
+        gz_path = jsonl_path + '.gz'
+        tmp_path = gz_path + '.tmp'
+        with open(jsonl_path, 'rb') as src, gzip.open(tmp_path, 'wb', compresslevel=6) as dst:
+            shutil.copyfileobj(src, dst, length=1024 * 1024)
+        os.replace(tmp_path, gz_path)
+        os.remove(jsonl_path)
+
+    # If jsonl_path is missing but jsonl_path + '.gz' exists, decompress it.
+    # Used on entry to build_graph's trailing steps so re-runs on an already-built
+    # graph (where a previous run gzipped the files) can still read raw jsonl.
+    @staticmethod
+    def ensure_jsonl_uncompressed(jsonl_path: str):
+        if os.path.exists(jsonl_path):
+            return
+        gz_path = jsonl_path + '.gz'
+        if not os.path.exists(gz_path):
+            return
+        tmp_path = jsonl_path + '.tmp'
+        with gzip.open(gz_path, 'rb') as src, open(tmp_path, 'wb') as dst:
+            shutil.copyfileobj(src, dst, length=1024 * 1024)
+        os.replace(tmp_path, jsonl_path)
 
     @staticmethod
     def has_meta_kg(graph_directory: str):
