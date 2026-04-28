@@ -1,0 +1,139 @@
+{{- if .Values.orion.schedule }}
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: {{ include "orion.fullname" . }}-build
+  labels:
+    {{- include "orion.labels" . | nindent 4 }}
+spec:
+  schedule: {{ .Values.orion.schedule | quote }}
+  concurrencyPolicy: Forbid
+  jobTemplate:
+    spec:
+      backoffLimit: 0
+      template:
+        spec:
+          restartPolicy: Never
+          securityContext:
+            runAsUser: {{ .Values.orion.securityContext.runAsUser }}
+            runAsGroup: {{ .Values.orion.securityContext.runAsGroup }}
+            fsGroup: {{ .Values.orion.securityContext.runAsGroup }}
+          containers:
+            - name: orion-build
+              image: {{ .Values.orion.image.repository }}:{{ .Values.orion.image.tag }}
+              imagePullPolicy: {{ .Values.orion.image.pullPolicy }}
+              args: ["orion-build", {{ .Values.orion.graphID | quote }}]
+              volumeMounts:
+                - name: ds-sources-volume
+                  mountPath: /ORION_storage
+                  {{- if .Values.orion.sourcesVolume.nfs_mount_subpath }}
+                  subPath: {{ .Values.orion.sourcesVolume.nfs_mount_subpath }}
+                  {{- end }}
+                - name: ds-sources-volume
+                  mountPath: /ORION_logs
+                  subPath: {{ .Values.orion.sourcesVolume.nfs_mount_subpath }}logs
+                - name: ds-graphs-volume
+                  mountPath: /ORION_graphs
+                  {{- if .Values.orion.graphsVolume.nfs_mount_subpath }}
+                  subPath: {{ .Values.orion.graphsVolume.nfs_mount_subpath }}
+                  {{- end }}
+                {{- if .Values.orion.extraVolume.use_extra_volume }}
+                - name: ds-extra-volume
+                  mountPath: /ORION_extra
+                  {{- if .Values.orion.extraVolume.nfs_mount_subpath }}
+                  subPath: {{ .Values.orion.extraVolume.nfs_mount_subpath }}
+                  {{- end }}
+                {{- end }}
+                - mountPath: /ORION/.env
+                  name: app-config
+                  subPath: env-file
+              env:
+                - name: HOME
+                  value: /ORION
+                - name: ORION_STORAGE
+                  value: /ORION_storage
+                - name: ORION_GRAPHS
+                  value: /ORION_graphs
+                {{- if .Values.orion.useLocalGraphSpec }}
+                - name: ORION_GRAPH_SPEC
+                  value: {{ .Values.orion.graphSpec }}
+                {{- else }}
+                - name: ORION_GRAPH_SPEC_URL
+                  value: {{ .Values.orion.graphSpec }}
+                {{- end }}
+                - name: ORION_LOGS
+                  value: /ORION_logs
+                - name: ORION_OUTPUT_URL
+                  value: {{ .Values.orion.outputURL }}
+                - name: BL_VERSION
+                  value: {{ .Values.orion.normalization.bl_version }}
+                {{- if .Values.orion.normalization.nodeNormEndpoint }}
+                - name: NODE_NORMALIZATION_URL
+                  value: {{ .Values.orion.normalization.nodeNormEndpoint }}
+                {{- end }}
+                {{- if .Values.orion.normalization.edgeNormEndpoint }}
+                - name: EDGE_NORMALIZATION_URL
+                  value: {{ .Values.orion.normalization.edgeNormEndpoint }}
+                {{- end }}
+                {{- if .Values.orion.normalization.nameResolverEndpoint }}
+                - name: NAMERES_URL
+                  value: {{ .Values.orion.normalization.nameResolverEndpoint }}
+                {{- end }}
+                {{- if .Values.orion.normalization.sapbertEndpoint }}
+                - name: SAPBERT_URL
+                  value: {{ .Values.orion.normalization.sapbertEndpoint }}
+                {{- end }}
+                - name: DRUGCENTRAL_DB_HOST
+                  value: {{ .Values.drugcentral.host | quote }}
+                - name: DRUGCENTRAL_DB_USER
+                  value: {{ .Values.drugcentral.user | quote }}
+                - name: DRUGCENTRAL_DB_PASSWORD
+                  value: {{ .Values.drugcentral.password | quote }}
+                - name: DRUGCENTRAL_DB_PORT
+                  value: {{ .Values.drugcentral.port | quote }}
+                - name: DRUGCENTRAL_DB_NAME
+                  value: {{ .Values.drugcentral.db_name | quote }}
+                - name: PHAROS_DB_HOST
+                  value: {{ .Values.pharos.host | quote }}
+                - name: PHAROS_DB_USER
+                  value: {{ .Values.pharos.user | quote }}
+                - name: PHAROS_DB_PASSWORD
+                  value: {{ .Values.pharos.password | quote }}
+                - name: PHAROS_DB_PORT
+                  value: {{ .Values.pharos.port | quote }}
+                - name: PHAROS_DB_NAME
+                  value: {{ .Values.pharos.db_name | quote }}
+              resources:
+                {{- toYaml .Values.orion.resources | nindent 16 }}
+          volumes:
+            {{- if .Values.orion.sourcesVolume.use_nfs }}
+            - name: ds-sources-volume
+              nfs:
+                server: {{ .Values.orion.sourcesVolume.nfs_server }}
+                path: {{ .Values.orion.sourcesVolume.nfs_path }}
+            {{- else }}
+            - name: ds-sources-volume
+              persistentVolumeClaim:
+                claimName: ds-sources-pvc
+            {{- end }}
+            {{- if .Values.orion.graphsVolume.use_nfs }}
+            - name: ds-graphs-volume
+              nfs:
+                server: {{ .Values.orion.graphsVolume.nfs_server }}
+                path: {{ .Values.orion.graphsVolume.nfs_path }}
+            {{- else }}
+            - name: ds-graphs-volume
+              persistentVolumeClaim:
+                claimName: ds-graphs-pvc
+            {{- end }}
+            {{- if .Values.orion.extraVolume.use_extra_volume }}
+            - name: ds-extra-volume
+              nfs:
+                server: {{ .Values.orion.extraVolume.nfs_server }}
+                path: {{ .Values.orion.extraVolume.nfs_path }}
+            {{- end }}
+            - name: app-config
+              configMap:
+                name: {{ include "orion.fullname" . }}-app-config
+                defaultMode: 0777
+{{- end }}

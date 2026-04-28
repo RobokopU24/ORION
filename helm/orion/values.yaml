@@ -3,6 +3,7 @@
 replicaCount: 1
 
 orion:
+  schedule:  # cron schedule for automated builds, e.g. "0 6 * * mon" — leave empty to disable
   graphID: "all"
   graphSpec: "example-graph-spec.yaml"
   # useLocalGraphSpec true if the graphSpec is a file in the codebase (mainly for testing), false if a remote URL
