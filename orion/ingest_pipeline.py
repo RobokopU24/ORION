@@ -375,14 +375,6 @@ class IngestPipeline:
                                                           normalization_time=current_time)
             return False
 
-    def get_latest_edge_normalization_version(self):
-        if self.latest_edge_normalization_version is not None:
-            return self.latest_edge_normalization_version
-        edge_normalizer = EdgeNormalizer()
-        edge_norm_version = edge_normalizer.get_current_edge_norm_version()
-        self.latest_edge_normalization_version = edge_norm_version
-        return edge_norm_version
-
     def run_supplementation_stage(self,
                                   source_id: str,
                                   source_version: str,

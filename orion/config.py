@@ -27,7 +27,7 @@ class Config(BaseSettings):
     ORION_GRAPH_SPEC: str = "example-graph-spec.yaml"
     ORION_GRAPH_SPEC_URL: str = ""
 
-    BL_VERSION: str = "v4.3.4"
+    BL_VERSION: str = "v4.3.7"
 
     EDGE_NORMALIZATION_URL: str = "https://bl-lookup-sri.renci.org"
     NODE_NORMALIZATION_URL: str = "https://nodenormalization-sri.renci.org"

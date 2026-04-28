@@ -637,7 +637,7 @@ class GraphBuilder:
                 if graph_wide_node_norm_version == 'latest':
                     graph_wide_node_norm_version = get_current_node_norm_version()
                 if graph_wide_edge_norm_version == 'latest':
-                    graph_wide_edge_norm_version = self.ingest_pipeline.get_latest_edge_normalization_version()
+                    graph_wide_edge_norm_version = config.BL_VERSION
 
                 # apply them to all the data sources, this will overwrite anything defined at the source level
                 for data_source in data_sources:
@@ -710,7 +710,7 @@ class GraphBuilder:
         if not parsing_version or parsing_version == 'latest':
             parsing_version = self.ingest_pipeline.get_latest_parsing_version(source_id)
         if not edge_normalization_version or edge_normalization_version == 'latest':
-            edge_normalization_version = self.ingest_pipeline.get_latest_edge_normalization_version()
+            edge_normalization_version = config.BL_VERSION
 
         # do some validation
         if type(strict_normalization) != bool:
