@@ -95,7 +95,7 @@ def edge_key_function(edge, custom_key_attributes=None, edge_id_type=None):
         key_input = standard_attributes
 
     if edge_id_type == 'uuid':
-        return f"urn:uuid:{uuid.uuid5(ORION_UUID_NAMESPACE, key_input)}"
+        return str(uuid.uuid5(ORION_UUID_NAMESPACE, key_input))
     else:
         return xxh64_hexdigest(key_input)
 
@@ -387,7 +387,6 @@ class DiskGraphMerger(GraphMerger):
 
         # open all the files, which are chunk_size sized files of sorted and keyed entities
         if not file_paths:
-            logger.error('get_merged_entities called but no file_paths were provided! Empty source?')
             return
         file_handlers = [open(file_path) for file_path in file_paths]
 

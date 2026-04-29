@@ -9,7 +9,7 @@ graphs:
     # Edge ID options:
     # add_edge_id: true         - generate a deterministic id for each edge based on its merge key
     #                             (subject + predicate + object + primary_knowledge_source + qualifiers).
-    # edge_id_type: uuid        - optionally use urn:uuid: formatted uuid5 ids instead of default xxhash ids.
+    # edge_id_type: uuid        - optionally use uuid5 ids instead of default xxhash ids.
     # overwrite_edge_ids: false - preserve original edge ids for edges that are not involved in a merge.
     #                             When a merge does occur, the merged edge gets the generated id and
     #                             a mapping from the new id to the original pre-merge ids is recorded.
