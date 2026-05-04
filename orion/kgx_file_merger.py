@@ -2,10 +2,9 @@ import os
 import gzip
 import json
 from datetime import datetime
-from itertools import chain
 from orion.utils import quick_jsonl_file_iterator
 from orion.logging import get_orion_logger
-from orion.kgxmodel import GraphSpec, GraphSource, SubGraphSource
+from orion.kgxmodel import GraphSpec, GraphFileSource
 from orion.biolink_constants import SUBJECT_ID, OBJECT_ID
 from orion.merging import GraphMerger, DiskGraphMerger, MemoryGraphMerger, MERGING_CODE_VERSION
 from orion.ingest_pipeline import RESOURCE_HOGS
@@ -36,7 +35,8 @@ class KGXFileMerger:
         self.unmerged_edge_files = {}
 
     def merge(self):
-        if not (self.graph_spec.sources or self.graph_spec.subgraphs):
+        resolved_sources = self.graph_spec.resolved_sources or []
+        if not resolved_sources:
             merge_error_msg = f'Merge attempted but {self.graph_spec.graph_id} had no sources to merge.'
             logger.error(merge_error_msg)
             self.merge_metadata['merge_error'] = merge_error_msg
@@ -46,9 +46,10 @@ class KGXFileMerger:
         primary_sources = []
         secondary_sources = []
         dont_merge_sources = []
-        for graph_source in chain(self.graph_spec.sources, self.graph_spec.subgraphs):
+        for graph_source in resolved_sources:
             self.merge_metadata["sources"][graph_source.id] = {
                 'release_version': graph_source.version,
+                'kgx_graph_metadata': graph_source.kgx_graph_metadata,
                 'node_count': 0,
                 'edge_count': 0,
                 'files': {},
@@ -70,10 +71,8 @@ class KGXFileMerger:
 
         # sources are added to self.merge_metadata['sources'] as they get merged in,
         # this roughly checks that all the sources that should be merged were processed
-        if len(self.merge_metadata['sources']) != \
-                len(self.graph_spec.sources) + len(self.graph_spec.subgraphs):
-            all_source_ids = [graph_source.id for graph_source in chain(self.graph_spec.sources,
-                                                                        self.graph_spec.subgraphs)]
+        if len(self.merge_metadata['sources']) != len(resolved_sources):
+            all_source_ids = [graph_source.id for graph_source in resolved_sources]
             missing_data_sets = [source_id for source_id in all_source_ids if
                                  source_id not in self.merge_metadata['sources'].keys()]
             error_message = f"Error merging graph {self.graph_spec.graph_id}! could not merge: {missing_data_sets}"
@@ -216,14 +215,12 @@ class KGXFileMerger:
         needs_on_disk_merge = True
         if not save_memory:
             needs_on_disk_merge = False
-            for graph_source in chain(self.graph_spec.sources, self.graph_spec.subgraphs):
-                if isinstance(graph_source, SubGraphSource):
-                    for source_id in graph_source.graph_metadata.get_source_ids():
-                        if source_id in RESOURCE_HOGS:
-                            needs_on_disk_merge = True
-                            break
-                elif graph_source.id in RESOURCE_HOGS:
-                    needs_on_disk_merge = True
+            for graph_source in self.graph_spec.resolved_sources or []:
+                for source_id in graph_source.get_constituent_source_ids():
+                    if source_id in RESOURCE_HOGS:
+                        needs_on_disk_merge = True
+                        break
+                if needs_on_disk_merge:
                     break
 
         pre_merge_mapping_file_path = None
@@ -287,8 +284,9 @@ def merge_kgx_files(output_dir: str,
 
     current_time = datetime.now()
     timestamp = current_time.strftime("%Y/%m/%d %H:%M:%S")
-    graph_source = GraphSource(id='cli_merge',
-                               file_paths=nodes_files + edges_files)
+    cli_source = GraphFileSource(id='cli_merge',
+                                 version=graph_id,
+                                 file_paths=nodes_files + edges_files)
     graph_spec = GraphSpec(
         graph_id='cli_merge',
         graph_name='',
@@ -296,8 +294,9 @@ def merge_kgx_files(output_dir: str,
         graph_url='',
         graph_version=graph_id,
         graph_output_format='jsonl',
-        sources=[graph_source],
-        subgraphs=[]
+        sources=[],
+        subgraphs=[],
+        resolved_sources=[cli_source],
     )
     file_merger = KGXFileMerger(graph_spec=graph_spec,
                                 output_directory=output_dir,

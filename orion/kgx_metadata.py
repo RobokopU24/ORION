@@ -22,7 +22,7 @@ class KGXKnowledgeSource:
     isBasedOn: list["KGXKnowledgeSource"] = field(default_factory=list)
 
     @classmethod
-    def from_dict(cls, data: dict, version: str = "") -> "KGXKnowledgeSource":
+    def from_dict(cls, data: dict) -> "KGXKnowledgeSource":
         return cls(
             identifier=data['identifier'],
             name=data['name'],
@@ -32,7 +32,7 @@ class KGXKnowledgeSource:
             url=data.get('url', ''),
             contentUrl=data.get('contentUrl', ''),
             citation=data.get('citation', ''),
-            version=version,
+            version=data.get('version', ''),
             isBasedOn=[cls.from_dict(entry) for entry in data.get('isBasedOn', [])]
         )
 
