@@ -20,7 +20,7 @@ class MonarchKGBaseLoader(SourceDataLoader):
 
     source_id: str = None  # overridden by subclass
     provenance_id: str = 'infores:monarchinitiative'
-    parsing_version: str = '1.4'
+    parsing_version: str = '1.5'
 
     def __init__(self, test_mode: bool = False, source_data_dir: str = None):
         """
@@ -64,8 +64,8 @@ class MonarchKGBaseLoader(SourceDataLoader):
         data_puller.pull_via_http(source_data_url, self.data_path)
         return True
 
-    def filter_edge(self, predicate: str, primary_knowledge_source: str,
-                    aggregator_knowledge_sources: list) -> bool:
+    def filter_edge(self, subject_id: str, object_id: str, predicate: str,
+                    primary_knowledge_source: str, aggregator_knowledge_sources: list) -> bool:
         """
         Returns True if the edge should be skipped.
         Subclasses override this to apply filtering.
@@ -111,8 +111,8 @@ class MonarchKGBaseLoader(SourceDataLoader):
                     else:
                         aggregator_knowledge_sources = []
 
-                    if self.filter_edge(predicate, primary_knowledge_source,
-                                        aggregator_knowledge_sources):
+                    if self.filter_edge(subject_id, object_id, predicate,
+                                        primary_knowledge_source, aggregator_knowledge_sources):
                         skipped_filtered_counter += 1
                         continue
 
@@ -187,13 +187,24 @@ class MonarchKGLoader(MonarchKGBaseLoader):
             'infores:wb'
         }
 
-    def filter_edge(self, predicate: str, primary_knowledge_source: str,
-                    aggregator_knowledge_sources: list) -> bool:
+        # Curie prefixes known not to normalize — edges where subject or object
+        # starts with any of these are discarded.
+        self.non_normalizable_curie_prefixes = {
+            'ZP', 'phenopacket.store', 'WB', 'CLINVAR', 'FYPO',
+            'PomBase', 'MMRRC', 'WBPhenotype', 'CAID', 'XPO', 'CUREID'
+        }
+
+    def filter_edge(self, subject_id: str, object_id: str, predicate: str,
+                    primary_knowledge_source: str, aggregator_knowledge_sources: list) -> bool:
         if predicate not in self.desired_predicates:
             return True
         if primary_knowledge_source in self.knowledge_source_ignore_list or \
                 any(ks in self.knowledge_source_ignore_list for ks in aggregator_knowledge_sources):
             return True
+        for curie in (subject_id, object_id):
+            prefix = curie.split(':')[0]
+            if prefix in self.non_normalizable_curie_prefixes:
+                return True
         return False
 
 
