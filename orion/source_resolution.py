@@ -320,11 +320,11 @@ class IngestPipelineResolver(GraphSourceResolver):
 class SubgraphBuildResolver(GraphSourceResolver):
     """Build a subgraph from its own graph spec, then return its files."""
 
-    def __init__(self, build_manager):
-        self.build_manager = build_manager
+    def __init__(self, graph_pipeline):
+        self.graph_pipeline = graph_pipeline
 
     def resolve(self, spec: SubGraphSource) -> GraphFileSource | None:
-        subgraph_graph_spec = self.build_manager.graph_specs.get(spec.id)
+        subgraph_graph_spec = self.graph_pipeline.graph_specs.get(spec.id)
         if not subgraph_graph_spec:
             logger.warning(f'Subgraph {spec.id} version {spec.graph_version} not found and no graph spec available '
                            f'to build it.')
@@ -335,11 +335,11 @@ class SubgraphBuildResolver(GraphSourceResolver):
                          f'remove the version specification to use the latest.')
             return None
         logger.warning(f'Subgraph dependency {spec.id} not ready. Building now...')
-        if not self.build_manager.build_graph(subgraph_graph_spec):
+        if not self.graph_pipeline.build_graph(subgraph_graph_spec):
             return None
 
-        graph_dir = self.build_manager.get_graph_dir_path(spec.id, spec.graph_version)
-        orion_metadata = self.build_manager.get_graph_metadata(spec.id, spec.graph_version)
+        graph_dir = self.graph_pipeline.get_graph_dir_path(spec.id, spec.graph_version)
+        orion_metadata = self.graph_pipeline.get_graph_metadata(spec.id, spec.graph_version)
         if orion_metadata.get_build_status() != Metadata.STABLE:
             logger.warning(f'Subgraph {spec.id} version {spec.graph_version} did not reach STABLE status.')
             return None

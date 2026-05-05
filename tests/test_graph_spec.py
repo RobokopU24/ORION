@@ -3,7 +3,7 @@ import pytest
 import requests.exceptions
 
 from unittest.mock import MagicMock
-from orion.build_manager import GraphBuilder, GraphSpecError
+from orion.graph_pipeline import GraphBuilder, GraphSpecError
 from orion import config as config_module
 
 

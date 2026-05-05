@@ -44,7 +44,7 @@ from orion.collapse_qualifiers import generate_collapsed_qualifiers_kg
 from orion.kgx_metadata import KGXGraphMetadata, KGXKnowledgeSource, generate_kgx_schema_file
 
 
-logger = get_orion_logger("orion.build_manager")
+logger = get_orion_logger("orion.graph_pipeline")
 
 REDUNDANT_EDGES_FILENAME = 'redundant_edges.jsonl'
 COLLAPSED_QUALIFIERS_FILENAME = 'collapsed_qualifier_edges.jsonl'
@@ -358,7 +358,7 @@ class GraphBuilder:
         local_resolver = LocalGraphResolver(graphs_dir=self.graphs_dir)
         registry_resolver = RegistryGraphResolver(graphs_dir=self.graphs_dir)
         ingest_resolver = IngestPipelineResolver(ingest_pipeline=self.ingest_pipeline)
-        subgraph_build_resolver = SubgraphBuildResolver(build_manager=self)
+        subgraph_build_resolver = SubgraphBuildResolver(graph_pipeline=self)
 
         subgraph_chain = [local_resolver, registry_resolver, subgraph_build_resolver]
         for subgraph_spec in graph_spec.subgraphs or []:
