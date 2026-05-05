@@ -24,7 +24,7 @@ class KGXKnowledgeSource:
     @classmethod
     def from_dict(cls, data: dict) -> "KGXKnowledgeSource":
         return cls(
-            identifier=data['identifier'],
+            identifier=data.get('identifier', data.get('id')),
             name=data['name'],
             description=data.get('description', ''),
             license=data.get('license', ''),
