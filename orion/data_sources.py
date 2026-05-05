@@ -35,6 +35,7 @@ KINACE = 'KinAce'
 MOLEPRO = 'MolePro'
 METABOLOMICS_WORKBENCH = 'MetabolomicsWorkbench'
 MONARCH_KG = 'MonarchKG'
+MONARCH_KG_FULL = 'MonarchKGFull'
 MONDO_PROPS = 'MONDOProps'
 OHD_CAROLINA = 'OHD-Carolina'
 ONTOLOGICAL_HIERARCHY = 'OntologicalHierarchy'
@@ -95,6 +96,7 @@ SOURCE_DATA_LOADER_CLASS_IMPORTS = {
     METABOLOMICS_WORKBENCH: ("parsers.MetabolomicsWorkbench.src.loadMetabolomicsWorkbench", "MetabolomicsWorkbenchLoader"),
     MOLEPRO: ("parsers.molepro.src.loadMolePro", "MoleProLoader"),
     MONARCH_KG: ("parsers.monarchkg.src.loadMonarchKG", "MonarchKGLoader"),
+    MONARCH_KG_FULL: ("parsers.monarchkg.src.loadMonarchKG", "MonarchKGFullLoader"),
     MONDO_PROPS: ("parsers.MONDOProperties.src.loadMP", "MPLoader"),
     OHD_CAROLINA: ("parsers.ohd_carolina.src.loadOHD", "OHDLoader"),
     ONTOLOGICAL_HIERARCHY: ("parsers.UberGraph.src.loadUG", "OHLoader"),
