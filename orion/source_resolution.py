@@ -1,6 +1,6 @@
 """Resolver chain that turns spec-layer source declarations (DataSource,
 SubGraphSource) into merge-layer GraphFileSource objects, by either downloading
-existing graphs from a remote registry, sourcing them from local storage, 
+existing graphs from a remote registry, sourcing them from local storage,
 or building them from scratch.
 """
 
@@ -8,6 +8,7 @@ import json
 import os
 
 from orion.graph_registry import GraphRegistryClient, GraphRegistryError
+from orion.kgx_bundle import KGXBundle
 from orion.kgxmodel import (
     DataSource,
     GraphFileSource,
@@ -18,29 +19,6 @@ from orion.logging import get_orion_logger
 from orion.metadata import GraphMetadata, Metadata
 
 logger = get_orion_logger(__name__)
-
-GRAPH_METADATA_FILENAME = 'graph-metadata.json'
-NODES_FILENAME = 'nodes.jsonl'
-EDGES_FILENAME = 'edges.jsonl'
-
-
-def _pick_existing_with_gz(path: str) -> str | None:
-    if os.path.exists(path + '.gz'):
-        return path + '.gz'
-    if os.path.exists(path):
-        return path
-    return None
-
-
-def _load_kgx_graph_metadata(graph_dir: str) -> dict | None:
-    metadata_path = os.path.join(graph_dir, GRAPH_METADATA_FILENAME)
-    if not os.path.exists(metadata_path):
-        return None
-    try:
-        with open(metadata_path) as f:
-            return json.load(f)
-    except (json.JSONDecodeError, OSError):
-        return None
 
 
 def _load_orion_graph_metadata(graph_id: str, graph_dir: str) -> GraphMetadata | None:
@@ -98,16 +76,15 @@ class LocalGraphResolver(GraphSourceResolver):
                            graph_id: str,
                            version: str,
                            merge_strategy: str | None) -> GraphFileSource | None:
-        nodes_path = _pick_existing_with_gz(os.path.join(graph_dir, NODES_FILENAME))
-        edges_path = _pick_existing_with_gz(os.path.join(graph_dir, EDGES_FILENAME))
-        if not nodes_path or not edges_path:
+        bundle = KGXBundle(graph_dir)
+        if not bundle.has_nodes_and_edges():
             return None
         return GraphFileSource(
             id=graph_id,
             version=version,
-            file_paths=[nodes_path, edges_path],
+            file_paths=[bundle.nodes_path, bundle.edges_path],
             merge_strategy=merge_strategy,
-            kgx_graph_metadata=_load_kgx_graph_metadata(graph_dir),
+            kgx_graph_metadata=bundle.load_graph_metadata(),
             orion_graph_metadata=_load_orion_graph_metadata(graph_id, graph_dir),
         )
 
@@ -138,7 +115,7 @@ class LocalGraphResolver(GraphSourceResolver):
             graph_dir = os.path.join(source_graph_root, entry)
             if not os.path.isdir(graph_dir):
                 continue
-            kgx_graph_metadata = _load_kgx_graph_metadata(graph_dir)
+            kgx_graph_metadata = KGXBundle(graph_dir).load_graph_metadata()
             if kgx_graph_metadata is None:
                 continue
             if not _kgx_metadata_matches_single_source(kgx_graph_metadata, spec.id, release_version):
@@ -232,29 +209,30 @@ class RegistryGraphResolver(GraphSourceResolver):
                      merge_strategy: str | None) -> GraphFileSource | None:
         graph_dir = os.path.join(self.graphs_dir, graph_id, graph_version)
         os.makedirs(graph_dir, exist_ok=True)
+        bundle = KGXBundle(graph_dir)
 
-        # Persist the KGX graph metadata locally so future runs find it via LocalGraphResolver.
-        local_metadata_path = os.path.join(graph_dir, GRAPH_METADATA_FILENAME)
-        if not os.path.exists(local_metadata_path):
-            with open(local_metadata_path, 'w') as f:
-                json.dump(kgx_graph_metadata, f)
+        # we already have the graph_metadata in memory here, just save it
+        if not bundle.has_graph_metadata():
+            with open(bundle.graph_metadata_path, 'w') as f:
+                json.dump(kgx_graph_metadata, f, indent=2)
 
         try:
             available_files = self.client.list_files(graph_id, graph_version)
         except GraphRegistryError as e:
             logger.warning(f'Registry file listing failed for {graph_id}/{graph_version}: {e}')
             return None
-        available_basenames = {os.path.basename(f.get('file_path', '')): f for f in available_files}
 
-        nodes_basename = self._pick_basename(available_basenames, NODES_FILENAME)
-        edges_basename = self._pick_basename(available_basenames, EDGES_FILENAME)
+        available_basenames = {os.path.basename(f.get('file_path', '')): f for f in available_files}
+        nodes_basename = self._pick_basename(available_basenames, KGXBundle.NODES_FILENAME)
+        edges_basename = self._pick_basename(available_basenames, KGXBundle.EDGES_FILENAME)
         if not nodes_basename or not edges_basename:
             logger.warning(f'Registry version {graph_id}/{graph_version} is missing nodes or edges files.')
             return None
 
         try:
-            nodes_path = self._ensure_local(graph_id, graph_version, nodes_basename, graph_dir, kgx_graph_metadata)
-            edges_path = self._ensure_local(graph_id, graph_version, edges_basename, graph_dir, kgx_graph_metadata)
+            self._ensure_local(graph_id, graph_version, nodes_basename, graph_dir, kgx_graph_metadata)
+            self._ensure_local(graph_id, graph_version, edges_basename, graph_dir, kgx_graph_metadata)
+            self._ensure_local(graph_id, graph_version, KGXBundle.SCHEMA_FILENAME, graph_dir, kgx_graph_metadata)
         except GraphRegistryError as e:
             logger.warning(f'Registry download failed for {graph_id}/{graph_version}: {e}')
             return None
@@ -263,7 +241,7 @@ class RegistryGraphResolver(GraphSourceResolver):
         return GraphFileSource(
             id=spec_id,
             version=graph_version,
-            file_paths=[nodes_path, edges_path],
+            file_paths=[bundle.nodes_path, bundle.edges_path],
             merge_strategy=merge_strategy,
             kgx_graph_metadata=kgx_graph_metadata,
             orion_graph_metadata=_load_orion_graph_metadata(graph_id, graph_dir),
@@ -366,17 +344,16 @@ class SubgraphBuildResolver(GraphSourceResolver):
             logger.warning(f'Subgraph {spec.id} version {spec.graph_version} did not reach STABLE status.')
             return None
 
-        nodes_path = _pick_existing_with_gz(os.path.join(graph_dir, NODES_FILENAME))
-        edges_path = _pick_existing_with_gz(os.path.join(graph_dir, EDGES_FILENAME))
-        if not nodes_path or not edges_path:
+        bundle = KGXBundle(graph_dir)
+        if not bundle.has_nodes_and_edges():
             return None
 
         return GraphFileSource(
             id=spec.id,
             version=spec.graph_version,
-            file_paths=[nodes_path, edges_path],
+            file_paths=[bundle.nodes_path, bundle.edges_path],
             merge_strategy=spec.merge_strategy,
-            kgx_graph_metadata=_load_kgx_graph_metadata(graph_dir),
+            kgx_graph_metadata=bundle.load_graph_metadata(),
             orion_graph_metadata=orion_metadata,
         )
 

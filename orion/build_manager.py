@@ -20,6 +20,7 @@ from orion.kgx_file_merger import KGXFileMerger
 from orion.kgx_validation import validate_graph
 from orion.neo4j_tools import create_neo4j_dump
 from orion.memgraph_tools import create_memgraph_dump
+from orion.kgx_bundle import KGXBundle
 from orion.kgxmodel import (
     DataSource,
     GraphFileSource,
@@ -27,7 +28,7 @@ from orion.kgxmodel import (
     SubGraphSource,
 )
 from orion.normalization import NormalizationScheme, get_current_node_norm_version
-from orion.metadata import Metadata, GraphMetadata, SourceMetadata
+from orion.metadata import Metadata, GraphMetadata
 from orion.source_resolution import (
     IngestPipelineResolver,
     LocalGraphResolver,
@@ -45,11 +46,7 @@ from orion.kgx_metadata import KGXGraphMetadata, KGXKnowledgeSource, generate_kg
 
 logger = get_orion_logger("orion.build_manager")
 
-NODES_FILENAME = 'nodes.jsonl'
-EDGES_FILENAME = 'edges.jsonl'
 REDUNDANT_EDGES_FILENAME = 'redundant_edges.jsonl'
-GRAPH_METADATA_FILENAME = 'graph-metadata.json'
-SCHEMA_FILENAME = 'schema.json'
 COLLAPSED_QUALIFIERS_FILENAME = 'collapsed_qualifier_edges.jsonl'
 
 
@@ -131,8 +128,8 @@ class GraphBuilder:
             # merge the sources and write the finalized graph kgx files
             source_merger = KGXFileMerger(graph_spec=graph_spec,
                                           output_directory=graph_output_dir,
-                                          nodes_output_filename=NODES_FILENAME,
-                                          edges_output_filename=EDGES_FILENAME)
+                                          nodes_output_filename=KGXBundle.NODES_FILENAME,
+                                          edges_output_filename=KGXBundle.EDGES_FILENAME)
             source_merger.merge()
             merge_metadata = source_merger.get_merge_metadata()
 
@@ -149,19 +146,17 @@ class GraphBuilder:
             logger.info(f'Building graph {graph_id} complete!')
             self.build_results[graph_id] = {'version': graph_version}
 
-        nodes_filepath = os.path.join(graph_output_dir, NODES_FILENAME)
-        edges_filepath = os.path.join(graph_output_dir, EDGES_FILENAME)
+        kgx_bundle = KGXBundle(graph_output_dir)
 
         # On re-runs of an already-built graph, the raw jsonl files may have been
         # gzipped and removed by a previous run. Restore them so the trailing steps
         # (QC, metadata, neo4j/memgraph/AC dumps, etc.) can read raw jsonl.
-        self.ensure_jsonl_uncompressed(nodes_filepath)
-        self.ensure_jsonl_uncompressed(edges_filepath)
+        kgx_bundle.decompress_nodes_and_edges()
 
         if not graph_metadata.has_qc():
             logger.info(f'Running QC for graph {graph_id}...')
-            qc_results = validate_graph(nodes_file_path=nodes_filepath,
-                                        edges_file_path=edges_filepath,
+            qc_results = validate_graph(nodes_file_path=kgx_bundle.nodes_path,
+                                        edges_file_path=kgx_bundle.edges_path,
                                         graph_id=graph_id,
                                         graph_version=graph_version,
                                         logger=logger)
@@ -172,16 +167,16 @@ class GraphBuilder:
                 logger.warning(f'QC failed for graph {graph_id}.')
 
         # Generate KGX metadata and schema files
-        if not self.has_kgx_metadata(graph_output_dir):
+        if not kgx_bundle.has_graph_metadata():
             logger.info(f'Generating KGX metadata for {graph_id}...')
             self.generate_kgx_metadata_files(graph_metadata=graph_metadata,
                                              graph_output_dir=graph_output_dir,
                                              graph_output_url=graph_output_url)
             logger.info(f'KGX metadata generated for {graph_id}.')
-        if not self.has_kgx_schema(graph_output_dir):
+        if not kgx_bundle.has_schema():
             logger.info(f'Generating KGX Schema for {graph_id}...')
-            generate_kgx_schema_file(nodes_filepath=nodes_filepath,
-                                     edges_filepath=edges_filepath,
+            generate_kgx_schema_file(nodes_filepath=kgx_bundle.nodes_path,
+                                     edges_filepath=kgx_bundle.edges_path,
                                      output_dir=graph_output_dir,
                                      graph_output_url=graph_output_url,
                                      graph_name=graph_spec.graph_name,
@@ -211,16 +206,16 @@ class GraphBuilder:
         #  output_format: [['redundant', 'neo4j', 'answercoalesce'], ['collapsed_qualifiers'], ['neo4j']]
         if 'redundant_jsonl' in output_formats:
             logger.info(f'Generating redundant edge KG for {graph_id}...')
-            redundant_filepath = edges_filepath.replace(EDGES_FILENAME, REDUNDANT_EDGES_FILENAME)
-            generate_redundant_kg(edges_filepath, redundant_filepath)
+            redundant_filepath = kgx_bundle.edges_path.replace(KGXBundle.EDGES_FILENAME, REDUNDANT_EDGES_FILENAME)
+            generate_redundant_kg(kgx_bundle.edges_path, redundant_filepath)
 
         if 'redundant_neo4j' in output_formats:
             logger.info(f'Generating redundant edge KG for {graph_id}...')
-            redundant_filepath = edges_filepath.replace(EDGES_FILENAME, REDUNDANT_EDGES_FILENAME)
+            redundant_filepath = kgx_bundle.edges_path.replace(KGXBundle.EDGES_FILENAME, REDUNDANT_EDGES_FILENAME)
             if not os.path.exists(redundant_filepath):
-                generate_redundant_kg(edges_filepath, redundant_filepath)
+                generate_redundant_kg(kgx_bundle.edges_path, redundant_filepath)
             logger.info(f'Starting Neo4j dump pipeline for redundant {graph_id}...')
-            dump_success = create_neo4j_dump(nodes_filepath=nodes_filepath,
+            dump_success = create_neo4j_dump(nodes_filepath=kgx_bundle.nodes_path,
                                              edges_filepath=redundant_filepath,
                                              output_directory=graph_output_dir,
                                              graph_id=graph_id,
@@ -233,16 +228,16 @@ class GraphBuilder:
 
         if 'collapsed_qualifiers_jsonl' in output_formats:
             logger.info(f'Generating collapsed qualifier predicates KG for {graph_id}...')
-            collapsed_qualifiers_filepath = edges_filepath.replace(EDGES_FILENAME, COLLAPSED_QUALIFIERS_FILENAME)
-            generate_collapsed_qualifiers_kg(edges_filepath, collapsed_qualifiers_filepath)
+            collapsed_qualifiers_filepath = kgx_bundle.edges_path.replace(KGXBundle.EDGES_FILENAME, COLLAPSED_QUALIFIERS_FILENAME)
+            generate_collapsed_qualifiers_kg(kgx_bundle.edges_path, collapsed_qualifiers_filepath)
 
         if 'collapsed_qualifiers_neo4j' in output_formats:
             logger.info(f'Generating collapsed qualifier predicates KG for {graph_id}...')
-            collapsed_qualifiers_filepath = edges_filepath.replace(EDGES_FILENAME, COLLAPSED_QUALIFIERS_FILENAME)
+            collapsed_qualifiers_filepath = kgx_bundle.edges_path.replace(KGXBundle.EDGES_FILENAME, COLLAPSED_QUALIFIERS_FILENAME)
             if not os.path.exists(collapsed_qualifiers_filepath):
-                generate_collapsed_qualifiers_kg(edges_filepath, collapsed_qualifiers_filepath)
+                generate_collapsed_qualifiers_kg(kgx_bundle.edges_path, collapsed_qualifiers_filepath)
             logger.info(f'Starting Neo4j dump pipeline for {graph_id} with collapsed qualifiers...')
-            dump_success = create_neo4j_dump(nodes_filepath=nodes_filepath,
+            dump_success = create_neo4j_dump(nodes_filepath=kgx_bundle.nodes_path,
                                              edges_filepath=collapsed_qualifiers_filepath,
                                              output_directory=graph_output_dir,
                                              graph_id=graph_id,
@@ -256,8 +251,8 @@ class GraphBuilder:
 
         if 'neo4j' in output_formats:
             logger.info(f'Starting Neo4j dump pipeline for {graph_id}...')
-            dump_success = create_neo4j_dump(nodes_filepath=nodes_filepath,
-                                             edges_filepath=edges_filepath,
+            dump_success = create_neo4j_dump(nodes_filepath=kgx_bundle.nodes_path,
+                                             edges_filepath=kgx_bundle.edges_path,
                                              output_directory=graph_output_dir,
                                              graph_id=graph_id,
                                              graph_version=graph_version,
@@ -269,8 +264,8 @@ class GraphBuilder:
 
         if 'memgraph' in output_formats:
             logger.info(f'Starting memgraph dump pipeline for {graph_id}...')
-            dump_success = create_memgraph_dump(nodes_filepath=nodes_filepath,
-                                                edges_filepath=edges_filepath,
+            dump_success = create_memgraph_dump(nodes_filepath=kgx_bundle.nodes_path,
+                                                edges_filepath=kgx_bundle.edges_path,
                                                 output_directory=graph_output_dir,
                                                 graph_id=graph_id,
                                                 graph_version=graph_version,
@@ -283,27 +278,29 @@ class GraphBuilder:
         if 'answercoalesce' in output_formats:
             logger.info(f'Generating answercoalesce files for {graph_id}...')
             if 'redundant_jsonl' in output_formats or 'redundant_neo4j' in output_formats:
-                edge_filepath_to_use = edges_filepath.replace(EDGES_FILENAME, REDUNDANT_EDGES_FILENAME)
+                edge_filepath_to_use = kgx_bundle.edges_path.replace(KGXBundle.EDGES_FILENAME, REDUNDANT_EDGES_FILENAME)
             else:
-                edge_filepath_to_use = edges_filepath
+                edge_filepath_to_use = kgx_bundle.edges_path
             ac_output_dir = os.path.join(graph_output_dir, "answercoalesce")
             os.makedirs(ac_output_dir, exist_ok=True)
-            generate_ac_files(nodes_filepath, edge_filepath_to_use, ac_output_dir)
+            generate_ac_files(kgx_bundle.nodes_path, edge_filepath_to_use, ac_output_dir)
 
         # All processing is complete. Replace the final jsonl files with gzipped
         # versions so downloads are smaller/faster.
         logger.info(f'Compressing final jsonl files for {graph_id}...')
-        jsonl_files_to_compress = [nodes_filepath, edges_filepath]
+        kgx_bundle.compress_nodes_and_edges()
+
+        # Compress any other jsonl nodes/edges files
+        jsonl_files_to_compress = []
         if 'redundant_jsonl' in output_formats or 'redundant_neo4j' in output_formats:
             jsonl_files_to_compress.append(
-                edges_filepath.replace(EDGES_FILENAME, REDUNDANT_EDGES_FILENAME))
+                kgx_bundle.edges_path.replace(KGXBundle.EDGES_FILENAME, REDUNDANT_EDGES_FILENAME))
         if ('collapsed_qualifiers_jsonl' in output_formats
                 or 'collapsed_qualifiers_neo4j' in output_formats):
             jsonl_files_to_compress.append(
-                edges_filepath.replace(EDGES_FILENAME, COLLAPSED_QUALIFIERS_FILENAME))
+                kgx_bundle.edges_path.replace(KGXBundle.EDGES_FILENAME, COLLAPSED_QUALIFIERS_FILENAME))
         for jsonl_path in jsonl_files_to_compress:
-            self.compress_jsonl_to_gzip(jsonl_path)
-
+            kgx_bundle.compress_jsonl(jsonl_path)
         return True
 
     # determine a graph version utilizing versions of data sources, or just return the graph version specified
@@ -403,35 +400,6 @@ class GraphBuilder:
             graph_spec.resolved_sources.append(resolved)
         return True
 
-    # Stream-gzip jsonl_path to jsonl_path + '.gz' and remove the original.
-    # Writes to a temp file and renames so a crash mid-compression won't leave
-    # a half-written .gz next to the original.
-    @staticmethod
-    def compress_jsonl_to_gzip(jsonl_path: str):
-        if not os.path.exists(jsonl_path):
-            return
-        gz_path = jsonl_path + '.gz'
-        tmp_path = gz_path + '.tmp'
-        with open(jsonl_path, 'rb') as src, gzip.open(tmp_path, 'wb', compresslevel=6) as dst:
-            shutil.copyfileobj(src, dst, length=1024 * 1024)
-        os.replace(tmp_path, gz_path)
-        os.remove(jsonl_path)
-
-    # If jsonl_path is missing but jsonl_path + '.gz' exists, decompress it.
-    # Used on entry to build_graph's trailing steps so re-runs on an already-built
-    # graph (where a previous run gzipped the files) can still read raw jsonl.
-    @staticmethod
-    def ensure_jsonl_uncompressed(jsonl_path: str):
-        if os.path.exists(jsonl_path):
-            return
-        gz_path = jsonl_path + '.gz'
-        if not os.path.exists(gz_path):
-            return
-        tmp_path = jsonl_path + '.tmp'
-        with gzip.open(gz_path, 'rb') as src, open(tmp_path, 'wb') as dst:
-            shutil.copyfileobj(src, dst, length=1024 * 1024)
-        os.replace(tmp_path, jsonl_path)
-
     @staticmethod
     def has_meta_kg(graph_directory: str):
         return os.path.exists(os.path.join(graph_directory, META_KG_FILENAME))
@@ -441,20 +409,12 @@ class GraphBuilder:
         return os.path.exists(os.path.join(graph_directory, TEST_DATA_FILENAME))
 
     @staticmethod
-    def has_kgx_metadata(graph_directory: str):
-        return os.path.exists(os.path.join(graph_directory, GRAPH_METADATA_FILENAME))
-
-    @staticmethod
-    def has_kgx_schema(graph_directory: str):
-        return os.path.exists(os.path.join(graph_directory, SCHEMA_FILENAME))
-
-    def generate_meta_kg_and_test_data(self,
-                                       graph_directory: str,
+    def generate_meta_kg_and_test_data(graph_directory: str,
                                        generate_meta_kg: bool = True,
                                        generate_test_data: bool = True,
                                        generate_example_data: bool = True):
-        graph_nodes_file_path = os.path.join(graph_directory, NODES_FILENAME)
-        graph_edges_file_path = os.path.join(graph_directory, EDGES_FILENAME)
+        graph_nodes_file_path = os.path.join(graph_directory, KGXBundle.NODES_FILENAME)
+        graph_edges_file_path = os.path.join(graph_directory, KGXBundle.EDGES_FILENAME)
         mkgb = MetaKnowledgeGraphBuilder(nodes_file_path=graph_nodes_file_path,
                                          edges_file_path=graph_edges_file_path,
                                          logger=logger)
@@ -790,11 +750,11 @@ class GraphBuilder:
 
     @staticmethod
     def get_graph_nodes_file_path(graph_output_dir: str):
-        return os.path.join(graph_output_dir, NODES_FILENAME)
+        return os.path.join(graph_output_dir, KGXBundle.NODES_FILENAME)
 
     @staticmethod
     def get_graph_edges_file_path(graph_output_dir: str):
-        return os.path.join(graph_output_dir, EDGES_FILENAME)
+        return os.path.join(graph_output_dir, KGXBundle.EDGES_FILENAME)
 
     def check_for_existing_graph_dir(self, graph_id: str, graph_version: str):
         graph_output_dir = self.get_graph_dir_path(graph_id, graph_version)
