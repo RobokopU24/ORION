@@ -32,6 +32,14 @@ class BD_EDGEUMAN(enum.IntEnum):
 def negative_log(concentration_nm): ### This function converts nanomolar concentrations into log-scale units (pKi/pKd/pIC50/pEC50). ###
     return -(math.log10(concentration_nm*(10**-9)))
 
+def parse_affinity_nm(affinity_value: str) -> float | None:
+    """Parse BindingDB nM affinity text into a numeric concentration."""
+    normalized_value = affinity_value.replace('<', '').replace(' ', '').replace(',', '')
+    affinity_nm = float(normalized_value)
+    if affinity_nm == 0:
+        return None
+    return affinity_nm
+
 def generate_zipfile_rows(zip_file_path, file_inside_zip, delimiter='\\t'):
         with ZipFile(zip_file_path, 'r') as zip_file:
             with zip_file.open(file_inside_zip, 'r') as file:
@@ -112,10 +120,14 @@ class BINDINGDBLoader(SourceDataLoader):
         """
         Gets the bindingdb data.
         """
-        # download the zipped data
-        data_puller = GetData()
         source_url = f"{self.bindingdb_data_url}{self.archive_file}"
-        data_puller.pull_via_http(source_url, self.data_path)
+        download_gate_url = "https://www.bindingdb.org/rwd/bind/chemsearch/marvin/SDFdownload.jsp"
+        download_file = f"/rwd/bind/downloads/{self.archive_file}"
+        GetData().pull_via_http_session_gate(source_url,
+                                             self.data_path,
+                                             download_gate_url,
+                                             gate_params={"download_file": download_file},
+                                             expected_content_type="application/zip")
         return True
 
     def parse_data(self) -> dict:
@@ -171,9 +183,9 @@ class BINDINGDBLoader(SourceDataLoader):
                     # our activity/inhibition threshold
                     if ">" in row[measure_index]:
                         continue
-                    sa = float(row[measure_index].replace('<', '').replace(' ', '').replace(',', ''))
-                    # I don't see how 0 would be a valid affinity value, so we'll skip it
-                    if sa == 0:
+                    # BindingDB values are nM concentrations. Recent TSVs include commas inside some numeric values.
+                    sa = parse_affinity_nm(row[measure_index])
+                    if sa is None:
                         continue
                     entry["supporting_affinities"].append(sa)
                     if publication is not None and publication not in entry[PUBLICATIONS]:
@@ -212,5 +224,5 @@ class BINDINGDBLoader(SourceDataLoader):
                                lambda item: item['predicate'],  # predicate
                                lambda item: {},  # subject props
                                lambda item: {},  # object props
-                               lambda item: {k: v for k, v in item.items() if key not in ['ligand', 'protein', 'predicate']}) #Edge props
+                               lambda item: {k: v for k, v in item.items() if k not in ['ligand', 'protein', 'predicate']}) #Edge props
         return extractor.load_metadata

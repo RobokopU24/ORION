@@ -167,3 +167,29 @@ def test_writing_json_lines():
     assert count_lines(edges_file_path) == 500
     remove_old_files()
 
+
+def test_writing_edge_keeps_zero_and_false_properties():
+    remove_old_files()
+    with KGXFileWriter(nodes_file_path, edges_file_path) as test_file_writer:
+        edge = kgxedge(subject_id='TEST:1',
+                       object_id='TEST:2',
+                       predicate='biolink:related_to',
+                       primary_knowledge_source='infores:testing',
+                       edgeprops={'zero_float': 0.0,
+                                  'zero_int': 0,
+                                  'false_bool': False,
+                                  'none_value': None,
+                                  'empty_string': '',
+                                  'empty_list': [],
+                                  'empty_dict': {}})
+        test_file_writer.write_kgx_edge(edge)
+
+    written_edge = next(quick_jsonl_file_iterator(edges_file_path))
+    assert written_edge['zero_float'] == 0.0
+    assert written_edge['zero_int'] == 0
+    assert written_edge['false_bool'] is False
+    assert 'none_value' not in written_edge
+    assert 'empty_string' not in written_edge
+    assert 'empty_list' not in written_edge
+    assert 'empty_dict' not in written_edge
+    remove_old_files()
