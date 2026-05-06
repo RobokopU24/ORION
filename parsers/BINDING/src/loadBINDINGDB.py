@@ -8,6 +8,7 @@ from zipfile import ZipFile
 from requests.adapters import HTTPAdapter, Retry
 
 from parsers.BINDING.src.bindingdb_constraints import LOG_SCALE_AFFINITY_THRESHOLD #Change the binding affinity threshold here. Default is 10 uM Ki,Kd,EC50,orIC50
+from orion.utils import GetData
 from orion.loader_interface import SourceDataLoader
 from orion.extractor import Extractor
 from orion.biolink_constants import PUBLICATIONS, AFFINITY, AFFINITY_PARAMETER, KNOWLEDGE_LEVEL, AGENT_TYPE, \
@@ -120,25 +121,13 @@ class BINDINGDBLoader(SourceDataLoader):
         Gets the bindingdb data.
         """
         source_url = f"{self.bindingdb_data_url}{self.archive_file}"
-        output_path = os.path.join(self.data_path, self.archive_file)
-        if os.path.exists(output_path):
-            return True
-
-        os.makedirs(self.data_path, exist_ok=True)
         download_gate_url = "https://www.bindingdb.org/rwd/bind/chemsearch/marvin/SDFdownload.jsp"
         download_file = f"/rwd/bind/downloads/{self.archive_file}"
-        session = requests.Session()
-        session.get(download_gate_url, params={"download_file": download_file}, timeout=30).raise_for_status()
-        with session.get(source_url, stream=True, timeout=60) as response:
-            response.raise_for_status()
-            if response.headers.get("Content-Type") != "application/zip":
-                raise ValueError(f"BINDING-DB download did not return a zip file: {source_url}")
-            partial_output_path = f"{output_path}.part"
-            with open(partial_output_path, "wb") as output_file:
-                for chunk in response.iter_content(chunk_size=1024 * 1024):
-                    if chunk:
-                        output_file.write(chunk)
-            os.replace(partial_output_path, output_path)
+        GetData().pull_via_http_session_gate(source_url,
+                                             self.data_path,
+                                             download_gate_url,
+                                             gate_params={"download_file": download_file},
+                                             expected_content_type="application/zip")
         return True
 
     def parse_data(self) -> dict:

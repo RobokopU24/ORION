@@ -4,7 +4,6 @@ import zipfile
 import pytest
 
 from orion.biolink_constants import AFFINITY, AFFINITY_PARAMETER
-from parsers.BINDING.src import loadBINDINGDB
 from parsers.BINDING.src.loadBINDINGDB import BINDINGDBLoader, negative_log, parse_affinity_nm
 
 
@@ -37,51 +36,30 @@ def test_parse_affinity_nm_fails_on_invalid_values():
         parse_affinity_nm("not-a-number")
 
 
-def test_bindingdb_get_data_uses_download_gate(tmp_path, monkeypatch):
+def test_bindingdb_get_data_uses_shared_session_gate(tmp_path, monkeypatch):
     monkeypatch.setattr(BINDINGDBLoader, "get_latest_source_version", lambda self: "test")
 
-    class FakeResponse:
-        def __init__(self, content=b"", content_type="application/zip"):
-            self.content = content
-            self.headers = {"Content-Type": content_type}
+    calls = []
 
-        def raise_for_status(self):
-            return None
+    def fake_pull_via_http_session_gate(self, url, data_dir, gate_url, **kwargs):
+        calls.append((url, data_dir, gate_url, kwargs))
+        return True
 
-        def iter_content(self, chunk_size):
-            yield self.content
-
-        def __enter__(self):
-            return self
-
-        def __exit__(self, exc_type, exc_value, traceback):
-            return False
-
-    class FakeSession:
-        def __init__(self):
-            self.calls = []
-
-        def get(self, url, **kwargs):
-            self.calls.append((url, kwargs))
-            if "SDFdownload.jsp" in url:
-                return FakeResponse()
-            return FakeResponse(content=b"zip-content")
-
-    fake_session = FakeSession()
-    monkeypatch.setattr(loadBINDINGDB.requests, "Session", lambda: fake_session)
+    monkeypatch.setattr("parsers.BINDING.src.loadBINDINGDB.GetData.pull_via_http_session_gate",
+                        fake_pull_via_http_session_gate)
 
     loader = BINDINGDBLoader(test_mode=True, source_data_dir=str(tmp_path))
     assert loader.get_data() is True
 
-    output_path = tmp_path / "source" / loader.archive_file
-    assert output_path.read_bytes() == b"zip-content"
-    assert fake_session.calls[0][0].endswith("SDFdownload.jsp")
-    assert fake_session.calls[0][1]["params"]["download_file"] == (
+    assert len(calls) == 1
+    url, data_dir, gate_url, kwargs = calls[0]
+    assert url == f"https://www.bindingdb.org/rwd/bind/downloads/{loader.archive_file}"
+    assert data_dir == str(tmp_path / "source")
+    assert gate_url.endswith("SDFdownload.jsp")
+    assert kwargs["gate_params"]["download_file"] == (
         f"/rwd/bind/downloads/{loader.archive_file}"
     )
-    assert fake_session.calls[1][0] == (
-        f"https://www.bindingdb.org/rwd/bind/downloads/{loader.archive_file}"
-    )
+    assert kwargs["expected_content_type"] == "application/zip"
 
 
 def test_bindingdb_loader_outputs_expected_affinities_for_comma_values(tmp_path, monkeypatch):
