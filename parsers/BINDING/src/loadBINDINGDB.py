@@ -8,7 +8,6 @@ from zipfile import ZipFile
 from requests.adapters import HTTPAdapter, Retry
 
 from parsers.BINDING.src.bindingdb_constraints import LOG_SCALE_AFFINITY_THRESHOLD #Change the binding affinity threshold here. Default is 10 uM Ki,Kd,EC50,orIC50
-from orion.utils import GetData
 from orion.loader_interface import SourceDataLoader
 from orion.extractor import Extractor
 from orion.biolink_constants import PUBLICATIONS, AFFINITY, AFFINITY_PARAMETER, KNOWLEDGE_LEVEL, AGENT_TYPE, \
@@ -31,6 +30,14 @@ class BD_EDGEUMAN(enum.IntEnum):
 
 def negative_log(concentration_nm): ### This function converts nanomolar concentrations into log-scale units (pKi/pKd/pIC50/pEC50). ###
     return -(math.log10(concentration_nm*(10**-9)))
+
+def parse_affinity_nm(affinity_value: str) -> float | None:
+    """Parse BindingDB nM affinity text into a numeric concentration."""
+    normalized_value = affinity_value.replace('<', '').replace(' ', '').replace(',', '')
+    affinity_nm = float(normalized_value)
+    if affinity_nm == 0:
+        return None
+    return affinity_nm
 
 def generate_zipfile_rows(zip_file_path, file_inside_zip, delimiter='\\t'):
         with ZipFile(zip_file_path, 'r') as zip_file:
@@ -112,10 +119,26 @@ class BINDINGDBLoader(SourceDataLoader):
         """
         Gets the bindingdb data.
         """
-        # download the zipped data
-        data_puller = GetData()
         source_url = f"{self.bindingdb_data_url}{self.archive_file}"
-        data_puller.pull_via_http(source_url, self.data_path)
+        output_path = os.path.join(self.data_path, self.archive_file)
+        if os.path.exists(output_path):
+            return True
+
+        os.makedirs(self.data_path, exist_ok=True)
+        download_gate_url = "https://www.bindingdb.org/rwd/bind/chemsearch/marvin/SDFdownload.jsp"
+        download_file = f"/rwd/bind/downloads/{self.archive_file}"
+        session = requests.Session()
+        session.get(download_gate_url, params={"download_file": download_file}, timeout=30).raise_for_status()
+        with session.get(source_url, stream=True, timeout=60) as response:
+            response.raise_for_status()
+            if response.headers.get("Content-Type") != "application/zip":
+                raise ValueError(f"BINDING-DB download did not return a zip file: {source_url}")
+            partial_output_path = f"{output_path}.part"
+            with open(partial_output_path, "wb") as output_file:
+                for chunk in response.iter_content(chunk_size=1024 * 1024):
+                    if chunk:
+                        output_file.write(chunk)
+            os.replace(partial_output_path, output_path)
         return True
 
     def parse_data(self) -> dict:
@@ -171,9 +194,9 @@ class BINDINGDBLoader(SourceDataLoader):
                     # our activity/inhibition threshold
                     if ">" in row[measure_index]:
                         continue
-                    sa = float(row[measure_index].replace('<', '').replace(' ', '').replace(',', ''))
-                    # I don't see how 0 would be a valid affinity value, so we'll skip it
-                    if sa == 0:
+                    # BindingDB values are nM concentrations. Recent TSVs include commas inside some numeric values.
+                    sa = parse_affinity_nm(row[measure_index])
+                    if sa is None:
                         continue
                     entry["supporting_affinities"].append(sa)
                     if publication is not None and publication not in entry[PUBLICATIONS]:
@@ -212,5 +235,5 @@ class BINDINGDBLoader(SourceDataLoader):
                                lambda item: item['predicate'],  # predicate
                                lambda item: {},  # subject props
                                lambda item: {},  # object props
-                               lambda item: {k: v for k, v in item.items() if key not in ['ligand', 'protein', 'predicate']}) #Edge props
+                               lambda item: {k: v for k, v in item.items() if k not in ['ligand', 'protein', 'predicate']}) #Edge props
         return extractor.load_metadata
