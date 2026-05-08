@@ -1,10 +1,10 @@
-# yeast graph spec
+# ROBOKOP KG
 graphs:
 
   - graph_id: Baseline
     # optional parameters to be applied to the entire graph - see README for more info
-    # node_normalization_version: latest
-    # edge_normalization_version: latest
+    # node_normalization_version: 2.3.5
+    # edge_normalization_version: 4.2.5
     # graph_name: Robokop Baseline
     # graph_description: 'The baseline graph from which RobokopKG and other graphs are built.'
     # conflation: True # (whether to conflate node types like Genes and Proteins)
@@ -23,7 +23,10 @@ graphs:
         # conflation: False
         # strict_normalization: True (whether or not data should be discarded when it can not be normalized)
         # merge_strategy: default (used to specify alternative merge strategies)
+      - source_id: CCIDB
       - source_id: CHEBIProps
+      - source_id: ClinGenDosageSensitivity
+      - source_id: ClinGenGeneDiseaseValidity
       - source_id: CTD
       - source_id: DrugCentral
       - source_id: DrugMechDB
@@ -33,6 +36,9 @@ graphs:
       - source_id: HMDB
       - source_id: HumanGOA
       - source_id: IntAct
+      - source_id: KinAce
+      - source_id: LINCS
+      - source_id: MetabolomicsWorkbench
       - source_id: MonarchKG
       - source_id: MONDOProps
       - source_id: OntologicalHierarchy
@@ -41,26 +47,21 @@ graphs:
       - source_id: PHAROS
       - source_id: Reactome
       - source_id: textminingkp
+      - source_id: SIGNOR
       - source_id: STRING-DB-Human
       - source_id: UbergraphNonredundant
 
-  - graph_id: YobokopKG
+  - graph_id: RobokopKG
+    graph_name: ROBOKOP KG
+    graph_description: 'ROBOKOP (KG) is an open-source biomedical KG that supports the ROBOKOP application and currently contains millions of biomedical relationships derived from dozens of integrated and harmonized biological knowledge sources and bio-ontologies, including the Automat primary and aggregate knowledge sources. ROBOKOP KG also includes text-mined assertions from PubMed and PubMed Central, derived from natural language processing (NLP). Note that text-based assertions, while providing valuable information, must be interpreted with caution, as NLP algorithms may introduce false assertions.'
+    graph_url: http://robokopkg.renci.org/browser/
     conflation: True
     output_format: neo4j
     subgraphs:
       - graph_id: Baseline
     sources:
-      - source_id: SGD
-        strict_normalization: False
-      - source_id: YeastHistoneMapping
-        strict_normalization: False
-      - source_id: Costanza2016Data
-        strict_normalization: False
-      - source_id: YeastGSE61888
-        strict_normalization: False
-      - source_id: YeastGaschDiamideGeneExpression
-        strict_normalization: False
-      - source_id: STRING-DB-Yeast
-      - source_id: GenomeAllianceOrthologs
-      - source_id: OntologicalHierarchy
-        merge_strategy: connected_edge_subset
+      - source_id: ClinGenVariantPathogenicity
+      - source_id: GWASCatalog
+      - source_id: GTEx
+
+
