@@ -582,7 +582,7 @@ class GraphBuilder:
             raise GraphSpecError(f'Configuration Error - Graph Specs directory not found: {graph_specs_dir}')
 
         spec_filenames = sorted(f for f in os.listdir(graph_specs_dir)
-                                if f.endswith('.yaml') or f.endswith('.yml'))
+                                if f.endswith('.yaml'))
         for spec_filename in spec_filenames:
             spec_path = os.path.join(graph_specs_dir, spec_filename)
             logger.debug(f'Loading graph spec: {spec_filename}')
