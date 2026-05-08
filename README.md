@@ -61,9 +61,11 @@ Then uncommment and edit `.env` as desired to set values for your environment.
 
 | Variable | Purpose                                                    | Default |
 |---|------------------------------------------------------------|---|
-| `ORION_STORAGE` | Path to a directory for data ingest pipeline storage       | (required) |
-| `ORION_GRAPHS` | Path to a directory for Knowledge Graph outputs            | (required) |
+| `ORION_STORAGE` | Path to a directory for data ingest pipeline storage       | `~/ORION-workspace/storage` |
+| `ORION_GRAPHS` | Path to a directory for Knowledge Graph outputs            | `~/ORION-workspace/graphs` |
 | `ORION_LOGS` | Path to a Log file directory (if unset, logs go to stdout) | `None` |
+
+ORION will create `~/ORION-workspace/{storage,graphs}` on first use if the env vars aren't set. Set the env vars to point somewhere else (NFS mount, larger disk, etc.) if you'd prefer.
 
 Configuration is managed by [pydantic-settings](https://docs.pydantic.dev/latest/concepts/pydantic_settings/) — environment variables override `.env` file values, and sensible defaults are provided where possible. See `orion/config.py` for the full list of settings.
 

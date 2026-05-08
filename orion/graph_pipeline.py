@@ -78,7 +78,7 @@ class GraphBuilder:
                  graph_output_dir=None,
                  graph_specs_dir=None):
 
-        self.graphs_dir = graph_output_dir if graph_output_dir else self.get_graph_output_dir()
+        self.graphs_dir = graph_output_dir if graph_output_dir else config.get_graphs_dir()
         self.ingest_pipeline = IngestPipeline()  # access to the data sources and their metadata
         self.graph_specs = {}   # graph_id -> GraphSpec all potential graphs that could be built, including sub-graphs
         self.load_graph_specs(graph_specs_dir=graph_specs_dir,
@@ -785,17 +785,6 @@ class GraphBuilder:
 
         # load existing or create new metadata file
         return GraphMetadata(graph_id, graph_output_dir)
-
-    @staticmethod
-    def get_graph_output_dir():
-        # confirm the directory specified by the environment variable ORION_GRAPHS is valid
-        graphs_dir = config.ORION_GRAPHS
-        if graphs_dir and Path(graphs_dir).is_dir():
-            return graphs_dir
-
-        # if invalid or not specified back out
-        raise IOError('ORION graphs directory not configured properly. '
-                      'Specify a valid directory with environment variable ORION_GRAPHS.')
 
 
 def _generate_inline_graph_spec(graph_id: str, sources_arg: str, output_format: str) -> dict:
