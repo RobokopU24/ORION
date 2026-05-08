@@ -150,3 +150,40 @@ def test_additional_graph_spec_collision_raises(test_graph_spec_dir, test_graph_
         GraphBuilder(graph_specs_dir=test_graph_spec_dir,
                      additional_graph_spec=str(colliding_path),
                      graph_output_dir=test_graph_output_dir)
+
+
+# an inline graph spec dict can introduce a new graph_id alongside the bundled ones
+def test_inline_graph_spec_adds_new_graph(test_graph_spec_dir, test_graph_output_dir):
+    inline_spec = {
+        'graphs': [{
+            'graph_id': 'Inline_Graph',
+            'graph_name': 'Inline Graph',
+            'output_format': 'jsonl',
+            'sources': [{'source_id': 'HGNC'}],
+        }]
+    }
+    graph_builder = GraphBuilder(graph_specs_dir=test_graph_spec_dir,
+                                 inline_graph_spec=inline_spec,
+                                 graph_output_dir=test_graph_output_dir)
+    new_graph = graph_builder.graph_specs.get('Inline_Graph')
+    assert new_graph is not None
+    assert new_graph.graph_name == 'Inline Graph'
+    assert len(new_graph.sources) == 1
+    assert new_graph.sources[0].id == 'HGNC'
+    # bundled graphs are still loaded
+    assert graph_builder.graph_specs.get('Testing_Graph') is not None
+
+
+# an inline graph spec that collides with a bundled graph_id is a hard error
+def test_inline_graph_spec_collision_raises(test_graph_spec_dir, test_graph_output_dir):
+    inline_spec = {
+        'graphs': [{
+            'graph_id': 'Testing_Graph',
+            'graph_name': 'Colliding Inline Graph',
+            'sources': [{'source_id': 'HGNC'}],
+        }]
+    }
+    with pytest.raises(GraphSpecError):
+        GraphBuilder(graph_specs_dir=test_graph_spec_dir,
+                     inline_graph_spec=inline_spec,
+                     graph_output_dir=test_graph_output_dir)

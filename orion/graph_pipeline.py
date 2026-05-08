@@ -74,6 +74,7 @@ class GraphBuilder:
 
     def __init__(self,
                  additional_graph_spec=None,
+                 inline_graph_spec=None,
                  graph_output_dir=None,
                  graph_specs_dir=None):
 
@@ -81,7 +82,8 @@ class GraphBuilder:
         self.ingest_pipeline = IngestPipeline()  # access to the data sources and their metadata
         self.graph_specs = {}   # graph_id -> GraphSpec all potential graphs that could be built, including sub-graphs
         self.load_graph_specs(graph_specs_dir=graph_specs_dir,
-                              additional_graph_spec=additional_graph_spec)
+                              additional_graph_spec=additional_graph_spec,
+                              inline_graph_spec=inline_graph_spec)
         self.build_results = {}
 
     def build_graph(self, graph_spec: GraphSpec):
@@ -570,7 +572,7 @@ class GraphBuilder:
         knowledge_sources = [KGXKnowledgeSource.from_dict({**parser_metadata, 'version': source_version})]
         return kg_sources, knowledge_sources
 
-    def load_graph_specs(self, graph_specs_dir=None, additional_graph_spec=None):
+    def load_graph_specs(self, graph_specs_dir=None, additional_graph_spec=None, inline_graph_spec=None):
         # if a graph spec directory was not provided, default to the one included in the codebase
         if not graph_specs_dir:
             graph_specs_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'graph_specs')
@@ -589,7 +591,13 @@ class GraphBuilder:
             self.parse_graph_spec(spec_yaml)
 
         if additional_graph_spec:
+            logger.info(f'Loading additional graph spec: {additional_graph_spec}')
             self.load_additional_graph_spec(additional_graph_spec)
+
+        if inline_graph_spec:
+            inline_graph_ids = [g.get('graph_id') for g in inline_graph_spec.get('graphs', [])]
+            logger.info(f'Loading inline graph spec with graph_id(s): {inline_graph_ids}')
+            self._overlay_graph_spec(inline_graph_spec)
 
     def load_additional_graph_spec(self, additional_graph_spec: str):
         if additional_graph_spec.startswith('http://') or additional_graph_spec.startswith('https://'):
@@ -604,6 +612,9 @@ class GraphBuilder:
             with open(additional_graph_spec) as spec_file:
                 spec_yaml = yaml.safe_load(spec_file)
 
+        self._overlay_graph_spec(spec_yaml)
+
+    def _overlay_graph_spec(self, spec_yaml: dict):
         colliding_ids = [graph_yaml.get('graph_id')
                          for graph_yaml in spec_yaml.get('graphs', [])
                          if graph_yaml.get('graph_id') in self.graph_specs]
@@ -792,22 +803,50 @@ class GraphBuilder:
                       'Specify a valid directory with environment variable ORION_GRAPHS.')
 
 
+def _generate_inline_graph_spec(graph_id: str, sources_arg: str, output_format: str) -> dict:
+    source_ids = [s.strip() for s in sources_arg.split(',') if s.strip()]
+    if not source_ids:
+        raise GraphSpecError('--sources must list at least one source id (comma-separated).')
+    return {
+        'graphs': [{
+            'graph_id': graph_id,
+            'graph_name': graph_id,
+            'output_format': output_format or 'jsonl',
+            'sources': [{'source_id': s} for s in source_ids],
+        }]
+    }
+
+
 def main():
     from orion.logging import configure_cli_logging
     configure_cli_logging()
 
     parser = argparse.ArgumentParser(description="Merge data sources into complete graphs.")
     parser.add_argument('graph_id',
-                        help='ID of the graph to build. Must match an ID from the loaded Graph Specs.')
-    parser.add_argument('--graph_spec', type=str, default=None,
-                        help='Path or URL to an additional graph spec yaml file. Its graphs are added to the '
-                             'specs auto-loaded from the graph_specs/ directory, overriding any with the same '
-                             'graph_id.')
+                        help='ID of the graph to build. Either specify the ID of a graph in a Graph Spec '
+                             'or provide a new one along with --sources to build a simple graph without '
+                             'using a Graph Spec file.')
+    spec_group = parser.add_mutually_exclusive_group()
+    spec_group.add_argument('--graph_spec', type=str, default=None,
+                            help='Path or URL for an additional Graph Spec yaml file. Its graphs are added '
+                                 'to the specs provided automatically (from the graph_specs/ directory).')
+    spec_group.add_argument('--sources', type=str, default=None,
+                            help='Comma-separated list of data sources to include in a graph.')
+    parser.add_argument('--output_format', type=str, default=None,
+                        help='Output format for a graph (e.g. jsonl, neo4j). '
+                             'Only valid when used with command line --sources.')
     args = parser.parse_args()
     graph_id_arg = args.graph_id
     additional_graph_spec = args.graph_spec
+    inline_graph_spec = None
 
-    graph_builder = GraphBuilder(additional_graph_spec=additional_graph_spec)
+    if args.sources:
+        inline_graph_spec = _generate_inline_graph_spec(graph_id_arg, args.sources, args.output_format)
+    elif args.output_format:
+        parser.error('--output_format is only valid together with --sources.')
+
+    graph_builder = GraphBuilder(additional_graph_spec=additional_graph_spec,
+                                 inline_graph_spec=inline_graph_spec)
     if graph_id_arg == "all":
         for graph_spec in graph_builder.graph_specs.values():
             graph_builder.build_graph(graph_spec)
