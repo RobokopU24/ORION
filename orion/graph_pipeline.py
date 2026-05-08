@@ -73,13 +73,15 @@ def _synthesize_single_source_spec(data_source: DataSource) -> GraphSpec:
 class GraphBuilder:
 
     def __init__(self,
-                 graph_specs_dir=None,
-                 graph_output_dir=None):
+                 additional_graph_spec=None,
+                 graph_output_dir=None,
+                 graph_specs_dir=None):
 
         self.graphs_dir = graph_output_dir if graph_output_dir else self.get_graph_output_dir()
         self.ingest_pipeline = IngestPipeline()  # access to the data sources and their metadata
         self.graph_specs = {}   # graph_id -> GraphSpec all potential graphs that could be built, including sub-graphs
-        self.load_graph_specs(graph_specs_dir=graph_specs_dir)
+        self.load_graph_specs(graph_specs_dir=graph_specs_dir,
+                              additional_graph_spec=additional_graph_spec)
         self.build_results = {}
 
     def build_graph(self, graph_spec: GraphSpec):
@@ -568,39 +570,48 @@ class GraphBuilder:
         knowledge_sources = [KGXKnowledgeSource.from_dict({**parser_metadata, 'version': source_version})]
         return kg_sources, knowledge_sources
 
-    def load_graph_specs(self, graph_specs_dir=None):
-        graph_spec_file = config.ORION_GRAPH_SPEC
-        graph_spec_url = config.ORION_GRAPH_SPEC_URL
+    def load_graph_specs(self, graph_specs_dir=None, additional_graph_spec=None):
+        # if a graph spec directory was not provided, default to the one included in the codebase
+        if not graph_specs_dir:
+            graph_specs_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'graph_specs')
 
-        if graph_spec_file and graph_spec_url:
-            raise GraphSpecError(f'Configuration Error - the environment variables ORION_GRAPH_SPEC and '
-                                 f'ORION_GRAPH_SPEC_URL were set. Please choose one or the other. See the README for '
-                                 f'details.')
+        # make sure it's a valid directory
+        if not os.path.isdir(graph_specs_dir):
+            raise GraphSpecError(f'Configuration Error - Graph Specs directory not found: {graph_specs_dir}')
 
-        if graph_spec_file:
-            if not graph_specs_dir:
-                graph_specs_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'graph_specs')
-            graph_spec_path = os.path.join(graph_specs_dir, graph_spec_file)
-            if os.path.exists(graph_spec_path):
-                logger.info(f'Loading graph spec: {graph_spec_file}')
-                with open(graph_spec_path) as graph_spec_file:
-                    graph_spec_yaml = yaml.safe_load(graph_spec_file)
-                    self.parse_graph_spec(graph_spec_yaml)
-                    return
-            else:
-                raise GraphSpecError(f'Configuration Error - Graph Spec could not be found: {graph_spec_file}')
+        spec_filenames = sorted(f for f in os.listdir(graph_specs_dir)
+                                if f.endswith('.yaml') or f.endswith('.yml'))
+        for spec_filename in spec_filenames:
+            spec_path = os.path.join(graph_specs_dir, spec_filename)
+            logger.debug(f'Loading graph spec: {spec_filename}')
+            with open(spec_path) as spec_file:
+                spec_yaml = yaml.safe_load(spec_file)
+            self.parse_graph_spec(spec_yaml)
 
-        if graph_spec_url:
-            graph_spec_request = requests.get(graph_spec_url)
-            graph_spec_request.raise_for_status()
-            graph_spec_yaml = yaml.safe_load(graph_spec_request.text)
-            self.parse_graph_spec(graph_spec_yaml)
-            return
+        if additional_graph_spec:
+            self.load_additional_graph_spec(additional_graph_spec)
 
-        raise GraphSpecError(f'Configuration Error - No Graph Spec was configured. Set the environment variable '
-                             f'ORION_GRAPH_SPEC to the name of a graph spec included in this package, or '
-                             f'ORION_GRAPH_SPEC_URL to a URL of a valid Graph Spec yaml file. '
-                             f'See the README for more info.')
+    def load_additional_graph_spec(self, additional_graph_spec: str):
+        if additional_graph_spec.startswith('http://') or additional_graph_spec.startswith('https://'):
+            logger.info(f'Loading additional graph spec from URL: {additional_graph_spec}')
+            response = requests.get(additional_graph_spec)
+            response.raise_for_status()
+            spec_yaml = yaml.safe_load(response.text)
+        else:
+            if not os.path.isfile(additional_graph_spec):
+                raise GraphSpecError(f'Additional graph spec file not found: {additional_graph_spec}')
+            logger.info(f'Loading additional graph spec: {additional_graph_spec}')
+            with open(additional_graph_spec) as spec_file:
+                spec_yaml = yaml.safe_load(spec_file)
+
+        colliding_ids = [graph_yaml.get('graph_id')
+                         for graph_yaml in spec_yaml.get('graphs', [])
+                         if graph_yaml.get('graph_id') in self.graph_specs]
+        if colliding_ids:
+            raise GraphSpecError(
+                f'The graph spec provided uses graph_id(s) that already exist in ORION. '
+                f'Rename them to avoid conflicts and/or confusion. Duplicate graph ids: {colliding_ids}')
+        self.parse_graph_spec(spec_yaml)
 
     def parse_graph_spec(self, graph_spec_yaml):
         graph_id = None
@@ -787,13 +798,16 @@ def main():
 
     parser = argparse.ArgumentParser(description="Merge data sources into complete graphs.")
     parser.add_argument('graph_id',
-                        help='ID of the graph to build. Must match an ID from the configured Graph Spec.')
-    parser.add_argument('--graph_specs_dir', type=str, default=None, help='Graph spec directory.')
+                        help='ID of the graph to build. Must match an ID from the loaded Graph Specs.')
+    parser.add_argument('--graph_spec', type=str, default=None,
+                        help='Path or URL to an additional graph spec yaml file. Its graphs are added to the '
+                             'specs auto-loaded from the graph_specs/ directory, overriding any with the same '
+                             'graph_id.')
     args = parser.parse_args()
     graph_id_arg = args.graph_id
-    graph_specs_dir = args.graph_specs_dir
+    additional_graph_spec = args.graph_spec
 
-    graph_builder = GraphBuilder(graph_specs_dir=graph_specs_dir)
+    graph_builder = GraphBuilder(additional_graph_spec=additional_graph_spec)
     if graph_id_arg == "all":
         for graph_spec in graph_builder.graph_specs.values():
             graph_builder.build_graph(graph_spec)

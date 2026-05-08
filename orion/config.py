@@ -24,9 +24,6 @@ class Config(BaseSettings):
     ORION_OUTPUT_URL: str = "https://localhost"
     ORION_TEST_MODE: bool = False
 
-    ORION_GRAPH_SPEC: str = "example-graph-spec.yaml"
-    ORION_GRAPH_SPEC_URL: str = ""
-
     BL_VERSION: str = "v4.3.7"
 
     EDGE_NORMALIZATION_URL: str = "https://bl-lookup-sri.renci.org"

@@ -59,17 +59,19 @@ Then uncommment and edit `.env` as desired to set values for your environment.
 | `ORION_STORAGE` | Path to a directory for data ingest pipeline storage       | (required) |
 | `ORION_GRAPHS` | Path to a directory for Knowledge Graph outputs            | (required) |
 | `ORION_LOGS` | Path to a Log file directory (if unset, logs go to stdout) | `None` |
-| `ORION_GRAPH_SPEC` | Graph Spec filename from `graph_specs/`                    | `example-graph-spec.yaml` |
-| `ORION_GRAPH_SPEC_URL` | URL to a remote Graph Spec file                            | |
 
 Configuration is managed by [pydantic-settings](https://docs.pydantic.dev/latest/concepts/pydantic_settings/) — environment variables override `.env` file values, and sensible defaults are provided where possible. See `orion/config.py` for the full list of settings.
 
 #### Graph Spec
 
-A Graph Spec yaml file defines which sources to include in a knowledge graph. Set one of the following (not both):
+A Graph Spec yaml file defines which sources to include in a knowledge graph. Every `*.yaml` / `*.yml` file in the `graph_specs/` directory is loaded automatically when you run `orion-build`, so any `graph_id` defined in those files can be built directly by name.
 
-- `ORION_GRAPH_SPEC` - name of a file in the `graph_specs/` directory
-- `ORION_GRAPH_SPEC_URL` - URL pointing to a Graph Spec yaml file
+To build a graph defined outside the bundled set, pass a single additional spec via the `--graph_spec` flag. It can be a local file path or an `http(s)` URL. Its `graph_id`s are added on top of the bundled specs.
+
+```bash
+orion-build My_Graph --graph_spec /path/to/my-graph-spec.yaml
+orion-build My_Graph --graph_spec https://example.org/my-graph-spec.yaml
+```
 
 Here is a simple Graph Spec example:
 
