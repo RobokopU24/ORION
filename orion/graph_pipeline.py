@@ -597,7 +597,7 @@ class GraphBuilder:
         if inline_graph_spec:
             inline_graph_ids = [g.get('graph_id') for g in inline_graph_spec.get('graphs', [])]
             logger.info(f'Loading inline graph spec with graph_id(s): {inline_graph_ids}')
-            self._overlay_graph_spec(inline_graph_spec)
+            self.parse_graph_spec(inline_graph_spec)
 
     def load_additional_graph_spec(self, additional_graph_spec: str):
         if additional_graph_spec.startswith('http://') or additional_graph_spec.startswith('https://'):
@@ -612,16 +612,6 @@ class GraphBuilder:
             with open(additional_graph_spec) as spec_file:
                 spec_yaml = yaml.safe_load(spec_file)
 
-        self._overlay_graph_spec(spec_yaml)
-
-    def _overlay_graph_spec(self, spec_yaml: dict):
-        colliding_ids = [graph_yaml.get('graph_id')
-                         for graph_yaml in spec_yaml.get('graphs', [])
-                         if graph_yaml.get('graph_id') in self.graph_specs]
-        if colliding_ids:
-            raise GraphSpecError(
-                f'The graph spec provided uses graph_id(s) that already exist in ORION. '
-                f'Rename them to avoid conflicts and/or confusion. Duplicate graph ids: {colliding_ids}')
         self.parse_graph_spec(spec_yaml)
 
     def parse_graph_spec(self, graph_spec_yaml):
@@ -683,6 +673,11 @@ class GraphBuilder:
                         data_source.normalization_scheme.conflation = graph_wide_conflation
                     if graph_wide_strict_norm is not None:
                         data_source.normalization_scheme.strict = graph_wide_strict_norm
+
+                if graph_id in self.graph_specs:
+                    raise GraphSpecError(
+                        f'Duplicate graph_id encountered: {graph_id}. Every graph_id must '
+                        f'be unique across included and user provided Graph Specs. Choose a different graph_id.')
 
                 graph_output_format = graph_yaml.get('output_format', '')
                 graph_spec = GraphSpec(graph_id=graph_id,
