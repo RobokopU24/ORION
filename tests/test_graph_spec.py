@@ -23,6 +23,8 @@ def get_ingest_pipeline_mock():
     s_d_mock = MagicMock()
     s_d_mock.get_latest_source_version = MagicMock()
     s_d_mock.get_latest_source_version.side_effect = lambda arg: arg + '_v1'
+    s_d_mock.get_latest_parsing_version = MagicMock()
+    s_d_mock.get_latest_parsing_version.side_effect = lambda arg: arg + '_p1'
     return s_d_mock
 
 
@@ -60,15 +62,19 @@ def test_auto_load_graph_specs(test_graph_spec_dir, test_graph_output_dir):
         assert source.source_version is None
 
 
-# graph spec sources are able to return versions once source_version(s) are set
+# graph spec sources are able to return versions once source_version(s) and parsing_version(s) are set.
+# spec parsing leaves both unresolved to avoid eagerly importing every parser module referenced by
+# any auto-loaded graph spec (see parse_data_source_spec).
 def test_graph_spec_lazy_versions(test_graph_spec_dir, test_graph_output_dir):
     graph_builder = GraphBuilder(graph_specs_dir=test_graph_spec_dir,
                                  graph_output_dir=test_graph_output_dir)
     testing_graph_spec = graph_builder.graph_specs.get('Testing_Graph', None)
     for source in testing_graph_spec.sources:
         assert source.version is None
+        assert source.parsing_version is None
     for source in testing_graph_spec.sources:
         source.source_version = source.id + "_1"
+        source.parsing_version = source.id + "_p1"
     for source in testing_graph_spec.sources:
         assert source.version is not None
 

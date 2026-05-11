@@ -320,6 +320,8 @@ class GraphBuilder:
         try:
             # go out and find the latest version for any data source that doesn't have a version specified
             for source in graph_spec.sources:
+                if not source.parsing_version:
+                    source.parsing_version = self.ingest_pipeline.get_latest_parsing_version(source.id)
                 if not source.source_version:
                     source.source_version = self.ingest_pipeline.get_latest_source_version(source.id)
                 logger.info(f'Using {source.id} version: {source.version}')
@@ -813,10 +815,12 @@ class GraphBuilder:
         # supplementation and normalization code version cannot be specified, set them to the current version
         supplementation_version = SequenceVariantSupplementation.SUPPLEMENTATION_VERSION
 
-        # if versions are not specified, set them to the current latest
-        # source_version is intentionally not handled here because we want to do it lazily and avoid if not needed
-        if not parsing_version or parsing_version == 'latest':
-            parsing_version = self.ingest_pipeline.get_latest_parsing_version(source_id)
+        # source_version and parsing_version are intentionally left unresolved here — resolving them
+        # eagerly would import every parser referenced by every auto-loaded graph spec, even when the
+        # user is only building one. determine_graph_version fills them in lazily for the graph
+        # actually being built.
+        if parsing_version == 'latest':
+            parsing_version = None
         if not edge_normalization_version or edge_normalization_version == 'latest':
             edge_normalization_version = config.BL_VERSION
 
