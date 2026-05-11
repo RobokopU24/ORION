@@ -1,10 +1,12 @@
+import csv
 import os
+from datetime import date
+from typing import Callable
+
 from orion.extractor import Extractor
 from orion.loader_interface import SourceDataLoader
 from orion.biolink_constants import PRIMARY_KNOWLEDGE_SOURCE, NODE_TYPES, SEQUENCE_VARIANT
 from orion.utils import GetData
-from datetime import date
-import csv
 
 
 # Constants for data processing
