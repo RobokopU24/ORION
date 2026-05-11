@@ -46,7 +46,10 @@ class GraphMetadata(Metadata):
         self.metadata['graph_name'] = self.graph_id
         self.metadata['graph_description'] = ""
         self.metadata['graph_url'] = ""
+        # graph_version is the human-facing release version (semver); build_version is the
+        # deterministic hash of the graph's inputs. See orion/graph_versioning.py.
         self.metadata['graph_version'] = None
+        self.metadata['build_version'] = None
         self.metadata['sources'] = []
         self.metadata['subgraphs'] = []
         self.reset_state_metadata()
@@ -58,6 +61,10 @@ class GraphMetadata(Metadata):
 
     def set_graph_version(self, graph_version: str):
         self.metadata['graph_version'] = graph_version
+        self.save_metadata()
+
+    def set_build_version(self, build_version: str):
+        self.metadata['build_version'] = build_version
         self.save_metadata()
 
     def set_graph_name(self, graph_name: str):
@@ -141,6 +148,9 @@ class GraphMetadata(Metadata):
 
     def get_graph_version(self):
         return self.metadata['graph_version']
+
+    def get_build_version(self):
+        return self.metadata.get('build_version')
 
     def get_source_ids(self):
         return [source['source_id'] for source in self.metadata['sources']]

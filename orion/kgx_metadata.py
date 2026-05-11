@@ -86,6 +86,7 @@ class KGXGraphMetadata:
     license: str = ""
     url: str = ""
     version: str = ""
+    build_version: str = ""
     date_created: str = ""
     date_modified: str = ""
     biolink_version: str = ""
@@ -128,6 +129,10 @@ class KGXGraphMetadata:
             "hasPart": self.kg_sources,
             "isBasedOn": [source.to_dict() for source in self.knowledge_sources]
         }
+        if self.build_version:
+            # The deterministic build hash behind this release version (see orion/graph_versioning.py),
+            # recorded so consumers can tell whether two releases are the same graph contents.
+            result["orion:buildVersion"] = self.build_version
         return json.dumps(result, indent=2)
 
 

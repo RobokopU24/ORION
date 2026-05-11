@@ -7,6 +7,7 @@ or building them from scratch.
 import json
 import os
 
+from orion.config import config
 from orion.graph_registry import GraphRegistryClient, GraphRegistryError
 from orion.kgx_bundle import KGXBundle
 from orion.kgxmodel import (
@@ -147,9 +148,16 @@ class RegistryGraphResolver(GraphSourceResolver):
                  graphs_dir: str,
                  client: GraphRegistryClient | None = None):
         self.graphs_dir = graphs_dir
-        self.client = client or GraphRegistryClient()
+        if client is not None:
+            self.client = client
+        elif config.ORION_USE_GRAPH_REGISTRY:
+            self.client = GraphRegistryClient(base_url=config.ORION_GRAPH_REGISTRY_URL)
+        else:
+            self.client = None
 
     def resolve(self, spec: GraphSource) -> GraphFileSource | None:
+        if self.client is None:
+            return None
         if isinstance(spec, SubGraphSource):
             return self._resolve_subgraph(spec)
         if isinstance(spec, DataSource):

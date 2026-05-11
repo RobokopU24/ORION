@@ -34,6 +34,12 @@ class Config(BaseSettings):
     ORION_OUTPUT_URL: str = "https://localhost"
     ORION_TEST_MODE: bool = False
 
+    # When true, ORION consults the remote graph registry (in addition to local storage) - both for
+    # resolving existing graph dependencies and for determining the next release version of a graph.
+    # Set to false for fully offline operation.
+    ORION_USE_GRAPH_REGISTRY: bool = True
+    ORION_GRAPH_REGISTRY_URL: str = "https://robokop-graph-registry.apps.renci.org"
+
     BL_VERSION: str = "v4.3.7"
 
     EDGE_NORMALIZATION_URL: str = "https://bl-lookup-sri.renci.org"

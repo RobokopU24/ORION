@@ -187,3 +187,37 @@ def test_inline_graph_spec_collision_raises(test_graph_spec_dir, test_graph_outp
         GraphBuilder(graph_specs_dir=test_graph_spec_dir,
                      inline_graph_spec=inline_spec,
                      graph_output_dir=test_graph_output_dir)
+
+
+# the `version:` key in a graph spec sets the release version floor
+def test_graph_spec_base_version_parsed(test_graph_spec_dir, test_graph_output_dir, tmp_path):
+    spec_path = tmp_path / "versioned-graph-spec.yaml"
+    spec_path.write_text(
+        "graphs:\n"
+        "  - graph_id: Versioned_Graph\n"
+        "    version: '2.0'\n"
+        "    sources:\n"
+        "      - source_id: HGNC\n"
+    )
+    graph_builder = GraphBuilder(graph_specs_dir=test_graph_spec_dir,
+                                 additional_graph_spec=str(spec_path),
+                                 graph_output_dir=test_graph_output_dir)
+    versioned_graph = graph_builder.graph_specs.get('Versioned_Graph')
+    assert versioned_graph is not None
+    assert versioned_graph.base_version == '2.0'
+
+
+# a `version:` value that isn't semantic-version-shaped should fail spec parsing
+def test_graph_spec_invalid_base_version_raises(test_graph_spec_dir, test_graph_output_dir, tmp_path):
+    spec_path = tmp_path / "bad-version-graph-spec.yaml"
+    spec_path.write_text(
+        "graphs:\n"
+        "  - graph_id: Bad_Version_Graph\n"
+        "    version: not-a-version\n"
+        "    sources:\n"
+        "      - source_id: HGNC\n"
+    )
+    with pytest.raises(GraphSpecError):
+        GraphBuilder(graph_specs_dir=test_graph_spec_dir,
+                     additional_graph_spec=str(spec_path),
+                     graph_output_dir=test_graph_output_dir)

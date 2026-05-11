@@ -1,6 +1,7 @@
 from dataclasses import dataclass, field
 
 from orion.biolink_constants import NAMED_THING
+from orion.graph_versioning import DEFAULT_BASE_VERSION
 from orion.metadata import GraphMetadata, get_source_release_version
 from orion.normalization import NormalizationScheme
 
@@ -42,8 +43,13 @@ class GraphSpec:
     graph_name: str
     graph_description: str
     graph_url: str
+    # graph_version holds the release version (semver) once determined; build_version holds the
+    # deterministic hash of the graph's inputs. See orion/graph_versioning.py. base_version is the
+    # release version floor declared by the graph spec (via the `version:` key).
     graph_version: str
     graph_output_format: str
+    build_version: str = None
+    base_version: str = DEFAULT_BASE_VERSION
     add_edge_id: bool = None
     overwrite_edge_ids: bool = True
     edge_id_type: str = None
@@ -60,6 +66,8 @@ class GraphSpec:
             'graph_description': self.graph_description,
             'graph_url': self.graph_url,
             'graph_version': self.graph_version,
+            'build_version': self.build_version,
+            'base_version': self.base_version,
             'edge_merging_attributes': self.edge_merging_attributes,
             'add_edge_id': self.add_edge_id,
             'overwrite_edge_ids': self.overwrite_edge_ids,

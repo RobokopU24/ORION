@@ -93,6 +93,16 @@ The following can be set at the graph level:
 
 - **add_edge_id** - whether to add unique identifiers to edges (true/false)
 - **edge_id_type** - if add_edge_id is true, the type of identifier can be specified (uuid or orion)
+- **version** - release version floor for the graph (e.g. `"2.0"` or `"2.1.0"`)
+
+#### Graph Versions
+
+Every built graph has two versions:
+
+- A **build version** — a deterministic hash of the graph's inputs (source versions, normalization scheme, merge strategy, subgraph versions). Identical inputs always produce the same build version.
+- A **release version** — a human-facing semantic version (`MAJOR.MINOR.PATCH`) used in output directory names, URLs, and metadata.
+
+ORION picks the release version automatically. On a new build it checks existing releases of the same graph (from the graph registry, then local storage). If a previous release has the same build version, that release is reused. Otherwise the highest existing version's `PATCH` component is incremented. To start at or jump to a different `MAJOR`/`MINOR`, set `version:` in the graph spec — it acts as a floor that the auto-bump never goes below.
 
 See the `graph_specs/` directory for more examples.
 
