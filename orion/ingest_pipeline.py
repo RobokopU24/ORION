@@ -375,14 +375,6 @@ class IngestPipeline:
                                                           normalization_time=current_time)
             return False
 
-    def get_latest_edge_normalization_version(self):
-        if self.latest_edge_normalization_version is not None:
-            return self.latest_edge_normalization_version
-        edge_normalizer = EdgeNormalizer()
-        edge_norm_version = edge_normalizer.get_current_edge_norm_version()
-        self.latest_edge_normalization_version = edge_norm_version
-        return edge_norm_version
-
     def run_supplementation_stage(self,
                                   source_id: str,
                                   source_version: str,
@@ -691,15 +683,8 @@ class IngestPipeline:
                 return storage_dir
             else:
                 raise IOError(f'Storage directory not valid: {storage_dir}')
-        # otherwise use the storage directory specified by the environment variable ORION_STORAGE
-        # check to make sure it's set and valid, otherwise fail
-        if config.ORION_STORAGE is None:
-            raise Exception(f'No storage directory was specified. You must either provide a path programmatically or '
-                            f'use the environment variable ORION_STORAGE to configure a storage directory.')
-        if os.path.isdir(config.ORION_STORAGE):
-            return config.ORION_STORAGE
-        else:
-            raise IOError(f'Storage directory not valid: {config.ORION_STORAGE}')
+        # otherwise resolve from the config
+        return config.get_storage_dir()
 
     def init_source_output_dir(self, source_id: str):
         source_dir_path = os.path.join(self.storage_dir, source_id)

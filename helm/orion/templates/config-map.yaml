@@ -8,3 +8,7 @@ data:
   env-file: |-
     BAGEL_SERVICE_USERNAME={{ .Values.orion.bagel.username }}
     BAGEL_SERVICE_PASSWORD={{ .Values.orion.bagel.password }}
+  {{- if .Values.orion.graphSpecYaml }}
+  graph-spec: |-
+    {{- .Values.orion.graphSpecYaml | nindent 4 }}
+  {{- end }}

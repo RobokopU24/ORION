@@ -46,7 +46,10 @@ class GraphMetadata(Metadata):
         self.metadata['graph_name'] = self.graph_id
         self.metadata['graph_description'] = ""
         self.metadata['graph_url'] = ""
+        # graph_version is the human-facing release version (semver); build_version is the
+        # deterministic hash of the graph's inputs. See orion/graph_versioning.py.
         self.metadata['graph_version'] = None
+        self.metadata['build_version'] = None
         self.metadata['sources'] = []
         self.metadata['subgraphs'] = []
         self.reset_state_metadata()
@@ -58,6 +61,10 @@ class GraphMetadata(Metadata):
 
     def set_graph_version(self, graph_version: str):
         self.metadata['graph_version'] = graph_version
+        self.save_metadata()
+
+    def set_build_version(self, build_version: str):
+        self.metadata['build_version'] = build_version
         self.save_metadata()
 
     def set_graph_name(self, graph_name: str):
@@ -99,10 +106,22 @@ class GraphMetadata(Metadata):
         self.save_metadata()
 
     def set_build_info(self, build_info: dict, build_time: str):
+        # Match merge-recorded source info against either spec sources (matched
+        # by source_id) or spec subgraphs (matched by graph_id), since the merger
+        # now keys both kinds by id under build_info['sources'].
         for source_id, source_info in build_info['sources'].items():
+            matched = False
             for graph_spec_source in self.metadata['sources']:
-                if source_info['release_version'] == graph_spec_source['release_version']:
+                if graph_spec_source.get('source_id') == source_id:
                     graph_spec_source.update(source_info)
+                    matched = True
+                    break
+            if matched:
+                continue
+            for graph_spec_subgraph in self.metadata['subgraphs']:
+                if graph_spec_subgraph.get('graph_id') == source_id:
+                    graph_spec_subgraph.update(source_info)
+                    break
         self.metadata.update({
             key: value for key, value in build_info.items() if key != 'sources'
         })
@@ -130,22 +149,20 @@ class GraphMetadata(Metadata):
     def get_graph_version(self):
         return self.metadata['graph_version']
 
+    def get_build_version(self):
+        return self.metadata.get('build_version')
+
     def get_source_ids(self):
         return [source['source_id'] for source in self.metadata['sources']]
 
     def get_all_sources_metadata(self):
-        """Collect all sources from metadata, recursively collect sources from subgraphs and flatten into one list."""
-        return self._collect_sources_from_metadata(self.metadata)
+        """Return one entry per merged source: data sources and subgraphs combined.
 
-    @staticmethod
-    def _collect_sources_from_metadata(metadata: dict) -> list:
-        """Recursively collect sources from a metadata dict, including nested subgraphs."""
-        all_sources = list(metadata.get('sources', []))
-        for subgraph in metadata.get('subgraphs', []):
-            subgraph_metadata = subgraph.get('graph_metadata')
-            if subgraph_metadata:
-                all_sources.extend(GraphMetadata._collect_sources_from_metadata(subgraph_metadata))
-        return all_sources
+        Subgraphs are no longer recursively unrolled — a subgraph contributes its
+        own kgx_graph_metadata.hasPart/isBasedOn at KGX-metadata generation time,
+        which already represents its constituent sources.
+        """
+        return list(self.metadata.get('sources', [])) + list(self.metadata.get('subgraphs', []))
 
     def get_biolink_version(self):
         # TODO this should be a graph wide version..

@@ -41,7 +41,7 @@ robokop = [
 ]
 
 [project.scripts]
-orion-build = "orion.build_manager:main"
+orion-build = "orion.graph_pipeline:main"
 orion-ingest = "orion.ingest_pipeline:main"
 orion-merge = "orion.cli.merge_kgs:main"
 orion-meta-kg = "orion.cli.generate_meta_kg:main"

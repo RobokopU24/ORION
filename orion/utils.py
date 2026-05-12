@@ -408,7 +408,10 @@ def quick_json_loads(item):
     return orjson.loads(item)
 
 
-def quick_jsonl_file_iterator(json_file, is_gzip=False):
+def quick_jsonl_file_iterator(json_file, is_gzip=None):
+    # Auto-detect gzip from a .gz suffix when is_gzip isn't passed explicitly.
+    if is_gzip is None:
+        is_gzip = str(json_file).endswith('.gz')
     with gzip.open(json_file, 'rt') if is_gzip \
             else open(json_file, 'r', encoding='utf-8') as fp:
         for line in fp:

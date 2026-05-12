@@ -1,11 +1,10 @@
 import os
-import jsonlines
+import gzip
 import json
 from datetime import datetime
-from itertools import chain
 from orion.utils import quick_jsonl_file_iterator
 from orion.logging import get_orion_logger
-from orion.kgxmodel import GraphSpec, GraphSource, SubGraphSource
+from orion.kgxmodel import GraphSpec, GraphFileSource
 from orion.biolink_constants import SUBJECT_ID, OBJECT_ID
 from orion.merging import GraphMerger, DiskGraphMerger, MemoryGraphMerger, MERGING_CODE_VERSION
 from orion.ingest_pipeline import RESOURCE_HOGS
@@ -36,7 +35,8 @@ class KGXFileMerger:
         self.unmerged_edge_files = {}
 
     def merge(self):
-        if not (self.graph_spec.sources or self.graph_spec.subgraphs):
+        resolved_sources = self.graph_spec.resolved_sources or []
+        if not resolved_sources:
             merge_error_msg = f'Merge attempted but {self.graph_spec.graph_id} had no sources to merge.'
             logger.error(merge_error_msg)
             self.merge_metadata['merge_error'] = merge_error_msg
@@ -46,8 +46,14 @@ class KGXFileMerger:
         primary_sources = []
         secondary_sources = []
         dont_merge_sources = []
-        for graph_source in chain(self.graph_spec.sources, self.graph_spec.subgraphs):
-            self.merge_metadata["sources"][graph_source.id] = {'release_version': graph_source.version}
+        for graph_source in resolved_sources:
+            self.merge_metadata["sources"][graph_source.id] = {
+                'release_version': graph_source.version,
+                'kgx_graph_metadata': graph_source.kgx_graph_metadata,
+                'node_count': 0,
+                'edge_count': 0,
+                'files': {},
+            }
             if not graph_source.merge_strategy:
                 primary_sources.append(graph_source)
             elif graph_source.merge_strategy in self.SECONDARY_MERGE_STRATEGIES:
@@ -65,10 +71,8 @@ class KGXFileMerger:
 
         # sources are added to self.merge_metadata['sources'] as they get merged in,
         # this roughly checks that all the sources that should be merged were processed
-        if len(self.merge_metadata['sources']) != \
-                len(self.graph_spec.sources) + len(self.graph_spec.subgraphs):
-            all_source_ids = [graph_source.id for graph_source in chain(self.graph_spec.sources,
-                                                                        self.graph_spec.subgraphs)]
+        if len(self.merge_metadata['sources']) != len(resolved_sources):
+            all_source_ids = [graph_source.id for graph_source in resolved_sources]
             missing_data_sets = [source_id for source_id in all_source_ids if
                                  source_id not in self.merge_metadata['sources'].keys()]
             error_message = f"Error merging graph {self.graph_spec.graph_id}! could not merge: {missing_data_sets}"
@@ -101,17 +105,23 @@ class KGXFileMerger:
             logger.info(f"Processing {graph_source.id}. (primary source {i}/{len(graph_sources)})")
 
             for file_path in graph_source.get_node_file_paths():
-                with jsonlines.open(file_path) as nodes:
-                    nodes_count = self.node_graph_merger.merge_nodes(nodes)
-                source_filename = file_path.rsplit('/')[-1]
-                self.merge_metadata["sources"][graph_source.id][source_filename] = {"nodes": nodes_count}
+                nodes_count = self.node_graph_merger.merge_nodes(quick_jsonl_file_iterator(file_path))
+                self._record_source_file(graph_source.id, file_path, nodes=nodes_count)
 
             for file_path in graph_source.get_edge_file_paths():
-                with jsonlines.open(file_path) as edges:
-                    edges_count = self.edge_graph_merger.merge_edges(edges)
-                source_filename = file_path.rsplit('/')[-1]
-                self.merge_metadata["sources"][graph_source.id][source_filename] = {"edges": edges_count}
+                edges_count = self.edge_graph_merger.merge_edges(quick_jsonl_file_iterator(file_path))
+                self._record_source_file(graph_source.id, file_path, edges=edges_count)
         return True
+
+    def _record_source_file(self, source_id: str, file_path: str, nodes: int = None, edges: int = None):
+        src_meta = self.merge_metadata["sources"][source_id]
+        filename = file_path.rsplit('/')[-1]
+        if nodes is not None:
+            src_meta["files"][filename] = {"nodes": nodes}
+            src_meta["node_count"] += nodes
+        if edges is not None:
+            src_meta["files"][filename] = {"edges": edges}
+            src_meta["edge_count"] += edges
 
     def merge_secondary_sources(self,
                                 graph_sources: list):
@@ -140,8 +150,7 @@ class KGXFileMerger:
                                 nodes_to_add.add(edge[SUBJECT_ID])
                             elif not edge_object_connected:
                                 nodes_to_add.add(edge[OBJECT_ID])
-                    source_filename = edge_file.rsplit('/')[-1]
-                    self.merge_metadata["sources"][graph_source.id][source_filename] = {"edges": edge_counter}
+                    self._record_source_file(graph_source.id, edge_file, edges=edge_counter)
 
                 for node_file in graph_source.get_node_file_paths():
                     node_counter = 0
@@ -149,17 +158,14 @@ class KGXFileMerger:
                         if node['id'] in nodes_to_add:
                             node_counter += 1
                             self.node_graph_merger.merge_node(node)
-                    source_filename = node_file.rsplit('/')[-1]
-                    self.merge_metadata["sources"][graph_source.id][source_filename] = {"nodes": node_counter}
+                    self._record_source_file(graph_source.id, node_file, nodes=node_counter)
 
     def merge_dont_merge_sources(self, graph_sources: list):
         for graph_source in graph_sources:
             # merge in the nodes
             for file_path in graph_source.get_node_file_paths():
-                with jsonlines.open(file_path) as nodes:
-                    nodes_count = self.node_graph_merger.merge_nodes(nodes)
-                source_filename = file_path.rsplit('/')[-1]
-                self.merge_metadata["sources"][graph_source.id][source_filename] = {"nodes": nodes_count}
+                nodes_count = self.node_graph_merger.merge_nodes(quick_jsonl_file_iterator(file_path))
+                self._record_source_file(graph_source.id, file_path, nodes=nodes_count)
 
             # just queue up the edges files
             self.unmerged_edge_files[graph_source.id] = graph_source.get_edge_file_paths()
@@ -196,12 +202,12 @@ class KGXFileMerger:
             for graph_source_id, edges_files in self.unmerged_edge_files.items():
                 for edges_file in edges_files:
                     edges_count = 0
-                    with open(edges_file) as edges:
+                    edges_opener = gzip.open if edges_file.endswith('.gz') else open
+                    with edges_opener(edges_file, 'rt') as edges:
                         for edge in edges:
                             edges_out.write(edge)
                             edges_count += 1
-                    edges_filename = edges_file.rsplit('/')[-1]
-                    self.merge_metadata["sources"][graph_source_id][edges_filename] = {"edges": edges_count}
+                    self._record_source_file(graph_source_id, edges_file, edges=edges_count)
                     all_unmerged_edges_count += edges_count
         return all_unmerged_edges_count
 
@@ -209,14 +215,12 @@ class KGXFileMerger:
         needs_on_disk_merge = True
         if not save_memory:
             needs_on_disk_merge = False
-            for graph_source in chain(self.graph_spec.sources, self.graph_spec.subgraphs):
-                if isinstance(graph_source, SubGraphSource):
-                    for source_id in graph_source.graph_metadata.get_source_ids():
-                        if source_id in RESOURCE_HOGS:
-                            needs_on_disk_merge = True
-                            break
-                elif graph_source.id in RESOURCE_HOGS:
-                    needs_on_disk_merge = True
+            for graph_source in self.graph_spec.resolved_sources or []:
+                for source_id in graph_source.get_constituent_source_ids():
+                    if source_id in RESOURCE_HOGS:
+                        needs_on_disk_merge = True
+                        break
+                if needs_on_disk_merge:
                     break
 
         pre_merge_mapping_file_path = None
@@ -280,8 +284,9 @@ def merge_kgx_files(output_dir: str,
 
     current_time = datetime.now()
     timestamp = current_time.strftime("%Y/%m/%d %H:%M:%S")
-    graph_source = GraphSource(id='cli_merge',
-                               file_paths=nodes_files + edges_files)
+    cli_source = GraphFileSource(id='cli_merge',
+                                 version=graph_id,
+                                 file_paths=nodes_files + edges_files)
     graph_spec = GraphSpec(
         graph_id='cli_merge',
         graph_name='',
@@ -289,8 +294,9 @@ def merge_kgx_files(output_dir: str,
         graph_url='',
         graph_version=graph_id,
         graph_output_format='jsonl',
-        sources=[graph_source],
-        subgraphs=[]
+        sources=[],
+        subgraphs=[],
+        resolved_sources=[cli_source],
     )
     file_merger = KGXFileMerger(graph_spec=graph_spec,
                                 output_directory=output_dir,

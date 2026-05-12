@@ -22,9 +22,9 @@ class KGXKnowledgeSource:
     isBasedOn: list["KGXKnowledgeSource"] = field(default_factory=list)
 
     @classmethod
-    def from_dict(cls, data: dict, version: str = "") -> "KGXKnowledgeSource":
+    def from_dict(cls, data: dict) -> "KGXKnowledgeSource":
         return cls(
-            identifier=data['identifier'],
+            identifier=data.get('identifier', data.get('id')),
             name=data['name'],
             description=data.get('description', ''),
             license=data.get('license', ''),
@@ -32,7 +32,7 @@ class KGXKnowledgeSource:
             url=data.get('url', ''),
             contentUrl=data.get('contentUrl', ''),
             citation=data.get('citation', ''),
-            version=version,
+            version=data.get('version', ''),
             isBasedOn=[cls.from_dict(entry) for entry in data.get('isBasedOn', [])]
         )
 
@@ -86,6 +86,7 @@ class KGXGraphMetadata:
     license: str = ""
     url: str = ""
     version: str = ""
+    build_version: str = ""
     date_created: str = ""
     date_modified: str = ""
     biolink_version: str = ""
@@ -128,6 +129,10 @@ class KGXGraphMetadata:
             "hasPart": self.kg_sources,
             "isBasedOn": [source.to_dict() for source in self.knowledge_sources]
         }
+        if self.build_version:
+            # The deterministic build hash behind this release version (see orion/graph_versioning.py),
+            # recorded so consumers can tell whether two releases are the same graph contents.
+            result["orion:buildVersion"] = self.build_version
         return json.dumps(result, indent=2)
 
 

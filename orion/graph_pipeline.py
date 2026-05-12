@@ -1,5 +1,7 @@
 import os
+import gzip
 import json
+import shutil
 import yaml
 import argparse
 import datetime
@@ -18,9 +20,24 @@ from orion.kgx_file_merger import KGXFileMerger
 from orion.kgx_validation import validate_graph
 from orion.neo4j_tools import create_neo4j_dump
 from orion.memgraph_tools import create_memgraph_dump
-from orion.kgxmodel import GraphSpec, SubGraphSource, DataSource
+from orion.kgx_bundle import KGXBundle
+from orion.graph_registry import GraphRegistryClient, GraphRegistryError
+from orion.graph_versioning import DEFAULT_BASE_VERSION, next_release_version, parse_semver
+from orion.kgxmodel import (
+    DataSource,
+    GraphFileSource,
+    GraphSpec,
+    SubGraphSource,
+)
 from orion.normalization import NormalizationScheme, get_current_node_norm_version
-from orion.metadata import Metadata, GraphMetadata, SourceMetadata
+from orion.metadata import Metadata, GraphMetadata
+from orion.source_resolution import (
+    IngestPipelineResolver,
+    LocalGraphResolver,
+    RegistryGraphResolver,
+    SubgraphBuildResolver,
+    resolve_source,
+)
 from orion.supplementation import SequenceVariantSupplementation
 from orion.meta_kg import MetaKnowledgeGraphBuilder, META_KG_FILENAME, TEST_DATA_FILENAME, EXAMPLE_DATA_FILENAME
 from orion.redundant_kg import generate_redundant_kg
@@ -29,26 +46,46 @@ from orion.collapse_qualifiers import generate_collapsed_qualifiers_kg
 from orion.kgx_metadata import KGXGraphMetadata, KGXKnowledgeSource, generate_kgx_schema_file
 
 
-logger = get_orion_logger("orion.build_manager")
+logger = get_orion_logger("orion.graph_pipeline")
 
-NODES_FILENAME = 'nodes.jsonl'
-EDGES_FILENAME = 'edges.jsonl'
 REDUNDANT_EDGES_FILENAME = 'redundant_edges.jsonl'
-GRAPH_METADATA_FILENAME = 'graph-metadata.json'
-SCHEMA_FILENAME = 'schema.json'
 COLLAPSED_QUALIFIERS_FILENAME = 'collapsed_qualifier_edges.jsonl'
+
+
+def _is_single_source_spec(graph_spec: GraphSpec) -> bool:
+    sources = graph_spec.sources or []
+    return (len(sources) == 1
+            and not graph_spec.subgraphs
+            and sources[0].id == graph_spec.graph_id)
+
+
+def _synthesize_single_source_spec(data_source: DataSource) -> GraphSpec:
+    return GraphSpec(
+        graph_id=data_source.id,
+        graph_name=data_source.id,
+        graph_description='',
+        graph_url='',
+        graph_version=None,
+        graph_output_format='jsonl',
+        sources=[data_source],
+        subgraphs=[],
+    )
 
 
 class GraphBuilder:
 
     def __init__(self,
-                 graph_specs_dir=None,
-                 graph_output_dir=None):
+                 additional_graph_spec=None,
+                 inline_graph_spec=None,
+                 graph_output_dir=None,
+                 graph_specs_dir=None):
 
-        self.graphs_dir = graph_output_dir if graph_output_dir else self.get_graph_output_dir()
+        self.graphs_dir = graph_output_dir if graph_output_dir else config.get_graphs_dir()
         self.ingest_pipeline = IngestPipeline()  # access to the data sources and their metadata
         self.graph_specs = {}   # graph_id -> GraphSpec all potential graphs that could be built, including sub-graphs
-        self.load_graph_specs(graph_specs_dir=graph_specs_dir)
+        self.load_graph_specs(graph_specs_dir=graph_specs_dir,
+                              additional_graph_spec=additional_graph_spec,
+                              inline_graph_spec=inline_graph_spec)
         self.build_results = {}
 
     def build_graph(self, graph_spec: GraphSpec):
@@ -78,10 +115,10 @@ class GraphBuilder:
             self.build_results[graph_id] = {'version': graph_version}
             logger.info(f'Graph {graph_id} version {graph_version} was already built.')
         else:
-            # if we get here we need to build the graph
+            # If we get here we need to build the graph
             logger.info(f'Building graph {graph_id} version {graph_version}, checking dependencies...')
             if not self.build_dependencies(graph_spec):
-                logger.warning(f'Aborting graph {graph_spec.graph_id} version {graph_version}, building '
+                logger.warning(f'Aborting graph {graph_spec.graph_id} version {graph_version}, resolving '
                                     f'dependencies failed.')
                 return False
 
@@ -89,6 +126,7 @@ class GraphBuilder:
                              f'Dependencies ready, merging sources...')
             graph_metadata.set_build_status(Metadata.IN_PROGRESS)
             graph_metadata.set_graph_version(graph_version)
+            graph_metadata.set_build_version(graph_spec.build_version)
             graph_metadata.set_graph_name(graph_spec.graph_name)
             graph_metadata.set_graph_description(graph_spec.graph_description)
             graph_metadata.set_graph_url(graph_spec.graph_url)
@@ -97,8 +135,8 @@ class GraphBuilder:
             # merge the sources and write the finalized graph kgx files
             source_merger = KGXFileMerger(graph_spec=graph_spec,
                                           output_directory=graph_output_dir,
-                                          nodes_output_filename=NODES_FILENAME,
-                                          edges_output_filename=EDGES_FILENAME)
+                                          nodes_output_filename=KGXBundle.NODES_FILENAME,
+                                          edges_output_filename=KGXBundle.EDGES_FILENAME)
             source_merger.merge()
             merge_metadata = source_merger.get_merge_metadata()
 
@@ -115,13 +153,17 @@ class GraphBuilder:
             logger.info(f'Building graph {graph_id} complete!')
             self.build_results[graph_id] = {'version': graph_version}
 
-        nodes_filepath = os.path.join(graph_output_dir, NODES_FILENAME)
-        edges_filepath = os.path.join(graph_output_dir, EDGES_FILENAME)
+        kgx_bundle = KGXBundle(graph_output_dir)
+
+        # On re-runs of an already-built graph, the raw jsonl files may have been
+        # gzipped and removed by a previous run. Restore them so the trailing steps
+        # (QC, metadata, neo4j/memgraph/AC dumps, etc.) can read raw jsonl.
+        kgx_bundle.decompress_nodes_and_edges()
 
         if not graph_metadata.has_qc():
             logger.info(f'Running QC for graph {graph_id}...')
-            qc_results = validate_graph(nodes_file_path=nodes_filepath,
-                                        edges_file_path=edges_filepath,
+            qc_results = validate_graph(nodes_file_path=kgx_bundle.nodes_path,
+                                        edges_file_path=kgx_bundle.edges_path,
                                         graph_id=graph_id,
                                         graph_version=graph_version,
                                         logger=logger)
@@ -132,16 +174,16 @@ class GraphBuilder:
                 logger.warning(f'QC failed for graph {graph_id}.')
 
         # Generate KGX metadata and schema files
-        if not self.has_kgx_metadata(graph_output_dir):
+        if not kgx_bundle.has_graph_metadata():
             logger.info(f'Generating KGX metadata for {graph_id}...')
             self.generate_kgx_metadata_files(graph_metadata=graph_metadata,
                                              graph_output_dir=graph_output_dir,
                                              graph_output_url=graph_output_url)
             logger.info(f'KGX metadata generated for {graph_id}.')
-        if not self.has_kgx_schema(graph_output_dir):
+        if not kgx_bundle.has_schema():
             logger.info(f'Generating KGX Schema for {graph_id}...')
-            generate_kgx_schema_file(nodes_filepath=nodes_filepath,
-                                     edges_filepath=edges_filepath,
+            generate_kgx_schema_file(nodes_filepath=kgx_bundle.nodes_path,
+                                     edges_filepath=kgx_bundle.edges_path,
                                      output_dir=graph_output_dir,
                                      graph_output_url=graph_output_url,
                                      graph_name=graph_spec.graph_name,
@@ -171,16 +213,16 @@ class GraphBuilder:
         #  output_format: [['redundant', 'neo4j', 'answercoalesce'], ['collapsed_qualifiers'], ['neo4j']]
         if 'redundant_jsonl' in output_formats:
             logger.info(f'Generating redundant edge KG for {graph_id}...')
-            redundant_filepath = edges_filepath.replace(EDGES_FILENAME, REDUNDANT_EDGES_FILENAME)
-            generate_redundant_kg(edges_filepath, redundant_filepath)
+            redundant_filepath = kgx_bundle.edges_path.replace(KGXBundle.EDGES_FILENAME, REDUNDANT_EDGES_FILENAME)
+            generate_redundant_kg(kgx_bundle.edges_path, redundant_filepath)
 
         if 'redundant_neo4j' in output_formats:
             logger.info(f'Generating redundant edge KG for {graph_id}...')
-            redundant_filepath = edges_filepath.replace(EDGES_FILENAME, REDUNDANT_EDGES_FILENAME)
+            redundant_filepath = kgx_bundle.edges_path.replace(KGXBundle.EDGES_FILENAME, REDUNDANT_EDGES_FILENAME)
             if not os.path.exists(redundant_filepath):
-                generate_redundant_kg(edges_filepath, redundant_filepath)
+                generate_redundant_kg(kgx_bundle.edges_path, redundant_filepath)
             logger.info(f'Starting Neo4j dump pipeline for redundant {graph_id}...')
-            dump_success = create_neo4j_dump(nodes_filepath=nodes_filepath,
+            dump_success = create_neo4j_dump(nodes_filepath=kgx_bundle.nodes_path,
                                              edges_filepath=redundant_filepath,
                                              output_directory=graph_output_dir,
                                              graph_id=graph_id,
@@ -193,16 +235,16 @@ class GraphBuilder:
 
         if 'collapsed_qualifiers_jsonl' in output_formats:
             logger.info(f'Generating collapsed qualifier predicates KG for {graph_id}...')
-            collapsed_qualifiers_filepath = edges_filepath.replace(EDGES_FILENAME, COLLAPSED_QUALIFIERS_FILENAME)
-            generate_collapsed_qualifiers_kg(edges_filepath, collapsed_qualifiers_filepath)
+            collapsed_qualifiers_filepath = kgx_bundle.edges_path.replace(KGXBundle.EDGES_FILENAME, COLLAPSED_QUALIFIERS_FILENAME)
+            generate_collapsed_qualifiers_kg(kgx_bundle.edges_path, collapsed_qualifiers_filepath)
 
         if 'collapsed_qualifiers_neo4j' in output_formats:
             logger.info(f'Generating collapsed qualifier predicates KG for {graph_id}...')
-            collapsed_qualifiers_filepath = edges_filepath.replace(EDGES_FILENAME, COLLAPSED_QUALIFIERS_FILENAME)
+            collapsed_qualifiers_filepath = kgx_bundle.edges_path.replace(KGXBundle.EDGES_FILENAME, COLLAPSED_QUALIFIERS_FILENAME)
             if not os.path.exists(collapsed_qualifiers_filepath):
-                generate_collapsed_qualifiers_kg(edges_filepath, collapsed_qualifiers_filepath)
+                generate_collapsed_qualifiers_kg(kgx_bundle.edges_path, collapsed_qualifiers_filepath)
             logger.info(f'Starting Neo4j dump pipeline for {graph_id} with collapsed qualifiers...')
-            dump_success = create_neo4j_dump(nodes_filepath=nodes_filepath,
+            dump_success = create_neo4j_dump(nodes_filepath=kgx_bundle.nodes_path,
                                              edges_filepath=collapsed_qualifiers_filepath,
                                              output_directory=graph_output_dir,
                                              graph_id=graph_id,
@@ -216,8 +258,8 @@ class GraphBuilder:
 
         if 'neo4j' in output_formats:
             logger.info(f'Starting Neo4j dump pipeline for {graph_id}...')
-            dump_success = create_neo4j_dump(nodes_filepath=nodes_filepath,
-                                             edges_filepath=edges_filepath,
+            dump_success = create_neo4j_dump(nodes_filepath=kgx_bundle.nodes_path,
+                                             edges_filepath=kgx_bundle.edges_path,
                                              output_directory=graph_output_dir,
                                              graph_id=graph_id,
                                              graph_version=graph_version,
@@ -229,8 +271,8 @@ class GraphBuilder:
 
         if 'memgraph' in output_formats:
             logger.info(f'Starting memgraph dump pipeline for {graph_id}...')
-            dump_success = create_memgraph_dump(nodes_filepath=nodes_filepath,
-                                                edges_filepath=edges_filepath,
+            dump_success = create_memgraph_dump(nodes_filepath=kgx_bundle.nodes_path,
+                                                edges_filepath=kgx_bundle.edges_path,
                                                 output_directory=graph_output_dir,
                                                 graph_id=graph_id,
                                                 graph_version=graph_version,
@@ -243,16 +285,34 @@ class GraphBuilder:
         if 'answercoalesce' in output_formats:
             logger.info(f'Generating answercoalesce files for {graph_id}...')
             if 'redundant_jsonl' in output_formats or 'redundant_neo4j' in output_formats:
-                edge_filepath_to_use = edges_filepath.replace(EDGES_FILENAME, REDUNDANT_EDGES_FILENAME)
+                edge_filepath_to_use = kgx_bundle.edges_path.replace(KGXBundle.EDGES_FILENAME, REDUNDANT_EDGES_FILENAME)
             else:
-                edge_filepath_to_use = edges_filepath
+                edge_filepath_to_use = kgx_bundle.edges_path
             ac_output_dir = os.path.join(graph_output_dir, "answercoalesce")
             os.makedirs(ac_output_dir, exist_ok=True)
-            generate_ac_files(nodes_filepath, edge_filepath_to_use, ac_output_dir)
+            generate_ac_files(kgx_bundle.nodes_path, edge_filepath_to_use, ac_output_dir)
 
+        # All processing is complete. Replace the final jsonl files with gzipped
+        # versions so downloads are smaller/faster.
+        logger.info(f'Compressing final jsonl files for {graph_id}...')
+        kgx_bundle.compress_nodes_and_edges()
+
+        # Compress any other jsonl nodes/edges files
+        jsonl_files_to_compress = []
+        if 'redundant_jsonl' in output_formats or 'redundant_neo4j' in output_formats:
+            jsonl_files_to_compress.append(
+                kgx_bundle.edges_path.replace(KGXBundle.EDGES_FILENAME, REDUNDANT_EDGES_FILENAME))
+        if ('collapsed_qualifiers_jsonl' in output_formats
+                or 'collapsed_qualifiers_neo4j' in output_formats):
+            jsonl_files_to_compress.append(
+                kgx_bundle.edges_path.replace(KGXBundle.EDGES_FILENAME, COLLAPSED_QUALIFIERS_FILENAME))
+        for jsonl_path in jsonl_files_to_compress:
+            kgx_bundle.compress_jsonl(jsonl_path)
         return True
 
-    # determine a graph version utilizing versions of data sources, or just return the graph version specified
+    # Determine the release version (semver) for a graph, deriving its deterministic build version
+    # from the versions of its data sources and subgraphs along the way. If a graph_version was
+    # explicitly pinned in the spec, just return that.
     def determine_graph_version(self, graph_spec: GraphSpec):
         # if the version was set or previously determined just back out
         if graph_spec.graph_version:
@@ -260,6 +320,8 @@ class GraphBuilder:
         try:
             # go out and find the latest version for any data source that doesn't have a version specified
             for source in graph_spec.sources:
+                if not source.parsing_version:
+                    source.parsing_version = self.ingest_pipeline.get_latest_parsing_version(source.id)
                 if not source.source_version:
                     source.source_version = self.ingest_pipeline.get_latest_source_version(source.id)
                 logger.info(f'Using {source.id} version: {source.version}')
@@ -291,79 +353,125 @@ class GraphBuilder:
             composite_version_string += '_'.join([sub_graph_source.version + '_' + sub_graph_source.merge_strategy
                                                   if sub_graph_source.merge_strategy else sub_graph_source.version
                                                   for sub_graph_source in graph_spec.subgraphs])
-        graph_version = xxh64_hexdigest(composite_version_string)
-        graph_spec.graph_version = graph_version
-        logger.info(f'Version determined for graph {graph_spec.graph_id}: {graph_version} ({composite_version_string})')
-        return graph_version
+        build_version = xxh64_hexdigest(composite_version_string)
+        graph_spec.build_version = build_version
+        release_version = self.determine_release_version(graph_spec.graph_id, build_version, graph_spec.base_version)
+        graph_spec.graph_version = release_version
+        logger.info(f'Version determined for graph {graph_spec.graph_id}: release {release_version}, '
+                    f'build {build_version} ({composite_version_string})')
+        return release_version
 
+    # Pick the release version (semver) for a build. If a previously released version of this graph
+    # already has this build version, reuse it (the contents are identical). Otherwise bump to the
+    # next version above whatever already exists, never going below the spec's declared base_version.
+    def determine_release_version(self, graph_id: str, build_version: str, base_version: str):
+        known_versions = self._known_release_versions(graph_id)
+        for version_str, recorded_build_version in known_versions.items():
+            if recorded_build_version and recorded_build_version == build_version:
+                logger.info(f'Graph {graph_id} build {build_version} was already released as version {version_str}.')
+                return version_str
+        next_version = next_release_version(list(known_versions.keys()), base_version)
+        if known_versions:
+            logger.info(f'Graph {graph_id} build {build_version} is new; releasing as version {next_version} '
+                        f'(existing versions: {sorted(known_versions)}).')
+        else:
+            logger.info(f'Graph {graph_id} has no previous releases; releasing as version {next_version}.')
+        return next_version
+
+    # Collect known release versions of a graph, mapped to the build version each one came from
+    # (None when unknown). Looks at the remote graph registry first (if enabled), then local storage.
+    def _known_release_versions(self, graph_id: str) -> dict:
+        known_versions = {}
+        if config.ORION_USE_GRAPH_REGISTRY:
+            try:
+                registry_client = GraphRegistryClient(base_url=config.ORION_GRAPH_REGISTRY_URL, timeout=10.0)
+                for version_record in registry_client.get_versions(graph_id):
+                    version_str = version_record.get('version')
+                    if not version_str:
+                        continue
+                    build_version = version_record.get('build_version')
+                    if build_version is None:
+                        try:
+                            build_version = registry_client.get_graph_metadata(graph_id, version_str).get(
+                                'orion:buildVersion')
+                        except GraphRegistryError as e:
+                            logger.debug(f'Could not read registry metadata for {graph_id}/{version_str}: {e}')
+                    known_versions[version_str] = build_version
+            except GraphRegistryError as e:
+                logger.debug(f'Graph registry unavailable while versioning {graph_id}: {e}')
+
+        graph_root = os.path.join(self.graphs_dir, graph_id)
+        if os.path.isdir(graph_root):
+            for entry in os.listdir(graph_root):
+                entry_dir = os.path.join(graph_root, entry)
+                if not os.path.isfile(os.path.join(entry_dir, f'{graph_id}.meta.json')):
+                    continue
+                try:
+                    graph_metadata = GraphMetadata(graph_id, entry_dir)
+                    version_str = graph_metadata.get_graph_version()
+                    build_version = graph_metadata.get_build_version()
+                except (json.JSONDecodeError, KeyError, OSError) as e:
+                    logger.debug(f'Skipping unreadable graph metadata in {entry_dir}: {e}')
+                    continue
+                if not version_str:
+                    continue
+                # don't let a local entry with no recorded build version clobber one the registry gave us
+                if known_versions.get(version_str) and not build_version:
+                    continue
+                known_versions[version_str] = build_version
+        return known_versions
+
+    # Resolve every spec entry into a GraphFileSource on graph_spec.resolved_sources.
+    # For each DataSource, try Local then Registry first; if neither resolves and
+    # the spec isn't itself a single-source build, recursively build a single-source
+    # graph for it so it can be resolved with a Local lookup.
     def build_dependencies(self, graph_spec: GraphSpec):
-        graph_id = graph_spec.graph_id
-        for subgraph_source in graph_spec.subgraphs:
-            subgraph_id = subgraph_source.id
-            subgraph_version = subgraph_source.version
-            if not self.check_for_existing_graph_dir(subgraph_id, subgraph_version):
-                # If the subgraph doesn't already exist, we need to make sure it matches the current version of the
-                # subgraph as generated by the current graph spec, otherwise we won't be able to build it.
-                subgraph_graph_spec = self.graph_specs.get(subgraph_id, None)
-                if not subgraph_graph_spec:
-                    logger.warning(f'Subgraph {subgraph_id} version {subgraph_version} was requested for graph '
-                                        f'{graph_id} but it was not found and could not be built without a Graph Spec.')
-                    return False
 
-                if subgraph_version != subgraph_graph_spec.graph_version:
-                    logger.error(f'Subgraph {subgraph_id} version {subgraph_version} was specified, but that '
-                                      f'version of the graph could not be found. It can not be built now because the '
-                                      f'current version is {subgraph_graph_spec.graph_version}. Either specify a '
-                                      f'version that is already built, or remove the subgraph version specification to '
-                                      f'automatically include the latest one.')
-                    return False
+        graph_spec.resolved_sources = []
 
-                # here the graph specs and versions all look right, but we still need to build the subgraph
-                logger.warning(f'Graph {graph_id}, subgraph dependency {subgraph_id} is not ready. Building now..')
-                subgraph_build_success = self.build_graph(subgraph_graph_spec)
-                if not subgraph_build_success:
-                    return False
+        local_resolver = LocalGraphResolver(graphs_dir=self.graphs_dir)
+        registry_resolver = RegistryGraphResolver(graphs_dir=self.graphs_dir)
+        ingest_resolver = IngestPipelineResolver(ingest_pipeline=self.ingest_pipeline)
+        subgraph_build_resolver = SubgraphBuildResolver(graph_pipeline=self)
 
-            # confirm the subgraph build worked and update the DataSource object in preparation for merging
-            subgraph_metadata = self.get_graph_metadata(subgraph_id, subgraph_version)
-            subgraph_source.graph_metadata = subgraph_metadata
-            if subgraph_metadata.get_build_status() == Metadata.STABLE:
-                subgraph_dir = self.get_graph_dir_path(subgraph_id, subgraph_version)
-                subgraph_nodes_path = self.get_graph_nodes_file_path(subgraph_dir)
-                subgraph_edges_path = self.get_graph_edges_file_path(subgraph_dir)
-                subgraph_source.file_paths = [subgraph_nodes_path, subgraph_edges_path]
-            else:
-                logger.warning(f'Attempting to build graph {graph_id} failed, dependency subgraph {subgraph_id} '
-                                    f'version {subgraph_version} was not built successfully.')
+        subgraph_chain = [local_resolver, registry_resolver, subgraph_build_resolver]
+        for subgraph_spec in graph_spec.subgraphs or []:
+            resolved = resolve_source(subgraph_spec, subgraph_chain)
+            if resolved is None:
+                logger.warning(f'Could not resolve subgraph dependency {subgraph_spec.id} '
+                               f'version {subgraph_spec.graph_version} for graph {graph_spec.graph_id}.')
                 return False
+            graph_spec.resolved_sources.append(resolved)
 
-        for data_source in graph_spec.sources:
-            source_id = data_source.id
-            source_metadata: SourceMetadata = self.ingest_pipeline.get_source_metadata(source_id,
-                                                                                       data_source.source_version)
-            release_version = data_source.generate_version()
-            release_metadata = source_metadata.get_release_info(release_version)
-            if release_metadata is None:
-                logger.info(
-                    f'Attempting to build graph {graph_id}, '
-                    f'dependency {source_id} is not ready. Building now...')
-                pipeline_sucess = self.ingest_pipeline.run_pipeline(source_id,
-                                                                    source_version=data_source.source_version,
-                                                                    parsing_version=data_source.parsing_version,
-                                                                    normalization_scheme=data_source.normalization_scheme,
-                                                                    supplementation_version=data_source.supplementation_version)
-                if not pipeline_sucess:
-                    logger.info(f'While attempting to build {graph_spec.graph_id}, '
-                                     f'data source pipeline failed for dependency {source_id}...')
+        existing_graph_chain = [local_resolver, registry_resolver]
+        for data_source_spec in graph_spec.sources or []:
+            # first try to resolve the data sources by checking the local storage and the graph registry
+            resolved = resolve_source(data_source_spec, existing_graph_chain)
+            if resolved is not None:
+                graph_spec.resolved_sources.append(resolved)
+                continue
+
+            # If it was not found, we need to ingest the source and/or build a single-source graph with it.
+            if _is_single_source_spec(graph_spec):
+                # This is a graph spec for a single source graph, we need to run the ingest pipeline.
+                resolved = ingest_resolver.resolve(data_source_spec)
+            else:
+                # Here we're looking at one otherwise-unresolved source from a multisource graph spec.
+                # Run build_graph recursively with a synthesized graph spec so that the dependency resolver can
+                # trigger the _is_single_source_spec clause, run the ingest pipeline, and make a single-source graph.
+                if not self.build_graph(_synthesize_single_source_spec(data_source_spec)):
+                    logger.error(f'Failed to build single-source graph for {data_source_spec.id} '
+                                 f'(dependency of {graph_spec.graph_id}).')
                     return False
-                release_metadata = source_metadata.get_release_info(release_version)
+                # After a single source graph is built, we can resolve it locally like we would have if it already
+                # existed.
+                resolved = local_resolver.resolve(data_source_spec)
 
-            data_source.release_info = release_metadata
-            data_source.file_paths = self.ingest_pipeline.get_final_file_paths(source_id,
-                                                                               data_source.source_version,
-                                                                               data_source.parsing_version,
-                                                                               data_source.normalization_scheme.get_composite_normalization_version(),
-                                                                               data_source.supplementation_version)
+            if resolved is None:
+                logger.info(f'Could not resolve data source {data_source_spec.id} for graph '
+                            f'{graph_spec.graph_id}.')
+                return False
+            graph_spec.resolved_sources.append(resolved)
         return True
 
     @staticmethod
@@ -375,20 +483,12 @@ class GraphBuilder:
         return os.path.exists(os.path.join(graph_directory, TEST_DATA_FILENAME))
 
     @staticmethod
-    def has_kgx_metadata(graph_directory: str):
-        return os.path.exists(os.path.join(graph_directory, GRAPH_METADATA_FILENAME))
-
-    @staticmethod
-    def has_kgx_schema(graph_directory: str):
-        return os.path.exists(os.path.join(graph_directory, SCHEMA_FILENAME))
-
-    def generate_meta_kg_and_test_data(self,
-                                       graph_directory: str,
+    def generate_meta_kg_and_test_data(graph_directory: str,
                                        generate_meta_kg: bool = True,
                                        generate_test_data: bool = True,
                                        generate_example_data: bool = True):
-        graph_nodes_file_path = os.path.join(graph_directory, NODES_FILENAME)
-        graph_edges_file_path = os.path.join(graph_directory, EDGES_FILENAME)
+        graph_nodes_file_path = os.path.join(graph_directory, KGXBundle.NODES_FILENAME)
+        graph_edges_file_path = os.path.join(graph_directory, KGXBundle.EDGES_FILENAME)
         mkgb = MetaKnowledgeGraphBuilder(nodes_file_path=graph_nodes_file_path,
                                          edges_file_path=graph_edges_file_path,
                                          logger=logger)
@@ -408,33 +508,18 @@ class GraphBuilder:
                                     graph_output_dir: str,
                                     graph_output_url: str):
 
-        # Collect all source metadata from sources contained in this graph
         all_sources = graph_metadata.get_all_sources_metadata()
 
         kg_sources = []
         knowledge_sources = []
         orion_root = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..')
         for source in all_sources:
-            source_id = source.get('source_id', '')
-            source_version = source.get('source_version', '')
-            source_name = source.get('name', '')
-            release_version = source.get('release_version', '')
-            kg_sources.append({
-                '@id': self.get_graph_output_url(graph_id=source_id, graph_version=release_version),
-                'name': f"A ROBOKOP Knowledge Graph based on {source_name}",
-                # TODO this is missing potential supplemental nodes and edges but that should be reworked upstream
-                #  to access them in a more sane way
-                'orion:nodeCount': source.get('normalized_nodes.jsonl', {}).get("nodes"),
-                'orion:edgeCount': source.get('normalized_edges.jsonl', {}).get("edges")
-            })
-
-            # Load the parser *.source.json metadata file for this source
-            data_source_metadata_path = os.path.join(orion_root, get_data_source_metadata_path(source_id))
-            with open(data_source_metadata_path, 'r') as f:
-                data_source_metadata = json.load(f)
-
-            knowledge_source = KGXKnowledgeSource.from_dict(data_source_metadata, version=source_version)
-            knowledge_sources.append(knowledge_source)
+            if source.get('kgx_graph_metadata'):
+                kg_sources_part, ks_part = self._kgx_metadata_from_built_graph(source)
+            else:
+                kg_sources_part, ks_part = self._kgx_metadata_from_parser_source(source, orion_root)
+            kg_sources.extend(kg_sources_part)
+            knowledge_sources.extend(ks_part)
 
         # Create KGXGraphMetadata
         kgx_graph_metadata = KGXGraphMetadata(
@@ -444,6 +529,7 @@ class GraphBuilder:
             license='https://spdx.org/licenses/MIT',
             url=graph_output_url,
             version=graph_metadata.get_graph_version(),
+            build_version=graph_metadata.get_build_version(),
             date_created=graph_metadata.get_build_time(),
             date_modified=graph_metadata.get_build_time(),
             keywords=["knowledge graph", "biomedical", "drug discovery", "translational research", "gene", "disease",
@@ -508,39 +594,96 @@ class GraphBuilder:
         with open(graph_metadata_filepath, 'w') as f:
             f.write(kgx_graph_metadata.to_json())
 
-    def load_graph_specs(self, graph_specs_dir=None):
-        graph_spec_file = config.ORION_GRAPH_SPEC
-        graph_spec_url = config.ORION_GRAPH_SPEC_URL
+    # KGX-metadata contribution from a built graph: copy the carrier's hasPart
+    # and isBasedOn entries. If hasPart has exactly one entry (a single-source
+    # graph used as input here), override its node/edge counts with the current
+    # build's merger counts — the carrier's counts come from its own internal
+    # merge and aren't the right number for this graph. When hasPart has many
+    # entries we pass them through; the merger only has an aggregate count for
+    # the carrier as a whole, with no way to attribute it across constituents.
+    @staticmethod
+    def _kgx_metadata_from_built_graph(source: dict):
+        carrier = source.get('kgx_graph_metadata') or {}
+        carrier_kg_sources = carrier.get('hasPart') or []
+        carrier_knowledge_sources = carrier.get('isBasedOn') or []
 
-        if graph_spec_file and graph_spec_url:
-            raise GraphSpecError(f'Configuration Error - the environment variables ORION_GRAPH_SPEC and '
-                                 f'ORION_GRAPH_SPEC_URL were set. Please choose one or the other. See the README for '
-                                 f'details.')
+        kg_sources = []
+        if len(carrier_kg_sources) == 1:
+            entry = dict(carrier_kg_sources[0])
+            if source.get('node_count') is not None:
+                entry['orion:nodeCount'] = source.get('node_count')
+            if source.get('edge_count') is not None:
+                entry['orion:edgeCount'] = source.get('edge_count')
+            kg_sources.append(entry)
+        else:
+            for kg_source_entry in carrier_kg_sources:
+                kg_sources.append(dict(kg_source_entry))
 
-        if graph_spec_file:
-            if not graph_specs_dir:
-                graph_specs_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'graph_specs')
-            graph_spec_path = os.path.join(graph_specs_dir, graph_spec_file)
-            if os.path.exists(graph_spec_path):
-                logger.info(f'Loading graph spec: {graph_spec_file}')
-                with open(graph_spec_path) as graph_spec_file:
-                    graph_spec_yaml = yaml.safe_load(graph_spec_file)
-                    self.parse_graph_spec(graph_spec_yaml)
-                    return
-            else:
-                raise GraphSpecError(f'Configuration Error - Graph Spec could not be found: {graph_spec_file}')
+        knowledge_sources = [KGXKnowledgeSource.from_dict(ks_dict)
+                             for ks_dict in carrier_knowledge_sources]
+        return kg_sources, knowledge_sources
 
-        if graph_spec_url:
-            graph_spec_request = requests.get(graph_spec_url)
-            graph_spec_request.raise_for_status()
-            graph_spec_yaml = yaml.safe_load(graph_spec_request.text)
-            self.parse_graph_spec(graph_spec_yaml)
-            return
+    # KGX-metadata contribution from a source that came from raw parser output:
+    # synthesize a single hasPart entry from the source record and load the
+    # parser's *.source.json for the isBasedOn knowledge source.
+    def _kgx_metadata_from_parser_source(self, source: dict, orion_root: str):
+        source_id = source.get('source_id', '')
+        source_version = source.get('source_version', '')
+        source_name = source.get('name', source_id)
+        release_version = source.get('release_version', '')
+        kg_sources = [{
+            '@id': self.get_graph_output_url(graph_id=source_id, graph_version=release_version),
+            'name': f'A ROBOKOP Knowledge Graph based on {source_name}',
+            'orion:nodeCount': source.get('node_count'),
+            'orion:edgeCount': source.get('edge_count'),
+        }]
+        parser_metadata_path = os.path.join(orion_root, get_data_source_metadata_path(source_id))
+        with open(parser_metadata_path) as f:
+            parser_metadata = json.load(f)
+        knowledge_sources = [KGXKnowledgeSource.from_dict({**parser_metadata, 'version': source_version})]
+        return kg_sources, knowledge_sources
 
-        raise GraphSpecError(f'Configuration Error - No Graph Spec was configured. Set the environment variable '
-                             f'ORION_GRAPH_SPEC to the name of a graph spec included in this package, or '
-                             f'ORION_GRAPH_SPEC_URL to a URL of a valid Graph Spec yaml file. '
-                             f'See the README for more info.')
+    def load_graph_specs(self, graph_specs_dir=None, additional_graph_spec=None, inline_graph_spec=None):
+        # if a graph spec directory was not provided, default to the one included in the codebase
+        if not graph_specs_dir:
+            graph_specs_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'graph_specs')
+
+        # make sure it's a valid directory
+        if not os.path.isdir(graph_specs_dir):
+            raise GraphSpecError(f'Configuration Error - Graph Specs directory not found: {graph_specs_dir}')
+
+        spec_filenames = sorted(f for f in os.listdir(graph_specs_dir)
+                                if f.endswith('.yaml'))
+        for spec_filename in spec_filenames:
+            spec_path = os.path.join(graph_specs_dir, spec_filename)
+            logger.debug(f'Loading graph spec: {spec_filename}')
+            with open(spec_path) as spec_file:
+                spec_yaml = yaml.safe_load(spec_file)
+            self.parse_graph_spec(spec_yaml)
+
+        if additional_graph_spec:
+            logger.info(f'Loading additional graph spec: {additional_graph_spec}')
+            self.load_additional_graph_spec(additional_graph_spec)
+
+        if inline_graph_spec:
+            inline_graph_ids = [g.get('graph_id') for g in inline_graph_spec.get('graphs', [])]
+            logger.info(f'Loading inline graph spec with graph_id(s): {inline_graph_ids}')
+            self.parse_graph_spec(inline_graph_spec)
+
+    def load_additional_graph_spec(self, additional_graph_spec: str):
+        if additional_graph_spec.startswith('http://') or additional_graph_spec.startswith('https://'):
+            logger.info(f'Loading additional graph spec from URL: {additional_graph_spec}')
+            response = requests.get(additional_graph_spec)
+            response.raise_for_status()
+            spec_yaml = yaml.safe_load(response.text)
+        else:
+            if not os.path.isfile(additional_graph_spec):
+                raise GraphSpecError(f'Additional graph spec file not found: {additional_graph_spec}')
+            logger.info(f'Loading additional graph spec: {additional_graph_spec}')
+            with open(additional_graph_spec) as spec_file:
+                spec_yaml = yaml.safe_load(spec_file)
+
+        self.parse_graph_spec(spec_yaml)
 
     def parse_graph_spec(self, graph_spec_yaml):
         graph_id = None
@@ -586,7 +729,7 @@ class GraphBuilder:
                 if graph_wide_node_norm_version == 'latest':
                     graph_wide_node_norm_version = get_current_node_norm_version()
                 if graph_wide_edge_norm_version == 'latest':
-                    graph_wide_edge_norm_version = self.ingest_pipeline.get_latest_edge_normalization_version()
+                    graph_wide_edge_norm_version = config.BL_VERSION
 
                 # apply them to all the data sources, this will overwrite anything defined at the source level
                 for data_source in data_sources:
@@ -602,13 +745,31 @@ class GraphBuilder:
                     if graph_wide_strict_norm is not None:
                         data_source.normalization_scheme.strict = graph_wide_strict_norm
 
+                if graph_id in self.graph_specs:
+                    raise GraphSpecError(
+                        f'Duplicate graph_id encountered: {graph_id}. Every graph_id must '
+                        f'be unique across included and user provided Graph Specs. Choose a different graph_id.')
+
                 graph_output_format = graph_yaml.get('output_format', '')
+
+                # Optional release version floor (semver). Bare yaml numbers like `version: 2.0`
+                # parse as floats, so coerce to str before validating.
+                base_version = graph_yaml.get('version', graph_yaml.get('base_version', None))
+                if base_version is None:
+                    base_version = DEFAULT_BASE_VERSION
+                else:
+                    base_version = str(base_version)
+                    if parse_semver(base_version) is None:
+                        raise GraphSpecError(f'Graph {graph_id} has an invalid version: {base_version}. '
+                                             f'Use a semantic version like "2.0" or "2.1.0" (quote it in yaml).')
+
                 graph_spec = GraphSpec(graph_id=graph_id,
                                        graph_name=graph_name,
                                        graph_description=graph_description,
                                        graph_url=graph_url,
                                        graph_version=None,  # this will get populated when a build is triggered
                                        graph_output_format=graph_output_format,
+                                       base_version=base_version,
                                        add_edge_id=add_edge_id,
                                        edge_id_type=edge_id_type,
                                        overwrite_edge_ids=overwrite_edge_ids,
@@ -654,12 +815,14 @@ class GraphBuilder:
         # supplementation and normalization code version cannot be specified, set them to the current version
         supplementation_version = SequenceVariantSupplementation.SUPPLEMENTATION_VERSION
 
-        # if versions are not specified, set them to the current latest
-        # source_version is intentionally not handled here because we want to do it lazily and avoid if not needed
-        if not parsing_version or parsing_version == 'latest':
-            parsing_version = self.ingest_pipeline.get_latest_parsing_version(source_id)
+        # source_version and parsing_version are intentionally left unresolved here — resolving them
+        # eagerly would import every parser referenced by every auto-loaded graph spec, even when the
+        # user is only building one. determine_graph_version fills them in lazily for the graph
+        # actually being built.
+        if parsing_version == 'latest':
+            parsing_version = None
         if not edge_normalization_version or edge_normalization_version == 'latest':
-            edge_normalization_version = self.ingest_pipeline.get_latest_edge_normalization_version()
+            edge_normalization_version = config.BL_VERSION
 
         # do some validation
         if type(strict_normalization) != bool:
@@ -690,11 +853,11 @@ class GraphBuilder:
 
     @staticmethod
     def get_graph_nodes_file_path(graph_output_dir: str):
-        return os.path.join(graph_output_dir, NODES_FILENAME)
+        return os.path.join(graph_output_dir, KGXBundle.NODES_FILENAME)
 
     @staticmethod
     def get_graph_edges_file_path(graph_output_dir: str):
-        return os.path.join(graph_output_dir, EDGES_FILENAME)
+        return os.path.join(graph_output_dir, KGXBundle.EDGES_FILENAME)
 
     def check_for_existing_graph_dir(self, graph_id: str, graph_version: str):
         graph_output_dir = self.get_graph_dir_path(graph_id, graph_version)
@@ -709,16 +872,19 @@ class GraphBuilder:
         # load existing or create new metadata file
         return GraphMetadata(graph_id, graph_output_dir)
 
-    @staticmethod
-    def get_graph_output_dir():
-        # confirm the directory specified by the environment variable ORION_GRAPHS is valid
-        graphs_dir = config.ORION_GRAPHS
-        if graphs_dir and Path(graphs_dir).is_dir():
-            return graphs_dir
 
-        # if invalid or not specified back out
-        raise IOError('ORION graphs directory not configured properly. '
-                      'Specify a valid directory with environment variable ORION_GRAPHS.')
+def _generate_inline_graph_spec(graph_id: str, sources_arg: str, output_format: str) -> dict:
+    source_ids = [s.strip() for s in sources_arg.split(',') if s.strip()]
+    if not source_ids:
+        raise GraphSpecError('--sources must list at least one source id (comma-separated).')
+    return {
+        'graphs': [{
+            'graph_id': graph_id,
+            'graph_name': graph_id,
+            'output_format': output_format or 'jsonl',
+            'sources': [{'source_id': s} for s in source_ids],
+        }]
+    }
 
 
 def main():
@@ -727,13 +893,30 @@ def main():
 
     parser = argparse.ArgumentParser(description="Merge data sources into complete graphs.")
     parser.add_argument('graph_id',
-                        help='ID of the graph to build. Must match an ID from the configured Graph Spec.')
-    parser.add_argument('--graph_specs_dir', type=str, default=None, help='Graph spec directory.')
+                        help='ID of the graph to build. Either specify the ID of a graph in a Graph Spec '
+                             'or provide a new one along with --sources to build a simple graph without '
+                             'using a Graph Spec file.')
+    spec_group = parser.add_mutually_exclusive_group()
+    spec_group.add_argument('--graph_spec', type=str, default=None,
+                            help='Path or URL for an additional Graph Spec yaml file. Its graphs are added '
+                                 'to the specs provided automatically (from the graph_specs/ directory).')
+    spec_group.add_argument('--sources', type=str, default=None,
+                            help='Comma-separated list of data sources to include in a graph.')
+    parser.add_argument('--output_format', type=str, default=None,
+                        help='Output format for a graph (e.g. jsonl, neo4j). '
+                             'Only valid when used with command line --sources.')
     args = parser.parse_args()
     graph_id_arg = args.graph_id
-    graph_specs_dir = args.graph_specs_dir
+    additional_graph_spec = args.graph_spec
+    inline_graph_spec = None
 
-    graph_builder = GraphBuilder(graph_specs_dir=graph_specs_dir)
+    if args.sources:
+        inline_graph_spec = _generate_inline_graph_spec(graph_id_arg, args.sources, args.output_format)
+    elif args.output_format:
+        parser.error('--output_format is only valid together with --sources.')
+
+    graph_builder = GraphBuilder(additional_graph_spec=additional_graph_spec,
+                                 inline_graph_spec=inline_graph_spec)
     if graph_id_arg == "all":
         for graph_spec in graph_builder.graph_specs.values():
             graph_builder.build_graph(graph_spec)
