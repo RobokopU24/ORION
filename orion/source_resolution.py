@@ -33,19 +33,19 @@ def _load_orion_graph_metadata(graph_id: str, graph_dir: str) -> GraphMetadata |
 def _kgx_metadata_matches_single_source(kgx_graph_metadata: dict,
                                         source_id: str,
                                         build_version: str) -> bool:
-    """True if the KGX metadata describes a single-source graph for source_id at build_version.
-
-    Note: this matches against the last path segment of hasPart[0]['@id'], which today is the
-    source-level build_version (hash) — see _kgx_metadata_from_parser_source in graph_pipeline.py.
-    """
+    """True if the KGX metadata describes a single-source graph for source_id at build_version."""
     kg_sources = kgx_graph_metadata.get('hasPart', []) or []
     if len(kg_sources) != 1:
         return False
-    kg_source_id = kg_sources[0].get('@id', '')
+    entry = kg_sources[0]
+    kg_source_id = entry.get('@id', '')
     parts = kg_source_id.rstrip('/').split('/')
-    return (len(parts) >= 2
-            and parts[-2] == source_id
-            and parts[-1] == build_version)
+    if not (len(parts) >= 2 and parts[-2] == source_id):
+        return False
+    recorded_build_version = entry.get('orion:buildVersion')
+    if recorded_build_version is not None:
+        return recorded_build_version == build_version
+    return False
 
 
 class GraphSourceResolver:

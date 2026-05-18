@@ -520,11 +520,18 @@ class GraphBuilder:
         kg_sources = []
         knowledge_sources = []
         orion_root = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..')
+        # The parser-source path only runs for single-source builds (otherwise the source would
+        # have been built into its own graph first and arrived here with kgx_graph_metadata set —
+        # see GraphBuilder.build_dependencies). For single-source builds the parent graph IS the
+        # source's release, so we pass the parent graph's release_version through to use as the
+        # hasPart @id.
+        parent_release_version = graph_metadata.get_release_version()
         for source in all_sources:
             if source.get('kgx_graph_metadata'):
                 kg_sources_part, ks_part = self._kgx_metadata_from_built_graph(source)
             else:
-                kg_sources_part, ks_part = self._kgx_metadata_from_parser_source(source, orion_root)
+                kg_sources_part, ks_part = self._kgx_metadata_from_parser_source(
+                    source, orion_root, parent_release_version)
             kg_sources.extend(kg_sources_part)
             knowledge_sources.extend(ks_part)
 
@@ -630,20 +637,23 @@ class GraphBuilder:
                              for ks_dict in carrier_knowledge_sources]
         return kg_sources, knowledge_sources
 
-    # KGX-metadata contribution from a source that came from raw parser output:
-    # synthesize a single hasPart entry from the source record and load the
-    # parser's *.source.json for the isBasedOn knowledge source.
-    # NOTE: the synthesized @id uses the source's build_version (hash) as its last path segment.
-    # That matches what _kgx_metadata_matches_single_source looks for when resolving this same
-    # source later. A follow-up design change will move this to use a release_version instead.
-    def _kgx_metadata_from_parser_source(self, source: dict, orion_root: str):
+    # KGX-metadata contribution from a source that came from raw parser output (only reachable
+    # for single-source builds — see generate_kgx_metadata_files). The single hasPart entry's @id
+    # is the parent graph's own release URL, and the source's build_version is recorded on the
+    # entry so _kgx_metadata_matches_single_source can match it exactly later.
+    def _kgx_metadata_from_parser_source(self,
+                                         source: dict,
+                                         orion_root: str,
+                                         parent_release_version: str):
         source_id = source.get('source_id', '')
         source_version = source.get('source_version', '')
         source_name = source.get('name', source_id)
-        build_version = source.get('build_version', '') or source.get('release_version', '')
+        build_version = source.get('build_version', '')
         kg_sources = [{
-            '@id': self.get_graph_output_url(graph_id=source_id, release_version=build_version),
+            '@id': self.get_graph_output_url(graph_id=source_id, release_version=parent_release_version),
             'name': f'A ROBOKOP Knowledge Graph based on {source_name}',
+            'version': parent_release_version,
+            'orion:buildVersion': build_version,
             'orion:nodeCount': source.get('node_count'),
             'orion:edgeCount': source.get('edge_count'),
         }]
