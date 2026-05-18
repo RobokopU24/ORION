@@ -108,7 +108,6 @@ class GraphBuilder:
             return False
 
         if build_status == Metadata.STABLE:
-            self.build_results[graph_id] = {'release_version': release_version}
             logger.info(f'Graph {graph_id} release_version {release_version} was already built.')
         else:
             # If we get here we need to build the graph
@@ -147,7 +146,6 @@ class GraphBuilder:
             graph_metadata.set_build_info(merge_metadata, current_time)
             graph_metadata.set_build_status(Metadata.STABLE)
             logger.info(f'Building graph {graph_id} complete!')
-            self.build_results[graph_id] = {'release_version': release_version}
 
         kgx_bundle = KGXBundle(graph_output_dir)
 
@@ -304,6 +302,7 @@ class GraphBuilder:
                 kgx_bundle.edges_path.replace(KGXBundle.EDGES_FILENAME, COLLAPSED_QUALIFIERS_FILENAME))
         for jsonl_path in jsonl_files_to_compress:
             kgx_bundle.compress_jsonl(jsonl_path)
+        self._record_build_result(graph_spec, graph_metadata, release_version, graph_output_dir)
         return True
 
     # Determine the release_version (semver) for a graph, deriving its deterministic build_version
@@ -943,6 +942,34 @@ class GraphBuilder:
         # load existing or create new metadata file
         return GraphMetadata(graph_id, graph_output_dir)
 
+    def _record_build_result(self,
+                             graph_spec: GraphSpec,
+                             graph_metadata: GraphMetadata,
+                             release_version: str,
+                             graph_output_dir: str):
+        self.build_results[graph_spec.graph_id] = {
+            'graph_id': graph_spec.graph_id,
+            'release_version': release_version,
+            'build_version': graph_spec.build_version,
+            'graph_dir': graph_output_dir,
+            'build_status': graph_metadata.get_build_status(),
+            'build_time': graph_metadata.get_build_time(),
+        }
+
+    # Write the build results from this invocation to graphs_dir/.build_results/<timestamp>.json.
+    # Subsequent deployment stages read the most-recent file to discover what just built.
+    # Returns the file path written, or None if nothing was built.
+    def write_build_results(self) -> str | None:
+        if not self.build_results:
+            return None
+        results_dir = os.path.join(self.graphs_dir, '.build_results')
+        os.makedirs(results_dir, exist_ok=True)
+        timestamp = datetime.datetime.now().strftime('%Y-%m-%dT%H%M%S')
+        results_path = os.path.join(results_dir, f'{timestamp}.json')
+        with open(results_path, 'w') as f:
+            json.dump(list(self.build_results.values()), f, indent=2)
+        return results_path
+
 
 def _generate_inline_graph_spec(graph_id: str, sources_arg: str, output_format: str) -> dict:
     source_ids = [s.strip() for s in sources_arg.split(',') if s.strip()]
@@ -997,8 +1024,11 @@ def main():
             graph_builder.build_graph(graph_spec)
         else:
             print(f'Invalid graph spec requested: {graph_id_arg}')
-    for results_graph_id, results in graph_builder.build_results.items():
-        print(f'{results_graph_id}\t{results["version"]}')
+    results_path = graph_builder.write_build_results()
+    if results_path:
+        print(f'Build results written to {results_path}')
+    else:
+        print('No graphs were built.')
 
 
 if __name__ == '__main__':
