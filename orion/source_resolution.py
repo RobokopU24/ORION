@@ -295,50 +295,6 @@ class RegistryGraphResolver(GraphSourceResolver):
         )
 
 
-class IngestPipelineResolver(GraphSourceResolver):
-    """Run the ingest pipeline if needed and return its parser output as a
-    GraphFileSource. The returned source has no kgx_graph_metadata; it
-    represents raw parser output, not a built graph.
-    """
-
-    def __init__(self, ingest_pipeline):
-        self.ingest_pipeline = ingest_pipeline
-
-    def resolve(self, spec: DataSource) -> GraphFileSource | None:
-        source_metadata = self.ingest_pipeline.get_source_metadata(spec.id, spec.source_version)
-        build_version = spec.generate_build_version()
-        build_info = source_metadata.get_build_info(build_version)
-        if build_info is None:
-            logger.info(f'Running ingest pipeline for {spec.id} build_version {build_version}.')
-            pipeline_success = self.ingest_pipeline.run_pipeline(
-                spec.id,
-                source_version=spec.source_version,
-                parsing_version=spec.parsing_version,
-                normalization_scheme=spec.normalization_scheme,
-                supplementation_version=spec.supplementation_version,
-            )
-            if not pipeline_success:
-                logger.info(f'Ingest pipeline failed for {spec.id}.')
-                return None
-            build_info = source_metadata.get_build_info(build_version)
-            if build_info is None:
-                return None
-
-        parser_file_paths = self.ingest_pipeline.get_final_file_paths(
-            spec.id,
-            spec.source_version,
-            spec.parsing_version,
-            spec.normalization_scheme.get_composite_normalization_version(),
-            spec.supplementation_version,
-        )
-        return GraphFileSource(
-            id=spec.id,
-            build_version=build_version,
-            file_paths=parser_file_paths,
-            merge_strategy=spec.merge_strategy,
-        )
-
-
 class SubgraphBuildResolver(GraphSourceResolver):
     """Build a subgraph from its own graph spec, then return its files."""
 

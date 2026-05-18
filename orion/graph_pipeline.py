@@ -32,7 +32,6 @@ from orion.kgxmodel import (
 from orion.normalization import NormalizationScheme, get_current_node_norm_version
 from orion.metadata import Metadata, GraphMetadata
 from orion.source_resolution import (
-    IngestPipelineResolver,
     LocalGraphResolver,
     RegistryGraphResolver,
     SubgraphBuildResolver,
@@ -52,23 +51,15 @@ REDUNDANT_EDGES_FILENAME = 'redundant_edges.jsonl'
 COLLAPSED_QUALIFIERS_FILENAME = 'collapsed_qualifier_edges.jsonl'
 
 
+# A graph spec is "single-source" when it has exactly one source, no subgraphs, and the source's
+# id matches the graph_id. In that case the on-disk graph IS its only source — there's no separate
+# single-source artifact to build for it as a dependency; instead the spec's source is merged in
+# directly from parser output. See _resolve_or_build_data_source.
 def _is_single_source_spec(graph_spec: GraphSpec) -> bool:
     sources = graph_spec.sources or []
     return (len(sources) == 1
             and not graph_spec.subgraphs
             and sources[0].id == graph_spec.graph_id)
-
-
-def _synthesize_single_source_spec(data_source: DataSource) -> GraphSpec:
-    return GraphSpec(
-        graph_id=data_source.id,
-        graph_name=data_source.id,
-        graph_description='',
-        graph_url='',
-        graph_output_format='jsonl',
-        sources=[data_source],
-        subgraphs=[],
-    )
 
 
 class GraphBuilder:
@@ -86,6 +77,12 @@ class GraphBuilder:
                               additional_graph_spec=additional_graph_spec,
                               inline_graph_spec=inline_graph_spec)
         self.build_results = {}
+
+        # Resolver chain components. Composed in build_dependencies into the chains used for
+        # subgraph vs data-source resolution.
+        self.local_resolver = LocalGraphResolver(graphs_dir=self.graphs_dir)
+        self.registry_resolver = RegistryGraphResolver(graphs_dir=self.graphs_dir)
+        self.subgraph_build_resolver = SubgraphBuildResolver(graph_pipeline=self)
 
     def build_graph(self, graph_spec: GraphSpec):
 
@@ -428,20 +425,14 @@ class GraphBuilder:
                 known_release_versions[release_version] = build_version
         return known_release_versions
 
-    # Resolve every spec entry into a GraphFileSource on graph_spec.resolved_sources.
-    # For each DataSource, try Local then Registry first; if neither resolves and
-    # the spec isn't itself a single-source build, recursively build a single-source
-    # graph for it so it can be resolved with a Local lookup.
+    # Resolve every spec entry into a GraphFileSource on graph_spec.resolved_sources. Subgraphs
+    # run through Local → Registry → SubgraphBuild; data sources run through Local → Registry,
+    # then either parser-output resolution (for single-source builds) or recursive single-source
+    # graph materialization (for multi-source builds). See _resolve_or_build_data_source.
     def build_dependencies(self, graph_spec: GraphSpec):
-
         graph_spec.resolved_sources = []
 
-        local_resolver = LocalGraphResolver(graphs_dir=self.graphs_dir)
-        registry_resolver = RegistryGraphResolver(graphs_dir=self.graphs_dir)
-        ingest_resolver = IngestPipelineResolver(ingest_pipeline=self.ingest_pipeline)
-        subgraph_build_resolver = SubgraphBuildResolver(graph_pipeline=self)
-
-        subgraph_chain = [local_resolver, registry_resolver, subgraph_build_resolver]
+        subgraph_chain = [self.local_resolver, self.registry_resolver, self.subgraph_build_resolver]
         for subgraph_spec in graph_spec.subgraphs or []:
             resolved = resolve_source(subgraph_spec, subgraph_chain)
             if resolved is None:
@@ -450,36 +441,123 @@ class GraphBuilder:
                 return False
             graph_spec.resolved_sources.append(resolved)
 
-        existing_graph_chain = [local_resolver, registry_resolver]
         for data_source_spec in graph_spec.sources or []:
-            # first try to resolve the data sources by checking the local storage and the graph registry
-            resolved = resolve_source(data_source_spec, existing_graph_chain)
-            if resolved is not None:
-                graph_spec.resolved_sources.append(resolved)
-                continue
-
-            # If it was not found, we need to ingest the source and/or build a single-source graph with it.
-            if _is_single_source_spec(graph_spec):
-                # This is a graph spec for a single source graph, we need to run the ingest pipeline.
-                resolved = ingest_resolver.resolve(data_source_spec)
-            else:
-                # Here we're looking at one otherwise-unresolved source from a multisource graph spec.
-                # Run build_graph recursively with a synthesized graph spec so that the dependency resolver can
-                # trigger the _is_single_source_spec clause, run the ingest pipeline, and make a single-source graph.
-                if not self.build_graph(_synthesize_single_source_spec(data_source_spec)):
-                    logger.error(f'Failed to build single-source graph for {data_source_spec.id} '
-                                 f'(dependency of {graph_spec.graph_id}).')
-                    return False
-                # After a single source graph is built, we can resolve it locally like we would have if it already
-                # existed.
-                resolved = local_resolver.resolve(data_source_spec)
-
+            resolved = self._resolve_or_build_data_source(data_source_spec, graph_spec)
             if resolved is None:
                 logger.info(f'Could not resolve data source {data_source_spec.id} for graph '
                             f'{graph_spec.graph_id}.')
                 return False
             graph_spec.resolved_sources.append(resolved)
         return True
+
+    # Resolve a DataSource by trying the existing-artifact chain first (local then registry); on
+    # miss, either materialize it as its own single-source graph or — if this source IS the parent
+    # graph being built — resolve it as raw parser output that the parent's merge will turn into
+    # the on-disk artifact.
+    def _resolve_or_build_data_source(self,
+                                      data_source_spec: DataSource,
+                                      parent_graph_spec: GraphSpec) -> GraphFileSource | None:
+        resolved = resolve_source(data_source_spec, [self.local_resolver, self.registry_resolver])
+        if resolved is not None:
+            return resolved
+        if _is_single_source_spec(parent_graph_spec):
+            return self._resolve_parser_output(data_source_spec, parent_graph_spec)
+        if not self._build_single_source_graph_dependency(data_source_spec, parent_graph_spec.graph_id):
+            return None
+        return self.local_resolver.resolve(data_source_spec)
+
+    # Recursively build a single-source graph for an unresolved data source dependency. The
+    # synthesized spec has graph_id == data_source.id so the recursive build_graph call lands in
+    # the single-source-spec branch of _resolve_or_build_data_source, which writes parser output
+    # straight into the synthesized graph's release directory.
+    def _build_single_source_graph_dependency(self,
+                                              data_source_spec: DataSource,
+                                              parent_graph_id: str) -> bool:
+        synth_spec = GraphSpec(
+            graph_id=data_source_spec.id,
+            graph_name=data_source_spec.id,
+            graph_description='',
+            graph_url='',
+            graph_output_format='jsonl',
+            sources=[data_source_spec],
+            subgraphs=[],
+        )
+        if not self.build_graph(synth_spec):
+            logger.error(f'Failed to build single-source graph for {data_source_spec.id} '
+                         f'(dependency of {parent_graph_id}).')
+            return False
+        return True
+
+    # Run the ingest pipeline (if it hasn't already been run for these inputs) and wrap the
+    # resulting parser output in a GraphFileSource with a fully-formed kgx_graph_metadata. The
+    # synthesized metadata lets downstream code (merger, generate_kgx_metadata_files) treat the
+    # parser output identically to a built-graph contribution.
+    def _resolve_parser_output(self,
+                               data_source_spec: DataSource,
+                               parent_graph_spec: GraphSpec) -> GraphFileSource | None:
+        parser_file_paths = self._run_ingest_pipeline(data_source_spec)
+        if parser_file_paths is None:
+            return None
+        parent_release_url = self.get_graph_output_url(parent_graph_spec.graph_id,
+                                                       parent_graph_spec.release_version)
+        return GraphFileSource(
+            id=data_source_spec.id,
+            build_version=data_source_spec.generate_build_version(),
+            file_paths=parser_file_paths,
+            merge_strategy=data_source_spec.merge_strategy,
+            kgx_graph_metadata=self._synth_parser_kgx_metadata(data_source_spec, parent_release_url),
+        )
+
+    # Ensure the ingest pipeline has produced parser output for this data source's inputs, then
+    # return the parser file paths. Returns None on failure.
+    def _run_ingest_pipeline(self, data_source_spec: DataSource) -> list | None:
+        source_metadata = self.ingest_pipeline.get_source_metadata(data_source_spec.id,
+                                                                   data_source_spec.source_version)
+        build_version = data_source_spec.generate_build_version()
+        build_info = source_metadata.get_build_info(build_version)
+        if build_info is None:
+            logger.info(f'Running ingest pipeline for {data_source_spec.id} build_version {build_version}.')
+            success = self.ingest_pipeline.run_pipeline(
+                data_source_spec.id,
+                source_version=data_source_spec.source_version,
+                parsing_version=data_source_spec.parsing_version,
+                normalization_scheme=data_source_spec.normalization_scheme,
+                supplementation_version=data_source_spec.supplementation_version,
+            )
+            if not success:
+                logger.info(f'Ingest pipeline failed for {data_source_spec.id}.')
+                return None
+            build_info = source_metadata.get_build_info(build_version)
+            if build_info is None:
+                return None
+        return self.ingest_pipeline.get_final_file_paths(
+            data_source_spec.id,
+            data_source_spec.source_version,
+            data_source_spec.parsing_version,
+            data_source_spec.normalization_scheme.get_composite_normalization_version(),
+            data_source_spec.supplementation_version,
+        )
+
+    # Synthesize a kgx_graph_metadata dict for raw parser output so it composes with the same
+    # metadata-generation path as built graphs. The hasPart entry points at the parent graph's
+    # release URL (the parser output IS the parent's only contribution); the source build_version
+    # is recorded explicitly so dependency matching stays exact. Node/edge counts are intentionally
+    # absent — _kgx_metadata_from_built_graph fills them in from the merger's per-source counts.
+    @staticmethod
+    def _synth_parser_kgx_metadata(data_source_spec: DataSource, parent_release_url: str) -> dict:
+        orion_root = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..')
+        parser_metadata_path = os.path.join(orion_root, get_data_source_metadata_path(data_source_spec.id))
+        with open(parser_metadata_path) as f:
+            parser_metadata = json.load(f)
+        knowledge_source = {**parser_metadata, 'version': data_source_spec.source_version}
+        return {
+            'hasPart': [{
+                '@id': parent_release_url,
+                'name': f'A ROBOKOP Knowledge Graph based on {data_source_spec.id}',
+                'orion:buildVersion': data_source_spec.generate_build_version(),
+            }],
+            'isBasedOn': [knowledge_source],
+        }
 
     @staticmethod
     def has_meta_kg(graph_directory: str):
@@ -519,19 +597,8 @@ class GraphBuilder:
 
         kg_sources = []
         knowledge_sources = []
-        orion_root = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..')
-        # The parser-source path only runs for single-source builds (otherwise the source would
-        # have been built into its own graph first and arrived here with kgx_graph_metadata set —
-        # see GraphBuilder.build_dependencies). For single-source builds the parent graph IS the
-        # source's release, so we pass the parent graph's release_version through to use as the
-        # hasPart @id.
-        parent_release_version = graph_metadata.get_release_version()
         for source in all_sources:
-            if source.get('kgx_graph_metadata'):
-                kg_sources_part, ks_part = self._kgx_metadata_from_built_graph(source)
-            else:
-                kg_sources_part, ks_part = self._kgx_metadata_from_parser_source(
-                    source, orion_root, parent_release_version)
+            kg_sources_part, ks_part = self._kgx_metadata_from_contribution(source)
             kg_sources.extend(kg_sources_part)
             knowledge_sources.extend(ks_part)
 
@@ -608,15 +675,15 @@ class GraphBuilder:
         with open(graph_metadata_filepath, 'w') as f:
             f.write(kgx_graph_metadata.to_json())
 
-    # KGX-metadata contribution from a built graph: copy the carrier's hasPart
-    # and isBasedOn entries. If hasPart has exactly one entry (a single-source
-    # graph used as input here), override its node/edge counts with the current
-    # build's merger counts — the carrier's counts come from its own internal
-    # merge and aren't the right number for this graph. When hasPart has many
-    # entries we pass them through; the merger only has an aggregate count for
-    # the carrier as a whole, with no way to attribute it across constituents.
+    # KGX-metadata contribution from a single resolved source. The kgx_graph_metadata on the
+    # contribution is what gets copied into the parent's hasPart/isBasedOn; for raw parser output
+    # it was synthesized by _synth_parser_kgx_metadata, for built graphs it was loaded from the
+    # graph's own graph-metadata.json. When hasPart has exactly one entry we override its
+    # node/edge counts with this build's merger counts, since the carrier's own counts came from
+    # its internal merge and aren't right for this graph. When hasPart has many entries we pass
+    # them through unchanged — the merger only has an aggregate count for the carrier as a whole.
     @staticmethod
-    def _kgx_metadata_from_built_graph(source: dict):
+    def _kgx_metadata_from_contribution(source: dict):
         carrier = source.get('kgx_graph_metadata') or {}
         carrier_kg_sources = carrier.get('hasPart') or []
         carrier_knowledge_sources = carrier.get('isBasedOn') or []
@@ -635,32 +702,6 @@ class GraphBuilder:
 
         knowledge_sources = [KGXKnowledgeSource.from_dict(ks_dict)
                              for ks_dict in carrier_knowledge_sources]
-        return kg_sources, knowledge_sources
-
-    # KGX-metadata contribution from a source that came from raw parser output (only reachable
-    # for single-source builds — see generate_kgx_metadata_files). The single hasPart entry's @id
-    # is the parent graph's own release URL, and the source's build_version is recorded on the
-    # entry so _kgx_metadata_matches_single_source can match it exactly later.
-    def _kgx_metadata_from_parser_source(self,
-                                         source: dict,
-                                         orion_root: str,
-                                         parent_release_version: str):
-        source_id = source.get('source_id', '')
-        source_version = source.get('source_version', '')
-        source_name = source.get('name', source_id)
-        build_version = source.get('build_version', '')
-        kg_sources = [{
-            '@id': self.get_graph_output_url(graph_id=source_id, release_version=parent_release_version),
-            'name': f'A ROBOKOP Knowledge Graph based on {source_name}',
-            'version': parent_release_version,
-            'orion:buildVersion': build_version,
-            'orion:nodeCount': source.get('node_count'),
-            'orion:edgeCount': source.get('edge_count'),
-        }]
-        parser_metadata_path = os.path.join(orion_root, get_data_source_metadata_path(source_id))
-        with open(parser_metadata_path) as f:
-            parser_metadata = json.load(f)
-        knowledge_sources = [KGXKnowledgeSource.from_dict({**parser_metadata, 'version': source_version})]
         return kg_sources, knowledge_sources
 
     def load_graph_specs(self, graph_specs_dir=None, additional_graph_spec=None, inline_graph_spec=None):
