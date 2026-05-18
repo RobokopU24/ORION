@@ -2,6 +2,8 @@ import os
 import json
 from xxhash import xxh64_hexdigest
 
+from orion.config import config
+
 
 class Metadata:
 
@@ -164,15 +166,21 @@ class GraphMetadata(Metadata):
         """
         return list(self.metadata.get('sources', [])) + list(self.metadata.get('subgraphs', []))
 
+    # TODO biolink/babel versions really should be graph-wide, not per-source. For now they're read
+    #  off the first data source's normalization_scheme, which works because the spec parser
+    #  applies graph-wide values when present. Subgraph-only graphs have no sources to read from;
+    #  fall back to the config default (biolink) or None (babel) so callers don't IndexError.
     def get_biolink_version(self):
-        # TODO this should be a graph wide version..
-        #  it's almost always the same for all sources so this kind of works for now
-        #  but technically someone could make a graph spec that used varying bl versions
-        return self.metadata['sources'][0]['normalization_scheme']['edge_normalization_version']
+        sources = self.metadata.get('sources')
+        if sources:
+            return sources[0]['normalization_scheme']['edge_normalization_version']
+        return config.BL_VERSION
 
     def get_babel_version(self):
-        # TODO similar situation as get_biolink_version, should be graph wide
-        return self.metadata['sources'][0]['normalization_scheme']['node_normalization_version']
+        sources = self.metadata.get('sources')
+        if sources:
+            return sources[0]['normalization_scheme']['node_normalization_version']
+        return None
 
 class SourceMetadata(Metadata):
 
