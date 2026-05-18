@@ -473,11 +473,12 @@ class GraphBuilder:
     def _build_single_source_graph_dependency(self,
                                               data_source_spec: DataSource,
                                               parent_graph_id: str) -> bool:
+        parser_metadata = self._load_parser_metadata(data_source_spec.id)
         synth_spec = GraphSpec(
             graph_id=data_source_spec.id,
-            graph_name=data_source_spec.id,
-            graph_description='',
-            graph_url='',
+            graph_name=parser_metadata.get('name', data_source_spec.id),
+            graph_description=parser_metadata.get('description', ''),
+            graph_url=parser_metadata.get('url', ''),
             graph_output_format='jsonl',
             sources=[data_source_spec],
             subgraphs=[],
@@ -541,23 +542,32 @@ class GraphBuilder:
     # Synthesize a kgx_graph_metadata dict for raw parser output so it composes with the same
     # metadata-generation path as built graphs. The hasPart entry points at the parent graph's
     # release URL (the parser output IS the parent's only contribution); the source build_version
-    # is recorded explicitly so dependency matching stays exact. Node/edge counts are intentionally
-    # absent — _kgx_metadata_from_built_graph fills them in from the merger's per-source counts.
-    @staticmethod
-    def _synth_parser_kgx_metadata(data_source_spec: DataSource, parent_release_url: str) -> dict:
-        orion_root = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..')
-        parser_metadata_path = os.path.join(orion_root, get_data_source_metadata_path(data_source_spec.id))
-        with open(parser_metadata_path) as f:
-            parser_metadata = json.load(f)
+    # is recorded explicitly so dependency matching stays exact, and the entry's name is the
+    # parser's own name so it remains descriptive when propagated into multi-source graphs that
+    # consume this one. Node/edge counts are intentionally absent — _kgx_metadata_from_contribution
+    # fills them in from the merger's per-source counts.
+    def _synth_parser_kgx_metadata(self,
+                                   data_source_spec: DataSource,
+                                   parent_release_url: str) -> dict:
+        parser_metadata = self._load_parser_metadata(data_source_spec.id)
+        source_name = parser_metadata.get('name', data_source_spec.id)
         knowledge_source = {**parser_metadata, 'version': data_source_spec.source_version}
         return {
             'hasPart': [{
                 '@id': parent_release_url,
-                'name': f'A ROBOKOP Knowledge Graph based on {data_source_spec.id}',
+                'name': f'A ROBOKOP Knowledge Graph based on {source_name}',
                 'orion:buildVersion': data_source_spec.generate_build_version(),
             }],
             'isBasedOn': [knowledge_source],
         }
+
+    @staticmethod
+    def _load_parser_metadata(source_id: str) -> dict:
+        """Load a data source's parser-supplied source.json metadata (name, description, license, …)."""
+        orion_root = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..')
+        parser_metadata_path = os.path.join(orion_root, get_data_source_metadata_path(source_id))
+        with open(parser_metadata_path) as f:
+            return json.load(f)
 
     @staticmethod
     def has_meta_kg(graph_directory: str):
