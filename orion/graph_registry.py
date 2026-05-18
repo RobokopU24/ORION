@@ -76,19 +76,19 @@ class GraphRegistryClient:
                 return v.get('version')
         return versions[0].get('version') if versions else None
 
-    def get_graph_metadata(self, graph_id: str, graph_version: str | None = None) -> dict:
-        """Fetch graph_metadata for a graph version, or the latest if graph_version is None."""
-        if graph_version:
-            return self._get(f'/graph_metadata/{graph_id}/{graph_version}')
+    def get_graph_metadata(self, graph_id: str, release_version: str | None = None) -> dict:
+        """Fetch graph_metadata for a graph version, or the latest if release_version is None."""
+        if release_version:
+            return self._get(f'/graph_metadata/{graph_id}/{release_version}')
         return self._get(f'/graph_metadata/{graph_id}')
 
-    def list_files(self, graph_id: str, graph_version: str) -> list[dict]:
+    def list_files(self, graph_id: str, release_version: str) -> list[dict]:
         """Return the file manifest for a graph version.
 
         Each entry looks like {"file_path": "<graph_id>/<version>/<name>",
         "file_size_bytes": <int>}. Paths are relative to the graph's contentUrl.
         """
-        return self._get(f'/files/{graph_id}/{graph_version}')
+        return self._get(f'/files/{graph_id}/{release_version}')
 
     @staticmethod
     def _content_base_url(graph_metadata: dict) -> str | None:
@@ -101,7 +101,7 @@ class GraphRegistryClient:
 
     def download_file(self,
                       graph_id: str,
-                      graph_version: str,
+                      release_version: str,
                       filename: str,
                       destination_path: str,
                       graph_metadata: dict | None = None) -> str:
@@ -112,11 +112,11 @@ class GraphRegistryClient:
         when provided; otherwise fetches metadata to find it.
         """
         if graph_metadata is None:
-            graph_metadata = self.get_graph_metadata(graph_id, graph_version)
+            graph_metadata = self.get_graph_metadata(graph_id, release_version)
         base = self._content_base_url(graph_metadata)
         if not base:
             raise GraphRegistryError(
-                f'No distribution.contentUrl found for {graph_id}/{graph_version}; '
+                f'No distribution.contentUrl found for {graph_id}/{release_version}; '
                 f'cannot resolve download URL for {filename}.'
             )
         url = f'{base}{filename}'

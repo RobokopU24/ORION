@@ -48,7 +48,8 @@ class KGXFileMerger:
         dont_merge_sources = []
         for graph_source in resolved_sources:
             self.merge_metadata["sources"][graph_source.id] = {
-                'release_version': graph_source.version,
+                'release_version': graph_source.release_version,
+                'build_version': graph_source.build_version,
                 'kgx_graph_metadata': graph_source.kgx_graph_metadata,
                 'node_count': 0,
                 'edge_count': 0,
@@ -285,14 +286,12 @@ def merge_kgx_files(output_dir: str,
     current_time = datetime.now()
     timestamp = current_time.strftime("%Y/%m/%d %H:%M:%S")
     cli_source = GraphFileSource(id='cli_merge',
-                                 version=graph_id,
                                  file_paths=nodes_files + edges_files)
     graph_spec = GraphSpec(
         graph_id='cli_merge',
         graph_name='',
         graph_description=f'Merged on {timestamp}',
         graph_url='',
-        graph_version=graph_id,
         graph_output_format='jsonl',
         sources=[],
         subgraphs=[],

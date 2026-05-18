@@ -233,7 +233,7 @@ def create_neo4j_dump(nodes_filepath: str,
                       edges_filepath: str,
                       output_directory: str,
                       graph_id: str = 'graph',
-                      graph_version: str = '',
+                      release_version: str = '',
                       node_property_ignore_list: set = None,
                       edge_property_ignore_list: set = None):
     nodes_csv_filename = 'nodes.temp_csv'
@@ -241,24 +241,24 @@ def create_neo4j_dump(nodes_filepath: str,
     csv_nodes_file_path = os.path.join(output_directory, nodes_csv_filename)
     csv_edges_file_path = os.path.join(output_directory, edges_csv_filename)
     if os.path.exists(csv_nodes_file_path) and os.path.exists(csv_edges_file_path):
-        logger.info(f'CSV files were already created for {graph_id}({graph_version})')
+        logger.info(f'CSV files were already created for {graph_id}({release_version})')
     else:
-        logger.info(f'Creating CSV files for {graph_id}({graph_version})...')
+        logger.info(f'Creating CSV files for {graph_id}({release_version})...')
         kgx_file_converter.convert_jsonl_to_neo4j_csv(nodes_input_file=nodes_filepath,
                                                       edges_input_file=edges_filepath,
                                                       nodes_output_file=csv_nodes_file_path,
                                                       edges_output_file=csv_edges_file_path,
                                                       node_property_ignore_list=node_property_ignore_list,
                                                       edge_property_ignore_list=edge_property_ignore_list)
-        logger.info(f'CSV files created for {graph_id}({graph_version}).')
+        logger.info(f'CSV files created for {graph_id}({release_version}).')
 
     # would like to do the following, but apparently you can't specify a custom name for the dump now
-    # graph_dump_name = f'graph_{graph_version}.neo4j5.db.dump' if graph_version else 'graph.neo4j5.db.dump'
+    # graph_dump_name = f'graph_{release_version}.neo4j5.db.dump' if release_version else 'graph.neo4j5.db.dump'
     # graph_dump_file_path = os.path.join(output_directory, graph_dump_name)
     graph_dump_name = 'neo4j.dump'
     graph_dump_file_path = os.path.join(output_directory, graph_dump_name)
     if os.path.exists(graph_dump_file_path):
-        logger.info(f'Neo4j dump already exists for {graph_id}({graph_version})')
+        logger.info(f'Neo4j dump already exists for {graph_id}({release_version})')
         return True
 
     neo4j_access = Neo4jTools()
@@ -299,5 +299,5 @@ def create_neo4j_dump(nodes_filepath: str,
     import_report_path = os.path.join(output_directory, 'import.report')
     if os.path.exists(import_report_path):
         os.remove(import_report_path)
-    logger.info(f'Success! Neo4j dump created with indexes for {graph_id}({graph_version})')
+    logger.info(f'Success! Neo4j dump created with indexes for {graph_id}({release_version})')
     return True

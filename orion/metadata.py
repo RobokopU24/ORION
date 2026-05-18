@@ -46,9 +46,9 @@ class GraphMetadata(Metadata):
         self.metadata['graph_name'] = self.graph_id
         self.metadata['graph_description'] = ""
         self.metadata['graph_url'] = ""
-        # graph_version is the human-facing release version (semver); build_version is the
-        # deterministic hash of the graph's inputs. See orion/graph_versioning.py.
-        self.metadata['graph_version'] = None
+        # release_version is the human-facing semver; build_version is the deterministic
+        # hash of the graph's inputs. See orion/graph_versioning.py.
+        self.metadata['release_version'] = None
         self.metadata['build_version'] = None
         self.metadata['sources'] = []
         self.metadata['subgraphs'] = []
@@ -59,8 +59,8 @@ class GraphMetadata(Metadata):
         self.metadata['build_time'] = None
         self.metadata['build_error'] = None
 
-    def set_graph_version(self, graph_version: str):
-        self.metadata['graph_version'] = graph_version
+    def set_release_version(self, release_version: str):
+        self.metadata['release_version'] = release_version
         self.save_metadata()
 
     def set_build_version(self, build_version: str):
@@ -146,8 +146,8 @@ class GraphMetadata(Metadata):
     def get_build_time(self):
         return self.metadata['build_time']
 
-    def get_graph_version(self):
-        return self.metadata['graph_version']
+    def get_release_version(self):
+        return self.metadata.get('release_version')
 
     def get_build_version(self):
         return self.metadata.get('build_version')
@@ -336,43 +336,43 @@ class SourceMetadata(Metadata):
         except KeyError:
             return False
 
-    def generate_release_metadata(self,
-                                  parsing_version: str,
-                                  normalization_version: str,
-                                  supplementation_version: str,
-                                  source_meta_information: dict):
-        if "releases" not in self.metadata:
-            self.metadata["releases"] = {}
-        release_version = get_source_release_version(self.source_id,
-                                                     self.source_version,
-                                                     parsing_version,
-                                                     normalization_version,
-                                                     supplementation_version)
-        if release_version not in self.metadata["releases"]:
-            self.metadata["releases"][release_version] = {
+    def generate_build_metadata(self,
+                                parsing_version: str,
+                                normalization_version: str,
+                                supplementation_version: str,
+                                source_meta_information: dict):
+        if "builds" not in self.metadata:
+            self.metadata["builds"] = {}
+        build_version = get_source_build_version(self.source_id,
+                                                 self.source_version,
+                                                 parsing_version,
+                                                 normalization_version,
+                                                 supplementation_version)
+        if build_version not in self.metadata["builds"]:
+            self.metadata["builds"][build_version] = {
                 "source_version": self.source_version,
                 "parsing_version": parsing_version,
                 "normalization_version": normalization_version,
                 "supplementation_version": supplementation_version
             }
-        self.metadata["releases"][release_version].update(source_meta_information)
+        self.metadata["builds"][build_version].update(source_meta_information)
         self.save_metadata()
-        return release_version
+        return build_version
 
-    def get_release_info(self, release_version: str):
-        if 'releases' in self.metadata and release_version in self.metadata['releases']:
-            return self.metadata['releases'][release_version]
+    def get_build_info(self, build_version: str):
+        if 'builds' in self.metadata and build_version in self.metadata['builds']:
+            return self.metadata['builds'][build_version]
         return None
 
 
-def get_source_release_version(source_id,
-                               source_version,
-                               parsing_version,
-                               normalization_version,
-                               supplementation_version):
-    release_string = "_".join([source_id,
-                              source_version,
-                              parsing_version,
-                              normalization_version,
-                              supplementation_version])
-    return xxh64_hexdigest(release_string)
+def get_source_build_version(source_id,
+                             source_version,
+                             parsing_version,
+                             normalization_version,
+                             supplementation_version):
+    build_string = "_".join([source_id,
+                            source_version,
+                            parsing_version,
+                            normalization_version,
+                            supplementation_version])
+    return xxh64_hexdigest(build_string)

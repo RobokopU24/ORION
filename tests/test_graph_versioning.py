@@ -1,7 +1,7 @@
 import pytest
 
 from orion.graph_versioning import (
-    DEFAULT_BASE_VERSION,
+    DEFAULT_BASE_RELEASE_VERSION,
     format_semver,
     is_semver,
     next_release_version,
@@ -39,7 +39,7 @@ def test_next_release_version_no_existing_uses_base():
     assert next_release_version([], "1.0") == "1.0.0"
     assert next_release_version([], "2.5") == "2.5.0"
     # bare two-component base implies patch 0
-    assert next_release_version([], DEFAULT_BASE_VERSION) == "1.0.0"
+    assert next_release_version([], DEFAULT_BASE_RELEASE_VERSION) == "1.0.0"
 
 
 def test_next_release_version_bumps_patch():

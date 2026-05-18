@@ -96,16 +96,16 @@ class IngestPipeline:
             logger.warning(f"Pipeline for {source_id} supplementation stage not successful.")
             return False
 
-        release_version = self.run_qc_and_metadata_stage(source_id,
-                                                         source_version,
-                                                         parsing_version=parsing_version,
-                                                         normalization_scheme=normalization_scheme,
-                                                         supplementation_version=supplementation_version)
-        if release_version is None:
+        build_version = self.run_qc_and_metadata_stage(source_id,
+                                                       source_version,
+                                                       parsing_version=parsing_version,
+                                                       normalization_scheme=normalization_scheme,
+                                                       supplementation_version=supplementation_version)
+        if build_version is None:
             logger.warning(f"Pipeline for {source_id} failed quality control...")
             return False
         else:
-            return release_version
+            return build_version
 
     def run_fetch_stage(self, source_id: str, source_version: str):
         if not source_version:
@@ -492,11 +492,11 @@ class IngestPipeline:
         loader = SOURCE_DATA_LOADER_CLASSES[source_id](test_mode=self.test_mode)
         source_meta_information = loader.get_source_meta_information()
         normalization_version = normalization_scheme.get_composite_normalization_version()
-        release_version = source_metadata.generate_release_metadata(parsing_version=parsing_version,
-                                                                    supplementation_version=supplementation_version,
-                                                                    normalization_version=normalization_version,
-                                                                    source_meta_information=source_meta_information)
-        logger.info(f'Release version for {source_id}: {release_version}')
+        build_version = source_metadata.generate_build_metadata(parsing_version=parsing_version,
+                                                                supplementation_version=supplementation_version,
+                                                                normalization_version=normalization_version,
+                                                                source_meta_information=source_meta_information)
+        logger.info(f'Build version for {source_id}: {build_version}')
 
         composite_normalization_version = normalization_scheme.get_composite_normalization_version()
         nodes_filepath = self.get_normalized_node_file_path(source_id, source_version, parsing_version,
@@ -504,19 +504,19 @@ class IngestPipeline:
         edges_filepath = self.get_normalized_edge_file_path(source_id, source_version, parsing_version,
                                                             composite_normalization_version)
         source_version_path = self.get_source_version_path(source_id, source_version)
-        qc_output_filename = f'{source_id}_{release_version}.json'
-        release_qc_output_path = os.path.join(source_version_path, qc_output_filename)
-        if not os.path.exists(release_qc_output_path):
+        qc_output_filename = f'{source_id}_{build_version}.json'
+        qc_output_path = os.path.join(source_version_path, qc_output_filename)
+        if not os.path.exists(qc_output_path):
             logger.info(f'Running QC and validation...')
             qc_results = validate_graph(nodes_file_path=nodes_filepath,
                                         edges_file_path=edges_filepath,
                                         graph_id=source_id,
-                                        graph_version=release_version,
+                                        build_version=build_version,
                                         logger=logger)
-            with open(release_qc_output_path, 'w') as qc_out:
+            with open(qc_output_path, 'w') as qc_out:
                 qc_out.write(json.dumps(qc_results, indent=4))
             logger.info(f'QC and validation complete, metadata generated: {qc_output_filename}')
-        return release_version
+        return build_version
 
     def get_source_metadata(self, source_id: str, source_version):
         if source_id not in self.source_metadata or source_version not in self.source_metadata[source_id]:
@@ -722,9 +722,9 @@ def main():
                   f'These are the available data sources: {", ".join(get_available_data_sources())}')
         else:
             cmd_line_normalization_scheme = NormalizationScheme(strict=loader_strict_normalization)
-            release_vers = ingest_pipeline.run_pipeline(data_source, normalization_scheme=cmd_line_normalization_scheme)
-            if release_vers:
-                print(f'Finished running data pipeline for {data_source} (release version {release_vers}).')
+            build_version = ingest_pipeline.run_pipeline(data_source, normalization_scheme=cmd_line_normalization_scheme)
+            if build_version:
+                print(f'Finished running data pipeline for {data_source} (build_version {build_version}).')
 
 
 if __name__ == '__main__':

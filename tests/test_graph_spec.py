@@ -58,37 +58,37 @@ def test_auto_load_graph_specs(test_graph_spec_dir, test_graph_output_dir):
     assert testing_graph_spec is not None
     assert len(testing_graph_spec.sources) == 2
     for source in testing_graph_spec.sources:
-        assert source.version is None
+        assert source.generate_build_version() is None
         assert source.source_version is None
 
 
-# graph spec sources are able to return versions once source_version(s) and parsing_version(s) are set.
-# spec parsing leaves both unresolved to avoid eagerly importing every parser module referenced by
-# any auto-loaded graph spec (see parse_data_source_spec).
+# graph spec sources are able to return a build_version once source_version(s) and parsing_version(s)
+# are set. Spec parsing leaves both unresolved to avoid eagerly importing every parser module
+# referenced by any auto-loaded graph spec (see parse_data_source_spec).
 def test_graph_spec_lazy_versions(test_graph_spec_dir, test_graph_output_dir):
     graph_builder = GraphBuilder(graph_specs_dir=test_graph_spec_dir,
                                  graph_output_dir=test_graph_output_dir)
     testing_graph_spec = graph_builder.graph_specs.get('Testing_Graph', None)
     for source in testing_graph_spec.sources:
-        assert source.version is None
+        assert source.generate_build_version() is None
         assert source.parsing_version is None
     for source in testing_graph_spec.sources:
         source.source_version = source.id + "_1"
         source.parsing_version = source.id + "_p1"
     for source in testing_graph_spec.sources:
-        assert source.version is not None
+        assert source.generate_build_version() is not None
 
 
 # mock the source_data_manager to return deterministic source_versions
-# then see if a graph with a subgraph can properly determine graph versions
+# then see if a graph with a subgraph can properly determine versions
 def test_graph_spec_subgraph_version(test_graph_spec_dir, test_graph_output_dir):
     graph_builder = GraphBuilder(graph_specs_dir=test_graph_spec_dir,
                                  graph_output_dir=test_graph_output_dir)
     graph_builder.ingest_pipeline = get_ingest_pipeline_mock()
 
     testing_graph_spec = graph_builder.graph_specs.get('Testing_Graph_2', None)
-    assert testing_graph_spec.graph_version is None
-    graph_builder.determine_graph_version(testing_graph_spec)
+    assert testing_graph_spec.release_version is None
+    graph_builder.determine_versions(testing_graph_spec)
     for source in testing_graph_spec.sources:
         assert source.source_version == source.id + "_v1"
     testing_graph_spec_sub_graph = graph_builder.graph_specs.get('Testing_Graph', None)
@@ -97,8 +97,8 @@ def test_graph_spec_subgraph_version(test_graph_spec_dir, test_graph_output_dir)
     # TODO it would be nice to check against real version ids here
     # but without pinning specific versions in the graph spec the versions could/should change,
     # currently supplementation version is not specifiable, so it's impossible
-    assert testing_graph_spec_sub_graph.graph_version is not None
-    assert testing_graph_spec.graph_version is not None
+    assert testing_graph_spec_sub_graph.release_version is not None
+    assert testing_graph_spec.release_version is not None
 
 
 # make sure a graph spec with an invalid subgraph fails with the appropriate exception
@@ -107,18 +107,19 @@ def test_graph_spec_invalid_subgraph(test_graph_spec_dir, test_graph_output_dir)
                                  graph_output_dir=test_graph_output_dir)
     graph_builder.ingest_pipeline = get_ingest_pipeline_mock()
     testing_graph_spec = graph_builder.graph_specs.get('Testing_Graph_3', None)
-    assert testing_graph_spec.graph_version is None
+    assert testing_graph_spec.release_version is None
     with pytest.raises(GraphSpecError):
-        graph_builder.determine_graph_version(testing_graph_spec)
+        graph_builder.determine_versions(testing_graph_spec)
 
 
-# make sure a graph spec with an invalid subgraph version (which is otherwise valid) fails to build
+# make sure a graph spec with an invalid subgraph release_version (which is otherwise valid)
+# fails to build
 def test_graph_spec_invalid_subgraph_version(test_graph_spec_dir, test_graph_output_dir):
     graph_builder = GraphBuilder(graph_specs_dir=test_graph_spec_dir,
                                  graph_output_dir=test_graph_output_dir)
     graph_builder.ingest_pipeline = get_ingest_pipeline_mock()
     testing_graph_spec = graph_builder.graph_specs.get('Testing_Graph_4', None)
-    graph_builder.determine_graph_version(testing_graph_spec)
+    graph_builder.determine_versions(testing_graph_spec)
     assert graph_builder.build_graph(testing_graph_spec) is False
 
 
@@ -195,13 +196,13 @@ def test_inline_graph_spec_collision_raises(test_graph_spec_dir, test_graph_outp
                      graph_output_dir=test_graph_output_dir)
 
 
-# the `version:` key in a graph spec sets the release version floor
-def test_graph_spec_base_version_parsed(test_graph_spec_dir, test_graph_output_dir, tmp_path):
+# the `base_release_version:` key in a graph spec sets the release_version floor
+def test_graph_spec_base_release_version_parsed(test_graph_spec_dir, test_graph_output_dir, tmp_path):
     spec_path = tmp_path / "versioned-graph-spec.yaml"
     spec_path.write_text(
         "graphs:\n"
         "  - graph_id: Versioned_Graph\n"
-        "    version: '2.0'\n"
+        "    base_release_version: '2.0'\n"
         "    sources:\n"
         "      - source_id: HGNC\n"
     )
@@ -210,16 +211,16 @@ def test_graph_spec_base_version_parsed(test_graph_spec_dir, test_graph_output_d
                                  graph_output_dir=test_graph_output_dir)
     versioned_graph = graph_builder.graph_specs.get('Versioned_Graph')
     assert versioned_graph is not None
-    assert versioned_graph.base_version == '2.0'
+    assert versioned_graph.base_release_version == '2.0'
 
 
-# a `version:` value that isn't semantic-version-shaped should fail spec parsing
-def test_graph_spec_invalid_base_version_raises(test_graph_spec_dir, test_graph_output_dir, tmp_path):
+# a `base_release_version:` value that isn't semantic-version-shaped should fail spec parsing
+def test_graph_spec_invalid_base_release_version_raises(test_graph_spec_dir, test_graph_output_dir, tmp_path):
     spec_path = tmp_path / "bad-version-graph-spec.yaml"
     spec_path.write_text(
         "graphs:\n"
         "  - graph_id: Bad_Version_Graph\n"
-        "    version: not-a-version\n"
+        "    base_release_version: not-a-version\n"
         "    sources:\n"
         "      - source_id: HGNC\n"
     )

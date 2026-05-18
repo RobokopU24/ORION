@@ -22,7 +22,7 @@ from orion.neo4j_tools import create_neo4j_dump
 from orion.memgraph_tools import create_memgraph_dump
 from orion.kgx_bundle import KGXBundle
 from orion.graph_registry import GraphRegistryClient, GraphRegistryError
-from orion.graph_versioning import DEFAULT_BASE_VERSION, next_release_version, parse_semver
+from orion.graph_versioning import DEFAULT_BASE_RELEASE_VERSION, next_release_version, parse_semver
 from orion.kgxmodel import (
     DataSource,
     GraphFileSource,
@@ -65,7 +65,6 @@ def _synthesize_single_source_spec(data_source: DataSource) -> GraphSpec:
         graph_name=data_source.id,
         graph_description='',
         graph_url='',
-        graph_version=None,
         graph_output_format='jsonl',
         sources=[data_source],
         subgraphs=[],
@@ -93,39 +92,39 @@ class GraphBuilder:
         graph_id = graph_spec.graph_id
         logger.info(f'Building graph {graph_id}...')
 
-        graph_version = self.determine_graph_version(graph_spec)
-        graph_metadata = self.get_graph_metadata(graph_id, graph_version)
-        graph_output_dir = self.get_graph_dir_path(graph_id, graph_version)
-        graph_output_url = self.get_graph_output_url(graph_id, graph_version)
+        release_version = self.determine_versions(graph_spec)
+        graph_metadata = self.get_graph_metadata(graph_id, release_version)
+        graph_output_dir = self.get_graph_dir_path(graph_id, release_version)
+        graph_output_url = self.get_graph_output_url(graph_id, release_version)
 
         # check for previous builds of this same graph
         build_status = graph_metadata.get_build_status()
         if build_status == Metadata.IN_PROGRESS:
-            logger.info(f'Graph {graph_id} version {graph_version} has status: in progress. '
+            logger.info(f'Graph {graph_id} release_version {release_version} has status: in progress. '
                              f'This means either the graph is already in the process of being built, '
                              f'or an error occurred previously that could not be handled. '
                              f'You may need to clean up and/or remove the failed build.')
             return False
 
         if build_status == Metadata.BROKEN or build_status == Metadata.FAILED:
-            logger.info(f'Graph {graph_id} version {graph_version} previously failed to build. Skipping..')
+            logger.info(f'Graph {graph_id} release_version {release_version} previously failed to build. Skipping..')
             return False
 
         if build_status == Metadata.STABLE:
-            self.build_results[graph_id] = {'version': graph_version}
-            logger.info(f'Graph {graph_id} version {graph_version} was already built.')
+            self.build_results[graph_id] = {'release_version': release_version}
+            logger.info(f'Graph {graph_id} release_version {release_version} was already built.')
         else:
             # If we get here we need to build the graph
-            logger.info(f'Building graph {graph_id} version {graph_version}, checking dependencies...')
+            logger.info(f'Building graph {graph_id} release_version {release_version}, checking dependencies...')
             if not self.build_dependencies(graph_spec):
-                logger.warning(f'Aborting graph {graph_spec.graph_id} version {graph_version}, resolving '
-                                    f'dependencies failed.')
+                logger.warning(f'Aborting graph {graph_spec.graph_id} release_version {release_version}, '
+                               f'resolving dependencies failed.')
                 return False
 
-            logger.info(f'Building graph {graph_id} version {graph_version}. '
+            logger.info(f'Building graph {graph_id} release_version {release_version}. '
                              f'Dependencies ready, merging sources...')
             graph_metadata.set_build_status(Metadata.IN_PROGRESS)
-            graph_metadata.set_graph_version(graph_version)
+            graph_metadata.set_release_version(release_version)
             graph_metadata.set_build_version(graph_spec.build_version)
             graph_metadata.set_graph_name(graph_spec.graph_name)
             graph_metadata.set_graph_description(graph_spec.graph_description)
@@ -151,7 +150,7 @@ class GraphBuilder:
             graph_metadata.set_build_info(merge_metadata, current_time)
             graph_metadata.set_build_status(Metadata.STABLE)
             logger.info(f'Building graph {graph_id} complete!')
-            self.build_results[graph_id] = {'version': graph_version}
+            self.build_results[graph_id] = {'release_version': release_version}
 
         kgx_bundle = KGXBundle(graph_output_dir)
 
@@ -165,7 +164,7 @@ class GraphBuilder:
             qc_results = validate_graph(nodes_file_path=kgx_bundle.nodes_path,
                                         edges_file_path=kgx_bundle.edges_path,
                                         graph_id=graph_id,
-                                        graph_version=graph_version,
+                                        release_version=release_version,
                                         logger=logger)
             graph_metadata.set_qc_results(qc_results)
             if qc_results['pass']:
@@ -226,12 +225,12 @@ class GraphBuilder:
                                              edges_filepath=redundant_filepath,
                                              output_directory=graph_output_dir,
                                              graph_id=graph_id,
-                                             graph_version=graph_version,
+                                             release_version=release_version,
                                              node_property_ignore_list=node_property_ignore_list,
                                              edge_property_ignore_list=edge_property_ignore_list)
             if dump_success:
                 graph_metadata.set_dump(dump_type="neo4j_redundant",
-                                        dump_url=f'{graph_output_url}graph_{graph_version}_redundant.db.dump')
+                                        dump_url=f'{graph_output_url}graph_{release_version}_redundant.db.dump')
 
         if 'collapsed_qualifiers_jsonl' in output_formats:
             logger.info(f'Generating collapsed qualifier predicates KG for {graph_id}...')
@@ -248,12 +247,12 @@ class GraphBuilder:
                                              edges_filepath=collapsed_qualifiers_filepath,
                                              output_directory=graph_output_dir,
                                              graph_id=graph_id,
-                                             graph_version=graph_version,
+                                             release_version=release_version,
                                              node_property_ignore_list=node_property_ignore_list,
                                              edge_property_ignore_list=edge_property_ignore_list)
             if dump_success:
                 graph_metadata.set_dump(dump_type="neo4j_collapsed_qualifiers",
-                                        dump_url=f'{graph_output_url}graph_{graph_version}'
+                                        dump_url=f'{graph_output_url}graph_{release_version}'
                                                      f'_collapsed_qualifiers.db.dump')
 
         if 'neo4j' in output_formats:
@@ -262,12 +261,12 @@ class GraphBuilder:
                                              edges_filepath=kgx_bundle.edges_path,
                                              output_directory=graph_output_dir,
                                              graph_id=graph_id,
-                                             graph_version=graph_version,
+                                             release_version=release_version,
                                              node_property_ignore_list=node_property_ignore_list,
                                              edge_property_ignore_list=edge_property_ignore_list)
             if dump_success:
                 graph_metadata.set_dump(dump_type="neo4j",
-                                        dump_url=f'{graph_output_url}graph_{graph_version}.db.dump')
+                                        dump_url=f'{graph_output_url}graph_{release_version}.db.dump')
 
         if 'memgraph' in output_formats:
             logger.info(f'Starting memgraph dump pipeline for {graph_id}...')
@@ -275,12 +274,12 @@ class GraphBuilder:
                                                 edges_filepath=kgx_bundle.edges_path,
                                                 output_directory=graph_output_dir,
                                                 graph_id=graph_id,
-                                                graph_version=graph_version,
+                                                release_version=release_version,
                                                 node_property_ignore_list=node_property_ignore_list,
                                                 edge_property_ignore_list=edge_property_ignore_list)
             if dump_success:
                 graph_metadata.set_dump(dump_type="memgraph",
-                                        dump_url=f'{graph_output_url}memgraph_{graph_version}.cypher')
+                                        dump_url=f'{graph_output_url}memgraph_{release_version}.cypher')
 
         if 'answercoalesce' in output_formats:
             logger.info(f'Generating answercoalesce files for {graph_id}...')
@@ -310,13 +309,13 @@ class GraphBuilder:
             kgx_bundle.compress_jsonl(jsonl_path)
         return True
 
-    # Determine the release version (semver) for a graph, deriving its deterministic build version
-    # from the versions of its data sources and subgraphs along the way. If a graph_version was
-    # explicitly pinned in the spec, just return that.
-    def determine_graph_version(self, graph_spec: GraphSpec):
-        # if the version was set or previously determined just back out
-        if graph_spec.graph_version:
-            return graph_spec.graph_version
+    # Determine the release_version (semver) for a graph, deriving its deterministic build_version
+    # from the versions of its data sources and subgraphs along the way. If a release_version was
+    # explicitly pinned on the spec, just return it.
+    def determine_versions(self, graph_spec: GraphSpec):
+        # if the release_version was set or previously determined just back out
+        if graph_spec.release_version:
+            return graph_spec.release_version
         try:
             # go out and find the latest version for any data source that doesn't have a version specified
             for source in graph_spec.sources:
@@ -324,79 +323,87 @@ class GraphBuilder:
                     source.parsing_version = self.ingest_pipeline.get_latest_parsing_version(source.id)
                 if not source.source_version:
                     source.source_version = self.ingest_pipeline.get_latest_source_version(source.id)
-                logger.info(f'Using {source.id} version: {source.version}')
+                logger.info(f'Using {source.id} build_version: {source.generate_build_version()}')
 
-            # for sub-graphs, if a graph version isn't specified,
-            # use the graph spec for that subgraph to determine a graph version
+            # for sub-graphs, if a release_version isn't specified,
+            # use the graph spec for that subgraph to determine one
             for subgraph in graph_spec.subgraphs:
-                if not subgraph.graph_version:
+                if not subgraph.release_version:
                     subgraph_graph_spec = self.graph_specs.get(subgraph.id, None)
                     if subgraph_graph_spec:
-                        subgraph.graph_version = self.determine_graph_version(subgraph_graph_spec)
-                        logger.info(f'Using subgraph {graph_spec.graph_id} version: {subgraph.graph_version}')
+                        subgraph.release_version = self.determine_versions(subgraph_graph_spec)
+                        logger.info(f'Using subgraph {graph_spec.graph_id} release_version: {subgraph.release_version}')
                     else:
                         raise GraphSpecError(f'Subgraph {subgraph.id} requested for graph {graph_spec.graph_id} '
-                                             f'but the version was not specified and could not be determined without '
-                                             f'a graph spec for {subgraph.id}.')
+                                             f'but its release_version was not specified and could not be determined '
+                                             f'without a graph spec for {subgraph.id}.')
         except (GetDataPullError, DataVersionError) as e:
             raise GraphSpecError(error_message=e.error_message)
 
-        # make a string that is a composite of versions and their merge strategy for each source
-        composite_version_string = ""
-        if graph_spec.sources:
-            composite_version_string += '_'.join([graph_source.version + '_' + graph_source.merge_strategy
-                                                  if graph_source.merge_strategy else graph_source.version
-                                                  for graph_source in graph_spec.sources])
-        if graph_spec.subgraphs:
-            if composite_version_string:
-                composite_version_string += '_'
-            composite_version_string += '_'.join([sub_graph_source.version + '_' + sub_graph_source.merge_strategy
-                                                  if sub_graph_source.merge_strategy else sub_graph_source.version
-                                                  for sub_graph_source in graph_spec.subgraphs])
+        # Compose a string of each source/subgraph's unique identifier (a build_version hash for
+        # data sources, a release_version semver for subgraphs) along with its merge strategy.
+        # This is what we hash into the parent graph's build_version.
+        def _identifier_for_composite(source) -> str:
+            if isinstance(source, SubGraphSource):
+                return source.release_version
+            if isinstance(source, DataSource):
+                return source.generate_build_version()
+            raise GraphSpecError(f'Unexpected source type in graph spec: {type(source).__name__}')
+
+        composite_parts = []
+        for graph_source in (graph_spec.sources or []) + (graph_spec.subgraphs or []):
+            identifier = _identifier_for_composite(graph_source)
+            if graph_source.merge_strategy:
+                composite_parts.append(f'{identifier}_{graph_source.merge_strategy}')
+            else:
+                composite_parts.append(identifier)
+        composite_version_string = '_'.join(composite_parts)
         build_version = xxh64_hexdigest(composite_version_string)
         graph_spec.build_version = build_version
-        release_version = self.determine_release_version(graph_spec.graph_id, build_version, graph_spec.base_version)
-        graph_spec.graph_version = release_version
-        logger.info(f'Version determined for graph {graph_spec.graph_id}: release {release_version}, '
-                    f'build {build_version} ({composite_version_string})')
+        release_version = self._select_release_version(graph_spec.graph_id, build_version, graph_spec.base_release_version)
+        graph_spec.release_version = release_version
+        logger.info(f'Versions determined for graph {graph_spec.graph_id}: '
+                    f'release_version {release_version}, build_version {build_version} ({composite_version_string})')
         return release_version
 
-    # Pick the release version (semver) for a build. If a previously released version of this graph
-    # already has this build version, reuse it (the contents are identical). Otherwise bump to the
-    # next version above whatever already exists, never going below the spec's declared base_version.
-    def determine_release_version(self, graph_id: str, build_version: str, base_version: str):
-        known_versions = self._known_release_versions(graph_id)
-        for version_str, recorded_build_version in known_versions.items():
+    # Pick the release_version (semver) for a build. If a previously released release_version of this
+    # graph already has this build_version, reuse it (the contents are identical). Otherwise bump to
+    # the next release_version above whatever already exists, never going below the spec's declared
+    # base_release_version.
+    def _select_release_version(self, graph_id: str, build_version: str, base_release_version: str):
+        known_release_versions = self._known_release_versions(graph_id)
+        for release_str, recorded_build_version in known_release_versions.items():
             if recorded_build_version and recorded_build_version == build_version:
-                logger.info(f'Graph {graph_id} build {build_version} was already released as version {version_str}.')
-                return version_str
-        next_version = next_release_version(list(known_versions.keys()), base_version)
-        if known_versions:
-            logger.info(f'Graph {graph_id} build {build_version} is new; releasing as version {next_version} '
-                        f'(existing versions: {sorted(known_versions)}).')
+                logger.info(f'Graph {graph_id} build_version {build_version} was already released as '
+                            f'release_version {release_str}.')
+                return release_str
+        next_release = next_release_version(list(known_release_versions.keys()), base_release_version)
+        if known_release_versions:
+            logger.info(f'Graph {graph_id} build_version {build_version} is new; releasing as '
+                        f'release_version {next_release} (existing release_versions: {sorted(known_release_versions)}).')
         else:
-            logger.info(f'Graph {graph_id} has no previous releases; releasing as version {next_version}.')
-        return next_version
+            logger.info(f'Graph {graph_id} has no previous releases; releasing as release_version {next_release}.')
+        return next_release
 
-    # Collect known release versions of a graph, mapped to the build version each one came from
+    # Collect known release_versions of a graph, mapped to the build_version each one came from
     # (None when unknown). Looks at the remote graph registry first (if enabled), then local storage.
     def _known_release_versions(self, graph_id: str) -> dict:
-        known_versions = {}
+        known_release_versions = {}
         if config.ORION_USE_GRAPH_REGISTRY:
             try:
                 registry_client = GraphRegistryClient(base_url=config.ORION_GRAPH_REGISTRY_URL, timeout=10.0)
                 for version_record in registry_client.get_versions(graph_id):
-                    version_str = version_record.get('version')
-                    if not version_str:
+                    release_version = version_record.get('version')
+                    if not release_version:
                         continue
                     build_version = version_record.get('build_version')
                     if build_version is None:
                         try:
-                            build_version = registry_client.get_graph_metadata(graph_id, version_str).get(
+                            build_version = registry_client.get_graph_metadata(graph_id, release_version).get(
                                 'orion:buildVersion')
                         except GraphRegistryError as e:
-                            logger.debug(f'Could not read registry metadata for {graph_id}/{version_str}: {e}')
-                    known_versions[version_str] = build_version
+                            logger.debug(f'Could not read registry metadata for {graph_id}/{release_version}: {e}')
+                    known_release_versions[release_version] = build_version
             except GraphRegistryError as e:
                 logger.debug(f'Graph registry unavailable while versioning {graph_id}: {e}')
 
@@ -408,18 +415,18 @@ class GraphBuilder:
                     continue
                 try:
                     graph_metadata = GraphMetadata(graph_id, entry_dir)
-                    version_str = graph_metadata.get_graph_version()
+                    release_version = graph_metadata.get_release_version()
                     build_version = graph_metadata.get_build_version()
                 except (json.JSONDecodeError, KeyError, OSError) as e:
                     logger.debug(f'Skipping unreadable graph metadata in {entry_dir}: {e}')
                     continue
-                if not version_str:
+                if not release_version:
                     continue
-                # don't let a local entry with no recorded build version clobber one the registry gave us
-                if known_versions.get(version_str) and not build_version:
+                # don't let a local entry with no recorded build_version clobber one the registry gave us
+                if known_release_versions.get(release_version) and not build_version:
                     continue
-                known_versions[version_str] = build_version
-        return known_versions
+                known_release_versions[release_version] = build_version
+        return known_release_versions
 
     # Resolve every spec entry into a GraphFileSource on graph_spec.resolved_sources.
     # For each DataSource, try Local then Registry first; if neither resolves and
@@ -439,7 +446,7 @@ class GraphBuilder:
             resolved = resolve_source(subgraph_spec, subgraph_chain)
             if resolved is None:
                 logger.warning(f'Could not resolve subgraph dependency {subgraph_spec.id} '
-                               f'version {subgraph_spec.graph_version} for graph {graph_spec.graph_id}.')
+                               f'release_version {subgraph_spec.release_version} for graph {graph_spec.graph_id}.')
                 return False
             graph_spec.resolved_sources.append(resolved)
 
@@ -528,7 +535,7 @@ class GraphBuilder:
             description=graph_metadata.get_graph_description(),
             license='https://spdx.org/licenses/MIT',
             url=graph_output_url,
-            version=graph_metadata.get_graph_version(),
+            version=graph_metadata.get_release_version(),
             build_version=graph_metadata.get_build_version(),
             date_created=graph_metadata.get_build_time(),
             date_modified=graph_metadata.get_build_time(),
@@ -626,13 +633,16 @@ class GraphBuilder:
     # KGX-metadata contribution from a source that came from raw parser output:
     # synthesize a single hasPart entry from the source record and load the
     # parser's *.source.json for the isBasedOn knowledge source.
+    # NOTE: the synthesized @id uses the source's build_version (hash) as its last path segment.
+    # That matches what _kgx_metadata_matches_single_source looks for when resolving this same
+    # source later. A follow-up design change will move this to use a release_version instead.
     def _kgx_metadata_from_parser_source(self, source: dict, orion_root: str):
         source_id = source.get('source_id', '')
         source_version = source.get('source_version', '')
         source_name = source.get('name', source_id)
-        release_version = source.get('release_version', '')
+        build_version = source.get('build_version', '') or source.get('release_version', '')
         kg_sources = [{
-            '@id': self.get_graph_output_url(graph_id=source_id, graph_version=release_version),
+            '@id': self.get_graph_output_url(graph_id=source_id, release_version=build_version),
             'name': f'A ROBOKOP Knowledge Graph based on {source_name}',
             'orion:nodeCount': source.get('node_count'),
             'orion:edgeCount': source.get('edge_count'),
@@ -752,24 +762,24 @@ class GraphBuilder:
 
                 graph_output_format = graph_yaml.get('output_format', '')
 
-                # Optional release version floor (semver). Bare yaml numbers like `version: 2.0`
-                # parse as floats, so coerce to str before validating.
-                base_version = graph_yaml.get('version', graph_yaml.get('base_version', None))
-                if base_version is None:
-                    base_version = DEFAULT_BASE_VERSION
+                # Optional release_version floor (semver). Bare yaml numbers like
+                # `base_release_version: 2.0` parse as floats, so coerce to str before validating.
+                base_release_version = graph_yaml.get('base_release_version', None)
+                if base_release_version is None:
+                    base_release_version = DEFAULT_BASE_RELEASE_VERSION
                 else:
-                    base_version = str(base_version)
-                    if parse_semver(base_version) is None:
-                        raise GraphSpecError(f'Graph {graph_id} has an invalid version: {base_version}. '
-                                             f'Use a semantic version like "2.0" or "2.1.0" (quote it in yaml).')
+                    base_release_version = str(base_release_version)
+                    if parse_semver(base_release_version) is None:
+                        raise GraphSpecError(
+                            f'Graph {graph_id} has an invalid base_release_version: {base_release_version}. '
+                            f'Use a semantic version like "2.0" or "2.1.0" (quote it in yaml).')
 
                 graph_spec = GraphSpec(graph_id=graph_id,
                                        graph_name=graph_name,
                                        graph_description=graph_description,
                                        graph_url=graph_url,
-                                       graph_version=None,  # this will get populated when a build is triggered
                                        graph_output_format=graph_output_format,
-                                       base_version=base_version,
+                                       base_release_version=base_release_version,
                                        add_edge_id=add_edge_id,
                                        edge_id_type=edge_id_type,
                                        overwrite_edge_ids=overwrite_edge_ids,
@@ -785,12 +795,12 @@ class GraphBuilder:
 
     def parse_subgraph_spec(self, subgraph_yml):
         subgraph_id = subgraph_yml['graph_id']
-        subgraph_version = subgraph_yml.get('graph_version', None)
+        subgraph_release_version = subgraph_yml.get('release_version', None)
         merge_strategy = subgraph_yml.get('merge_strategy', None)
         if merge_strategy == 'default':
             merge_strategy = None
         subgraph_source = SubGraphSource(id=subgraph_id,
-                                         graph_version=subgraph_version,
+                                         release_version=subgraph_release_version,
                                          merge_strategy=merge_strategy)
         return subgraph_source
 
@@ -817,7 +827,7 @@ class GraphBuilder:
 
         # source_version and parsing_version are intentionally left unresolved here — resolving them
         # eagerly would import every parser referenced by every auto-loaded graph spec, even when the
-        # user is only building one. determine_graph_version fills them in lazily for the graph
+        # user is only building one. determine_versions fills them in lazily for the graph
         # actually being built.
         if parsing_version == 'latest':
             parsing_version = None
@@ -844,12 +854,12 @@ class GraphBuilder:
                                  supplementation_version=supplementation_version)
         return data_source
 
-    def get_graph_dir_path(self, graph_id: str, graph_version: str):
-        return os.path.join(self.graphs_dir, graph_id, graph_version)
+    def get_graph_dir_path(self, graph_id: str, release_version: str):
+        return os.path.join(self.graphs_dir, graph_id, release_version)
 
     @staticmethod
-    def get_graph_output_url(graph_id: str, graph_version: str):
-        return f'{config.ORION_OUTPUT_URL}/{graph_id}/{graph_version}/'
+    def get_graph_output_url(graph_id: str, release_version: str):
+        return f'{config.ORION_OUTPUT_URL}/{graph_id}/{release_version}/'
 
     @staticmethod
     def get_graph_nodes_file_path(graph_output_dir: str):
@@ -859,15 +869,15 @@ class GraphBuilder:
     def get_graph_edges_file_path(graph_output_dir: str):
         return os.path.join(graph_output_dir, KGXBundle.EDGES_FILENAME)
 
-    def check_for_existing_graph_dir(self, graph_id: str, graph_version: str):
-        graph_output_dir = self.get_graph_dir_path(graph_id, graph_version)
+    def check_for_existing_graph_dir(self, graph_id: str, release_version: str):
+        graph_output_dir = self.get_graph_dir_path(graph_id, release_version)
         if not os.path.isdir(graph_output_dir):
             return False
         return True
 
-    def get_graph_metadata(self, graph_id: str, graph_version: str):
+    def get_graph_metadata(self, graph_id: str, release_version: str):
         # make sure the output directory exists (where we check for existing GraphMetadata)
-        graph_output_dir = self.get_graph_dir_path(graph_id, graph_version)
+        graph_output_dir = self.get_graph_dir_path(graph_id, release_version)
 
         # load existing or create new metadata file
         return GraphMetadata(graph_id, graph_output_dir)
