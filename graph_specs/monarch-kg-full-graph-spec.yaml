@@ -1,0 +1,7 @@
+graphs:
+  - graph_id: MonarchKGFull
+    graph_name: Monarch Initiative KG
+    graph_description: 'The complete Monarch Initiative Knowledge Graph. The Monarch Initiative is an international consortium that leads key global standards and semantic data integration technologies. Monarch resources and integrated data are foundational to many downstream applications.'
+    graph_url: https://monarchinitiative.org/
+    sources:
+      - source_id: MonarchKGFull
