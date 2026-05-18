@@ -13,10 +13,10 @@ def test_graph_spec_dir():
     return testing_specs_dir
 
 
-@pytest.fixture(scope='module')
-def test_graph_output_dir():
-    testing_output_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'workspace')
-    return testing_output_dir
+# Each test gets a fresh, isolated graphs_dir so build artifacts can't bleed between tests or persist
+@pytest.fixture
+def test_graph_output_dir(tmp_path):
+    return str(tmp_path)
 
 
 def get_ingest_pipeline_mock():
