@@ -428,8 +428,15 @@ class GraphBuilder:
     # run through Local → Registry → SubgraphBuild; data sources run through Local → Registry,
     # then either parser-output resolution (for single-source builds) or recursive single-source
     # graph materialization (for multi-source builds). See _resolve_or_build_data_source.
+    #
+    # When a dependency fails to resolve we continue through the rest of the spec rather than
+    # bailing immediately. This still aborts the parent graph (we return False), but lets
+    # every dependency get one ingest attempt per invocation. Subsequent runs of any graph
+    # that shares those dependencies pick up the cached single-source artifacts instead of
+    # re-running the ingests.
     def build_dependencies(self, graph_spec: GraphSpec):
         graph_spec.resolved_sources = []
+        all_resolved = True
 
         subgraph_chain = [self.local_resolver, self.registry_resolver, self.subgraph_build_resolver]
         for subgraph_spec in graph_spec.subgraphs or []:
@@ -437,7 +444,8 @@ class GraphBuilder:
             if resolved is None:
                 logger.warning(f'Could not resolve subgraph dependency {subgraph_spec.id} '
                                f'release_version {subgraph_spec.release_version} for graph {graph_spec.graph_id}.')
-                return False
+                all_resolved = False
+                continue
             graph_spec.resolved_sources.append(resolved)
 
         for data_source_spec in graph_spec.sources or []:
@@ -445,9 +453,10 @@ class GraphBuilder:
             if resolved is None:
                 logger.info(f'Could not resolve data source {data_source_spec.id} for graph '
                             f'{graph_spec.graph_id}.')
-                return False
+                all_resolved = False
+                continue
             graph_spec.resolved_sources.append(resolved)
-        return True
+        return all_resolved
 
     # Resolve a DataSource by trying the existing-artifact chain first (local then registry); on
     # miss, either materialize it as its own single-source graph or — if this source IS the parent

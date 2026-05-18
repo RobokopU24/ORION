@@ -47,10 +47,14 @@ class KGXBundle:
         return os.path.exists(self.schema_path)
 
     def load_graph_metadata(self) -> dict | None:
+        if not self.has_graph_metadata():
+            return None
         with open(self.graph_metadata_path) as f:
             return json.load(f)
 
     def load_schema(self) -> dict | None:
+        if not self.has_schema():
+            return None
         with open(self.schema_path) as f:
             return json.load(f)
 

@@ -381,3 +381,97 @@ def test_build_graph_end_to_end_with_subgraph_dependency(tmp_path, monkeypatch):
     assert set(builder.build_results) == {'Parent_Graph', 'My_Subgraph', 'HGNC', 'CTD'}
     assert builder.build_results['Parent_Graph']['graph_dir'] == str(parent_dir)
     assert builder.build_results['My_Subgraph']['graph_dir'] == str(subgraph_dir)
+
+
+def test_build_graph_continues_past_failed_source(tmp_path, monkeypatch):
+    """When one source fails to resolve, remaining sources are still attempted.
+
+    The parent graph build still fails (returns False) — there's no partial-merge
+    mode — but every other source's single-source artifact is built and cached.
+    A subsequent invocation of any graph that shares those sources reuses them
+    instead of re-running their ingests.
+    """
+    # CTD gets a real fixture; HGNC will have its parser-output lookup return None
+    # to simulate an ingest failure.
+    fixture_paths_by_source = {}
+    for source_id, fixture in PER_SOURCE_FIXTURES.items():
+        src_dir = tmp_path / 'parser_output' / source_id
+        src_dir.mkdir(parents=True)
+        nodes_path = src_dir / 'normalized_nodes.jsonl'
+        edges_path = src_dir / 'normalized_edges.jsonl'
+        _write_jsonl(nodes_path, fixture['nodes'])
+        _write_jsonl(edges_path, fixture['edges'])
+        fixture_paths_by_source[source_id] = (str(nodes_path), str(edges_path))
+
+    _patch_post_merge_heavy_steps(monkeypatch)
+
+    # Mock pipeline returns proper file paths for CTD; returns None for HGNC,
+    # which causes _resolve_parser_output to give up on that source.
+    mock_pipeline = MagicMock()
+    mock_pipeline.get_latest_source_version.side_effect = lambda source_id: f'{source_id}_sv1'
+    mock_pipeline.get_latest_parsing_version.side_effect = lambda source_id: f'{source_id}_pv1'
+    mock_source_metadata = MagicMock()
+    mock_source_metadata.get_build_info.return_value = {'parsing_info': {'note': 'fixture'}}
+    mock_pipeline.get_source_metadata.return_value = mock_source_metadata
+    mock_pipeline.get_final_file_paths.side_effect = (
+        lambda source_id, *_args, **_kwargs:
+        None if source_id == 'HGNC' else list(fixture_paths_by_source[source_id])
+    )
+
+    inline_spec = {
+        'graphs': [{
+            'graph_id': 'Multi_Partial_Failure',
+            'graph_name': 'Partial Failure Test',
+            'output_format': 'jsonl',
+            'sources': [
+                {'source_id': 'HGNC'},
+                {'source_id': 'CTD'},
+            ],
+        }]
+    }
+
+    graphs_dir = tmp_path / 'graphs'
+    graphs_dir.mkdir()
+    empty_spec_dir = tmp_path / 'specs'
+    empty_spec_dir.mkdir()
+
+    builder = GraphBuilder(graph_specs_dir=str(empty_spec_dir),
+                           inline_graph_spec=inline_spec,
+                           graph_output_dir=str(graphs_dir))
+    builder.ingest_pipeline = mock_pipeline
+
+    parent_spec = builder.graph_specs['Multi_Partial_Failure']
+
+    # Parent build aborts because one dependency couldn't be resolved.
+    assert builder.build_graph(parent_spec) is False
+
+    # CTD's single-source artifact was still built and cached on disk despite
+    # the HGNC failure earlier in the loop — that's the point of continuing
+    # past failures.
+    assert 'CTD' in builder.build_results
+    ctd_result = builder.build_results['CTD']
+    ctd_dir = graphs_dir / 'CTD' / ctd_result['release_version']
+    assert ctd_dir.is_dir()
+    assert (ctd_dir / 'nodes.jsonl.gz').exists()
+    assert (ctd_dir / 'edges.jsonl.gz').exists()
+    assert ctd_result['build_status'] == Metadata.STABLE
+
+    # HGNC's recursive single-source build was attempted but did not succeed,
+    # so no successful build_result is recorded for it and no graph files exist.
+    assert 'HGNC' not in builder.build_results
+    hgnc_root = graphs_dir / 'HGNC'
+    if hgnc_root.exists():
+        # The synth build may have created the directory shell; the merged graph
+        # files must NOT be there.
+        for release_dir in hgnc_root.iterdir():
+            assert not (release_dir / 'nodes.jsonl').exists()
+            assert not (release_dir / 'nodes.jsonl.gz').exists()
+            assert not (release_dir / 'edges.jsonl').exists()
+            assert not (release_dir / 'edges.jsonl.gz').exists()
+
+    # The parent graph was never merged, so its release dir has no merged files.
+    parent_dir = graphs_dir / 'Multi_Partial_Failure' / parent_spec.release_version
+    if parent_dir.exists():
+        assert not (parent_dir / 'nodes.jsonl').exists()
+        assert not (parent_dir / 'nodes.jsonl.gz').exists()
+    assert 'Multi_Partial_Failure' not in builder.build_results
