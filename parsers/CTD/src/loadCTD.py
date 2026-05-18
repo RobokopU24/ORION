@@ -4,10 +4,11 @@ import re
 import tarfile, gzip
 import requests
 
+from datetime import datetime
 from io import TextIOWrapper
-from bs4 import BeautifulSoup
 from operator import itemgetter
-from orion.utils import GetData, GetDataPullError
+
+from orion.utils import GetData
 from orion.loader_interface import SourceDataLoader, SourceDataFailedError
 from orion.kgxmodel import kgxnode, kgxedge
 from orion.prefixes import CTD, NCBITAXON, MESH
@@ -75,61 +76,35 @@ class CTDLoader(SourceDataLoader):
         self.final_record_counter: int = 0
         self.final_skipped_record_counter: int = 0
 
+    # !!! !!! README !!! !!!
+    # CTD implemented a CAPTCHA (ALTCHA) on ctdbase.org, which broke dependable programmatic access for determining
+    # the version they publish from their website https://ctdbase.org/about/dataStatus.go. Here is a workaround which
+    # accesses a path that is not currently blocked by the CAPTCHA.
     def get_latest_source_version(self) -> str:
+        """Return the CTD data release label used as ``source_version`` in the pipeline.
+
+        Scrapes the html at https://ctdbase.org/reports/ (which is not behind CAPTCHA currently)
+        and returns the latest modify date for the files included in this ingest,
+        formatted as ``Month_Year`` (e.g. ``March_2026``).
         """
-        gets the version of the data
 
-        :return:
-        """
-        try:
-            # load the web page for CTD
-            html_page: requests.Response = requests.get('https://ctdbase.org/about/dataStatus.go')
-            html_page.raise_for_status()
+        # The /reports/ page is formatted like an apache autoindex, we can use this regex to extract the file date
+        # Apache autoindex row: <a href="FILE">label</a>   DD-Mon-YYYY HH:MM   SIZE
+        reports_regex = re.compile(r'<a href="([^"]+)">[^<]+</a>\s+(\d{2}-[A-Za-z]{3}-\d{4} \d{2}:\d{2})')
 
-            # get the html into a parsable object
-            soup: BeautifulSoup = BeautifulSoup(html_page.content, 'html.parser')
+        # parse the /reports/ page and find all the dates associated with the relevant files
+        response = requests.get("https://ctdbase.org/reports/")
+        response.raise_for_status()
+        dates = [
+            datetime.strptime(date_str, "%d-%b-%Y %H:%M")
+            for href, date_str in reports_regex.findall(response.text)
+            if href in self.ctd_data_files
+        ]
+        if not dates:
+            raise RuntimeError("Could not determine latest CTD version from https://ctdbase.org/reports/")
 
-             # quick check for e.g. a "Human verification" page or captcha content
-            lower_body = soup.text.lower()
-            if "verify you are a human" in lower_body or "captcha" in lower_body:
-                self.logger.warning("CTD dataStatus is blocked from programmatic access due to human verification / "
-                                    "captcha. Trying to use the downloads page for CTD version instead..")
-
-                resp = requests.get('https://ctdbase.org/downloads')
-                resp.raise_for_status()
-
-                soup = BeautifulSoup(resp.text, "html.parser")
-
-                # compile a loose regex for the target phrase
-                pattern = re.compile(r"ctd\s+data\s+release", re.I)
-                for p in soup.find_all("p"):
-                    # use get_text to include text from child tags as well
-                    p_text = p.get_text(" ", strip=True)
-                    if pattern.search(p_text):
-                        a = p.find("a")
-                        if not a:
-                            # found the <p> but no <a> inside it
-                            raise Exception("CTD downloads page version retrieval did not work. "
-                                            "CTD data release <p> found but could not be parsed successfully.")
-                        link_text = a.get_text(strip=True).rstrip(".")  # remove trailing dot if present
-                        version = link_text.replace(" ", "_")
-                        return version
-                # the search for the version using regex failed
-                raise Exception("CTD downloads page version retrieval did not work. "
-                                "Possibly blocked due to CAPTCHA.")
-            else:
-                # dataStatus page has something like:
-                # <h1 id="pgheading">Data Status: October 2025</h1>
-                #
-                # find the pgheading and extract a version from it
-                version: BeautifulSoup.Tag = soup.find(id='pgheading')
-                if version is not None:
-                    # save the value
-                    return version.text.split(':')[1].strip().replace(' ', '_')
-                else:
-                    raise Exception("pgheading could not be found on dataStatus page.")
-        except Exception as e:
-            raise GetDataPullError(error_message=f'Unable to determine latest version for CTD: {e}')
+        # return the most recently updated date as the version
+        return max(dates).strftime("%B_%Y")
 
     def get_data(self):
         """
