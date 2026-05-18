@@ -112,27 +112,24 @@ class KGXGraphMetadata:
             "@type": "Dataset",
             "name": self.name,
             "description": self.description,
-            "license": self.license,
             "url": self.url,
             "version": self.version,
             "dateCreated": self.date_created,
             "dateModified": self.date_modified,
+            "orion:buildVersion": self.build_version,
+            "orion:biolinkVersion": self.biolink_version,
+            "orion:babelVersion": self.babel_version,
+            "hasPart": self.kg_sources,
+            "isBasedOn": [source.to_dict() for source in self.knowledge_sources],
+            "schema": self.schema,
+            "distribution": self.distribution,
+            "conformsTo": self.conforms_to,
             "keywords": self.keywords,
             "creator": self.creator,
             "contactPoint": self.contact_point,
             "funder": self.funder,
-            "conformsTo": self.conforms_to,
-            "schema": self.schema,
-            "biolinkVersion": self.biolink_version,
-            "babelVersion": self.babel_version,
-            "distribution": self.distribution,
-            "hasPart": self.kg_sources,
-            "isBasedOn": [source.to_dict() for source in self.knowledge_sources]
+            "license": self.license,
         }
-        if self.build_version:
-            # The deterministic build hash behind this release version (see orion/graph_versioning.py),
-            # recorded so consumers can tell whether two releases are the same graph contents.
-            result["orion:buildVersion"] = self.build_version
         return json.dumps(result, indent=2)
 
 
