@@ -3,13 +3,24 @@ name: 'Release a new version to Github Packages'
 on:
     release:
         types: [published]
+    workflow_dispatch:
+        inputs:
+            image_tag:
+                description: "Docker tag to publish (e.g. 2.0.0-test)"
+                required: true
+                type: string
+            update_latest:
+                description: "Also overwrite the :latest tag"
+                required: false
+                type: boolean
+                default: false
 
 env:
     REGISTRY: ghcr.io
 
 jobs:
     push_to_registry:
-        name: Push Docker image to GitHub Packages tagged with "latest" and version number.
+        name: Push Docker image to GitHub Packages.
         runs-on: ubuntu-latest
         permissions:
             contents: read
@@ -23,16 +34,29 @@ jobs:
                   registry: ${{ env.REGISTRY }}
                   username: ${{ github.actor }}
                   password: ${{ secrets.GITHUB_TOKEN }}
-            - name: Extract metadata (tags, labels) for Docker
-              id: meta
+            - name: Extract metadata (release path)
+              if: github.event_name == 'release'
+              id: meta_release
               uses: docker/metadata-action@v5
               with:
                 images:
                   ghcr.io/${{ github.repository }}
+            - name: Extract metadata (manual path)
+              if: github.event_name == 'workflow_dispatch'
+              id: meta_manual
+              uses: docker/metadata-action@v5
+              with:
+                images:
+                  ghcr.io/${{ github.repository }}
+                tags: |
+                  type=raw,value=${{ inputs.image_tag }}
+                  type=raw,value=latest,enable=${{ inputs.update_latest }}
+                flavor: |
+                  latest=false
             - name: Push to GitHub Packages
               uses: docker/build-push-action@v6
               with:
                   context: .
                   push: true
-                  tags: ${{ steps.meta.outputs.tags }}
-                  labels: ${{ steps.meta.outputs.labels }}
+                  tags: ${{ steps.meta_release.outputs.tags || steps.meta_manual.outputs.tags }}
+                  labels: ${{ steps.meta_release.outputs.labels || steps.meta_manual.outputs.labels }}

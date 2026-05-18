@@ -7,6 +7,7 @@ on:
 jobs:
   test-pypi:
     name: Publish to TestPyPI
+    if: github.event.release.prerelease == false
     runs-on: ubuntu-latest
     environment:
       name: release
@@ -21,6 +22,7 @@ jobs:
           UV_PUBLISH_URL: https://test.pypi.org/legacy/
   pypi:
     name: Publish to PyPI
+    if: github.event.release.prerelease == false
     needs:
       - test-pypi
     runs-on: ubuntu-latest
