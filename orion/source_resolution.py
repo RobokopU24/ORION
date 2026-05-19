@@ -34,18 +34,15 @@ def _kgx_metadata_matches_single_source(kgx_graph_metadata: dict,
                                         source_id: str,
                                         build_version: str) -> bool:
     """True if the KGX metadata describes a single-source graph for source_id at build_version."""
-    kg_sources = kgx_graph_metadata.get('hasPart', []) or []
+    kg_sources = kgx_graph_metadata.get('hasPart', [])
     if len(kg_sources) != 1:
         return False
-    entry = kg_sources[0]
-    kg_source_id = entry.get('@id', '')
+    kg_source = kg_sources[0]
+    kg_source_id = kg_source.get('@id', '')
     parts = kg_source_id.rstrip('/').split('/')
-    if not (len(parts) >= 2 and parts[-2] == source_id):
+    if not (len(parts) >= 2 and source_id.lower() in parts[-2].lower()):
         return False
-    recorded_build_version = entry.get('orion:buildVersion')
-    if recorded_build_version is not None:
-        return recorded_build_version == build_version
-    return False
+    return build_version == kg_source.get('orion:buildVersion')
 
 
 class GraphSourceResolver:
@@ -61,8 +58,9 @@ class LocalGraphResolver(GraphSourceResolver):
     """Look in the local graphs directory for a built graph satisfying the spec.
 
     For SubGraphSource: matches {graphs_dir}/{graph_id}/{release_version}/.
-    For DataSource:    matches any {graphs_dir}/{source_id}/<dir>/ whose KGX
-                       graph-metadata.json describes a single-source graph for
+    For DataSource:    matches any {graphs_dir}/<graph_id>/<dir>/ where <graph_id>
+                       contains source_id (case-insensitive) and the directory's
+                       KGX graph-metadata.json describes a single-source graph for
                        source_id at the spec's build_version.
     """
 
@@ -116,30 +114,36 @@ class LocalGraphResolver(GraphSourceResolver):
         build_version = spec.generate_build_version()
         if not build_version:
             return None
-        source_graph_root = os.path.join(self.graphs_dir, spec.id)
-        if not os.path.isdir(source_graph_root):
+        if not os.path.isdir(self.graphs_dir):
             return None
-        for entry in os.listdir(source_graph_root):
-            graph_dir = os.path.join(source_graph_root, entry)
-            if not os.path.isdir(graph_dir):
+        spec_id_lower = spec.id.lower()
+        for graph_id_dir in os.listdir(self.graphs_dir):
+            if spec_id_lower not in graph_id_dir.lower():
                 continue
-            kgx_graph_metadata = KGXBundle(graph_dir).load_graph_metadata()
-            if kgx_graph_metadata is None:
+            source_graph_root = os.path.join(self.graphs_dir, graph_id_dir)
+            if not os.path.isdir(source_graph_root):
                 continue
-            if not _kgx_metadata_matches_single_source(kgx_graph_metadata, spec.id, build_version):
-                continue
-            file_source = self._build_file_source(
-                graph_dir=graph_dir,
-                graph_id=spec.id,
-                release_version=None,
-                build_version=build_version,
-                merge_strategy=spec.merge_strategy,
-            )
-            if file_source is None:
-                continue
-            logger.info(f'LocalGraphResolver matched {spec.id} build_version {build_version} '
-                        f'to existing graph at {graph_dir}.')
-            return file_source
+            for graph_release_dir in os.listdir(source_graph_root):
+                graph_path = os.path.join(source_graph_root, graph_release_dir)
+                if not os.path.isdir(graph_path):
+                    continue
+                kgx_graph_metadata = KGXBundle(graph_path).load_graph_metadata()
+                if kgx_graph_metadata is None:
+                    continue
+                if not _kgx_metadata_matches_single_source(kgx_graph_metadata, spec.id, build_version):
+                    continue
+                file_source = self._build_file_source(
+                    graph_dir=graph_path,
+                    graph_id=spec.id,
+                    release_version=None,
+                    build_version=build_version,
+                    merge_strategy=spec.merge_strategy,
+                )
+                if file_source is None:
+                    continue
+                logger.info(f'LocalGraphResolver matched {spec.id} build_version {build_version} '
+                            f'to existing graph at {graph_path}.')
+                return file_source
         return None
 
 
@@ -148,8 +152,10 @@ class RegistryGraphResolver(GraphSourceResolver):
 
     Matching mirrors LocalGraphResolver:
       SubGraphSource: graph_id + release_version exists in the registry.
-      DataSource:    a registry release of source_id exists whose KGX metadata
-                     describes a single-source graph for source_id at build_version.
+      DataSource:    any registry graph whose graph_id contains source_id (case-insensitive)
+                     has a release whose KGX metadata describes a single-source graph for
+                     source_id at the spec's build_version. The substring filter lets renamed
+                     single-source graphs (e.g. `CTD_conflated`) be discovered.
     """
 
     def __init__(self,
@@ -193,31 +199,44 @@ class RegistryGraphResolver(GraphSourceResolver):
         build_version = spec.generate_build_version()
         if not build_version:
             return None
-        try:
-            versions = self.client.get_versions(spec.id)
-        except GraphRegistryError as e:
-            logger.debug(f'Registry has no versions for {spec.id}: {e}')
-            return None
-        for version_record in versions:
-            release_version = version_record.get('version')
-            if not release_version:
-                continue
+        for candidate_graph_id in self._candidate_graph_ids(spec.id):
             try:
-                kgx_graph_metadata = self.client.get_graph_metadata(spec.id, release_version)
+                versions = self.client.get_versions(candidate_graph_id)
             except GraphRegistryError as e:
-                logger.debug(f'Registry metadata fetch failed for {spec.id}/{release_version}: {e}')
+                logger.debug(f'Registry has no versions for {candidate_graph_id}: {e}')
                 continue
-            if not _kgx_metadata_matches_single_source(kgx_graph_metadata, spec.id, build_version):
-                continue
-            return self._materialize(
-                spec_id=spec.id,
-                graph_id=spec.id,
-                release_version=release_version,
-                build_version=build_version,
-                kgx_graph_metadata=kgx_graph_metadata,
-                merge_strategy=spec.merge_strategy,
-            )
+            for version_record in versions:
+                release_version = version_record.get('version')
+                if not release_version:
+                    continue
+                try:
+                    kgx_graph_metadata = self.client.get_graph_metadata(candidate_graph_id, release_version)
+                except GraphRegistryError as e:
+                    logger.debug(f'Registry metadata fetch failed for {candidate_graph_id}/{release_version}: {e}')
+                    continue
+                if not _kgx_metadata_matches_single_source(kgx_graph_metadata, spec.id, build_version):
+                    continue
+                return self._materialize(
+                    spec_id=spec.id,
+                    graph_id=candidate_graph_id,
+                    release_version=release_version,
+                    build_version=build_version,
+                    kgx_graph_metadata=kgx_graph_metadata,
+                    merge_strategy=spec.merge_strategy,
+                )
         return None
+
+    # Build the list of registry graph_ids to probe for a data source. Prefer the registry's
+    # full listing (so renamed single-source graphs like `CTD_conflated` are found); fall back
+    # to the canonical source_id and `{source_id}_conflated` if the listing call fails.
+    def _candidate_graph_ids(self, source_id: str) -> list[str]:
+        source_id_lower = source_id.lower()
+        try:
+            all_graph_ids = self.client.list_graphs()
+        except GraphRegistryError as e:
+            logger.debug(f'Registry list_graphs failed, falling back to direct probes for {source_id}: {e}')
+            return [source_id, f'{source_id}_conflated']
+        return [gid for gid in all_graph_ids if source_id_lower in gid.lower()]
 
     def _materialize(self,
                      spec_id: str,

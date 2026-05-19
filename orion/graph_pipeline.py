@@ -51,15 +51,31 @@ REDUNDANT_EDGES_FILENAME = 'redundant_edges.jsonl'
 COLLAPSED_QUALIFIERS_FILENAME = 'collapsed_qualifier_edges.jsonl'
 
 
-# A graph spec is "single-source" when it has exactly one source, no subgraphs, and the source's
-# id matches the graph_id. In that case the on-disk graph IS its only source — there's no separate
-# single-source artifact to build for it as a dependency; instead the spec's source is merged in
-# directly from parser output. See _resolve_or_build_data_source.
-def _is_single_source_spec(graph_spec: GraphSpec) -> bool:
-    sources = graph_spec.sources or []
-    return (len(sources) == 1
-            and not graph_spec.subgraphs
-            and sources[0].id == graph_spec.graph_id)
+# True when the given data_source is the parent graph's sole contribution AND the parent's
+# graph_id contains the source id (case-insensitive). In that case the parent's on-disk graph
+# IS the single-source artifact — there is no separate single-source dependency to build;
+# parser output is merged in directly. See _resolve_or_build_data_source.
+#
+# The graph_id-contains-source_id requirement is what allows Local and Registry source resolvers
+# to find these graphs for reuse later. If the names don't match, it means a user requested a custom name,
+# we'll just make another graph with that name to preserve the expectations for how single source graphs are managed.
+def _is_sole_contribution(parent_graph_spec: GraphSpec, data_source: DataSource) -> bool:
+    sources = parent_graph_spec.sources or []
+    if not (len(sources) == 1
+            and not parent_graph_spec.subgraphs
+            and sources[0] is data_source):
+        return False
+    return data_source.id.lower() in parent_graph_spec.graph_id.lower()
+
+
+# When we synthesize a single-source graph as a dependency for some other graph, we name it after
+# the source. Conflated builds get a `_conflated` suffix so they don't collide on disk with the
+# non-conflated build of the same source. LocalGraphResolver's substring scan finds both forms.
+def _synthesized_single_source_graph_id(data_source: DataSource) -> str:
+    if (data_source.normalization_scheme is not None
+            and data_source.normalization_scheme.conflation):
+        return f'{data_source.id}_conflated'
+    return data_source.id
 
 
 class GraphBuilder:
@@ -468,22 +484,23 @@ class GraphBuilder:
         resolved = resolve_source(data_source_spec, [self.local_resolver, self.registry_resolver])
         if resolved is not None:
             return resolved
-        if _is_single_source_spec(parent_graph_spec):
+        if _is_sole_contribution(parent_graph_spec, data_source_spec):
             return self._resolve_parser_output(data_source_spec, parent_graph_spec)
         if not self._build_single_source_graph_dependency(data_source_spec, parent_graph_spec.graph_id):
             return None
         return self.local_resolver.resolve(data_source_spec)
 
-    # Recursively build a single-source graph for an unresolved data source dependency. The
-    # synthesized spec has graph_id == data_source.id so the recursive build_graph call lands in
-    # the single-source-spec branch of _resolve_or_build_data_source, which writes parser output
-    # straight into the synthesized graph's release directory.
+    # Build a single-source graph for an unresolved data source dependency. 
+    # Synthesize a Graph Spec with just the single data source and call build_graph with it.
+    # The _synthesized_single_source_graph_id function will come up with a name that may incorporate 
+    # previously requested configurations for the source such as conflation.
     def _build_single_source_graph_dependency(self,
                                               data_source_spec: DataSource,
                                               parent_graph_id: str) -> bool:
         parser_metadata = self._load_parser_metadata(data_source_spec.id)
+        synth_graph_id = _synthesized_single_source_graph_id(data_source_spec)
         synth_spec = GraphSpec(
-            graph_id=data_source_spec.id,
+            graph_id=synth_graph_id,
             graph_name=parser_metadata.get('name', data_source_spec.id),
             graph_description=parser_metadata.get('description', ''),
             graph_url=parser_metadata.get('url', ''),

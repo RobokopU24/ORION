@@ -475,3 +475,169 @@ def test_build_graph_continues_past_failed_source(tmp_path, monkeypatch):
         assert not (parent_dir / 'nodes.jsonl').exists()
         assert not (parent_dir / 'nodes.jsonl.gz').exists()
     assert 'Multi_Partial_Failure' not in builder.build_results
+
+
+def test_single_source_named_with_source_id_writes_directly(tmp_path, monkeypatch):
+    """A single-source graph whose graph_id contains the source_id satisfies the
+    sole-contribution predicate, so parser output is merged directly into the
+    parent's release dir and no duplicate `{source_id}/` artifact is created.
+    """
+    fixture_dir = tmp_path / 'parser_output'
+    fixture_dir.mkdir()
+    fixture_nodes = fixture_dir / 'normalized_nodes.jsonl'
+    fixture_edges = fixture_dir / 'normalized_edges.jsonl'
+    _write_jsonl(fixture_nodes, FIXTURE_NODES)
+    _write_jsonl(fixture_edges, FIXTURE_EDGES)
+
+    _patch_post_merge_heavy_steps(monkeypatch)
+
+    inline_spec = {
+        'graphs': [{
+            'graph_id': 'HGNC_Graph',  # contains 'HGNC', so sole-contribution applies
+            'graph_name': 'HGNC Graph',
+            'output_format': 'jsonl',
+            'sources': [{'source_id': 'HGNC'}],
+        }]
+    }
+
+    graphs_dir = tmp_path / 'graphs'
+    graphs_dir.mkdir()
+    empty_spec_dir = tmp_path / 'specs'
+    empty_spec_dir.mkdir()
+
+    builder = GraphBuilder(graph_specs_dir=str(empty_spec_dir),
+                           inline_graph_spec=inline_spec,
+                           graph_output_dir=str(graphs_dir))
+    builder.ingest_pipeline = _build_mock_ingest_pipeline(fixture_nodes, fixture_edges)
+
+    graph_spec = builder.graph_specs['HGNC_Graph']
+    assert builder.build_graph(graph_spec) is True
+
+    # Parser output landed in HGNC_Graph/, not in a separate HGNC/ dir.
+    parent_dir = graphs_dir / 'HGNC_Graph' / graph_spec.release_version
+    assert parent_dir.is_dir()
+    assert (parent_dir / 'nodes.jsonl.gz').exists()
+    assert not (graphs_dir / 'HGNC').exists()
+    assert set(builder.build_results) == {'HGNC_Graph'}
+
+
+def test_conflated_single_source_dependency_uses_conflated_suffix(tmp_path, monkeypatch):
+    """A multi-source parent whose dependency is a conflated data source builds the
+    synthesized single-source artifact under `{source_id}_conflated/` so it doesn't
+    collide on disk with a non-conflated build of the same source.
+    """
+    fixture_paths_by_source = {}
+    for source_id, fixture in PER_SOURCE_FIXTURES.items():
+        src_dir = tmp_path / 'parser_output' / source_id
+        src_dir.mkdir(parents=True)
+        nodes_path = src_dir / 'normalized_nodes.jsonl'
+        edges_path = src_dir / 'normalized_edges.jsonl'
+        _write_jsonl(nodes_path, fixture['nodes'])
+        _write_jsonl(edges_path, fixture['edges'])
+        fixture_paths_by_source[source_id] = (str(nodes_path), str(edges_path))
+
+    _patch_post_merge_heavy_steps(monkeypatch)
+
+    # Parent has two sources both with conflation on; each dep gets its own
+    # synthesized {source_id}_conflated single-source artifact.
+    inline_spec = {
+        'graphs': [{
+            'graph_id': 'Conflated_Parent',
+            'graph_name': 'Conflated Parent',
+            'output_format': 'jsonl',
+            'conflation': True,
+            'sources': [
+                {'source_id': 'HGNC'},
+                {'source_id': 'CTD'},
+            ],
+        }]
+    }
+
+    graphs_dir = tmp_path / 'graphs'
+    graphs_dir.mkdir()
+    empty_spec_dir = tmp_path / 'specs'
+    empty_spec_dir.mkdir()
+
+    builder = GraphBuilder(graph_specs_dir=str(empty_spec_dir),
+                           inline_graph_spec=inline_spec,
+                           graph_output_dir=str(graphs_dir))
+    builder.ingest_pipeline = _build_per_source_mock_ingest_pipeline(fixture_paths_by_source)
+
+    parent_spec = builder.graph_specs['Conflated_Parent']
+    assert builder.build_graph(parent_spec) is True
+
+    assert (graphs_dir / 'HGNC_conflated').is_dir()
+    assert (graphs_dir / 'CTD_conflated').is_dir()
+    # Non-conflated dirs were NOT created.
+    assert not (graphs_dir / 'HGNC').exists()
+    assert not (graphs_dir / 'CTD').exists()
+    assert {'HGNC_conflated', 'CTD_conflated', 'Conflated_Parent'}.issubset(set(builder.build_results))
+
+
+def test_resolver_finds_conflated_artifact_for_subsequent_build(tmp_path, monkeypatch):
+    """After a graph builds a `{source_id}_conflated/` artifact, a second graph that
+    declares the same conflated source as a dep finds it via LocalGraphResolver's
+    substring scan instead of rebuilding from scratch.
+    """
+    fixture_paths_by_source = {}
+    for source_id, fixture in PER_SOURCE_FIXTURES.items():
+        src_dir = tmp_path / 'parser_output' / source_id
+        src_dir.mkdir(parents=True)
+        nodes_path = src_dir / 'normalized_nodes.jsonl'
+        edges_path = src_dir / 'normalized_edges.jsonl'
+        _write_jsonl(nodes_path, fixture['nodes'])
+        _write_jsonl(edges_path, fixture['edges'])
+        fixture_paths_by_source[source_id] = (str(nodes_path), str(edges_path))
+
+    _patch_post_merge_heavy_steps(monkeypatch)
+
+    inline_spec = {
+        'graphs': [
+            {
+                'graph_id': 'First_Parent',
+                'graph_name': 'First Parent',
+                'output_format': 'jsonl',
+                'conflation': True,
+                'sources': [
+                    {'source_id': 'HGNC'},
+                    {'source_id': 'CTD'},
+                ],
+            },
+            {
+                'graph_id': 'Second_Parent',
+                'graph_name': 'Second Parent',
+                'output_format': 'jsonl',
+                'conflation': True,
+                'sources': [
+                    {'source_id': 'HGNC'},
+                    {'source_id': 'CTD'},
+                ],
+            },
+        ]
+    }
+
+    graphs_dir = tmp_path / 'graphs'
+    graphs_dir.mkdir()
+    empty_spec_dir = tmp_path / 'specs'
+    empty_spec_dir.mkdir()
+
+    builder = GraphBuilder(graph_specs_dir=str(empty_spec_dir),
+                           inline_graph_spec=inline_spec,
+                           graph_output_dir=str(graphs_dir))
+    builder.ingest_pipeline = _build_per_source_mock_ingest_pipeline(fixture_paths_by_source)
+
+    # First build creates HGNC_conflated/ and CTD_conflated/.
+    assert builder.build_graph(builder.graph_specs['First_Parent']) is True
+
+    # Track how often run_pipeline gets invoked during the second build — the
+    # resolver should hit the already-built artifacts and skip re-running ingest.
+    builder.ingest_pipeline.run_pipeline.reset_mock()
+    assert builder.build_graph(builder.graph_specs['Second_Parent']) is True
+    assert builder.ingest_pipeline.run_pipeline.call_count == 0, (
+        'Second build re-ran the ingest pipeline; the resolver should have found '
+        'the existing _conflated artifacts via substring scan.'
+    )
+
+    # Still no non-conflated dirs.
+    assert not (graphs_dir / 'HGNC').exists()
+    assert not (graphs_dir / 'CTD').exists()
