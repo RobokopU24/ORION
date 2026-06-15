@@ -46,6 +46,8 @@ class NormalizationScheme:
     normalization_code_version: str = NORMALIZATION_CODE_VERSION
     strict: bool = True
     conflation: bool = False
+    include_description: bool = True
+    include_taxa: bool = False
 
     def __post_init__(self):
         if self.node_normalization_version in (None, 'latest'):
@@ -69,7 +71,9 @@ class NormalizationScheme:
                 'babel_version': self.babel_version,
                 'normalization_code_version': self.normalization_code_version,
                 'conflation': self.conflation,
-                'strict': self.strict}
+                'strict': self.strict,
+                'include_description': self.include_description,
+                'include_taxa': self.include_taxa}
 
 
 class NormalizationFailedError(Exception):
@@ -96,6 +100,7 @@ class NodeNormalizer:
                  biolink_version: str = None,
                  strict_normalization: bool = True,
                  conflate_node_types: bool = False,
+                 include_description: bool = False,
                  include_taxa: bool = False):
         """
         constructor
@@ -111,8 +116,9 @@ class NodeNormalizer:
         self.biolink_compliant_node_types = None
         # whether the normalizer should conflate node types (ie combine genes and proteins)
         self.conflate_node_types = conflate_node_types
-        # whether to include taxa in the responses and assign them to nodes
+        # whether to include taxa/description in the responses and assign them to nodes
         self.include_taxa = include_taxa
+        self.include_description = include_description
         # storage for variant nodes that split into multiple new nodes in normalization
         self.variant_node_splits = {}
         # normalization map for future look up of all normalized node IDs
@@ -127,7 +133,7 @@ class NodeNormalizer:
                                        json={'curies': curies,
                                              'conflate': self.conflate_node_types,
                                              'drug_chemical_conflate': self.conflate_node_types,
-                                             'description': True,
+                                             'description': self.include_description,
                                              'include_taxa': self.include_taxa})
         if resp.status_code == 200:
             # if successful return the json as an object
@@ -268,13 +274,13 @@ class NodeNormalizer:
                 if 'label' in current_node_id_section:
                     current_node['name'] = current_node_id_section['label']
 
-                # set the node description and/or information content if they are present
+                # set the node description, taxa, and/or information content if they are present
                 if 'information_content' in current_node_normalization:
                     current_node[INFORMATION_CONTENT] = current_node_normalization[INFORMATION_CONTENT]
-                if 'description' in current_node_id_section:
-                    current_node[DESCRIPTION] = current_node_id_section['description']
-                if 'taxa' in current_node_id_section:
-                    current_node[TAXON] = current_node_id_section['taxa']
+                if current_node_normalization.get('descriptions'):
+                    current_node[DESCRIPTION] = current_node_normalization['descriptions'][0]
+                if current_node_normalization.get('taxa'):
+                    current_node[TAXON] = current_node_id_section['taxa'][0]
 
                 self.node_normalization_lookup[current_node_id] = [normalized_id]
             else:
@@ -355,7 +361,7 @@ class NodeNormalizer:
                         }
                         variant_nodes.append(fake_normalized_node)
             if len(normalization_response) > 1:
-                # if we have more than one response here assume its a split variant and no errors
+                # if we have more than one response here assume it's a split variant and no errors
                 split_ids = [node['id'] for node in normalization_response]
                 self.variant_node_splits[variant_id] = split_ids
                 # this will overwrite the previous single IDs stored
