@@ -5,6 +5,8 @@ graphs:
     graph_url:
     conflation: True
     output_format:
+    edge_merging_attributes:
+      - taxon
     sources:
       - source_id: CHEBIProps
       - source_id: CTD

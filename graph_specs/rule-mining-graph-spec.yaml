@@ -7,6 +7,8 @@ graphs:
     graph_url:
     conflation: True
     output_format: redundant_jsonl
+    edge_merging_attributes:
+      - taxon
     sources:
       - source_id: BINDING-DB
       - source_id: CHEBIProps

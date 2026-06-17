@@ -13,6 +13,8 @@ graphs:
     graph_url: http://robokopkg.renci.org/browser/
     conflation: True
     output_format: neo4j
+    edge_merging_attributes:
+      - taxon
     sources:
       - source_id: BINDING-DB
         # optional parameters for each data source - see README for more info
@@ -57,6 +59,8 @@ graphs:
     graph_url: http://robokopkg.renci.org/browser/
     conflation: True
     output_format: neo4j
+    edge_merging_attributes:
+      - taxon
     subgraphs:
       - graph_id: Baseline
     sources:
@@ -97,6 +101,8 @@ graphs:
     graph_description: 'The Comparative Toxicogenomics Database (CTD) is an open-source database that provides manually curated information about chemical-gene/protein, chemical-disease, and gene/protein-disease relationships, with additional support for the curated relationships provided by function and pathway data.'
     graph_url: http://ctdbase.org/about/
     output_format: neo4j
+    edge_merging_attributes:
+      - taxon
     sources:
       - source_id: CTD
       - source_id: OntologicalHierarchy
@@ -298,4 +304,3 @@ graphs:
       - source_id: ViralProteome
       - source_id: OntologicalHierarchy
         merge_strategy: connected_edge_subset
-
