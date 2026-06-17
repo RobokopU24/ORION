@@ -47,7 +47,7 @@ class NormalizationScheme:
     strict: bool = True
     conflation: bool = False
     include_description: bool = True
-    include_taxa: bool = False
+    include_taxa: bool = True
 
     def __post_init__(self):
         if self.node_normalization_version in (None, 'latest'):
@@ -101,7 +101,7 @@ class NodeNormalizer:
                  strict_normalization: bool = True,
                  conflate_node_types: bool = False,
                  include_description: bool = False,
-                 include_taxa: bool = False):
+                 include_taxa: bool = True):
         """
         constructor
         :param node_normalization_version - not implemented yet
@@ -280,7 +280,7 @@ class NodeNormalizer:
                 if current_node_normalization.get('descriptions'):
                     current_node[DESCRIPTION] = current_node_normalization['descriptions'][0]
                 if current_node_normalization.get('taxa'):
-                    current_node[TAXON] = current_node_id_section['taxa'][0]
+                    current_node[TAXON] = current_node_normalization['taxa'][0]
 
                 self.node_normalization_lookup[current_node_id] = [normalized_id]
             else:
