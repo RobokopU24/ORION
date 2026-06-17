@@ -103,6 +103,10 @@ spec:
                   value: {{ .Values.pharos.port | quote }}
                 - name: PHAROS_DB_NAME
                   value: {{ .Values.pharos.db_name | quote }}
+                {{- if .Values.orion.slackWebhookURL }}
+                - name: ORION_SLACK_WEBHOOK_URL
+                  value: {{ .Values.orion.slackWebhookURL | quote }}
+                {{- end }}
               resources:
                 {{- toYaml .Values.orion.resources | nindent 16 }}
           volumes:

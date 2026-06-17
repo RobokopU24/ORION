@@ -1,0 +1,73 @@
+# Personal values for hinashah on Sterling cluster
+# Deploy with:
+#   helm install orion-hinashah ./helm/orion -n hinashah -f helm/orion/hinashah-values.yaml
+
+orion:
+  schedule: "50 * * * *"
+  graphID: "all"
+  graphSpec: "example-graph-spec.yaml"
+  useLocalGraphSpec: true
+  buildMode: false
+
+  image:
+    #repository: ghcr.io/robokopu24/orion
+    repository: docker.io/hsrenci/orion
+    pullPolicy: Always
+    tag: test
+
+  # Using PVCs (no NFS) — the chart will create ds-sources-pvc and ds-graphs-pvc
+  graphsVolume:
+    use_nfs: false
+    size: 32Gi
+
+  sourcesVolume:
+    use_nfs: false
+    size: 32Gi
+
+  extraVolume:
+    use_extra_volume: false
+
+  neo4jScratchVolume:
+    size: 5Gi
+
+  resources:
+    limits:
+      cpu: "1"
+      memory: 2Gi
+      ephemeral-storage: 200Mi
+    requests:
+      cpu: "500m"
+      memory: 2Gi
+      ephemeral-storage: 200Mi
+
+  securityContext:
+    runAsUser: 30000
+    runAsGroup: 1000
+
+  normalization:
+    nodeNormEndpoint: https://nodenormalization-sri.renci.org/
+    edgeNormEndpoint: https://bl-lookup-sri.renci.org/
+    nameResolverEndpoint: https://name-resolution-sri.renci.org/
+    sapbertEndpoint: https://sap-qdrant.apps.renci.org/
+    bl_version: 4.2.1
+
+  outputURL: ""  # optional — URL where graphs will be published
+  slackWebhookURL: ""  # set at deploy time via --set orion.slackWebhookURL=...
+
+  bagel:
+    username: ""  # <-- fill in if you have Bagel credentials, otherwise leave empty
+    password: ""  # <-- fill in if you have Bagel credentials, otherwise leave empty
+
+pharos:
+  host: ""
+  port: 3306
+  user: ""
+  password: ""
+  db_name: PHAROS
+
+drugcentral:
+  host: ""
+  port: 5432
+  user: ""
+  password: ""
+  db_name: drugcentral
