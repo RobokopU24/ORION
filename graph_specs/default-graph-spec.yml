@@ -35,6 +35,7 @@ graphs:
       - source_id: HGNC
       - source_id: HMDB
       - source_id: HumanGOA
+      - source_id: MouseGOA
       - source_id: IntAct
       - source_id: KinAce
       - source_id: LINCS
@@ -212,6 +213,16 @@ graphs:
       - source_id: OntologicalHierarchy
         merge_strategy: connected_edge_subset
 
+  - graph_id: MouseGOA_Automat
+    graph_name: Mouse GOA
+    graph_description: 'The Gene Ontology (GO) Consortium’s mouse annotation resource provides open access to curated assignment of GO terms to mouse gene products.'
+    graph_url: https://geneontology.org/
+    output_format: neo4j
+    sources:
+      - source_id: MouseGOA
+      - source_id: OntologicalHierarchy
+        merge_strategy: connected_edge_subset
+
   - graph_id: IntAct_Automat
     graph_name: IntAct Molecular Interaction Database
     graph_description: 'The IntAct Molecular Interaction Database provides open access to molecular interactions data derived from literature curation or direct user submission.'
@@ -298,4 +309,3 @@ graphs:
       - source_id: ViralProteome
       - source_id: OntologicalHierarchy
         merge_strategy: connected_edge_subset
-
