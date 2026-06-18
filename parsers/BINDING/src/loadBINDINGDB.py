@@ -1,9 +1,11 @@
+import csv
 import os
 import enum
 import math
 import json
 import requests
 
+from io import TextIOWrapper
 from zipfile import ZipFile
 from requests.adapters import HTTPAdapter, Retry
 
@@ -32,11 +34,14 @@ class BD_EDGEUMAN(enum.IntEnum):
 def negative_log(concentration_nm): ### This function converts nanomolar concentrations into log-scale units (pKi/pKd/pIC50/pEC50). ###
     return -(math.log10(concentration_nm*(10**-9)))
 
-def generate_zipfile_rows(zip_file_path, file_inside_zip, delimiter='\\t'):
+def generate_zipfile_rows(zip_file_path, file_inside_zip, delimiter='\t'):
         with ZipFile(zip_file_path, 'r') as zip_file:
-            with zip_file.open(file_inside_zip, 'r') as file:
-                for line in file:
-                    yield str(line).split(delimiter)
+            with zip_file.open(file_inside_zip, 'r') as raw_file:
+                text_file = TextIOWrapper(raw_file, encoding='utf-8', newline='')
+                reader = csv.reader(text_file, delimiter=delimiter)
+                for row in reader:
+                    if row:
+                        yield row
 
 
 ##############
@@ -138,6 +143,8 @@ class BINDINGDBLoader(SourceDataLoader):
                     break
             if n%100000 == 0:
                 self.logger.debug(f'processed {n} rows so far...')
+            if len(row) <= BD_EDGEUMAN.UNIPROT_TARGET_CHAIN.value:
+                continue
             ligand = row[BD_EDGEUMAN.PUBCHEM_CID.value]
             protein = row[BD_EDGEUMAN.UNIPROT_TARGET_CHAIN.value]
             if (ligand == '') or (protein == ''): # Check if Pubchem or UniProt ID is missing.

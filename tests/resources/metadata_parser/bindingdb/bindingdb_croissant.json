@@ -1,0 +1,161 @@
+{
+  "@context": {
+    "@language": "en",
+    "@vocab": "https://schema.org/",
+    "sc": "https://schema.org/",
+    "cr": "http://mlcommons.org/croissant/"
+  },
+  "@type": "https://schema.org/Dataset",
+  "@id": "bindingdb",
+  "name": "BindingDB",
+  "version": "202603",
+  "dateModified": "2026-03-01",
+  "distribution": [
+    {
+      "@type": "http://mlcommons.org/croissant/FileObject",
+      "@id": "bindingdb/all_tsv_zip",
+      "name": "all_tsv_zip",
+      "contentUrl": "https://example.org/BindingDB_All_202603_tsv.zip",
+      "encodingFormat": "application/zip",
+      "version": "202603"
+    },
+    {
+      "@type": "http://mlcommons.org/croissant/FileSet",
+      "@id": "bindingdb/all_tsv_fileset",
+      "name": "all_tsv_fileset",
+      "containedIn": [
+        {
+          "@id": "bindingdb/all_tsv_zip"
+        }
+      ],
+      "encodingFormat": "text/tab-separated-values",
+      "includes": "*.tsv"
+    }
+  ],
+  "recordSet": [
+    {
+      "@type": "http://mlcommons.org/croissant/RecordSet",
+      "@id": "bindingdb/binding_data",
+      "name": "binding_data",
+      "field": [
+        {
+          "@type": "http://mlcommons.org/croissant/Field",
+          "@id": "bindingdb/binding_data/pubchem_cid",
+          "name": "pubchem_cid",
+          "source": {
+            "fileSet": {
+              "@id": "bindingdb/all_tsv_fileset"
+            },
+            "extract": {
+              "column": "PubChem CID"
+            }
+          }
+        },
+        {
+          "@type": "http://mlcommons.org/croissant/Field",
+          "@id": "bindingdb/binding_data/chain1_swissprot_primary_id",
+          "name": "chain1_swissprot_primary_id",
+          "source": {
+            "fileSet": {
+              "@id": "bindingdb/all_tsv_fileset"
+            },
+            "extract": {
+              "column": "UniProt (SwissProt) Primary ID of Target Chain 1"
+            }
+          }
+        },
+        {
+          "@type": "http://mlcommons.org/croissant/Field",
+          "@id": "bindingdb/binding_data/ki_nm",
+          "name": "ki_nm",
+          "source": {
+            "fileSet": {
+              "@id": "bindingdb/all_tsv_fileset"
+            },
+            "extract": {
+              "column": "Ki (nM)"
+            }
+          }
+        },
+        {
+          "@type": "http://mlcommons.org/croissant/Field",
+          "@id": "bindingdb/binding_data/ic50_nm",
+          "name": "ic50_nm",
+          "source": {
+            "fileSet": {
+              "@id": "bindingdb/all_tsv_fileset"
+            },
+            "extract": {
+              "column": "IC50 (nM)"
+            }
+          }
+        },
+        {
+          "@type": "http://mlcommons.org/croissant/Field",
+          "@id": "bindingdb/binding_data/kd_nm",
+          "name": "kd_nm",
+          "source": {
+            "fileSet": {
+              "@id": "bindingdb/all_tsv_fileset"
+            },
+            "extract": {
+              "column": "Kd (nM)"
+            }
+          }
+        },
+        {
+          "@type": "http://mlcommons.org/croissant/Field",
+          "@id": "bindingdb/binding_data/ec50_nm",
+          "name": "ec50_nm",
+          "source": {
+            "fileSet": {
+              "@id": "bindingdb/all_tsv_fileset"
+            },
+            "extract": {
+              "column": "EC50 (nM)"
+            }
+          }
+        },
+        {
+          "@type": "http://mlcommons.org/croissant/Field",
+          "@id": "bindingdb/binding_data/pmid",
+          "name": "pmid",
+          "source": {
+            "fileSet": {
+              "@id": "bindingdb/all_tsv_fileset"
+            },
+            "extract": {
+              "column": "PMID"
+            }
+          }
+        },
+        {
+          "@type": "http://mlcommons.org/croissant/Field",
+          "@id": "bindingdb/binding_data/pubchem_aid",
+          "name": "pubchem_aid",
+          "source": {
+            "fileSet": {
+              "@id": "bindingdb/all_tsv_fileset"
+            },
+            "extract": {
+              "column": "PubChem AID"
+            }
+          }
+        },
+        {
+          "@type": "http://mlcommons.org/croissant/Field",
+          "@id": "bindingdb/binding_data/patent_number",
+          "name": "patent_number",
+          "source": {
+            "fileSet": {
+              "@id": "bindingdb/all_tsv_fileset"
+            },
+            "extract": {
+              "column": "Patent Number"
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

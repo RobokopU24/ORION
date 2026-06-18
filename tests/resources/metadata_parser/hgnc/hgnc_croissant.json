@@ -1,0 +1,135 @@
+{
+  "@context": {
+    "@language": "en",
+    "@vocab": "https://schema.org/",
+    "sc": "https://schema.org/",
+    "cr": "http://mlcommons.org/croissant/"
+  },
+  "@type": "https://schema.org/Dataset",
+  "@id": "hgnc",
+  "name": "HGNC",
+  "version": "2026-03-06",
+  "dateModified": "2026-03-06",
+  "distribution": [
+    {
+      "@type": "http://mlcommons.org/croissant/FileObject",
+      "@id": "hgnc/hgnc_complete_set_tsv",
+      "name": "hgnc_complete_set_tsv",
+      "contentUrl": "https://example.org/hgnc_complete_set.txt",
+      "encodingFormat": "text/tab-separated-values"
+    }
+  ],
+  "recordSet": [
+    {
+      "@type": "http://mlcommons.org/croissant/RecordSet",
+      "@id": "hgnc/hgnc_complete_set",
+      "name": "hgnc_complete_set",
+      "field": [
+        {
+          "@type": "http://mlcommons.org/croissant/Field",
+          "@id": "hgnc/hgnc_complete_set/hgnc_id",
+          "name": "hgnc_id",
+          "source": {
+            "fileObject": {
+              "@id": "hgnc/hgnc_complete_set_tsv"
+            },
+            "extract": {
+              "column": "hgnc_id"
+            }
+          }
+        },
+        {
+          "@type": "http://mlcommons.org/croissant/Field",
+          "@id": "hgnc/hgnc_complete_set/symbol",
+          "name": "symbol",
+          "source": {
+            "fileObject": {
+              "@id": "hgnc/hgnc_complete_set_tsv"
+            },
+            "extract": {
+              "column": "symbol"
+            }
+          }
+        },
+        {
+          "@type": "http://mlcommons.org/croissant/Field",
+          "@id": "hgnc/hgnc_complete_set/name",
+          "name": "name",
+          "source": {
+            "fileObject": {
+              "@id": "hgnc/hgnc_complete_set_tsv"
+            },
+            "extract": {
+              "column": "name"
+            }
+          }
+        },
+        {
+          "@type": "http://mlcommons.org/croissant/Field",
+          "@id": "hgnc/hgnc_complete_set/locus_group",
+          "name": "locus_group",
+          "source": {
+            "fileObject": {
+              "@id": "hgnc/hgnc_complete_set_tsv"
+            },
+            "extract": {
+              "column": "locus_group"
+            }
+          }
+        },
+        {
+          "@type": "http://mlcommons.org/croissant/Field",
+          "@id": "hgnc/hgnc_complete_set/location",
+          "name": "location",
+          "source": {
+            "fileObject": {
+              "@id": "hgnc/hgnc_complete_set_tsv"
+            },
+            "extract": {
+              "column": "location"
+            }
+          }
+        },
+        {
+          "@type": "http://mlcommons.org/croissant/Field",
+          "@id": "hgnc/hgnc_complete_set/gene_group_id",
+          "name": "gene_group_id",
+          "source": {
+            "fileObject": {
+              "@id": "hgnc/hgnc_complete_set_tsv"
+            },
+            "extract": {
+              "column": "gene_group_id"
+            }
+          }
+        },
+        {
+          "@type": "http://mlcommons.org/croissant/Field",
+          "@id": "hgnc/hgnc_complete_set/gene_group",
+          "name": "gene_group",
+          "source": {
+            "fileObject": {
+              "@id": "hgnc/hgnc_complete_set_tsv"
+            },
+            "extract": {
+              "column": "gene_group"
+            }
+          }
+        },
+        {
+          "@type": "http://mlcommons.org/croissant/Field",
+          "@id": "hgnc/hgnc_complete_set/pubmed_id",
+          "name": "pubmed_id",
+          "source": {
+            "fileObject": {
+              "@id": "hgnc/hgnc_complete_set_tsv"
+            },
+            "extract": {
+              "column": "pubmed_id"
+            }
+          }
+        }
+      ]
+    }
+  ]
+}
