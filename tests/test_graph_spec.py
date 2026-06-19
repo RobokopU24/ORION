@@ -74,6 +74,28 @@ def test_valid_graph_spec_config(test_graph_spec_dir, test_graph_output_dir):
         assert source.source_version is None
 
 
+def test_default_graph_spec_defines_robomouse(monkeypatch, test_graph_output_dir):
+    default_specs_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'graph_specs')
+    set_config(ORION_GRAPH_SPEC='default-graph-spec.yml', ORION_GRAPH_SPEC_URL='')
+    monkeypatch.setattr('orion.ingest_pipeline.IngestPipeline.get_latest_edge_normalization_version',
+                        lambda self: 'test-edge-normalization')
+
+    graph_builder = GraphBuilder(graph_specs_dir=default_specs_dir,
+                                 graph_output_dir=test_graph_output_dir)
+
+    baseline_sources = [source.id for source in graph_builder.graph_specs['Baseline'].sources]
+    assert 'HumanGOA' in baseline_sources
+    assert 'MouseGOA' not in baseline_sources
+
+    robomouse_graph = graph_builder.graph_specs['RoboMouseKG']
+    assert [subgraph.id for subgraph in robomouse_graph.subgraphs] == ['RobokopKG']
+    assert [source.id for source in robomouse_graph.sources] == [
+        'MouseGOA',
+        'GenomeAllianceOrthologs',
+        'OntologicalHierarchy',
+    ]
+
+
 # graph spec sources are able to return versions once source_version(s) are set
 def test_graph_spec_lazy_versions(test_graph_spec_dir, test_graph_output_dir):
     reset_graph_spec_config()

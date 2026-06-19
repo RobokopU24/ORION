@@ -5,6 +5,7 @@ from orion.biolink_constants import PRIMARY_KNOWLEDGE_SOURCE, NODE_TYPES, SEQUEN
 from orion.utils import GetData
 from datetime import date
 import csv
+from typing import Callable
 
 
 # Constants for data processing
