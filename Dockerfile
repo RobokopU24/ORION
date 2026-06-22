@@ -40,4 +40,4 @@ RUN cd /ORION && uv pip install --system ".[robokop]"
 
 RUN chmod -R 777 /ORION
 
-ENV PYTHONPATH="$PYTHONPATH:/ORION"
+ENV PYTHONPATH="/ORION"
