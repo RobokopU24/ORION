@@ -230,7 +230,7 @@ spec:
             volumeClaimTemplate:
               spec:
                 accessModes: [ "ReadWriteOnce" ]
-                storageClassName:
+                storageClassName: {{ .Values.orion.neo4jScratchVolume.storageClassName }}
                 resources:
                   requests:
                     storage: {{ .Values.orion.neo4jScratchVolume.size }}
