@@ -22,16 +22,17 @@ spec:
             - name: orion-build
               image: {{ .Values.orion.image.repository }}:{{ .Values.orion.image.tag }}
               imagePullPolicy: {{ .Values.orion.image.pullPolicy }}
+              {{- if .Values.orion.logsPath }}
+              args: ["sh", "-c", "mkdir -p {{ .Values.orion.logsPath }} && orion-build {{ .Values.orion.graphID }}"]
+              {{- else }}
               args: ["orion-build", {{ .Values.orion.graphID | quote }}]
+              {{- end }}
               volumeMounts:
                 - name: ds-sources-volume
                   mountPath: /ORION_storage
                   {{- if .Values.orion.sourcesVolume.nfs_mount_subpath }}
                   subPath: {{ .Values.orion.sourcesVolume.nfs_mount_subpath }}
                   {{- end }}
-                - name: ds-sources-volume
-                  mountPath: /ORION_logs
-                  subPath: {{ .Values.orion.sourcesVolume.nfs_mount_subpath }}logs
                 - name: ds-graphs-volume
                   mountPath: /ORION_graphs
                   {{- if .Values.orion.graphsVolume.nfs_mount_subpath }}
@@ -61,8 +62,10 @@ spec:
                 - name: ORION_GRAPH_SPEC_URL
                   value: {{ .Values.orion.graphSpec }}
                 {{- end }}
+                {{- if .Values.orion.logsPath }}
                 - name: ORION_LOGS
-                  value: /ORION_logs
+                  value: {{ .Values.orion.logsPath }}
+                {{- end }}
                 - name: ORION_OUTPUT_URL
                   value: {{ .Values.orion.outputURL }}
                 - name: BL_VERSION

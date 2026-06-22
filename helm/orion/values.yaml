@@ -51,6 +51,7 @@ orion:
   normalization:
     nodeNormEndpoint:
     edgeNormEndpoint:
+  logsPath:  # set to write build logs/reports to a file (must be a writable path inside the container)
   slackWebhookURL:  # set to post build summaries to Slack after each run
   bagel:
     username: fake-username-do-not-commit-a-real-one!!!

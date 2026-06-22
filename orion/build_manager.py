@@ -55,7 +55,12 @@ class GraphBuilder:
             'built': [],
             'already_built': [],
             'failed': [],
-            'skipped': []
+            'skipped': [],
+            'sources': {
+                'built': [],
+                'already_built': [],
+                'failed': []
+            }
         }
 
     def build_graph(self, graph_spec: GraphSpec):
@@ -371,8 +376,15 @@ class GraphBuilder:
                 if not pipeline_sucess:
                     logger.info(f'While attempting to build {graph_spec.graph_id}, '
                                      f'data source pipeline failed for dependency {source_id}...')
+                    self.outcomes['sources']['failed'].append({'source_id': source_id,
+                                                              'version': data_source.source_version})
                     return False
+                self.outcomes['sources']['built'].append({'source_id': source_id,
+                                                         'version': data_source.source_version})
                 release_metadata = source_metadata.get_release_info(release_version)
+            else:
+                self.outcomes['sources']['already_built'].append({'source_id': source_id,
+                                                                  'version': data_source.source_version})
 
             data_source.release_info = release_metadata
             data_source.file_paths = self.ingest_pipeline.get_final_file_paths(source_id,
