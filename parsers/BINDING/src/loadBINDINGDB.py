@@ -56,7 +56,7 @@ class BINDINGDBLoader(SourceDataLoader):
 
     source_id: str = 'BINDING-DB'
     provenance_id: str = 'infores:bindingdb'
-    parsing_version = '1.7'
+    parsing_version = '1.8'
 
     def __init__(self, test_mode: bool = False, source_data_dir: str = None):
         """
