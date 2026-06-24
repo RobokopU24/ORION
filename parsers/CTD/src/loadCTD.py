@@ -205,7 +205,7 @@ class CTDLoader(SourceDataLoader):
                 self.output_file_writer.write_kgx_node(chem_node)
 
                 # save the gene node
-                gene_node = kgxnode(gene_id, name=r['gene_label'], nodeprops={NCBITAXON: r['taxonID'].split(':')[1]})
+                gene_node = kgxnode(gene_id, name=r['gene_label'])
                 self.output_file_writer.write_kgx_node(gene_node)
 
                 # get the right source/object depending on the predicate direction
@@ -492,7 +492,7 @@ class CTDLoader(SourceDataLoader):
         # check for invalid data
         if good_row:
             # get the standard properties
-            props: dict = {DESCRIPTION: r['interaction'], TAXON: r['taxonID'].split(':')[1]}
+            props: dict = {DESCRIPTION: r['interaction'], TAXON: f"{NCBITAXON}:{r['taxonID'].split(':')[1]}"}
 
             # get the pubmed ids into a list
             pmids: list = r['PMID'].split('|')

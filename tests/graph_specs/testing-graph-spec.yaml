@@ -5,6 +5,8 @@ graphs:
     graph_description: 'This is a small graph spec that can be used for testing.'
     graph_url: ''
     output_format:
+    edge_merging_attributes:
+      - taxon
     sources:
       - source_id: CTD
       - source_id: HGNC
@@ -14,6 +16,8 @@ graphs:
     graph_description: 'This is a graph spec that can be used for testing with a subgraph.'
     graph_url: ''
     output_format:
+    edge_merging_attributes:
+      - taxon
     sources:
       - source_id: GtoPdb
     subgraphs:
@@ -34,6 +38,8 @@ graphs:
     graph_description: 'This is a graph spec that can be used for testing an invalid subgraph version.'
     graph_url: ''
     output_format:
+    edge_merging_attributes:
+      - taxon
     sources:
       - source_id: GtoPdb
     subgraphs:

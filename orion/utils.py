@@ -245,6 +245,51 @@ class GetData:
         # return the number of bytes read
         return byte_counter
 
+    def pull_via_http_session_gate(self,
+                                   url: str,
+                                   data_dir: str,
+                                   gate_url: str,
+                                   gate_params: dict = None,
+                                   expected_content_type: str = None,
+                                   saved_file_name: str = None,
+                                   chunk_size: int = 1024 * 1024) -> int:
+        """
+        Gets a file from an HTTP stream after first visiting a session-gating URL.
+
+        Some source sites set cookies or other session state from a JSP/download gate before allowing
+        direct file access. This method keeps that pattern in shared retrieval code instead of in parsers.
+        """
+        data_file: str = saved_file_name if saved_file_name else url.split('/')[-1]
+        output_path = os.path.join(data_dir, data_file)
+        if os.path.exists(output_path):
+            return 1
+
+        logger.debug(f'Retrieving gated HTTP file {url} -> {data_dir}')
+        try:
+            os.makedirs(data_dir, exist_ok=True)
+            byte_counter: int = 0
+            session = requests.Session()
+            session.get(gate_url, params=gate_params, timeout=30).raise_for_status()
+            with session.get(url, stream=True, timeout=60) as response:
+                response.raise_for_status()
+                if expected_content_type and response.headers.get('Content-Type') != expected_content_type:
+                    raise GetDataPullError(
+                        f'Unexpected content type retrieving {url}: {response.headers.get("Content-Type")}'
+                    )
+
+                partial_output_path = f'{output_path}.part'
+                with open(partial_output_path, 'wb') as output_file:
+                    for chunk in response.iter_content(chunk_size=chunk_size):
+                        if chunk:
+                            byte_counter += len(chunk)
+                            output_file.write(chunk)
+                os.replace(partial_output_path, output_path)
+                return byte_counter
+        except Exception as e:
+            error_message = f'GetDataPullError pull_via_http_session_gate() failed. URL: {url}. Exception: {e}'
+            logger.error(error_message)
+            raise GetDataPullError(error_message)
+
     def get_swiss_prot_id_set(self, data_dir: str, debug_mode=False) -> set:
         """
         gets/parses the swiss-prot listing file and returns a set of uniprot kb ids from

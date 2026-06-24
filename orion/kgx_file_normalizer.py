@@ -66,7 +66,9 @@ class KGXFileNormalizer:
             self.node_normalizer = NodeNormalizer(node_normalization_version=self.normalization_scheme.node_normalization_version,
                                                   strict_normalization=self.normalization_scheme.strict,
                                                   conflate_node_types=self.normalization_scheme.conflation,
-                                                  biolink_version=self.normalization_scheme.edge_normalization_version)
+                                                  biolink_version=self.normalization_scheme.edge_normalization_version,
+                                                  include_description=self.normalization_scheme.include_description,
+                                                  include_taxa=self.normalization_scheme.include_taxa)
             # when predicates are pre-normalized we never hit the edge normalization (bl_lookup) service
             if self.predicates_pre_normalized:
                 self.edge_normalizer = None
