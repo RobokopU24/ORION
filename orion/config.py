@@ -40,7 +40,7 @@ class Config(BaseSettings):
     ORION_USE_GRAPH_REGISTRY: bool = True
     ORION_GRAPH_REGISTRY_URL: str = "https://robokop-graph-registry.apps.renci.org"
 
-    BL_VERSION: str = "v4.3.7"
+    BL_VERSION: str = "v4.4.2"
 
     EDGE_NORMALIZATION_URL: str = "https://bl-lookup-sri.renci.org"
     NODE_NORMALIZATION_URL: str = "https://nodenormalization-sri.renci.org"
