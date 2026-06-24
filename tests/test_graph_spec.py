@@ -4,6 +4,7 @@ import requests.exceptions
 
 from unittest.mock import MagicMock
 from orion.graph_pipeline import GraphBuilder, GraphSpecError
+from orion.ingest_pipeline import IngestPipeline
 
 
 @pytest.fixture(scope='module')
@@ -19,13 +20,21 @@ def test_graph_output_dir(tmp_path):
     return str(tmp_path)
 
 
-def get_ingest_pipeline_mock():
-    s_d_mock = MagicMock()
-    s_d_mock.get_latest_source_version = MagicMock()
-    s_d_mock.get_latest_source_version.side_effect = lambda arg: arg + '_v1'
-    s_d_mock.get_latest_parsing_version = MagicMock()
-    s_d_mock.get_latest_parsing_version.side_effect = lambda arg: arg + '_p1'
-    return s_d_mock
+def get_ingest_pipeline_mock(storage_dir=None):
+    """A real IngestPipeline with every heavy stage stubbed out — so the source-build
+    path helpers work, but no network/parsing/normalization/source-build work is
+    performed. Source builds always "fail to produce" so callers that try to build a
+    source bail out fast (these tests focus on spec/version resolution, not ingest).
+    """
+    pipeline = IngestPipeline(storage_dir=str(storage_dir)) if storage_dir is not None else IngestPipeline()
+    pipeline.get_latest_source_version = MagicMock(side_effect=lambda arg: arg + '_v1')
+    pipeline.get_latest_parsing_version = MagicMock(side_effect=lambda arg: arg + '_p1')
+    mock_source_metadata = MagicMock()
+    mock_source_metadata.get_build_info.return_value = {'parsing_info': {'note': 'fixture'}}
+    pipeline.get_source_metadata = MagicMock(return_value=mock_source_metadata)
+    pipeline.get_final_file_paths = MagicMock(return_value=None)
+    pipeline.run_pipeline = MagicMock(return_value=True)
+    return pipeline
 
 
 def test_missing_graph_specs_dir(test_graph_output_dir, tmp_path):
@@ -114,10 +123,12 @@ def test_graph_spec_invalid_subgraph(test_graph_spec_dir, test_graph_output_dir)
 
 # make sure a graph spec with an invalid subgraph release_version (which is otherwise valid)
 # fails to build
-def test_graph_spec_invalid_subgraph_version(test_graph_spec_dir, test_graph_output_dir):
+def test_graph_spec_invalid_subgraph_version(test_graph_spec_dir, test_graph_output_dir, tmp_path):
+    storage_dir = tmp_path / 'storage'
+    storage_dir.mkdir()
     graph_builder = GraphBuilder(graph_specs_dir=test_graph_spec_dir,
-                                 graph_output_dir=test_graph_output_dir)
-    graph_builder.ingest_pipeline = get_ingest_pipeline_mock()
+                                 graph_output_dir=test_graph_output_dir,
+                                 ingest_pipeline=get_ingest_pipeline_mock(storage_dir=storage_dir))
     testing_graph_spec = graph_builder.graph_specs.get('Testing_Graph_4', None)
     graph_builder.determine_versions(testing_graph_spec)
     assert graph_builder.build_graph(testing_graph_spec) is False

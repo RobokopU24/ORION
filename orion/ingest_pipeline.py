@@ -5,12 +5,21 @@ import datetime
 import time
 from collections import defaultdict
 
-from orion.data_sources import SourceDataLoaderClassFactory, RESOURCE_HOGS, get_available_data_sources
+from orion.data_sources import (
+    SourceDataLoaderClassFactory,
+    RESOURCE_HOGS,
+    get_available_data_sources,
+    get_data_source_metadata_path,
+)
 from orion.exceptions import DataVersionError
 from orion.utils import GetDataPullError
 from orion.logging import get_orion_logger
 from orion.config import config
+from orion.kgx_bundle import KGXBundle
+from orion.kgx_file_merger import KGXFileMerger
 from orion.kgx_file_normalizer import KGXFileNormalizer
+from orion.kgx_metadata import KGXGraphMetadata, KGXKnowledgeSource, KGXKnowledgeGraphSource
+from orion.kgxmodel import GraphFileSource, GraphSpec
 from orion.kgx_validation import validate_graph
 from orion.normalization import NormalizationScheme, NodeNormalizer, EdgeNormalizer, NormalizationFailedError
 from orion.metadata import SourceMetadata
@@ -66,13 +75,13 @@ class IngestPipeline:
         if source_version == 'latest':
             source_version = self.get_latest_source_version(source_id)
         if not self.run_fetch_stage(source_id, source_version):
-            logger.warning(f"Pipeline for {source_id} aborted during fetch stage.")
+            logger.error(f"Pipeline for {source_id} aborted during fetch stage.")
             return False
 
         if parsing_version == 'latest':
             parsing_version = self.get_latest_parsing_version(source_id)
         if not self.run_parsing_stage(source_id, source_version, parsing_version=parsing_version):
-            logger.warning(f"Pipeline for {source_id} aborted during parsing stage.")
+            logger.error(f"Pipeline for {source_id} aborted during parsing stage.")
             return False
 
         if not normalization_scheme:
@@ -83,7 +92,7 @@ class IngestPipeline:
                                             source_version,
                                             parsing_version=parsing_version,
                                             normalization_scheme=normalization_scheme):
-            logger.warning(f"Pipeline for {source_id} aborted during normalization stage.")
+            logger.error(f"Pipeline for {source_id} aborted during normalization stage.")
             return False
 
         if supplementation_version == 'latest':
@@ -93,7 +102,7 @@ class IngestPipeline:
                                               parsing_version=parsing_version,
                                               supplementation_version=supplementation_version,
                                               normalization_scheme=normalization_scheme):
-            logger.warning(f"Pipeline for {source_id} supplementation stage not successful.")
+            logger.error(f"Pipeline for {source_id} supplementation stage not successful.")
             return False
 
         build_version = self.run_qc_and_metadata_stage(source_id,
@@ -104,8 +113,16 @@ class IngestPipeline:
         if build_version is None:
             logger.warning(f"Pipeline for {source_id} failed quality control...")
             return False
-        else:
-            return build_version
+
+        if not self.finalize_source_build(source_id,
+                                          source_version,
+                                          parsing_version=parsing_version,
+                                          normalization_scheme=normalization_scheme,
+                                          supplementation_version=supplementation_version,
+                                          build_version=build_version):
+            logger.error(f"Pipeline for {source_id} failed to generate a final source build.")
+            return False
+        return build_version
 
     def run_fetch_stage(self, source_id: str, source_version: str):
         if not source_version:
@@ -666,8 +683,148 @@ class IngestPipeline:
                                                                 supplementation_version))
         return file_paths
 
+    # Per-source-version working data lives under a 'data' subdirectory,
+    # keeping it separate from the finalized 'builds'.
+    # {storage}/{source_id}/data/{source_version}/
     def get_source_version_path(self, source_id: str, source_version: str):
-        return os.path.join(self.storage_dir, source_id, source_version)
+        return os.path.join(self.storage_dir, source_id, 'data', source_version)
+
+    # Source builds are the finalized single-source graph products of the ingest pipeline. A source
+    # build is itself a single-source KGX graph, so its directory is a standard KGXBundle layout
+    # (nodes.jsonl, edges.jsonl, graph-metadata.json) identical to a graph build's.
+    # Layout: {storage}/{source_id}/builds/{build_version}/
+    def get_source_builds_directory(self, source_id: str) -> str:
+        return os.path.join(self.storage_dir, source_id, 'builds')
+
+    def get_source_build_directory(self, source_id: str, build_version: str) -> str:
+        return os.path.join(self.get_source_builds_directory(source_id), build_version)
+
+    def get_source_build_bundle(self, source_id: str, build_version: str) -> KGXBundle:
+        return KGXBundle(self.get_source_build_directory(source_id, build_version))
+
+    def has_source_build(self, source_id: str, build_version: str) -> bool:
+        """True if a complete source build exists for (source_id, build_version)."""
+        bundle = self.get_source_build_bundle(source_id, build_version)
+        return bundle.has_nodes_and_edges() and bundle.has_graph_metadata()
+
+    @staticmethod
+    def get_source_build_output_url(source_id: str, build_version: str) -> str:
+        return f'{config.ORION_OUTPUT_URL}/sources/{source_id}/builds/{build_version}/'
+
+    # Merge within-source nodes & edges and generate KGXGraphMetadata for the output.
+    # These are the finalized KGX files published on the graph registry used to build graphs.
+    def finalize_source_build(self,
+                              source_id: str,
+                              source_version: str,
+                              parsing_version: str,
+                              normalization_scheme: NormalizationScheme,
+                              supplementation_version: str,
+                              build_version: str) -> bool:
+
+        if self.has_source_build(source_id, build_version):
+            # this source build already exists
+            return True
+
+        parser_file_paths = self.get_final_file_paths(source_id,
+                                                      source_version,
+                                                      parsing_version,
+                                                      normalization_scheme.get_composite_normalization_version(),
+                                                      supplementation_version)
+        if not parser_file_paths:
+            logger.error(f'Cannot finalize source build for {source_id} build_version {build_version}: '
+                         f'parser output files not found.')
+            return False
+
+        source_build_bundle = self.get_source_build_bundle(source_id, build_version)
+        os.makedirs(source_build_bundle.graph_dir, exist_ok=True)
+
+        graph_spec = GraphSpec(
+            graph_id=f'{source_id}_{build_version}',
+            graph_name=source_id,
+            graph_description='',
+            graph_url='',
+            sources=[],
+            subgraphs=[],
+        )
+        graph_spec.resolved_sources = [GraphFileSource(id=source_id,
+                                                       build_version=build_version,
+                                                       file_paths=parser_file_paths)]
+
+        logger.info(f'Finalizing source build for {source_id} build_version {build_version}. Merging entities...')
+        source_merger = KGXFileMerger(graph_spec=graph_spec,
+                                      output_directory=source_build_bundle.graph_dir,
+                                      nodes_output_filename=KGXBundle.NODES_FILENAME,
+                                      edges_output_filename=KGXBundle.EDGES_FILENAME)
+        source_merger.merge()
+        merge_metadata = source_merger.get_merge_metadata()
+        if 'merge_error' in merge_metadata:
+            logger.error(f'Source build merge failed for {source_id}: {merge_metadata["merge_error"]}')
+            return False
+
+        source_build_bundle.compress_nodes_and_edges()
+
+        node_count = merge_metadata.get('final_node_count')
+        edge_count = merge_metadata.get('final_edge_count')
+        source_build_url = self.get_source_build_output_url(source_id, build_version)
+        build_time = datetime.datetime.now().isoformat(timespec='seconds')
+
+        # generate KGXGraphMetadata for the final KGX files
+        parser_metadata = self._load_parser_metadata(source_id)
+        source_name = parser_metadata.get('name', source_id)
+        graph_name = f'A ROBOKOP Knowledge Graph based on {source_name}'
+        knowledge_source = KGXKnowledgeSource.from_dict(parser_metadata)
+        knowledge_source.version = source_version
+        kg_source = KGXKnowledgeGraphSource(id=source_build_url,
+                                            name=graph_name,
+                                            build_version=build_version,
+                                            node_count=node_count,
+                                            edge_count=edge_count)
+        graph_metadata = KGXGraphMetadata(id=source_build_url,
+                                          name=graph_name,
+                                          url=source_build_url,
+                                          version=source_version,
+                                          build_version=build_version,
+                                          date_created=build_time,
+                                          date_modified=build_time,
+                                          biolink_version=normalization_scheme.edge_normalization_version,
+                                          babel_version=normalization_scheme.node_normalization_version,
+                                          kg_sources=[kg_source.to_dict()],
+                                          knowledge_sources=[knowledge_source],
+                                          distribution=[{
+                                              "@type": "DataDownload",
+                                              "encodingFormat": "biolink:KGX",
+                                              "contentUrl": source_build_url,
+                                          }])
+        with open(source_build_bundle.graph_metadata_path, 'w') as f:
+            f.write(graph_metadata.to_json())
+        return True
+
+    # Build a GraphFileSource for an existing on-disk source build.
+    # Returns None if the source build is incomplete or missing.
+    # The merge_strategy is the consuming graph's choice for how to
+    # merge this source in, so it's supplied by the caller.
+    def load_source_build_file_source(self,
+                                      source_id: str,
+                                      build_version: str,
+                                      merge_strategy: str = None) -> GraphFileSource | None:
+        bundle = self.get_source_build_bundle(source_id, build_version)
+        if not (bundle.has_nodes_and_edges() and bundle.has_graph_metadata()):
+            return None
+        return GraphFileSource(
+            id=source_id,
+            build_version=build_version,
+            file_paths=[bundle.nodes_path, bundle.edges_path],
+            merge_strategy=merge_strategy,
+            kgx_graph_metadata=bundle.load_graph_metadata(),
+        )
+
+    @staticmethod
+    def _load_parser_metadata(source_id: str) -> dict:
+        """Load a data source's parser-supplied source.json metadata (name, description, license, …)."""
+        orion_root = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..')
+        parser_metadata_path = os.path.join(orion_root, get_data_source_metadata_path(source_id))
+        with open(parser_metadata_path) as f:
+            return json.load(f)
 
     @property
     def storage_dir(self):

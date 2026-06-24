@@ -1,7 +1,7 @@
-"""Resolver chain that turns spec-layer source declarations (DataSource,
-SubGraphSource) into merge-layer GraphFileSource objects, by either downloading
-existing graphs from a remote registry, sourcing them from local storage,
-or building them from scratch.
+"""Resolver chain that turns GraphSpec source declarations (DataSource,
+SubGraphSource) into GraphFileSource objects ready to merge into graphs,
+by either sourcing them from local storage, downloading existing graphs
+from a remote registry, or building them from scratch.
 """
 
 import json
@@ -30,21 +30,6 @@ def _load_orion_graph_metadata(graph_id: str, graph_dir: str) -> GraphMetadata |
         return None
 
 
-def _kgx_metadata_matches_single_source(kgx_graph_metadata: dict,
-                                        source_id: str,
-                                        build_version: str) -> bool:
-    """True if the KGX metadata describes a single-source graph for source_id at build_version."""
-    kg_sources = kgx_graph_metadata.get('hasPart', [])
-    if len(kg_sources) != 1:
-        return False
-    kg_source = kg_sources[0]
-    kg_source_id = kg_source.get('@id', '')
-    parts = kg_source_id.rstrip('/').split('/')
-    if not (len(parts) >= 2 and source_id.lower() in parts[-2].lower()):
-        return False
-    return build_version == kg_source.get('orion:buildVersion')
-
-
 class GraphSourceResolver:
     """Abstract resolver. Caller is responsible for only passing specs the
     resolver handles — the chain in build_dependencies is curated by spec type.
@@ -55,17 +40,15 @@ class GraphSourceResolver:
 
 
 class LocalGraphResolver(GraphSourceResolver):
-    """Look in the local graphs directory for a built graph satisfying the spec.
+    """Look in local storage for a built artifact satisfying the spec.
 
     For SubGraphSource: matches {graphs_dir}/{graph_id}/{release_version}/.
-    For DataSource:    matches any {graphs_dir}/<graph_id>/<dir>/ where <graph_id>
-                       contains source_id (case-insensitive) and the directory's
-                       KGX graph-metadata.json describes a single-source graph for
-                       source_id at the spec's build_version.
+    For DataSource:    matches {storage}/{source_id}/builds/{build_version}/
     """
 
-    def __init__(self, graphs_dir: str):
+    def __init__(self, graphs_dir: str, ingest_pipeline):
         self.graphs_dir = graphs_dir
+        self.ingest_pipeline = ingest_pipeline
 
     def resolve(self, spec: GraphSource) -> GraphFileSource | None:
         if isinstance(spec, SubGraphSource):
@@ -73,25 +56,6 @@ class LocalGraphResolver(GraphSourceResolver):
         if isinstance(spec, DataSource):
             return self._resolve_data_source(spec)
         return None
-
-    @staticmethod
-    def _build_file_source(graph_dir: str,
-                           graph_id: str,
-                           release_version: str | None,
-                           build_version: str | None,
-                           merge_strategy: str | None) -> GraphFileSource | None:
-        bundle = KGXBundle(graph_dir)
-        if not bundle.has_nodes_and_edges():
-            return None
-        return GraphFileSource(
-            id=graph_id,
-            release_version=release_version,
-            build_version=build_version,
-            file_paths=[bundle.nodes_path, bundle.edges_path],
-            merge_strategy=merge_strategy,
-            kgx_graph_metadata=bundle.load_graph_metadata(),
-            orion_graph_metadata=_load_orion_graph_metadata(graph_id, graph_dir),
-        )
 
     def _resolve_subgraph(self, spec: SubGraphSource) -> GraphFileSource | None:
         if not spec.release_version:
@@ -102,66 +66,45 @@ class LocalGraphResolver(GraphSourceResolver):
         orion_metadata = _load_orion_graph_metadata(spec.id, graph_dir)
         if orion_metadata is None or orion_metadata.get_build_status() != Metadata.STABLE:
             return None
-        return self._build_file_source(
-            graph_dir=graph_dir,
-            graph_id=spec.id,
+        bundle = KGXBundle(graph_dir)
+        if not bundle.has_nodes_and_edges():
+            return None
+        return GraphFileSource(
+            id=spec.id,
             release_version=spec.release_version,
-            build_version=None,
+            file_paths=[bundle.nodes_path, bundle.edges_path],
             merge_strategy=spec.merge_strategy,
+            kgx_graph_metadata=bundle.load_graph_metadata(),
+            orion_graph_metadata=orion_metadata,
         )
 
     def _resolve_data_source(self, spec: DataSource) -> GraphFileSource | None:
         build_version = spec.generate_build_version()
         if not build_version:
             return None
-        if not os.path.isdir(self.graphs_dir):
-            return None
-        spec_id_lower = spec.id.lower()
-        for graph_id_dir in os.listdir(self.graphs_dir):
-            if spec_id_lower not in graph_id_dir.lower():
-                continue
-            source_graph_root = os.path.join(self.graphs_dir, graph_id_dir)
-            if not os.path.isdir(source_graph_root):
-                continue
-            for graph_release_dir in os.listdir(source_graph_root):
-                graph_path = os.path.join(source_graph_root, graph_release_dir)
-                if not os.path.isdir(graph_path):
-                    continue
-                kgx_graph_metadata = KGXBundle(graph_path).load_graph_metadata()
-                if kgx_graph_metadata is None:
-                    continue
-                if not _kgx_metadata_matches_single_source(kgx_graph_metadata, spec.id, build_version):
-                    continue
-                file_source = self._build_file_source(
-                    graph_dir=graph_path,
-                    graph_id=spec.id,
-                    release_version=None,
-                    build_version=build_version,
-                    merge_strategy=spec.merge_strategy,
-                )
-                if file_source is None:
-                    continue
-                logger.info(f'LocalGraphResolver matched {spec.id} build_version {build_version} '
-                            f'to existing graph at {graph_path}.')
-                return file_source
-        return None
+        file_source = self.ingest_pipeline.load_source_build_file_source(spec.id, build_version, spec.merge_strategy)
+        if file_source is not None:
+            logger.info(f'LocalGraphResolver matched {spec.id} build_version {build_version} '
+                        f'to existing source build.')
+        return file_source
 
 
 class RegistryGraphResolver(GraphSourceResolver):
-    """Look in the remote graph registry for a built graph, download it, and return it.
+    """Look in the remote graph registry for a built artifact, download it, and return it.
 
-    Matching mirrors LocalGraphResolver:
-      SubGraphSource: graph_id + release_version exists in the registry.
-      DataSource:    any registry graph whose graph_id contains source_id (case-insensitive)
-                     has a release whose KGX metadata describes a single-source graph for
-                     source_id at the spec's build_version. The substring filter lets renamed
-                     single-source graphs (e.g. `CTD_conflated`) be discovered.
+    For SubGraphSource: requires graph_id + release_version present in the registry's
+                        /graphs catalog.
+    For DataSource:    requires the registry's source-builds endpoint to have an entry
+                        for (source_id, build_version). Downloads the build to local storage
+                        and returns a GraphFileSource pointing at it.
     """
 
     def __init__(self,
                  graphs_dir: str,
+                 ingest_pipeline,
                  client: GraphRegistryClient | None = None):
         self.graphs_dir = graphs_dir
+        self.ingest_pipeline = ingest_pipeline
         if client is not None:
             self.client = client
         elif config.ORION_USE_GRAPH_REGISTRY:
@@ -186,11 +129,9 @@ class RegistryGraphResolver(GraphSourceResolver):
         except GraphRegistryError as e:
             logger.debug(f'Registry has no metadata for {spec.id}/{spec.release_version}: {e}')
             return None
-        return self._materialize(
+        return self._materialize_subgraph(
             spec_id=spec.id,
-            graph_id=spec.id,
             release_version=spec.release_version,
-            build_version=None,
             kgx_graph_metadata=kgx_graph_metadata,
             merge_strategy=spec.merge_strategy,
         )
@@ -199,94 +140,97 @@ class RegistryGraphResolver(GraphSourceResolver):
         build_version = spec.generate_build_version()
         if not build_version:
             return None
-        for candidate_graph_id in self._candidate_graph_ids(spec.id):
-            try:
-                versions = self.client.get_versions(candidate_graph_id)
-            except GraphRegistryError as e:
-                logger.debug(f'Registry has no versions for {candidate_graph_id}: {e}')
-                continue
-            for version_record in versions:
-                release_version = version_record.get('version')
-                if not release_version:
-                    continue
-                try:
-                    kgx_graph_metadata = self.client.get_graph_metadata(candidate_graph_id, release_version)
-                except GraphRegistryError as e:
-                    logger.debug(f'Registry metadata fetch failed for {candidate_graph_id}/{release_version}: {e}')
-                    continue
-                if not _kgx_metadata_matches_single_source(kgx_graph_metadata, spec.id, build_version):
-                    continue
-                return self._materialize(
-                    spec_id=spec.id,
-                    graph_id=candidate_graph_id,
-                    release_version=release_version,
-                    build_version=build_version,
-                    kgx_graph_metadata=kgx_graph_metadata,
-                    merge_strategy=spec.merge_strategy,
-                )
-        return None
-
-    # Build the list of registry graph_ids to probe for a data source. Prefer the registry's
-    # full listing (so renamed single-source graphs like `CTD_conflated` are found); fall back
-    # to the canonical source_id and `{source_id}_conflated` if the listing call fails.
-    def _candidate_graph_ids(self, source_id: str) -> list[str]:
-        source_id_lower = source_id.lower()
         try:
-            all_graph_ids = self.client.list_graphs()
+            build_metadata = self.client.get_source_build_metadata(spec.id, build_version)
         except GraphRegistryError as e:
-            logger.debug(f'Registry list_graphs failed, falling back to direct probes for {source_id}: {e}')
-            return [source_id, f'{source_id}_conflated']
-        return [gid for gid in all_graph_ids if source_id_lower in gid.lower()]
+            logger.debug(f'Registry has no source build for {spec.id}/{build_version}: {e}')
+            return None
+        if not self._materialize_source_build(spec, build_version, build_metadata):
+            return None
+        logger.info(f'RegistryGraphResolver downloaded {spec.id} build_version {build_version} '
+                    f'into local source_builds cache.')
+        return self.ingest_pipeline.load_source_build_file_source(spec.id, build_version, spec.merge_strategy)
 
-    def _materialize(self,
-                     spec_id: str,
-                     graph_id: str,
-                     release_version: str,
-                     build_version: str | None,
-                     kgx_graph_metadata: dict,
-                     merge_strategy: str | None) -> GraphFileSource | None:
-        graph_dir = os.path.join(self.graphs_dir, graph_id, release_version)
+    def _materialize_subgraph(self,
+                              spec_id: str,
+                              release_version: str,
+                              kgx_graph_metadata: dict,
+                              merge_strategy: str | None) -> GraphFileSource | None:
+        graph_dir = os.path.join(self.graphs_dir, spec_id, release_version)
         os.makedirs(graph_dir, exist_ok=True)
         bundle = KGXBundle(graph_dir)
 
-        # we already have the graph_metadata in memory here, just save it
         if not bundle.has_graph_metadata():
             with open(bundle.graph_metadata_path, 'w') as f:
                 json.dump(kgx_graph_metadata, f, indent=2)
 
         try:
-            available_files = self.client.list_files(graph_id, release_version)
+            available_files = self.client.list_files(spec_id, release_version)
         except GraphRegistryError as e:
-            logger.warning(f'Registry file listing failed for {graph_id}/{release_version}: {e}')
+            logger.warning(f'Registry file listing failed for {spec_id}/{release_version}: {e}')
             return None
 
         available_basenames = {os.path.basename(f.get('file_path', '')): f for f in available_files}
         nodes_basename = self._pick_basename(available_basenames, KGXBundle.NODES_FILENAME)
         edges_basename = self._pick_basename(available_basenames, KGXBundle.EDGES_FILENAME)
         if not nodes_basename or not edges_basename:
-            logger.warning(f'Registry release {graph_id}/{release_version} is missing nodes or edges files.')
+            logger.warning(f'Registry release {spec_id}/{release_version} is missing nodes or edges files.')
             return None
 
         try:
-            self._ensure_local(graph_id, release_version, nodes_basename, graph_dir, kgx_graph_metadata)
-            self._ensure_local(graph_id, release_version, edges_basename, graph_dir, kgx_graph_metadata)
-            self._ensure_local(graph_id, release_version, KGXBundle.SCHEMA_FILENAME, graph_dir, kgx_graph_metadata)
+            self._ensure_graph_file_local(spec_id, release_version, nodes_basename, graph_dir, kgx_graph_metadata)
+            self._ensure_graph_file_local(spec_id, release_version, edges_basename, graph_dir, kgx_graph_metadata)
+            self._ensure_graph_file_local(spec_id, release_version, KGXBundle.SCHEMA_FILENAME, graph_dir, kgx_graph_metadata)
         except GraphRegistryError as e:
-            logger.warning(f'Registry download failed for {graph_id}/{release_version}: {e}')
+            logger.warning(f'Registry download failed for {spec_id}/{release_version}: {e}')
             return None
 
-        logger.info(f'RegistryGraphResolver materialized {graph_id}/{release_version} into {graph_dir}.')
-        # For a DataSource hit, build_version is set (the source's hash, used by the merger as the
-        # source's identifier). For a SubGraphSource hit, only release_version is meaningful.
+        logger.info(f'RegistryGraphResolver materialized {spec_id}/{release_version} into {graph_dir}.')
         return GraphFileSource(
             id=spec_id,
-            release_version=release_version if build_version is None else None,
-            build_version=build_version,
+            release_version=release_version,
             file_paths=[bundle.nodes_path, bundle.edges_path],
             merge_strategy=merge_strategy,
             kgx_graph_metadata=kgx_graph_metadata,
-            orion_graph_metadata=_load_orion_graph_metadata(graph_id, graph_dir),
+            orion_graph_metadata=_load_orion_graph_metadata(spec_id, graph_dir),
         )
+
+    def _materialize_source_build(self,
+                                  spec: DataSource,
+                                  build_version: str,
+                                  build_metadata: dict) -> bool:
+        """Download the registry's source build files into the local source_builds cache.
+
+        Writes graph-metadata.json + nodes/edges into
+        {STORAGE}/{source_id}/builds/{build_version}/. Returns False on failure.
+        """
+        bundle = self.ingest_pipeline.get_source_build_bundle(spec.id, build_version)
+        target_dir = bundle.graph_dir
+        os.makedirs(target_dir, exist_ok=True)
+
+        with open(bundle.graph_metadata_path, 'w') as f:
+            json.dump(build_metadata, f, indent=2)
+
+        try:
+            available_files = self.client.list_source_build_files(spec.id, build_version)
+        except GraphRegistryError as e:
+            logger.warning(f'Registry file listing failed for source build {spec.id}/{build_version}: {e}')
+            return False
+
+        available_basenames = {os.path.basename(f.get('file_path', '')): f for f in available_files}
+        nodes_basename = self._pick_basename(available_basenames, KGXBundle.NODES_FILENAME)
+        edges_basename = self._pick_basename(available_basenames, KGXBundle.EDGES_FILENAME)
+        if not nodes_basename or not edges_basename:
+            logger.warning(f'Registry source build {spec.id}/{build_version} is missing nodes or edges files.')
+            return False
+
+        try:
+            self._ensure_source_build_file_local(spec.id, build_version, nodes_basename, target_dir)
+            self._ensure_source_build_file_local(spec.id, build_version, edges_basename, target_dir)
+        except GraphRegistryError as e:
+            logger.warning(f'Registry source-build download failed for {spec.id}/{build_version}: {e}')
+            return False
+        return True
 
     @staticmethod
     def _pick_basename(available: dict, base: str) -> str | None:
@@ -296,12 +240,12 @@ class RegistryGraphResolver(GraphSourceResolver):
             return base
         return None
 
-    def _ensure_local(self,
-                      graph_id: str,
-                      release_version: str,
-                      filename: str,
-                      graph_dir: str,
-                      kgx_graph_metadata: dict) -> str:
+    def _ensure_graph_file_local(self,
+                                 graph_id: str,
+                                 release_version: str,
+                                 filename: str,
+                                 graph_dir: str,
+                                 kgx_graph_metadata: dict) -> str:
         local_path = os.path.join(graph_dir, filename)
         if os.path.exists(local_path):
             return local_path
@@ -311,6 +255,21 @@ class RegistryGraphResolver(GraphSourceResolver):
             filename=filename,
             destination_path=local_path,
             graph_metadata=kgx_graph_metadata,
+        )
+
+    def _ensure_source_build_file_local(self,
+                                         source_id: str,
+                                         build_version: str,
+                                         filename: str,
+                                         target_dir: str) -> str:
+        local_path = os.path.join(target_dir, filename)
+        if os.path.exists(local_path):
+            return local_path
+        return self.client.download_source_build_file(
+            source_id=source_id,
+            build_version=build_version,
+            filename=filename,
+            destination_path=local_path,
         )
 
 

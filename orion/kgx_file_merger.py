@@ -7,7 +7,7 @@ from orion.logging import get_orion_logger
 from orion.kgxmodel import GraphSpec, GraphFileSource
 from orion.biolink_constants import SUBJECT_ID, OBJECT_ID
 from orion.merging import GraphMerger, DiskGraphMerger, MemoryGraphMerger, MERGING_CODE_VERSION
-from orion.ingest_pipeline import RESOURCE_HOGS
+from orion.data_sources import RESOURCE_HOGS
 
 logger = get_orion_logger("orion.kgx_file_merger")
 

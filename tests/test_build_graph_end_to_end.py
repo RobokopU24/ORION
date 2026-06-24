@@ -17,7 +17,8 @@ from unittest.mock import MagicMock
 import pytest
 
 from orion.graph_pipeline import GraphBuilder
-from orion.metadata import Metadata
+from orion.ingest_pipeline import IngestPipeline
+from orion.metadata import Metadata, get_source_build_version
 
 
 FIXTURE_NODES = [
@@ -59,32 +60,52 @@ def _write_jsonl(path, rows):
             f.write(json.dumps(row) + '\n')
 
 
-def _build_mock_ingest_pipeline(nodes_path, edges_path):
-    mock = MagicMock()
-    mock.get_latest_source_version.side_effect = lambda source_id: f'{source_id}_sv1'
-    mock.get_latest_parsing_version.side_effect = lambda source_id: f'{source_id}_pv1'
-    # get_build_info returning a non-None dict short-circuits run_pipeline, so the
-    # ingest stage is treated as already-complete and _run_ingest_pipeline jumps
-    # straight to get_final_file_paths.
-    mock_source_metadata = MagicMock()
-    mock_source_metadata.get_build_info.return_value = {'parsing_info': {'note': 'fixture'}}
-    mock.get_source_metadata.return_value = mock_source_metadata
-    mock.get_final_file_paths.return_value = [str(nodes_path), str(edges_path)]
-    return mock
+def _build_mock_ingest_pipeline(storage_dir, nodes_path, edges_path):
+    """A real IngestPipeline with heavy methods (network ingest, parsing, normalization)
+    stubbed out and parser-output file paths pre-populated. Real implementations of
+    storage_dir / get_source_build_directory / etc. so the source builds cache layout
+    works in tests.
+    """
+    return _build_per_source_mock_ingest_pipeline(
+        storage_dir, {None: (str(nodes_path), str(edges_path))})
 
 
-def _build_per_source_mock_ingest_pipeline(source_paths: dict[str, tuple[str, str]]):
-    """Mock pipeline whose get_final_file_paths picks files based on source_id."""
-    mock = MagicMock()
-    mock.get_latest_source_version.side_effect = lambda source_id: f'{source_id}_sv1'
-    mock.get_latest_parsing_version.side_effect = lambda source_id: f'{source_id}_pv1'
-    mock_source_metadata = MagicMock()
-    mock_source_metadata.get_build_info.return_value = {'parsing_info': {'note': 'fixture'}}
-    mock.get_source_metadata.return_value = mock_source_metadata
-    mock.get_final_file_paths.side_effect = (
-        lambda source_id, *_args, **_kwargs: list(source_paths[source_id])
-    )
-    return mock
+def _build_per_source_mock_ingest_pipeline(storage_dir,
+                                            source_paths: dict[str | None, tuple[str, str] | None]):
+    """As above, but selects parser-output paths by source_id (None key = same fixture for all).
+
+    The heavy ingest stages (fetch/parse/normalize/supplement/QC) are stubbed so run_pipeline runs
+    through to the real finalize_source_build, which merges the fixture parser output into the
+    content-addressed source build. run_qc returns the real build_version hash so the finalized
+    build lands at the same key the GraphBuilder computes from the spec. A source whose fixture
+    paths are None simulates an ingest that produced no parser output (finalization fails).
+    """
+    pipeline = IngestPipeline(storage_dir=str(storage_dir))
+    pipeline.get_latest_source_version = MagicMock(side_effect=lambda source_id: f'{source_id}_sv1')
+    pipeline.get_latest_parsing_version = MagicMock(side_effect=lambda source_id: f'{source_id}_pv1')
+
+    pipeline.run_fetch_stage = MagicMock(return_value=True)
+    pipeline.run_parsing_stage = MagicMock(return_value=True)
+    pipeline.run_normalization_stage = MagicMock(return_value=True)
+    pipeline.run_supplementation_stage = MagicMock(return_value=True)
+
+    def _qc(source_id, source_version, parsing_version=None, normalization_scheme=None,
+            supplementation_version=None):
+        return get_source_build_version(source_id, source_version, parsing_version,
+                                        normalization_scheme.get_composite_normalization_version(),
+                                        supplementation_version)
+    pipeline.run_qc_and_metadata_stage = MagicMock(side_effect=_qc)
+
+    def _pick_paths(source_id, *_args, **_kwargs):
+        paths = source_paths.get(source_id, source_paths.get(None))
+        return list(paths) if paths is not None else None
+    pipeline.get_final_file_paths = MagicMock(side_effect=_pick_paths)
+
+    # Wrap run_pipeline in a call-through spy so tests can assert whether an ingest was triggered
+    # (e.g. a second graph reusing a cached source build should not call it) while still running the
+    # real stage-stubbed finalization.
+    pipeline.run_pipeline = MagicMock(side_effect=pipeline.run_pipeline)
+    return pipeline
 
 
 def _patch_post_merge_heavy_steps(monkeypatch):
@@ -125,13 +146,17 @@ def test_build_graph_end_to_end(tmp_path, monkeypatch):
 
     graphs_dir = tmp_path / 'graphs'
     graphs_dir.mkdir()
+    storage_dir = tmp_path / 'storage'
+    storage_dir.mkdir()
     empty_spec_dir = tmp_path / 'specs'
     empty_spec_dir.mkdir()
 
     builder = GraphBuilder(graph_specs_dir=str(empty_spec_dir),
                            inline_graph_spec=inline_spec,
-                           graph_output_dir=str(graphs_dir))
-    builder.ingest_pipeline = _build_mock_ingest_pipeline(fixture_nodes, fixture_edges)
+                           graph_output_dir=str(graphs_dir),
+                           ingest_pipeline=_build_mock_ingest_pipeline(storage_dir,
+                                                                         fixture_nodes,
+                                                                         fixture_edges))
 
     # --- Build ---
     graph_spec = builder.graph_specs['HGNC']
@@ -224,13 +249,16 @@ def test_build_graph_end_to_end_multi_source(tmp_path, monkeypatch):
 
     graphs_dir = tmp_path / 'graphs'
     graphs_dir.mkdir()
+    storage_dir = tmp_path / 'storage'
+    storage_dir.mkdir()
     empty_spec_dir = tmp_path / 'specs'
     empty_spec_dir.mkdir()
 
     builder = GraphBuilder(graph_specs_dir=str(empty_spec_dir),
                            inline_graph_spec=inline_spec,
-                           graph_output_dir=str(graphs_dir))
-    builder.ingest_pipeline = _build_per_source_mock_ingest_pipeline(fixture_paths_by_source)
+                           graph_output_dir=str(graphs_dir),
+                           ingest_pipeline=_build_per_source_mock_ingest_pipeline(
+                               storage_dir, fixture_paths_by_source))
 
     graph_spec = builder.graph_specs['Multi_Source_Test']
     assert builder.build_graph(graph_spec) is True
@@ -256,18 +284,25 @@ def test_build_graph_end_to_end_multi_source(tmp_path, monkeypatch):
         merged_edges = [json.loads(line) for line in f]
     assert len(merged_edges) == 3  # two HGNC + one CTD
 
-    # --- The two single-source artifacts that the parent build produced as deps ---
+    # --- Each contributing source has a finalized source build in the content-addressed
+    # cache under storage/<source_id>/builds/<build_version>/. These are not graphs
+    # and so don't appear in builder.build_results; they're inputs the parent merger
+    # consumes. graphs_dir contains only the parent graph dir.
     for source_id in ('HGNC', 'CTD'):
-        assert source_id in builder.build_results, (
-            f'Recursive single-source build for {source_id} did not record a build result. '
-            f'build_results keys: {list(builder.build_results)}'
-        )
-        single_source_result = builder.build_results[source_id]
-        single_source_dir = graphs_dir / source_id / single_source_result['release_version']
-        assert single_source_dir.is_dir()
-        assert (single_source_dir / 'nodes.jsonl.gz').exists()
-        assert (single_source_dir / 'edges.jsonl.gz').exists()
-        assert (single_source_dir / f'{source_id}.meta.json').exists()
+        source_resolved = next(s for s in graph_spec.resolved_sources if s.id == source_id)
+        source_build_dir = (storage_dir / source_id / 'builds'
+                            / source_resolved.build_version)
+        assert source_build_dir.is_dir(), f'Source build dir missing for {source_id}: {source_build_dir}'
+        assert (source_build_dir / 'nodes.jsonl.gz').exists()
+        assert (source_build_dir / 'edges.jsonl.gz').exists()
+        build_metadata_path = source_build_dir / 'graph-metadata.json'
+        assert build_metadata_path.exists()
+        with open(build_metadata_path) as f:
+            build_metadata = json.load(f)
+        content_url = build_metadata['distribution'][0]['contentUrl']
+        assert content_url.endswith(f'/sources/{source_id}/builds/{source_resolved.build_version}/')
+        # No per-source graph dir is created anymore — source builds live only in storage.
+        assert not (graphs_dir / source_id).exists()
 
     # --- Parent metadata records both sources ---
     parent_meta_file = parent_dir / 'Multi_Source_Test.meta.json'
@@ -279,8 +314,9 @@ def test_build_graph_end_to_end_multi_source(tmp_path, monkeypatch):
     recorded_source_ids = {s.get('source_id') for s in parent_meta.get('sources', [])}
     assert recorded_source_ids == {'HGNC', 'CTD'}
 
-    # --- build_results has three entries: parent + two dependencies ---
-    assert set(builder.build_results) == {'Multi_Source_Test', 'HGNC', 'CTD'}
+    # --- build_results has only the user-facing graph; source builds live in the
+    # content-addressed cache and aren't tracked here.
+    assert set(builder.build_results) == {'Multi_Source_Test'}
     parent_result = builder.build_results['Multi_Source_Test']
     assert parent_result['graph_dir'] == str(parent_dir)
     assert parent_result['build_status'] == Metadata.STABLE
@@ -329,13 +365,16 @@ def test_build_graph_end_to_end_with_subgraph_dependency(tmp_path, monkeypatch):
 
     graphs_dir = tmp_path / 'graphs'
     graphs_dir.mkdir()
+    storage_dir = tmp_path / 'storage'
+    storage_dir.mkdir()
     empty_spec_dir = tmp_path / 'specs'
     empty_spec_dir.mkdir()
 
     builder = GraphBuilder(graph_specs_dir=str(empty_spec_dir),
                            inline_graph_spec=inline_spec,
-                           graph_output_dir=str(graphs_dir))
-    builder.ingest_pipeline = _build_per_source_mock_ingest_pipeline(fixture_paths_by_source)
+                           graph_output_dir=str(graphs_dir),
+                           ingest_pipeline=_build_per_source_mock_ingest_pipeline(
+                               storage_dir, fixture_paths_by_source))
 
     parent_spec = builder.graph_specs['Parent_Graph']
     assert builder.build_graph(parent_spec) is True
@@ -376,11 +415,15 @@ def test_build_graph_end_to_end_with_subgraph_dependency(tmp_path, monkeypatch):
     assert recorded_source_ids == {'CTD'}
     assert recorded_subgraph_ids == {'My_Subgraph'}
 
-    # All four builds recorded: parent, subgraph, and the two single-source
-    # artifacts that backed them (HGNC for the subgraph, CTD for the parent).
-    assert set(builder.build_results) == {'Parent_Graph', 'My_Subgraph', 'HGNC', 'CTD'}
+    # build_results tracks user-facing graphs only — parent + subgraph here. Source
+    # builds for HGNC/CTD live in the content-addressed cache under storage_dir and
+    # aren't graphs.
+    assert set(builder.build_results) == {'Parent_Graph', 'My_Subgraph'}
     assert builder.build_results['Parent_Graph']['graph_dir'] == str(parent_dir)
     assert builder.build_results['My_Subgraph']['graph_dir'] == str(subgraph_dir)
+    for source_id in ('HGNC', 'CTD'):
+        assert (storage_dir / source_id / 'builds').is_dir()
+        assert not (graphs_dir / source_id).exists()
 
 
 def test_build_graph_continues_past_failed_source(tmp_path, monkeypatch):
@@ -405,18 +448,14 @@ def test_build_graph_continues_past_failed_source(tmp_path, monkeypatch):
 
     _patch_post_merge_heavy_steps(monkeypatch)
 
-    # Mock pipeline returns proper file paths for CTD; returns None for HGNC,
-    # which causes _resolve_parser_output to give up on that source.
-    mock_pipeline = MagicMock()
-    mock_pipeline.get_latest_source_version.side_effect = lambda source_id: f'{source_id}_sv1'
-    mock_pipeline.get_latest_parsing_version.side_effect = lambda source_id: f'{source_id}_pv1'
-    mock_source_metadata = MagicMock()
-    mock_source_metadata.get_build_info.return_value = {'parsing_info': {'note': 'fixture'}}
-    mock_pipeline.get_source_metadata.return_value = mock_source_metadata
-    mock_pipeline.get_final_file_paths.side_effect = (
-        lambda source_id, *_args, **_kwargs:
-        None if source_id == 'HGNC' else list(fixture_paths_by_source[source_id])
-    )
+    # Pipeline returns proper file paths for CTD; returns None for HGNC (simulating an ingest that
+    # produced no parser output), which causes finalization — and thus _build_source — to give up
+    # on that source.
+    storage_dir = tmp_path / 'storage'
+    storage_dir.mkdir()
+    mock_pipeline = _build_per_source_mock_ingest_pipeline(
+        storage_dir,
+        {'HGNC': None, 'CTD': fixture_paths_by_source['CTD']})
 
     inline_spec = {
         'graphs': [{
@@ -437,37 +476,40 @@ def test_build_graph_continues_past_failed_source(tmp_path, monkeypatch):
 
     builder = GraphBuilder(graph_specs_dir=str(empty_spec_dir),
                            inline_graph_spec=inline_spec,
-                           graph_output_dir=str(graphs_dir))
-    builder.ingest_pipeline = mock_pipeline
+                           graph_output_dir=str(graphs_dir),
+                           ingest_pipeline=mock_pipeline)
 
     parent_spec = builder.graph_specs['Multi_Partial_Failure']
 
     # Parent build aborts because one dependency couldn't be resolved.
     assert builder.build_graph(parent_spec) is False
 
-    # CTD's single-source artifact was still built and cached on disk despite
-    # the HGNC failure earlier in the loop — that's the point of continuing
-    # past failures.
-    assert 'CTD' in builder.build_results
-    ctd_result = builder.build_results['CTD']
-    ctd_dir = graphs_dir / 'CTD' / ctd_result['release_version']
-    assert ctd_dir.is_dir()
-    assert (ctd_dir / 'nodes.jsonl.gz').exists()
-    assert (ctd_dir / 'edges.jsonl.gz').exists()
-    assert ctd_result['build_status'] == Metadata.STABLE
+    # CTD's source build was still produced and cached despite the HGNC failure
+    # earlier in the loop — that's the point of continuing past failures. A
+    # subsequent build of any graph that needs CTD will hit the cache and skip the
+    # ingest pipeline.
+    ctd_source_builds = storage_dir / 'CTD' / 'builds'
+    assert ctd_source_builds.is_dir()
+    ctd_builds = list(ctd_source_builds.iterdir())
+    assert len(ctd_builds) == 1
+    ctd_build_dir = ctd_builds[0]
+    assert (ctd_build_dir / 'nodes.jsonl.gz').exists()
+    assert (ctd_build_dir / 'edges.jsonl.gz').exists()
+    assert (ctd_build_dir / 'graph-metadata.json').exists()
 
-    # HGNC's recursive single-source build was attempted but did not succeed,
-    # so no successful build_result is recorded for it and no graph files exist.
-    assert 'HGNC' not in builder.build_results
-    hgnc_root = graphs_dir / 'HGNC'
-    if hgnc_root.exists():
-        # The synth build may have created the directory shell; the merged graph
-        # files must NOT be there.
-        for release_dir in hgnc_root.iterdir():
-            assert not (release_dir / 'nodes.jsonl').exists()
-            assert not (release_dir / 'nodes.jsonl.gz').exists()
-            assert not (release_dir / 'edges.jsonl').exists()
-            assert not (release_dir / 'edges.jsonl.gz').exists()
+    # HGNC's source build attempt did not succeed (mock returns None file paths),
+    # so no source build files exist for it.
+    hgnc_source_builds = storage_dir / 'HGNC' / 'builds'
+    if hgnc_source_builds.exists():
+        for build_dir in hgnc_source_builds.iterdir():
+            assert not (build_dir / 'nodes.jsonl.gz').exists()
+            assert not (build_dir / 'edges.jsonl.gz').exists()
+
+    # No per-source graph dirs are ever created with the new design.
+    assert not (graphs_dir / 'CTD').exists()
+    assert not (graphs_dir / 'HGNC').exists()
+    # build_results stays empty: parent failed, source builds aren't tracked there.
+    assert builder.build_results == {}
 
     # The parent graph was never merged, so its release dir has no merged files.
     parent_dir = graphs_dir / 'Multi_Partial_Failure' / parent_spec.release_version
@@ -477,10 +519,10 @@ def test_build_graph_continues_past_failed_source(tmp_path, monkeypatch):
     assert 'Multi_Partial_Failure' not in builder.build_results
 
 
-def test_single_source_named_with_source_id_writes_directly(tmp_path, monkeypatch):
-    """A single-source graph whose graph_id contains the source_id satisfies the
-    sole-contribution predicate, so parser output is merged directly into the
-    parent's release dir and no duplicate `{source_id}/` artifact is created.
+def test_single_source_graph_consumes_source_build(tmp_path, monkeypatch):
+    """A single-source graph build produces both a source build in the cache
+    AND a user-facing graph dir. The graph dir's content comes from the source
+    build via the merger pass; the source build is reusable by future graphs.
     """
     fixture_dir = tmp_path / 'parser_output'
     fixture_dir.mkdir()
@@ -493,8 +535,8 @@ def test_single_source_named_with_source_id_writes_directly(tmp_path, monkeypatc
 
     inline_spec = {
         'graphs': [{
-            'graph_id': 'HGNC_Graph',  # contains 'HGNC', so sole-contribution applies
-            'graph_name': 'HGNC Graph',
+            'graph_id': 'Some_HGNC_Wrapper',
+            'graph_name': 'Some HGNC Wrapper',
             'output_format': 'jsonl',
             'sources': [{'source_id': 'HGNC'}],
         }]
@@ -502,82 +544,37 @@ def test_single_source_named_with_source_id_writes_directly(tmp_path, monkeypatc
 
     graphs_dir = tmp_path / 'graphs'
     graphs_dir.mkdir()
+    storage_dir = tmp_path / 'storage'
+    storage_dir.mkdir()
     empty_spec_dir = tmp_path / 'specs'
     empty_spec_dir.mkdir()
 
     builder = GraphBuilder(graph_specs_dir=str(empty_spec_dir),
                            inline_graph_spec=inline_spec,
-                           graph_output_dir=str(graphs_dir))
-    builder.ingest_pipeline = _build_mock_ingest_pipeline(fixture_nodes, fixture_edges)
+                           graph_output_dir=str(graphs_dir),
+                           ingest_pipeline=_build_mock_ingest_pipeline(
+                               storage_dir, fixture_nodes, fixture_edges))
 
-    graph_spec = builder.graph_specs['HGNC_Graph']
+    graph_spec = builder.graph_specs['Some_HGNC_Wrapper']
     assert builder.build_graph(graph_spec) is True
 
-    # Parser output landed in HGNC_Graph/, not in a separate HGNC/ dir.
-    parent_dir = graphs_dir / 'HGNC_Graph' / graph_spec.release_version
-    assert parent_dir.is_dir()
-    assert (parent_dir / 'nodes.jsonl.gz').exists()
-    assert not (graphs_dir / 'HGNC').exists()
-    assert set(builder.build_results) == {'HGNC_Graph'}
+    # Source build was created in the cache, keyed by build_version.
+    source_resolved = next(s for s in graph_spec.resolved_sources if s.id == 'HGNC')
+    source_build_dir = storage_dir / 'HGNC' / 'builds' / source_resolved.build_version
+    assert source_build_dir.is_dir()
+    assert (source_build_dir / 'nodes.jsonl.gz').exists()
+    assert (source_build_dir / 'edges.jsonl.gz').exists()
+    assert (source_build_dir / 'graph-metadata.json').exists()
+
+    # The user-facing graph dir holds the merged graph regardless of its name.
+    graph_dir = graphs_dir / 'Some_HGNC_Wrapper' / graph_spec.release_version
+    assert (graph_dir / 'nodes.jsonl.gz').exists()
+    assert (graph_dir / 'edges.jsonl.gz').exists()
 
 
-def test_conflated_single_source_dependency_uses_conflated_suffix(tmp_path, monkeypatch):
-    """A multi-source parent whose dependency is a conflated data source builds the
-    synthesized single-source artifact under `{source_id}_conflated/` so it doesn't
-    collide on disk with a non-conflated build of the same source.
-    """
-    fixture_paths_by_source = {}
-    for source_id, fixture in PER_SOURCE_FIXTURES.items():
-        src_dir = tmp_path / 'parser_output' / source_id
-        src_dir.mkdir(parents=True)
-        nodes_path = src_dir / 'normalized_nodes.jsonl'
-        edges_path = src_dir / 'normalized_edges.jsonl'
-        _write_jsonl(nodes_path, fixture['nodes'])
-        _write_jsonl(edges_path, fixture['edges'])
-        fixture_paths_by_source[source_id] = (str(nodes_path), str(edges_path))
-
-    _patch_post_merge_heavy_steps(monkeypatch)
-
-    # Parent has two sources both with conflation on; each dep gets its own
-    # synthesized {source_id}_conflated single-source artifact.
-    inline_spec = {
-        'graphs': [{
-            'graph_id': 'Conflated_Parent',
-            'graph_name': 'Conflated Parent',
-            'output_format': 'jsonl',
-            'conflation': True,
-            'sources': [
-                {'source_id': 'HGNC'},
-                {'source_id': 'CTD'},
-            ],
-        }]
-    }
-
-    graphs_dir = tmp_path / 'graphs'
-    graphs_dir.mkdir()
-    empty_spec_dir = tmp_path / 'specs'
-    empty_spec_dir.mkdir()
-
-    builder = GraphBuilder(graph_specs_dir=str(empty_spec_dir),
-                           inline_graph_spec=inline_spec,
-                           graph_output_dir=str(graphs_dir))
-    builder.ingest_pipeline = _build_per_source_mock_ingest_pipeline(fixture_paths_by_source)
-
-    parent_spec = builder.graph_specs['Conflated_Parent']
-    assert builder.build_graph(parent_spec) is True
-
-    assert (graphs_dir / 'HGNC_conflated').is_dir()
-    assert (graphs_dir / 'CTD_conflated').is_dir()
-    # Non-conflated dirs were NOT created.
-    assert not (graphs_dir / 'HGNC').exists()
-    assert not (graphs_dir / 'CTD').exists()
-    assert {'HGNC_conflated', 'CTD_conflated', 'Conflated_Parent'}.issubset(set(builder.build_results))
-
-
-def test_resolver_finds_conflated_artifact_for_subsequent_build(tmp_path, monkeypatch):
-    """After a graph builds a `{source_id}_conflated/` artifact, a second graph that
-    declares the same conflated source as a dep finds it via LocalGraphResolver's
-    substring scan instead of rebuilding from scratch.
+def test_second_graph_reuses_existing_source_build(tmp_path, monkeypatch):
+    """A second graph that consumes the same source as a previously-built graph
+    hits the source builds cache instead of re-running the ingest pipeline.
     """
     fixture_paths_by_source = {}
     for source_id, fixture in PER_SOURCE_FIXTURES.items():
@@ -594,50 +591,39 @@ def test_resolver_finds_conflated_artifact_for_subsequent_build(tmp_path, monkey
     inline_spec = {
         'graphs': [
             {
-                'graph_id': 'First_Parent',
-                'graph_name': 'First Parent',
+                'graph_id': 'First_Graph',
+                'graph_name': 'First Graph',
                 'output_format': 'jsonl',
-                'conflation': True,
-                'sources': [
-                    {'source_id': 'HGNC'},
-                    {'source_id': 'CTD'},
-                ],
+                'sources': [{'source_id': 'HGNC'}, {'source_id': 'CTD'}],
             },
             {
-                'graph_id': 'Second_Parent',
-                'graph_name': 'Second Parent',
+                'graph_id': 'Second_Graph',
+                'graph_name': 'Second Graph',
                 'output_format': 'jsonl',
-                'conflation': True,
-                'sources': [
-                    {'source_id': 'HGNC'},
-                    {'source_id': 'CTD'},
-                ],
+                'sources': [{'source_id': 'HGNC'}, {'source_id': 'CTD'}],
             },
         ]
     }
 
     graphs_dir = tmp_path / 'graphs'
     graphs_dir.mkdir()
+    storage_dir = tmp_path / 'storage'
+    storage_dir.mkdir()
     empty_spec_dir = tmp_path / 'specs'
     empty_spec_dir.mkdir()
 
     builder = GraphBuilder(graph_specs_dir=str(empty_spec_dir),
                            inline_graph_spec=inline_spec,
-                           graph_output_dir=str(graphs_dir))
-    builder.ingest_pipeline = _build_per_source_mock_ingest_pipeline(fixture_paths_by_source)
+                           graph_output_dir=str(graphs_dir),
+                           ingest_pipeline=_build_per_source_mock_ingest_pipeline(
+                               storage_dir, fixture_paths_by_source))
 
-    # First build creates HGNC_conflated/ and CTD_conflated/.
-    assert builder.build_graph(builder.graph_specs['First_Parent']) is True
+    assert builder.build_graph(builder.graph_specs['First_Graph']) is True
 
-    # Track how often run_pipeline gets invoked during the second build — the
-    # resolver should hit the already-built artifacts and skip re-running ingest.
+    # Reset the ingest mock; the second build should NOT call run_pipeline
+    # since the source builds are already cached.
     builder.ingest_pipeline.run_pipeline.reset_mock()
-    assert builder.build_graph(builder.graph_specs['Second_Parent']) is True
-    assert builder.ingest_pipeline.run_pipeline.call_count == 0, (
-        'Second build re-ran the ingest pipeline; the resolver should have found '
-        'the existing _conflated artifacts via substring scan.'
-    )
-
-    # Still no non-conflated dirs.
-    assert not (graphs_dir / 'HGNC').exists()
-    assert not (graphs_dir / 'CTD').exists()
+    builder.ingest_pipeline.get_final_file_paths.reset_mock()
+    assert builder.build_graph(builder.graph_specs['Second_Graph']) is True
+    assert builder.ingest_pipeline.run_pipeline.call_count == 0
+    assert builder.ingest_pipeline.get_final_file_paths.call_count == 0
