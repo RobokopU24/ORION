@@ -5,6 +5,8 @@ graphs:
     graph_description: 'Common Fund Data Ecosystem KG'
     graph_url: https://github.com/NCATSTranslator/Translator-All/wiki/CFDE-KP
     output_format: neo4j
+    edge_merging_attributes:
+      - taxon
     sources:
       - source_id: BINDING-DB
       - source_id: CHEBIProps
@@ -35,4 +37,3 @@ graphs:
       - source_id: UbergraphNonredundant
       - source_id: GWASCatalog
       - source_id: GTEx
-

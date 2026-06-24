@@ -57,6 +57,31 @@ def test_node_norm(test_nodes):
     assert get_node_from_list('ENSEMBL:testing_id', test_nodes) is None
 
 
+def test_node_norm_adds_top_level_taxa(monkeypatch):
+    node_norm_response = {
+        'HGNC:7432': {
+            'id': {'identifier': 'NCBIGene:4522', 'label': 'MTHFD1'},
+            'type': [GENE, NAMED_THING],
+            'equivalent_identifiers': [{'identifier': 'NCBIGene:4522', 'label': 'MTHFD1'}],
+            'taxa': ['NCBITaxon:9606'],
+        },
+    }
+
+    def fake_hit_node_norm(self, curies, retries=0):
+        return {curie: node_norm_response.get(curie) for curie in curies}
+
+    monkeypatch.setattr(NodeNormalizer, 'hit_node_norm_service', fake_hit_node_norm)
+
+    nodes = [{"id": "HGNC:7432", "name": "MTHFD1", NODE_TYPES: [GENE]}]
+    node_normalizer = NodeNormalizer()
+    assert node_normalizer.include_taxa is True
+
+    node_normalizer.normalize_node_data(nodes)
+
+    normalized_node = get_node_from_list('NCBIGene:4522', nodes)
+    assert normalized_node[TAXON] == 'NCBITaxon:9606'
+
+
 def test_node_norm_lenient(test_nodes):
     node_normalizer = NodeNormalizer(strict_normalization=False)
     node_normalizer.normalize_node_data(test_nodes)
