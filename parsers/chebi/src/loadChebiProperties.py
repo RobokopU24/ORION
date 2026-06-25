@@ -1,5 +1,6 @@
 import os
 # import re
+import csv
 import gzip
 
 from collections import defaultdict
@@ -32,7 +33,7 @@ class ChebiPropertiesLoader(SourceDataLoader):
 
     # Setting the class level variables for the source ID and provenance
     source_id: str = 'CHEBIProps'
-    parsing_version = '1.4'
+    parsing_version = '1.5'
     preserve_unconnected_nodes = True
 
     def __init__(self, test_mode: bool = False, source_data_dir: str = None):
@@ -81,17 +82,11 @@ class ChebiPropertiesLoader(SourceDataLoader):
         chebi_roles = self.read_roles()
         # iterate through the compounds file and create a dictionary of chebi_id -> name
         names = {}
-        skipped_header = False
         archive_file_path = os.path.join(self.data_path, self.compounds_file)
         with gzip.open(archive_file_path, mode="rt", encoding="iso-8859-1") as zf:
-            for line in zf:
-
-                # skip the header
-                if not skipped_header:
-                    skipped_header = True
-                    continue
-
-                compounds_line = line.strip().split('\t')
+            reader = csv.reader(zf, delimiter='\t')
+            next(reader)  # skip the header
+            for compounds_line in reader:
                 chebi_id = compounds_line[COMPOUNDS_CHEBI_ID_COLUMN]
                 # cname = compounds_line[COMPOUNDS_CHEBI_NAME_COLUMN]  # The names encoding has some issues for now
                 # if self.has_html(cname):
@@ -136,7 +131,8 @@ class ChebiPropertiesLoader(SourceDataLoader):
 
         return load_metadata
 
-    def fixname(self, n):
+    @staticmethod
+    def fixname(n):
         formatted_name = f'CHEBI_ROLE_{"_".join(n.split())}'
         formatted_name = formatted_name.replace("(", "_").replace(")", "_").\
             replace(".*", "").replace("-", "_").replace("__", "_").replace("__", "_")
@@ -172,8 +168,9 @@ class ChebiPropertiesLoader(SourceDataLoader):
         is_a_relationships = defaultdict(list)
         relation_file_path = os.path.join(self.data_path, self.relation_file)
         with gzip.open(relation_file_path, mode="rt", encoding="iso-8859-1") as rf:
-            for line in rf:
-                x = line.strip().split('\t')
+            reader = csv.reader(rf, delimiter='\t')
+            next(reader)  # skip the header
+            for x in reader:
                 if x[RELATION_TYPE_ID_COLUMN] == "4":  # has_role
                     role_id = str(x[RELATION_INIT_ID_COLUMN])
                     roles[f'{CHEBI}:{x[RELATION_FINAL_ID_COLUMN]}'].add(f'{CHEBI}:{role_id}')
