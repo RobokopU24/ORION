@@ -135,9 +135,10 @@ class ReactomeLoader(SourceDataLoader):
                 if match:
                     version = f'{match.group(0)!r}'
                     return version.strip("'")
-            return 'version_broken'
-        else:
-            html_page.raise_for_status()
+
+        # This website is frequently down or times out.
+        # Just return the latest valid version.
+        return "V95"
 
     def get_data(self) -> bool:
         gd: GetData = GetData()
