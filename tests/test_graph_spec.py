@@ -239,3 +239,20 @@ def test_graph_spec_invalid_base_release_version_raises(test_graph_spec_dir, tes
         GraphBuilder(graph_specs_dir=test_graph_spec_dir,
                      additional_graph_spec=str(spec_path),
                      graph_output_dir=test_graph_output_dir)
+
+def test_default_graph_spec_defines_robomouse(monkeypatch, test_graph_output_dir):
+    default_specs_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'graph_specs')
+    graph_builder = GraphBuilder(graph_specs_dir=default_specs_dir,
+                                 graph_output_dir=test_graph_output_dir)
+
+    baseline_sources = [source.id for source in graph_builder.graph_specs['Baseline'].sources]
+    assert 'HumanGOA' in baseline_sources
+    assert 'MouseGOA' not in baseline_sources
+
+    robomouse_graph = graph_builder.graph_specs['RoboMouseKG']
+    assert [subgraph.id for subgraph in robomouse_graph.subgraphs] == ['RobokopKG']
+    assert [source.id for source in robomouse_graph.sources] == [
+        'MouseGOA',
+        'GenomeAllianceOrthologs',
+        'OntologicalHierarchy',
+    ]

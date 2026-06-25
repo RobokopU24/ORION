@@ -1,0 +1,15 @@
+{
+  "@context": "https://schema.org",
+  "@type": "Dataset",
+  "identifier": "infores:goa",
+  "name": "Gene Ontology Annotations (Mouse)",
+  "description": "The Gene Ontology (GO) Consortium's mouse annotation resource provides open access to curated assignment of GO terms to mouse gene products.",
+  "url": "https://geneontology.org/",
+  "attribution": "https://geneontology.org/",
+  "citation": [
+    "https://doi.org/10.1093/genetics/iyad031",
+    "The Gene Ontology Consortium. The Gene Ontology knowledgebase in 2023. Genetics. 2023 May 4;224(1):iyad031."
+  ],
+  "license": "CC BY 4.0",
+  "contentUrl": "http://current.geneontology.org/annotations/mgi.gaf.gz"
+}

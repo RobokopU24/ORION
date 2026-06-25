@@ -18,6 +18,7 @@ graphs:
       - source_id: HGNC
       - source_id: HMDB
       - source_id: HumanGOA
+      - source_id: MouseGOA
       - source_id: IntAct
       - source_id: KinAce
       - source_id: LINCS
