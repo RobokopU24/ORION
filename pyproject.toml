@@ -36,7 +36,7 @@ robokop = [
     "polars>=1.19.0",
     "prefixmaps>=0.2.6",
     "psycopg2-binary>=2.9.9",
-    "pyoxigraph>=0.3.22",
+    "pyoxigraph>=0.5.9",
     "redis>=5.2.1",
 ]
 
