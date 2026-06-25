@@ -14,7 +14,6 @@ from orion.prefixes import NCBITAXON, UNIPROTKB
 from orion.kgxmodel import kgxnode, kgxedge
 
 
-
 # data column enumerators
 class DataCols(enum.IntEnum):
     ID_interactor_A = 0
@@ -184,7 +183,7 @@ class IALoader(SourceDataLoader):
                         # is there a doi id
                         if pub_id == '' and line[DataCols.Publication_Identifier.value].find('doi') >= 0:
                             # try to find the doi curie
-                            pub_id = self.find_target_val(line[DataCols.Publication_Identifier.value], 'doi', regex='^10.\d{4,9}/[-._;()/:A-Z0-9]+$', trim_hyphen=False)
+                            pub_id = self.find_target_val(line[DataCols.Publication_Identifier.value], 'doi', regex=r'^10\.\d{4,9}/[-._;()/:a-zA-Z0-9]+$', trim_hyphen=False)
 
                             # did we get a doi id
                             if not pub_id == '':
