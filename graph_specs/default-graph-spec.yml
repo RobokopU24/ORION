@@ -68,6 +68,20 @@ graphs:
       - source_id: GWASCatalog
       - source_id: GTEx
 
+  - graph_id: RoboMouseKG
+    graph_name: RoboMouse KG
+    graph_description: 'RoboMouse KG extends ROBOKOP KG with mouse Gene Ontology annotations and Alliance of Genome Resources orthology relationships.'
+    graph_url: http://robokopkg.renci.org/browser/
+    conflation: True
+    output_format: neo4j
+    subgraphs:
+      - graph_id: RobokopKG
+    sources:
+      - source_id: MouseGOA
+      - source_id: GenomeAllianceOrthologs
+      - source_id: OntologicalHierarchy
+        merge_strategy: connected_edge_subset
+
   - graph_id: BINDING_Automat
     graph_name: BINDING
     graph_description: 'Binding DataBase (BindingDB) openly exposes curated data on chemical entities and their molecular targets.'
@@ -215,6 +229,16 @@ graphs:
     output_format: neo4j
     sources:
       - source_id: HumanGOA
+      - source_id: OntologicalHierarchy
+        merge_strategy: connected_edge_subset
+
+  - graph_id: MouseGOA_Automat
+    graph_name: Mouse GOA
+    graph_description: 'The Gene Ontology (GO) Consortium’s mouse annotation resource provides open access to curated assignment of GO terms to mouse gene products.'
+    graph_url: https://geneontology.org/
+    output_format: neo4j
+    sources:
+      - source_id: MouseGOA
       - source_id: OntologicalHierarchy
         merge_strategy: connected_edge_subset
 

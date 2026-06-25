@@ -7,7 +7,8 @@ from csv import reader
 from orion.utils import GetData
 from orion.extractor import Extractor
 from orion.loader_interface import SourceDataLoader
-from parsers.GOA.src.loadGOA import get_goa_predicate, get_goa_edge_properties, get_goa_subject_props, DATACOLS
+from parsers.GOA.src.loadGOA import (get_goa_subject_id, get_goa_predicate, get_goa_edge_properties,
+                                     get_goa_subject_props, DATACOLS)
 
 
 ##############
@@ -149,7 +150,7 @@ class VPLoader(SourceDataLoader):
             file_count += 1
             with open(os.path.join(self.data_path, f), 'r', encoding="utf-8") as fp:
                 extractor.csv_extract(fp,
-                                      lambda line: f'{line[DATACOLS.DB.value]}:{line[DATACOLS.DB_Object_ID.value]}',
+                                      lambda line: get_goa_subject_id(line),
                                       # extract subject id,
                                       lambda line: f'{line[DATACOLS.GO_ID.value]}',  # extract object id
                                       lambda line: get_goa_predicate(line),  # predicate extractor

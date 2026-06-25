@@ -163,7 +163,7 @@ class GOALoader(SourceDataLoader):
         extractor = Extractor()
         with (gzip.open if infile_path.endswith(".gz") else open)(infile_path) as zf:
             extractor.csv_extract(TextIOWrapper(zf, "utf-8"),
-                                  lambda line: f'{line[DATACOLS.DB.value]}:{line[DATACOLS.DB_Object_ID.value]}',
+                                  lambda line: get_goa_subject_id(line),
                                   # extract subject id,
                                   lambda line: f'{line[DATACOLS.GO_ID.value]}',  # extract object id
                                   lambda line: get_goa_predicate(line),  # predicate extractor
@@ -177,6 +177,12 @@ class GOALoader(SourceDataLoader):
         self.final_node_list = extractor.nodes
         self.final_edge_list = extractor.edges
         return extractor.load_metadata
+
+
+def get_goa_subject_id(line: list):
+    db = line[DATACOLS.DB.value]
+    db_object_id = line[DATACOLS.DB_Object_ID.value]
+    return db_object_id if ':' in db_object_id else f'{db}:{db_object_id}'
 
 
 def get_goa_edge_properties(line: list):
@@ -229,6 +235,22 @@ class HumanGOALoader(GOALoader):
         super().__init__(test_mode=test_mode, source_data_dir=source_data_dir)
         self.goa_data_url = 'http://current.geneontology.org/annotations/'
         self.goa_data_file = 'goa_human.gaf.gz'
+        self.data_files = [self.goa_data_file]
+        self.data_urls = [self.goa_data_url]
+        self.taxon_filter_field = None
+
+    def get_taxon_filter_set(self):
+        return None
+
+
+class MouseGOALoader(GOALoader):
+
+    source_id = 'MouseGOA'
+
+    def __init__(self, test_mode: bool = False, source_data_dir: str = None):
+        super().__init__(test_mode=test_mode, source_data_dir=source_data_dir)
+        self.goa_data_url = 'http://current.geneontology.org/annotations/'
+        self.goa_data_file = 'mgi.gaf.gz'
         self.data_files = [self.goa_data_file]
         self.data_urls = [self.goa_data_url]
         self.taxon_filter_field = None

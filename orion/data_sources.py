@@ -26,6 +26,7 @@ HETIO = 'Hetio'
 HGNC = 'HGNC'
 HMDB = 'HMDB'
 HUMAN_GOA = 'HumanGOA'
+MOUSE_GOA = 'MouseGOA'
 INTACT = 'IntAct'
 LINCS = 'LINCS'
 LITCOIN = 'LitCoin'
@@ -84,6 +85,7 @@ SOURCE_DATA_LOADER_CLASS_IMPORTS = {
     HGNC: ("parsers.hgnc.src.loadHGNC", "HGNCLoader"),
     HMDB: ("parsers.hmdb.src.loadHMDB", "HMDBLoader"),
     HUMAN_GOA: ("parsers.GOA.src.loadGOA", "HumanGOALoader"),
+    MOUSE_GOA: ("parsers.GOA.src.loadGOA", "MouseGOALoader"),
     HUMAN_STRING: ("parsers.STRING.src.loadSTRINGDB", "HumanSTRINGDBLoader"),
     INTACT: ("parsers.IntAct.src.loadIA", "IALoader"),
     LINCS: ("parsers.LINCS.src.loadLINCS", "LINCSLoader"),
@@ -169,4 +171,3 @@ def get_data_loader_class(key):
 class SourceDataLoaderClassFactory(KeyBasedDefaultDict):
     def __init__(self):
         super(KeyBasedDefaultDict, self).__init__(get_data_loader_class)
-
