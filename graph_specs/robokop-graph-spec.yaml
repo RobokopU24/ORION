@@ -37,7 +37,6 @@ graphs:
       - source_id: HGNC
       - source_id: HMDB
       - source_id: HumanGOA
-      - source_id: MouseGOA
       - source_id: IntAct
       - source_id: KinAce
       - source_id: LINCS
@@ -68,5 +67,19 @@ graphs:
       - source_id: ClinGenVariantPathogenicity
       - source_id: GWASCatalog
       - source_id: GTEx
+
+  - graph_id: RoboMouseKG
+    graph_name: RoboMouse KG
+    graph_description: 'RoboMouse KG extends ROBOKOP KG with mouse Gene Ontology annotations and Alliance of Genome Resources orthology relationships.'
+    graph_url: http://robokop.renci.org/
+    conflation: True
+    output_format: neo4j
+    subgraphs:
+      - graph_id: RobokopKG
+    sources:
+      - source_id: MouseGOA
+      - source_id: GenomeAllianceOrthologs
+      - source_id: OntologicalHierarchy
+        merge_strategy: connected_edge_subset
 
 
