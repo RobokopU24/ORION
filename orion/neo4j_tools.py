@@ -255,6 +255,12 @@ def create_neo4j_dump(nodes_filepath: str,
                       release_version: str = '',
                       node_property_ignore_list: set = None,
                       edge_property_ignore_list: set = None):
+    try:
+        check_neo4j_available()
+    except Neo4jAvailabilityError as e:
+        logger.error(f'Neo4j not available. Skipping Neo4j dump for {graph_id}({release_version}): {e}')
+        return False
+
     nodes_csv_filename = 'nodes.temp_csv'
     edges_csv_filename = 'edges.temp_csv'
     csv_nodes_file_path = os.path.join(output_directory, nodes_csv_filename)
@@ -314,7 +320,7 @@ def create_neo4j_dump(nodes_filepath: str,
     # remove the temp csv files we made to do the neo4j import
     os.remove(csv_nodes_file_path)
     os.remove(csv_edges_file_path)
-    # remove the import.report neo4j generates, if successful it's typically empty
+    # remove the import.report neo4j generates, it's typically empty
     import_report_path = os.path.join(output_directory, 'import.report')
     if os.path.exists(import_report_path):
         os.remove(import_report_path)
