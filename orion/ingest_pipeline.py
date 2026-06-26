@@ -11,8 +11,6 @@ from orion.data_sources import (
     get_available_data_sources,
     get_data_source_metadata_path,
 )
-from orion.exceptions import DataVersionError
-from orion.utils import GetDataPullError
 from orion.logging import get_orion_logger
 from orion.config import config
 from orion.kgx_bundle import KGXBundle
@@ -138,7 +136,7 @@ class IngestPipeline:
             logger.info(f"Fetching source data for {source_id} (version: {source_version})...")
             return self.fetch_source(source_id, source_version=source_version)
 
-    def get_latest_source_version(self, source_id: str, retries: int = 0):
+    def get_latest_source_version(self, source_id: str, retries: int = 1):
         if source_id in self.latest_source_version_lookup:
             return self.latest_source_version_lookup[source_id]
 
@@ -149,21 +147,15 @@ class IngestPipeline:
             logger.info(f"Found latest source version for {source_id}: {latest_source_version}")
             self.latest_source_version_lookup[source_id] = latest_source_version
             return latest_source_version
-        except GetDataPullError as failed_error:
-            error_message = f"Error while checking for latest source version for {source_id}: " \
-                            f"{failed_error.error_message}"
-            logger.error(error_message)
-            if retries < 2:
-                time.sleep(3)
-                return self.get_latest_source_version(source_id, retries=retries+1)
-            else:
-                raise DataVersionError(error_message=error_message)
         except Exception as e:
-            error_message = f"Error while checking for latest source version for {source_id}: {repr(e)}-{str(e)}"
-            logger.error(error_message)
-            raise DataVersionError(error_message=error_message)
+            error_message = getattr(e, 'error_message', None) or f"{repr(e)}-{str(e)}"
+            logger.error(f"Error while checking for latest source version for {source_id}: {error_message}")
+            if retries < 4:
+                time.sleep(retries * 2)
+                return self.get_latest_source_version(source_id, retries=retries + 1)
+            return None
 
-    def fetch_source(self, source_id: str, source_version: str='latest', retries: int=0):
+    def fetch_source(self, source_id: str, source_version: str='latest', retries: int=1):
 
         logger.debug(f'Fetching source {source_id}...')
         source_version_path = self.get_source_version_path(source_id, source_version)
@@ -189,22 +181,15 @@ class IngestPipeline:
             source_metadata.set_fetch_status(SourceMetadata.STABLE)
             return True
 
-        except GetDataPullError as failed_error:
-            logger.info(
-                f"Error while fetching source data for {source_id} (version: {source_version}): "
-                f"{failed_error.error_message}")
-            if retries < 2:
-                logger.error(f"Retrying fetching for {source_id}.. (retry {retries + 1})")
-                return self.fetch_source(source_id=source_id, source_version=source_version, retries=retries+1)
-            else:
-                source_metadata.set_fetch_error(failed_error.error_message)
-                source_metadata.set_fetch_status(SourceMetadata.FAILED)
-                return False
         except Exception as e:
-            logger.info(
-                f"Error while fetching source data for {source_id} (version: {source_version}): "
-                f"{repr(e)}-{str(e)}")
-            source_metadata.set_fetch_error(f"{repr(e)}-{str(e)}")
+            error_message = getattr(e, 'error_message', None) or f"{repr(e)}-{str(e)}"
+            logger.info(f"Error while fetching source data for {source_id} (version: {source_version}): "
+                        f"{error_message}")
+            if retries < 4:
+                time.sleep(retries * 2)
+                logger.error(f"Retrying fetching for {source_id}.. (retry {retries + 1})")
+                return self.fetch_source(source_id=source_id, source_version=source_version, retries=retries + 1)
+            source_metadata.set_fetch_error(error_message)
             source_metadata.set_fetch_status(SourceMetadata.FAILED)
             return False
 
@@ -278,11 +263,12 @@ class IngestPipeline:
                                                     parsing_time=current_time)
             return False
         except Exception as e:
+            logger.error(f"Exception while parsing {source_id}: {repr(e)}-{str(e)}")
             source_metadata.update_parsing_metadata(parsing_version,
                                                     parsing_status=SourceMetadata.FAILED,
                                                     parsing_error=f'{repr(e)}-{str(e)}',
                                                     parsing_time=current_time)
-            raise e
+            return False
 
     def get_latest_parsing_version(self, source_id: str):
         if source_id in self.latest_parsing_version_lookup:
@@ -307,11 +293,11 @@ class IngestPipeline:
         elif normalization_status == SourceMetadata.IN_PROGRESS:
             logger.info(f"Normalization stage for {source_id} is already in progress.")
             return False
-        elif normalization_status == SourceMetadata.BROKEN or normalization_status == SourceMetadata.FAILED:
+        elif normalization_status == SourceMetadata.BROKEN:
             logger.info(f"Normalization stage for {source_id} previously: {normalization_status}")
-            # TODO consider retry logic here
             return False
         else:
+            # normalize if needed, or retry on status == SourceMetadata.FAILED
             return self.normalize_source(source_id,
                                          source_version,
                                          parsing_version,
@@ -377,6 +363,7 @@ class IngestPipeline:
                                                           normalization_status=SourceMetadata.FAILED,
                                                           normalization_error=error_message,
                                                           normalization_time=current_time)
+            self.delete_normalization_files(source_id, source_version, parsing_version, composite_normalization_version)
             return False
         except Exception as e:
             logger.error(f"Error while normalizing {source_id}: {repr(e)}")
@@ -385,7 +372,25 @@ class IngestPipeline:
                                                           normalization_status=SourceMetadata.FAILED,
                                                           normalization_error=repr(e),
                                                           normalization_time=current_time)
+            self.delete_normalization_files(source_id, source_version, parsing_version, composite_normalization_version)
             return False
+
+    def delete_normalization_files(self,
+                                   source_id: str,
+                                   source_version: str,
+                                   parsing_version: str,
+                                   composite_normalization_version: str):
+        # Remove any partial output from a failed normalization attempt so the retry starts clean.
+        failed_file_paths = [
+            self.get_normalized_node_file_path(source_id, source_version, parsing_version, composite_normalization_version),
+            self.get_node_norm_map_file_path(source_id, source_version, parsing_version, composite_normalization_version),
+            self.get_node_norm_failures_file_path(source_id, source_version, parsing_version, composite_normalization_version),
+            self.get_normalized_edge_file_path(source_id, source_version, parsing_version, composite_normalization_version),
+            self.get_edge_norm_predicate_map_file_path(source_id, source_version, parsing_version, composite_normalization_version),
+        ]
+        for failed_file_path in failed_file_paths:
+            if os.path.exists(failed_file_path):
+                os.remove(failed_file_path)
 
     def run_supplementation_stage(self,
                                   source_id: str,
@@ -433,9 +438,8 @@ class IngestPipeline:
                                                                                      parsing_version,
                                                                                      composite_normalization_version,
                                                                                      supplementation_version)
+        source_metadata = self.get_source_metadata(source_id, source_version)
         try:
-
-            source_metadata = self.get_source_metadata(source_id, source_version)
             source_metadata.update_supplementation_metadata(parsing_version,
                                                             composite_normalization_version,
                                                             supplementation_version,

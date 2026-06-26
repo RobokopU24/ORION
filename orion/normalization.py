@@ -129,7 +129,7 @@ class NodeNormalizer:
         self.variant_node_types = None
         self.requests_session = self.get_normalization_requests_session()
 
-    def hit_node_norm_service(self, curies, retries=0):
+    def hit_node_norm_service(self, curies):
         resp: requests.models.Response = \
             self.requests_session.post(f'{config.NODE_NORMALIZATION_URL}/get_normalized_nodes',
                                        json={'curies': curies,
@@ -147,7 +147,8 @@ class NodeNormalizer:
                                 f"but with an empty result for (curies: {curies})"
                 raise NormalizationFailedError(error_message=error_message)
         else:
-            error_message = f'Node norm response code: {resp.status_code} (curies: {curies})'
+            error_message = f'Node norm response code: {resp.status_code} (curies: {curies}) - ' \
+                            f'response body: {resp.text[:1000]}'
             logger.error(error_message)
             resp.raise_for_status()
 
@@ -374,14 +375,13 @@ class NodeNormalizer:
 
     @staticmethod
     def get_normalization_requests_session():
-        pool_maxsize = max(os.cpu_count(), 10)
         s = requests.Session()
-        retries = Retry(total=8,
-                        backoff_factor=1,
-                        status_forcelist=[502, 503, 504, 403, 429],
+        retries = Retry(total=5,
+                        backoff_factor=2,
+                        status_forcelist=[500, 502, 503, 504, 403, 429],
                         allowed_methods=['GET', 'POST', 'HEAD', 'OPTIONS'])
-        s.mount('https://', HTTPAdapter(max_retries=retries, pool_maxsize=pool_maxsize))
-        s.mount('http://', HTTPAdapter(max_retries=retries, pool_maxsize=pool_maxsize))
+        s.mount('https://', HTTPAdapter(max_retries=retries))
+        s.mount('http://', HTTPAdapter(max_retries=retries))
         return s
 
 
