@@ -174,6 +174,7 @@ class MonarchKGLoader(MonarchKGBaseLoader):
         }
 
         self.knowledge_source_ignore_list = {
+            'infores:bgee',
             'infores:ctd',
             'infores:reactome',
             'infores:goa',

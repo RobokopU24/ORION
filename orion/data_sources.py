@@ -2,6 +2,8 @@ from collections import defaultdict
 import importlib
 
 BINDING_DB = 'BINDING-DB'
+BGEE_HUMAN = 'BgeeHuman'
+BGEE_MOUSE = 'BgeeMouse'
 CAM_KP = 'CAM-KP'
 CCIDB = 'CCIDB'
 CEBS = 'CEBS'
@@ -59,11 +61,12 @@ YEAST_GSE61888 = 'YeastGSE61888'
 YEAST_GASCHDIAMIDE = 'YeastGaschDiamideGeneExpression'
 YEAST_STRING = 'STRING-DB-Yeast'
 
-RESOURCE_HOGS = [GTEX, GWAS_CATALOG, UNIREF, ONTOLOGICAL_HIERARCHY, UBERGRAPH_REDUNDANT,
-                 SGD, HUMAN_STRING]
+RESOURCE_HOGS = [GTEX, GWAS_CATALOG, UNIREF, ONTOLOGICAL_HIERARCHY, UBERGRAPH_REDUNDANT, SGD, HUMAN_STRING]
 
 SOURCE_DATA_LOADER_CLASS_IMPORTS = {
     BINDING_DB: ("parsers.BINDING.src.loadBINDINGDB", "BINDINGDBLoader"),
+    BGEE_HUMAN: ("parsers.Bgee.src.loadBgee", "BgeeHumanLoader"),
+    BGEE_MOUSE: ("parsers.Bgee.src.loadBgee", "BgeeMouseLoader"),
     CAM_KP: ("parsers.camkp.src.loadCAMKP", "CAMKPLoader"),
     CCIDB: ("parsers.CCIDB.src.loadCCIDB", "CCIDBLoader"),
     CEBS: ("parsers.CEBS.src.loadCEBS", "CEBSLoader"),

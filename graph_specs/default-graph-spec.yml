@@ -25,6 +25,7 @@ graphs:
         # conflation: False
         # strict_normalization: True (whether or not data should be discarded when it can not be normalized)
         # merge_strategy: default (used to specify alternative merge strategies)
+      - source_id: BgeeHuman
       - source_id: CCIDB
       - source_id: CHEBIProps
       - source_id: ClinGenDosageSensitivity
@@ -77,6 +78,7 @@ graphs:
     subgraphs:
       - graph_id: RobokopKG
     sources:
+      - source_id: BgeeMouse
       - source_id: MouseGOA
       - source_id: GenomeAllianceOrthologs
       - source_id: OntologicalHierarchy
