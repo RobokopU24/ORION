@@ -1,5 +1,6 @@
 import time
 import os
+import shutil
 import neo4j
 import subprocess
 import orion.kgx_file_converter as kgx_file_converter
@@ -10,6 +11,23 @@ from orion.config import config
 
 logger = get_orion_logger("orion.neo4j_tools")
 
+NEO4J_EXECUTABLES = ('neo4j-admin', 'neo4j')
+
+
+class Neo4jAvailabilityError(RuntimeError):
+    """Raised when the neo4j command line tools are needed but not installed/on PATH."""
+    pass
+
+
+def check_neo4j_available():
+    missing = [executable for executable in NEO4J_EXECUTABLES if shutil.which(executable) is None]
+    if missing:
+        raise Neo4jAvailabilityError(
+            f'Neo4j is required for this operation but the following were not found : {", ".join(missing)}.'
+            f'The Reactome ingest or any Graph Spec that produces a Neo4j dump require a Neo4j installation. '
+            f'It is recommended to run ORION via the provided Docker image which includes the appropriate '
+            f'Neo4j version.')
+
 
 class Neo4jTools:
 
@@ -19,6 +37,7 @@ class Neo4jTools:
                  https_port: int = 7473,
                  bolt_port: int = 7687,
                  password: str = None):
+        check_neo4j_available()
         self.host = neo4j_host
         self.http_port = http_port
         self.https_port = https_port
