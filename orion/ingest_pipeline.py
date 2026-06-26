@@ -36,16 +36,11 @@ class IngestPipeline:
 
     def __init__(self,
                  storage_dir: str = None,
-                 test_mode: bool = False,
-                 fresh_start_mode: bool = False):
+                 test_mode: bool = False):
 
         self.test_mode = test_mode
         if test_mode:
             logger.info(f'IngestPipeline running in test mode... test data sets will be used when possible.')
-
-        self.fresh_start_mode = fresh_start_mode
-        if fresh_start_mode:
-            logger.info(f'IngestPipeline running in fresh start mode... previous state and files ignored.')
 
         # lazy load the storage directory path
         # store the storage_dir parameter to override the Config if provided programmatically or through CLI
@@ -860,25 +855,26 @@ def main():
     parser.add_argument('-t', '--test_mode',
                         action='store_true',
                         help='Test mode will process a small sample version of the data.')
-    parser.add_argument('-f', '--fresh_start_mode',
-                        action='store_true',
-                        help='Fresh start mode will ignore previous states and overwrite previous data.')
     parser.add_argument('-l', '--lenient_normalization',
                         action='store_true',
-                        help='Lenient normalization mode will allow nodes that do not normalize to persist '
-                             'in the finalized kgx files.')
+                        help='Lenient normalization allows nodes that can not be normalized to persist '
+                             'in final graph outputs.')
+    parser.add_argument('-c', '--conflation',
+                        action='store_true',
+                        help='Conflation mode will turn on all conflation options during normalization. See https://github.com/NCATSTranslator/Babel/ for more information.')
     args = parser.parse_args()
 
     loader_test_mode = args.test_mode or config.ORION_TEST_MODE
-    loader_strict_normalization = (not args.lenient_normalization)
-    ingest_pipeline = IngestPipeline(test_mode=loader_test_mode,
-                                     fresh_start_mode=args.fresh_start_mode)
+    strict_normalization = (not args.lenient_normalization)
+    conflation_on = args.conflation
+    ingest_pipeline = IngestPipeline(test_mode=loader_test_mode)
     for data_source in args.data_source:
         if data_source not in get_available_data_sources():
             print(f'Data source {data_source} is not valid. '
                   f'These are the available data sources: {", ".join(get_available_data_sources())}')
         else:
-            cmd_line_normalization_scheme = NormalizationScheme(strict=loader_strict_normalization)
+            cmd_line_normalization_scheme = NormalizationScheme(strict=strict_normalization,
+                                                                conflation=conflation_on)
             build_version = ingest_pipeline.run_pipeline(data_source, normalization_scheme=cmd_line_normalization_scheme)
             if build_version:
                 print(f'Finished running data pipeline for {data_source} (build_version {build_version}).')

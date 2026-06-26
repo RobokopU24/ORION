@@ -86,8 +86,8 @@ See the full list of data sources and their identifiers in the [data sources fil
 Graph Specs allow a number of options for customization. The following parameters can be set per data source:
 
 - **merge_strategy** - alternative merge strategies
-- **strict_normalization** - whether to discard nodes that fail to normalize (true/false)
-- **conflation** - whether to conflate genes with proteins and chemicals with drugs (true/false)
+- **strict_normalization** - discard nodes that fail to normalize (true/false)
+- **conflation** - conflate genes with proteins and chemicals with drugs during normalization (true/false) see [Babel's Conflation docs](https://github.com/NCATSTranslator/Babel/blob/main/docs/Conflation.md).
 
 The following can be set at the graph level:
 
