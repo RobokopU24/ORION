@@ -138,7 +138,7 @@ class ReactomeLoader(SourceDataLoader):
 
         # This website is frequently down or times out.
         # Just return the latest valid version.
-        return "V95"
+        return "V96"
 
     def get_data(self) -> bool:
         gd: GetData = GetData()
