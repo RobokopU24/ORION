@@ -169,7 +169,7 @@ class PHAROSLoader(SourceDataLoader):
         gene_to_disease: dict = self.query_pharos_db(self.GENE_TO_DISEASE_QUERY)
 
         # create a regex pattern to find UMLS nodes
-        umls_pattern = re.compile('^C\d+$')  # pattern for umls local id
+        umls_pattern = re.compile(r'^C\d+$')  # pattern for umls local id
 
         # for each item in the list
         for item in gene_to_disease:

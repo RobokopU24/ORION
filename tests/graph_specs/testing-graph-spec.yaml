@@ -44,4 +44,4 @@ graphs:
       - source_id: GtoPdb
     subgraphs:
       - graph_id: Testing_Graph
-        graph_version: abc123
+        release_version: abc123

@@ -64,7 +64,7 @@ class SequenceVariantSupplementation:
 
     def __init__(self, output_dir=None):
 
-        workspace_dir = output_dir or config.ORION_STORAGE
+        workspace_dir = output_dir or config.get_storage_dir()
         if not path.isdir(workspace_dir):
             raise RuntimeError(f'Workspace directory not valid for SequenceVariantSupplementation.')
         

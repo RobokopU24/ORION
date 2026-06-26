@@ -5,12 +5,19 @@ import datetime
 import time
 from collections import defaultdict
 
-from orion.data_sources import SourceDataLoaderClassFactory, RESOURCE_HOGS, get_available_data_sources
-from orion.exceptions import DataVersionError
-from orion.utils import GetDataPullError
+from orion.data_sources import (
+    SourceDataLoaderClassFactory,
+    RESOURCE_HOGS,
+    get_available_data_sources,
+    get_data_source_metadata_path,
+)
 from orion.logging import get_orion_logger
 from orion.config import config
+from orion.kgx_bundle import KGXBundle
+from orion.kgx_file_merger import KGXFileMerger
 from orion.kgx_file_normalizer import KGXFileNormalizer
+from orion.kgx_metadata import KGXGraphMetadata, KGXKnowledgeSource, KGXKnowledgeGraphSource
+from orion.kgxmodel import GraphFileSource, GraphSpec
 from orion.kgx_validation import validate_graph
 from orion.normalization import NormalizationScheme, NodeNormalizer, EdgeNormalizer, NormalizationFailedError
 from orion.metadata import SourceMetadata
@@ -27,16 +34,11 @@ class IngestPipeline:
 
     def __init__(self,
                  storage_dir: str = None,
-                 test_mode: bool = False,
-                 fresh_start_mode: bool = False):
+                 test_mode: bool = False):
 
         self.test_mode = test_mode
         if test_mode:
             logger.info(f'IngestPipeline running in test mode... test data sets will be used when possible.')
-
-        self.fresh_start_mode = fresh_start_mode
-        if fresh_start_mode:
-            logger.info(f'IngestPipeline running in fresh start mode... previous state and files ignored.')
 
         # lazy load the storage directory path
         # store the storage_dir parameter to override the Config if provided programmatically or through CLI
@@ -66,13 +68,13 @@ class IngestPipeline:
         if source_version == 'latest':
             source_version = self.get_latest_source_version(source_id)
         if not self.run_fetch_stage(source_id, source_version):
-            logger.warning(f"Pipeline for {source_id} aborted during fetch stage.")
+            logger.error(f"Pipeline for {source_id} aborted during fetch stage.")
             return False
 
         if parsing_version == 'latest':
             parsing_version = self.get_latest_parsing_version(source_id)
         if not self.run_parsing_stage(source_id, source_version, parsing_version=parsing_version):
-            logger.warning(f"Pipeline for {source_id} aborted during parsing stage.")
+            logger.error(f"Pipeline for {source_id} aborted during parsing stage.")
             return False
 
         if not normalization_scheme:
@@ -83,7 +85,7 @@ class IngestPipeline:
                                             source_version,
                                             parsing_version=parsing_version,
                                             normalization_scheme=normalization_scheme):
-            logger.warning(f"Pipeline for {source_id} aborted during normalization stage.")
+            logger.error(f"Pipeline for {source_id} aborted during normalization stage.")
             return False
 
         if supplementation_version == 'latest':
@@ -93,19 +95,27 @@ class IngestPipeline:
                                               parsing_version=parsing_version,
                                               supplementation_version=supplementation_version,
                                               normalization_scheme=normalization_scheme):
-            logger.warning(f"Pipeline for {source_id} supplementation stage not successful.")
+            logger.error(f"Pipeline for {source_id} supplementation stage not successful.")
             return False
 
-        release_version = self.run_qc_and_metadata_stage(source_id,
-                                                         source_version,
-                                                         parsing_version=parsing_version,
-                                                         normalization_scheme=normalization_scheme,
-                                                         supplementation_version=supplementation_version)
-        if release_version is None:
+        build_version = self.run_qc_and_metadata_stage(source_id,
+                                                       source_version,
+                                                       parsing_version=parsing_version,
+                                                       normalization_scheme=normalization_scheme,
+                                                       supplementation_version=supplementation_version)
+        if build_version is None:
             logger.warning(f"Pipeline for {source_id} failed quality control...")
             return False
-        else:
-            return release_version
+
+        if not self.finalize_source_build(source_id,
+                                          source_version,
+                                          parsing_version=parsing_version,
+                                          normalization_scheme=normalization_scheme,
+                                          supplementation_version=supplementation_version,
+                                          build_version=build_version):
+            logger.error(f"Pipeline for {source_id} failed to generate a final source build.")
+            return False
+        return build_version
 
     def run_fetch_stage(self, source_id: str, source_version: str):
         if not source_version:
@@ -126,7 +136,7 @@ class IngestPipeline:
             logger.info(f"Fetching source data for {source_id} (version: {source_version})...")
             return self.fetch_source(source_id, source_version=source_version)
 
-    def get_latest_source_version(self, source_id: str, retries: int = 0):
+    def get_latest_source_version(self, source_id: str, retries: int = 1):
         if source_id in self.latest_source_version_lookup:
             return self.latest_source_version_lookup[source_id]
 
@@ -137,21 +147,15 @@ class IngestPipeline:
             logger.info(f"Found latest source version for {source_id}: {latest_source_version}")
             self.latest_source_version_lookup[source_id] = latest_source_version
             return latest_source_version
-        except GetDataPullError as failed_error:
-            error_message = f"Error while checking for latest source version for {source_id}: " \
-                            f"{failed_error.error_message}"
-            logger.error(error_message)
-            if retries < 2:
-                time.sleep(3)
-                return self.get_latest_source_version(source_id, retries=retries+1)
-            else:
-                raise DataVersionError(error_message=error_message)
         except Exception as e:
-            error_message = f"Error while checking for latest source version for {source_id}: {repr(e)}-{str(e)}"
-            logger.error(error_message)
-            raise DataVersionError(error_message=error_message)
+            error_message = getattr(e, 'error_message', None) or f"{repr(e)}-{str(e)}"
+            logger.error(f"Error while checking for latest source version for {source_id}: {error_message}")
+            if retries < 4:
+                time.sleep(retries * 2)
+                return self.get_latest_source_version(source_id, retries=retries + 1)
+            return None
 
-    def fetch_source(self, source_id: str, source_version: str='latest', retries: int=0):
+    def fetch_source(self, source_id: str, source_version: str='latest', retries: int=1):
 
         logger.debug(f'Fetching source {source_id}...')
         source_version_path = self.get_source_version_path(source_id, source_version)
@@ -177,22 +181,15 @@ class IngestPipeline:
             source_metadata.set_fetch_status(SourceMetadata.STABLE)
             return True
 
-        except GetDataPullError as failed_error:
-            logger.info(
-                f"Error while fetching source data for {source_id} (version: {source_version}): "
-                f"{failed_error.error_message}")
-            if retries < 2:
-                logger.error(f"Retrying fetching for {source_id}.. (retry {retries + 1})")
-                return self.fetch_source(source_id=source_id, source_version=source_version, retries=retries+1)
-            else:
-                source_metadata.set_fetch_error(failed_error.error_message)
-                source_metadata.set_fetch_status(SourceMetadata.FAILED)
-                return False
         except Exception as e:
-            logger.info(
-                f"Error while fetching source data for {source_id} (version: {source_version}): "
-                f"{repr(e)}-{str(e)}")
-            source_metadata.set_fetch_error(f"{repr(e)}-{str(e)}")
+            error_message = getattr(e, 'error_message', None) or f"{repr(e)}-{str(e)}"
+            logger.info(f"Error while fetching source data for {source_id} (version: {source_version}): "
+                        f"{error_message}")
+            if retries < 4:
+                time.sleep(retries * 2)
+                logger.error(f"Retrying fetching for {source_id}.. (retry {retries + 1})")
+                return self.fetch_source(source_id=source_id, source_version=source_version, retries=retries + 1)
+            source_metadata.set_fetch_error(error_message)
             source_metadata.set_fetch_status(SourceMetadata.FAILED)
             return False
 
@@ -266,11 +263,12 @@ class IngestPipeline:
                                                     parsing_time=current_time)
             return False
         except Exception as e:
+            logger.error(f"Exception while parsing {source_id}: {repr(e)}-{str(e)}")
             source_metadata.update_parsing_metadata(parsing_version,
                                                     parsing_status=SourceMetadata.FAILED,
                                                     parsing_error=f'{repr(e)}-{str(e)}',
                                                     parsing_time=current_time)
-            raise e
+            return False
 
     def get_latest_parsing_version(self, source_id: str):
         if source_id in self.latest_parsing_version_lookup:
@@ -295,11 +293,11 @@ class IngestPipeline:
         elif normalization_status == SourceMetadata.IN_PROGRESS:
             logger.info(f"Normalization stage for {source_id} is already in progress.")
             return False
-        elif normalization_status == SourceMetadata.BROKEN or normalization_status == SourceMetadata.FAILED:
+        elif normalization_status == SourceMetadata.BROKEN:
             logger.info(f"Normalization stage for {source_id} previously: {normalization_status}")
-            # TODO consider retry logic here
             return False
         else:
+            # normalize if needed, or retry on status == SourceMetadata.FAILED
             return self.normalize_source(source_id,
                                          source_version,
                                          parsing_version,
@@ -365,6 +363,7 @@ class IngestPipeline:
                                                           normalization_status=SourceMetadata.FAILED,
                                                           normalization_error=error_message,
                                                           normalization_time=current_time)
+            self.delete_normalization_files(source_id, source_version, parsing_version, composite_normalization_version)
             return False
         except Exception as e:
             logger.error(f"Error while normalizing {source_id}: {repr(e)}")
@@ -373,15 +372,25 @@ class IngestPipeline:
                                                           normalization_status=SourceMetadata.FAILED,
                                                           normalization_error=repr(e),
                                                           normalization_time=current_time)
+            self.delete_normalization_files(source_id, source_version, parsing_version, composite_normalization_version)
             return False
 
-    def get_latest_edge_normalization_version(self):
-        if self.latest_edge_normalization_version is not None:
-            return self.latest_edge_normalization_version
-        edge_normalizer = EdgeNormalizer()
-        edge_norm_version = edge_normalizer.get_current_edge_norm_version()
-        self.latest_edge_normalization_version = edge_norm_version
-        return edge_norm_version
+    def delete_normalization_files(self,
+                                   source_id: str,
+                                   source_version: str,
+                                   parsing_version: str,
+                                   composite_normalization_version: str):
+        # Remove any partial output from a failed normalization attempt so the retry starts clean.
+        failed_file_paths = [
+            self.get_normalized_node_file_path(source_id, source_version, parsing_version, composite_normalization_version),
+            self.get_node_norm_map_file_path(source_id, source_version, parsing_version, composite_normalization_version),
+            self.get_node_norm_failures_file_path(source_id, source_version, parsing_version, composite_normalization_version),
+            self.get_normalized_edge_file_path(source_id, source_version, parsing_version, composite_normalization_version),
+            self.get_edge_norm_predicate_map_file_path(source_id, source_version, parsing_version, composite_normalization_version),
+        ]
+        for failed_file_path in failed_file_paths:
+            if os.path.exists(failed_file_path):
+                os.remove(failed_file_path)
 
     def run_supplementation_stage(self,
                                   source_id: str,
@@ -429,9 +438,8 @@ class IngestPipeline:
                                                                                      parsing_version,
                                                                                      composite_normalization_version,
                                                                                      supplementation_version)
+        source_metadata = self.get_source_metadata(source_id, source_version)
         try:
-
-            source_metadata = self.get_source_metadata(source_id, source_version)
             source_metadata.update_supplementation_metadata(parsing_version,
                                                             composite_normalization_version,
                                                             supplementation_version,
@@ -500,11 +508,11 @@ class IngestPipeline:
         loader = SOURCE_DATA_LOADER_CLASSES[source_id](test_mode=self.test_mode)
         source_meta_information = loader.get_source_meta_information()
         normalization_version = normalization_scheme.get_composite_normalization_version()
-        release_version = source_metadata.generate_release_metadata(parsing_version=parsing_version,
-                                                                    supplementation_version=supplementation_version,
-                                                                    normalization_version=normalization_version,
-                                                                    source_meta_information=source_meta_information)
-        logger.info(f'Release version for {source_id}: {release_version}')
+        build_version = source_metadata.generate_build_metadata(parsing_version=parsing_version,
+                                                                supplementation_version=supplementation_version,
+                                                                normalization_version=normalization_version,
+                                                                source_meta_information=source_meta_information)
+        logger.info(f'Build version for {source_id}: {build_version}')
 
         composite_normalization_version = normalization_scheme.get_composite_normalization_version()
         nodes_filepath = self.get_normalized_node_file_path(source_id, source_version, parsing_version,
@@ -512,19 +520,19 @@ class IngestPipeline:
         edges_filepath = self.get_normalized_edge_file_path(source_id, source_version, parsing_version,
                                                             composite_normalization_version)
         source_version_path = self.get_source_version_path(source_id, source_version)
-        qc_output_filename = f'{source_id}_{release_version}.json'
-        release_qc_output_path = os.path.join(source_version_path, qc_output_filename)
-        if not os.path.exists(release_qc_output_path):
+        qc_output_filename = f'{source_id}_{build_version}.json'
+        qc_output_path = os.path.join(source_version_path, qc_output_filename)
+        if not os.path.exists(qc_output_path):
             logger.info(f'Running QC and validation...')
             qc_results = validate_graph(nodes_file_path=nodes_filepath,
                                         edges_file_path=edges_filepath,
                                         graph_id=source_id,
-                                        graph_version=release_version,
+                                        build_version=build_version,
                                         logger=logger)
-            with open(release_qc_output_path, 'w') as qc_out:
+            with open(qc_output_path, 'w') as qc_out:
                 qc_out.write(json.dumps(qc_results, indent=4))
             logger.info(f'QC and validation complete, metadata generated: {qc_output_filename}')
-        return release_version
+        return build_version
 
     def get_source_metadata(self, source_id: str, source_version):
         if source_id not in self.source_metadata or source_version not in self.source_metadata[source_id]:
@@ -674,8 +682,148 @@ class IngestPipeline:
                                                                 supplementation_version))
         return file_paths
 
+    # Per-source-version working data lives under a 'data' subdirectory,
+    # keeping it separate from the finalized 'builds'.
+    # {storage}/{source_id}/data/{source_version}/
     def get_source_version_path(self, source_id: str, source_version: str):
-        return os.path.join(self.storage_dir, source_id, source_version)
+        return os.path.join(self.storage_dir, source_id, 'data', source_version)
+
+    # Source builds are the finalized single-source graph products of the ingest pipeline. A source
+    # build is itself a single-source KGX graph, so its directory is a standard KGXBundle layout
+    # (nodes.jsonl, edges.jsonl, graph-metadata.json) identical to a graph build's.
+    # Layout: {storage}/{source_id}/builds/{build_version}/
+    def get_source_builds_directory(self, source_id: str) -> str:
+        return os.path.join(self.storage_dir, source_id, 'builds')
+
+    def get_source_build_directory(self, source_id: str, build_version: str) -> str:
+        return os.path.join(self.get_source_builds_directory(source_id), build_version)
+
+    def get_source_build_bundle(self, source_id: str, build_version: str) -> KGXBundle:
+        return KGXBundle(self.get_source_build_directory(source_id, build_version))
+
+    def has_source_build(self, source_id: str, build_version: str) -> bool:
+        """True if a complete source build exists for (source_id, build_version)."""
+        bundle = self.get_source_build_bundle(source_id, build_version)
+        return bundle.has_nodes_and_edges() and bundle.has_graph_metadata()
+
+    @staticmethod
+    def get_source_build_output_url(source_id: str, build_version: str) -> str:
+        return f'{config.ORION_OUTPUT_URL}/sources/{source_id}/builds/{build_version}/'
+
+    # Merge within-source nodes & edges and generate KGXGraphMetadata for the output.
+    # These are the finalized KGX files published on the graph registry used to build graphs.
+    def finalize_source_build(self,
+                              source_id: str,
+                              source_version: str,
+                              parsing_version: str,
+                              normalization_scheme: NormalizationScheme,
+                              supplementation_version: str,
+                              build_version: str) -> bool:
+
+        if self.has_source_build(source_id, build_version):
+            # this source build already exists
+            return True
+
+        parser_file_paths = self.get_final_file_paths(source_id,
+                                                      source_version,
+                                                      parsing_version,
+                                                      normalization_scheme.get_composite_normalization_version(),
+                                                      supplementation_version)
+        if not parser_file_paths:
+            logger.error(f'Cannot finalize source build for {source_id} build_version {build_version}: '
+                         f'parser output files not found.')
+            return False
+
+        source_build_bundle = self.get_source_build_bundle(source_id, build_version)
+        os.makedirs(source_build_bundle.graph_dir, exist_ok=True)
+
+        graph_spec = GraphSpec(
+            graph_id=f'{source_id}_{build_version}',
+            graph_name=source_id,
+            graph_description='',
+            graph_url='',
+            sources=[],
+            subgraphs=[],
+        )
+        graph_spec.resolved_sources = [GraphFileSource(id=source_id,
+                                                       build_version=build_version,
+                                                       file_paths=parser_file_paths)]
+
+        logger.info(f'Finalizing source build for {source_id} build_version {build_version}. Merging entities...')
+        source_merger = KGXFileMerger(graph_spec=graph_spec,
+                                      output_directory=source_build_bundle.graph_dir,
+                                      nodes_output_filename=KGXBundle.NODES_FILENAME,
+                                      edges_output_filename=KGXBundle.EDGES_FILENAME)
+        source_merger.merge()
+        merge_metadata = source_merger.get_merge_metadata()
+        if 'merge_error' in merge_metadata:
+            logger.error(f'Source build merge failed for {source_id}: {merge_metadata["merge_error"]}')
+            return False
+
+        source_build_bundle.compress_nodes_and_edges()
+
+        node_count = merge_metadata.get('final_node_count')
+        edge_count = merge_metadata.get('final_edge_count')
+        source_build_url = self.get_source_build_output_url(source_id, build_version)
+        build_time = datetime.datetime.now().isoformat(timespec='seconds')
+
+        # generate KGXGraphMetadata for the final KGX files
+        parser_metadata = self._load_parser_metadata(source_id)
+        source_name = parser_metadata.get('name', source_id)
+        graph_name = f'A ROBOKOP Knowledge Graph based on {source_name}'
+        knowledge_source = KGXKnowledgeSource.from_dict(parser_metadata)
+        knowledge_source.version = source_version
+        kg_source = KGXKnowledgeGraphSource(id=source_build_url,
+                                            name=graph_name,
+                                            build_version=build_version,
+                                            node_count=node_count,
+                                            edge_count=edge_count)
+        graph_metadata = KGXGraphMetadata(id=source_build_url,
+                                          name=graph_name,
+                                          url=source_build_url,
+                                          version=source_version,
+                                          build_version=build_version,
+                                          date_created=build_time,
+                                          date_modified=build_time,
+                                          biolink_version=normalization_scheme.edge_normalization_version,
+                                          babel_version=normalization_scheme.node_normalization_version,
+                                          kg_sources=[kg_source.to_dict()],
+                                          knowledge_sources=[knowledge_source],
+                                          distribution=[{
+                                              "@type": "DataDownload",
+                                              "encodingFormat": "biolink:KGX",
+                                              "contentUrl": source_build_url,
+                                          }])
+        with open(source_build_bundle.graph_metadata_path, 'w') as f:
+            f.write(graph_metadata.to_json())
+        return True
+
+    # Build a GraphFileSource for an existing on-disk source build.
+    # Returns None if the source build is incomplete or missing.
+    # The merge_strategy is the consuming graph's choice for how to
+    # merge this source in, so it's supplied by the caller.
+    def load_source_build_file_source(self,
+                                      source_id: str,
+                                      build_version: str,
+                                      merge_strategy: str = None) -> GraphFileSource | None:
+        bundle = self.get_source_build_bundle(source_id, build_version)
+        if not (bundle.has_nodes_and_edges() and bundle.has_graph_metadata()):
+            return None
+        return GraphFileSource(
+            id=source_id,
+            build_version=build_version,
+            file_paths=[bundle.nodes_path, bundle.edges_path],
+            merge_strategy=merge_strategy,
+            kgx_graph_metadata=bundle.load_graph_metadata(),
+        )
+
+    @staticmethod
+    def _load_parser_metadata(source_id: str) -> dict:
+        """Load a data source's parser-supplied source.json metadata (name, description, license, …)."""
+        orion_root = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..')
+        parser_metadata_path = os.path.join(orion_root, get_data_source_metadata_path(source_id))
+        with open(parser_metadata_path) as f:
+            return json.load(f)
 
     @property
     def storage_dir(self):
@@ -691,15 +839,8 @@ class IngestPipeline:
                 return storage_dir
             else:
                 raise IOError(f'Storage directory not valid: {storage_dir}')
-        # otherwise use the storage directory specified by the environment variable ORION_STORAGE
-        # check to make sure it's set and valid, otherwise fail
-        if config.ORION_STORAGE is None:
-            raise Exception(f'No storage directory was specified. You must either provide a path programmatically or '
-                            f'use the environment variable ORION_STORAGE to configure a storage directory.')
-        if os.path.isdir(config.ORION_STORAGE):
-            return config.ORION_STORAGE
-        else:
-            raise IOError(f'Storage directory not valid: {config.ORION_STORAGE}')
+        # otherwise resolve from the config
+        return config.get_storage_dir()
 
     def init_source_output_dir(self, source_id: str):
         source_dir_path = os.path.join(self.storage_dir, source_id)
@@ -718,28 +859,29 @@ def main():
     parser.add_argument('-t', '--test_mode',
                         action='store_true',
                         help='Test mode will process a small sample version of the data.')
-    parser.add_argument('-f', '--fresh_start_mode',
-                        action='store_true',
-                        help='Fresh start mode will ignore previous states and overwrite previous data.')
     parser.add_argument('-l', '--lenient_normalization',
                         action='store_true',
-                        help='Lenient normalization mode will allow nodes that do not normalize to persist '
-                             'in the finalized kgx files.')
+                        help='Lenient normalization allows nodes that can not be normalized to persist '
+                             'in final graph outputs.')
+    parser.add_argument('-c', '--conflation',
+                        action='store_true',
+                        help='Conflation mode will turn on all conflation options during normalization. See https://github.com/NCATSTranslator/Babel/ for more information.')
     args = parser.parse_args()
 
     loader_test_mode = args.test_mode or config.ORION_TEST_MODE
-    loader_strict_normalization = (not args.lenient_normalization)
-    ingest_pipeline = IngestPipeline(test_mode=loader_test_mode,
-                                     fresh_start_mode=args.fresh_start_mode)
+    strict_normalization = (not args.lenient_normalization)
+    conflation_on = args.conflation
+    ingest_pipeline = IngestPipeline(test_mode=loader_test_mode)
     for data_source in args.data_source:
         if data_source not in get_available_data_sources():
             print(f'Data source {data_source} is not valid. '
                   f'These are the available data sources: {", ".join(get_available_data_sources())}')
         else:
-            cmd_line_normalization_scheme = NormalizationScheme(strict=loader_strict_normalization)
-            release_vers = ingest_pipeline.run_pipeline(data_source, normalization_scheme=cmd_line_normalization_scheme)
-            if release_vers:
-                print(f'Finished running data pipeline for {data_source} (release version {release_vers}).')
+            cmd_line_normalization_scheme = NormalizationScheme(strict=strict_normalization,
+                                                                conflation=conflation_on)
+            build_version = ingest_pipeline.run_pipeline(data_source, normalization_scheme=cmd_line_normalization_scheme)
+            if build_version:
+                print(f'Finished running data pipeline for {data_source} (build_version {build_version}).')
 
 
 if __name__ == '__main__':

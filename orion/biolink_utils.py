@@ -8,12 +8,14 @@ from functools import cache
 from orion.biolink_constants import NAMED_THING
 from orion.config import config
 
-BIOLINK_MODEL_VERSION = config.BL_VERSION
+def normalize_biolink_model_version(version: str) -> str:
+    # biolink-model GitHub tags are 'v'-prefixed (e.g. v4.4.2); ensure exactly one leading 'v'
+    return version if version.startswith("v") else f"v{version}"
+
+BIOLINK_MODEL_VERSION = normalize_biolink_model_version(config.BL_VERSION)
 
 def get_biolink_model_toolkit(biolink_version: str = None) -> Toolkit:
-    version = biolink_version if biolink_version else BIOLINK_MODEL_VERSION
-    if not version.startswith("v"):
-        version = "v" + version
+    version = normalize_biolink_model_version(biolink_version) if biolink_version else BIOLINK_MODEL_VERSION
     schema_url = f"https://raw.githubusercontent.com/biolink/biolink-model/{version}/biolink-model.yaml"
     predicate_map_url = f"https://raw.githubusercontent.com/biolink/biolink-model/{version}/predicate_mapping.yaml"
     return Toolkit(schema=schema_url, predicate_map=predicate_map_url)
@@ -188,7 +190,7 @@ BIOLINK_MAPPING_CHANGES = {
 
 
 def get_biolink_prefix_map():
-    response = requests.get(f'https://raw.githubusercontent.com/biolink/biolink-model/v{BIOLINK_MODEL_VERSION}/project/prefixmap/biolink_model_prefix_map.json')
+    response = requests.get(f'https://raw.githubusercontent.com/biolink/biolink-model/{BIOLINK_MODEL_VERSION}/project/prefixmap/biolink_model_prefix_map.json')
     if response.status_code != 200:
         response.raise_for_status()
     biolink_prefix_map = response.json()
