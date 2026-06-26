@@ -20,6 +20,8 @@ cd ORION
 uv sync --extra robokop
 ```
 
+`uv sync` installs the `orion-*` commands (listed under [CLI Commands](#cli-commands)) into the project's `.venv`. Run them with `uv run`, e.g. `uv run orion-build ...`, or activate the environment first with `source .venv/bin/activate` and call them directly.
+
 The core library is also available on PyPI (`pip install robokop-orion`), but the full repository is needed to utilize ingest modules from the [ROBOKOP](https://robokop.renci.org/) project.
 
 ### Quickstart
@@ -27,7 +29,7 @@ The core library is also available on PyPI (`pip install robokop-orion`), but th
 Build a customized graph from any of the available data sources:
 
 ```bash
-orion-build My_Graph --sources DrugCentral,HGNC
+uv run orion-build My_Graph --sources DrugCentral,HGNC
 ```
 
 Outputs are written to `~/ORION-workspace/graphs/<graph_id>/<version>/` by default. See [Configuration](#configuration) to select a different location.
