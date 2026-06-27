@@ -1,0 +1,14 @@
+{
+  "@context": "https://schema.org",
+  "@type": "Dataset",
+  "identifier": "infores:omim",
+  "name": "Online Mendelian Inheritance in Man",
+  "description": "OMIM phenotype-to-gene mappings as distributed by NCBI in mim2gene_medgen.",
+  "url": "https://www.omim.org/",
+  "attribution": "https://www.omim.org/",
+  "citation": [
+    "https://www.omim.org/"
+  ],
+  "license": "https://www.omim.org/help/agreement",
+  "contentUrl": "https://ftp.ncbi.nlm.nih.gov/gene/DATA/mim2gene_medgen"
+}

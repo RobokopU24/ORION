@@ -188,6 +188,16 @@ class MonarchKGLoader(MonarchKGBaseLoader):
             'infores:wb'
         }
 
+        self.replaced_hpoa_source = 'infores:hpo-annotations'
+        self.replaced_gene_disease_sources = {
+            'infores:omim',
+            'infores:orphanet',
+        }
+        self.replaced_gene_disease_predicates = {
+            'biolink:gene_associated_with_condition',
+            'biolink:gene_associated_with_disease',
+        }
+
         # Curie prefixes known not to normalize — edges where subject or object
         # starts with any of these are discarded.
         self.non_normalizable_curie_prefixes = {
@@ -197,6 +207,16 @@ class MonarchKGLoader(MonarchKGBaseLoader):
 
     def filter_edge(self, subject_id: str, object_id: str, predicate: str,
                     primary_knowledge_source: str, aggregator_knowledge_sources: list) -> bool:
+        if predicate == 'biolink:has_phenotype' and (
+            primary_knowledge_source == self.replaced_hpoa_source
+            or self.replaced_hpoa_source in aggregator_knowledge_sources
+        ):
+            return True
+        if predicate in self.replaced_gene_disease_predicates and (
+            primary_knowledge_source in self.replaced_gene_disease_sources
+            or any(ks in self.replaced_gene_disease_sources for ks in aggregator_knowledge_sources)
+        ):
+            return True
         if predicate not in self.desired_predicates:
             return True
         if primary_knowledge_source in self.knowledge_source_ignore_list or \
