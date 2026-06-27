@@ -1,0 +1,17 @@
+{
+  "@context": "https://schema.org",
+  "@type": "Dataset",
+  "identifier": "infores:hpo-annotations",
+  "name": "Human Phenotype Ontology Annotations",
+  "description": "The Human Phenotype Ontology annotations provide disease-phenotype and disease-conditioned gene-phenotype annotations.",
+  "url": "https://hpo.jax.org/data/annotations",
+  "attribution": "https://hpo.jax.org/",
+  "citation": [
+    "https://doi.org/10.1093/nar/gkad1005"
+  ],
+  "license": "https://hpo.jax.org/app/license",
+  "contentUrl": [
+    "https://purl.obolibrary.org/obo/hp/hpoa/phenotype.hpoa",
+    "https://purl.obolibrary.org/obo/hp/hpoa/genes_to_phenotype.txt"
+  ]
+}

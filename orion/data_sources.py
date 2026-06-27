@@ -26,6 +26,7 @@ HETIO = 'Hetio'
 HGNC = 'HGNC'
 HMDB = 'HMDB'
 HUMAN_GOA = 'HumanGOA'
+HPOA = 'HPOA'
 MOUSE_GOA = 'MouseGOA'
 INTACT = 'IntAct'
 LINCS = 'LINCS'
@@ -39,7 +40,9 @@ MONARCH_KG = 'MonarchKG'
 MONARCH_KG_FULL = 'MonarchKGFull'
 MONDO_PROPS = 'MONDOProps'
 OHD_CAROLINA = 'OHD-Carolina'
+OMIM = 'OMIM'
 ONTOLOGICAL_HIERARCHY = 'OntologicalHierarchy'
+ORPHANET = 'Orphanet'
 PANTHER = 'PANTHER'
 PHAROS = 'PHAROS'
 PLANT_GOA = 'PlantGOA'
@@ -85,6 +88,7 @@ SOURCE_DATA_LOADER_CLASS_IMPORTS = {
     HGNC: ("parsers.hgnc.src.loadHGNC", "HGNCLoader"),
     HMDB: ("parsers.hmdb.src.loadHMDB", "HMDBLoader"),
     HUMAN_GOA: ("parsers.GOA.src.loadGOA", "HumanGOALoader"),
+    HPOA: ("parsers.HPOA.src.loadHPOA", "HPOALoader"),
     MOUSE_GOA: ("parsers.GOA.src.loadGOA", "MouseGOALoader"),
     HUMAN_STRING: ("parsers.STRING.src.loadSTRINGDB", "HumanSTRINGDBLoader"),
     INTACT: ("parsers.IntAct.src.loadIA", "IALoader"),
@@ -101,7 +105,9 @@ SOURCE_DATA_LOADER_CLASS_IMPORTS = {
     MONARCH_KG_FULL: ("parsers.monarchkg.src.loadMonarchKG", "MonarchKGFullLoader"),
     MONDO_PROPS: ("parsers.MONDOProperties.src.loadMP", "MPLoader"),
     OHD_CAROLINA: ("parsers.ohd_carolina.src.loadOHD", "OHDLoader"),
+    OMIM: ("parsers.OMIM.src.loadOMIM", "OMIMLoader"),
     ONTOLOGICAL_HIERARCHY: ("parsers.UberGraph.src.loadUG", "OHLoader"),
+    ORPHANET: ("parsers.Orphanet.src.loadOrphanet", "OrphanetLoader"),
     PANTHER: ("parsers.panther.src.loadPanther", "PLoader"),
     PHAROS: ("parsers.PHAROS.src.loadPHAROS", "PHAROSLoader"),
     PLANT_GOA: ("parsers.GOA.src.loadGOA", "PlantGOALoader"),
