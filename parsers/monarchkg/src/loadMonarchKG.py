@@ -66,7 +66,8 @@ class MonarchKGBaseLoader(SourceDataLoader):
         return True
 
     def filter_edge(self, subject_id: str, object_id: str, predicate: str,
-                    primary_knowledge_source: str, aggregator_knowledge_sources: list) -> bool:
+                    primary_knowledge_source: str, aggregator_knowledge_sources: list,
+                    monarch_edge: dict = None) -> bool:
         """
         Returns True if the edge should be skipped.
         Subclasses override this to apply filtering.
@@ -113,7 +114,8 @@ class MonarchKGBaseLoader(SourceDataLoader):
                         aggregator_knowledge_sources = []
 
                     if self.filter_edge(subject_id, object_id, predicate,
-                                        primary_knowledge_source, aggregator_knowledge_sources):
+                                        primary_knowledge_source, aggregator_knowledge_sources,
+                                        monarch_edge=monarch_edge):
                         skipped_filtered_counter += 1
                         continue
 
@@ -197,6 +199,7 @@ class MonarchKGLoader(MonarchKGBaseLoader):
             'biolink:gene_associated_with_condition',
             'biolink:gene_associated_with_disease',
         }
+        self.replaced_monarch_omim_gene_disease_provided_by = 'omim_gene_to_disease_edges'
 
         # Curie prefixes known not to normalize — edges where subject or object
         # starts with any of these are discarded.
@@ -206,10 +209,18 @@ class MonarchKGLoader(MonarchKGBaseLoader):
         }
 
     def filter_edge(self, subject_id: str, object_id: str, predicate: str,
-                    primary_knowledge_source: str, aggregator_knowledge_sources: list) -> bool:
+                    primary_knowledge_source: str, aggregator_knowledge_sources: list,
+                    monarch_edge: dict = None) -> bool:
         if predicate == 'biolink:has_phenotype' and (
             primary_knowledge_source == self.replaced_hpoa_source
             or self.replaced_hpoa_source in aggregator_knowledge_sources
+        ):
+            return True
+        if (
+            predicate == 'biolink:causes'
+            and primary_knowledge_source == self.provenance_id
+            and monarch_edge
+            and monarch_edge.get('provided_by') == self.replaced_monarch_omim_gene_disease_provided_by
         ):
             return True
         if predicate in self.replaced_gene_disease_predicates and (
