@@ -10,6 +10,10 @@ OBO_MISSING_MAPPINGS = {
     'SGD': 'http://purl.obolibrary.org/obo/SGD_'
 }
 
+EDGE_IRI_OVERRIDES = {
+    'http://purl.obolibrary.org/obo/mondo#disease_has_major_feature': 'MONDO:disease_has_major_feature',
+}
+
 
 class UberGraphTools:
 
@@ -50,7 +54,7 @@ class UberGraphTools:
             with tar_files.extractfile(f'{self.graph_base_path}/edge-labels.tsv') as edge_labels_file:
                 for line in TextIOWrapper(edge_labels_file):
                     edge_id, edge_iri = tuple(line.rstrip().split('\t'))
-                    edge_curie = self.curie_to_iri_converter.compress(edge_iri)
+                    edge_curie = EDGE_IRI_OVERRIDES.get(edge_iri) or self.curie_to_iri_converter.compress(edge_iri)
                     if edge_curie is None:
                         edge_mapping_failures.append(edge_iri)
                         # print(f'No prefix mapping found for: {edge_iri}')
