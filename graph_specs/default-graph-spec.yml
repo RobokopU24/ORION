@@ -41,7 +41,6 @@ graphs:
       - source_id: KinAce
       - source_id: LINCS
       - source_id: MetabolomicsWorkbench
-      - source_id: MonarchKG
       - source_id: MONDOProps
       - source_id: OntologicalHierarchy
         merge_strategy: connected_edge_subset
