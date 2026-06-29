@@ -1,6 +1,7 @@
 import os
 import pytest
 import requests.exceptions
+import yaml
 
 from unittest.mock import MagicMock
 from orion.build_manager import GraphBuilder, GraphSpecError
@@ -85,6 +86,7 @@ def test_default_graph_spec_defines_robomouse(monkeypatch, test_graph_output_dir
 
     baseline_sources = [source.id for source in graph_builder.graph_specs['Baseline'].sources]
     assert 'HumanGOA' in baseline_sources
+    assert 'MonarchKG' not in baseline_sources
     assert 'MouseGOA' not in baseline_sources
 
     robomouse_graph = graph_builder.graph_specs['RoboMouseKG']
@@ -94,6 +96,24 @@ def test_default_graph_spec_defines_robomouse(monkeypatch, test_graph_output_dir
         'GenomeAllianceOrthologs',
         'OntologicalHierarchy',
     ]
+
+
+def test_default_baseline_does_not_include_monarchkg():
+    default_graph_spec_path = os.path.join(
+        os.path.dirname(os.path.abspath(__file__)),
+        '..',
+        'graph_specs',
+        'default-graph-spec.yml',
+    )
+    with open(default_graph_spec_path) as graph_spec_file:
+        graph_spec = yaml.safe_load(graph_spec_file)
+
+    baseline_graph = next(graph for graph in graph_spec['graphs'] if graph['graph_id'] == 'Baseline')
+    baseline_sources = [source['source_id'] for source in baseline_graph['sources']]
+
+    assert 'HumanGOA' in baseline_sources
+    assert 'MonarchKG' not in baseline_sources
+    assert 'UbergraphNonredundant' in baseline_sources
 
 
 # graph spec sources are able to return versions once source_version(s) are set
