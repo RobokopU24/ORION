@@ -1,7 +1,11 @@
 import os
 import argparse
 import pyoxigraph
-from pyoxigraph import RdfFormat
+try:
+    from pyoxigraph import RdfFormat
+    N_QUADS_FORMAT = RdfFormat.N_QUADS
+except ImportError:
+    N_QUADS_FORMAT = "application/n-quads"
 
 from collections import defaultdict
 from gzip import GzipFile
@@ -107,7 +111,7 @@ class MPLoader(SourceDataLoader):
             # For any mondo ID with a low Information Content, we want to make it a property
             # So we need to find those, and find their names, and find what other MONDOs are subclasses of that thing.
             # Then we can add those as properties to the subclasses and write everything out.
-            for ttl_triple in pyoxigraph.parse(nq_file, format=RdfFormat.N_QUADS):
+            for ttl_triple in parse_nquads(nq_file):
 
                 record_counter += 1
 
@@ -166,3 +170,10 @@ class MPLoader(SourceDataLoader):
 
         # return the split file names so they can be removed if desired
         return load_metadata
+
+
+def parse_nquads(nq_file):
+    try:
+        return pyoxigraph.parse(nq_file, format=N_QUADS_FORMAT)
+    except TypeError:
+        return pyoxigraph.parse(nq_file, N_QUADS_FORMAT)

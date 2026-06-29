@@ -85,6 +85,9 @@ def test_default_graph_spec_defines_robomouse(monkeypatch, test_graph_output_dir
 
     baseline_sources = [source.id for source in graph_builder.graph_specs['Baseline'].sources]
     assert 'HumanGOA' in baseline_sources
+    assert 'HPOA' in baseline_sources
+    assert 'OMIM' in baseline_sources
+    assert 'Orphanet' in baseline_sources
     assert 'MouseGOA' not in baseline_sources
 
     robomouse_graph = graph_builder.graph_specs['RoboMouseKG']

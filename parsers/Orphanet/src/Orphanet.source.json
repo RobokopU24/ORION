@@ -1,0 +1,14 @@
+{
+  "@context": "https://schema.org",
+  "@type": "Dataset",
+  "identifier": "infores:orphanet",
+  "name": "Orphanet",
+  "description": "Orphadata disease-gene associations from en_product6.xml.",
+  "url": "https://www.orpha.net/",
+  "attribution": "https://www.orphadata.com/",
+  "citation": [
+    "https://www.orphadata.com/"
+  ],
+  "license": "https://www.orphadata.com/",
+  "contentUrl": "http://www.orphadata.org/data/xml/en_product6.xml"
+}
