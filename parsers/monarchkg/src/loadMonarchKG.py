@@ -66,7 +66,8 @@ class MonarchKGBaseLoader(SourceDataLoader):
         return True
 
     def filter_edge(self, subject_id: str, object_id: str, predicate: str,
-                    primary_knowledge_source: str, aggregator_knowledge_sources: list) -> bool:
+                    primary_knowledge_source: str, aggregator_knowledge_sources: list,
+                    monarch_edge: dict = None) -> bool:
         """
         Returns True if the edge should be skipped.
         Subclasses override this to apply filtering.
@@ -113,7 +114,8 @@ class MonarchKGBaseLoader(SourceDataLoader):
                         aggregator_knowledge_sources = []
 
                     if self.filter_edge(subject_id, object_id, predicate,
-                                        primary_knowledge_source, aggregator_knowledge_sources):
+                                        primary_knowledge_source, aggregator_knowledge_sources,
+                                        monarch_edge=monarch_edge):
                         skipped_filtered_counter += 1
                         continue
 
@@ -188,6 +190,8 @@ class MonarchKGLoader(MonarchKGBaseLoader):
             'infores:wb'
         }
 
+        self.replaced_go_annotation_provided_by = 'go_annotation_edges'
+
         # Curie prefixes known not to normalize — edges where subject or object
         # starts with any of these are discarded.
         self.non_normalizable_curie_prefixes = {
@@ -196,7 +200,15 @@ class MonarchKGLoader(MonarchKGBaseLoader):
         }
 
     def filter_edge(self, subject_id: str, object_id: str, predicate: str,
-                    primary_knowledge_source: str, aggregator_knowledge_sources: list) -> bool:
+                    primary_knowledge_source: str, aggregator_knowledge_sources: list,
+                    monarch_edge: dict = None) -> bool:
+        if (
+            predicate == 'biolink:contributes_to'
+            and primary_knowledge_source == 'infores:go'
+            and monarch_edge
+            and monarch_edge.get('provided_by') == self.replaced_go_annotation_provided_by
+        ):
+            return True
         if predicate not in self.desired_predicates:
             return True
         if primary_knowledge_source in self.knowledge_source_ignore_list or \
