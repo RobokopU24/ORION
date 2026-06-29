@@ -199,6 +199,10 @@ class MonarchKGLoader(MonarchKGBaseLoader):
             'biolink:gene_associated_with_condition',
             'biolink:gene_associated_with_disease',
         }
+        self.replaced_monarch_omim_gene_disease_predicates = {
+            'biolink:causes',
+            'biolink:contributes_to',
+        }
         self.replaced_monarch_omim_gene_disease_provided_by = 'omim_gene_to_disease_edges'
 
         # Curie prefixes known not to normalize — edges where subject or object
@@ -217,7 +221,7 @@ class MonarchKGLoader(MonarchKGBaseLoader):
         ):
             return True
         if (
-            predicate == 'biolink:causes'
+            predicate in self.replaced_monarch_omim_gene_disease_predicates
             and primary_knowledge_source == self.provenance_id
             and monarch_edge
             and monarch_edge.get('provided_by') == self.replaced_monarch_omim_gene_disease_provided_by
