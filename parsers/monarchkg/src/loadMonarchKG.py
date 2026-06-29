@@ -204,7 +204,6 @@ class MonarchKGLoader(MonarchKGBaseLoader):
                     monarch_edge: dict = None) -> bool:
         if (
             predicate == 'biolink:contributes_to'
-            and primary_knowledge_source == 'infores:go'
             and monarch_edge
             and monarch_edge.get('provided_by') == self.replaced_go_annotation_provided_by
         ):
