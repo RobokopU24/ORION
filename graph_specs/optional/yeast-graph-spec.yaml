@@ -3,20 +3,19 @@ graphs:
   - graph_id: YobokopKG
     conflation: True
     output_format: neo4j
-    subgraphs:
-      - graph_id: Baseline
     sources:
-      - source_id: SGD
+      - id: Baseline
+      - id: SGD
         strict_normalization: False
-      - source_id: YeastHistoneMapping
+      - id: YeastHistoneMapping
         strict_normalization: False
-      - source_id: Costanza2016Data
+      - id: Costanza2016Data
         strict_normalization: False
-      - source_id: YeastGSE61888
+      - id: YeastGSE61888
         strict_normalization: False
-      - source_id: YeastGaschDiamideGeneExpression
+      - id: YeastGaschDiamideGeneExpression
         strict_normalization: False
-      - source_id: STRING-DB-Yeast
-      - source_id: GenomeAllianceOrthologs
-      - source_id: OntologicalHierarchy
+      - id: STRING-DB-Yeast
+      - id: GenomeAllianceOrthologs
+      - id: OntologicalHierarchy
         merge_strategy: connected_edge_subset

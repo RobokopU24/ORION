@@ -294,7 +294,6 @@ def merge_kgx_files(output_dir: str,
         graph_url='',
         graph_output_format='jsonl',
         sources=[],
-        subgraphs=[],
         resolved_sources=[cli_source],
     )
     file_merger = KGXFileMerger(graph_spec=graph_spec,

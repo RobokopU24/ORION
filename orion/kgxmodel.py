@@ -57,7 +57,6 @@ class GraphSpec:
     edge_id_type: str = None
     edge_merging_attributes: list = None
     sources: list = None
-    subgraphs: list = None
     # Populated by the resolver chain in build_dependencies. Empty until then.
     resolved_sources: list = field(default_factory=list)
 
@@ -74,59 +73,41 @@ class GraphSpec:
             'add_edge_id': self.add_edge_id,
             'overwrite_edge_ids': self.overwrite_edge_ids,
             'edge_id_type': self.edge_id_type,
-            'subgraphs': [subgraph.get_metadata_representation() for subgraph in self.subgraphs] if self.subgraphs else [],
             'sources': [source.get_metadata_representation() for source in self.sources] if self.sources else []
         }
 
 
-# Spec-layer base class. DataSource and SubGraphSource describe what a graph
-# spec is asking for; they do not carry merge-time state. After build_dependencies
-# runs, each spec entry has a corresponding GraphFileSource in
-# GraphSpec.resolved_sources, which is what the merger and metadata generator use.
+# The sources list in a GraphSpec is made up of GraphSource entries. The id of a GraphSource must 
+# refer to a parser in ORION or another graph available through GraphSpecs or a Graph Registry.
+# 
+# GraphSource entries can be either:
+#  - pinned:  A parser or graph with a release_version or build_version specified. These can only be resolved by 
+#             lookup, never built from scratch.
+#  - recipe:  No release_version or build_version is specified, parameters like source_version / parsing_version / 
+#             normalization_scheme are optionally set and otherwise programmatically determine the latest/current 
+#             versions for these settings and derive the build version from those. Recipe settings only apply to 
+#             parsers; an unpinned graph GraphSource will use it's own GraphSpec as its recipe.
 @dataclass
 class GraphSource:
     id: str
     merge_strategy: str = None
-    normalization_scheme: NormalizationScheme = None
-
-
-@dataclass
-class SubGraphSource(GraphSource):
-    """Spec entry: 'I want graph <id> at <release_version>'."""
     release_version: str = None
-
-    def get_metadata_representation(self):
-        return {'graph_id': self.id,
-                'release_version': self.release_version,
-                'merge_strategy': self.merge_strategy}
-
-
-@dataclass
-class DataSource(GraphSource):
-    """Spec entry: 'I want this data source ingested with these versions'."""
+    build_version: str = None
     normalization_scheme: NormalizationScheme = None
     source_version: str = None
     parsing_version: str = None
     supplementation_version: str = None
 
-    def get_metadata_representation(self):
-        return {'source_id': self.id,
-                'source_version': self.source_version,
-                'parsing_version': self.parsing_version,
-                'supplementation_version': self.supplementation_version,
-                'normalization_scheme': self.normalization_scheme.get_metadata_representation(),
-                'build_version': self.generate_build_version(),
-                'merge_strategy': self.merge_strategy,
-                }
+    def is_pinned(self) -> bool:
+        return self.release_version is not None or self.build_version is not None
 
-    # generate_build_version returns the deterministic hash that identifies this source's
-    # contribution to a graph build. Returns None if source_version has not been resolved yet —
-    # callers (typically GraphBuilder.determine_versions) are expected to fill in source_version
-    # and parsing_version lazily before asking for the build_version.
-    #
-    # We use get_source_build_version so the value matches what the source ingest pipeline
-    # computes for the same inputs.
+    # The deterministic source-build hash identifying a recipe entry's contribution. Returns the
+    # explicit build_version when pinned by hash; otherwise computes it from the recipe, or None
+    # when source_version hasn't been resolved yet (callers fill it in lazily before asking).
+    # Uses get_source_build_version so the value matches what the source ingest pipeline computes.
     def generate_build_version(self):
+        if self.build_version is not None:
+            return self.build_version
         if self.source_version is None:
             return None
         return get_source_build_version(self.id,
@@ -134,6 +115,19 @@ class DataSource(GraphSource):
                                         self.parsing_version,
                                         self.normalization_scheme.get_composite_normalization_version(),
                                         self.supplementation_version)
+
+    def get_metadata_representation(self):
+        return {
+            'id': self.id,
+            'release_version': self.release_version,
+            'build_version': self.build_version,
+            'source_version': self.source_version,
+            'parsing_version': self.parsing_version,
+            'supplementation_version': self.supplementation_version,
+            'normalization_scheme': self.normalization_scheme.get_metadata_representation()
+                                    if self.normalization_scheme else None,
+            'merge_strategy': self.merge_strategy,
+        }
 
 
 @dataclass

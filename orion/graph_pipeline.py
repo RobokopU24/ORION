@@ -22,10 +22,9 @@ from orion.kgx_bundle import KGXBundle
 from orion.graph_registry import GraphRegistryClient, GraphRegistryError
 from orion.graph_versioning import DEFAULT_BASE_RELEASE_VERSION, next_release_version, parse_semver
 from orion.kgxmodel import (
-    DataSource,
     GraphFileSource,
+    GraphSource,
     GraphSpec,
-    SubGraphSource,
 )
 from orion.normalization import NormalizationScheme, get_current_node_norm_version
 from orion.metadata import Metadata
@@ -66,10 +65,12 @@ class GraphBuilder:
 
         self.graphs_dir = graph_output_dir if graph_output_dir else config.get_graphs_dir()
         self.ingest_pipeline = ingest_pipeline if ingest_pipeline is not None else IngestPipeline()
+        self._parser_source_ids = set(get_available_data_sources())
         self.graph_specs = {}  # graph_id -> GraphSpec
         self.load_graph_specs(graph_specs_dir=graph_specs_dir,
                               additional_graph_spec=additional_graph_spec,
                               inline_graph_spec=inline_graph_spec)
+        self._validate_specs()
         self.build_results = {}
 
         # The following are dependency resolvers used to locate or build sources for graphs in the most efficient way.
@@ -304,41 +305,38 @@ class GraphBuilder:
         if graph_spec.release_version:
             return graph_spec.release_version
         try:
-            # go out and find the latest version for any data source that doesn't have a version specified
-            for source in graph_spec.sources:
-                if not source.parsing_version:
-                    source.parsing_version = self.ingest_pipeline.get_latest_parsing_version(source.id)
-                if not source.source_version:
-                    source.source_version = self.ingest_pipeline.get_latest_source_version(source.id)
-                logger.info(f'Using {source.id} build_version: {source.generate_build_version()}')
-
-            # for sub-graphs, if a release_version isn't specified,
-            # use the graph spec for that subgraph to determine one
-            for subgraph in graph_spec.subgraphs:
-                if not subgraph.release_version:
-                    subgraph_graph_spec = self.graph_specs.get(subgraph.id, None)
-                    if subgraph_graph_spec:
-                        subgraph.release_version = self.determine_versions(subgraph_graph_spec)
-                        logger.info(f'Using subgraph {graph_spec.graph_id} release_version: {subgraph.release_version}')
-                    else:
-                        raise GraphSpecError(f'Subgraph {subgraph.id} requested for graph {graph_spec.graph_id} '
-                                             f'but its release_version was not specified and could not be determined '
-                                             f'without a graph spec for {subgraph.id}.')
+            for source in graph_spec.sources or []:
+                if self._is_parser_source(source.id):
+                    if source.is_pinned():
+                        continue
+                    if not source.parsing_version:
+                        source.parsing_version = self.ingest_pipeline.get_latest_parsing_version(source.id)
+                    if not source.source_version:
+                        source.source_version = self.ingest_pipeline.get_latest_source_version(source.id)
+                    logger.info(f'Using {source.id} build_version: {source.generate_build_version()}')
+                else:
+                    # a graph dependency: if no release_version is pinned, determine it from its own spec
+                    if not source.release_version:
+                        subgraph_graph_spec = self.graph_specs.get(source.id, None)
+                        if subgraph_graph_spec:
+                            source.release_version = self.determine_versions(subgraph_graph_spec)
+                            logger.info(f'Using graph dependency {source.id} release_version: {source.release_version}')
+                        else:
+                            raise GraphSpecError(f'Source {source.id} requested for graph {graph_spec.graph_id} '
+                                                 f'is not a known data source and has no graph spec to build it.')
         except (GetDataPullError, DataVersionError) as e:
             raise GraphSpecError(error_message=e.error_message)
 
-        # Compose a string of each source/subgraph's unique identifier (a build_version hash for
-        # data sources, a release_version semver for subgraphs) along with its merge strategy.
+        # Compose a string of each source's unique identifier (a build_version hash for parser
+        # sources, a release_version semver for graph dependencies) along with its merge strategy.
         # This is what we hash into the parent graph's build_version.
-        def _identifier_for_composite(source) -> str:
-            if isinstance(source, SubGraphSource):
-                return source.release_version
-            if isinstance(source, DataSource):
+        def _identifier_for_composite(source: GraphSource) -> str:
+            if self._is_parser_source(source.id):
                 return source.generate_build_version()
-            raise GraphSpecError(f'Unexpected source type in graph spec: {type(source).__name__}')
+            return source.release_version
 
         composite_parts = []
-        for graph_source in (graph_spec.sources or []) + (graph_spec.subgraphs or []):
+        for graph_source in graph_spec.sources or []:
             identifier = _identifier_for_composite(graph_source)
             if graph_source.merge_strategy:
                 composite_parts.append(f'{identifier}_{graph_source.merge_strategy}')
@@ -416,64 +414,66 @@ class GraphBuilder:
                 known_release_versions[release_version] = build_version
         return known_release_versions
 
-    # Resolve every spec entry into a GraphFileSource on graph_spec.resolved_sources. Subgraphs
-    # run through Local → Registry → SubgraphBuild; data sources run through Local → Registry,
-    # then a fresh ingest + source build on a miss. See _resolve_or_build_data_source.
-    #
-    # When a dependency fails to resolve we continue through the rest of the spec rather than
-    # bailing immediately. This still aborts the parent graph (we return False), but lets
-    # every dependency get one ingest attempt per invocation. Subsequent runs of any graph
-    # that shares those dependencies pick up the cached single-source artifacts instead of
-    # re-running the ingests.
+    def _is_parser_source(self, source_id: str) -> bool:
+        """True if source_id refers to a parser"""
+        return source_id in self._parser_source_ids
+
+    # Resolve every spec entry into a GraphFileSource on graph_spec.resolved_sources. Parser ids run 
+    # through Local → Registry source builds, then a fresh ingest if possible.
+    # graph ids run through Local → Registry → SubgraphBuild.
     def build_dependencies(self, graph_spec: GraphSpec):
         graph_spec.resolved_sources = []
         all_resolved = True
 
-        subgraph_chain = [self.local_resolver, self.registry_resolver, self.subgraph_build_resolver]
-        for subgraph_spec in graph_spec.subgraphs or []:
-            resolved = resolve_source(subgraph_spec, subgraph_chain)
+        for source in graph_spec.sources or []:
+            if self._is_parser_source(source.id):
+                resolved = self._resolve_or_build_parser_source(source)
+            elif source.id in self.graph_specs:
+                resolved = resolve_source(source, [self.local_resolver.resolve_graph,
+                                                   self.registry_resolver.resolve_graph,
+                                                   self.subgraph_build_resolver.resolve_graph])
+            else:
+                logger.error(f'Source {source.id} for graph {graph_spec.graph_id} is neither a known '
+                             f'data source nor a graph spec.')
+                resolved = None
             if resolved is None:
-                logger.warning(f'Could not resolve subgraph dependency {subgraph_spec.id} '
-                               f'release_version {subgraph_spec.release_version} for graph {graph_spec.graph_id}.')
+                logger.info(f'Could not resolve source {source.id} for graph {graph_spec.graph_id}.')
                 all_resolved = False
-                continue
-            graph_spec.resolved_sources.append(resolved)
-
-        for data_source_spec in graph_spec.sources or []:
-            resolved = self._resolve_or_build_data_source(data_source_spec)
-            if resolved is None:
-                logger.info(f'Could not resolve data source {data_source_spec.id} for graph '
-                            f'{graph_spec.graph_id}.')
-                all_resolved = False
+                # Might as well continue processing dependencies, assume another run will pick up where this one failed.
                 continue
             graph_spec.resolved_sources.append(resolved)
         return all_resolved
 
-    # Resolve a DataSource by trying the existing-artifact chain first (local then registry source
-    # builds); on miss, run the ingest pipeline and produce a finalized source build, returning a
-    # GraphFileSource pointing at the files.
-    def _resolve_or_build_data_source(self,
-                                      data_source_spec: DataSource) -> GraphFileSource | None:
-        resolved = resolve_source(data_source_spec, [self.local_resolver, self.registry_resolver])
+    # Resolve a parser source by trying the existing-artifact chain first (local then registry source
+    # builds); on a miss, run the ingest pipeline and produce a finalized source build. Pinned entries
+    # are lookup-only and never trigger an ingest.
+    def _resolve_or_build_parser_source(self,
+                                        source: GraphSource) -> GraphFileSource | None:
+        resolved = resolve_source(source, [self.local_resolver.resolve_parser,
+                                           self.registry_resolver.resolve_parser])
         if resolved is not None:
             return resolved
-        build_version = data_source_spec.generate_build_version()
-        if not build_version:
-            logger.error(f'Build version could not be resolved for {data_source_spec.id}.')
+        if source.is_pinned():
+            logger.error(f'Pinned source {source.id} (build_version {source.build_version}, '
+                         f'release_version {source.release_version}) was not found locally or in the registry.')
             return None
-        if not self.ingest_pipeline.has_source_build(data_source_spec.id, build_version):
-            logger.info(f'Running ingest pipeline for {data_source_spec.id} build_version {build_version}.')
+        build_version = source.generate_build_version()
+        if not build_version:
+            logger.error(f'Build version could not be resolved for {source.id}.')
+            return None
+        if not self.ingest_pipeline.has_source_build(source.id, build_version):
+            logger.info(f'Running ingest pipeline for {source.id} build_version {build_version}.')
             if not self.ingest_pipeline.run_pipeline(
-                    data_source_spec.id,
-                    source_version=data_source_spec.source_version,
-                    parsing_version=data_source_spec.parsing_version,
-                    normalization_scheme=data_source_spec.normalization_scheme,
-                    supplementation_version=data_source_spec.supplementation_version):
-                logger.error(f'Ingest pipeline failed for {data_source_spec.id}.')
+                    source.id,
+                    source_version=source.source_version,
+                    parsing_version=source.parsing_version,
+                    normalization_scheme=source.normalization_scheme,
+                    supplementation_version=source.supplementation_version):
+                logger.error(f'Ingest pipeline failed for {source.id}.')
                 return None
-        return self.ingest_pipeline.load_source_build_file_source(data_source_spec.id,
+        return self.ingest_pipeline.load_source_build_file_source(source.id,
                                                                   build_version,
-                                                                  data_source_spec.merge_strategy)
+                                                                  source.merge_strategy)
 
     @staticmethod
     def has_meta_kg(graph_directory: str):
@@ -626,19 +626,29 @@ class GraphBuilder:
                              for ks_dict in carrier_knowledge_sources]
         return kg_sources, knowledge_sources
 
-    # Graph-wide biolink/babel versions, read off the first data source's normalization scheme
-    # (the spec parser applies graph-wide values to every source when present). Subgraph-only
-    # graphs have no sources, so fall back to the config default (biolink) / None (babel).
+    # Graph-wide biolink/babel versions, read off the first parser source's normalization scheme
+    # (the spec parser applies graph-wide values to every parser source when present). Graph
+    # dependencies carry no normalization scheme; a graph with only those (or no sources) falls
+    # back to the config default (biolink) / None (babel).
+    @staticmethod
+    def _first_normalization_scheme(graph_spec: GraphSpec) -> NormalizationScheme | None:
+        for source in graph_spec.sources or []:
+            if source.normalization_scheme is not None:
+                return source.normalization_scheme
+        return None
+
     @staticmethod
     def _graph_biolink_version(graph_spec: GraphSpec) -> str:
-        if graph_spec.sources:
-            return graph_spec.sources[0].normalization_scheme.edge_normalization_version
+        normalization_scheme = GraphBuilder._first_normalization_scheme(graph_spec)
+        if normalization_scheme is not None:
+            return normalization_scheme.edge_normalization_version
         return config.BL_VERSION
 
     @staticmethod
     def _graph_babel_version(graph_spec: GraphSpec):
-        if graph_spec.sources:
-            return graph_spec.sources[0].normalization_scheme.node_normalization_version
+        normalization_scheme = GraphBuilder._first_normalization_scheme(graph_spec)
+        if normalization_scheme is not None:
+            return normalization_scheme.node_normalization_version
         return None
 
     @staticmethod
@@ -712,16 +722,11 @@ class GraphBuilder:
                 graph_description = graph_yaml.get('graph_description', '')
                 graph_url = graph_yaml.get('graph_url', '')
 
-                # parse the list of data sources
-                data_sources = [self.parse_data_source_spec(data_source)
-                                for data_source in graph_yaml.get('sources', [])]
-
-                # parse the list of subgraphs
-                subgraph_sources = [self.parse_subgraph_spec(subgraph)
-                                    for subgraph in graph_yaml.get('subgraphs', [])]
-
-                if not data_sources and not subgraph_sources:
-                    raise GraphSpecError('Error: No sources were provided for graph: {graph_id}.')
+                # parse the list of sources
+                sources = [self.parse_source_spec(source, graph_id)
+                           for source in graph_yaml.get('sources', [])]
+                if not sources:
+                    raise GraphSpecError(f'Error: No sources were provided for graph: {graph_id}.')
 
                 # see if there are any normalization scheme parameters specified at the graph level
                 graph_wide_node_norm_version = graph_yaml.get('node_normalization_version', None)
@@ -749,19 +754,23 @@ class GraphBuilder:
                 if graph_wide_edge_norm_version == 'latest':
                     graph_wide_edge_norm_version = config.BL_VERSION
 
-                # apply them to all the data sources, this will overwrite anything defined at the source level
-                for data_source in data_sources:
-                    if data_source.merge_strategy == KGXFileMerger.DONT_MERGE and add_edge_id is not None:
-                        raise GraphSpecError(f'Graph {graph_id}, source {data_source.name} has merge_strategy:'
+                # Apply graph-wide normalization to parser sources, overwriting anything set
+                # at the source level. Pinned sources and graph dependencies carry no normalization
+                # scheme and are skipped.
+                for source in sources:
+                    if source.merge_strategy == KGXFileMerger.DONT_MERGE and add_edge_id is not None:
+                        raise GraphSpecError(f'Graph {graph_id}, source {source.id} has merge_strategy:'
                                              f' dont_merge, which is incompatible with add_edge_id.')
+                    if source.normalization_scheme is None:
+                        continue
                     if graph_wide_node_norm_version is not None:
-                        data_source.normalization_scheme.node_normalization_version = graph_wide_node_norm_version
+                        source.normalization_scheme.node_normalization_version = graph_wide_node_norm_version
                     if graph_wide_edge_norm_version is not None:
-                        data_source.normalization_scheme.edge_normalization_version = graph_wide_edge_norm_version
+                        source.normalization_scheme.edge_normalization_version = graph_wide_edge_norm_version
                     if graph_wide_conflation is not None:
-                        data_source.normalization_scheme.conflation = graph_wide_conflation
+                        source.normalization_scheme.conflation = graph_wide_conflation
                     if graph_wide_strict_norm is not None:
-                        data_source.normalization_scheme.strict = graph_wide_strict_norm
+                        source.normalization_scheme.strict = graph_wide_strict_norm
 
                 if graph_id in self.graph_specs:
                     raise GraphSpecError(
@@ -792,8 +801,7 @@ class GraphBuilder:
                                        edge_id_type=edge_id_type,
                                        overwrite_edge_ids=overwrite_edge_ids,
                                        edge_merging_attributes=edge_merging_attributes,
-                                       subgraphs=subgraph_sources,
-                                       sources=data_sources)
+                                       sources=sources)
                 self.graph_specs[graph_id] = graph_spec
         except KeyError as e:
             error_message = f'Graph Spec missing required field: {e}'
@@ -801,66 +809,86 @@ class GraphBuilder:
                 error_message += f"(in graph {graph_id})"
             raise GraphSpecError(error_message)
 
-    def parse_subgraph_spec(self, subgraph_yml):
-        subgraph_id = subgraph_yml['graph_id']
-        subgraph_release_version = subgraph_yml.get('release_version', None)
-        merge_strategy = subgraph_yml.get('merge_strategy', None)
+    # Recipe settings that only make sense for an unpinned parser source. Present on a pinned source,
+    # or on a graph dependency, they're a spec error.
+    _RECIPE_SETTINGS = ('source_version', 'parsing_version', 'supplementation_version',
+                        'node_normalization_version', 'edge_normalization_version',
+                        'strict_normalization', 'conflation')
+
+    def parse_source_spec(self, source_yml, graph_id):
+        source_id = source_yml['id']
+        merge_strategy = source_yml.get('merge_strategy', None)
         if merge_strategy == 'default':
             merge_strategy = None
-        subgraph_source = SubGraphSource(id=subgraph_id,
-                                         release_version=subgraph_release_version,
-                                         merge_strategy=merge_strategy)
-        return subgraph_source
 
-    def parse_data_source_spec(self, source_yml):
-        # get the source id and make sure it's valid
-        source_id = source_yml['source_id']
-        if source_id not in get_available_data_sources():
-            error_message = f'Data source {source_id} is not a valid data source id.'
-            logger.error(error_message + " " +
-                              f'Valid sources are: {", ".join(get_available_data_sources())}')
-            raise GraphSpecError(error_message)
+        release_version = source_yml.get('release_version', None)
+        build_version = source_yml.get('build_version', None)
+        pinned = release_version is not None or build_version is not None
+        recipe_present = any(source_yml.get(setting) is not None for setting in self._RECIPE_SETTINGS)
+        is_parser = self._is_parser_source(source_id)
 
-        # read version and normalization specifications from the graph spec
+        # validation
+        if release_version is not None and build_version is not None:
+            raise GraphSpecError(f'Graph {graph_id}, source {source_id}: specify only one of '
+                                 f'release_version or build_version, not both.')
+        if pinned and recipe_present:
+            raise GraphSpecError(f'Graph {graph_id}, source {source_id}: a pinned source '
+                                 f'(with a release_version/build_version) cannot also set recipe options '
+                                 f'(source_version, parsing_version, normalization, etc.).')
+        if recipe_present and not is_parser:
+            raise GraphSpecError(f'Graph {graph_id}, source {source_id}: parser settings only apply to '
+                                 f'parser sources. A graph dependency is built from its own graph spec; '
+                                 f'pin a release_version/build_version or leave it unpinned.')
+
+        # A pinned source, or a graph dependency, carries no recipe — resolved by lookup or by
+        # building from its own graph spec.
+        if pinned or not is_parser:
+            return GraphSource(id=source_id,
+                               merge_strategy=merge_strategy,
+                               release_version=release_version,
+                               build_version=build_version)
+
+        # Otherwise it's an unpinned parser source: build the normalization recipe. source_version
+        # and parsing_version are left unresolved here (determine_versions fills in 'latest' lazily
+        # for the graph actually being built, to avoid importing every referenced parser at load).
         source_version = source_yml.get('source_version', None)
         parsing_version = source_yml.get('parsing_version', None)
-        merge_strategy = source_yml.get('merge_strategy', None)
+        if parsing_version == 'latest':
+            parsing_version = None
         node_normalization_version = source_yml.get('node_normalization_version', None)
         edge_normalization_version = source_yml.get('edge_normalization_version', None)
         strict_normalization = source_yml.get('strict_normalization', True)
         conflation = source_yml.get('conflation', False)
-
-        # supplementation and normalization code version cannot be specified, set them to the current version
-        supplementation_version = SequenceVariantSupplementation.SUPPLEMENTATION_VERSION
-
-        # source_version and parsing_version are intentionally left unresolved here — resolving them
-        # eagerly would import every parser referenced by every auto-loaded graph spec, even when the
-        # user is only building one. determine_versions fills them in lazily for the graph
-        # actually being built.
-        if parsing_version == 'latest':
-            parsing_version = None
         if not edge_normalization_version or edge_normalization_version == 'latest':
             edge_normalization_version = config.BL_VERSION
-
-        # do some validation
         if type(strict_normalization) != bool:
             raise GraphSpecError(f'Invalid type (strict_normalization: {strict_normalization}), must be true or false.')
         if type(conflation) != bool:
             raise GraphSpecError(f'Invalid type (conflation: {conflation}), must be true or false.')
-        if merge_strategy == 'default':
-            merge_strategy = None
 
         normalization_scheme = NormalizationScheme(node_normalization_version=node_normalization_version,
                                                    edge_normalization_version=edge_normalization_version,
                                                    strict=strict_normalization,
                                                    conflation=conflation)
-        data_source = DataSource(id=source_id,
-                                 source_version=source_version,
-                                 merge_strategy=merge_strategy,
-                                 normalization_scheme=normalization_scheme,
-                                 parsing_version=parsing_version,
-                                 supplementation_version=supplementation_version)
-        return data_source
+        return GraphSource(id=source_id,
+                           merge_strategy=merge_strategy,
+                           source_version=source_version,
+                           parsing_version=parsing_version,
+                           supplementation_version=SequenceVariantSupplementation.SUPPLEMENTATION_VERSION,
+                           normalization_scheme=normalization_scheme)
+
+    # Validate the fully-loaded set of graph specs: every source id must resolve to exactly one
+    # producer (a parser or a graph spec), and the two id namespaces must be disjoint.
+    def _validate_specs(self):
+        collisions = self._parser_source_ids & set(self.graph_specs)
+        if collisions:
+            raise GraphSpecError(f'Graph ids collide with data source ids (each id must map to one '
+                                 f'producer): {", ".join(sorted(collisions))}.')
+        for graph_id, graph_spec in self.graph_specs.items():
+            for source in graph_spec.sources or []:
+                if not self._is_parser_source(source.id) and source.id not in self.graph_specs:
+                    raise GraphSpecError(f'Graph {graph_id} references source {source.id}, which is '
+                                         f'neither a known data source nor a graph spec.')
 
     def get_graph_dir_path(self, graph_id: str, release_version: str):
         return os.path.join(self.graphs_dir, graph_id, release_version)
@@ -908,7 +936,7 @@ def _generate_inline_graph_spec(graph_id: str, sources_arg: str, output_format: 
             'graph_id': graph_id,
             'graph_name': graph_id,
             'output_format': output_format or 'jsonl',
-            'sources': [{'source_id': s} for s in source_ids],
+            'sources': [{'id': s} for s in source_ids],
         }]
     }
 

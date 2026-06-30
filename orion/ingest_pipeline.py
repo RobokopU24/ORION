@@ -743,7 +743,6 @@ class IngestPipeline:
             graph_description='',
             graph_url='',
             sources=[],
-            subgraphs=[],
         )
         graph_spec.resolved_sources = [GraphFileSource(id=source_id,
                                                        build_version=build_version,

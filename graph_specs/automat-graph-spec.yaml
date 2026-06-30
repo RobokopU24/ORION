@@ -7,8 +7,8 @@ graphs:
     graph_url: https://www.bindingdb.org/
     output_format: neo4j
     sources:
-      - source_id: BINDING-DB
-      - source_id: OntologicalHierarchy
+      - id: BINDING-DB
+      - id: OntologicalHierarchy
         merge_strategy: connected_edge_subset
 
   - graph_id: CAMKP_Automat
@@ -18,7 +18,7 @@ graphs:
     conflation: False
     output_format: neo4j
     sources:
-      - source_id: CAM-KP
+      - id: CAM-KP
 
   - graph_id: COHD_Automat
     graph_name: COHD
@@ -27,7 +27,7 @@ graphs:
     conflation: False
     output_format: neo4j
     sources:
-      - source_id: COHD
+      - id: COHD
 
   - graph_id: CTD_Automat
     graph_name: CTD
@@ -37,8 +37,8 @@ graphs:
     edge_merging_attributes:
       - taxon
     sources:
-      - source_id: CTD
-      - source_id: OntologicalHierarchy
+      - id: CTD
+      - id: OntologicalHierarchy
         merge_strategy: connected_edge_subset
 
   - graph_id: DrugCentral_Automat
@@ -47,8 +47,8 @@ graphs:
     graph_url: https://drugcentral.org/
     output_format: neo4j
     sources:
-      - source_id: DrugCentral
-      - source_id: OntologicalHierarchy
+      - id: DrugCentral
+      - id: OntologicalHierarchy
         merge_strategy: connected_edge_subset
 
   #  - graph_id: DrugMechDB_Automat
@@ -57,8 +57,8 @@ graphs:
   #    graph_url: https://sulab.github.io/DrugMechDB/
   #    output_format: neo4j
   #    sources:
-  #      - source_id: DrugMechDB
-  #      - source_id: OntologicalHierarchy
+  #      - id: DrugMechDB
+  #      - id: OntologicalHierarchy
   #        merge_strategy: connected_edge_subset
 
   - graph_id: GenomeAllianceOrthologs_Automat
@@ -67,8 +67,8 @@ graphs:
     graph_url: https://www.alliancegenome.org/
     output_format: neo4j
     sources:
-      - source_id: GenomeAllianceOrthologs
-      - source_id: OntologicalHierarchy
+      - id: GenomeAllianceOrthologs
+      - id: OntologicalHierarchy
         merge_strategy: connected_edge_subset
 
   - graph_id: GTEx_Automat
@@ -77,8 +77,8 @@ graphs:
     graph_url: https://gtexportal.org/home/
     output_format: neo4j
     sources:
-      - source_id: GTEx
-      - source_id: OntologicalHierarchy
+      - id: GTEx
+      - id: OntologicalHierarchy
         merge_strategy: connected_edge_subset
 
   - graph_id: GtoPdb_Automat
@@ -87,8 +87,8 @@ graphs:
     graph_url: http://www.guidetopharmacology.org/
     output_format: neo4j
     sources:
-      - source_id: GtoPdb
-      - source_id: OntologicalHierarchy
+      - id: GtoPdb
+      - id: OntologicalHierarchy
         merge_strategy: connected_edge_subset
 
   - graph_id: GWASCatalog_Automat
@@ -97,8 +97,8 @@ graphs:
     graph_url: https://www.ebi.ac.uk/gwas/
     output_format: neo4j
     sources:
-      - source_id: GWASCatalog
-      - source_id: OntologicalHierarchy
+      - id: GWASCatalog
+      - id: OntologicalHierarchy
         merge_strategy: connected_edge_subset
 
   - graph_id: Hetio_Automat
@@ -107,8 +107,8 @@ graphs:
     graph_url: https://het.io/
     output_format: neo4j
     sources:
-      - source_id: Hetio
-      - source_id: OntologicalHierarchy
+      - id: Hetio
+      - id: OntologicalHierarchy
         merge_strategy: connected_edge_subset
 
   - graph_id: HGNC_Automat
@@ -117,8 +117,8 @@ graphs:
     graph_url: https://www.genenames.org/
     output_format: neo4j
     sources:
-      - source_id: HGNC
-      - source_id: OntologicalHierarchy
+      - id: HGNC
+      - id: OntologicalHierarchy
         merge_strategy: connected_edge_subset
 
   - graph_id: HMDB_Automat
@@ -127,8 +127,8 @@ graphs:
     graph_url: https://hmdb.ca/
     output_format: neo4j
     sources:
-      - source_id: HMDB
-      - source_id: OntologicalHierarchy
+      - id: HMDB
+      - id: OntologicalHierarchy
         merge_strategy: connected_edge_subset
 
   - graph_id: HumanGOA_Automat
@@ -137,8 +137,8 @@ graphs:
     graph_url: https://www.ebi.ac.uk/GOA/index
     output_format: neo4j
     sources:
-      - source_id: HumanGOA
-      - source_id: OntologicalHierarchy
+      - id: HumanGOA
+      - id: OntologicalHierarchy
         merge_strategy: connected_edge_subset
 
   - graph_id: MouseGOA_Automat
@@ -147,8 +147,8 @@ graphs:
     graph_url: https://geneontology.org/
     output_format: neo4j
     sources:
-      - source_id: MouseGOA
-      - source_id: OntologicalHierarchy
+      - id: MouseGOA
+      - id: OntologicalHierarchy
         merge_strategy: connected_edge_subset
 
   - graph_id: IntAct_Automat
@@ -157,8 +157,8 @@ graphs:
     graph_url: https://www.ebi.ac.uk/intact/home
     output_format: neo4j
     sources:
-      - source_id: IntAct
-      - source_id: OntologicalHierarchy
+      - id: IntAct
+      - id: OntologicalHierarchy
         merge_strategy: connected_edge_subset
 
   - graph_id: OHD_Carolina_Automat
@@ -168,7 +168,7 @@ graphs:
     conflation: False
     output_format: neo4j
     sources:
-      - source_id: OHD-Carolina
+      - id: OHD-Carolina
 
   - graph_id: PANTHER_Automat
     graph_name: PANTHER
@@ -176,8 +176,8 @@ graphs:
     graph_url: http://pantherdb.org/
     output_format: neo4j
     sources:
-      - source_id: PANTHER
-      - source_id: OntologicalHierarchy
+      - id: PANTHER
+      - id: OntologicalHierarchy
         merge_strategy: connected_edge_subset
 
   - graph_id: PHAROS_Automat
@@ -186,8 +186,8 @@ graphs:
     graph_url: https://pharos.nih.gov/
     output_format: neo4j
     sources:
-      - source_id: PHAROS
-      - source_id: OntologicalHierarchy
+      - id: PHAROS
+      - id: OntologicalHierarchy
         merge_strategy: connected_edge_subset
 
   - graph_id: Reactome_Automat
@@ -196,8 +196,8 @@ graphs:
     graph_url: https://reactome.org/
     output_format: neo4j
     sources:
-      - source_id: Reactome
-      - source_id: OntologicalHierarchy
+      - id: Reactome
+      - id: OntologicalHierarchy
         merge_strategy: connected_edge_subset
 
   - graph_id: STRING-DB_Automat
@@ -206,8 +206,8 @@ graphs:
     graph_url: https://string-db.org/
     output_format: neo4j
     sources:
-      - source_id: STRING-DB-Human
-      - source_id: OntologicalHierarchy
+      - id: STRING-DB-Human
+      - id: OntologicalHierarchy
         merge_strategy: connected_edge_subset
 
   - graph_id: TMKP_Automat
@@ -216,8 +216,8 @@ graphs:
     graph_url: https://github.com/NCATSTranslator/Translator-All/wiki/Text-Mining-Provider
     output_format: neo4j
     sources:
-      - source_id: textminingkp
-      - source_id: OntologicalHierarchy
+      - id: textminingkp
+      - id: OntologicalHierarchy
         merge_strategy: connected_edge_subset
 
   - graph_id: UbergraphRedundant_Automat
@@ -226,7 +226,7 @@ graphs:
     graph_url: https://github.com/INCATools/ubergraph
     output_format: neo4j
     sources:
-      - source_id: UbergraphRedundant
+      - id: UbergraphRedundant
 
   - graph_id: ViralProteome_Automat
     graph_name: Viral Proteome
@@ -234,6 +234,6 @@ graphs:
     graph_url: https://www.ebi.ac.uk/GOA/proteomes
     output_format: neo4j
     sources:
-      - source_id: ViralProteome
-      - source_id: OntologicalHierarchy
+      - id: ViralProteome
+      - id: OntologicalHierarchy
         merge_strategy: connected_edge_subset

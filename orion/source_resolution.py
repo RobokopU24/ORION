@@ -1,7 +1,12 @@
-"""Resolver chain that turns GraphSpec source declarations (DataSource,
-SubGraphSource) into GraphFileSource objects ready to merge into graphs,
-by either sourcing them from local storage, downloading existing graphs
-from a remote registry, or building them from scratch.
+"""Resolver chain that turns GraphSpec source declarations (GraphSource entries)
+into GraphFileSource objects ready to merge into graphs, by either sourcing them
+from local storage, downloading existing graphs from a remote registry, or
+building them from scratch.
+
+A GraphSource id refers to either a parser or another graph. build_dependencies
+classifies the id and calls the matching resolver method:
+  - resolve_graph:  an existing built graph keyed by release_version.
+  - resolve_parser: an existing source build keyed by build_version.
 """
 
 import json
@@ -10,45 +15,24 @@ import os
 from orion.config import config
 from orion.graph_registry import GraphRegistryClient, GraphRegistryError
 from orion.kgx_bundle import KGXBundle
-from orion.kgxmodel import (
-    DataSource,
-    GraphFileSource,
-    GraphSource,
-    SubGraphSource,
-)
+from orion.kgxmodel import GraphFileSource, GraphSource
 from orion.logging import get_orion_logger
 
 logger = get_orion_logger(__name__)
 
 
-class GraphSourceResolver:
-    """Abstract resolver. Caller is responsible for only passing specs the
-    resolver handles — the chain in build_dependencies is curated by spec type.
-    """
-
-    def resolve(self, spec: GraphSource) -> GraphFileSource | None:
-        raise NotImplementedError
-
-
-class LocalGraphResolver(GraphSourceResolver):
+class LocalGraphResolver:
     """Look in local storage for a built artifact satisfying the spec.
 
-    For SubGraphSource: matches {graphs_dir}/{graph_id}/{release_version}/.
-    For DataSource:    matches {storage}/{source_id}/builds/{build_version}/
+    resolve_graph:  matches {graphs_dir}/{graph_id}/{release_version}/.
+    resolve_parser: matches {storage}/{source_id}/builds/{build_version}/.
     """
 
     def __init__(self, graphs_dir: str, ingest_pipeline):
         self.graphs_dir = graphs_dir
         self.ingest_pipeline = ingest_pipeline
 
-    def resolve(self, spec: GraphSource) -> GraphFileSource | None:
-        if isinstance(spec, SubGraphSource):
-            return self._resolve_subgraph(spec)
-        if isinstance(spec, DataSource):
-            return self._resolve_data_source(spec)
-        return None
-
-    def _resolve_subgraph(self, spec: SubGraphSource) -> GraphFileSource | None:
+    def resolve_graph(self, spec: GraphSource) -> GraphFileSource | None:
         if not spec.release_version:
             return None
         graph_dir = os.path.join(self.graphs_dir, spec.id, spec.release_version)
@@ -65,7 +49,7 @@ class LocalGraphResolver(GraphSourceResolver):
             kgx_graph_metadata=bundle.load_graph_metadata(),
         )
 
-    def _resolve_data_source(self, spec: DataSource) -> GraphFileSource | None:
+    def resolve_parser(self, spec: GraphSource) -> GraphFileSource | None:
         build_version = spec.generate_build_version()
         if not build_version:
             return None
@@ -76,14 +60,13 @@ class LocalGraphResolver(GraphSourceResolver):
         return file_source
 
 
-class RegistryGraphResolver(GraphSourceResolver):
+class RegistryGraphResolver:
     """Look in the remote graph registry for a built artifact, download it, and return it.
 
-    For SubGraphSource: requires graph_id + release_version present in the registry's
-                        /graphs catalog.
-    For DataSource:    requires the registry's source-builds endpoint to have an entry
-                        for (source_id, build_version). Downloads the build to local storage
-                        and returns a GraphFileSource pointing at it.
+    resolve_graph:  requires graph_id + release_version present in the registry's /graphs catalog.
+    resolve_parser: requires the registry's source-builds endpoint to have an entry for
+                    (source_id, build_version). Downloads the build to local storage and returns
+                    a GraphFileSource pointing at it.
     """
 
     def __init__(self,
@@ -99,17 +82,8 @@ class RegistryGraphResolver(GraphSourceResolver):
         else:
             self.client = None
 
-    def resolve(self, spec: GraphSource) -> GraphFileSource | None:
-        if self.client is None:
-            return None
-        if isinstance(spec, SubGraphSource):
-            return self._resolve_subgraph(spec)
-        if isinstance(spec, DataSource):
-            return self._resolve_data_source(spec)
-        return None
-
-    def _resolve_subgraph(self, spec: SubGraphSource) -> GraphFileSource | None:
-        if not spec.release_version:
+    def resolve_graph(self, spec: GraphSource) -> GraphFileSource | None:
+        if self.client is None or not spec.release_version:
             return None
         try:
             kgx_graph_metadata = self.client.get_graph_metadata(spec.id, spec.release_version)
@@ -123,7 +97,9 @@ class RegistryGraphResolver(GraphSourceResolver):
             merge_strategy=spec.merge_strategy,
         )
 
-    def _resolve_data_source(self, spec: DataSource) -> GraphFileSource | None:
+    def resolve_parser(self, spec: GraphSource) -> GraphFileSource | None:
+        if self.client is None:
+            return None
         build_version = spec.generate_build_version()
         if not build_version:
             return None
@@ -182,7 +158,7 @@ class RegistryGraphResolver(GraphSourceResolver):
         )
 
     def _materialize_source_build(self,
-                                  spec: DataSource,
+                                  spec: GraphSource,
                                   build_version: str,
                                   build_metadata: dict) -> bool:
         """Download the registry's source build files into the local source_builds cache.
@@ -259,13 +235,13 @@ class RegistryGraphResolver(GraphSourceResolver):
         )
 
 
-class SubgraphBuildResolver(GraphSourceResolver):
-    """Build a subgraph from its own graph spec, then return its files."""
+class SubgraphBuildResolver:
+    """Build a graph dependency from its own graph spec, then return its files."""
 
     def __init__(self, graph_pipeline):
         self.graph_pipeline = graph_pipeline
 
-    def resolve(self, spec: SubGraphSource) -> GraphFileSource | None:
+    def resolve_graph(self, spec: GraphSource) -> GraphFileSource | None:
         subgraph_graph_spec = self.graph_pipeline.graph_specs.get(spec.id)
         if not subgraph_graph_spec:
             logger.warning(f'Subgraph {spec.id} release_version {spec.release_version} not found and no '
@@ -294,10 +270,15 @@ class SubgraphBuildResolver(GraphSourceResolver):
         )
 
 
-def resolve_source(spec: GraphSource, resolvers: list[GraphSourceResolver]) -> GraphFileSource | None:
-    """Run each resolver in order for a GraphSource until successful. Return None if it could not be resolved."""
+def resolve_source(spec: GraphSource, resolvers: list) -> GraphFileSource | None:
+    """Run each resolver method in order for a GraphSource until one succeeds.
+
+    `resolvers` is a list of bound resolver methods (e.g. local.resolve_parser,
+    registry.resolve_parser) — build_dependencies picks the chain by producer type.
+    Returns None if it could not be resolved.
+    """
     for resolver in resolvers:
-        resolved = resolver.resolve(spec)
+        resolved = resolver(spec)
         if resolved is not None:
             return resolved
     return None

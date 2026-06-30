@@ -99,7 +99,10 @@ def test_graph_spec_subgraph_version(test_graph_spec_dir, test_graph_output_dir)
     assert testing_graph_spec.release_version is None
     graph_builder.determine_versions(testing_graph_spec)
     for source in testing_graph_spec.sources:
-        assert source.source_version == source.id + "_v1"
+        if graph_builder._is_parser_source(source.id):
+            assert source.source_version == source.id + "_v1"
+        else:
+            assert source.release_version is not None
     testing_graph_spec_sub_graph = graph_builder.graph_specs.get('Testing_Graph', None)
     for source in testing_graph_spec_sub_graph.sources:
         assert source.source_version == source.id + "_v1"
@@ -109,16 +112,20 @@ def test_graph_spec_subgraph_version(test_graph_spec_dir, test_graph_output_dir)
     assert testing_graph_spec_sub_graph.release_version is not None
     assert testing_graph_spec.release_version is not None
 
-
-# make sure a graph spec with an invalid subgraph fails with the appropriate exception
-def test_graph_spec_invalid_subgraph(test_graph_spec_dir, test_graph_output_dir):
-    graph_builder = GraphBuilder(graph_specs_dir=test_graph_spec_dir,
-                                 graph_output_dir=test_graph_output_dir)
-    graph_builder.ingest_pipeline = get_ingest_pipeline_mock()
-    testing_graph_spec = graph_builder.graph_specs.get('Testing_Graph_3', None)
-    assert testing_graph_spec.release_version is None
+# Invalid_Graph is neither a valid parser nor graph so the spec fails validation outright 
+def test_graph_spec_invalid_subgraph(test_graph_spec_dir, test_graph_output_dir, tmp_path):
+    spec_path = tmp_path / "invalid-subgraph-graph-spec.yaml"
+    spec_path.write_text(
+        "graphs:\n"
+        "  - graph_id: Invalid_Subgraph_Graph\n"
+        "    sources:\n"
+        "      - id: GtoPdb\n"
+        "      - id: Invalid_Graph\n"
+    )
     with pytest.raises(GraphSpecError):
-        graph_builder.determine_versions(testing_graph_spec)
+        GraphBuilder(graph_specs_dir=test_graph_spec_dir,
+                     additional_graph_spec=str(spec_path),
+                     graph_output_dir=test_graph_output_dir)
 
 
 # make sure a graph spec with an invalid subgraph release_version (which is otherwise valid)
@@ -142,7 +149,7 @@ def test_additional_graph_spec_adds_new_graph(test_graph_spec_dir, test_graph_ou
         "  - graph_id: Additional_Graph\n"
         "    graph_name: Additional Graph\n"
         "    sources:\n"
-        "      - source_id: HGNC\n"
+        "      - id: HGNC\n"
     )
     graph_builder = GraphBuilder(graph_specs_dir=test_graph_spec_dir,
                                  additional_graph_spec=str(additional_path),
@@ -162,7 +169,7 @@ def test_additional_graph_spec_collision_raises(test_graph_spec_dir, test_graph_
         "  - graph_id: Testing_Graph\n"
         "    graph_name: Colliding Testing Graph\n"
         "    sources:\n"
-        "      - source_id: HGNC\n"
+        "      - id: HGNC\n"
     )
     with pytest.raises(GraphSpecError):
         GraphBuilder(graph_specs_dir=test_graph_spec_dir,
@@ -177,7 +184,7 @@ def test_inline_graph_spec_adds_new_graph(test_graph_spec_dir, test_graph_output
             'graph_id': 'Inline_Graph',
             'graph_name': 'Inline Graph',
             'output_format': 'jsonl',
-            'sources': [{'source_id': 'HGNC'}],
+            'sources': [{'id': 'HGNC'}],
         }]
     }
     graph_builder = GraphBuilder(graph_specs_dir=test_graph_spec_dir,
@@ -198,7 +205,7 @@ def test_inline_graph_spec_collision_raises(test_graph_spec_dir, test_graph_outp
         'graphs': [{
             'graph_id': 'Testing_Graph',
             'graph_name': 'Colliding Inline Graph',
-            'sources': [{'source_id': 'HGNC'}],
+            'sources': [{'id': 'HGNC'}],
         }]
     }
     with pytest.raises(GraphSpecError):
@@ -215,7 +222,7 @@ def test_graph_spec_base_release_version_parsed(test_graph_spec_dir, test_graph_
         "  - graph_id: Versioned_Graph\n"
         "    base_release_version: '2.0'\n"
         "    sources:\n"
-        "      - source_id: HGNC\n"
+        "      - id: HGNC\n"
     )
     graph_builder = GraphBuilder(graph_specs_dir=test_graph_spec_dir,
                                  additional_graph_spec=str(spec_path),
@@ -233,7 +240,7 @@ def test_graph_spec_invalid_base_release_version_raises(test_graph_spec_dir, tes
         "  - graph_id: Bad_Version_Graph\n"
         "    base_release_version: not-a-version\n"
         "    sources:\n"
-        "      - source_id: HGNC\n"
+        "      - id: HGNC\n"
     )
     with pytest.raises(GraphSpecError):
         GraphBuilder(graph_specs_dir=test_graph_spec_dir,
@@ -250,8 +257,8 @@ def test_default_graph_spec_defines_robomouse(monkeypatch, test_graph_output_dir
     assert 'MouseGOA' not in baseline_sources
 
     robomouse_graph = graph_builder.graph_specs['RoboMouseKG']
-    assert [subgraph.id for subgraph in robomouse_graph.subgraphs] == ['RobokopKG']
     assert [source.id for source in robomouse_graph.sources] == [
+        'RobokopKG',
         'MouseGOA',
         'GenomeAllianceOrthologs',
         'OntologicalHierarchy',

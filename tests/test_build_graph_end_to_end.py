@@ -138,14 +138,14 @@ def test_build_graph_end_to_end(tmp_path, monkeypatch):
 
     _patch_post_merge_heavy_steps(monkeypatch)
 
-    # --- Inline spec for a single-source graph (graph_id == source_id so the
-    #     single-source predicate routes us through _resolve_parser_output). ---
+    # --- Inline spec for a single-source graph. The graph wraps the HGNC parser;
+    #     its id must differ from the parser id (one id maps to one producer). ---
     inline_spec = {
         'graphs': [{
-            'graph_id': 'HGNC',
+            'graph_id': 'HGNC_Graph',
             'graph_name': 'HGNC Test Graph',
             'output_format': 'jsonl',
-            'sources': [{'source_id': 'HGNC'}],
+            'sources': [{'id': 'HGNC'}],
         }]
     }
 
@@ -164,7 +164,7 @@ def test_build_graph_end_to_end(tmp_path, monkeypatch):
                                                                          fixture_edges))
 
     # --- Build ---
-    graph_spec = builder.graph_specs['HGNC']
+    graph_spec = builder.graph_specs['HGNC_Graph']
     assert builder.build_graph(graph_spec) is True
 
     # --- Assert versioning ---
@@ -173,7 +173,7 @@ def test_build_graph_end_to_end(tmp_path, monkeypatch):
     assert graph_spec.build_version is not None
 
     # --- Assert on-disk artifacts ---
-    output_dir = graphs_dir / 'HGNC' / release_version
+    output_dir = graphs_dir / 'HGNC_Graph' / release_version
     assert output_dir.is_dir()
     # nodes/edges get gzipped at the end of build_graph
     nodes_gz = output_dir / 'nodes.jsonl.gz'
@@ -199,13 +199,13 @@ def test_build_graph_end_to_end(tmp_path, monkeypatch):
     assert kgx_meta['orion:buildVersion'] == graph_spec.build_version
     assert kgx_meta['dateCreated']
     # There's no longer a separate .meta.json file.
-    assert not (output_dir / 'HGNC.meta.json').exists()
+    assert not (output_dir / 'HGNC_Graph.meta.json').exists()
 
     # --- Assert build_results was populated for the deployment-record file ---
-    assert 'HGNC' in builder.build_results
-    result = builder.build_results['HGNC']
+    assert 'HGNC_Graph' in builder.build_results
+    result = builder.build_results['HGNC_Graph']
     assert result == {
-        'graph_id': 'HGNC',
+        'graph_id': 'HGNC_Graph',
         'release_version': release_version,
         'build_version': graph_spec.build_version,
         'graph_dir': str(output_dir),
@@ -239,8 +239,8 @@ def test_build_graph_end_to_end_multi_source(tmp_path, monkeypatch):
             'graph_name': 'Multi Source Test Graph',
             'output_format': 'jsonl',
             'sources': [
-                {'source_id': 'HGNC'},
-                {'source_id': 'CTD'},
+                {'id': 'HGNC'},
+                {'id': 'CTD'},
             ],
         }]
     }
@@ -349,14 +349,13 @@ def test_build_graph_end_to_end_with_subgraph_dependency(tmp_path, monkeypatch):
                 'graph_id': 'My_Subgraph',
                 'graph_name': 'My Subgraph',
                 'output_format': 'jsonl',
-                'sources': [{'source_id': 'HGNC'}],
+                'sources': [{'id': 'HGNC'}],
             },
             {
                 'graph_id': 'Parent_Graph',
                 'graph_name': 'Parent Graph',
                 'output_format': 'jsonl',
-                'sources': [{'source_id': 'CTD'}],
-                'subgraphs': [{'graph_id': 'My_Subgraph'}],
+                'sources': [{'id': 'My_Subgraph'}, {'id': 'CTD'}],
             },
         ]
     }
@@ -459,8 +458,8 @@ def test_build_graph_continues_past_failed_source(tmp_path, monkeypatch):
             'graph_name': 'Partial Failure Test',
             'output_format': 'jsonl',
             'sources': [
-                {'source_id': 'HGNC'},
-                {'source_id': 'CTD'},
+                {'id': 'HGNC'},
+                {'id': 'CTD'},
             ],
         }]
     }
@@ -534,7 +533,7 @@ def test_single_source_graph_consumes_source_build(tmp_path, monkeypatch):
             'graph_id': 'Some_HGNC_Wrapper',
             'graph_name': 'Some HGNC Wrapper',
             'output_format': 'jsonl',
-            'sources': [{'source_id': 'HGNC'}],
+            'sources': [{'id': 'HGNC'}],
         }]
     }
 
@@ -590,13 +589,13 @@ def test_second_graph_reuses_existing_source_build(tmp_path, monkeypatch):
                 'graph_id': 'First_Graph',
                 'graph_name': 'First Graph',
                 'output_format': 'jsonl',
-                'sources': [{'source_id': 'HGNC'}, {'source_id': 'CTD'}],
+                'sources': [{'id': 'HGNC'}, {'id': 'CTD'}],
             },
             {
                 'graph_id': 'Second_Graph',
                 'graph_name': 'Second Graph',
                 'output_format': 'jsonl',
-                'sources': [{'source_id': 'HGNC'}, {'source_id': 'CTD'}],
+                'sources': [{'id': 'HGNC'}, {'id': 'CTD'}],
             },
         ]
     }
