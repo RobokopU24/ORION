@@ -395,10 +395,10 @@ class GraphBuilder:
                             build_version = registry_client.get_graph_metadata(graph_id, release_version).get(
                                 ORION_BUILD_VERSION)
                         except GraphRegistryError as e:
-                            logger.debug(f'Could not read registry metadata for {graph_id}/{release_version}: {e}')
+                            logger.warning(f'Could not read registry metadata for {graph_id}/{release_version}: {e}')
                     known_release_versions[release_version] = build_version
             except GraphRegistryError as e:
-                logger.debug(f'Graph registry unavailable while versioning {graph_id}: {e}')
+                logger.warning(f'Graph registry unavailable while versioning {graph_id}: {e}')
 
         graph_root = os.path.join(self.graphs_dir, graph_id)
         if os.path.isdir(graph_root):

@@ -118,6 +118,10 @@ def _patch_post_merge_heavy_steps(monkeypatch):
                         lambda **kwargs: {'pass': True})
     monkeypatch.setattr('orion.graph_pipeline.generate_kgx_schema_file',
                         lambda **kwargs: None)
+    monkeypatch.setattr('orion.ingest_pipeline.validate_graph',
+                        lambda **kwargs: {'pass': True})
+    monkeypatch.setattr('orion.ingest_pipeline.generate_kgx_schema_file',
+                        lambda **kwargs: None)
     monkeypatch.setattr(GraphBuilder, 'has_meta_kg', staticmethod(lambda graph_directory: True))
     monkeypatch.setattr(GraphBuilder, 'has_test_data', staticmethod(lambda graph_directory: True))
 
@@ -295,6 +299,7 @@ def test_build_graph_end_to_end_multi_source(tmp_path, monkeypatch):
         assert source_build_dir.is_dir(), f'Source build dir missing for {source_id}: {source_build_dir}'
         assert (source_build_dir / 'nodes.jsonl.gz').exists()
         assert (source_build_dir / 'edges.jsonl.gz').exists()
+        assert (source_build_dir / 'qc-results.json').exists()
         build_metadata_path = source_build_dir / 'graph-metadata.json'
         assert build_metadata_path.exists()
         with open(build_metadata_path) as f:

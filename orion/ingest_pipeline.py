@@ -16,7 +16,7 @@ from orion.config import config
 from orion.kgx_bundle import KGXBundle
 from orion.kgx_file_merger import KGXFileMerger
 from orion.kgx_file_normalizer import KGXFileNormalizer
-from orion.kgx_metadata import KGXGraphMetadata, KGXKnowledgeSource, KGXKnowledgeGraphSource
+from orion.kgx_metadata import KGXGraphMetadata, KGXKnowledgeSource, KGXKnowledgeGraphSource, generate_kgx_schema_file
 from orion.kgxmodel import GraphFileSource, GraphSpec
 from orion.kgx_validation import validate_graph
 from orion.normalization import NormalizationScheme, NodeNormalizer, EdgeNormalizer, NormalizationFailedError
@@ -760,17 +760,38 @@ class IngestPipeline:
             logger.error(f'Source build merge failed for {source_id}: {merge_metadata["merge_error"]}')
             return False
 
-        source_build_bundle.compress_nodes_and_edges()
-
         node_count = merge_metadata.get('final_node_count')
         edge_count = merge_metadata.get('final_edge_count')
         source_build_url = self.get_source_build_output_url(source_id, build_version)
         build_time = datetime.datetime.now().isoformat(timespec='seconds')
+        biolink_version = normalization_scheme.edge_normalization_version
 
-        # generate KGXGraphMetadata for the final KGX files
         parser_metadata = self._load_parser_metadata(source_id)
         source_name = parser_metadata.get('name', source_id)
         graph_name = f'A ROBOKOP Knowledge Graph based on {source_name}'
+
+        # Run QC and generate the schema over the finalized (still-uncompressed) KGX files, so
+        # every source build carries the same qc-results.json + schema.json a merge graph does.
+        # These generators read raw jsonl, so do this before compression.
+        nodes_file_path = source_build_bundle.nodes_path
+        edges_file_path = source_build_bundle.edges_path
+        qc_results = validate_graph(nodes_file_path=nodes_file_path,
+                                    edges_file_path=edges_file_path,
+                                    graph_id=source_id,
+                                    build_version=build_version,
+                                    logger=logger)
+        with open(source_build_bundle.qc_results_path, 'w') as qc_out:
+            json.dump(qc_results, qc_out, indent=2)
+        generate_kgx_schema_file(nodes_filepath=nodes_file_path,
+                                 edges_filepath=edges_file_path,
+                                 output_dir=source_build_bundle.graph_dir,
+                                 graph_output_url=source_build_url,
+                                 graph_name=graph_name,
+                                 biolink_version=biolink_version)
+
+        source_build_bundle.compress_nodes_and_edges()
+
+        # generate KGXGraphMetadata for the final KGX files
         knowledge_source = KGXKnowledgeSource.from_dict(parser_metadata)
         knowledge_source.version = source_version
         kg_source = KGXKnowledgeGraphSource(id=source_build_url,
@@ -785,8 +806,15 @@ class IngestPipeline:
                                           build_version=build_version,
                                           date_created=build_time,
                                           date_modified=build_time,
-                                          biolink_version=normalization_scheme.edge_normalization_version,
+                                          biolink_version=biolink_version,
                                           babel_version=normalization_scheme.node_normalization_version,
+                                          schema={
+                                              "@type": "Dataset",
+                                              "@id": f"{source_build_url}schema.json",
+                                              "name": f"{graph_name} Schema",
+                                              "description": "JSON-LD Schema describing the contents of the knowledge graph",
+                                              "encodingFormat": "application/ld+json"
+                                          },
                                           kg_sources=[kg_source.to_dict()],
                                           knowledge_sources=[knowledge_source],
                                           distribution=[{

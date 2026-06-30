@@ -17,6 +17,7 @@ class KGXBundle:
     EDGES_FILENAME = 'edges.jsonl'
     GRAPH_METADATA_FILENAME = 'graph-metadata.json'
     SCHEMA_FILENAME = 'schema.json'
+    QC_RESULTS_FILENAME = 'qc-results.json'
 
     def __init__(self, graph_dir: str):
         self.graph_dir = graph_dir
@@ -37,6 +38,10 @@ class KGXBundle:
     def schema_path(self) -> str:
         return self._get_path(self.SCHEMA_FILENAME)
 
+    @property
+    def qc_results_path(self) -> str:
+        return self._get_path(self.QC_RESULTS_FILENAME)
+
     def has_nodes_and_edges(self) -> bool:
         return os.path.exists(self.nodes_path) and os.path.exists(self.edges_path)
 
@@ -45,6 +50,9 @@ class KGXBundle:
 
     def has_schema(self) -> bool:
         return os.path.exists(self.schema_path)
+
+    def has_qc_results(self) -> bool:
+        return os.path.exists(self.qc_results_path)
 
     def load_graph_metadata(self) -> dict | None:
         if not self.has_graph_metadata():
