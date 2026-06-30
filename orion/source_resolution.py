@@ -17,17 +17,8 @@ from orion.kgxmodel import (
     SubGraphSource,
 )
 from orion.logging import get_orion_logger
-from orion.metadata import GraphMetadata, Metadata
 
 logger = get_orion_logger(__name__)
-
-
-def _load_orion_graph_metadata(graph_id: str, graph_dir: str) -> GraphMetadata | None:
-    """Best-effort load of the ORION-internal .meta.json for a built graph dir."""
-    try:
-        return GraphMetadata(graph_id, graph_dir)
-    except Exception:
-        return None
 
 
 class GraphSourceResolver:
@@ -63,11 +54,8 @@ class LocalGraphResolver(GraphSourceResolver):
         graph_dir = os.path.join(self.graphs_dir, spec.id, spec.release_version)
         if not os.path.isdir(graph_dir):
             return None
-        orion_metadata = _load_orion_graph_metadata(spec.id, graph_dir)
-        if orion_metadata is None or orion_metadata.get_build_status() != Metadata.STABLE:
-            return None
         bundle = KGXBundle(graph_dir)
-        if not bundle.has_nodes_and_edges():
+        if not (bundle.has_nodes_and_edges() and bundle.has_graph_metadata()):
             return None
         return GraphFileSource(
             id=spec.id,
@@ -75,7 +63,6 @@ class LocalGraphResolver(GraphSourceResolver):
             file_paths=[bundle.nodes_path, bundle.edges_path],
             merge_strategy=spec.merge_strategy,
             kgx_graph_metadata=bundle.load_graph_metadata(),
-            orion_graph_metadata=orion_metadata,
         )
 
     def _resolve_data_source(self, spec: DataSource) -> GraphFileSource | None:
@@ -192,7 +179,6 @@ class RegistryGraphResolver(GraphSourceResolver):
             file_paths=[bundle.nodes_path, bundle.edges_path],
             merge_strategy=merge_strategy,
             kgx_graph_metadata=kgx_graph_metadata,
-            orion_graph_metadata=_load_orion_graph_metadata(spec_id, graph_dir),
         )
 
     def _materialize_source_build(self,
@@ -295,13 +281,8 @@ class SubgraphBuildResolver(GraphSourceResolver):
             return None
 
         graph_dir = self.graph_pipeline.get_graph_dir_path(spec.id, spec.release_version)
-        orion_metadata = self.graph_pipeline.get_graph_metadata(spec.id, spec.release_version)
-        if orion_metadata.get_build_status() != Metadata.STABLE:
-            logger.warning(f'Subgraph {spec.id} release_version {spec.release_version} did not reach STABLE status.')
-            return None
-
         bundle = KGXBundle(graph_dir)
-        if not bundle.has_nodes_and_edges():
+        if not (bundle.has_nodes_and_edges() and bundle.has_graph_metadata()):
             return None
 
         return GraphFileSource(
@@ -310,7 +291,6 @@ class SubgraphBuildResolver(GraphSourceResolver):
             file_paths=[bundle.nodes_path, bundle.edges_path],
             merge_strategy=spec.merge_strategy,
             kgx_graph_metadata=bundle.load_graph_metadata(),
-            orion_graph_metadata=orion_metadata,
         )
 
 

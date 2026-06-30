@@ -16,6 +16,31 @@ ORION_NODE_COUNT = 'orion:nodeCount'
 ORION_EDGE_COUNT = 'orion:edgeCount'
 
 
+def _source_id_from_kg_source(kg_source: dict) -> str | None:
+    """Pull the source_id out of a hasPart entry's @id.
+
+    Source build URLs look like '<...>/sources/<source_id>/builds/<build_version>/',
+    so the segment after 'sources' is the source_id.
+    """
+    kg_id = (kg_source.get('@id') or '').rstrip('/')
+    parts = kg_id.split('/')
+    if 'sources' in parts:
+        idx = parts.index('sources')
+        if idx + 1 < len(parts):
+            return parts[idx + 1]
+    return None
+
+
+def source_ids_from_graph_metadata(graph_metadata: dict) -> list[str]:
+    """The constituent source_ids represented by a graph-metadata.json dict's hasPart."""
+    ids = []
+    for entry in (graph_metadata.get('hasPart') or []):
+        source_id = _source_id_from_kg_source(entry)
+        if source_id:
+            ids.append(source_id)
+    return ids
+
+
 @dataclass
 class KGXKnowledgeSource:
     identifier: str = ""
@@ -176,6 +201,60 @@ class KGXGraphMetadata:
 
     def to_json(self):
         return json.dumps(self.to_dict(), indent=2)
+
+    @classmethod
+    def from_dict(cls, data: dict) -> "KGXGraphMetadata":
+        """Reconstruct from a parsed graph-metadata.json dict (the inverse of to_dict)."""
+        return cls(
+            id=data.get('@id', ''),
+            name=data.get('name', ''),
+            description=data.get('description', ''),
+            license=data.get('license', ''),
+            url=data.get('url', ''),
+            version=data.get('version', ''),
+            build_version=data.get(ORION_BUILD_VERSION, ''),
+            date_created=data.get('dateCreated', ''),
+            date_modified=data.get('dateModified', ''),
+            biolink_version=data.get(ORION_BIOLINK_VERSION, ''),
+            babel_version=data.get(ORION_BABEL_VERSION, ''),
+            keywords=data.get('keywords', []) or [],
+            creator=data.get('creator', []) or [],
+            contact_point=data.get('contactPoint', []) or [],
+            funder=data.get('funder', []) or [],
+            conforms_to=data.get('conformsTo', []) or [],
+            schema=data.get('schema', {}) or {},
+            kg_sources=data.get('hasPart', []) or [],
+            knowledge_sources=[KGXKnowledgeSource.from_dict(ks) for ks in (data.get('isBasedOn') or [])],
+            distribution=data.get('distribution', []) or [],
+        )
+
+    # --- read accessors over a parsed graph-metadata.json ---
+
+    def get_release_version(self) -> str:
+        return self.version
+
+    def get_build_version(self) -> str:
+        return self.build_version
+
+    def get_biolink_version(self) -> str:
+        return self.biolink_version
+
+    def get_babel_version(self) -> str:
+        return self.babel_version
+
+    def get_graph_name(self) -> str:
+        return self.name
+
+    def get_build_time(self) -> str:
+        return self.date_created
+
+    def get_source_ids(self) -> list[str]:
+        ids = []
+        for entry in self.kg_sources or []:
+            source_id = _source_id_from_kg_source(entry)
+            if source_id:
+                ids.append(source_id)
+        return ids
 
 
 @dataclass

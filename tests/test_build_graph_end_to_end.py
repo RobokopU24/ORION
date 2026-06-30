@@ -18,6 +18,7 @@ import pytest
 
 from orion.graph_pipeline import GraphBuilder
 from orion.ingest_pipeline import IngestPipeline
+from orion.kgx_metadata import source_ids_from_graph_metadata
 from orion.metadata import Metadata, get_source_build_version
 
 
@@ -188,24 +189,17 @@ def test_build_graph_end_to_end(tmp_path, monkeypatch):
         merged_edges = [json.loads(line) for line in f]
     assert len(merged_edges) == len(FIXTURE_EDGES)
 
-    # --- Assert ORION metadata ---
-    meta_file = output_dir / 'HGNC.meta.json'
-    assert meta_file.exists()
-    with open(meta_file) as f:
-        meta = json.load(f)
-    assert meta['graph_id'] == 'HGNC'
-    assert meta['release_version'] == release_version
-    assert meta['build_version'] == graph_spec.build_version
-    assert meta['build_status'] == Metadata.STABLE
-    assert meta['build_time'] is not None
-
-    # --- Assert KGX graph-metadata.json was generated ---
+    # --- graph-metadata.json is the single source of truth for the built graph ---
     graph_metadata_file = output_dir / 'graph-metadata.json'
     assert graph_metadata_file.exists()
     with open(graph_metadata_file) as f:
         kgx_meta = json.load(f)
     assert kgx_meta['name'] == 'HGNC Test Graph'
     assert kgx_meta['version'] == release_version
+    assert kgx_meta['orion:buildVersion'] == graph_spec.build_version
+    assert kgx_meta['dateCreated']
+    # There's no longer a separate .meta.json file.
+    assert not (output_dir / 'HGNC.meta.json').exists()
 
     # --- Assert build_results was populated for the deployment-record file ---
     assert 'HGNC' in builder.build_results
@@ -216,7 +210,7 @@ def test_build_graph_end_to_end(tmp_path, monkeypatch):
         'build_version': graph_spec.build_version,
         'graph_dir': str(output_dir),
         'build_status': Metadata.STABLE,
-        'build_time': meta['build_time'],
+        'build_time': kgx_meta['dateCreated'],
     }
 
 
@@ -309,15 +303,14 @@ def test_build_graph_end_to_end_multi_source(tmp_path, monkeypatch):
         # No per-source graph dir is created anymore — source builds live only in storage.
         assert not (graphs_dir / source_id).exists()
 
-    # --- Parent metadata records both sources ---
-    parent_meta_file = parent_dir / 'Multi_Source_Test.meta.json'
+    # --- Parent metadata records both sources (single source of truth: graph-metadata.json) ---
+    parent_meta_file = parent_dir / 'graph-metadata.json'
     assert parent_meta_file.exists()
     with open(parent_meta_file) as f:
         parent_meta = json.load(f)
-    assert parent_meta['build_status'] == Metadata.STABLE
-    assert parent_meta['release_version'] == release_version
-    recorded_source_ids = {s.get('source_id') for s in parent_meta.get('sources', [])}
-    assert recorded_source_ids == {'HGNC', 'CTD'}
+    assert parent_meta['version'] == release_version
+    assert set(source_ids_from_graph_metadata(parent_meta)) == {'HGNC', 'CTD'}
+    assert not (parent_dir / 'Multi_Source_Test.meta.json').exists()
 
     # --- build_results has only the user-facing graph; source builds live in the
     # content-addressed cache and aren't tracked here.
@@ -396,7 +389,7 @@ def test_build_graph_end_to_end_with_subgraph_dependency(tmp_path, monkeypatch):
     assert subgraph_dir.is_dir()
     assert (subgraph_dir / 'nodes.jsonl.gz').exists()
     assert (subgraph_dir / 'edges.jsonl.gz').exists()
-    assert (subgraph_dir / 'My_Subgraph.meta.json').exists()
+    assert (subgraph_dir / 'graph-metadata.json').exists()
 
     # Parent merge should combine the subgraph's HGNC nodes with CTD's contribution.
     # HGNC:2 appears in both, so dedup leaves 4 unique node ids.
@@ -411,14 +404,12 @@ def test_build_graph_end_to_end_with_subgraph_dependency(tmp_path, monkeypatch):
         merged_edges = [json.loads(line) for line in f]
     assert len(merged_edges) == 3
 
-    # Parent metadata lists CTD as a source and My_Subgraph as a subgraph.
-    with open(parent_dir / 'Parent_Graph.meta.json') as f:
+    # Parent graph-metadata.json records its constituent sources flat in hasPart: CTD
+    # directly, plus HGNC contributed via the My_Subgraph subgraph.
+    with open(parent_dir / 'graph-metadata.json') as f:
         parent_meta = json.load(f)
-    assert parent_meta['build_status'] == Metadata.STABLE
-    recorded_source_ids = {s.get('source_id') for s in parent_meta.get('sources', [])}
-    recorded_subgraph_ids = {s.get('graph_id') for s in parent_meta.get('subgraphs', [])}
-    assert recorded_source_ids == {'CTD'}
-    assert recorded_subgraph_ids == {'My_Subgraph'}
+    assert parent_meta['version'] == parent_release_version
+    assert set(source_ids_from_graph_metadata(parent_meta)) == {'CTD', 'HGNC'}
 
     # build_results tracks user-facing graphs only — parent + subgraph here. Source
     # builds for HGNC/CTD live in the content-addressed cache under storage_dir and

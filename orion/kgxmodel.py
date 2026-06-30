@@ -2,7 +2,8 @@ from dataclasses import dataclass, field
 
 from orion.biolink_constants import NAMED_THING
 from orion.graph_versioning import DEFAULT_BASE_RELEASE_VERSION
-from orion.metadata import GraphMetadata, get_source_build_version
+from orion.kgx_metadata import source_ids_from_graph_metadata
+from orion.metadata import get_source_build_version
 from orion.normalization import NormalizationScheme
 
 
@@ -157,7 +158,6 @@ class GraphFileSource:
     release_version: str = None
     build_version: str = None
     kgx_graph_metadata: dict = None
-    orion_graph_metadata: GraphMetadata = None
 
     @property
     def version_identifier(self) -> str | None:
@@ -175,23 +175,9 @@ class GraphFileSource:
         return [file_path for file_path in self.file_paths if 'edge' in file_path]
 
     def get_constituent_source_ids(self) -> list[str]:
-        """The set of underlying source_ids represented by these files.
-
-        For a single-source graph this is just [self.id]; for a multi-source
-        graph it's whatever the graph itself was built from. Used by the merger
-        to decide whether on-disk merging is required.
-        """
-        if self.orion_graph_metadata is not None:
-            try:
-                return self.orion_graph_metadata.get_source_ids()
-            except (KeyError, AttributeError):
-                pass
+        """The set of underlying source_ids represented by these files."""
         if self.kgx_graph_metadata is not None:
-            ids = []
-            for entry in self.kgx_graph_metadata.get('hasPart', []) or []:
-                kg_source_id = entry.get('@id', '').rstrip('/').split('/')
-                if len(kg_source_id) >= 2:
-                    ids.append(kg_source_id[-2])
+            ids = source_ids_from_graph_metadata(self.kgx_graph_metadata)
             if ids:
                 return ids
         return [self.id]

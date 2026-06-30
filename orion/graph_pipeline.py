@@ -1,5 +1,6 @@
 import os
 import json
+import shutil
 import yaml
 import argparse
 import datetime
@@ -27,7 +28,7 @@ from orion.kgxmodel import (
     SubGraphSource,
 )
 from orion.normalization import NormalizationScheme, get_current_node_norm_version
-from orion.metadata import Metadata, GraphMetadata
+from orion.metadata import Metadata
 from orion.source_resolution import (
     LocalGraphResolver,
     RegistryGraphResolver,
@@ -87,27 +88,19 @@ class GraphBuilder:
         logger.info(f'Building graph {graph_id}...')
 
         release_version = self.determine_versions(graph_spec)
-        graph_metadata = self.get_graph_metadata(graph_id, release_version)
         graph_output_dir = self.get_graph_dir_path(graph_id, release_version)
         graph_output_url = self.get_graph_output_url(graph_id, release_version)
+        kgx_bundle = KGXBundle(graph_output_dir)
 
-        # check for previous builds of this same graph
-        build_status = graph_metadata.get_build_status()
-        if build_status == Metadata.IN_PROGRESS:
-            logger.info(f'Graph {graph_id} release_version {release_version} has status: in progress. '
-                             f'This means either the graph is already in the process of being built, '
-                             f'or an error occurred previously that could not be handled. '
-                             f'You may need to clean up and/or remove the failed build.')
-            return False
-
-        if build_status == Metadata.BROKEN or build_status == Metadata.FAILED:
-            logger.info(f'Graph {graph_id} release_version {release_version} previously failed to build. Skipping..')
-            return False
-
-        if build_status == Metadata.STABLE:
+        # A build is complete/STABLE when its bundle has nodes, edges, and graph-metadata.json.
+        build_complete = kgx_bundle.has_nodes_and_edges() and kgx_bundle.has_graph_metadata()
+        if build_complete:
             logger.info(f'Graph {graph_id} release_version {release_version} was already built.')
         else:
-            # If we get here we need to build the graph
+            if os.path.isdir(graph_output_dir):
+                logger.info(f'Clearing incomplete build remnants for {graph_id} release_version {release_version}.')
+                shutil.rmtree(graph_output_dir)
+
             logger.info(f'Building graph {graph_id} release_version {release_version}, checking dependencies...')
             if not self.build_dependencies(graph_spec):
                 logger.warning(f'Aborting graph {graph_spec.graph_id} release_version {release_version}, '
@@ -116,61 +109,56 @@ class GraphBuilder:
 
             logger.info(f'Building graph {graph_id} release_version {release_version}. '
                              f'Dependencies ready, merging sources...')
-            graph_metadata.set_build_status(Metadata.IN_PROGRESS)
-            graph_metadata.set_release_version(release_version)
-            graph_metadata.set_build_version(graph_spec.build_version)
-            graph_metadata.set_graph_name(graph_spec.graph_name)
-            graph_metadata.set_graph_description(graph_spec.graph_description)
-            graph_metadata.set_graph_url(graph_spec.graph_url)
-            graph_metadata.set_graph_spec(graph_spec.get_metadata_representation())
-
-            # merge the sources and write the finalized graph kgx files
+            os.makedirs(graph_output_dir, exist_ok=True)
             source_merger = KGXFileMerger(graph_spec=graph_spec,
                                           output_directory=graph_output_dir,
                                           nodes_output_filename=KGXBundle.NODES_FILENAME,
                                           edges_output_filename=KGXBundle.EDGES_FILENAME)
             source_merger.merge()
             merge_metadata = source_merger.get_merge_metadata()
-
-            current_time = datetime.datetime.now().isoformat(timespec='seconds')
             if "merge_error" in merge_metadata:
-                graph_metadata.set_build_error(merge_metadata["merge_error"], current_time)
-                graph_metadata.set_build_status(Metadata.FAILED)
                 logger.error(f'Merge error occured while building graph {graph_id}: '
                                   f'{merge_metadata["merge_error"]}')
+                # Leave the incomplete dir behind; the next run clears and retries it.
                 return False
 
-            graph_metadata.set_build_info(merge_metadata, current_time)
-            graph_metadata.set_build_status(Metadata.STABLE)
+            build_time = datetime.datetime.now().isoformat(timespec='seconds')
+            biolink_version = self._graph_biolink_version(graph_spec)
+            babel_version = self._graph_babel_version(graph_spec)
+
+            logger.info(f'Generating KGX metadata for {graph_id}...')
+            self.generate_kgx_metadata_files(graph_spec=graph_spec,
+                                             merge_metadata=merge_metadata,
+                                             graph_output_dir=graph_output_dir,
+                                             graph_output_url=graph_output_url,
+                                             build_time=build_time,
+                                             biolink_version=biolink_version,
+                                             babel_version=babel_version)
             logger.info(f'Building graph {graph_id} complete!')
 
-        kgx_bundle = KGXBundle(graph_output_dir)
+        # --- Additional artifacts (QC, schema, meta KG, dumps, alternate formats). These run
+        #     whether the core bundle was just built or already existed, backfilling anything
+        #     missing. ---
 
         # On re-runs of an already-built graph, the raw jsonl files may have been
         # gzipped and removed by a previous run. Restore them so the trailing steps
-        # (QC, metadata, neo4j/memgraph/AC dumps, etc.) can read raw jsonl.
+        # (QC, schema, neo4j/memgraph/AC dumps, etc.) can read raw jsonl.
         kgx_bundle.decompress_nodes_and_edges()
 
-        if not graph_metadata.has_qc():
+        if not kgx_bundle.has_qc_results():
             logger.info(f'Running QC for graph {graph_id}...')
             qc_results = validate_graph(nodes_file_path=kgx_bundle.nodes_path,
                                         edges_file_path=kgx_bundle.edges_path,
                                         graph_id=graph_id,
                                         release_version=release_version,
                                         logger=logger)
-            graph_metadata.set_qc_results(qc_results)
+            with open(kgx_bundle.qc_results_path, 'w') as qc_out:
+                json.dump(qc_results, qc_out, indent=2)
             if qc_results['pass']:
                 logger.info(f'QC passed for graph {graph_id}.')
             else:
                 logger.warning(f'QC failed for graph {graph_id}.')
 
-        # Generate KGX metadata and schema files
-        if not kgx_bundle.has_graph_metadata():
-            logger.info(f'Generating KGX metadata for {graph_id}...')
-            self.generate_kgx_metadata_files(graph_metadata=graph_metadata,
-                                             graph_output_dir=graph_output_dir,
-                                             graph_output_url=graph_output_url)
-            logger.info(f'KGX metadata generated for {graph_id}.')
         if not kgx_bundle.has_schema():
             logger.info(f'Generating KGX Schema for {graph_id}...')
             generate_kgx_schema_file(nodes_filepath=kgx_bundle.nodes_path,
@@ -178,8 +166,11 @@ class GraphBuilder:
                                      output_dir=graph_output_dir,
                                      graph_output_url=graph_output_url,
                                      graph_name=graph_spec.graph_name,
-                                     biolink_version=graph_metadata.get_biolink_version())
+                                     biolink_version=self._graph_biolink_version(graph_spec))
             logger.info(f'KGX Schema generated for {graph_id}.')
+
+        # Dump URLs produced below are recorded as distribution entries on graph-metadata.json.
+        dump_distribution_entries = []
 
         needs_meta_kg = not self.has_meta_kg(graph_directory=graph_output_dir)
         needs_test_data = not self.has_test_data(graph_directory=graph_output_dir)
@@ -221,8 +212,8 @@ class GraphBuilder:
                                              node_property_ignore_list=node_property_ignore_list,
                                              edge_property_ignore_list=edge_property_ignore_list)
             if dump_success:
-                graph_metadata.set_dump(dump_type="neo4j_redundant",
-                                        dump_url=f'{graph_output_url}graph_{release_version}_redundant.db.dump')
+                dump_distribution_entries.append(self._dump_distribution_entry(
+                    "neo4j_redundant", f'{graph_output_url}graph_{release_version}_redundant.db.dump'))
 
         if 'collapsed_qualifiers_jsonl' in output_formats:
             logger.info(f'Generating collapsed qualifier predicates KG for {graph_id}...')
@@ -243,9 +234,9 @@ class GraphBuilder:
                                              node_property_ignore_list=node_property_ignore_list,
                                              edge_property_ignore_list=edge_property_ignore_list)
             if dump_success:
-                graph_metadata.set_dump(dump_type="neo4j_collapsed_qualifiers",
-                                        dump_url=f'{graph_output_url}graph_{release_version}'
-                                                     f'_collapsed_qualifiers.db.dump')
+                dump_distribution_entries.append(self._dump_distribution_entry(
+                    "neo4j_collapsed_qualifiers",
+                    f'{graph_output_url}graph_{release_version}_collapsed_qualifiers.db.dump'))
 
         if 'neo4j' in output_formats:
             logger.info(f'Starting Neo4j dump pipeline for {graph_id}...')
@@ -257,8 +248,8 @@ class GraphBuilder:
                                              node_property_ignore_list=node_property_ignore_list,
                                              edge_property_ignore_list=edge_property_ignore_list)
             if dump_success:
-                graph_metadata.set_dump(dump_type="neo4j",
-                                        dump_url=f'{graph_output_url}graph_{release_version}.db.dump')
+                dump_distribution_entries.append(self._dump_distribution_entry(
+                    "neo4j", f'{graph_output_url}graph_{release_version}.db.dump'))
 
         if 'memgraph' in output_formats:
             logger.info(f'Starting memgraph dump pipeline for {graph_id}...')
@@ -270,8 +261,8 @@ class GraphBuilder:
                                                 node_property_ignore_list=node_property_ignore_list,
                                                 edge_property_ignore_list=edge_property_ignore_list)
             if dump_success:
-                graph_metadata.set_dump(dump_type="memgraph",
-                                        dump_url=f'{graph_output_url}memgraph_{release_version}.cypher')
+                dump_distribution_entries.append(self._dump_distribution_entry(
+                    "memgraph", f'{graph_output_url}memgraph_{release_version}.cypher'))
 
         if 'answercoalesce' in output_formats:
             logger.info(f'Generating answercoalesce files for {graph_id}...')
@@ -299,7 +290,10 @@ class GraphBuilder:
                 kgx_bundle.edges_path.replace(KGXBundle.EDGES_FILENAME, COLLAPSED_QUALIFIERS_FILENAME))
         for jsonl_path in jsonl_files_to_compress:
             kgx_bundle.compress_jsonl(jsonl_path)
-        self._record_build_result(graph_spec, graph_metadata, release_version, graph_output_dir)
+
+        # Record any db dumps that were produced as distribution entries on graph-metadata.json.
+        self._append_distribution_entries(kgx_bundle.graph_metadata_path, dump_distribution_entries)
+        self._record_build_result(graph_spec, release_version, graph_output_dir)
         return True
 
     # Determine the release_version (semver) for a graph, deriving its deterministic build_version
@@ -404,10 +398,11 @@ class GraphBuilder:
         if os.path.isdir(graph_root):
             for entry in os.listdir(graph_root):
                 entry_dir = os.path.join(graph_root, entry)
-                if not os.path.isfile(os.path.join(entry_dir, f'{graph_id}.meta.json')):
+                bundle = KGXBundle(entry_dir)
+                if not bundle.has_graph_metadata():
                     continue
                 try:
-                    graph_metadata = GraphMetadata(graph_id, entry_dir)
+                    graph_metadata = KGXGraphMetadata.from_dict(bundle.load_graph_metadata())
                     release_version = graph_metadata.get_release_version()
                     build_version = graph_metadata.get_build_version()
                 except (json.JSONDecodeError, KeyError, OSError) as e:
@@ -510,11 +505,17 @@ class GraphBuilder:
 
     # TODO robokop specific metadata should be configurable
     def generate_kgx_metadata_files(self,
-                                    graph_metadata: GraphMetadata,
+                                    graph_spec: GraphSpec,
+                                    merge_metadata: dict,
                                     graph_output_dir: str,
-                                    graph_output_url: str):
+                                    graph_output_url: str,
+                                    build_time: str,
+                                    biolink_version: str,
+                                    babel_version: str):
 
-        all_sources = graph_metadata.get_all_sources_metadata()
+        # Each merged source/subgraph contributes its kgx_graph_metadata (carrier) and the
+        # merge's own node/edge counts; that's all _kgx_metadata_from_contribution needs.
+        all_sources = list(merge_metadata.get('sources', {}).values())
 
         kg_sources = []
         knowledge_sources = []
@@ -526,14 +527,14 @@ class GraphBuilder:
         # Create KGXGraphMetadata
         kgx_graph_metadata = KGXGraphMetadata(
             id=graph_output_url,
-            name=graph_metadata.get_graph_name(),
-            description=graph_metadata.get_graph_description(),
+            name=graph_spec.graph_name,
+            description=graph_spec.graph_description,
             license='https://spdx.org/licenses/MIT',
             url=graph_output_url,
-            version=graph_metadata.get_release_version(),
-            build_version=graph_metadata.get_build_version(),
-            date_created=graph_metadata.get_build_time(),
-            date_modified=graph_metadata.get_build_time(),
+            version=graph_spec.release_version,
+            build_version=graph_spec.build_version,
+            date_created=build_time,
+            date_modified=build_time,
             keywords=["knowledge graph", "biomedical", "drug discovery", "translational research", "gene", "disease",
                       "drug", "phenotype", "pathway"],
             creator=[{"@type": "Organization",
@@ -580,8 +581,8 @@ class GraphBuilder:
                 "description": "JSON-LD Schema describing the contents of the knowledge graph",
                 "encodingFormat": "application/ld+json"
             },
-            biolink_version=graph_metadata.get_biolink_version(),
-            babel_version=graph_metadata.get_babel_version(),
+            biolink_version=biolink_version,
+            babel_version=babel_version,
             kg_sources=kg_sources,
             knowledge_sources=knowledge_sources,
             distribution=[{
@@ -624,6 +625,41 @@ class GraphBuilder:
         knowledge_sources = [KGXKnowledgeSource.from_dict(ks_dict)
                              for ks_dict in carrier_knowledge_sources]
         return kg_sources, knowledge_sources
+
+    # Graph-wide biolink/babel versions, read off the first data source's normalization scheme
+    # (the spec parser applies graph-wide values to every source when present). Subgraph-only
+    # graphs have no sources, so fall back to the config default (biolink) / None (babel).
+    @staticmethod
+    def _graph_biolink_version(graph_spec: GraphSpec) -> str:
+        if graph_spec.sources:
+            return graph_spec.sources[0].normalization_scheme.edge_normalization_version
+        return config.BL_VERSION
+
+    @staticmethod
+    def _graph_babel_version(graph_spec: GraphSpec):
+        if graph_spec.sources:
+            return graph_spec.sources[0].normalization_scheme.node_normalization_version
+        return None
+
+    @staticmethod
+    def _dump_distribution_entry(name: str, content_url: str) -> dict:
+        return {"@type": "DataDownload", "name": name, "contentUrl": content_url}
+
+    @staticmethod
+    def _append_distribution_entries(graph_metadata_path: str, entries: list[dict]):
+        """Add db-dump distribution entries to an existing graph-metadata.json, deduped by URL."""
+        if not entries:
+            return
+        with open(graph_metadata_path) as f:
+            metadata = json.load(f)
+        distribution = metadata.get('distribution') or []
+        existing_urls = {d.get('contentUrl') for d in distribution}
+        for entry in entries:
+            if entry.get('contentUrl') not in existing_urls:
+                distribution.append(entry)
+        metadata['distribution'] = distribution
+        with open(graph_metadata_path, 'w') as f:
+            json.dump(metadata, f, indent=2)
 
     def load_graph_specs(self, graph_specs_dir=None, additional_graph_spec=None, inline_graph_spec=None):
         # if a graph spec directory was not provided, default to the one included in the codebase
@@ -833,24 +869,18 @@ class GraphBuilder:
     def get_graph_output_url(graph_id: str, release_version: str):
         return f'{config.ORION_OUTPUT_URL}/{graph_id}/{release_version}/'
 
-    def get_graph_metadata(self, graph_id: str, release_version: str):
-        # make sure the output directory exists (where we check for existing GraphMetadata)
-        graph_output_dir = self.get_graph_dir_path(graph_id, release_version)
-
-        # load existing or create new metadata file
-        return GraphMetadata(graph_id, graph_output_dir)
-
     def _record_build_result(self,
                              graph_spec: GraphSpec,
-                             graph_metadata: GraphMetadata,
                              release_version: str,
                              graph_output_dir: str):
+        bundle = KGXBundle(graph_output_dir)
+        graph_metadata = KGXGraphMetadata.from_dict(bundle.load_graph_metadata() or {})
         self.build_results[graph_spec.graph_id] = {
             'graph_id': graph_spec.graph_id,
             'release_version': release_version,
             'build_version': graph_spec.build_version,
             'graph_dir': graph_output_dir,
-            'build_status': graph_metadata.get_build_status(),
+            'build_status': Metadata.STABLE,
             'build_time': graph_metadata.get_build_time(),
         }
 

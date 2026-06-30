@@ -17,28 +17,26 @@ import pytest
 
 from orion.graph_pipeline import GraphBuilder
 from orion.graph_versioning import DEFAULT_BASE_RELEASE_VERSION
-from orion.metadata import Metadata
+from orion.kgx_bundle import KGXBundle
+from orion.kgx_metadata import ORION_BUILD_VERSION
 
 
-def _write_graph_meta(graphs_dir, graph_id, release_version, build_version,
-                      build_status=Metadata.STABLE):
-    """Drop a {graph_id}.meta.json at graphs_dir/{graph_id}/{release_version}/."""
+def _write_graph_meta(graphs_dir, graph_id, release_version, build_version):
+    """Drop a graph-metadata.json at graphs_dir/{graph_id}/{release_version}/.
+
+    graph-metadata.json is the single source of truth for a built graph's
+    release/build version; _known_release_versions reads it back.
+    """
     graph_dir = os.path.join(graphs_dir, graph_id, release_version)
     os.makedirs(graph_dir, exist_ok=True)
     meta = {
-        'graph_id': graph_id,
-        'graph_name': graph_id,
-        'graph_description': '',
-        'graph_url': '',
-        'release_version': release_version,
-        'build_version': build_version,
-        'sources': [],
-        'subgraphs': [],
-        'build_status': build_status,
-        'build_time': None,
-        'build_error': None,
+        '@id': graph_id,
+        'name': graph_id,
+        'version': release_version,
+        ORION_BUILD_VERSION: build_version,
+        'hasPart': [],
     }
-    meta_path = os.path.join(graph_dir, f'{graph_id}.meta.json')
+    meta_path = os.path.join(graph_dir, KGXBundle.GRAPH_METADATA_FILENAME)
     with open(meta_path, 'w') as f:
         json.dump(meta, f)
     return meta_path
@@ -98,9 +96,9 @@ def test_known_release_versions_skips_meta_without_release_version(builder):
     # Hand-craft a meta file with null release_version to simulate an aborted build.
     aborted_dir = os.path.join(builder.graphs_dir, 'Some_Graph', 'aborted_run')
     os.makedirs(aborted_dir)
-    with open(os.path.join(aborted_dir, 'Some_Graph.meta.json'), 'w') as f:
-        json.dump({'graph_id': 'Some_Graph', 'release_version': None,
-                   'build_version': None, 'sources': [], 'subgraphs': []}, f)
+    with open(os.path.join(aborted_dir, KGXBundle.GRAPH_METADATA_FILENAME), 'w') as f:
+        json.dump({'@id': 'Some_Graph', 'version': None,
+                   ORION_BUILD_VERSION: None, 'hasPart': []}, f)
     assert builder._known_release_versions('Some_Graph') == {'1.0.0': 'bv_real'}
 
 
@@ -109,7 +107,7 @@ def test_known_release_versions_tolerates_corrupt_meta(builder, caplog):
     _write_graph_meta(builder.graphs_dir, 'Some_Graph', '1.0.0', 'bv_real')
     corrupt_dir = os.path.join(builder.graphs_dir, 'Some_Graph', 'corrupt')
     os.makedirs(corrupt_dir)
-    with open(os.path.join(corrupt_dir, 'Some_Graph.meta.json'), 'w') as f:
+    with open(os.path.join(corrupt_dir, KGXBundle.GRAPH_METADATA_FILENAME), 'w') as f:
         f.write('{this is not valid json')
     assert builder._known_release_versions('Some_Graph') == {'1.0.0': 'bv_real'}
 
