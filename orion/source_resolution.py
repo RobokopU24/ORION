@@ -24,7 +24,7 @@ logger = get_orion_logger(__name__)
 class LocalGraphResolver:
     """Look in local storage for a built artifact satisfying the spec.
 
-    resolve_graph:  matches {graphs_dir}/{graph_id}/{release_version}/.
+    resolve_graph:  matches {graphs_dir}/{graph_id}/{build_version}/.
     resolve_parser: matches {storage}/{source_id}/builds/{build_version}/.
     """
 
@@ -33,9 +33,9 @@ class LocalGraphResolver:
         self.ingest_pipeline = ingest_pipeline
 
     def resolve_graph(self, spec: GraphSource) -> GraphFileSource | None:
-        if not spec.release_version:
+        if not spec.build_version:
             return None
-        graph_dir = os.path.join(self.graphs_dir, spec.id, spec.release_version)
+        graph_dir = os.path.join(self.graphs_dir, spec.id, spec.build_version)
         if not os.path.isdir(graph_dir):
             return None
         bundle = KGXBundle(graph_dir)
@@ -44,6 +44,7 @@ class LocalGraphResolver:
         return GraphFileSource(
             id=spec.id,
             release_version=spec.release_version,
+            build_version=spec.build_version,
             file_paths=[bundle.nodes_path, bundle.edges_path],
             merge_strategy=spec.merge_strategy,
             kgx_graph_metadata=bundle.load_graph_metadata(),
@@ -93,6 +94,7 @@ class RegistryGraphResolver:
         return self._materialize_subgraph(
             spec_id=spec.id,
             release_version=spec.release_version,
+            build_version=spec.build_version,
             kgx_graph_metadata=kgx_graph_metadata,
             merge_strategy=spec.merge_strategy,
         )
@@ -117,9 +119,12 @@ class RegistryGraphResolver:
     def _materialize_subgraph(self,
                               spec_id: str,
                               release_version: str,
+                              build_version: str,
                               kgx_graph_metadata: dict,
                               merge_strategy: str | None) -> GraphFileSource | None:
-        graph_dir = os.path.join(self.graphs_dir, spec_id, release_version)
+        # Local storage is keyed by build_version; the registry API is still addressed by
+        # release_version (spec_id/release_version) until the registry itself is unified.
+        graph_dir = os.path.join(self.graphs_dir, spec_id, build_version)
         os.makedirs(graph_dir, exist_ok=True)
         bundle = KGXBundle(graph_dir)
 
@@ -152,6 +157,7 @@ class RegistryGraphResolver:
         return GraphFileSource(
             id=spec_id,
             release_version=release_version,
+            build_version=build_version,
             file_paths=[bundle.nodes_path, bundle.edges_path],
             merge_strategy=merge_strategy,
             kgx_graph_metadata=kgx_graph_metadata,
@@ -256,14 +262,15 @@ class SubgraphBuildResolver:
         if not self.graph_pipeline.build_graph(subgraph_graph_spec):
             return None
 
-        graph_dir = self.graph_pipeline.get_graph_dir_path(spec.id, spec.release_version)
+        graph_dir = self.graph_pipeline.get_graph_dir_path(spec.id, subgraph_graph_spec.build_version)
         bundle = KGXBundle(graph_dir)
         if not (bundle.has_nodes_and_edges() and bundle.has_graph_metadata()):
             return None
 
         return GraphFileSource(
             id=spec.id,
-            release_version=spec.release_version,
+            release_version=subgraph_graph_spec.release_version,
+            build_version=subgraph_graph_spec.build_version,
             file_paths=[bundle.nodes_path, bundle.edges_path],
             merge_strategy=spec.merge_strategy,
             kgx_graph_metadata=bundle.load_graph_metadata(),

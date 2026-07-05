@@ -90,7 +90,7 @@ class GraphBuilder:
 
         self.determine_versions(graph_spec)
         release_version = graph_spec.release_version
-        graph_output_dir = self.get_graph_dir_path(graph_id, release_version)
+        graph_output_dir = self.get_graph_dir_path(graph_id, graph_spec.build_version)
         graph_output_url = self.get_graph_output_url(graph_id, release_version)
         kgx_bundle = KGXBundle(graph_output_dir)
 
@@ -898,8 +898,8 @@ class GraphBuilder:
                     raise GraphSpecError(f'Graph {graph_id} references source {source.id}, which is '
                                          f'neither a known data source nor a graph spec.')
 
-    def get_graph_dir_path(self, graph_id: str, release_version: str):
-        return os.path.join(self.graphs_dir, graph_id, release_version)
+    def get_graph_dir_path(self, graph_id: str, build_version: str):
+        return os.path.join(self.graphs_dir, graph_id, build_version)
 
     @staticmethod
     def get_graph_output_url(graph_id: str, release_version: str):

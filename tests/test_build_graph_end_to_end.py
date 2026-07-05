@@ -173,7 +173,7 @@ def test_build_graph_end_to_end(tmp_path, monkeypatch):
     assert graph_spec.build_version is not None
 
     # --- Assert on-disk artifacts ---
-    output_dir = graphs_dir / 'HGNC_Graph' / release_version
+    output_dir = graphs_dir / 'HGNC_Graph' / graph_spec.build_version
     assert output_dir.is_dir()
     # nodes/edges get gzipped at the end of build_graph
     nodes_gz = output_dir / 'nodes.jsonl.gz'
@@ -261,12 +261,11 @@ def test_build_graph_end_to_end_multi_source(tmp_path, monkeypatch):
     graph_spec = builder.graph_specs['Multi_Source_Test']
     assert builder.build_graph(graph_spec) is True
 
-    release_version = graph_spec.release_version
-    assert release_version is not None
+    assert graph_spec.release_version is not None
     assert graph_spec.build_version is not None
 
     # --- The parent graph artifact ---
-    parent_dir = graphs_dir / 'Multi_Source_Test' / release_version
+    parent_dir = graphs_dir / 'Multi_Source_Test' / graph_spec.build_version
     assert parent_dir.is_dir()
     parent_nodes_gz = parent_dir / 'nodes.jsonl.gz'
     parent_edges_gz = parent_dir / 'edges.jsonl.gz'
@@ -308,7 +307,7 @@ def test_build_graph_end_to_end_multi_source(tmp_path, monkeypatch):
     assert parent_meta_file.exists()
     with open(parent_meta_file) as f:
         parent_meta = json.load(f)
-    assert parent_meta['version'] == release_version
+    assert parent_meta['version'] == graph_spec.release_version
     assert set(source_ids_from_graph_metadata(parent_meta)) == {'HGNC', 'CTD'}
     assert not (parent_dir / 'Multi_Source_Test.meta.json').exists()
 
@@ -376,14 +375,12 @@ def test_build_graph_end_to_end_with_subgraph_dependency(tmp_path, monkeypatch):
     parent_spec = builder.graph_specs['Parent_Graph']
     assert builder.build_graph(parent_spec) is True
 
-    parent_release_version = parent_spec.release_version
     subgraph_spec = builder.graph_specs['My_Subgraph']
-    subgraph_release_version = subgraph_spec.release_version
-    assert parent_release_version is not None
-    assert subgraph_release_version is not None
+    assert parent_spec.release_version is not None
+    assert subgraph_spec.release_version is not None
 
-    parent_dir = graphs_dir / 'Parent_Graph' / parent_release_version
-    subgraph_dir = graphs_dir / 'My_Subgraph' / subgraph_release_version
+    parent_dir = graphs_dir / 'Parent_Graph' / parent_spec.build_version
+    subgraph_dir = graphs_dir / 'My_Subgraph' / subgraph_spec.build_version
     assert parent_dir.is_dir()
     assert subgraph_dir.is_dir()
     assert (subgraph_dir / 'nodes.jsonl.gz').exists()
@@ -407,7 +404,7 @@ def test_build_graph_end_to_end_with_subgraph_dependency(tmp_path, monkeypatch):
     # directly, plus HGNC contributed via the My_Subgraph subgraph.
     with open(parent_dir / 'graph-metadata.json') as f:
         parent_meta = json.load(f)
-    assert parent_meta['version'] == parent_release_version
+    assert parent_meta['version'] == parent_spec.release_version
     assert set(source_ids_from_graph_metadata(parent_meta)) == {'CTD', 'HGNC'}
 
     # build_results tracks user-facing graphs only — parent + subgraph here. Source
@@ -506,8 +503,8 @@ def test_build_graph_continues_past_failed_source(tmp_path, monkeypatch):
     # build_results stays empty: parent failed, source builds aren't tracked there.
     assert builder.build_results == {}
 
-    # The parent graph was never merged, so its release dir has no merged files.
-    parent_dir = graphs_dir / 'Multi_Partial_Failure' / parent_spec.release_version
+    # The parent graph was never merged, so its build dir has no merged files.
+    parent_dir = graphs_dir / 'Multi_Partial_Failure' / parent_spec.build_version
     if parent_dir.exists():
         assert not (parent_dir / 'nodes.jsonl').exists()
         assert not (parent_dir / 'nodes.jsonl.gz').exists()
@@ -562,7 +559,7 @@ def test_single_source_graph_consumes_source_build(tmp_path, monkeypatch):
     assert (source_build_dir / 'graph-metadata.json').exists()
 
     # The user-facing graph dir holds the merged graph regardless of its name.
-    graph_dir = graphs_dir / 'Some_HGNC_Wrapper' / graph_spec.release_version
+    graph_dir = graphs_dir / 'Some_HGNC_Wrapper' / graph_spec.build_version
     assert (graph_dir / 'nodes.jsonl.gz').exists()
     assert (graph_dir / 'edges.jsonl.gz').exists()
 
