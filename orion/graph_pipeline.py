@@ -88,7 +88,8 @@ class GraphBuilder:
         graph_id = graph_spec.graph_id
         logger.info(f'Building graph {graph_id}...')
 
-        release_version = self.determine_versions(graph_spec)
+        self.determine_versions(graph_spec)
+        release_version = graph_spec.release_version
         graph_output_dir = self.get_graph_dir_path(graph_id, release_version)
         graph_output_url = self.get_graph_output_url(graph_id, release_version)
         kgx_bundle = KGXBundle(graph_output_dir)
@@ -297,59 +298,66 @@ class GraphBuilder:
         self._record_build_result(graph_spec, release_version, graph_output_dir)
         return True
 
-    # Determine the release_version (semver) for a graph, deriving its deterministic build_version
-    # from the versions of its data sources and subgraphs along the way. If a release_version was
-    # explicitly pinned on the spec, just return it.
+    # Determine the release_version and build_version for a graph.
     def determine_versions(self, graph_spec: GraphSpec):
-        # if the release_version was set or previously determined just back out
+        # If a release_version was explicitly pinned on the spec, just return it
         if graph_spec.release_version:
             return graph_spec.release_version
+
+        # Otherwise generate the deterministic build version. 
+        # Compose a string with the build version of each underlying source
+        # and other attributes that affect the content to be included, then hash it.
+        # That way any graph with the same exact content should have the same build_version.
         try:
+            composite_parts = []
             for source in graph_spec.sources or []:
-                if self._is_parser_source(source.id):
-                    if source.is_pinned():
-                        continue
-                    if not source.parsing_version:
-                        source.parsing_version = self.ingest_pipeline.get_latest_parsing_version(source.id)
-                    if not source.source_version:
-                        source.source_version = self.ingest_pipeline.get_latest_source_version(source.id)
-                    logger.info(f'Using {source.id} build_version: {source.generate_build_version()}')
+                build_version = self._source_build_version(source, graph_spec.graph_id)
+                if source.merge_strategy:
+                    composite_parts.append(f'{build_version}_{source.merge_strategy}')
                 else:
-                    # a graph dependency: if no release_version is pinned, determine it from its own spec
-                    if not source.release_version:
-                        subgraph_graph_spec = self.graph_specs.get(source.id, None)
-                        if subgraph_graph_spec:
-                            source.release_version = self.determine_versions(subgraph_graph_spec)
-                            logger.info(f'Using graph dependency {source.id} release_version: {source.release_version}')
-                        else:
-                            raise GraphSpecError(f'Source {source.id} requested for graph {graph_spec.graph_id} '
-                                                 f'is not a known data source and has no graph spec to build it.')
+                    composite_parts.append(build_version)
         except (GetDataPullError, DataVersionError) as e:
             raise GraphSpecError(error_message=e.error_message)
-
-        # Compose a string of each source's unique identifier (a build_version hash for parser
-        # sources, a release_version semver for graph dependencies) along with its merge strategy.
-        # This is what we hash into the parent graph's build_version.
-        def _identifier_for_composite(source: GraphSource) -> str:
-            if self._is_parser_source(source.id):
-                return source.generate_build_version()
-            return source.release_version
-
-        composite_parts = []
-        for graph_source in graph_spec.sources or []:
-            identifier = _identifier_for_composite(graph_source)
-            if graph_source.merge_strategy:
-                composite_parts.append(f'{identifier}_{graph_source.merge_strategy}')
-            else:
-                composite_parts.append(identifier)
         composite_version_string = '_'.join(composite_parts)
         build_version = xxh64_hexdigest(composite_version_string)
         graph_spec.build_version = build_version
+        # Use the build version to determine the release version.
         release_version = self._select_release_version(graph_spec.graph_id, build_version, graph_spec.base_release_version)
         graph_spec.release_version = release_version
         logger.info(f'Versions determined for graph {graph_spec.graph_id}: '
                     f'release_version {release_version}, build_version {build_version} ({composite_version_string})')
-        return release_version
+
+    # The build_version a single spec source contributes to its parent's composite:
+    #  - parser source: hash its recipe (resolving 'latest' source/parsing versions lazily first).
+    #  - graph dependency pinned by build_version: use it directly.
+    #  - graph dependency pinned by release_version: resolve release -> build_version (local + registry).
+    #  - unpinned graph dependency: recursively determine its versions from its own graph spec.
+    def _source_build_version(self, source: GraphSource, parent_graph_id: str) -> str:
+        if self._is_parser_source(source.id):
+            if not source.is_pinned():
+                if not source.parsing_version:
+                    source.parsing_version = self.ingest_pipeline.get_latest_parsing_version(source.id)
+                if not source.source_version:
+                    source.source_version = self.ingest_pipeline.get_latest_source_version(source.id)
+            return source.generate_build_version()
+
+        if source.build_version:
+            return source.build_version
+        if source.release_version:
+            build_version = self._known_release_versions(source.id).get(source.release_version)
+            if not build_version:
+                raise GraphSpecError(f'Graph dependency {source.id} for graph {parent_graph_id} is pinned to '
+                                     f'release_version {source.release_version}, which has no known build_version.')
+            source.build_version = build_version
+            return build_version
+        subgraph_graph_spec = self.graph_specs.get(source.id)
+        if not subgraph_graph_spec:
+            raise GraphSpecError(f'Source {source.id} requested for graph {parent_graph_id} is not a known '
+                                 f'data source and has no graph spec to build it.')
+        self.determine_versions(subgraph_graph_spec)
+        source.release_version = subgraph_graph_spec.release_version
+        source.build_version = subgraph_graph_spec.build_version
+        return source.build_version
 
     # Pick the release_version (semver) for a build. If a previously released release_version of this
     # graph already has this build_version, reuse it (the contents are identical). Otherwise bump to

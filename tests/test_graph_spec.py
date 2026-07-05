@@ -102,6 +102,8 @@ def test_graph_spec_subgraph_version(test_graph_spec_dir, test_graph_output_dir)
         if graph_builder._is_parser_source(source.id):
             assert source.source_version == source.id + "_v1"
         else:
+            # a graph dependency contributes its resolved build_version to the parent's composite
+            assert source.build_version is not None
             assert source.release_version is not None
     testing_graph_spec_sub_graph = graph_builder.graph_specs.get('Testing_Graph', None)
     for source in testing_graph_spec_sub_graph.sources:
@@ -128,8 +130,8 @@ def test_graph_spec_invalid_subgraph(test_graph_spec_dir, test_graph_output_dir,
                      graph_output_dir=test_graph_output_dir)
 
 
-# make sure a graph spec with an invalid subgraph release_version (which is otherwise valid)
-# fails to build
+# a graph dependency pinned to a release_version with no known build_version is a dangling pin;
+# versioning fails loudly rather than hashing an unresolvable reference into the parent build_version
 def test_graph_spec_invalid_subgraph_version(test_graph_spec_dir, test_graph_output_dir, tmp_path):
     storage_dir = tmp_path / 'storage'
     storage_dir.mkdir()
@@ -137,8 +139,8 @@ def test_graph_spec_invalid_subgraph_version(test_graph_spec_dir, test_graph_out
                                  graph_output_dir=test_graph_output_dir,
                                  ingest_pipeline=get_ingest_pipeline_mock(storage_dir=storage_dir))
     testing_graph_spec = graph_builder.graph_specs.get('Testing_Graph_4', None)
-    graph_builder.determine_versions(testing_graph_spec)
-    assert graph_builder.build_graph(testing_graph_spec) is False
+    with pytest.raises(GraphSpecError):
+        graph_builder.determine_versions(testing_graph_spec)
 
 
 # an additional graph spec can introduce new graph_ids alongside the bundled ones
