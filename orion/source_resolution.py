@@ -104,10 +104,14 @@ class SourceResolver:
             if not release_version:
                 return None
             kgx_graph_metadata = self.client.get_graph_metadata(source.id, release_version)
+            if kgx_graph_metadata is None:
+                logger.warning(f'Registry lists {source.id}/{release_version} but returned no metadata for it.')
+                return None
+            if not self._download_bundle(source, release_version, kgx_graph_metadata):
+                return None
         except GraphRegistryError as e:
-            logger.debug(f'Registry has no build_version {source.build_version} for {source.id}: {e}')
-            return None
-        if not self._download_bundle(source, release_version, kgx_graph_metadata):
+            logger.warning(f'Graph registry unavailable resolving {source.id} '
+                           f'build_version {source.build_version}: {e}')
             return None
         logger.info(f'Downloaded {source.id} build_version {source.build_version} from the registry.')
         return self._load_bundle(source, source.build_version)

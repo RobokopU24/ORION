@@ -26,7 +26,10 @@ class GraphRegistryClient:
         try:
             response = self.session.get(url, timeout=self.timeout)
         except requests.RequestException as e:
-            raise GraphRegistryError(f'Request to {url} failed: {e}') from e
+            raise GraphRegistryError(f'Could not reach graph registry at {url}: {e}') from e
+        if response.status_code == 404:
+            logger.debug(f'Registry has no resource at {url} (HTTP 404).')
+            return None
         if response.status_code != 200:
             raise GraphRegistryError(
                 f'Request to {url} returned HTTP {response.status_code}: {response.text[:200]}'
@@ -43,7 +46,7 @@ class GraphRegistryClient:
         "latest": bool}.
         """
         if graph_id not in self._versions_cache:
-            self._versions_cache[graph_id] = self._get(f'/versions/{graph_id}')
+            self._versions_cache[graph_id] = self._get(f'/versions/{graph_id}') or []
         return self._versions_cache[graph_id]
 
     def release_version_for_build_version(self, graph_id: str, build_version: str) -> str | None:
@@ -54,8 +57,9 @@ class GraphRegistryClient:
                 return record.get('version')
         return None
 
-    def get_graph_metadata(self, graph_id: str, release_version: str | None = None) -> dict:
-        """Fetch graph_metadata for a graph release_version, or the latest if release_version is None."""
+    def get_graph_metadata(self, graph_id: str, release_version: str | None = None) -> dict | None:
+        """Fetch graph_metadata for a graph release_version, or the latest if release_version is None.
+        Returns None when the graph/version isn't published."""
         if release_version:
             return self._get(f'/graph_metadata/{graph_id}/{release_version}')
         return self._get(f'/graph_metadata/{graph_id}')
@@ -63,10 +67,15 @@ class GraphRegistryClient:
     def list_files(self, graph_id: str, release_version: str) -> list[dict]:
         """Return the file manifest for a graph release_version.
 
-        Each entry looks like {"file_path": "<graph_id>/<version>/<name>",
-        "file_size_bytes": <int>}. Paths are relative to the graph's contentUrl.
+        Each entry looks like {"file_path": "<graph_id>/<version>/<name>", "file_size_bytes": <int>};
+        paths are relative to the graph's contentUrl. Callers only list files for a version they've
+        already resolved, so a missing manifest is a registry inconsistency, not an expected miss —
+        this raises GraphRegistryError rather than returning empty.
         """
-        return self._get(f'/files/{graph_id}/{release_version}')
+        files = self._get(f'/files/{graph_id}/{release_version}')
+        if files is None:
+            raise GraphRegistryError(f'Registry lists no file manifest for {graph_id}/{release_version}.')
+        return files
 
     @staticmethod
     def _content_base_url(graph_metadata: dict) -> str | None:
