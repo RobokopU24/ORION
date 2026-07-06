@@ -1,6 +1,6 @@
 """Validate that every registered data source has a loadable source.json metadata file.
 
-IngestPipeline._load_parser_metadata reads each source's source.json at runtime; a missing
+IngestPipeline.load_parser_metadata reads each source's source.json at runtime; a missing
 or malformed file silently breaks orion-build for that source. This test fails loudly at
 CI time if a new parser is added without its metadata, or an existing one is renamed/moved.
 """
@@ -26,11 +26,11 @@ KNOWN_STUB_METADATA = {
 
 @pytest.mark.parametrize("source_id", ALL_SOURCE_IDS)
 def test_parser_metadata_loads(source_id):
-    metadata = IngestPipeline._load_parser_metadata(source_id)
+    metadata = IngestPipeline.load_parser_metadata(source_id)
     assert isinstance(metadata, dict)
 
 
 @pytest.mark.parametrize("source_id", sorted(set(ALL_SOURCE_IDS) - KNOWN_STUB_METADATA))
 def test_parser_metadata_has_name(source_id):
-    metadata = IngestPipeline._load_parser_metadata(source_id)
+    metadata = IngestPipeline.load_parser_metadata(source_id)
     assert metadata.get('name'), f"{source_id}'s source.json is missing a 'name' field"

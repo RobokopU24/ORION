@@ -19,15 +19,13 @@ ORION_EDGE_COUNT = 'orion:edgeCount'
 def _source_id_from_kg_source(kg_source: dict) -> str | None:
     """Pull the source_id out of a hasPart entry's @id.
 
-    Source build URLs look like '<...>/sources/<source_id>/builds/<build_version>/',
-    so the segment after 'sources' is the source_id.
+    A bundle's content URL looks like '<...>/<id>/<release_version>/', so the id is the
+    second-to-last path segment.
     """
     kg_id = (kg_source.get('@id') or '').rstrip('/')
     parts = kg_id.split('/')
-    if 'sources' in parts:
-        idx = parts.index('sources')
-        if idx + 1 < len(parts):
-            return parts[idx + 1]
+    if len(parts) >= 2:
+        return parts[-2]
     return None
 
 

@@ -77,18 +77,26 @@ class GraphRegistryClient:
         return versions[0].get('version') if versions else None
 
     def get_graph_metadata(self, graph_id: str, release_version: str | None = None) -> dict:
-        """Fetch graph_metadata for a graph version, or the latest if release_version is None."""
+        """Fetch graph_metadata for a graph release_version, or the latest if release_version is None."""
         if release_version:
             return self._get(f'/graph_metadata/{graph_id}/{release_version}')
         return self._get(f'/graph_metadata/{graph_id}')
 
+    def get_graph_metadata_by_build_version(self, graph_id: str, build_version: str) -> dict:
+        """Fetch graph_metadata for a graph keyed by its content-addressed build_version."""
+        return self._get(f'/graph_metadata_by_build/{graph_id}/{build_version}')
+
     def list_files(self, graph_id: str, release_version: str) -> list[dict]:
-        """Return the file manifest for a graph version.
+        """Return the file manifest for a graph release_version.
 
         Each entry looks like {"file_path": "<graph_id>/<version>/<name>",
         "file_size_bytes": <int>}. Paths are relative to the graph's contentUrl.
         """
         return self._get(f'/files/{graph_id}/{release_version}')
+
+    def list_files_by_build_version(self, graph_id: str, build_version: str) -> list[dict]:
+        """Return the file manifest for a graph keyed by its content-addressed build_version."""
+        return self._get(f'/files_by_build/{graph_id}/{build_version}')
 
     @staticmethod
     def _content_base_url(graph_metadata: dict) -> str | None:
@@ -101,101 +109,19 @@ class GraphRegistryClient:
 
     def download_file(self,
                       graph_id: str,
-                      release_version: str,
                       filename: str,
                       destination_path: str,
-                      graph_metadata: dict | None = None) -> str:
-        """Download a single file from a graph version's distribution.
+                      graph_metadata: dict) -> str:
+        """Download a single file from a graph's distribution.
 
         filename is the basename within the graph's directory (e.g., 'nodes.jsonl.gz').
-        Resolves the absolute URL via graph_metadata['distribution'][0]['contentUrl']
-        when provided; otherwise fetches metadata to find it.
+        The absolute URL is resolved via graph_metadata['distribution'][0]['contentUrl'],
+        so this works the same whether the metadata was fetched by release or build version.
         """
-        if graph_metadata is None:
-            graph_metadata = self.get_graph_metadata(graph_id, release_version)
         base = self._content_base_url(graph_metadata)
         if not base:
             raise GraphRegistryError(
-                f'No distribution.contentUrl found for {graph_id}/{release_version}; '
-                f'cannot resolve download URL for {filename}.'
-            )
-        url = f'{base}{filename}'
-        os.makedirs(os.path.dirname(destination_path) or '.', exist_ok=True)
-        tmp_path = destination_path + '.tmp'
-        try:
-            with self.session.get(url, stream=True, timeout=self.timeout) as response:
-                if response.status_code != 200:
-                    raise GraphRegistryError(
-                        f'Download of {url} returned HTTP {response.status_code}'
-                    )
-                with open(tmp_path, 'wb') as out:
-                    shutil.copyfileobj(response.raw, out, length=1024 * 1024)
-        except requests.RequestException as e:
-            raise GraphRegistryError(f'Download of {url} failed: {e}') from e
-        os.replace(tmp_path, destination_path)
-        return destination_path
-
-    # ------------------------------------------------------------------------------
-    # Source-build endpoints.
-    #
-    # Source builds are the content-addressed, per-source cache that ORION uses to dedup
-    # ingested+normalized+merged contributions across every graph that consumes them. Keyed
-    # by (source_id, build_version), where build_version is a deterministic hash over the
-    # source_version, parsing_version, normalization_scheme, and supplementation_version.
-    # The endpoints below mirror the existing /graphs catalog, but in a separate namespace
-    # so user-facing graphs and the internal source cache don't share identifiers.
-    #
-    # Endpoints (see docs/registry_source_builds_plan.md):
-    #   GET /sources                                       -> {"sources": [<source_id>, ...]}
-    #   GET /sources/{source_id}/builds                    -> [{"build_version": ..., "build_time": ...}, ...]
-    #   GET /sources/{source_id}/builds/{build_version}    -> graph-metadata.json
-    #   GET /sources/{source_id}/builds/{build_version}/files -> [{"file_path": "<sid>/<bv>/<name>",
-    #                                                              "file_size_bytes": int}, ...]
-    # ------------------------------------------------------------------------------
-    def list_sources(self) -> list[str]:
-        """Return the list of source_ids with at least one published build."""
-        payload = self._get('/sources')
-        if isinstance(payload, dict):
-            return payload.get('sources', []) or []
-        return payload or []
-
-    def list_source_builds(self, source_id: str) -> list[dict]:
-        """Return the list of published source builds for a source, each entry like
-        {"build_version": "...", "build_time": "...", "node_count": ..., "edge_count": ...}.
-        """
-        return self._get(f'/sources/{source_id}/builds')
-
-    def get_source_build_metadata(self, source_id: str, build_version: str) -> dict:
-        """Fetch the graph-metadata.json (KGX graph metadata) for one source build."""
-        return self._get(f'/sources/{source_id}/builds/{build_version}')
-
-    def list_source_build_files(self, source_id: str, build_version: str) -> list[dict]:
-        """Return the file manifest for one source build.
-
-        Each entry looks like {"file_path": "<source_id>/<build_version>/<name>",
-        "file_size_bytes": <int>}. Paths are relative to the source build's contentUrl.
-        """
-        return self._get(f'/sources/{source_id}/builds/{build_version}/files')
-
-    def download_source_build_file(self,
-                                    source_id: str,
-                                    build_version: str,
-                                    filename: str,
-                                    destination_path: str,
-                                    build_metadata: dict | None = None) -> str:
-        """Download a single file from a source build's distribution.
-
-        filename is the basename within the build's directory (e.g., 'nodes.jsonl' or
-        'nodes.jsonl.gz'). Resolves the absolute URL via
-        build_metadata['distribution'][0]['contentUrl'] when provided, otherwise fetches
-        the build's metadata to find it.
-        """
-        if build_metadata is None:
-            build_metadata = self.get_source_build_metadata(source_id, build_version)
-        base = self._content_base_url(build_metadata)
-        if not base:
-            raise GraphRegistryError(
-                f'No distribution.contentUrl found for source build {source_id}/{build_version}; '
+                f'No distribution.contentUrl found for {graph_id}; '
                 f'cannot resolve download URL for {filename}.'
             )
         url = f'{base}{filename}'

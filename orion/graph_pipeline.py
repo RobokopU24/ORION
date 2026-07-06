@@ -22,18 +22,12 @@ from orion.kgx_bundle import KGXBundle
 from orion.graph_registry import GraphRegistryClient, GraphRegistryError
 from orion.graph_versioning import DEFAULT_BASE_RELEASE_VERSION, next_release_version, parse_semver
 from orion.kgxmodel import (
-    GraphFileSource,
     GraphSource,
     GraphSpec,
 )
 from orion.normalization import NormalizationScheme, get_current_node_norm_version
 from orion.metadata import Metadata
-from orion.source_resolution import (
-    LocalGraphResolver,
-    RegistryGraphResolver,
-    SubgraphBuildResolver,
-    resolve_source,
-)
+from orion.source_resolution import SourceResolver
 from orion.supplementation import SequenceVariantSupplementation
 from orion.meta_kg import MetaKnowledgeGraphBuilder, META_KG_FILENAME, TEST_DATA_FILENAME, EXAMPLE_DATA_FILENAME
 from orion.redundant_kg import generate_redundant_kg
@@ -73,25 +67,34 @@ class GraphBuilder:
         self._validate_specs()
         self.build_results = {}
 
-        # The following are dependency resolvers used to locate or build sources for graphs in the most efficient way.
-        # LocalGraphResolver checks local disk storage for data sources builds or existing graphs.
-        self.local_resolver = LocalGraphResolver(graphs_dir=self.graphs_dir,
-                                                 ingest_pipeline=self.ingest_pipeline)
-        # RegistryGraphResolver queries the graph registry API to find already-built sources or graphs for download.
-        self.registry_resolver = RegistryGraphResolver(graphs_dir=self.graphs_dir,
-                                                       ingest_pipeline=self.ingest_pipeline)
-        # The SubgraphBuildResolver handles finding or building a subgraph dependency requested by a parent graph.
-        self.subgraph_build_resolver = SubgraphBuildResolver(graph_pipeline=self)
+        # The SourceResolver is used to locate or build the sources specified in a GraphSpec
+        self.source_resolver = SourceResolver(graph_builder=self)
 
     def build_graph(self, graph_spec: GraphSpec):
-
         graph_id = graph_spec.graph_id
         logger.info(f'Building graph {graph_id}...')
 
         self.determine_versions(graph_spec)
-        release_version = graph_spec.release_version
         graph_output_dir = self.get_graph_dir_path(graph_id, graph_spec.build_version)
-        graph_output_url = self.get_graph_output_url(graph_id, release_version)
+        graph_output_url = self.get_graph_output_url(graph_id, graph_spec.release_version)
+
+        # A complete bundle needs no dependencies resolved; otherwise resolve them before (re)building.
+        bundle = KGXBundle(graph_output_dir)
+        if not (bundle.has_nodes_and_edges() and bundle.has_graph_metadata()):
+            logger.info(f'Building graph {graph_id} release_version {graph_spec.release_version}, checking dependencies...')
+            if not self.build_dependencies(graph_spec):
+                logger.warning(f'Aborting graph {graph_id} release_version {graph_spec.release_version}, '
+                               f'resolving dependencies failed.')
+                return False
+        return self.merge_and_finalize(graph_spec, graph_output_dir, graph_output_url)
+
+    # Merge a graph_spec's already-resolved sources into a finished KGX bundle at graph_output_dir and
+    # generate all of its artifacts (metadata, QC, schema, meta KG, requested db dumps). This is the one
+    # bundle producer: graph builds reach it with sources resolved by build_dependencies, parser builds
+    # with a single raw parser-output source. Reuses an already-complete bundle, backfilling artifacts.
+    def merge_and_finalize(self, graph_spec: GraphSpec, graph_output_dir: str, graph_output_url: str) -> bool:
+        graph_id = graph_spec.graph_id
+        release_version = graph_spec.release_version
         kgx_bundle = KGXBundle(graph_output_dir)
 
         # A build is complete/STABLE when its bundle has nodes, edges, and graph-metadata.json.
@@ -103,14 +106,7 @@ class GraphBuilder:
                 logger.info(f'Clearing incomplete build remnants for {graph_id} release_version {release_version}.')
                 shutil.rmtree(graph_output_dir)
 
-            logger.info(f'Building graph {graph_id} release_version {release_version}, checking dependencies...')
-            if not self.build_dependencies(graph_spec):
-                logger.warning(f'Aborting graph {graph_spec.graph_id} release_version {release_version}, '
-                               f'resolving dependencies failed.')
-                return False
-
-            logger.info(f'Building graph {graph_id} release_version {release_version}. '
-                             f'Dependencies ready, merging sources...')
+            logger.info(f'Building graph {graph_id} release_version {release_version}. Merging sources...')
             os.makedirs(graph_output_dir, exist_ok=True)
             source_merger = KGXFileMerger(graph_spec=graph_spec,
                                           output_directory=graph_output_dir,
@@ -327,29 +323,29 @@ class GraphBuilder:
         logger.info(f'Versions determined for graph {graph_spec.graph_id}: '
                     f'release_version {release_version}, build_version {build_version} ({composite_version_string})')
 
-    # The build_version a single spec source contributes to its parent's composite:
-    #  - parser source: hash its recipe (resolving 'latest' source/parsing versions lazily first).
-    #  - graph dependency pinned by build_version: use it directly.
-    #  - graph dependency pinned by release_version: resolve release -> build_version (local + registry).
+    # Resolve and store a single spec source's build_version, which it contributes to its parent's
+    # composite and which the resolvers then look it up by. Every source ends up with build_version set:
+    #  - pinned by build_version: use it directly.
+    #  - pinned by release_version: resolve release -> build_version (local + registry).
+    #  - unpinned parser source: hash its recipe (resolving 'latest' source/parsing versions first).
     #  - unpinned graph dependency: recursively determine its versions from its own graph spec.
     def _source_build_version(self, source: GraphSource, parent_graph_id: str) -> str:
-        if self._is_parser_source(source.id):
-            if not source.is_pinned():
-                if not source.parsing_version:
-                    source.parsing_version = self.ingest_pipeline.get_latest_parsing_version(source.id)
-                if not source.source_version:
-                    source.source_version = self.ingest_pipeline.get_latest_source_version(source.id)
-            return source.generate_build_version()
-
         if source.build_version:
             return source.build_version
         if source.release_version:
             build_version = self._known_release_versions(source.id).get(source.release_version)
             if not build_version:
-                raise GraphSpecError(f'Graph dependency {source.id} for graph {parent_graph_id} is pinned to '
-                                     f'release_version {source.release_version}, which has no known build_version.')
+                raise GraphSpecError(f'Source {source.id} for graph {parent_graph_id} is pinned to '
+                                     f'release_version {source.release_version}, which could not be found.')
             source.build_version = build_version
             return build_version
+        if self._is_parser_source(source.id):
+            if not source.parsing_version:
+                source.parsing_version = self.ingest_pipeline.get_latest_parsing_version(source.id)
+            if not source.source_version:
+                source.source_version = self.ingest_pipeline.get_latest_source_version(source.id)
+            source.build_version = source.generate_build_version()
+            return source.build_version
         subgraph_graph_spec = self.graph_specs.get(source.id)
         if not subgraph_graph_spec:
             raise GraphSpecError(f'Source {source.id} requested for graph {parent_graph_id} is not a known '
@@ -426,62 +422,18 @@ class GraphBuilder:
         """True if source_id refers to a parser"""
         return source_id in self._parser_source_ids
 
-    # Resolve every spec entry into a GraphFileSource on graph_spec.resolved_sources. Parser ids run 
-    # through Local → Registry source builds, then a fresh ingest if possible.
-    # graph ids run through Local → Registry → SubgraphBuild.
+    # Resolve every spec source into a GraphFileSource on graph_spec.resolved_sources using the SourceResolver.
     def build_dependencies(self, graph_spec: GraphSpec):
         graph_spec.resolved_sources = []
         all_resolved = True
-
         for source in graph_spec.sources or []:
-            if self._is_parser_source(source.id):
-                resolved = self._resolve_or_build_parser_source(source)
-            elif source.id in self.graph_specs:
-                resolved = resolve_source(source, [self.local_resolver.resolve_graph,
-                                                   self.registry_resolver.resolve_graph,
-                                                   self.subgraph_build_resolver.resolve_graph])
-            else:
-                logger.error(f'Source {source.id} for graph {graph_spec.graph_id} is neither a known '
-                             f'data source nor a graph spec.')
-                resolved = None
+            resolved = self.source_resolver.resolve(source)
             if resolved is None:
                 logger.info(f'Could not resolve source {source.id} for graph {graph_spec.graph_id}.')
                 all_resolved = False
-                # Might as well continue processing dependencies, assume another run will pick up where this one failed.
                 continue
             graph_spec.resolved_sources.append(resolved)
         return all_resolved
-
-    # Resolve a parser source by trying the existing-artifact chain first (local then registry source
-    # builds); on a miss, run the ingest pipeline and produce a finalized source build. Pinned entries
-    # are lookup-only and never trigger an ingest.
-    def _resolve_or_build_parser_source(self,
-                                        source: GraphSource) -> GraphFileSource | None:
-        resolved = resolve_source(source, [self.local_resolver.resolve_parser,
-                                           self.registry_resolver.resolve_parser])
-        if resolved is not None:
-            return resolved
-        if source.is_pinned():
-            logger.error(f'Pinned source {source.id} (build_version {source.build_version}, '
-                         f'release_version {source.release_version}) was not found locally or in the registry.')
-            return None
-        build_version = source.generate_build_version()
-        if not build_version:
-            logger.error(f'Build version could not be resolved for {source.id}.')
-            return None
-        if not self.ingest_pipeline.has_source_build(source.id, build_version):
-            logger.info(f'Running ingest pipeline for {source.id} build_version {build_version}.')
-            if not self.ingest_pipeline.run_pipeline(
-                    source.id,
-                    source_version=source.source_version,
-                    parsing_version=source.parsing_version,
-                    normalization_scheme=source.normalization_scheme,
-                    supplementation_version=source.supplementation_version):
-                logger.error(f'Ingest pipeline failed for {source.id}.')
-                return None
-        return self.ingest_pipeline.load_source_build_file_source(source.id,
-                                                                  build_version,
-                                                                  source.merge_strategy)
 
     @staticmethod
     def has_meta_kg(graph_directory: str):

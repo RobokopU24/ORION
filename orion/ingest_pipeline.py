@@ -13,11 +13,7 @@ from orion.data_sources import (
 )
 from orion.logging import get_orion_logger
 from orion.config import config
-from orion.kgx_bundle import KGXBundle
-from orion.kgx_file_merger import KGXFileMerger
 from orion.kgx_file_normalizer import KGXFileNormalizer
-from orion.kgx_metadata import KGXGraphMetadata, KGXKnowledgeSource, KGXKnowledgeGraphSource, generate_kgx_schema_file
-from orion.kgxmodel import GraphFileSource, GraphSpec
 from orion.kgx_validation import validate_graph
 from orion.normalization import NormalizationScheme, NodeNormalizer, EdgeNormalizer, NormalizationFailedError
 from orion.metadata import SourceMetadata
@@ -105,15 +101,6 @@ class IngestPipeline:
                                                        supplementation_version=supplementation_version)
         if build_version is None:
             logger.warning(f"Pipeline for {source_id} failed quality control...")
-            return False
-
-        if not self.finalize_source_build(source_id,
-                                          source_version,
-                                          parsing_version=parsing_version,
-                                          normalization_scheme=normalization_scheme,
-                                          supplementation_version=supplementation_version,
-                                          build_version=build_version):
-            logger.error(f"Pipeline for {source_id} failed to generate a final source build.")
             return False
         return build_version
 
@@ -688,164 +675,8 @@ class IngestPipeline:
     def get_source_version_path(self, source_id: str, source_version: str):
         return os.path.join(self.storage_dir, source_id, 'data', source_version)
 
-    # Source builds are the finalized single-source graph products of the ingest pipeline. A source
-    # build is itself a single-source KGX graph, so its directory is a standard KGXBundle layout
-    # (nodes.jsonl, edges.jsonl, graph-metadata.json) identical to a graph build's.
-    # Layout: {storage}/{source_id}/builds/{build_version}/
-    def get_source_builds_directory(self, source_id: str) -> str:
-        return os.path.join(self.storage_dir, source_id, 'builds')
-
-    def get_source_build_directory(self, source_id: str, build_version: str) -> str:
-        return os.path.join(self.get_source_builds_directory(source_id), build_version)
-
-    def get_source_build_bundle(self, source_id: str, build_version: str) -> KGXBundle:
-        return KGXBundle(self.get_source_build_directory(source_id, build_version))
-
-    def has_source_build(self, source_id: str, build_version: str) -> bool:
-        """True if a complete source build exists for (source_id, build_version)."""
-        bundle = self.get_source_build_bundle(source_id, build_version)
-        return bundle.has_nodes_and_edges() and bundle.has_graph_metadata()
-
     @staticmethod
-    def get_source_build_output_url(source_id: str, build_version: str) -> str:
-        return f'{config.ORION_OUTPUT_URL}/sources/{source_id}/builds/{build_version}/'
-
-    # Merge within-source nodes & edges and generate KGXGraphMetadata for the output.
-    # These are the finalized KGX files published on the graph registry used to build graphs.
-    def finalize_source_build(self,
-                              source_id: str,
-                              source_version: str,
-                              parsing_version: str,
-                              normalization_scheme: NormalizationScheme,
-                              supplementation_version: str,
-                              build_version: str) -> bool:
-
-        if self.has_source_build(source_id, build_version):
-            # this source build already exists
-            return True
-
-        parser_file_paths = self.get_final_file_paths(source_id,
-                                                      source_version,
-                                                      parsing_version,
-                                                      normalization_scheme.get_composite_normalization_version(),
-                                                      supplementation_version)
-        if not parser_file_paths:
-            logger.error(f'Cannot finalize source build for {source_id} build_version {build_version}: '
-                         f'parser output files not found.')
-            return False
-
-        source_build_bundle = self.get_source_build_bundle(source_id, build_version)
-        os.makedirs(source_build_bundle.graph_dir, exist_ok=True)
-
-        graph_spec = GraphSpec(
-            graph_id=f'{source_id}_{build_version}',
-            graph_name=source_id,
-            graph_description='',
-            graph_url='',
-            sources=[],
-        )
-        graph_spec.resolved_sources = [GraphFileSource(id=source_id,
-                                                       build_version=build_version,
-                                                       file_paths=parser_file_paths)]
-
-        logger.info(f'Finalizing source build for {source_id} build_version {build_version}. Merging entities...')
-        source_merger = KGXFileMerger(graph_spec=graph_spec,
-                                      output_directory=source_build_bundle.graph_dir,
-                                      nodes_output_filename=KGXBundle.NODES_FILENAME,
-                                      edges_output_filename=KGXBundle.EDGES_FILENAME)
-        source_merger.merge()
-        merge_metadata = source_merger.get_merge_metadata()
-        if 'merge_error' in merge_metadata:
-            logger.error(f'Source build merge failed for {source_id}: {merge_metadata["merge_error"]}')
-            return False
-
-        node_count = merge_metadata.get('final_node_count')
-        edge_count = merge_metadata.get('final_edge_count')
-        source_build_url = self.get_source_build_output_url(source_id, build_version)
-        build_time = datetime.datetime.now().isoformat(timespec='seconds')
-        biolink_version = normalization_scheme.edge_normalization_version
-
-        parser_metadata = self._load_parser_metadata(source_id)
-        source_name = parser_metadata.get('name', source_id)
-        graph_name = f'A ROBOKOP Knowledge Graph based on {source_name}'
-
-        # Run QC and generate the schema over the finalized (still-uncompressed) KGX files, so
-        # every source build carries the same qc-results.json + schema.json a merge graph does.
-        # These generators read raw jsonl, so do this before compression.
-        nodes_file_path = source_build_bundle.nodes_path
-        edges_file_path = source_build_bundle.edges_path
-        qc_results = validate_graph(nodes_file_path=nodes_file_path,
-                                    edges_file_path=edges_file_path,
-                                    graph_id=source_id,
-                                    build_version=build_version,
-                                    logger=logger)
-        with open(source_build_bundle.qc_results_path, 'w') as qc_out:
-            json.dump(qc_results, qc_out, indent=2)
-        generate_kgx_schema_file(nodes_filepath=nodes_file_path,
-                                 edges_filepath=edges_file_path,
-                                 output_dir=source_build_bundle.graph_dir,
-                                 graph_output_url=source_build_url,
-                                 graph_name=graph_name,
-                                 biolink_version=biolink_version)
-
-        source_build_bundle.compress_nodes_and_edges()
-
-        # generate KGXGraphMetadata for the final KGX files
-        knowledge_source = KGXKnowledgeSource.from_dict(parser_metadata)
-        knowledge_source.version = source_version
-        kg_source = KGXKnowledgeGraphSource(id=source_build_url,
-                                            name=graph_name,
-                                            build_version=build_version,
-                                            node_count=node_count,
-                                            edge_count=edge_count)
-        graph_metadata = KGXGraphMetadata(id=source_build_url,
-                                          name=graph_name,
-                                          url=source_build_url,
-                                          version=source_version,
-                                          build_version=build_version,
-                                          date_created=build_time,
-                                          date_modified=build_time,
-                                          biolink_version=biolink_version,
-                                          babel_version=normalization_scheme.node_normalization_version,
-                                          schema={
-                                              "@type": "Dataset",
-                                              "@id": f"{source_build_url}schema.json",
-                                              "name": f"{graph_name} Schema",
-                                              "description": "JSON-LD Schema describing the contents of the knowledge graph",
-                                              "encodingFormat": "application/ld+json"
-                                          },
-                                          kg_sources=[kg_source.to_dict()],
-                                          knowledge_sources=[knowledge_source],
-                                          distribution=[{
-                                              "@type": "DataDownload",
-                                              "encodingFormat": "biolink:KGX",
-                                              "contentUrl": source_build_url,
-                                          }])
-        with open(source_build_bundle.graph_metadata_path, 'w') as f:
-            f.write(graph_metadata.to_json())
-        return True
-
-    # Build a GraphFileSource for an existing on-disk source build.
-    # Returns None if the source build is incomplete or missing.
-    # The merge_strategy is the consuming graph's choice for how to
-    # merge this source in, so it's supplied by the caller.
-    def load_source_build_file_source(self,
-                                      source_id: str,
-                                      build_version: str,
-                                      merge_strategy: str = None) -> GraphFileSource | None:
-        bundle = self.get_source_build_bundle(source_id, build_version)
-        if not (bundle.has_nodes_and_edges() and bundle.has_graph_metadata()):
-            return None
-        return GraphFileSource(
-            id=source_id,
-            build_version=build_version,
-            file_paths=[bundle.nodes_path, bundle.edges_path],
-            merge_strategy=merge_strategy,
-            kgx_graph_metadata=bundle.load_graph_metadata(),
-        )
-
-    @staticmethod
-    def _load_parser_metadata(source_id: str) -> dict:
+    def load_parser_metadata(source_id: str) -> dict:
         """Load a data source's parser-supplied source.json metadata (name, description, license, …)."""
         orion_root = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..')
         parser_metadata_path = os.path.join(orion_root, get_data_source_metadata_path(source_id))

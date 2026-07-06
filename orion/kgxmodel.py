@@ -98,9 +98,6 @@ class GraphSource:
     parsing_version: str = None
     supplementation_version: str = None
 
-    def is_pinned(self) -> bool:
-        return self.release_version is not None or self.build_version is not None
-
     # The deterministic source-build hash identifying a recipe entry's contribution. Returns the
     # explicit build_version when pinned by hash; otherwise computes it from the recipe, or None
     # when source_version hasn't been resolved yet (callers fill it in lazily before asking).
