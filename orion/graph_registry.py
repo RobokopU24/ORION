@@ -3,11 +3,10 @@ import shutil
 
 import requests
 
+from orion.config import config
 from orion.logging import get_orion_logger
 
 logger = get_orion_logger(__name__)
-
-DEFAULT_REGISTRY_URL = 'https://robokop-graph-registry.apps.renci.org'
 
 
 class GraphRegistryError(Exception):
@@ -16,10 +15,11 @@ class GraphRegistryError(Exception):
 
 class GraphRegistryClient:
 
-    def __init__(self, base_url: str = DEFAULT_REGISTRY_URL, timeout: float = 30.0):
+    def __init__(self, base_url: str = config.ORION_GRAPH_REGISTRY_URL, timeout: float = 30.0):
         self.base_url = base_url.rstrip('/')
         self.timeout = timeout
         self.session = requests.Session()
+        self._versions_cache: dict[str, list[dict]] = {}
 
     def _get(self, path: str):
         url = f'{self.base_url}{path}'
@@ -36,55 +36,29 @@ class GraphRegistryClient:
         except ValueError as e:
             raise GraphRegistryError(f'Response from {url} was not valid JSON: {e}') from e
 
-    def list_graphs(self) -> list[str]:
-        """Return the list of graph IDs known to the registry.
-
-        The /graphs endpoint returns {"graphs": [{"<graph_id>": [<version>, ...]}, ...]};
-        this method flattens that to just the graph IDs.
-        """
-        payload = self._get('/graphs')
-        graphs = payload.get('graphs', []) if isinstance(payload, dict) else []
-        graph_ids = []
-        for entry in graphs:
-            if isinstance(entry, dict):
-                graph_ids.extend(entry.keys())
-        return graph_ids
-
-    def list_graphs_with_versions(self) -> dict[str, list[dict]]:
-        """Return a mapping of graph_id -> list of version dicts as reported by /graphs."""
-        payload = self._get('/graphs')
-        graphs = payload.get('graphs', []) if isinstance(payload, dict) else []
-        result: dict[str, list[dict]] = {}
-        for entry in graphs:
-            if isinstance(entry, dict):
-                for graph_id, versions in entry.items():
-                    result[graph_id] = versions or []
-        return result
-
     def get_versions(self, graph_id: str) -> list[dict]:
-        """Return the list of version records for a graph.
+        """Return the list of version records for a graph, cached for the client's lifetime.
 
-        Each record looks like {"version": "...", "release_date": "...", "latest": bool}.
+        Each record looks like {"version": "...", "build_version": "...", "release_date": "...",
+        "latest": bool}.
         """
-        return self._get(f'/versions/{graph_id}')
+        if graph_id not in self._versions_cache:
+            self._versions_cache[graph_id] = self._get(f'/versions/{graph_id}')
+        return self._versions_cache[graph_id]
 
-    def get_latest_version(self, graph_id: str) -> str | None:
-        """Return the version string flagged as latest for the given graph, or None."""
-        versions = self.get_versions(graph_id)
-        for v in versions:
-            if v.get('latest'):
-                return v.get('version')
-        return versions[0].get('version') if versions else None
+    def release_version_for_build_version(self, graph_id: str, build_version: str) -> str | None:
+        """Map a build_version to its release_version via the cached /versions
+        records, so a caller holding only a build_version can use the release-keyed endpoints."""
+        for record in self.get_versions(graph_id):
+            if record.get('build_version') == build_version:
+                return record.get('version')
+        return None
 
     def get_graph_metadata(self, graph_id: str, release_version: str | None = None) -> dict:
         """Fetch graph_metadata for a graph release_version, or the latest if release_version is None."""
         if release_version:
             return self._get(f'/graph_metadata/{graph_id}/{release_version}')
         return self._get(f'/graph_metadata/{graph_id}')
-
-    def get_graph_metadata_by_build_version(self, graph_id: str, build_version: str) -> dict:
-        """Fetch graph_metadata for a graph keyed by its content-addressed build_version."""
-        return self._get(f'/graph_metadata_by_build/{graph_id}/{build_version}')
 
     def list_files(self, graph_id: str, release_version: str) -> list[dict]:
         """Return the file manifest for a graph release_version.
@@ -93,10 +67,6 @@ class GraphRegistryClient:
         "file_size_bytes": <int>}. Paths are relative to the graph's contentUrl.
         """
         return self._get(f'/files/{graph_id}/{release_version}')
-
-    def list_files_by_build_version(self, graph_id: str, build_version: str) -> list[dict]:
-        """Return the file manifest for a graph keyed by its content-addressed build_version."""
-        return self._get(f'/files_by_build/{graph_id}/{build_version}')
 
     @staticmethod
     def _content_base_url(graph_metadata: dict) -> str | None:
@@ -139,33 +109,3 @@ class GraphRegistryClient:
             raise GraphRegistryError(f'Download of {url} failed: {e}') from e
         os.replace(tmp_path, destination_path)
         return destination_path
-
-    def get_all_graph_metadata(self, latest_only: bool = True) -> dict[str, dict | list[dict]]:
-        """Fetch graph_metadata for every graph in the registry.
-
-        When latest_only is True (default), returns {graph_id: metadata_dict} for the
-        latest version of each graph. When False, returns {graph_id: [metadata_dict, ...]}
-        with one entry per known version.
-        """
-        graphs = self.list_graphs_with_versions()
-        result: dict[str, dict | list[dict]] = {}
-        for graph_id, versions in graphs.items():
-            if latest_only:
-                try:
-                    result[graph_id] = self.get_graph_metadata(graph_id)
-                except GraphRegistryError as e:
-                    logger.warning(f'Failed to fetch latest metadata for {graph_id}: {e}')
-            else:
-                metadata_list = []
-                for version_record in versions:
-                    version = version_record.get('version')
-                    if not version:
-                        continue
-                    try:
-                        metadata_list.append(self.get_graph_metadata(graph_id, version))
-                    except GraphRegistryError as e:
-                        logger.warning(
-                            f'Failed to fetch metadata for {graph_id} version {version}: {e}'
-                        )
-                result[graph_id] = metadata_list
-        return result

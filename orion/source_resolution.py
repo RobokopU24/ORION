@@ -18,7 +18,7 @@ from orion.config import config
 from orion.graph_registry import GraphRegistryClient, GraphRegistryError
 from orion.graph_versioning import DEFAULT_BASE_RELEASE_VERSION
 from orion.kgx_bundle import KGXBundle
-from orion.kgx_metadata import KGXKnowledgeSource, KGXKnowledgeGraphSource
+from orion.kgx_metadata import KGXGraphMetadata, KGXKnowledgeSource, KGXKnowledgeGraphSource
 from orion.kgxmodel import GraphFileSource, GraphSource, GraphSpec
 from orion.logging import get_orion_logger
 
@@ -40,6 +40,40 @@ class SourceResolver:
         return (self._resolve_local(source)
                 or self._resolve_registry(source)
                 or self._produce(source))
+
+    # The known accessible release_versions of a graph, mapped to the build_version each came from, 
+    # gathered from the registry (when enabled) and local storage. 
+    def known_release_versions(self, graph_id: str) -> dict[str, str | None]:
+        known: dict[str, str | None] = {}
+        if self.client is not None:
+            try:
+                for record in self.client.get_versions(graph_id):
+                    release_version = record.get('version')
+                    if release_version:
+                        known[release_version] = record.get('build_version')
+            except GraphRegistryError as e:
+                logger.warning(f'Graph registry unavailable while versioning {graph_id}: {e}')
+
+        graph_root = os.path.join(self.gb.graphs_dir, graph_id)
+        if os.path.isdir(graph_root):
+            for entry in os.listdir(graph_root):
+                bundle = KGXBundle(os.path.join(graph_root, entry))
+                if not bundle.has_graph_metadata():
+                    continue
+                try:
+                    graph_metadata = KGXGraphMetadata.from_dict(bundle.load_graph_metadata())
+                    release_version = graph_metadata.get_release_version()
+                    build_version = graph_metadata.get_build_version()
+                except (json.JSONDecodeError, KeyError, OSError) as e:
+                    logger.debug(f'Skipping unreadable graph metadata in {graph_root}/{entry}: {e}')
+                    continue
+                if not release_version:
+                    continue
+                # don't let a local entry with no recorded build_version clobber one the registry gave us
+                if known.get(release_version) and not build_version:
+                    continue
+                known[release_version] = build_version
+        return known
 
     def _resolve_local(self, source: GraphSource) -> GraphFileSource | None:
         return self._load_bundle(source, source.build_version)
@@ -66,16 +100,20 @@ class SourceResolver:
         if self.client is None or not source.build_version:
             return None
         try:
-            kgx_graph_metadata = self.client.get_graph_metadata_by_build_version(source.id, source.build_version)
+            release_version = self.client.release_version_for_build_version(source.id, source.build_version)
+            if not release_version:
+                return None
+            kgx_graph_metadata = self.client.get_graph_metadata(source.id, release_version)
         except GraphRegistryError as e:
             logger.debug(f'Registry has no build_version {source.build_version} for {source.id}: {e}')
             return None
-        if not self._download_bundle(source, kgx_graph_metadata):
+        if not self._download_bundle(source, release_version, kgx_graph_metadata):
             return None
         logger.info(f'Downloaded {source.id} build_version {source.build_version} from the registry.')
         return self._load_bundle(source, source.build_version)
 
-    def _download_bundle(self, source: GraphSource, kgx_graph_metadata: dict) -> bool:
+    def _download_bundle(self, source: GraphSource, release_version: str, kgx_graph_metadata: dict) -> bool:
+        # Local storage stays keyed by build_version even though the registry is fetched by release.
         graph_dir = self.gb.get_graph_dir_path(source.id, source.build_version)
         os.makedirs(graph_dir, exist_ok=True)
         bundle = KGXBundle(graph_dir)
@@ -84,9 +122,9 @@ class SourceResolver:
                 json.dump(kgx_graph_metadata, f, indent=2)
 
         try:
-            available_files = self.client.list_files_by_build_version(source.id, source.build_version)
+            available_files = self.client.list_files(source.id, release_version)
         except GraphRegistryError as e:
-            logger.warning(f'Registry file listing failed for {source.id} build_version {source.build_version}: {e}')
+            logger.warning(f'Registry file listing failed for {source.id} release_version {release_version}: {e}')
             return False
 
         available = {os.path.basename(f.get('file_path', '')): f for f in available_files}

@@ -19,7 +19,6 @@ from orion.kgx_validation import validate_graph
 from orion.neo4j_tools import create_neo4j_dump
 from orion.memgraph_tools import create_memgraph_dump
 from orion.kgx_bundle import KGXBundle
-from orion.graph_registry import GraphRegistryClient, GraphRegistryError
 from orion.graph_versioning import DEFAULT_BASE_RELEASE_VERSION, next_release_version, parse_semver
 from orion.kgxmodel import (
     GraphSource,
@@ -37,7 +36,6 @@ from orion.kgx_metadata import (
     KGXGraphMetadata,
     KGXKnowledgeSource,
     KGXKnowledgeGraphSource,
-    ORION_BUILD_VERSION,
     generate_kgx_schema_file,
 )
 
@@ -300,7 +298,7 @@ class GraphBuilder:
         if graph_spec.release_version:
             return graph_spec.release_version
 
-        # Otherwise generate the deterministic build version. 
+        # Otherwise generate the deterministic build version.
         # Compose a string with the build version of each underlying source
         # and other attributes that affect the content to be included, then hash it.
         # That way any graph with the same exact content should have the same build_version.
@@ -333,7 +331,7 @@ class GraphBuilder:
         if source.build_version:
             return source.build_version
         if source.release_version:
-            build_version = self._known_release_versions(source.id).get(source.release_version)
+            build_version = self.source_resolver.known_release_versions(source.id).get(source.release_version)
             if not build_version:
                 raise GraphSpecError(f'Source {source.id} for graph {parent_graph_id} is pinned to '
                                      f'release_version {source.release_version}, which could not be found.')
@@ -360,7 +358,7 @@ class GraphBuilder:
     # the next release_version above whatever already exists, never going below the spec's declared
     # base_release_version.
     def _select_release_version(self, graph_id: str, build_version: str, base_release_version: str):
-        known_release_versions = self._known_release_versions(graph_id)
+        known_release_versions = self.source_resolver.known_release_versions(graph_id)
         for release_str, recorded_build_version in known_release_versions.items():
             if recorded_build_version and recorded_build_version == build_version:
                 logger.info(f'Graph {graph_id} build_version {build_version} was already released as '
@@ -373,50 +371,6 @@ class GraphBuilder:
         else:
             logger.info(f'Graph {graph_id} has no previous releases; releasing as release_version {next_release}.')
         return next_release
-
-    # Collect known release_versions of a graph, mapped to the build_version each one came from
-    # (None when unknown). Looks at the remote graph registry first (if enabled), then local storage.
-    def _known_release_versions(self, graph_id: str) -> dict:
-        known_release_versions = {}
-        if config.ORION_USE_GRAPH_REGISTRY:
-            try:
-                registry_client = GraphRegistryClient(base_url=config.ORION_GRAPH_REGISTRY_URL, timeout=10.0)
-                for version_record in registry_client.get_versions(graph_id):
-                    release_version = version_record.get('version')
-                    if not release_version:
-                        continue
-                    build_version = version_record.get('build_version')
-                    if build_version is None:
-                        try:
-                            build_version = registry_client.get_graph_metadata(graph_id, release_version).get(
-                                ORION_BUILD_VERSION)
-                        except GraphRegistryError as e:
-                            logger.warning(f'Could not read registry metadata for {graph_id}/{release_version}: {e}')
-                    known_release_versions[release_version] = build_version
-            except GraphRegistryError as e:
-                logger.warning(f'Graph registry unavailable while versioning {graph_id}: {e}')
-
-        graph_root = os.path.join(self.graphs_dir, graph_id)
-        if os.path.isdir(graph_root):
-            for entry in os.listdir(graph_root):
-                entry_dir = os.path.join(graph_root, entry)
-                bundle = KGXBundle(entry_dir)
-                if not bundle.has_graph_metadata():
-                    continue
-                try:
-                    graph_metadata = KGXGraphMetadata.from_dict(bundle.load_graph_metadata())
-                    release_version = graph_metadata.get_release_version()
-                    build_version = graph_metadata.get_build_version()
-                except (json.JSONDecodeError, KeyError, OSError) as e:
-                    logger.debug(f'Skipping unreadable graph metadata in {entry_dir}: {e}')
-                    continue
-                if not release_version:
-                    continue
-                # don't let a local entry with no recorded build_version clobber one the registry gave us
-                if known_release_versions.get(release_version) and not build_version:
-                    continue
-                known_release_versions[release_version] = build_version
-        return known_release_versions
 
     def _is_parser_source(self, source_id: str) -> bool:
         """True if source_id refers to a parser"""

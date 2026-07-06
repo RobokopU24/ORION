@@ -1,4 +1,4 @@
-"""Integration tests for GraphBuilder._known_release_versions and _select_release_version.
+"""Integration tests for SourceResolver.known_release_versions and _select_release_version.
 
 These two methods drive the semver assignment for every graph build. The pure
 arithmetic (`next_release_version`) is covered by tests/test_graph_versioning.py;
@@ -58,25 +58,25 @@ def builder(tmp_path):
 # ---------------------------------------------------------------------------
 
 def test_known_release_versions_empty_graphs_dir(builder):
-    assert builder._known_release_versions('Some_Graph') == {}
+    assert builder.source_resolver.known_release_versions('Some_Graph') == {}
 
 
 def test_known_release_versions_graph_dir_with_no_meta_files(builder):
     # Create an empty subdir for the graph_id but no meta files inside.
     os.makedirs(os.path.join(builder.graphs_dir, 'Some_Graph', '1.0.0'))
-    assert builder._known_release_versions('Some_Graph') == {}
+    assert builder.source_resolver.known_release_versions('Some_Graph') == {}
 
 
 def test_known_release_versions_single_release(builder):
     _write_graph_meta(builder.graphs_dir, 'Some_Graph', '1.0.0', 'bv_abc')
-    assert builder._known_release_versions('Some_Graph') == {'1.0.0': 'bv_abc'}
+    assert builder.source_resolver.known_release_versions('Some_Graph') == {'1.0.0': 'bv_abc'}
 
 
 def test_known_release_versions_multiple_releases(builder):
     _write_graph_meta(builder.graphs_dir, 'Some_Graph', '1.0.0', 'bv_a')
     _write_graph_meta(builder.graphs_dir, 'Some_Graph', '1.0.1', 'bv_b')
     _write_graph_meta(builder.graphs_dir, 'Some_Graph', '2.0.0', 'bv_c')
-    assert builder._known_release_versions('Some_Graph') == {
+    assert builder.source_resolver.known_release_versions('Some_Graph') == {
         '1.0.0': 'bv_a',
         '1.0.1': 'bv_b',
         '2.0.0': 'bv_c',
@@ -86,8 +86,8 @@ def test_known_release_versions_multiple_releases(builder):
 def test_known_release_versions_only_includes_requested_graph(builder):
     _write_graph_meta(builder.graphs_dir, 'Graph_A', '1.0.0', 'bv_a')
     _write_graph_meta(builder.graphs_dir, 'Graph_B', '5.0.0', 'bv_b')
-    assert builder._known_release_versions('Graph_A') == {'1.0.0': 'bv_a'}
-    assert builder._known_release_versions('Graph_B') == {'5.0.0': 'bv_b'}
+    assert builder.source_resolver.known_release_versions('Graph_A') == {'1.0.0': 'bv_a'}
+    assert builder.source_resolver.known_release_versions('Graph_B') == {'5.0.0': 'bv_b'}
 
 
 def test_known_release_versions_skips_meta_without_release_version(builder):
@@ -99,7 +99,7 @@ def test_known_release_versions_skips_meta_without_release_version(builder):
     with open(os.path.join(aborted_dir, KGXBundle.GRAPH_METADATA_FILENAME), 'w') as f:
         json.dump({'@id': 'Some_Graph', 'version': None,
                    ORION_BUILD_VERSION: None, 'hasPart': []}, f)
-    assert builder._known_release_versions('Some_Graph') == {'1.0.0': 'bv_real'}
+    assert builder.source_resolver.known_release_versions('Some_Graph') == {'1.0.0': 'bv_real'}
 
 
 def test_known_release_versions_tolerates_corrupt_meta(builder, caplog):
@@ -109,13 +109,13 @@ def test_known_release_versions_tolerates_corrupt_meta(builder, caplog):
     os.makedirs(corrupt_dir)
     with open(os.path.join(corrupt_dir, KGXBundle.GRAPH_METADATA_FILENAME), 'w') as f:
         f.write('{this is not valid json')
-    assert builder._known_release_versions('Some_Graph') == {'1.0.0': 'bv_real'}
+    assert builder.source_resolver.known_release_versions('Some_Graph') == {'1.0.0': 'bv_real'}
 
 
 def test_known_release_versions_release_without_build_version(builder):
     """A legacy meta file with a release_version but no build_version returns build_version=None."""
     _write_graph_meta(builder.graphs_dir, 'Some_Graph', '1.0.0', None)
-    assert builder._known_release_versions('Some_Graph') == {'1.0.0': None}
+    assert builder.source_resolver.known_release_versions('Some_Graph') == {'1.0.0': None}
 
 
 # ---------------------------------------------------------------------------
