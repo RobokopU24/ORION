@@ -3,10 +3,30 @@
 replicaCount: 1
 
 orion:
+  # The id of the graph to build or "all" to build all available graphs
   graphID: "all"
-  graphSpec: "example-graph-spec.yaml"
-  # useLocalGraphSpec true if the graphSpec is a file in the codebase (mainly for testing), false if a remote URL
-  useLocalGraphSpec: true
+  # Optional http(s) URL to an additional graph spec yaml file. Passed to orion-build via --graph_spec.
+  graphSpecUrl: ""
+  # Optionally include graph spec yaml content that will be rendered into a ConfigMap and mounted as
+  # /ORION/graph_specs/_helm-graph-spec.yaml inside the container, where ORION will automatically load it
+  # as an available graph spec.
+  #
+  # Use any local graph spec with the helm parameter --set-file at install time:
+  #   helm install ... --set-file orion.graphSpecYaml=example_path/graph_specs/example-graph-spec.yaml
+  #
+  # Or paste the yaml directly:
+  # graphSpecYaml: |
+  #   graphs:
+  #     - graph_id: My_Graph
+  #       sources:
+  #         - source_id: HGNC
+  graphSpecYaml: ""
+  # Optionally include the filename of a graph spec in ORION graph_specs/optional/.
+  # When set, the chart passes /ORION/graph_specs/optional/<value> to orion-build via --graph_spec.
+  # Mutually exclusive with graphSpecUrl (both render --graph_spec).
+  # Example:
+  # optionalGraphSpec: "litcoin-graph-spec.yaml"
+  optionalGraphSpec: ""
   buildMode: true
   image:
     repository: ghcr.io/robokopu24/orion
