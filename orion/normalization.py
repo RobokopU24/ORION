@@ -1,4 +1,3 @@
-import os
 import functools
 import requests
 import time
