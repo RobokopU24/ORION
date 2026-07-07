@@ -138,8 +138,12 @@ class SourceResolver:
             logger.warning(f'Registry {source.id} build_version {source.build_version} is missing nodes or edges.')
             return False
 
+        files_to_download = [nodes_basename, edges_basename]
+        if KGXBundle.SCHEMA_FILENAME in available:
+            files_to_download.append(KGXBundle.SCHEMA_FILENAME)
+
         try:
-            for filename in (nodes_basename, edges_basename, KGXBundle.SCHEMA_FILENAME):
+            for filename in files_to_download:
                 self._download_file(source.id, filename, graph_dir, kgx_graph_metadata)
         except GraphRegistryError as e:
             logger.warning(f'Registry download failed for {source.id} build_version {source.build_version}: {e}')
