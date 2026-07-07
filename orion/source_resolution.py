@@ -7,7 +7,7 @@ as an on-disk KGX bundle by one of the following techniques, in order of prefere
   2. registry — download it from the graph registry.
   3. produce  — build it: run the ingest pipeline for a parser, or build the subgraph for a graph
                 dependency. Only an unpinned source (a parser or graph without specific build or release
-                versions specified) can be produced on a miss; a pinned source that misses both local and 
+                versions specified) can be produced on a miss; a pinned source that misses both local and
                 registry simply fails to resolve.
 """
 
@@ -41,8 +41,8 @@ class SourceResolver:
                 or self._resolve_registry(source)
                 or self._produce(source))
 
-    # The known accessible release_versions of a graph, mapped to the build_version each came from, 
-    # gathered from the registry (when enabled) and local storage. 
+    # The known accessible release_versions of a graph, mapped to the build_version each came from,
+    # gathered from the registry (when enabled) and local storage.
     def known_release_versions(self, graph_id: str) -> dict[str, str | None]:
         known: dict[str, str | None] = {}
         if self.client is not None:
@@ -171,7 +171,7 @@ class SourceResolver:
         )
 
     def _produce(self, source: GraphSource) -> GraphFileSource | None:
-        if self.gb._is_parser_source(source.id):
+        if self.gb.is_parser_source(source.id):
             # Only an unpinned parser carries a recipe (normalization_scheme) to build from.
             if source.normalization_scheme is None:
                 logger.error(f'Source {source.id} (build_version {source.build_version}) was not found '

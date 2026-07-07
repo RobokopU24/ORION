@@ -2,8 +2,8 @@ import os
 import pytest
 import requests.exceptions
 
-from unittest.mock import MagicMock
-from orion.graph_pipeline import GraphBuilder, GraphSpecError
+from unittest.mock import MagicMock, patch
+from orion.graph_pipeline import GraphBuilder, GraphSpecError, main as graph_pipeline_main
 from orion.ingest_pipeline import IngestPipeline
 
 
@@ -99,7 +99,7 @@ def test_graph_spec_subgraph_version(test_graph_spec_dir, test_graph_output_dir)
     assert testing_graph_spec.release_version is None
     graph_builder.determine_versions(testing_graph_spec)
     for source in testing_graph_spec.sources:
-        if graph_builder._is_parser_source(source.id):
+        if graph_builder.is_parser_source(source.id):
             assert source.source_version == source.id + "_v1"
         else:
             # a graph dependency contributes its resolved build_version to the parent's composite
@@ -114,7 +114,7 @@ def test_graph_spec_subgraph_version(test_graph_spec_dir, test_graph_output_dir)
     assert testing_graph_spec_sub_graph.release_version is not None
     assert testing_graph_spec.release_version is not None
 
-# Invalid_Graph is neither a valid parser nor graph so the spec fails validation outright 
+# Invalid_Graph is neither a valid parser nor graph so the spec fails validation outright
 def test_graph_spec_invalid_subgraph(test_graph_spec_dir, test_graph_output_dir, tmp_path):
     spec_path = tmp_path / "invalid-subgraph-graph-spec.yaml"
     spec_path.write_text(
@@ -248,6 +248,44 @@ def test_graph_spec_invalid_base_release_version_raises(test_graph_spec_dir, tes
         GraphBuilder(graph_specs_dir=test_graph_spec_dir,
                      additional_graph_spec=str(spec_path),
                      graph_output_dir=test_graph_output_dir)
+
+# build_source_graph materializes a parser id directly: it resolves a versioned parser
+# GraphSource (never a graph spec) through the SourceResolver, with no wrapper graph.
+def test_build_source_graph_resolves_parser_source(test_graph_spec_dir, test_graph_output_dir):
+    graph_builder = GraphBuilder(graph_specs_dir=test_graph_spec_dir,
+                                 graph_output_dir=test_graph_output_dir)
+    graph_builder.ingest_pipeline = get_ingest_pipeline_mock()
+    graph_builder.source_resolver = MagicMock()
+    graph_builder.source_resolver.resolve.return_value = MagicMock()  # non-None => produced/reused
+
+    assert graph_builder.build_source_graph('HGNC') is True
+    graph_builder.source_resolver.resolve.assert_called_once()
+    resolved_source = graph_builder.source_resolver.resolve.call_args.args[0]
+    assert resolved_source.id == 'HGNC'
+    # versions were resolved before handing off to the resolver
+    assert resolved_source.build_version is not None
+
+    # a resolve miss (source could not be produced) surfaces as a failed build
+    graph_builder.source_resolver.resolve.return_value = None
+    assert graph_builder.build_source_graph('HGNC') is False
+
+
+# main() splits the positional on commas and routes each id independently: a graph spec id
+# builds via build_graph, a parser id materializes via build_source_graph, in one invocation.
+def test_main_dispatches_comma_separated_ids(monkeypatch):
+    mock_builder = MagicMock()
+    testing_spec = MagicMock()
+    mock_builder.graph_specs = {'Testing_Graph': testing_spec}
+    mock_builder.is_parser_source.side_effect = lambda gid: gid == 'HGNC'
+    mock_builder.write_build_results.return_value = None
+
+    monkeypatch.setattr('sys.argv', ['orion-build', 'Testing_Graph,HGNC'])
+    with patch('orion.graph_pipeline.GraphBuilder', return_value=mock_builder):
+        graph_pipeline_main()
+
+    mock_builder.build_graph.assert_called_once_with(testing_spec)
+    mock_builder.build_source_graph.assert_called_once_with('HGNC')
+
 
 def test_default_graph_spec_defines_robomouse(monkeypatch, test_graph_output_dir):
     default_specs_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'graph_specs')

@@ -89,6 +89,19 @@ class GraphBuilder:
                 return False
         return self.merge_and_finalize(graph_spec, graph_output_dir, graph_output_url)
 
+    # Materialize a parser source directly as a graph.
+    # Used when orion-build is called with a parser id instead of a graph spec id.
+    def build_source_graph(self, source_id: str) -> bool:
+        logger.info(f'Building source graph {source_id}...')
+        source = self.parse_source_spec({'id': source_id}, source_id)
+        if source.normalization_scheme is not None and self.conflation:
+            source.normalization_scheme.conflation = True
+        self._source_build_version(source, source_id)
+        if self.source_resolver.resolve(source) is None:
+            logger.warning(f'Failed to build source graph {source_id}.')
+            return False
+        return True
+
     # Merge a graph_spec's already-resolved sources into a finished KGX bundle at graph_output_dir and
     # generate all of its artifacts (metadata, QC, schema, meta KG, requested db dumps). This is the one
     # bundle producer: graph builds reach it with sources resolved by build_dependencies, parser builds
@@ -340,7 +353,7 @@ class GraphBuilder:
                                      f'release_version {source.release_version}, which could not be found.')
             source.build_version = build_version
             return build_version
-        if self._is_parser_source(source.id):
+        if self.is_parser_source(source.id):
             if not source.parsing_version:
                 source.parsing_version = self.ingest_pipeline.get_latest_parsing_version(source.id)
             if not source.source_version:
@@ -375,7 +388,7 @@ class GraphBuilder:
             logger.info(f'Graph {graph_id} has no previous releases; releasing as release_version {next_release}.')
         return next_release
 
-    def _is_parser_source(self, source_id: str) -> bool:
+    def is_parser_source(self, source_id: str) -> bool:
         """True if source_id refers to a parser"""
         return source_id in self._parser_source_ids
 
@@ -746,7 +759,7 @@ class GraphBuilder:
         build_version = source_yml.get('build_version', None)
         pinned = release_version is not None or build_version is not None
         recipe_present = any(source_yml.get(setting) is not None for setting in self._RECIPE_SETTINGS)
-        is_parser = self._is_parser_source(source_id)
+        is_parser = self.is_parser_source(source_id)
 
         # validation
         if release_version is not None and build_version is not None:
@@ -807,7 +820,7 @@ class GraphBuilder:
                                  f'producer): {", ".join(sorted(collisions))}.')
         for graph_id, graph_spec in self.graph_specs.items():
             for source in graph_spec.sources or []:
-                if not self._is_parser_source(source.id) and source.id not in self.graph_specs:
+                if not self.is_parser_source(source.id) and source.id not in self.graph_specs:
                     raise GraphSpecError(f'Graph {graph_id} references source {source.id}, which is '
                                          f'neither a known data source nor a graph spec.')
 
@@ -868,9 +881,10 @@ def main():
 
     parser = argparse.ArgumentParser(description="Merge data sources into complete graphs.")
     parser.add_argument('graph_id',
-                        help='ID of the graph to build. Either specify the ID of a graph in a Graph Spec '
-                             'or provide a new one along with --sources to build a simple graph without '
-                             'using a Graph Spec file.')
+                        help='ID of the graph to build. Specify the ID of a graph in a Graph Spec, '
+                             'provide a new one along with --sources to build a simple graph without '
+                             'using a Graph Spec file, or pass a data source id to build that '
+                             'source alone as a graph.')
     spec_group = parser.add_mutually_exclusive_group()
     spec_group.add_argument('--graph_spec', type=str, default=None,
                             help='Path or URL for an additional Graph Spec yaml file. Its graphs are added '
@@ -902,11 +916,15 @@ def main():
         for graph_spec in graph_builder.graph_specs.values():
             graph_builder.build_graph(graph_spec)
     else:
-        graph_spec = graph_builder.graph_specs.get(graph_id_arg, None)
-        if graph_spec:
-            graph_builder.build_graph(graph_spec)
-        else:
-            print(f'Invalid graph spec requested: {graph_id_arg}')
+        for graph_id in (gid.strip() for gid in graph_id_arg.split(',') if gid.strip()):
+            graph_spec = graph_builder.graph_specs.get(graph_id, None)
+            if graph_spec:
+                graph_builder.build_graph(graph_spec)
+            elif graph_builder.is_parser_source(graph_id):
+                # Not a graph spec id, but a parser id: materialize it directly as a source graph.
+                graph_builder.build_source_graph(graph_id)
+            else:
+                print(f'Invalid graph spec requested: {graph_id}')
     results_path = graph_builder.write_build_results()
     if results_path:
         print(f'Build results written to {results_path}')
