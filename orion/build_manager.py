@@ -27,6 +27,7 @@ from orion.redundant_kg import generate_redundant_kg
 from orion.answercoalesce_build import generate_ac_files
 from orion.collapse_qualifiers import generate_collapsed_qualifiers_kg
 from orion.kgx_metadata import KGXGraphMetadata, KGXKnowledgeSource, generate_kgx_schema_file
+from orion.report_handler import ReportHandler
 
 
 logger = get_orion_logger("orion.build_manager")
@@ -50,6 +51,17 @@ class GraphBuilder:
         self.graph_specs = {}   # graph_id -> GraphSpec all potential graphs that could be built, including sub-graphs
         self.load_graph_specs(graph_specs_dir=graph_specs_dir)
         self.build_results = {}
+        self.outcomes = {
+            'built': [],
+            'already_built': [],
+            'failed': [],
+            'skipped': [],
+            'sources': {
+                'built': [],
+                'already_built': [],
+                'failed': []
+            }
+        }
 
     def build_graph(self, graph_spec: GraphSpec):
 
@@ -64,25 +76,32 @@ class GraphBuilder:
         # check for previous builds of this same graph
         build_status = graph_metadata.get_build_status()
         if build_status == Metadata.IN_PROGRESS:
+            reason = 'Graph is already in progress or previous error not cleaned up'
             logger.info(f'Graph {graph_id} version {graph_version} has status: in progress. '
                              f'This means either the graph is already in the process of being built, '
                              f'or an error occurred previously that could not be handled. '
                              f'You may need to clean up and/or remove the failed build.')
+            self.outcomes['skipped'].append({'graph_id': graph_id, 'version': graph_version, 'reason': reason})
             return False
 
         if build_status == Metadata.BROKEN or build_status == Metadata.FAILED:
+            reason = f'Previous build status: {build_status}'
             logger.info(f'Graph {graph_id} version {graph_version} previously failed to build. Skipping..')
+            self.outcomes['skipped'].append({'graph_id': graph_id, 'version': graph_version, 'reason': reason})
             return False
 
         if build_status == Metadata.STABLE:
             self.build_results[graph_id] = {'version': graph_version}
             logger.info(f'Graph {graph_id} version {graph_version} was already built.')
+            self.outcomes['already_built'].append({'graph_id': graph_id, 'version': graph_version})
         else:
             # if we get here we need to build the graph
             logger.info(f'Building graph {graph_id} version {graph_version}, checking dependencies...')
             if not self.build_dependencies(graph_spec):
+                reason = 'Build dependencies failed'
                 logger.warning(f'Aborting graph {graph_spec.graph_id} version {graph_version}, building '
                                     f'dependencies failed.')
+                self.outcomes['failed'].append({'graph_id': graph_id, 'version': graph_version, 'reason': reason})
                 return False
 
             logger.info(f'Building graph {graph_id} version {graph_version}. '
@@ -104,16 +123,18 @@ class GraphBuilder:
 
             current_time = datetime.datetime.now().isoformat(timespec='seconds')
             if "merge_error" in merge_metadata:
-                graph_metadata.set_build_error(merge_metadata["merge_error"], current_time)
+                error_msg = merge_metadata["merge_error"]
+                graph_metadata.set_build_error(error_msg, current_time)
                 graph_metadata.set_build_status(Metadata.FAILED)
-                logger.error(f'Merge error occured while building graph {graph_id}: '
-                                  f'{merge_metadata["merge_error"]}')
+                logger.error(f'Merge error occured while building graph {graph_id}: {error_msg}')
+                self.outcomes['failed'].append({'graph_id': graph_id, 'version': graph_version, 'reason': error_msg})
                 return False
 
             graph_metadata.set_build_info(merge_metadata, current_time)
             graph_metadata.set_build_status(Metadata.STABLE)
             logger.info(f'Building graph {graph_id} complete!')
             self.build_results[graph_id] = {'version': graph_version}
+            self.outcomes['built'].append({'graph_id': graph_id, 'version': graph_version})
 
         nodes_filepath = os.path.join(graph_output_dir, NODES_FILENAME)
         edges_filepath = os.path.join(graph_output_dir, EDGES_FILENAME)
@@ -355,8 +376,15 @@ class GraphBuilder:
                 if not pipeline_sucess:
                     logger.info(f'While attempting to build {graph_spec.graph_id}, '
                                      f'data source pipeline failed for dependency {source_id}...')
+                    self.outcomes['sources']['failed'].append({'source_id': source_id,
+                                                              'version': data_source.source_version})
                     return False
+                self.outcomes['sources']['built'].append({'source_id': source_id,
+                                                         'version': data_source.source_version})
                 release_metadata = source_metadata.get_release_info(release_version)
+            else:
+                self.outcomes['sources']['already_built'].append({'source_id': source_id,
+                                                                  'version': data_source.source_version})
 
             data_source.release_info = release_metadata
             data_source.file_paths = self.ingest_pipeline.get_final_file_paths(source_id,
@@ -743,8 +771,16 @@ def main():
             graph_builder.build_graph(graph_spec)
         else:
             print(f'Invalid graph spec requested: {graph_id_arg}')
+
     for results_graph_id, results in graph_builder.build_results.items():
         print(f'{results_graph_id}\t{results["version"]}')
+
+    # Generate and send report
+    reporter = ReportHandler(outcomes=graph_builder.outcomes)
+    report_path = reporter.write_report()
+    reporter.send_slack_notification(report_path)
+
+
 
 
 if __name__ == '__main__':
