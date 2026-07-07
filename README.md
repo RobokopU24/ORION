@@ -12,7 +12,9 @@ ORION generates thorough metadata about its data, processes, and pipelines, for 
 
 ### Installation
 
-ORION requires [uv](https://docs.astral.sh/uv/) for dependency management.
+ORION requires Python 3.12+ and [uv](https://docs.astral.sh/uv/) for dependency management (uv will install a suitable Python for you if needed).
+
+Alternatively, using Docker is the best way to ensure the environment is configured correctly, and is highly recommended for any usage of ORION involving neo4j.
 
 ```bash
 git clone https://github.com/RobokopU24/ORION.git
@@ -40,7 +42,7 @@ The following commands are available (prefix with `uv run` if not using a uv-man
 
 | Command               | Description                                                                                    |
 |-----------------------|------------------------------------------------------------------------------------------------|
-| `orion-build`         | Build complete knowledge graphs from a Graph Spec or by specifying sources on the command line |
+| `orion-build`         | Build complete knowledge graphs from a Graph Spec, by specifying sources on the command line, or by naming a single data source to materialize it directly as a graph |
 | `orion-ingest`        | Run the ingest pipeline to download and process individual data sources from scratch           |
 | `orion-merge`         | Merge pairs of KGX node/edge files into one knowledge graph                                    |
 | `orion-meta-kg`       | Generate MetaKG and test data files                                                            |
@@ -53,7 +55,7 @@ The following commands are available (prefix with `uv run` if not using a uv-man
 
 A Graph Spec yaml file defines which sources to include in a knowledge graph. Every `*.yaml` file at the top level of `graph_specs/` is loaded automatically when you run `orion-build`, so any `graph_id` defined in those files can be built directly by name. Project-specific specs that aren't part of the default build live under `graph_specs/optional/`.
 
-To build a graph outside the default available set, you have three options:
+To build a graph outside the default available set, you have several options:
 
 ```bash
 # 1. Provide any local file or http(s) URL for a Graph Spec outside of ORION.
@@ -66,7 +68,14 @@ orion-build My_Graph --sources DrugCentral,HGNC --output_format neo4j
 
 # 3. Build one of the optional specs in ORION by providing its file path.
 orion-build LitCoin_ORION --graph_spec graph_specs/optional/litcoin-graph-spec.yaml
+
+# 4. Materialize a single data source directly as a graph (using its data source id).
+orion-build CTD
 ```
+
+You can build several graphs (or sources) in one invocation by separating their ids with commas, e.g. `orion-build HGNC,CTD` or `orion-build My_Robokop_Graph,LitCoin_ORION`. Note that a `graph_id` cannot be the same as a data source id — the two share one namespace so every id maps to exactly one thing to build.
+
+Add `--conflation` (`-c`) to any `orion-build` command to force conflation on for every source, overriding the spec.
 
 Here is a simple Graph Spec example:
 
@@ -77,8 +86,8 @@ graphs:
     graph_description: A free text description of what is in the graph.
     output_format: neo4j
     sources:
-      - source_id: DrugCentral
-      - source_id: HGNC
+      - id: DrugCentral
+      - id: HGNC
 ```
 
 See the full list of data sources and their identifiers in the [data sources file](https://github.com/RobokopU24/ORION/blob/master/orion/data_sources.py).
@@ -93,6 +102,7 @@ Graph Specs allow a number of options for customization. The following parameter
 
 The following can be set at the graph level:
 
+- **output_format** - which database/file formats to generate. Valid values: `jsonl` (the default KGX node/edge files, always produced), `neo4j`, `memgraph`, `redundant_jsonl`, `redundant_neo4j`, `collapsed_qualifiers_jsonl`, `collapsed_qualifiers_neo4j`, `answercoalesce`. Combine multiple with `+`, e.g. `neo4j+jsonl`. The `neo4j`/`memgraph` formats (and the Reactome ingest) require a Neo4j installation; the provided Docker image includes it. If Neo4j is not installed, the dump is logged as an error and skipped, but the rest of the graph still builds.
 - **add_edge_id** - whether to add unique identifiers to edges (true/false)
 - **edge_id_type** - if add_edge_id is true, the type of identifier can be specified (uuid or orion)
 - **base_release_version** - release version floor for the graph (e.g. `"2.0"` or `"2.1.0"`)
@@ -101,7 +111,7 @@ The following can be set at the graph level:
 
 Every built graph has two versions:
 
-- A **build version** — a deterministic hash of the graph's inputs (source versions, normalization scheme, merge strategy, subgraph versions). Identical inputs always produce the same build version.
+- A **build version** — a deterministic hash of the graph's inputs (source versions, normalization scheme, merge strategy, graph dependency versions). Identical inputs always produce the same build version.
 - A **release version** — a human-facing semantic version (`MAJOR.MINOR.PATCH`) used in output directory names, URLs, and metadata.
 
 ORION picks the release version automatically. On a new build it checks existing releases of the same graph (from the graph registry, then local storage). If a previous release has the same build version, that release is reused. Otherwise the highest existing release version's `PATCH` component is incremented. To start at or jump to a different `MAJOR`/`MINOR`, set `base_release_version:` in the graph spec — it acts as a floor that the auto-bump never goes below.
@@ -114,13 +124,18 @@ ORION can be configured via environment variables, which can be set directly or 
 
 All variables are optional; the table below lists some that users typically override.
 
-| Variable | Purpose                                                    | Default |
-|---|------------------------------------------------------------|---|
-| `ORION_STORAGE` | Path to a directory for data ingest pipeline storage       | `~/ORION-workspace/storage` |
-| `ORION_GRAPHS` | Path to a directory for Knowledge Graph outputs            | `~/ORION-workspace/graphs` |
+| Variable | Purpose | Default |
+|---|---|---|
+| `ORION_STORAGE` | Path to a directory for data ingest pipeline storage | `~/ORION-workspace/storage` |
+| `ORION_GRAPHS` | Path to a directory for Knowledge Graph outputs | `~/ORION-workspace/graphs` |
 | `ORION_LOGS` | Path to a Log file directory (if unset, logs go to stdout) | `None` |
+| `ORION_OUTPUT_URL` | Base URL recorded in graph metadata and distribution links | `https://localhost` |
+| `ORION_USE_GRAPH_REGISTRY` | Consult the remote graph registry for prebuilt dependencies and version discovery. Set `false` for fully offline/air-gapped builds. | `true` |
+| `ORION_GRAPH_REGISTRY_URL` | Base URL of the graph registry. | `https://robokop-graph-registry.apps.renci.org` |
 
 ORION will create `~/ORION-workspace/storage/` and `~/ORION-workspace/graphs/` on first use if the corresponding env vars aren't set.
+
+When the graph registry is enabled (the default), ORION checks it for prebuilt graph dependencies before building them from scratch. If the registry is unreachable or misconfigured, ORION logs a warning and falls back to local storage and building — it never fails a build. For offline use, set `ORION_USE_GRAPH_REGISTRY=false` to skip the registry entirely.
 
 For more customization and settings, copy or rename `.env.example` to `.env` and uncomment the variables you want to override. 
 
