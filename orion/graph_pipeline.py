@@ -53,11 +53,14 @@ class GraphBuilder:
                  inline_graph_spec=None,
                  graph_output_dir=None,
                  graph_specs_dir=None,
+                 conflation=False,
                  ingest_pipeline: IngestPipeline | None = None):
 
         self.graphs_dir = graph_output_dir if graph_output_dir else config.get_graphs_dir()
         self.ingest_pipeline = ingest_pipeline if ingest_pipeline is not None else IngestPipeline()
         self._parser_source_ids = set(get_available_data_sources())
+        # When set, force conflation on for every source's normalization scheme, overriding any spec.
+        self.conflation = conflation
         self.graph_specs = {}  # graph_id -> GraphSpec
         self.load_graph_specs(graph_specs_dir=graph_specs_dir,
                               additional_graph_spec=additional_graph_spec,
@@ -685,6 +688,10 @@ class GraphBuilder:
                         source.normalization_scheme.conflation = graph_wide_conflation
                     if graph_wide_strict_norm is not None:
                         source.normalization_scheme.strict = graph_wide_strict_norm
+                    # A command-line --conflation flag forces conflation on for every source,
+                    # overriding whatever the spec set at the source or graph level.
+                    if self.conflation:
+                        source.normalization_scheme.conflation = True
 
                 if graph_id in self.graph_specs:
                     raise GraphSpecError(
@@ -873,6 +880,11 @@ def main():
     parser.add_argument('--output_format', type=str, default=None,
                         help='Output format for a graph (e.g. jsonl, neo4j). '
                              'Only valid when used with command line --sources.')
+    parser.add_argument('-c', '--conflation',
+                        action='store_true',
+                        help='Apply conflation during normalization for all sources in the graph(s), '
+                             'overriding the graph spec. See https://github.com/NCATSTranslator/Babel/ for '
+                             'more information.')
     args = parser.parse_args()
     graph_id_arg = args.graph_id
     additional_graph_spec = args.graph_spec
@@ -884,7 +896,8 @@ def main():
         parser.error('--output_format is only valid together with --sources.')
 
     graph_builder = GraphBuilder(additional_graph_spec=additional_graph_spec,
-                                 inline_graph_spec=inline_graph_spec)
+                                 inline_graph_spec=inline_graph_spec,
+                                 conflation=args.conflation)
     if graph_id_arg == "all":
         for graph_spec in graph_builder.graph_specs.values():
             graph_builder.build_graph(graph_spec)
