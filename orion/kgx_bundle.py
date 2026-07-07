@@ -94,7 +94,9 @@ class KGXBundle:
     def decompress_nodes_and_edges(self):
         for f in [self.nodes_path, self.edges_path]:
             if f.endswith('.gz'):
-                tmp_path = f + '.tmp'
+                decompressed_path = f.removesuffix('.gz')
+                tmp_path = decompressed_path + '.tmp'
                 with gzip.open(f, 'rb') as src, open(tmp_path, 'wb') as dst:
                     shutil.copyfileobj(src, dst, length=1024 * 1024)
-                os.replace(tmp_path, f)
+                os.replace(tmp_path, decompressed_path)
+                os.remove(f)
