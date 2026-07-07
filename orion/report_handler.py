@@ -111,8 +111,12 @@ class ReportHandler:
                 f'*Graphs:* built: {len(built)}   already built: {len(already_built)}   '
                 f'failed: {len(failed)}   skipped: {len(skipped)}'
             )
+            for item in built:
+                lines.append(f'  • `{item["graph_id"]}` — new version `{item["version"]}`')
+            for item in already_built:
+                lines.append(f'  • `{item["graph_id"]}` — stable at `{item["version"]}`')
             if failed:
-                lines.append('*Failed graphs:*')
+                lines.append('*Failed:*')
                 for item in failed:
                     lines.append(f'  • `{item["graph_id"]}` — {item.get("reason", "unknown error")}')
             if report_path:
