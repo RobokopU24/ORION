@@ -51,7 +51,11 @@ orion:
   normalization:
     nodeNormEndpoint:
     edgeNormEndpoint:
-  logsPath:  # set to write build logs/reports to a file (must be a writable path inside the container)
+  logsVolume:
+    use_nfs: false  # set to true and configure below to mount an NFS path for ORION_LOGS
+    nfs_server:
+    nfs_path:
+    nfs_mount_subpath:
   slackWebhookURL:  # set to post build summaries to Slack after each run
   bagel:
     username: fake-username-do-not-commit-a-real-one!!!
