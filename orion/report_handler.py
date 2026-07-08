@@ -7,69 +7,63 @@ from orion.config import config
 
 logger = get_orion_logger("orion.report_handler")
 
+SOURCE_STATUS_LABEL = {
+    'built': 'built',
+    'already_built': 'cached',
+    'failed': 'FAILED',
+}
+
 
 class ReportHandler:
     """Handles generation and delivery of build reports."""
 
-    def __init__(self, outcomes: dict):
-        self.outcomes = outcomes
+    def __init__(self, outcomes: list):
+        self.outcomes = outcomes  # list of per-graph outcome dicts
 
     def write_report(self) -> str:
-        """Write report to ORION_LOGS directory. Returns report path or None."""
-        logs_dir = config.ORION_LOGS
-        if not logs_dir:
-            logger.warning('ORION_LOGS not configured, skipping report generation.')
-            return None
-
+        """Write report to ORION_LOGS if set, otherwise /tmp/orion_logs. Returns report path."""
+        logs_dir = config.ORION_LOGS or '/tmp/orion_logs'
         os.makedirs(logs_dir, exist_ok=True)
         timestamp = datetime.datetime.now().strftime('%Y%m%d_%H%M%S')
         report_path = os.path.join(logs_dir, f'build-report-{timestamp}.txt')
 
-        sources = self.outcomes.get('sources', {})
         with open(report_path, 'w') as f:
-            f.write(f'ORION Build Report\n')
+            f.write('ORION Build Report\n')
             f.write(f'Generated: {datetime.datetime.now().isoformat()}\n')
-            f.write('='*80 + '\n\n')
+            f.write('=' * 80 + '\n\n')
 
-            f.write('Sources\n')
-            f.write(f'  Built ({len(sources.get("built", []))} sources):\n')
-            for item in sources.get('built', []):
-                f.write(f'    - {item["source_id"]} (version: {item.get("version", "?")})\n')
-            f.write(f'  Already Built ({len(sources.get("already_built", []))} sources):\n')
-            for item in sources.get('already_built', []):
-                f.write(f'    - {item["source_id"]} (version: {item.get("version", "?")})\n')
-            f.write(f'  Failed ({len(sources.get("failed", []))} sources):\n')
-            for item in sources.get('failed', []):
-                f.write(f'    - {item["source_id"]}\n')
-            f.write('\n')
+            for graph in self.outcomes:
+                graph_id = graph['graph_id']
+                version = graph['version']
+                status = graph['status']
+                reason = graph.get('reason')
+                sources = graph.get('sources', [])
 
-            f.write(f'Graphs\n')
-            f.write(f'  Built ({len(self.outcomes["built"])} graphs):\n')
-            for item in self.outcomes['built']:
-                f.write(f'    - {item["graph_id"]} (version: {item["version"]})\n')
-            f.write(f'  Already Built ({len(self.outcomes["already_built"])} graphs):\n')
-            for item in self.outcomes['already_built']:
-                f.write(f'    - {item["graph_id"]} (version: {item["version"]})\n')
-            f.write(f'  Failed ({len(self.outcomes["failed"])} graphs):\n')
-            for item in self.outcomes['failed']:
-                reason = item.get('reason', 'Unknown error')
-                f.write(f'    - {item["graph_id"]} (version: {item["version"]})\n')
-                f.write(f'      Reason: {reason}\n')
-            f.write(f'  Skipped ({len(self.outcomes["skipped"])} graphs):\n')
-            for item in self.outcomes['skipped']:
-                reason = item.get('reason', 'Unknown reason')
-                f.write(f'    - {item["graph_id"]} (version: {item["version"]})\n')
-                f.write(f'      Reason: {reason}\n')
-            f.write('\n')
+                f.write(f'Graph: {graph_id}\n')
+                f.write(f'  Version: {version}\n')
+                f.write(f'  Status:  {status}')
+                if reason:
+                    f.write(f' — {reason}')
+                f.write('\n')
 
-            f.write('='*80 + '\n')
-            total_graphs = (len(self.outcomes['built']) + len(self.outcomes['already_built']) +
-                            len(self.outcomes['failed']) + len(self.outcomes['skipped']))
-            f.write(f'Summary: {total_graphs} graphs processed\n')
-            f.write(f'  Built: {len(self.outcomes["built"])}\n')
-            f.write(f'  Already Built: {len(self.outcomes["already_built"])}\n')
-            f.write(f'  Failed: {len(self.outcomes["failed"])}\n')
-            f.write(f'  Skipped: {len(self.outcomes["skipped"])}\n')
+                if sources:
+                    f.write('  Sources:\n')
+                    for s in sources:
+                        label = SOURCE_STATUS_LABEL.get(s['status'], s['status'])
+                        f.write(f'    - {s["source_id"]} ({label})')
+                        if s.get('version'):
+                            f.write(f'  v:{s["version"]}')
+                        f.write('\n')
+                f.write('\n')
+
+            f.write('=' * 80 + '\n')
+            total = len(self.outcomes)
+            built = sum(1 for g in self.outcomes if g['status'] == 'built')
+            already_built = sum(1 for g in self.outcomes if g['status'] == 'already_built')
+            failed = sum(1 for g in self.outcomes if g['status'] == 'failed')
+            skipped = sum(1 for g in self.outcomes if g['status'] == 'skipped')
+            f.write(f'Summary: {total} graphs — built: {built}  already built: {already_built}  '
+                    f'failed: {failed}  skipped: {skipped}\n')
 
         logger.info(f'Build report written to {report_path}')
         return report_path
@@ -82,43 +76,43 @@ class ReportHandler:
             return False
 
         try:
-            built = self.outcomes['built']
-            already_built = self.outcomes['already_built']
-            failed = self.outcomes['failed']
-            skipped = self.outcomes['skipped']
-            sources = self.outcomes.get('sources', {})
-            sources_built = sources.get('built', [])
-            sources_already_built = sources.get('already_built', [])
-            sources_failed = sources.get('failed', [])
-
-            any_failed = failed or sources_failed
+            any_failed = any(
+                g['status'] == 'failed' or any(s['status'] == 'failed' for s in g.get('sources', []))
+                for g in self.outcomes
+            )
             status_emoji = ':white_check_mark:' if not any_failed else ':x:'
             lines = [
                 f'{status_emoji} *ORION Build Report* — {datetime.datetime.now().strftime("%Y-%m-%d %H:%M UTC")}',
             ]
 
-            if sources_built or sources_already_built or sources_failed:
-                source_parts = []
-                if sources_built:
-                    source_parts.append(f'built: {", ".join(s["source_id"] for s in sources_built)}')
-                if sources_already_built:
-                    source_parts.append(f'cached: {", ".join(s["source_id"] for s in sources_already_built)}')
-                if sources_failed:
-                    source_parts.append(f'failed: {", ".join(s["source_id"] for s in sources_failed)}')
-                lines.append(f'*Sources:* {" | ".join(source_parts)}')
+            for graph in self.outcomes:
+                graph_id = graph['graph_id']
+                version = graph['version']
+                status = graph['status']
+                reason = graph.get('reason')
+                sources = graph.get('sources', [])
 
-            lines.append(
-                f'*Graphs:* built: {len(built)}   already built: {len(already_built)}   '
-                f'failed: {len(failed)}   skipped: {len(skipped)}'
-            )
-            for item in built:
-                lines.append(f'  • `{item["graph_id"]}` — new version `{item["version"]}`')
-            for item in already_built:
-                lines.append(f'  • `{item["graph_id"]}` — stable at `{item["version"]}`')
-            if failed:
-                lines.append('*Failed:*')
-                for item in failed:
-                    lines.append(f'  • `{item["graph_id"]}` — {item.get("reason", "unknown error")}')
+                if status == 'built':
+                    g_mark = ':large_green_circle:'
+                elif status == 'already_built':
+                    g_mark = ':white_circle:'
+                elif status == 'failed':
+                    g_mark = ':red_circle:'
+                else:
+                    g_mark = ':yellow_circle:'
+
+                version_str = f' `{version}`' if version else ''
+                reason_str = f' — {reason}' if reason else ''
+                lines.append(f'{g_mark} *{graph_id}*{version_str} — {status}{reason_str}')
+
+                if sources:
+                    source_parts = []
+                    for s in sources:
+                        label = SOURCE_STATUS_LABEL.get(s['status'], s['status'])
+                        mark = ':small_red_triangle:' if s['status'] == 'failed' else ''
+                        source_parts.append(f'{mark}{s["source_id"]} ({label})')
+                    lines.append(f'    _Sources: {" | ".join(source_parts)}_')
+
             if report_path:
                 lines.append(f'Report: `{report_path}`')
 

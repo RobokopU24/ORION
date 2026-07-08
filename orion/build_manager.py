@@ -51,17 +51,7 @@ class GraphBuilder:
         self.graph_specs = {}   # graph_id -> GraphSpec all potential graphs that could be built, including sub-graphs
         self.load_graph_specs(graph_specs_dir=graph_specs_dir)
         self.build_results = {}
-        self.outcomes = {
-            'built': [],
-            'already_built': [],
-            'failed': [],
-            'skipped': [],
-            'sources': {
-                'built': [],
-                'already_built': [],
-                'failed': []
-            }
-        }
+        self.outcomes = []  # list of per-graph outcome dicts
 
     def build_graph(self, graph_spec: GraphSpec):
 
@@ -73,6 +63,15 @@ class GraphBuilder:
         graph_output_dir = self.get_graph_dir_path(graph_id, graph_version)
         graph_output_url = self.get_graph_output_url(graph_id, graph_version)
 
+        graph_outcome = {
+            'graph_id': graph_id,
+            'version': graph_version,
+            'status': None,
+            'reason': None,
+            'sources': []
+        }
+        self.outcomes.append(graph_outcome)
+
         # check for previous builds of this same graph
         build_status = graph_metadata.get_build_status()
         if build_status == Metadata.IN_PROGRESS:
@@ -81,27 +80,30 @@ class GraphBuilder:
                              f'This means either the graph is already in the process of being built, '
                              f'or an error occurred previously that could not be handled. '
                              f'You may need to clean up and/or remove the failed build.')
-            self.outcomes['skipped'].append({'graph_id': graph_id, 'version': graph_version, 'reason': reason})
+            graph_outcome['status'] = 'skipped'
+            graph_outcome['reason'] = reason
             return False
 
         if build_status == Metadata.BROKEN or build_status == Metadata.FAILED:
             reason = f'Previous build status: {build_status}'
             logger.info(f'Graph {graph_id} version {graph_version} previously failed to build. Skipping..')
-            self.outcomes['skipped'].append({'graph_id': graph_id, 'version': graph_version, 'reason': reason})
+            graph_outcome['status'] = 'skipped'
+            graph_outcome['reason'] = reason
             return False
 
         if build_status == Metadata.STABLE:
             self.build_results[graph_id] = {'version': graph_version}
             logger.info(f'Graph {graph_id} version {graph_version} was already built.')
-            self.outcomes['already_built'].append({'graph_id': graph_id, 'version': graph_version})
+            graph_outcome['status'] = 'already_built'
         else:
             # if we get here we need to build the graph
             logger.info(f'Building graph {graph_id} version {graph_version}, checking dependencies...')
-            if not self.build_dependencies(graph_spec):
+            if not self.build_dependencies(graph_spec, graph_outcome):
                 reason = 'Build dependencies failed'
                 logger.warning(f'Aborting graph {graph_spec.graph_id} version {graph_version}, building '
                                     f'dependencies failed.')
-                self.outcomes['failed'].append({'graph_id': graph_id, 'version': graph_version, 'reason': reason})
+                graph_outcome['status'] = 'failed'
+                graph_outcome['reason'] = reason
                 return False
 
             logger.info(f'Building graph {graph_id} version {graph_version}. '
@@ -127,14 +129,15 @@ class GraphBuilder:
                 graph_metadata.set_build_error(error_msg, current_time)
                 graph_metadata.set_build_status(Metadata.FAILED)
                 logger.error(f'Merge error occured while building graph {graph_id}: {error_msg}')
-                self.outcomes['failed'].append({'graph_id': graph_id, 'version': graph_version, 'reason': error_msg})
+                graph_outcome['status'] = 'failed'
+                graph_outcome['reason'] = error_msg
                 return False
 
             graph_metadata.set_build_info(merge_metadata, current_time)
             graph_metadata.set_build_status(Metadata.STABLE)
             logger.info(f'Building graph {graph_id} complete!')
             self.build_results[graph_id] = {'version': graph_version}
-            self.outcomes['built'].append({'graph_id': graph_id, 'version': graph_version})
+            graph_outcome['status'] = 'built'
 
         nodes_filepath = os.path.join(graph_output_dir, NODES_FILENAME)
         edges_filepath = os.path.join(graph_output_dir, EDGES_FILENAME)
@@ -317,7 +320,7 @@ class GraphBuilder:
         logger.info(f'Version determined for graph {graph_spec.graph_id}: {graph_version} ({composite_version_string})')
         return graph_version
 
-    def build_dependencies(self, graph_spec: GraphSpec):
+    def build_dependencies(self, graph_spec: GraphSpec, graph_outcome: dict):
         graph_id = graph_spec.graph_id
         for subgraph_source in graph_spec.subgraphs:
             subgraph_id = subgraph_source.id
@@ -341,7 +344,7 @@ class GraphBuilder:
 
                 # here the graph specs and versions all look right, but we still need to build the subgraph
                 logger.warning(f'Graph {graph_id}, subgraph dependency {subgraph_id} is not ready. Building now..')
-                subgraph_build_success = self.build_graph(subgraph_graph_spec)
+                subgraph_build_success = self.build_graph(subgraph_graph_spec)  # adds its own entry to self.outcomes
                 if not subgraph_build_success:
                     return False
 
@@ -376,15 +379,18 @@ class GraphBuilder:
                 if not pipeline_sucess:
                     logger.info(f'While attempting to build {graph_spec.graph_id}, '
                                      f'data source pipeline failed for dependency {source_id}...')
-                    self.outcomes['sources']['failed'].append({'source_id': source_id,
-                                                              'version': data_source.source_version})
+                    graph_outcome['sources'].append({'source_id': source_id,
+                                                    'version': data_source.source_version,
+                                                    'status': 'failed'})
                     return False
-                self.outcomes['sources']['built'].append({'source_id': source_id,
-                                                         'version': data_source.source_version})
+                graph_outcome['sources'].append({'source_id': source_id,
+                                                 'version': data_source.source_version,
+                                                 'status': 'built'})
                 release_metadata = source_metadata.get_release_info(release_version)
             else:
-                self.outcomes['sources']['already_built'].append({'source_id': source_id,
-                                                                  'version': data_source.source_version})
+                graph_outcome['sources'].append({'source_id': source_id,
+                                                 'version': data_source.source_version,
+                                                 'status': 'already_built'})
 
             data_source.release_info = release_metadata
             data_source.file_paths = self.ingest_pipeline.get_final_file_paths(source_id,
