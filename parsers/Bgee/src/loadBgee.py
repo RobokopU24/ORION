@@ -14,6 +14,9 @@ from orion.biolink_constants import (
     CELL,
     DATA_PIPELINE,
     GENE,
+    HAS_CONFIDENCE_LEVEL,
+    HAS_CONFIDENCE_SCORE,
+    HAS_QUANTITATIVE_VALUE,
     KNOWLEDGE_LEVEL,
     ORIGINAL_OBJECT,
     ORIGINAL_SUBJECT,
@@ -154,14 +157,11 @@ class BgeeExpressionLoader(SourceDataLoader):
                     KNOWLEDGE_LEVEL: OBSERVATION,
                     AGENT_TYPE: DATA_PIPELINE,
                     ADJUSTED_P_VALUE: fdr,
-                    'bgee_call_quality': row['Call quality'],
-                    'bgee_expression_score': expression_score,
-                    'bgee_expression_rank': self.parse_float(row['Expression rank'], 'Expression rank'),
-                    'bgee_expression': row['Expression'],
+                    HAS_CONFIDENCE_LEVEL: row['Call quality'],
+                    HAS_CONFIDENCE_SCORE: expression_score,
+                    HAS_QUANTITATIVE_VALUE: self.parse_float(row['Expression rank'], 'Expression rank'),
                     ORIGINAL_SUBJECT: row['Gene ID'],
                     ORIGINAL_OBJECT: row['Anatomical entity ID'],
-                    'bgee_gene_name': row['Gene name'],
-                    'bgee_anatomical_entity_name': row['Anatomical entity name'],
                 }
                 if anatomical_context_qualifier:
                     edge_properties[ANATOMICAL_CONTEXT_QUALIFIER] = anatomical_context_qualifier

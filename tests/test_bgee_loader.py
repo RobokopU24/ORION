@@ -109,14 +109,11 @@ def test_bgee_loader_filters_by_expression_and_fdr(tmp_path):
             'knowledge_level': 'observation',
             'agent_type': 'data_analysis_pipeline',
             'adjusted_p_value': 0.0001,
-            'bgee_call_quality': 'gold quality',
-            'bgee_expression_score': 95.5,
-            'bgee_expression_rank': 120.0,
-            'bgee_expression': 'present',
+            'has_confidence_level': 'gold quality',
+            'has_confidence_score': 95.5,
+            'has_quantitative_value': 120.0,
             'original_subject': 'ENSG00000000001',
             'original_object': 'UBERON:0002107',
-            'bgee_gene_name': 'GENE1',
-            'bgee_anatomical_entity_name': 'liver',
         }
     ]
     nodes_by_id = {node['id']: node for node in nodes}
@@ -188,7 +185,7 @@ def test_bgee_loader_score_threshold_is_inclusive(tmp_path):
     metadata, nodes, edges = load_edges_and_nodes(tmp_path, loader)
 
     assert metadata['record_counter'] == 1
-    assert edges[0]['bgee_expression_score'] == 90.0
+    assert edges[0]['has_confidence_score'] == 90.0
 
 
 def test_monarch_loader_filters_bgee_edges_from_curated_subset(tmp_path):
