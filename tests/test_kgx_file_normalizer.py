@@ -4,7 +4,7 @@ from urllib.parse import parse_qs, urlparse
 import jsonlines
 import pytest
 
-from orion.biolink_constants import NAMED_THING, GENE, NODE_TYPES, SUBJECT_ID, OBJECT_ID, PREDICATE
+from orion.biolink_constants import NAMED_THING, GENE, NODE_TYPES, SUBJECT_ID, OBJECT_ID, PREDICATE, TAXON
 from orion.kgx_file_normalizer import KGXFileNormalizer
 
 
@@ -36,6 +36,7 @@ NODE_NORM_RESPONSE = {
             {'identifier': 'OMIM:172460'},
             {'identifier': 'UMLS:C1417420', 'label': 'MTHFD1 gene'},
         ],
+        'taxa': ['NCBITaxon:9606'],
         'information_content': 84.8,
     },
     'CHEBI:33551': {
@@ -103,7 +104,7 @@ def mock_normalization(monkeypatch):
     monkeypatch.setattr('orion.normalization.NodeNormalizer.hit_node_norm_service', fake_hit_node_norm)
 
     monkeypatch.setattr('orion.normalization.EdgeNormalizer.get_available_versions',
-                        lambda self: ['v4.3.7', 'v4.3.6', 'v4.2.6-rc5', 'latest'])
+                        lambda self: ['v4.4.2', 'v4.3.7', 'v4.3.6', 'v4.2.6-rc5', 'latest'])
 
     def fake_requests_get(url, *args, **kwargs):
         if '/resolve_predicate' in url:
@@ -160,6 +161,10 @@ def test_kgx_file_normalizer_basic(tmp_path, mock_normalization):
     assert output_edges[0][PREDICATE] == 'biolink:causes'
     assert output_edges[0][SUBJECT_ID] == 'NCBIGene:4522'
     assert output_edges[0][OBJECT_ID] == 'CHEBI:33551'
+
+    output_nodes = list(jsonlines.open(paths['nodes_output_file_path']))
+    output_gene = next(node for node in output_nodes if node['id'] == 'NCBIGene:4522')
+    assert output_gene[TAXON] == 'NCBITaxon:9606'
 
     assert os.path.exists(paths['edge_norm_predicate_map_file_path'])
     assert mock_normalization['edge_norm_calls'], 'expected at least one bl_lookup call'

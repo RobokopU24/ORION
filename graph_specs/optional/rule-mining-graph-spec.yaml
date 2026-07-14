@@ -7,25 +7,27 @@ graphs:
     graph_url:
     conflation: True
     output_format: redundant_jsonl
+    edge_merging_attributes:
+      - taxon
     sources:
-      - source_id: BINDING-DB
-      - source_id: CHEBIProps
-      - source_id: CTD
-      - source_id: DrugCentral
-      - source_id: DrugMechDB
-      - source_id: GtoPdb
-      - source_id: Hetio
-      - source_id: HGNC
-      - source_id: HMDB
-      - source_id: HumanGOA
-      - source_id: MouseGOA
-      - source_id: IntAct
-      - source_id: MonarchKG
-      - source_id: MONDOProps
-      - source_id: OntologicalHierarchy
+      - id: BINDING-DB
+      - id: CHEBIProps
+      - id: CTD
+      - id: DrugCentral
+      - id: DrugMechDB
+      - id: GtoPdb
+      - id: Hetio
+      - id: HGNC
+      - id: HMDB
+      - id: HumanGOA
+      - id: MouseGOA
+      - id: IntAct
+      - id: MonarchKG
+      - id: MONDOProps
+      - id: OntologicalHierarchy
         merge_strategy: connected_edge_subset
-      - source_id: PANTHER
-      - source_id: PHAROS
-      - source_id: Reactome
-      - source_id: STRING-DB-Human
-      - source_id: UbergraphNonredundant
+      - id: PANTHER
+      - id: PHAROS
+      - id: Reactome
+      - id: STRING-DB-Human
+      - id: UbergraphNonredundant

@@ -50,10 +50,11 @@ class MonarchKGBaseLoader(SourceDataLoader):
                 'https://data.monarchinitiative.org/monarch-kg/latest/metadata.yaml'
             )
             for line in metadata_yaml.text.split('\n'):
-                if 'kg-version:' in line:
-                    latest_version = line.replace('kg-version:', '').strip()
+                if line.startswith('version:'):
+                    latest_version = line.replace('version:', '').strip()
+                    break
             if latest_version is None:
-                raise ValueError("Cannot find 'kg-version' in Monarch KG metadata yaml.")
+                raise ValueError("Cannot find 'version:' in Monarch KG metadata yaml.")
         except Exception as e:
             raise GetDataPullError(error_message=f'Unable to determine latest version for Monarch KG: {e}')
         return latest_version
