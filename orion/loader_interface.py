@@ -37,7 +37,7 @@ class SourceDataLoader:
             if not os.path.exists(self.data_path):
                 os.mkdir(self.data_path)
         else:
-            self.data_path = config.ORION_STORAGE
+            self.data_path = config.get_storage_dir()
 
         # the final output lists of nodes and edges
         self.final_node_list: list = []

@@ -1,0 +1,21 @@
+# YOBOKOP graph spec
+graphs:
+  - graph_id: YobokopKG
+    conflation: True
+    output_format: neo4j
+    sources:
+      - id: Baseline
+      - id: SGD
+        strict_normalization: False
+      - id: YeastHistoneMapping
+        strict_normalization: False
+      - id: Costanza2016Data
+        strict_normalization: False
+      - id: YeastGSE61888
+        strict_normalization: False
+      - id: YeastGaschDiamideGeneExpression
+        strict_normalization: False
+      - id: STRING-DB-Yeast
+      - id: GenomeAllianceOrthologs
+      - id: OntologicalHierarchy
+        merge_strategy: connected_edge_subset
