@@ -48,12 +48,17 @@ def write_test_upheno_obo(obo_path: Path) -> None:
                 "id: HP:0000003",
                 "name: human phenotype three",
                 "is_a: UPHENO:0000003 ! generic phenotype three",
-                "relationship: biolink:homologous_to MP:0000003",
                 "",
                 "[Term]",
                 "id: MP:0000003",
                 "name: mouse phenotype three",
                 "is_a: UPHENO:0000003 ! generic phenotype three",
+                "",
+                "[Term]",
+                "id: HP:0000004",
+                "name: obsolete human phenotype",
+                "is_a: UPHENO:0000003 ! generic phenotype three",
+                "is_obsolete: true",
                 "",
             ]
         )
@@ -77,18 +82,19 @@ def test_upheno_loader_infers_human_mouse_homology_edges(tmp_path):
         for edge in edges
     }
 
-    assert metadata["source_edges"] == 4
-    assert metadata["inferred_homology_edges"] == 4
+    assert metadata["source_edges"] == 5
+    assert metadata["inferred_homology_edges"] == 5
     assert metadata["candidate_homology_edges"] == 6
     assert metadata["duplicate_candidate_edges"] == 1
-    assert metadata["existing_homology_edges"] == 1
-    assert metadata["skipped_existing_homology_edges"] == 1
     assert set(edges_by_subject_object) == {
         ("HP:0000001", "MP:0000001"),
         ("HP:0000001", "MP:0000002"),
         ("HP:0000002", "MP:0000001"),
         ("HP:0000002", "MP:0000002"),
+        ("HP:0000003", "MP:0000003"),
     }
+    # HP:0000004 is obsolete and must not appear despite sharing HP:0000003's parent
+    assert not any("HP:0000004" in pair for pair in edges_by_subject_object)
     assert edges_by_subject_object[("HP:0000001", "MP:0000001")] == {
         "subject": "HP:0000001",
         "predicate": "biolink:homologous_to",
@@ -108,5 +114,7 @@ def test_upheno_loader_infers_human_mouse_homology_edges(tmp_path):
         "MP:0000001",
         "HP:0000002",
         "MP:0000002",
+        "HP:0000003",
+        "MP:0000003",
     }
     assert all(node["category"] == ["biolink:PhenotypicFeature"] for node in nodes)

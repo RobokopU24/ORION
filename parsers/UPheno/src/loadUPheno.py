@@ -15,36 +15,25 @@ from orion.utils import GetData, GetDataPullError
 
 
 HOMOLOGOUS_TO_PREDICATE = "biolink:homologous_to"
-DEFAULT_EXISTING_HOMOLOGY_PREDICATES = frozenset(
-    {
-        HOMOLOGOUS_TO_PREDICATE,
-        "RO:HOM0000007",
-        "homologous_to",
-    }
-)
 
 
 def curie_has_prefix(curie: str, prefixes: tuple[str, ...]) -> bool:
     return curie.split(":", 1)[0] in prefixes if ":" in curie else False
 
 
-def symmetric_pair_key(subject_id: str, object_id: str) -> tuple[str, str]:
-    return tuple(sorted((subject_id, object_id)))
-
-
 def parse_obo_term(term_lines: list[str]) -> dict:
     term = {
         "id": None,
         "is_a": [],
-        "relationships": [],
+        "is_obsolete": False,
     }
     for line in term_lines:
         if line.startswith("id: "):
             term["id"] = line[4:]
         elif line.startswith("is_a: "):
             term["is_a"].append(line[6:].split()[0])
-        elif line.startswith("relationship: "):
-            term["relationships"].append(line[14:])
+        elif line.startswith("is_obsolete: true"):
+            term["is_obsolete"] = True
     return term
 
 
@@ -71,25 +60,19 @@ def iter_obo_terms(obo_file_path: str):
 def infer_homology_pairs(
     species_a_by_parent: dict[str, set[str]],
     species_b_by_parent: dict[str, set[str]],
-    existing_homology_pairs: set[tuple[str, str]],
 ) -> tuple[dict[tuple[str, str], list[str]], dict[str, int]]:
     inferred_pairs = defaultdict(list)
-    skipped_existing_homology_edges = 0
     duplicate_candidate_edges = 0
 
     for generic_parent in sorted(set(species_a_by_parent) & set(species_b_by_parent)):
         for species_a_term in sorted(species_a_by_parent[generic_parent]):
             for species_b_term in sorted(species_b_by_parent[generic_parent]):
                 pair_key = (species_a_term, species_b_term)
-                if symmetric_pair_key(species_a_term, species_b_term) in existing_homology_pairs:
-                    skipped_existing_homology_edges += 1
-                    continue
                 if pair_key in inferred_pairs:
                     duplicate_candidate_edges += 1
                 inferred_pairs[pair_key].append(generic_parent)
 
     return dict(inferred_pairs), {
-        "skipped_existing_homology_edges": skipped_existing_homology_edges,
         "duplicate_candidate_edges": duplicate_candidate_edges,
     }
 
@@ -104,7 +87,6 @@ class UPhenoPhenotypeHomologyLoader(SourceDataLoader):
     generic_phenotype_prefixes = ("UPHENO",)
     species_a_phenotype_prefixes = ()
     species_b_phenotype_prefixes = ()
-    existing_homology_predicates = DEFAULT_EXISTING_HOMOLOGY_PREDICATES
 
     def __init__(self, test_mode: bool = False, source_data_dir: str = None):
         super().__init__(test_mode=test_mode, source_data_dir=source_data_dir)
@@ -131,13 +113,13 @@ class UPhenoPhenotypeHomologyLoader(SourceDataLoader):
         generic_parent_counter = 0
         species_a_by_parent = defaultdict(set)
         species_b_by_parent = defaultdict(set)
-        existing_homology_pairs = set()
 
         obo_file_path = os.path.join(self.data_path, self.data_file)
         for term in iter_obo_terms(obo_file_path):
             term_counter += 1
             term_id = term["id"]
-            if not term_id:
+            # obsolete terms can still carry a live is_a to their old UPHENO parent
+            if not term_id or term["is_obsolete"]:
                 continue
 
             for generic_parent in term["is_a"]:
@@ -149,12 +131,9 @@ class UPhenoPhenotypeHomologyLoader(SourceDataLoader):
                 elif curie_has_prefix(term_id, self.species_b_phenotype_prefixes):
                     species_b_by_parent[generic_parent].add(term_id)
 
-            self._index_existing_homology_relationships(term_id, term["relationships"], existing_homology_pairs)
-
         inferred_pairs, inference_metadata = infer_homology_pairs(
             species_a_by_parent,
             species_b_by_parent,
-            existing_homology_pairs,
         )
 
         for (species_a_term, species_b_term), generic_parents in sorted(inferred_pairs.items()):
@@ -173,33 +152,8 @@ class UPhenoPhenotypeHomologyLoader(SourceDataLoader):
             "common_generic_parents": len(common_generic_parents),
             "candidate_homology_edges": candidate_edges,
             "duplicate_candidate_edges": inference_metadata["duplicate_candidate_edges"],
-            "existing_homology_edges": len(existing_homology_pairs),
-            "skipped_existing_homology_edges": inference_metadata["skipped_existing_homology_edges"],
             "inferred_homology_edges": len(inferred_pairs),
         }
-
-    def _index_existing_homology_relationships(
-        self,
-        term_id: str,
-        relationships: list[str],
-        existing_homology_pairs: set[tuple[str, str]],
-    ) -> None:
-        for relationship in relationships:
-            relationship_parts = relationship.split()
-            if len(relationship_parts) < 2:
-                continue
-            predicate, object_id = relationship_parts[:2]
-            if predicate in self.existing_homology_predicates and self._is_species_pair(term_id, object_id):
-                existing_homology_pairs.add(symmetric_pair_key(term_id, object_id))
-
-    def _is_species_pair(self, subject_id: str, object_id: str) -> bool:
-        return (
-            curie_has_prefix(subject_id, self.species_a_phenotype_prefixes)
-            and curie_has_prefix(object_id, self.species_b_phenotype_prefixes)
-        ) or (
-            curie_has_prefix(subject_id, self.species_b_phenotype_prefixes)
-            and curie_has_prefix(object_id, self.species_a_phenotype_prefixes)
-        )
 
     def _write_homology_edge(
         self,
