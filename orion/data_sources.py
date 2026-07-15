@@ -27,6 +27,9 @@ HGNC = 'HGNC'
 HMDB = 'HMDB'
 HUMAN_GOA = 'HumanGOA'
 MOUSE_GOA = 'MouseGOA'
+MGI_GENE_PHENOTYPES = 'MGIGenePhenotypes'
+MGI_GENE_DISEASE = 'MGIGeneDisease'
+MGI_PHENOTYPE_ANATOMY = 'MGIPhenotypeAnatomy'
 INTACT = 'IntAct'
 LINCS = 'LINCS'
 LITCOIN = 'LitCoin'
@@ -86,6 +89,9 @@ SOURCE_DATA_LOADER_CLASS_IMPORTS = {
     HMDB: ("parsers.hmdb.src.loadHMDB", "HMDBLoader"),
     HUMAN_GOA: ("parsers.GOA.src.loadGOA", "HumanGOALoader"),
     MOUSE_GOA: ("parsers.GOA.src.loadGOA", "MouseGOALoader"),
+    MGI_GENE_PHENOTYPES: ("parsers.MGI.src.loadMGI", "MGIGenePhenotypesLoader"),
+    MGI_GENE_DISEASE: ("parsers.MGI.src.loadMGI", "MGIGeneDiseaseLoader"),
+    MGI_PHENOTYPE_ANATOMY: ("parsers.MGI.src.loadMGI", "MGIPhenotypeAnatomyLoader"),
     HUMAN_STRING: ("parsers.STRING.src.loadSTRINGDB", "HumanSTRINGDBLoader"),
     INTACT: ("parsers.IntAct.src.loadIA", "IALoader"),
     LINCS: ("parsers.LINCS.src.loadLINCS", "LINCSLoader"),

@@ -731,12 +731,14 @@ def main():
     loader_strict_normalization = (not args.lenient_normalization)
     ingest_pipeline = IngestPipeline(test_mode=loader_test_mode,
                                      fresh_start_mode=args.fresh_start_mode)
+    edge_normalization_version = ingest_pipeline.get_latest_edge_normalization_version()
     for data_source in args.data_source:
         if data_source not in get_available_data_sources():
             print(f'Data source {data_source} is not valid. '
                   f'These are the available data sources: {", ".join(get_available_data_sources())}')
         else:
-            cmd_line_normalization_scheme = NormalizationScheme(strict=loader_strict_normalization)
+            cmd_line_normalization_scheme = NormalizationScheme(strict=loader_strict_normalization,
+                                                                edge_normalization_version=edge_normalization_version)
             release_vers = ingest_pipeline.run_pipeline(data_source, normalization_scheme=cmd_line_normalization_scheme)
             if release_vers:
                 print(f'Finished running data pipeline for {data_source} (release version {release_vers}).')

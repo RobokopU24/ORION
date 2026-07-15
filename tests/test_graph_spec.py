@@ -79,6 +79,8 @@ def test_default_graph_spec_defines_robomouse(monkeypatch, test_graph_output_dir
     set_config(ORION_GRAPH_SPEC='default-graph-spec.yml', ORION_GRAPH_SPEC_URL='')
     monkeypatch.setattr('orion.ingest_pipeline.IngestPipeline.get_latest_edge_normalization_version',
                         lambda self: 'test-edge-normalization')
+    monkeypatch.setattr('orion.ingest_pipeline.IngestPipeline.get_latest_parsing_version',
+                        lambda self, source_id: 'test-parsing')
 
     graph_builder = GraphBuilder(graph_specs_dir=default_specs_dir,
                                  graph_output_dir=test_graph_output_dir)
@@ -92,8 +94,15 @@ def test_default_graph_spec_defines_robomouse(monkeypatch, test_graph_output_dir
     assert [source.id for source in robomouse_graph.sources] == [
         'MouseGOA',
         'GenomeAllianceOrthologs',
+        'MGIGenePhenotypes',
+        'MGIGeneDisease',
+        'MGIPhenotypeAnatomy',
         'OntologicalHierarchy',
     ]
+    robomouse_sources = {source.id: source for source in robomouse_graph.sources}
+    assert robomouse_sources['MGIGenePhenotypes'].normalization_scheme.strict is False
+    assert robomouse_sources['MGIGeneDisease'].normalization_scheme.strict is False
+    assert robomouse_sources['MGIPhenotypeAnatomy'].normalization_scheme.strict is False
 
 
 # graph spec sources are able to return versions once source_version(s) are set
