@@ -19,9 +19,9 @@ graphs:
     # conflation: False
     # strict_normalization: True
     sources:
-      - source_id: GtoPdb
+      - id: GtoPdb
         # here are some examples of source specific graph spec options
         # source_version: '2025.3'
         # parsing_version: '1.4'
         # merge_strategy:
-      - source_id: HGNC
+      - id: HGNC

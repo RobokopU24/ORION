@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 
-# ORION requires directories to store data ingest files and graph outputs.
-# This script creates those directories and sets the environment variables pointing to them.
+# Optional helper: ORION will create ~/ORION-workspace/{storage,graphs} on first use if you do
+# nothing, so you don't need to run this script unless you want repo-adjacent directories
+# (e.g. for development where you want to inspect storage/graphs/logs alongside the cloned repo).
+# This script creates those directories and exports the env vars pointing to them.
 # See the README for more information.
 
 # ORION_STORAGE - a directory for storing ingest pipeline files

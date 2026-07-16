@@ -104,7 +104,7 @@ def mock_normalization(monkeypatch):
     monkeypatch.setattr('orion.normalization.NodeNormalizer.hit_node_norm_service', fake_hit_node_norm)
 
     monkeypatch.setattr('orion.normalization.EdgeNormalizer.get_available_versions',
-                        lambda self: ['v4.3.7', 'v4.3.6', 'v4.2.6-rc5', 'latest'])
+                        lambda self: ['v4.4.2', 'v4.3.7', 'v4.3.6', 'v4.2.6-rc5', 'latest'])
 
     def fake_requests_get(url, *args, **kwargs):
         if '/resolve_predicate' in url:

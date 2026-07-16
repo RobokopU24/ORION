@@ -1,92 +1,5 @@
-# Default graph spec
+# Graphs intended to be deployed using Plater for Automat (https://automat.renci.org/)
 graphs:
-
-  - graph_id: Baseline
-    # optional parameters to be applied to the entire graph - see README for more info
-    # node_normalization_version: 2.3.5
-    # edge_normalization_version: 4.2.5
-    # graph_name: Robokop Baseline
-    # graph_description: 'The baseline graph from which RobokopKG and other graphs are built.'
-    # conflation: True # (whether to conflate node types like Genes and Proteins)
-    graph_name: ROBOKOP Baseline
-    graph_description: 'The ROBOKOP Knowledge Graph (ROBOKOP KG) is an open-source biomedical KG that supports the ROBOKOP application and currently contains millions of biomedical relationships derived from dozens of integrated and harmonized biological knowledge sources and bio-ontologies. The ROBOKOP KG includes curated components of most of the Automat KGs, as well as other knowledge sources. Most of the ROBOKOP knowledge sources are curated. However, the ROBOKOP KG also includes text-mined assertions from PubMed and PubMed Central that have been derived from natural language processing (NLP). Note that text-based assertions, while providing valuable information, must be interpreted with caution, as NLP algorithms may introduce false assertions.'
-    graph_url: http://robokopkg.renci.org/browser/
-    conflation: True
-    output_format: neo4j
-    edge_merging_attributes:
-      - taxon
-    sources:
-      - source_id: BINDING-DB
-        # optional parameters for each data source - see README for more info
-        # source_version: latest (the version of the source data)
-        # parsing_version: latest (the version of the parser used to parse the data)
-        # node_normalization_version: latest
-        # edge_normalization_version: latest
-        # conflation: False
-        # strict_normalization: True (whether or not data should be discarded when it can not be normalized)
-        # merge_strategy: default (used to specify alternative merge strategies)
-      - source_id: CCIDB
-      - source_id: CHEBIProps
-      - source_id: ClinGenDosageSensitivity
-      - source_id: ClinGenGeneDiseaseValidity
-      - source_id: CTD
-      - source_id: DrugCentral
-      - source_id: DrugMechDB
-      - source_id: GtoPdb
-      - source_id: Hetio
-      - source_id: HGNC
-      - source_id: HMDB
-      - source_id: HumanGOA
-      - source_id: IntAct
-      - source_id: KinAce
-      - source_id: LINCS
-      - source_id: MetabolomicsWorkbench
-      - source_id: MonarchKG
-      - source_id: MONDOProps
-      - source_id: OntologicalHierarchy
-        merge_strategy: connected_edge_subset
-      - source_id: PANTHER
-      - source_id: PHAROS
-      - source_id: Reactome
-      - source_id: textminingkp
-      - source_id: SIGNOR
-      - source_id: STRING-DB-Human
-      - source_id: UbergraphNonredundant
-
-  - graph_id: RobokopKG
-    graph_name: ROBOKOP KG
-    graph_description: 'ROBOKOP (KG) is an open-source biomedical KG that supports the ROBOKOP application and currently contains millions of biomedical relationships derived from dozens of integrated and harmonized biological knowledge sources and bio-ontologies, including the Automat primary and aggregate knowledge sources. ROBOKOP KG also includes text-mined assertions from PubMed and PubMed Central, derived from natural language processing (NLP). Note that text-based assertions, while providing valuable information, must be interpreted with caution, as NLP algorithms may introduce false assertions.'
-    graph_url: http://robokopkg.renci.org/browser/
-    conflation: True
-    output_format: neo4j
-    edge_merging_attributes:
-      - taxon
-    subgraphs:
-      - graph_id: Baseline
-    sources:
-      - source_id: ClinGenVariantPathogenicity
-      - source_id: GWASCatalog
-      - source_id: GTEx
-
-  - graph_id: RoboMouseKG
-    graph_name: RoboMouse KG
-    graph_description: 'RoboMouse KG extends ROBOKOP KG with mouse Gene Ontology annotations, Alliance of Genome Resources orthology relationships, and selected Mouse Genome Informatics phenotype, disease, and anatomy associations.'
-    graph_url: http://robokopkg.renci.org/browser/
-    conflation: True
-    output_format: neo4j
-    subgraphs:
-      - graph_id: RobokopKG
-    sources:
-      - source_id: MouseGOA
-      - source_id: GenomeAllianceOrthologs
-      - source_id: MGIGenePhenotypes
-        strict_normalization: False
-      - source_id: MGIGeneDisease
-        strict_normalization: False
-      - source_id: MGIPhenotypeAnatomy
-        strict_normalization: False
-      - source_id: OntologicalHierarchy
-        merge_strategy: connected_edge_subset
 
   - graph_id: BINDING_Automat
     graph_name: BINDING
@@ -94,8 +7,8 @@ graphs:
     graph_url: https://www.bindingdb.org/
     output_format: neo4j
     sources:
-      - source_id: BINDING-DB
-      - source_id: OntologicalHierarchy
+      - id: BINDING-DB
+      - id: OntologicalHierarchy
         merge_strategy: connected_edge_subset
 
   - graph_id: CAMKP_Automat
@@ -105,7 +18,7 @@ graphs:
     conflation: False
     output_format: neo4j
     sources:
-      - source_id: CAM-KP
+      - id: CAM-KP
 
   - graph_id: COHD_Automat
     graph_name: COHD
@@ -114,7 +27,7 @@ graphs:
     conflation: False
     output_format: neo4j
     sources:
-      - source_id: COHD
+      - id: COHD
 
   - graph_id: CTD_Automat
     graph_name: CTD
@@ -124,19 +37,9 @@ graphs:
     edge_merging_attributes:
       - taxon
     sources:
-      - source_id: CTD
-      - source_id: OntologicalHierarchy
+      - id: CTD
+      - id: OntologicalHierarchy
         merge_strategy: connected_edge_subset
-
- #- graph_id:
- #  graph_name: DisGeNET
- #  graph_description: 'Disease – Gene Network (DisGeNET) is an open-source database on genes and variants associated with human disease. The integrated data are derived from curated repositories, GWAS catalogs, animal models, and the scientific literature.'
- #  graph_url:
- #  output_format:
- #  sources:
- #    - source_id:
- #    - source_id:
- #      merge_strategy:
 
   - graph_id: DrugCentral_Automat
     graph_name: DrugCentral
@@ -144,19 +47,19 @@ graphs:
     graph_url: https://drugcentral.org/
     output_format: neo4j
     sources:
-      - source_id: DrugCentral
-      - source_id: OntologicalHierarchy
+      - id: DrugCentral
+      - id: OntologicalHierarchy
         merge_strategy: connected_edge_subset
 
-#  - graph_id: DrugMechDB_Automat
-#    graph_name: DrugMechDB
-#    graph_description: 'A database of paths that represent the mechanism of action from a drug to a disease in an indication.'
-#    graph_url: https://sulab.github.io/DrugMechDB/
-#    output_format: neo4j
-#    sources:
-#      - source_id: DrugMechDB
-#      - source_id: OntologicalHierarchy
-#        merge_strategy: connected_edge_subset
+  #  - graph_id: DrugMechDB_Automat
+  #    graph_name: DrugMechDB
+  #    graph_description: 'A database of paths that represent the mechanism of action from a drug to a disease in an indication.'
+  #    graph_url: https://sulab.github.io/DrugMechDB/
+  #    output_format: neo4j
+  #    sources:
+  #      - id: DrugMechDB
+  #      - id: OntologicalHierarchy
+  #        merge_strategy: connected_edge_subset
 
   - graph_id: GenomeAllianceOrthologs_Automat
     graph_name: Alliance of Genome Resources
@@ -164,8 +67,8 @@ graphs:
     graph_url: https://www.alliancegenome.org/
     output_format: neo4j
     sources:
-      - source_id: GenomeAllianceOrthologs
-      - source_id: OntologicalHierarchy
+      - id: GenomeAllianceOrthologs
+      - id: OntologicalHierarchy
         merge_strategy: connected_edge_subset
 
   - graph_id: GTEx_Automat
@@ -174,8 +77,8 @@ graphs:
     graph_url: https://gtexportal.org/home/
     output_format: neo4j
     sources:
-      - source_id: GTEx
-      - source_id: OntologicalHierarchy
+      - id: GTEx
+      - id: OntologicalHierarchy
         merge_strategy: connected_edge_subset
 
   - graph_id: GtoPdb_Automat
@@ -184,8 +87,8 @@ graphs:
     graph_url: http://www.guidetopharmacology.org/
     output_format: neo4j
     sources:
-      - source_id: GtoPdb
-      - source_id: OntologicalHierarchy
+      - id: GtoPdb
+      - id: OntologicalHierarchy
         merge_strategy: connected_edge_subset
 
   - graph_id: GWASCatalog_Automat
@@ -194,8 +97,8 @@ graphs:
     graph_url: https://www.ebi.ac.uk/gwas/
     output_format: neo4j
     sources:
-      - source_id: GWASCatalog
-      - source_id: OntologicalHierarchy
+      - id: GWASCatalog
+      - id: OntologicalHierarchy
         merge_strategy: connected_edge_subset
 
   - graph_id: Hetio_Automat
@@ -204,8 +107,8 @@ graphs:
     graph_url: https://het.io/
     output_format: neo4j
     sources:
-      - source_id: Hetio
-      - source_id: OntologicalHierarchy
+      - id: Hetio
+      - id: OntologicalHierarchy
         merge_strategy: connected_edge_subset
 
   - graph_id: HGNC_Automat
@@ -214,8 +117,8 @@ graphs:
     graph_url: https://www.genenames.org/
     output_format: neo4j
     sources:
-      - source_id: HGNC
-      - source_id: OntologicalHierarchy
+      - id: HGNC
+      - id: OntologicalHierarchy
         merge_strategy: connected_edge_subset
 
   - graph_id: HMDB_Automat
@@ -224,8 +127,8 @@ graphs:
     graph_url: https://hmdb.ca/
     output_format: neo4j
     sources:
-      - source_id: HMDB
-      - source_id: OntologicalHierarchy
+      - id: HMDB
+      - id: OntologicalHierarchy
         merge_strategy: connected_edge_subset
 
   - graph_id: HumanGOA_Automat
@@ -234,8 +137,8 @@ graphs:
     graph_url: https://www.ebi.ac.uk/GOA/index
     output_format: neo4j
     sources:
-      - source_id: HumanGOA
-      - source_id: OntologicalHierarchy
+      - id: HumanGOA
+      - id: OntologicalHierarchy
         merge_strategy: connected_edge_subset
 
   - graph_id: MouseGOA_Automat
@@ -244,8 +147,8 @@ graphs:
     graph_url: https://geneontology.org/
     output_format: neo4j
     sources:
-      - source_id: MouseGOA
-      - source_id: OntologicalHierarchy
+      - id: MouseGOA
+      - id: OntologicalHierarchy
         merge_strategy: connected_edge_subset
 
   - graph_id: IntAct_Automat
@@ -254,8 +157,8 @@ graphs:
     graph_url: https://www.ebi.ac.uk/intact/home
     output_format: neo4j
     sources:
-      - source_id: IntAct
-      - source_id: OntologicalHierarchy
+      - id: IntAct
+      - id: OntologicalHierarchy
         merge_strategy: connected_edge_subset
 
   - graph_id: OHD_Carolina_Automat
@@ -265,7 +168,7 @@ graphs:
     conflation: False
     output_format: neo4j
     sources:
-      - source_id: OHD-Carolina
+      - id: OHD-Carolina
 
   - graph_id: PANTHER_Automat
     graph_name: PANTHER
@@ -273,8 +176,8 @@ graphs:
     graph_url: http://pantherdb.org/
     output_format: neo4j
     sources:
-      - source_id: PANTHER
-      - source_id: OntologicalHierarchy
+      - id: PANTHER
+      - id: OntologicalHierarchy
         merge_strategy: connected_edge_subset
 
   - graph_id: PHAROS_Automat
@@ -283,8 +186,8 @@ graphs:
     graph_url: https://pharos.nih.gov/
     output_format: neo4j
     sources:
-      - source_id: PHAROS
-      - source_id: OntologicalHierarchy
+      - id: PHAROS
+      - id: OntologicalHierarchy
         merge_strategy: connected_edge_subset
 
   - graph_id: Reactome_Automat
@@ -293,8 +196,8 @@ graphs:
     graph_url: https://reactome.org/
     output_format: neo4j
     sources:
-      - source_id: Reactome
-      - source_id: OntologicalHierarchy
+      - id: Reactome
+      - id: OntologicalHierarchy
         merge_strategy: connected_edge_subset
 
   - graph_id: STRING-DB_Automat
@@ -303,8 +206,8 @@ graphs:
     graph_url: https://string-db.org/
     output_format: neo4j
     sources:
-      - source_id: STRING-DB-Human
-      - source_id: OntologicalHierarchy
+      - id: STRING-DB-Human
+      - id: OntologicalHierarchy
         merge_strategy: connected_edge_subset
 
   - graph_id: TMKP_Automat
@@ -313,8 +216,8 @@ graphs:
     graph_url: https://github.com/NCATSTranslator/Translator-All/wiki/Text-Mining-Provider
     output_format: neo4j
     sources:
-      - source_id: textminingkp
-      - source_id: OntologicalHierarchy
+      - id: textminingkp
+      - id: OntologicalHierarchy
         merge_strategy: connected_edge_subset
 
   - graph_id: UbergraphRedundant_Automat
@@ -323,7 +226,7 @@ graphs:
     graph_url: https://github.com/INCATools/ubergraph
     output_format: neo4j
     sources:
-      - source_id: UbergraphRedundant
+      - id: UbergraphRedundant
 
   - graph_id: ViralProteome_Automat
     graph_name: Viral Proteome
@@ -331,6 +234,6 @@ graphs:
     graph_url: https://www.ebi.ac.uk/GOA/proteomes
     output_format: neo4j
     sources:
-      - source_id: ViralProteome
-      - source_id: OntologicalHierarchy
+      - id: ViralProteome
+      - id: OntologicalHierarchy
         merge_strategy: connected_edge_subset

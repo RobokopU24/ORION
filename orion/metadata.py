@@ -2,6 +2,8 @@ import os
 import json
 from xxhash import xxh64_hexdigest
 
+from orion.config import config
+
 
 class Metadata:
 
@@ -32,130 +34,6 @@ class Metadata:
         with open(self.metadata_file_path, 'w') as meta_json_file:
             json.dump(self.metadata, meta_json_file, indent=4)
 
-
-class GraphMetadata(Metadata):
-
-    def __init__(self, graph_id: str, graph_storage_dir: str):
-        self.graph_id = graph_id
-        metadata_file_path = os.path.join(graph_storage_dir, f'{graph_id}.meta.json')
-        super().__init__(metadata_file_path=metadata_file_path)
-
-    def init_metadata(self):
-        self.metadata = dict()
-        self.metadata['graph_id'] = self.graph_id
-        self.metadata['graph_name'] = self.graph_id
-        self.metadata['graph_description'] = ""
-        self.metadata['graph_url'] = ""
-        self.metadata['graph_version'] = None
-        self.metadata['sources'] = []
-        self.metadata['subgraphs'] = []
-        self.reset_state_metadata()
-
-    def reset_state_metadata(self):
-        self.metadata['build_status'] = self.NOT_STARTED
-        self.metadata['build_time'] = None
-        self.metadata['build_error'] = None
-
-    def set_graph_version(self, graph_version: str):
-        self.metadata['graph_version'] = graph_version
-        self.save_metadata()
-
-    def set_graph_name(self, graph_name: str):
-        if graph_name:
-            self.metadata['graph_name'] = graph_name
-            self.save_metadata()
-
-    def set_graph_description(self, graph_description: str):
-        if graph_description:
-            self.metadata['graph_description'] = graph_description
-            self.save_metadata()
-
-    def set_graph_url(self, graph_url: str):
-        if graph_url:
-            self.metadata['graph_url'] = graph_url
-            self.save_metadata()
-
-    def set_graph_spec(self, graph_spec: dict):
-        self.metadata['sources'] = graph_spec['sources']
-        self.metadata['subgraphs'] = graph_spec['subgraphs']
-        self.save_metadata()
-
-    def set_dump(self, dump_type: str, dump_url: str):
-        self.metadata[f'{dump_type}_dump'] = dump_url
-        self.save_metadata()
-
-    def has_qc(self):
-        if 'qc_results' in self.metadata and self.metadata['qc_results']:
-            return True
-        else:
-            return False
-
-    def set_qc_results(self, qc_results: dict):
-        self.metadata['qc_results'] = qc_results
-        self.save_metadata()
-
-    def set_build_status(self, status: str):
-        self.metadata['build_status'] = status
-        self.save_metadata()
-
-    def set_build_info(self, build_info: dict, build_time: str):
-        for source_id, source_info in build_info['sources'].items():
-            for graph_spec_source in self.metadata['sources']:
-                if source_info['release_version'] == graph_spec_source['release_version']:
-                    graph_spec_source.update(source_info)
-        self.metadata.update({
-            key: value for key, value in build_info.items() if key != 'sources'
-        })
-        self.metadata['build_time'] = build_time
-        self.save_metadata()
-
-    def set_build_error(self, build_error: str, error_time: str = None):
-        self.metadata['build_error'] = build_error
-        if error_time:
-            self.metadata['build_error_time'] = error_time
-        self.save_metadata()
-
-    def get_build_status(self):
-        return self.metadata['build_status']
-
-    def get_graph_name(self):
-        return self.metadata['graph_name']
-
-    def get_graph_description(self):
-        return self.metadata['graph_description']
-
-    def get_build_time(self):
-        return self.metadata['build_time']
-
-    def get_graph_version(self):
-        return self.metadata['graph_version']
-
-    def get_source_ids(self):
-        return [source['source_id'] for source in self.metadata['sources']]
-
-    def get_all_sources_metadata(self):
-        """Collect all sources from metadata, recursively collect sources from subgraphs and flatten into one list."""
-        return self._collect_sources_from_metadata(self.metadata)
-
-    @staticmethod
-    def _collect_sources_from_metadata(metadata: dict) -> list:
-        """Recursively collect sources from a metadata dict, including nested subgraphs."""
-        all_sources = list(metadata.get('sources', []))
-        for subgraph in metadata.get('subgraphs', []):
-            subgraph_metadata = subgraph.get('graph_metadata')
-            if subgraph_metadata:
-                all_sources.extend(GraphMetadata._collect_sources_from_metadata(subgraph_metadata))
-        return all_sources
-
-    def get_biolink_version(self):
-        # TODO this should be a graph wide version..
-        #  it's almost always the same for all sources so this kind of works for now
-        #  but technically someone could make a graph spec that used varying bl versions
-        return self.metadata['sources'][0]['normalization_scheme']['edge_normalization_version']
-
-    def get_babel_version(self):
-        # TODO similar situation as get_biolink_version, should be graph wide
-        return self.metadata['sources'][0]['normalization_scheme']['node_normalization_version']
 
 class SourceMetadata(Metadata):
 
@@ -319,43 +197,43 @@ class SourceMetadata(Metadata):
         except KeyError:
             return False
 
-    def generate_release_metadata(self,
-                                  parsing_version: str,
-                                  normalization_version: str,
-                                  supplementation_version: str,
-                                  source_meta_information: dict):
-        if "releases" not in self.metadata:
-            self.metadata["releases"] = {}
-        release_version = get_source_release_version(self.source_id,
-                                                     self.source_version,
-                                                     parsing_version,
-                                                     normalization_version,
-                                                     supplementation_version)
-        if release_version not in self.metadata["releases"]:
-            self.metadata["releases"][release_version] = {
+    def generate_build_metadata(self,
+                                parsing_version: str,
+                                normalization_version: str,
+                                supplementation_version: str,
+                                source_meta_information: dict):
+        if "builds" not in self.metadata:
+            self.metadata["builds"] = {}
+        build_version = get_source_build_version(self.source_id,
+                                                 self.source_version,
+                                                 parsing_version,
+                                                 normalization_version,
+                                                 supplementation_version)
+        if build_version not in self.metadata["builds"]:
+            self.metadata["builds"][build_version] = {
                 "source_version": self.source_version,
                 "parsing_version": parsing_version,
                 "normalization_version": normalization_version,
                 "supplementation_version": supplementation_version
             }
-        self.metadata["releases"][release_version].update(source_meta_information)
+        self.metadata["builds"][build_version].update(source_meta_information)
         self.save_metadata()
-        return release_version
+        return build_version
 
-    def get_release_info(self, release_version: str):
-        if 'releases' in self.metadata and release_version in self.metadata['releases']:
-            return self.metadata['releases'][release_version]
+    def get_build_info(self, build_version: str):
+        if 'builds' in self.metadata and build_version in self.metadata['builds']:
+            return self.metadata['builds'][build_version]
         return None
 
 
-def get_source_release_version(source_id,
-                               source_version,
-                               parsing_version,
-                               normalization_version,
-                               supplementation_version):
-    release_string = "_".join([source_id,
-                              source_version,
-                              parsing_version,
-                              normalization_version,
-                              supplementation_version])
-    return xxh64_hexdigest(release_string)
+def get_source_build_version(source_id,
+                             source_version,
+                             parsing_version,
+                             normalization_version,
+                             supplementation_version):
+    build_string = "_".join([source_id,
+                            source_version,
+                            parsing_version,
+                            normalization_version,
+                            supplementation_version])
+    return xxh64_hexdigest(build_string)
