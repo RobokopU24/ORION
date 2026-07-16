@@ -90,7 +90,6 @@ def test_mgi_gene_phenotypes_filters_to_gene_markers_and_preserves_properties(tm
     assert first_edge["mgi_allele_ids"] == "MGI:allele1"
     assert first_edge["mgi_genetic_background"] == "involves: C57BL/6J"
     assert first_edge["mgi_genotype_id"] == "MGI:geno1"
-    assert first_edge["mgi_marker_id"] == "MGI:1"
 
 
 def test_mgi_gene_disease_uses_mouse_gene_rows_only_and_omits_omim(tmp_path):
@@ -130,7 +129,6 @@ def test_mgi_gene_disease_uses_mouse_gene_rows_only_and_omits_omim(tmp_path):
             "primary_knowledge_source": "infores:mgi",
             "knowledge_level": "knowledge_assertion",
             "agent_type": "manual_agent",
-            "mgi_marker_id": "MGI:1",
         }
     ]
     assert "OMIM:1" not in json.dumps(edges[0])
@@ -162,8 +160,6 @@ def test_mgi_phenotype_anatomy_maps_mp_to_emapa_with_labels(tmp_path):
             "primary_knowledge_source": "infores:mgi",
             "knowledge_level": "knowledge_assertion",
             "agent_type": "manual_agent",
-            "mgi_mp_label": "abnormal adipose tissue morphology",
-            "mgi_emapa_label": "adipose tissue",
         }
     ]
 

@@ -269,7 +269,6 @@ class MGIGenePhenotypesLoader(MGILoader):
                             "mgi_allele_ids": allele_ids,
                             "mgi_genetic_background": genetic_background,
                             "mgi_genotype_id": genotype_id,
-                            "mgi_marker_id": marker_id,
                         }
                     )
                     publications = _pubmed_ids_to_curies(pubmed_ids)
@@ -351,7 +350,6 @@ class MGIGeneDiseaseLoader(MGILoader):
                 )
 
                 edge_properties = _shared_edge_properties()
-                edge_properties["mgi_marker_id"] = mgi_marker_id
 
                 self.output_file_writer.write_edge(
                     subject_id=subject_id,
@@ -406,12 +404,6 @@ class MGIPhenotypeAnatomyLoader(MGILoader):
                 )
 
                 edge_properties = _shared_edge_properties()
-                edge_properties.update(
-                    {
-                        "mgi_mp_label": mp_label,
-                        "mgi_emapa_label": emapa_label,
-                    }
-                )
 
                 self.output_file_writer.write_edge(
                     subject_id=mp_id,
