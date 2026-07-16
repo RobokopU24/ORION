@@ -6,16 +6,12 @@ from requests.adapters import HTTPAdapter, Retry
 from functools import cache
 
 from orion.biolink_constants import NAMED_THING
-from orion.config import config
+from orion.config import config, standardize_biolink_model_version
 
-def normalize_biolink_model_version(version: str) -> str:
-    # biolink-model GitHub tags are 'v'-prefixed (e.g. v4.4.2); ensure exactly one leading 'v'
-    return version if version.startswith("v") else f"v{version}"
-
-BIOLINK_MODEL_VERSION = normalize_biolink_model_version(config.BL_VERSION)
+BIOLINK_MODEL_VERSION = config.BL_VERSION
 
 def get_biolink_model_toolkit(biolink_version: str = None) -> Toolkit:
-    version = normalize_biolink_model_version(biolink_version) if biolink_version else BIOLINK_MODEL_VERSION
+    version = standardize_biolink_model_version(biolink_version) if biolink_version else BIOLINK_MODEL_VERSION
     schema_url = f"https://raw.githubusercontent.com/biolink/biolink-model/{version}/biolink-model.yaml"
     predicate_map_url = f"https://raw.githubusercontent.com/biolink/biolink-model/{version}/predicate_mapping.yaml"
     return Toolkit(schema=schema_url, predicate_map=predicate_map_url)

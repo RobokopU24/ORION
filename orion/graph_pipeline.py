@@ -10,7 +10,7 @@ from xxhash import xxh64_hexdigest
 
 from orion.utils import GetDataPullError
 from orion.logging import get_orion_logger
-from orion.config import config
+from orion.config import config, standardize_biolink_model_version
 from orion.data_sources import get_available_data_sources
 from orion.exceptions import DataVersionError, GraphSpecError
 from orion.ingest_pipeline import IngestPipeline
@@ -683,6 +683,8 @@ class GraphBuilder:
                     graph_wide_node_norm_version = get_current_node_norm_version()
                 if graph_wide_edge_norm_version == 'latest':
                     graph_wide_edge_norm_version = config.BL_VERSION
+                elif graph_wide_edge_norm_version is not None:
+                    graph_wide_edge_norm_version = standardize_biolink_model_version(graph_wide_edge_norm_version)
 
                 # Apply graph-wide normalization to parser sources, overwriting anything set
                 # at the source level. Pinned sources and graph dependencies carry no normalization

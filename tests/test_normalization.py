@@ -1,7 +1,8 @@
 import pytest
 from orion.biolink_constants import *
+from orion.config import Config
 from orion.normalization import NodeNormalizer, EdgeNormalizer, EdgeNormalizationResult, \
-    FALLBACK_EDGE_PREDICATE, CUSTOM_NODE_TYPES
+    FALLBACK_EDGE_PREDICATE, CUSTOM_NODE_TYPES, NormalizationScheme
 from orion.kgx_file_normalizer import invert_edge
 
 INVALID_NODE_TYPE = "testing:Type1"
@@ -160,6 +161,32 @@ def test_variant_node_norm():
     assert bogus_node_after_normalization['name'] == 'BOGUS:rs999999999999'
     assert NAMED_THING in bogus_node_after_normalization[NODE_TYPES]
     assert SEQUENCE_VARIANT in bogus_node_after_normalization[NODE_TYPES]
+
+
+# The biolink-model GitHub tags and the bl-lookup /versions endpoint are both 'v'-prefixed, so a
+# version requested without the prefix has to be standardized before it reaches either of them.
+@pytest.mark.parametrize('requested_version', ['4.4.2', 'v4.4.2'])
+def test_bl_version_standardized_from_config(requested_version):
+    assert Config(BL_VERSION=requested_version).BL_VERSION == 'v4.4.2'
+
+
+@pytest.mark.parametrize('requested_version', ['4.4.2', 'v4.4.2'])
+def test_normalization_scheme_standardizes_edge_norm_version(requested_version):
+    normalization_scheme = NormalizationScheme(node_normalization_version='2.3.0',
+                                               babel_version='2024jan',
+                                               edge_normalization_version=requested_version)
+    assert normalization_scheme.edge_normalization_version == 'v4.4.2'
+
+
+# Both spellings must produce the same composite version, otherwise identical content would
+# hash to two different build versions depending on how the version happened to be written.
+def test_edge_norm_version_spellings_produce_same_composite_version():
+    def composite_for(edge_normalization_version):
+        return NormalizationScheme(node_normalization_version='2.3.0',
+                                   babel_version='2024jan',
+                                   edge_normalization_version=edge_normalization_version
+                                   ).get_composite_normalization_version()
+    assert composite_for('4.4.2') == composite_for('v4.4.2')
 
 
 def test_edge_normalization():
