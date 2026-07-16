@@ -216,16 +216,18 @@ class GraphBuilder:
             if not os.path.exists(redundant_filepath):
                 generate_redundant_kg(kgx_bundle.edges_path, redundant_filepath)
             logger.info(f'Starting Neo4j dump pipeline for redundant {graph_id}...')
+            dump_filename = f'{graph_id}_{release_version}_redundant.db.dump'
             dump_success = create_neo4j_dump(nodes_filepath=kgx_bundle.nodes_path,
                                              edges_filepath=redundant_filepath,
                                              output_directory=graph_output_dir,
                                              graph_id=graph_id,
                                              release_version=release_version,
+                                             dump_filename=dump_filename,
                                              node_property_ignore_list=node_property_ignore_list,
                                              edge_property_ignore_list=edge_property_ignore_list)
             if dump_success:
                 dump_distribution_entries.append(self._dump_distribution_entry(
-                    "neo4j_redundant", f'{graph_output_url}graph_{release_version}_redundant.db.dump'))
+                    "neo4j_redundant", f'{graph_output_url}{dump_filename}'))
 
         if 'collapsed_qualifiers_jsonl' in output_formats:
             logger.info(f'Generating collapsed qualifier predicates KG for {graph_id}...')
@@ -238,30 +240,33 @@ class GraphBuilder:
             if not os.path.exists(collapsed_qualifiers_filepath):
                 generate_collapsed_qualifiers_kg(kgx_bundle.edges_path, collapsed_qualifiers_filepath)
             logger.info(f'Starting Neo4j dump pipeline for {graph_id} with collapsed qualifiers...')
+            dump_filename = f'{graph_id}_{release_version}_collapsed_qualifiers.db.dump'
             dump_success = create_neo4j_dump(nodes_filepath=kgx_bundle.nodes_path,
                                              edges_filepath=collapsed_qualifiers_filepath,
                                              output_directory=graph_output_dir,
                                              graph_id=graph_id,
                                              release_version=release_version,
+                                             dump_filename=dump_filename,
                                              node_property_ignore_list=node_property_ignore_list,
                                              edge_property_ignore_list=edge_property_ignore_list)
             if dump_success:
                 dump_distribution_entries.append(self._dump_distribution_entry(
-                    "neo4j_collapsed_qualifiers",
-                    f'{graph_output_url}graph_{release_version}_collapsed_qualifiers.db.dump'))
+                    "neo4j_collapsed_qualifiers", f'{graph_output_url}{dump_filename}'))
 
         if 'neo4j' in output_formats:
             logger.info(f'Starting Neo4j dump pipeline for {graph_id}...')
+            dump_filename = f'{graph_id}_{release_version}.db.dump'
             dump_success = create_neo4j_dump(nodes_filepath=kgx_bundle.nodes_path,
                                              edges_filepath=kgx_bundle.edges_path,
                                              output_directory=graph_output_dir,
                                              graph_id=graph_id,
                                              release_version=release_version,
+                                             dump_filename=dump_filename,
                                              node_property_ignore_list=node_property_ignore_list,
                                              edge_property_ignore_list=edge_property_ignore_list)
             if dump_success:
                 dump_distribution_entries.append(self._dump_distribution_entry(
-                    "neo4j", f'{graph_output_url}graph_{release_version}.db.dump'))
+                    "neo4j", f'{graph_output_url}{dump_filename}'))
 
         if 'memgraph' in output_formats:
             logger.info(f'Starting memgraph dump pipeline for {graph_id}...')
