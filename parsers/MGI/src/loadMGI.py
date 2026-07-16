@@ -72,22 +72,24 @@ def _download_report(report_name: str, data_path: str, max_attempts: int = 20) -
     except Exception as e:
         raise GetDataPullError(f"Error checking MGI report size for {url}: {repr(e)}-{e}")
 
-    existing_path = output_path if os.path.exists(output_path) else part_path
-    if os.path.exists(existing_path):
-        existing_size = os.path.getsize(existing_path)
-        if expected_size and existing_size == expected_size:
-            os.replace(existing_path, output_path)
+    if os.path.exists(output_path):
+        if not expected_size or os.path.getsize(output_path) == expected_size:
             return
-        if not expected_size:
-            if existing_path == part_path:
-                os.replace(part_path, output_path)
-            return
-        if existing_size > expected_size:
-            os.remove(existing_path)
+        os.remove(output_path)
+
+    # A .part file can only be trusted as a resume point (or promoted directly) once its size is
+    # verified against a known expected_size. Without that signal we cannot tell a complete
+    # download from a truncated one, so discard it and start over rather than risk silently
+    # treating a stale/truncated file as complete.
+    if os.path.exists(part_path):
+        if not expected_size or os.path.getsize(part_path) > expected_size:
+            os.remove(part_path)
 
     last_error = None
     for attempt in range(1, max_attempts + 1):
-        existing_part_size = os.path.getsize(part_path) if os.path.exists(part_path) else 0
+        # Only resume from a .part file when expected_size lets us verify the eventual result;
+        # otherwise always start the attempt fresh (see the discard above and its docstring note).
+        existing_part_size = os.path.getsize(part_path) if (expected_size and os.path.exists(part_path)) else 0
         request_headers = dict(headers)
         file_mode = "wb"
         if existing_part_size:

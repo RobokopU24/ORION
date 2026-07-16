@@ -1,11 +1,13 @@
 import gzip
 import json
 from pathlib import Path
+from unittest.mock import MagicMock, patch
 
 from parsers.MGI.src.loadMGI import (
     MGIGeneDiseaseLoader,
     MGIGenePhenotypesLoader,
     MGIPhenotypeAnatomyLoader,
+    _download_report,
 )
 
 
@@ -164,3 +166,84 @@ def test_mgi_phenotype_anatomy_maps_mp_to_emapa_with_labels(tmp_path):
             "mgi_emapa_label": "adipose tissue",
         }
     ]
+
+
+def _mock_head_response(content_length: int | None):
+    response = MagicMock()
+    response.raise_for_status = MagicMock()
+    response.headers = {} if content_length is None else {"content-length": str(content_length)}
+    return response
+
+
+def _mock_get_response(body: bytes, status_code: int = 200):
+    response = MagicMock()
+    response.raise_for_status = MagicMock()
+    response.status_code = status_code
+    response.iter_content = MagicMock(return_value=[body])
+    response.__enter__ = MagicMock(return_value=response)
+    response.__exit__ = MagicMock(return_value=False)
+    return response
+
+
+def test_download_report_discards_unverifiable_partial_file(tmp_path):
+    # a stale/truncated .part file is left over from an earlier interrupted attempt
+    part_path = tmp_path / "MGI_GenePheno.rpt.part"
+    part_path.write_bytes(b"TRUNCATED-STALE-DATA")
+
+    real_body = b"a full, correct report body"
+    with patch("parsers.MGI.src.loadMGI.requests.head", return_value=_mock_head_response(None)), \
+            patch("parsers.MGI.src.loadMGI.requests.get", return_value=_mock_get_response(real_body)) as mock_get:
+        _download_report("MGI_GenePheno.rpt", str(tmp_path), max_attempts=1)
+
+    # the server never reported a Content-Length, so the stale .part file must not have been
+    # trusted -- a real download must have happened and produced the real body
+    mock_get.assert_called_once()
+    assert (tmp_path / "MGI_GenePheno.rpt").read_bytes() == real_body
+    # and it must not have been resumed (no Range header) since size was unverifiable
+    assert "Range" not in mock_get.call_args.kwargs["headers"]
+
+
+def test_download_report_skips_redownload_when_output_matches_expected_size(tmp_path):
+    output_path = tmp_path / "MP_EMAPA.rpt"
+    output_path.write_bytes(b"already downloaded")
+
+    with patch("parsers.MGI.src.loadMGI.requests.head",
+               return_value=_mock_head_response(len(b"already downloaded"))), \
+            patch("parsers.MGI.src.loadMGI.requests.get") as mock_get:
+        _download_report("MP_EMAPA.rpt", str(tmp_path), max_attempts=1)
+
+    mock_get.assert_not_called()
+    assert output_path.read_bytes() == b"already downloaded"
+
+
+def test_download_report_resumes_partial_file_when_size_is_verifiable(tmp_path):
+    full_body = b"0123456789"
+    part_path = tmp_path / "MGI_DO.rpt.part"
+    part_path.write_bytes(full_body[:4])
+
+    with patch("parsers.MGI.src.loadMGI.requests.head",
+               return_value=_mock_head_response(len(full_body))), \
+            patch("parsers.MGI.src.loadMGI.requests.get",
+                  return_value=_mock_get_response(full_body[4:], status_code=206)) as mock_get:
+        _download_report("MGI_DO.rpt", str(tmp_path), max_attempts=1)
+
+    assert mock_get.call_args.kwargs["headers"]["Range"] == "bytes=4-"
+    assert (tmp_path / "MGI_DO.rpt").read_bytes() == full_body
+
+
+def test_download_report_discards_oversized_partial_file(tmp_path):
+    # a .part file larger than the server's current expected_size (e.g. a stale download from
+    # a previous, larger release) must not be resumed from -- resuming would request a Range
+    # starting past the end of the current resource.
+    expected_body = b"0123456789"
+    part_path = tmp_path / "MGI_DO.rpt.part"
+    part_path.write_bytes(b"this stale partial file is way too long for the current release")
+
+    with patch("parsers.MGI.src.loadMGI.requests.head",
+               return_value=_mock_head_response(len(expected_body))), \
+            patch("parsers.MGI.src.loadMGI.requests.get",
+                  return_value=_mock_get_response(expected_body)) as mock_get:
+        _download_report("MGI_DO.rpt", str(tmp_path), max_attempts=1)
+
+    assert "Range" not in mock_get.call_args.kwargs["headers"]
+    assert (tmp_path / "MGI_DO.rpt").read_bytes() == expected_body
