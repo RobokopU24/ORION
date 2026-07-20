@@ -36,6 +36,7 @@ from orion.kgx_metadata import (
     KGXGraphMetadata,
     KGXKnowledgeSource,
     KGXKnowledgeGraphSource,
+    KGX_ENCODING_FORMAT,
     generate_kgx_schema_file,
 )
 
@@ -520,11 +521,7 @@ class GraphBuilder:
             babel_version=babel_version,
             kg_sources=kg_sources,
             knowledge_sources=knowledge_sources,
-            distribution=[{
-                "@type":"DataDownload",
-                "encodingFormat":"biolink:KGX",
-                "contentUrl":graph_output_url,
-            }]
+            distribution=self._kgx_bundle_distribution_entries(graph_output_url)
         )
 
         # Write graph metadata file
@@ -589,6 +586,19 @@ class GraphBuilder:
     @staticmethod
     def _dump_distribution_entry(name: str, content_url: str) -> dict:
         return {"@type": "DataDownload", "name": name, "contentUrl": content_url}
+
+    @staticmethod
+    def _kgx_bundle_distribution_entries(graph_output_url: str) -> list[dict]:
+        return [
+            {"@type": "DataDownload", "name": "nodes", "encodingFormat": KGX_ENCODING_FORMAT,
+             "contentUrl": f'{graph_output_url}{KGXBundle.NODES_FILENAME}.gz'},
+            {"@type": "DataDownload", "name": "edges", "encodingFormat": KGX_ENCODING_FORMAT,
+             "contentUrl": f'{graph_output_url}{KGXBundle.EDGES_FILENAME}.gz'},
+            {"@type": "DataDownload", "name": "graph-metadata", "encodingFormat": "application/ld+json",
+             "contentUrl": f'{graph_output_url}{KGXBundle.GRAPH_METADATA_FILENAME}'},
+            {"@type": "DataDownload", "name": "schema", "encodingFormat": "application/ld+json",
+             "contentUrl": f'{graph_output_url}{KGXBundle.SCHEMA_FILENAME}'},
+        ]
 
     @staticmethod
     def _append_distribution_entries(graph_metadata_path: str, entries: list[dict]):
