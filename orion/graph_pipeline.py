@@ -271,16 +271,18 @@ class GraphBuilder:
 
         if 'memgraph' in output_formats:
             logger.info(f'Starting memgraph dump pipeline for {graph_id}...')
-            dump_success = create_memgraph_dump(nodes_filepath=kgx_bundle.nodes_path,
-                                                edges_filepath=kgx_bundle.edges_path,
-                                                output_directory=graph_output_dir,
-                                                graph_id=graph_id,
-                                                release_version=release_version,
-                                                node_property_ignore_list=node_property_ignore_list,
-                                                edge_property_ignore_list=edge_property_ignore_list)
-            if dump_success:
-                dump_distribution_entries.append(self._dump_distribution_entry(
-                    "memgraph", f'{graph_output_url}memgraph_{release_version}.cypher'))
+            create_memgraph_dump(nodes_filepath=kgx_bundle.nodes_path,
+                                 edges_filepath=kgx_bundle.edges_path,
+                                 output_directory=graph_output_dir,
+                                 graph_id=graph_id,
+                                 release_version=release_version,
+                                 node_property_ignore_list=node_property_ignore_list,
+                                 edge_property_ignore_list=edge_property_ignore_list)
+            # We're intentionally not creating a dump distribution entry here for memgraph, 
+            # a memgraph dump is a whole set of files (a nodes csv, a per-predicate edge csv 
+            # for each relationship type, an index cypher, and a manifest) that a single distribution 
+            # contentUrl can't represent. We may want to make a tar of all the memgraph files and point
+            # to that if we continue to support memgraph into the future.
 
         if 'answercoalesce' in output_formats:
             logger.info(f'Generating answercoalesce files for {graph_id}...')
