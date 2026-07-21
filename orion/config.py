@@ -66,6 +66,7 @@ class Config(BaseSettings):
     BAGEL_SERVICE_PASSWORD: str | None = None
     OPENAI_API_KEY: str | None = None
     OPENAI_API_ORGANIZATION: str | None = None
+    ORION_SLACK_WEBHOOK_URL: str | None = None
 
     # Tracks which fallback directories we've already announced so we log the resolved
     # path once per process instead of on every call.

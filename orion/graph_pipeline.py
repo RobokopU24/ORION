@@ -68,6 +68,8 @@ class GraphBuilder:
                               inline_graph_spec=inline_graph_spec)
         self._validate_specs()
         self.build_results = {}
+        self.source_outcomes = {}   # {graph_id: {source_id: {status, version, error}}}
+        self.graph_failures = {}    # {graph_id: {reason}}
 
         # The SourceResolver is used to locate or build the sources specified in a GraphSpec
         self.source_resolver = SourceResolver(graph_builder=self)
@@ -87,6 +89,12 @@ class GraphBuilder:
             if not self.build_dependencies(graph_spec):
                 logger.warning(f'Aborting graph {graph_id} release_version {graph_spec.release_version}, '
                                f'resolving dependencies failed.')
+                self.graph_failures[graph_id] = {
+                    'graph_id': graph_id,
+                    'build_version': graph_spec.build_version,
+                    'release_version': graph_spec.release_version,
+                    'reason': 'One or more sources failed to resolve.',
+                }
                 return False
         return self.merge_and_finalize(graph_spec, graph_output_dir, graph_output_url)
 
@@ -404,13 +412,21 @@ class GraphBuilder:
     def build_dependencies(self, graph_spec: GraphSpec):
         graph_spec.resolved_sources = []
         all_resolved = True
+        source_outcomes = {}
         for source in graph_spec.sources or []:
-            resolved = self.source_resolver.resolve(source)
+            resolved, status, error = self.source_resolver.resolve_with_status(source)
+            source_outcomes[source.id] = {
+                'status': status,
+                'release_version': resolved.release_version if resolved else None,
+                'build_version': resolved.build_version if resolved else None,
+                'error': error,
+            }
             if resolved is None:
                 logger.info(f'Could not resolve source {source.id} for graph {graph_spec.graph_id}.')
                 all_resolved = False
                 continue
             graph_spec.resolved_sources.append(resolved)
+        self.source_outcomes[graph_spec.graph_id] = source_outcomes
         return all_resolved
 
     @staticmethod
@@ -867,16 +883,22 @@ class GraphBuilder:
 
     # Write the build results from this invocation to graphs_dir/.build_results/<timestamp>.json.
     # Subsequent deployment stages read the most-recent file to discover what just built.
-    # Returns the file path written, or None if nothing was built.
+    # Returns the file path written, or None if nothing was built or attempted.
     def write_build_results(self) -> str | None:
-        if not self.build_results:
+        all_results = {}
+        for graph_id, result in self.build_results.items():
+            all_results[graph_id] = {**result, 'sources': self.source_outcomes.get(graph_id, {})}
+        for graph_id, failure in self.graph_failures.items():
+            all_results[graph_id] = {**failure, 'build_status': 'failed',
+                                     'sources': self.source_outcomes.get(graph_id, {})}
+        if not all_results:
             return None
         results_dir = os.path.join(self.graphs_dir, '.build_results')
         os.makedirs(results_dir, exist_ok=True)
         timestamp = datetime.datetime.now().strftime('%Y-%m-%dT%H%M%S')
         results_path = os.path.join(results_dir, f'{timestamp}.json')
         with open(results_path, 'w') as f:
-            json.dump(list(self.build_results.values()), f, indent=2)
+            json.dump(list(all_results.values()), f, indent=2)
         return results_path
 
 
@@ -947,6 +969,9 @@ def main():
     results_path = graph_builder.write_build_results()
     if results_path:
         print(f'Build results written to {results_path}')
+        if config.ORION_SLACK_WEBHOOK_URL:
+            from orion.report_handler import send_slack_notification
+            send_slack_notification(results_path)
     else:
         print('No graphs were built.')
 

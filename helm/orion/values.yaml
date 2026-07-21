@@ -79,6 +79,22 @@ orion:
   normalization:
     nodeNormEndpoint:
     edgeNormEndpoint:
+  logsVolume:
+    use_nfs: false  # set to true to mount an NFS path for ORION_LOGS
+    nfs_server:
+    nfs_path:
+    nfs_mount_subpath:
+  basePVC:
+    name:  # if set, use a single PVC for all mounts (storage, graphs, logs) instead of separate volumes
+    create: false  # if true, create the PVC (PV must be created by cluster admin separately)
+    nfs_server:
+    nfs_path:
+    storage: 500Gi
+    storageSubPath: storage
+    graphsSubPath: graphs
+    logsSubPath: logs  # leave empty to disable logs mount when using basePVC
+  schedule:  # cron schedule for automated builds, e.g. "0 6 * * mon" — leave empty to disable CronJob
+  slackWebhookURL:  # set to post build summaries to Slack — pass via --set at deploy time, never commit
   bagel:
     username: fake-username-do-not-commit-a-real-one!!!
     password: fake-password-do-not-commit-a-real-one!!!
