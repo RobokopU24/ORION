@@ -54,7 +54,7 @@ spec:
                   subPath: {{ .Values.orion.extraVolume.nfs_mount_subpath }}
                   {{- end }}
                 {{- end }}
-                {{- if .Values.orion.logsVolume.use_nfs }}
+                {{- if .Values.orion.logsVolume.enabled }}
                 - name: ds-logs-volume
                   mountPath: /ORION_logs
                   {{- if .Values.orion.logsVolume.nfs_mount_subpath }}
@@ -77,7 +77,7 @@ spec:
                 - name: ORION_LOGS
                   value: /ORION_logs
                 {{- end }}
-                {{- else if .Values.orion.logsVolume.use_nfs }}
+                {{- else if .Values.orion.logsVolume.enabled }}
                 - name: ORION_LOGS
                   value: /ORION_logs
                 {{- end }}
@@ -159,11 +159,17 @@ spec:
                 server: {{ .Values.orion.extraVolume.nfs_server }}
                 path: {{ .Values.orion.extraVolume.nfs_path }}
             {{- end }}
+            {{- if .Values.orion.logsVolume.enabled }}
             {{- if .Values.orion.logsVolume.use_nfs }}
             - name: ds-logs-volume
               nfs:
                 server: {{ .Values.orion.logsVolume.nfs_server }}
                 path: {{ .Values.orion.logsVolume.nfs_path }}
+            {{- else }}
+            - name: ds-logs-volume
+              persistentVolumeClaim:
+                claimName: ds-logs-pvc
+            {{- end }}
             {{- end }}
             {{- end }}
             - name: app-config

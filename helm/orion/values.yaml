@@ -79,11 +79,6 @@ orion:
   normalization:
     nodeNormEndpoint:
     edgeNormEndpoint:
-  logsVolume:
-    use_nfs: false  # set to true to mount an NFS path for ORION_LOGS
-    nfs_server:
-    nfs_path:
-    nfs_mount_subpath:
   basePVC:
     name:  # if set, use a single PVC for all mounts (storage, graphs, logs) instead of separate volumes
     create: false  # if true, create the PVC (PV must be created by cluster admin separately)
