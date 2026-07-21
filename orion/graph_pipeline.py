@@ -919,6 +919,7 @@ def _generate_inline_graph_spec(graph_id: str, sources_arg: str, output_format: 
 def main():
     from orion.logging import configure_cli_logging
     configure_cli_logging()
+    logger.info(f'Running as uid={os.getuid()} gid={os.getgid()}')
 
     parser = argparse.ArgumentParser(description="Merge data sources into complete graphs.")
     parser.add_argument('graph_id',
