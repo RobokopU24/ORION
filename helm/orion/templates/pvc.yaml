@@ -1,0 +1,17 @@
+{{- if and .Values.orion.basePVC.name .Values.orion.basePVC.create }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ .Values.orion.basePVC.name }}
+  namespace: {{ .Release.Namespace }}
+  annotations:
+    helm.sh/resource-policy: keep
+spec:
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: {{ .Values.orion.basePVC.storage }}
+  storageClassName: ""
+  volumeName: {{ .Values.orion.basePVC.name }}-pv
+{{- end }}

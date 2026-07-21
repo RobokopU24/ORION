@@ -41,6 +41,21 @@ class SourceResolver:
                 or self._resolve_registry(source)
                 or self._produce(source))
 
+    def resolve_with_status(self, source: GraphSource) -> tuple[GraphFileSource | None, str, str | None]:
+        """Like resolve(), but returns (result, status, error_message).
+        status is one of: 'cached', 'built', 'failed'.
+        """
+        result = self._resolve_local(source)
+        if result:
+            return result, 'cached', None
+        result = self._resolve_registry(source)
+        if result:
+            return result, 'cached', None
+        result = self._produce(source)
+        if result:
+            return result, 'built', None
+        return None, 'failed', getattr(self, '_last_error', None)
+
     # The known accessible release_versions of a graph, mapped to the build_version each came from,
     # gathered from the registry (when enabled) and local storage.
     def known_release_versions(self, graph_id: str) -> dict[str, str | None]:
@@ -171,28 +186,36 @@ class SourceResolver:
         )
 
     def _produce(self, source: GraphSource) -> GraphFileSource | None:
+        self._last_error = None
         if self.gb.is_parser_source(source.id):
             # Only an unpinned parser carries a recipe (normalization_scheme) to build from.
             if source.normalization_scheme is None:
-                logger.error(f'Source {source.id} (build_version {source.build_version}) was not found '
-                             f'locally or in the registry, and carries no recipe to build it.')
+                self._last_error = (f'Source {source.id} not found locally or in the registry, '
+                                    f'and carries no recipe to build it.')
+                logger.error(self._last_error)
                 return None
-            return self._build_parser(source)
+            result = self._build_parser(source)
+            if result is None:
+                self._last_error = f'Ingest pipeline failed for {source.id}.'
+            return result
 
         subgraph_spec = self.gb.graph_specs.get(source.id)
         if subgraph_spec is None:
-            logger.error(f'Source {source.id} is not a known data source and has no graph spec to build it.')
+            self._last_error = f'Source {source.id} is not a known data source and has no graph spec to build it.'
+            logger.error(self._last_error)
             return None
         # A graph dependency is buildable only when the current spec reproduces the requested
         # build_version; a pin to any other version is lookup-only and fails on a miss.
         self.gb.determine_versions(subgraph_spec)
         if source.build_version != subgraph_spec.build_version:
-            logger.error(f'Graph dependency {source.id} is pinned to build_version {source.build_version}, '
-                         f'but the current graph spec produces {subgraph_spec.build_version}; it was not '
-                         f'found locally or in the registry and cannot be rebuilt.')
+            self._last_error = (f'Graph dependency {source.id} is pinned to build_version {source.build_version}, '
+                                f'but the current graph spec produces {subgraph_spec.build_version}; '
+                                f'not found locally or in the registry and cannot be rebuilt.')
+            logger.error(self._last_error)
             return None
         logger.warning(f'Graph dependency {source.id} not ready. Building now...')
         if not self.gb.build_graph(subgraph_spec):
+            self._last_error = f'Graph dependency {source.id} failed to build.'
             return None
         return self._load_bundle(source, source.build_version)
 
