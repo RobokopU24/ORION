@@ -109,12 +109,12 @@ def test_upheno_loader_infers_human_mouse_homology_edges(tmp_path):
         "UPHENO:0000001",
         "UPHENO:0000002",
     ]
-    assert {node["id"] for node in nodes} == {
-        "HP:0000001",
-        "MP:0000001",
-        "HP:0000002",
-        "MP:0000002",
-        "HP:0000003",
-        "MP:0000003",
+    assert {node["id"]: node["name"] for node in nodes} == {
+        "HP:0000001": "human phenotype one",
+        "MP:0000001": "mouse phenotype one",
+        "HP:0000002": "human phenotype two",
+        "MP:0000002": "mouse phenotype two",
+        "HP:0000003": "human phenotype three",
+        "MP:0000003": "mouse phenotype three",
     }
     assert all(node["category"] == ["biolink:PhenotypicFeature"] for node in nodes)

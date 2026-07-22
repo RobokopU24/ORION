@@ -24,12 +24,15 @@ def curie_has_prefix(curie: str, prefixes: tuple[str, ...]) -> bool:
 def parse_obo_term(term_lines: list[str]) -> dict:
     term = {
         "id": None,
+        "name": "",
         "is_a": [],
         "is_obsolete": False,
     }
     for line in term_lines:
         if line.startswith("id: "):
             term["id"] = line[4:]
+        elif line.startswith("name: "):
+            term["name"] = line[6:]
         elif line.startswith("is_a: "):
             term["is_a"].append(line[6:].split()[0])
         elif line.startswith("is_obsolete: true"):
@@ -113,6 +116,8 @@ class UPhenoPhenotypeHomologyLoader(SourceDataLoader):
         generic_parent_counter = 0
         species_a_by_parent = defaultdict(set)
         species_b_by_parent = defaultdict(set)
+        # names are only kept for the terms that can end up in an edge, not for every term in the file
+        term_names = {}
 
         obo_file_path = os.path.join(self.data_path, self.data_file)
         for term in iter_obo_terms(obo_file_path):
@@ -128,8 +133,10 @@ class UPhenoPhenotypeHomologyLoader(SourceDataLoader):
                 generic_parent_counter += 1
                 if curie_has_prefix(term_id, self.species_a_phenotype_prefixes):
                     species_a_by_parent[generic_parent].add(term_id)
+                    term_names[term_id] = term["name"]
                 elif curie_has_prefix(term_id, self.species_b_phenotype_prefixes):
                     species_b_by_parent[generic_parent].add(term_id)
+                    term_names[term_id] = term["name"]
 
         inferred_pairs, inference_metadata = infer_homology_pairs(
             species_a_by_parent,
@@ -137,7 +144,12 @@ class UPhenoPhenotypeHomologyLoader(SourceDataLoader):
         )
 
         for (species_a_term, species_b_term), generic_parents in sorted(inferred_pairs.items()):
-            self._write_homology_edge(species_a_term, species_b_term, sorted(generic_parents))
+            self._write_homology_edge(
+                species_a_term,
+                species_b_term,
+                sorted(generic_parents),
+                term_names,
+            )
 
         common_generic_parents = set(species_a_by_parent) & set(species_b_by_parent)
         candidate_edges = sum(
@@ -160,13 +172,16 @@ class UPhenoPhenotypeHomologyLoader(SourceDataLoader):
         species_a_term: str,
         species_b_term: str,
         generic_parents: list[str],
+        term_names: dict[str, str],
     ) -> None:
         self.output_file_writer.write_node(
             node_id=species_a_term,
+            node_name=term_names.get(species_a_term, ""),
             node_types=[PHENOTYPIC_FEATURE],
         )
         self.output_file_writer.write_node(
             node_id=species_b_term,
+            node_name=term_names.get(species_b_term, ""),
             node_types=[PHENOTYPIC_FEATURE],
         )
         self.output_file_writer.write_edge(
