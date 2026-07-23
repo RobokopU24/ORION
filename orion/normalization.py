@@ -10,6 +10,7 @@ from orion.biolink_constants import *
 from orion.biolink_utils import BiolinkUtils, BIOLINK_MODEL_VERSION
 from orion.logging import get_orion_logger
 from orion.config import config, standardize_biolink_model_version
+from orion.variant_norm_cache import VariantNormalizationCache, CACHED_NORMALIZATION_FAILURE
 
 logger = get_orion_logger("orion.normalization")
 
@@ -128,6 +129,9 @@ class NodeNormalizer:
         self.node_normalization_lookup = {}
         self.sequence_variant_normalizer = None
         self.variant_node_types = None
+        # a cache of previously normalized variants (ORION_VARIANT_NORM_CACHE), loaded lazily because
+        # it's only needed for sources that have sequence variants
+        self.variant_norm_cache = None
         self.requests_session = self.get_normalization_requests_session()
 
     def hit_node_norm_service(self, curies):
@@ -328,6 +332,37 @@ class NodeNormalizer:
         variant_ids = [node['id'] for node in variant_nodes]
         variant_nodes.clear()
 
+        # if a cache of previously normalized variants is configured, use it for the variants it covers,
+        # only the rest go to the genetics normalizer
+        if config.ORION_VARIANT_NORM_CACHE:
+            if self.variant_norm_cache is None:
+                self.variant_norm_cache = VariantNormalizationCache(config.ORION_VARIANT_NORM_CACHE)
+            uncached_variant_ids = []
+            for variant_id in variant_ids:
+                cached_variant_nodes = self.variant_norm_cache.get_normalized_variant_nodes(variant_id,
+                                                                                            variant_node_types)
+                if cached_variant_nodes is None:
+                    # not in the cache, it needs to be normalized
+                    uncached_variant_ids.append(variant_id)
+                elif cached_variant_nodes:
+                    variant_nodes.extend(cached_variant_nodes)
+                    normalized_ids = [node['id'] for node in cached_variant_nodes]
+                    self.node_normalization_lookup[variant_id] = normalized_ids
+                    if len(normalized_ids) > 1:
+                        # more than one normalized ID means the variant was a split
+                        self.variant_node_splits[variant_id] = normalized_ids
+                else:
+                    # an empty result means the variant is cached as a normalization failure
+                    self.handle_variant_normalization_failure(variant_id=variant_id,
+                                                              error_for_logs=CACHED_NORMALIZATION_FAILURE,
+                                                              variant_nodes=variant_nodes,
+                                                              variant_node_types=variant_node_types)
+            logger.info(f'Variant normalization cache provided results for '
+                        f'{len(variant_ids) - len(uncached_variant_ids)}/{len(variant_ids)} variants.')
+            variant_ids = uncached_variant_ids
+            if not variant_ids:
+                return variant_nodes
+
         sequence_variant_norms = self.sequence_variant_normalizer.normalize_variants(variant_ids)
         for variant_id, normalization_response in sequence_variant_norms.items():
             for normalization_info in normalization_response:
@@ -349,21 +384,10 @@ class NodeNormalizer:
                 else:
                     # otherwise an error occurred
                     error_for_logs = f'{normalization_info["error_type"]}: {normalization_info["error_message"]}'
-                    self.failed_to_normalize_variant_ids[variant_id] = error_for_logs
-                    if self.strict_normalization:
-                        self.node_normalization_lookup[variant_id] = None
-                    else:
-                        self.node_normalization_lookup[variant_id] = [variant_id]
-                        # TODO for now we dont preserve other properties on variant nodes that didnt normalize
-                        # the splitting makes that complicated and doesnt seem worth it until we have a good use case
-                        fake_normalized_node = {
-                            'id': variant_id,
-                            'name': variant_id,
-                            'category': variant_node_types,
-                            'equivalent_identifiers': [],
-                            'hgvs': []
-                        }
-                        variant_nodes.append(fake_normalized_node)
+                    self.handle_variant_normalization_failure(variant_id=variant_id,
+                                                              error_for_logs=error_for_logs,
+                                                              variant_nodes=variant_nodes,
+                                                              variant_node_types=variant_node_types)
             if len(normalization_response) > 1:
                 # if we have more than one response here assume it's a split variant and no errors
                 split_ids = [node['id'] for node in normalization_response]
@@ -373,6 +397,26 @@ class NodeNormalizer:
 
         return variant_nodes
 
+    def handle_variant_normalization_failure(self,
+                                             variant_id: str,
+                                             error_for_logs: str,
+                                             variant_nodes: list,
+                                             variant_node_types: list):
+        self.failed_to_normalize_variant_ids[variant_id] = error_for_logs
+        if self.strict_normalization:
+            self.node_normalization_lookup[variant_id] = None
+        else:
+            self.node_normalization_lookup[variant_id] = [variant_id]
+            # TODO for now we dont preserve other properties on variant nodes that didnt normalize
+            # the splitting makes that complicated and doesnt seem worth it until we have a good use case
+            fake_normalized_node = {
+                'id': variant_id,
+                'name': variant_id,
+                'category': variant_node_types,
+                'equivalent_identifiers': [],
+                'hgvs': []
+            }
+            variant_nodes.append(fake_normalized_node)
 
     @staticmethod
     def get_normalization_requests_session():
