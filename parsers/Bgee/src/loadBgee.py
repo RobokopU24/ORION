@@ -16,7 +16,6 @@ from orion.biolink_constants import (
     GENE,
     HAS_CONFIDENCE_LEVEL,
     HAS_CONFIDENCE_SCORE,
-    HAS_QUANTITATIVE_VALUE,
     KNOWLEDGE_LEVEL,
     ORIGINAL_OBJECT,
     ORIGINAL_SUBJECT,
@@ -159,7 +158,7 @@ class BgeeExpressionLoader(SourceDataLoader):
                     ADJUSTED_P_VALUE: fdr,
                     HAS_CONFIDENCE_LEVEL: row['Call quality'],
                     HAS_CONFIDENCE_SCORE: expression_score,
-                    HAS_QUANTITATIVE_VALUE: self.parse_float(row['Expression rank'], 'Expression rank'),
+                    'bgee_expression_rank': self.parse_float(row['Expression rank'], 'Expression rank'),
                     ORIGINAL_SUBJECT: row['Gene ID'],
                     ORIGINAL_OBJECT: row['Anatomical entity ID'],
                 }
