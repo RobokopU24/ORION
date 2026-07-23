@@ -293,12 +293,14 @@ def test_default_graph_spec_defines_robomouse(monkeypatch, test_graph_output_dir
                                  graph_output_dir=test_graph_output_dir)
 
     baseline_sources = [source.id for source in graph_builder.graph_specs['Baseline'].sources]
+    assert 'BgeeHuman' in baseline_sources
     assert 'HumanGOA' in baseline_sources
     assert 'MouseGOA' not in baseline_sources
 
     robomouse_graph = graph_builder.graph_specs['RoboMouseKG']
     assert [source.id for source in robomouse_graph.sources] == [
         'RobokopKG',
+        'BgeeMouse',
         'MouseGOA',
         'GenomeAllianceOrthologs',
         'MGIGenePhenotypes',

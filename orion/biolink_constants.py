@@ -66,6 +66,9 @@ NEGATED = 'negated'
 LOG_ODDS_RATIO = 'log_odds_ratio'
 LOG_ODDS_RATIO_95_CI = 'log_odds_ratio_95_ci'
 TOTAL_SAMPLE_SIZE = 'total_sample_size'
+HAS_CONFIDENCE_LEVEL = 'has_confidence_level'
+HAS_CONFIDENCE_SCORE = 'has_confidence_score'
+HAS_QUANTITATIVE_VALUE = 'has_quantitative_value'
 
 # enums for knowledge level
 KNOWLEDGE_ASSERTION = 'knowledge_assertion'
@@ -177,6 +180,9 @@ BIOLINK_EDGE_PROPERTIES = [
     LOG_ODDS_RATIO_95_CI,
     TOTAL_SAMPLE_SIZE,
     NEGATED,
+    HAS_CONFIDENCE_LEVEL,
+    HAS_CONFIDENCE_SCORE,
+    HAS_QUANTITATIVE_VALUE,
     # qualifiers
     ANATOMICAL_CONTEXT_QUALIFIER,
     CAUSAL_MECHANISM_QUALIFIER,

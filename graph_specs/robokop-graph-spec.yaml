@@ -25,6 +25,7 @@ graphs:
         # conflation: False
         # strict_normalization: True (whether or not data should be discarded when it can not be normalized)
         # merge_strategy: default (used to specify alternative merge strategies)
+      - id: BgeeHuman
       - id: CCIDB
       - id: CHEBIProps
       - id: ClinGenDosageSensitivity
@@ -75,6 +76,7 @@ graphs:
     output_format: neo4j
     sources:
       - id: RobokopKG
+      - id: BgeeMouse
       - id: MouseGOA
       - id: GenomeAllianceOrthologs
       - id: MGIGenePhenotypes
