@@ -102,7 +102,6 @@ def test_upheno_loader_infers_human_mouse_homology_edges(tmp_path):
         "primary_knowledge_source": "infores:upheno",
         "knowledge_level": "logical_entailment",
         "agent_type": "data_analysis_pipeline",
-        "supporting_data_source": "infores:upheno",
         "upheno_generic_parent": ["UPHENO:0000001"],
     }
     assert edges_by_subject_object[("HP:0000002", "MP:0000002")]["upheno_generic_parent"] == [

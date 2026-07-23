@@ -8,7 +8,6 @@ from orion.biolink_constants import (
     KNOWLEDGE_LEVEL,
     LOGICAL_ENTAILMENT,
     PHENOTYPIC_FEATURE,
-    SUPPORTING_DATA_SOURCE,
 )
 from orion.loader_interface import SourceDataLoader
 from orion.utils import GetData, GetDataPullError
@@ -192,7 +191,6 @@ class UPhenoPhenotypeHomologyLoader(SourceDataLoader):
             edge_properties={
                 KNOWLEDGE_LEVEL: LOGICAL_ENTAILMENT,
                 AGENT_TYPE: DATA_PIPELINE,
-                SUPPORTING_DATA_SOURCE: self.provenance_id,
                 "upheno_generic_parent": generic_parents,
             },
         )
