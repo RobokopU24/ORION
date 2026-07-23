@@ -15,7 +15,7 @@ class HetioLoader(SourceDataLoader):
 
     source_id: str = 'Hetio'
     provenance_id: str = 'infores:hetionet'
-    parsing_version: str = '1.5'
+    parsing_version: str = '1.6'
 
     def __init__(self, test_mode: bool = False, source_data_dir: str = None):
         """
