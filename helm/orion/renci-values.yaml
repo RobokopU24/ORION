@@ -4,7 +4,7 @@ replicaCount: 1
 
 # See the default values.yaml file for descriptions of options
 orion:
-  graphID: "all"
+  graphID: "Example_Graph"
   graphSpecUrl: ""
   graphSpecYaml: ""
   optionalGraphSpec: ""
@@ -12,17 +12,17 @@ orion:
   image:
     repository: ghcr.io/robokopu24/orion
     pullPolicy: IfNotPresent
-    tag: v1.3.3
+    tag: v2.0.0
   graphsVolume:
     use_nfs: true
     nfs_server: na-projects.edc.renci.org
     nfs_path: /stars/Data_services
-    nfs_mount_subpath: biolink3/graphs/
+    nfs_mount_subpath: ORION_graphs/
   sourcesVolume:
     use_nfs: true
     nfs_server: na-projects.edc.renci.org
     nfs_path: /stars/Data_services
-    nfs_mount_subpath: biolink3/storage/
+    nfs_mount_subpath: ORION_storage/
   extraVolume:
     use_extra_volume: true
     nfs_server: na-projects.edc.renci.org
@@ -40,14 +40,14 @@ orion:
       memory: 32Gi
       ephemeral-storage: 1Gi
   securityContext:
-    runAsUser: 30000
+    runAsUser: # your user ID
     runAsGroup: 1000
   normalization:
     nodeNormEndpoint: https://nodenormalization-sri.renci.org/
     edgeNormEndpoint: https://bl-lookup-sri.renci.org/
     nameResolverEndpoint: https://name-resolution-sri.renci.org/
     sapbertEndpoint: https://sap-qdrant.apps.renci.org/
-    bl_version: 4.3.5
+    bl_version: v4.4.2
   outputURL: https://robokop.renci.org/graphs/
 
 pharos:

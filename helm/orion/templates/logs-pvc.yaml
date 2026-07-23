@@ -1,0 +1,17 @@
+{{- if and .Values.orion.logsVolume.enabled (not .Values.orion.logsVolume.use_nfs) }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: ds-logs-pvc
+  annotations:
+    "helm.sh/resource-policy": keep
+spec:
+  accessModes:
+  - ReadWriteOnce
+  resources:
+    requests:
+      storage: {{ .Values.orion.logsVolume.size }}
+    limits:
+      storage: {{ .Values.orion.logsVolume.size }}
+  storageClassName: basic
+{{- end }}

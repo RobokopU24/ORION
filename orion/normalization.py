@@ -9,7 +9,7 @@ from robokop_genetics.genetics_normalization import GeneticsNormalizer
 from orion.biolink_constants import *
 from orion.biolink_utils import BiolinkUtils, BIOLINK_MODEL_VERSION
 from orion.logging import get_orion_logger
-from orion.config import config
+from orion.config import config, standardize_biolink_model_version
 
 logger = get_orion_logger("orion.normalization")
 
@@ -55,6 +55,8 @@ class NormalizationScheme:
             self.babel_version = get_current_babel_version()
         if self.edge_normalization_version in (None, 'latest'):
             self.edge_normalization_version = BIOLINK_MODEL_VERSION
+        else:
+            self.edge_normalization_version = standardize_biolink_model_version(self.edge_normalization_version)
 
     def get_composite_normalization_version(self):
         composite_normalization_version = f'{self.babel_version}_{self.node_normalization_version}_' \

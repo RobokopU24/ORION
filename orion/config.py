@@ -13,6 +13,12 @@ DEFAULT_WORKSPACE_DIR = Path.home() / "ORION-workspace"
 _logger = logging.getLogger("orion.config")
 
 
+def standardize_biolink_model_version(version: str) -> str:
+    # biolink-model GitHub tags and the bl-lookup /versions endpoint are both 'v'-prefixed
+    # (e.g. v4.4.2); ensure exactly one leading 'v' so the two spellings can't diverge.
+    return version if version.startswith("v") else f"v{version}"
+
+
 class Config(BaseSettings):
     model_config = SettingsConfigDict(
         env_file=Path(__file__).parent.parent/".env",
@@ -26,6 +32,11 @@ class Config(BaseSettings):
         if isinstance(v, str) and info.field_name.endswith("_URL"):
             return v.rstrip("/")
         return v
+
+    @field_validator("BL_VERSION", mode="after")
+    @classmethod
+    def standardize_bl_version(cls, v: str) -> str:
+        return standardize_biolink_model_version(v)
 
     ORION_STORAGE: str | None = None
     ORION_GRAPHS: str | None = None

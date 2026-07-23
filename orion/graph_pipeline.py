@@ -10,7 +10,7 @@ from xxhash import xxh64_hexdigest
 
 from orion.utils import GetDataPullError
 from orion.logging import get_orion_logger
-from orion.config import config
+from orion.config import config, standardize_biolink_model_version
 from orion.data_sources import get_available_data_sources
 from orion.exceptions import DataVersionError, GraphSpecError
 from orion.ingest_pipeline import IngestPipeline
@@ -36,6 +36,7 @@ from orion.kgx_metadata import (
     KGXGraphMetadata,
     KGXKnowledgeSource,
     KGXKnowledgeGraphSource,
+    KGX_ENCODING_FORMAT,
     generate_kgx_schema_file,
 )
 
@@ -216,16 +217,18 @@ class GraphBuilder:
             if not os.path.exists(redundant_filepath):
                 generate_redundant_kg(kgx_bundle.edges_path, redundant_filepath)
             logger.info(f'Starting Neo4j dump pipeline for redundant {graph_id}...')
+            dump_filename = f'{graph_id}_{release_version}_redundant.db.dump'
             dump_success = create_neo4j_dump(nodes_filepath=kgx_bundle.nodes_path,
                                              edges_filepath=redundant_filepath,
                                              output_directory=graph_output_dir,
                                              graph_id=graph_id,
                                              release_version=release_version,
+                                             dump_filename=dump_filename,
                                              node_property_ignore_list=node_property_ignore_list,
                                              edge_property_ignore_list=edge_property_ignore_list)
             if dump_success:
                 dump_distribution_entries.append(self._dump_distribution_entry(
-                    "neo4j_redundant", f'{graph_output_url}graph_{release_version}_redundant.db.dump'))
+                    "neo4j_redundant", f'{graph_output_url}{dump_filename}'))
 
         if 'collapsed_qualifiers_jsonl' in output_formats:
             logger.info(f'Generating collapsed qualifier predicates KG for {graph_id}...')
@@ -238,43 +241,48 @@ class GraphBuilder:
             if not os.path.exists(collapsed_qualifiers_filepath):
                 generate_collapsed_qualifiers_kg(kgx_bundle.edges_path, collapsed_qualifiers_filepath)
             logger.info(f'Starting Neo4j dump pipeline for {graph_id} with collapsed qualifiers...')
+            dump_filename = f'{graph_id}_{release_version}_collapsed_qualifiers.db.dump'
             dump_success = create_neo4j_dump(nodes_filepath=kgx_bundle.nodes_path,
                                              edges_filepath=collapsed_qualifiers_filepath,
                                              output_directory=graph_output_dir,
                                              graph_id=graph_id,
                                              release_version=release_version,
+                                             dump_filename=dump_filename,
                                              node_property_ignore_list=node_property_ignore_list,
                                              edge_property_ignore_list=edge_property_ignore_list)
             if dump_success:
                 dump_distribution_entries.append(self._dump_distribution_entry(
-                    "neo4j_collapsed_qualifiers",
-                    f'{graph_output_url}graph_{release_version}_collapsed_qualifiers.db.dump'))
+                    "neo4j_collapsed_qualifiers", f'{graph_output_url}{dump_filename}'))
 
         if 'neo4j' in output_formats:
             logger.info(f'Starting Neo4j dump pipeline for {graph_id}...')
+            dump_filename = f'{graph_id}_{release_version}.db.dump'
             dump_success = create_neo4j_dump(nodes_filepath=kgx_bundle.nodes_path,
                                              edges_filepath=kgx_bundle.edges_path,
                                              output_directory=graph_output_dir,
                                              graph_id=graph_id,
                                              release_version=release_version,
+                                             dump_filename=dump_filename,
                                              node_property_ignore_list=node_property_ignore_list,
                                              edge_property_ignore_list=edge_property_ignore_list)
             if dump_success:
                 dump_distribution_entries.append(self._dump_distribution_entry(
-                    "neo4j", f'{graph_output_url}graph_{release_version}.db.dump'))
+                    "neo4j", f'{graph_output_url}{dump_filename}'))
 
         if 'memgraph' in output_formats:
             logger.info(f'Starting memgraph dump pipeline for {graph_id}...')
-            dump_success = create_memgraph_dump(nodes_filepath=kgx_bundle.nodes_path,
-                                                edges_filepath=kgx_bundle.edges_path,
-                                                output_directory=graph_output_dir,
-                                                graph_id=graph_id,
-                                                release_version=release_version,
-                                                node_property_ignore_list=node_property_ignore_list,
-                                                edge_property_ignore_list=edge_property_ignore_list)
-            if dump_success:
-                dump_distribution_entries.append(self._dump_distribution_entry(
-                    "memgraph", f'{graph_output_url}memgraph_{release_version}.cypher'))
+            create_memgraph_dump(nodes_filepath=kgx_bundle.nodes_path,
+                                 edges_filepath=kgx_bundle.edges_path,
+                                 output_directory=graph_output_dir,
+                                 graph_id=graph_id,
+                                 release_version=release_version,
+                                 node_property_ignore_list=node_property_ignore_list,
+                                 edge_property_ignore_list=edge_property_ignore_list)
+            # We're intentionally not creating a dump distribution entry here for memgraph,
+            # a memgraph dump is a whole set of files (a nodes csv, a per-predicate edge csv
+            # for each relationship type, an index cypher, and a manifest) that a single distribution
+            # contentUrl can't represent. We may want to make a tar of all the memgraph files and point
+            # to that if we continue to support memgraph into the future.
 
         if 'answercoalesce' in output_formats:
             logger.info(f'Generating answercoalesce files for {graph_id}...')
@@ -515,11 +523,7 @@ class GraphBuilder:
             babel_version=babel_version,
             kg_sources=kg_sources,
             knowledge_sources=knowledge_sources,
-            distribution=[{
-                "@type":"DataDownload",
-                "encodingFormat":"biolink:KGX",
-                "contentUrl":graph_output_url,
-            }]
+            distribution=self._kgx_bundle_distribution_entries(graph_output_url)
         )
 
         # Write graph metadata file
@@ -575,15 +579,28 @@ class GraphBuilder:
         return config.BL_VERSION
 
     @staticmethod
-    def _graph_babel_version(graph_spec: GraphSpec):
+    def _graph_babel_version(graph_spec: GraphSpec) -> str:
         normalization_scheme = GraphBuilder._first_normalization_scheme(graph_spec)
         if normalization_scheme is not None:
-            return normalization_scheme.node_normalization_version
-        return None
+            return normalization_scheme.babel_version
+        return ""
 
     @staticmethod
     def _dump_distribution_entry(name: str, content_url: str) -> dict:
         return {"@type": "DataDownload", "name": name, "contentUrl": content_url}
+
+    @staticmethod
+    def _kgx_bundle_distribution_entries(graph_output_url: str) -> list[dict]:
+        return [
+            {"@type": "DataDownload", "name": "nodes", "encodingFormat": KGX_ENCODING_FORMAT,
+             "contentUrl": f'{graph_output_url}{KGXBundle.NODES_FILENAME}.gz'},
+            {"@type": "DataDownload", "name": "edges", "encodingFormat": KGX_ENCODING_FORMAT,
+             "contentUrl": f'{graph_output_url}{KGXBundle.EDGES_FILENAME}.gz'},
+            {"@type": "DataDownload", "name": "graph-metadata", "encodingFormat": "application/ld+json",
+             "contentUrl": f'{graph_output_url}{KGXBundle.GRAPH_METADATA_FILENAME}'},
+            {"@type": "DataDownload", "name": "schema", "encodingFormat": "application/ld+json",
+             "contentUrl": f'{graph_output_url}{KGXBundle.SCHEMA_FILENAME}'},
+        ]
 
     @staticmethod
     def _append_distribution_entries(graph_metadata_path: str, entries: list[dict]):
@@ -683,6 +700,8 @@ class GraphBuilder:
                     graph_wide_node_norm_version = get_current_node_norm_version()
                 if graph_wide_edge_norm_version == 'latest':
                     graph_wide_edge_norm_version = config.BL_VERSION
+                elif graph_wide_edge_norm_version is not None:
+                    graph_wide_edge_norm_version = standardize_biolink_model_version(graph_wide_edge_norm_version)
 
                 # Apply graph-wide normalization to parser sources, overwriting anything set
                 # at the source level. Pinned sources and graph dependencies carry no normalization

@@ -78,12 +78,29 @@ class GraphRegistryClient:
         return files
 
     @staticmethod
-    def _content_base_url(graph_metadata: dict) -> str | None:
-        distribution = graph_metadata.get('distribution') or []
-        for entry in distribution:
-            content_url = entry.get('contentUrl')
-            if content_url:
-                return content_url if content_url.endswith('/') else content_url + '/'
+    def _resolve_file_url(graph_metadata: dict, filename: str) -> str | None:
+        """The download URL for a single bundle file, from a graph's distribution entries.
+
+        Current metadata lists one entry per file, so the file's URL is matched by basename. Two
+        fallbacks keep older/partial metadata working: a file that isn't listed on its own (e.g.
+        schema.json, which lives in the 'schema' field rather than distribution) shares the bundle's
+        directory, derived from any listed file; and legacy metadata that described the whole bundle
+        with a single directory-style contentUrl has the filename appended to it.
+        """
+        content_urls = [entry.get('contentUrl') for entry in (graph_metadata.get('distribution') or [])
+                        if entry.get('contentUrl')]
+        # A distribution entry pointing directly at this file.
+        for content_url in content_urls:
+            if content_url.rsplit('/', 1)[-1] == filename:
+                return content_url
+        # Otherwise derive the bundle directory from another listed file (all files share it).
+        for content_url in content_urls:
+            if not content_url.endswith('/'):
+                return f"{content_url.rsplit('/', 1)[0]}/{filename}"
+        # Legacy: a single directory-style entry describing the whole bundle.
+        for content_url in content_urls:
+            if content_url.endswith('/'):
+                return f'{content_url}{filename}'
         return None
 
     def download_file(self,
@@ -91,19 +108,15 @@ class GraphRegistryClient:
                       filename: str,
                       destination_path: str,
                       graph_metadata: dict) -> str:
-        """Download a single file from a graph's distribution.
-
-        filename is the basename within the graph's directory (e.g., 'nodes.jsonl.gz').
-        The absolute URL is resolved via graph_metadata['distribution'][0]['contentUrl'],
-        so this works the same whether the metadata was fetched by release or build version.
-        """
-        base = self._content_base_url(graph_metadata)
-        if not base:
+        """Download a single bundle file (e.g. 'nodes.jsonl.gz') by resolving its URL from the
+        graph's distribution entries, which works the same whether the metadata was fetched by
+        release or build version."""
+        url = self._resolve_file_url(graph_metadata, filename)
+        if not url:
             raise GraphRegistryError(
                 f'No distribution.contentUrl found for {graph_id}; '
                 f'cannot resolve download URL for {filename}.'
             )
-        url = f'{base}{filename}'
         os.makedirs(os.path.dirname(destination_path) or '.', exist_ok=True)
         tmp_path = destination_path + '.tmp'
         try:
