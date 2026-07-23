@@ -78,11 +78,8 @@ graphs:
       - id: MouseGOA
       - id: GenomeAllianceOrthologs
       - id: MGIGenePhenotypes
-        strict_normalization: False
       - id: MGIGeneDisease
-        strict_normalization: False
       - id: MGIPhenotypeAnatomy
-        strict_normalization: False
       - id: UPhenoHumanMousePhenotypeHomology
       - id: OntologicalHierarchy
         merge_strategy: connected_edge_subset
