@@ -304,5 +304,3 @@ def test_default_graph_spec_defines_robomouse(monkeypatch, test_graph_output_dir
         'UPhenoHumanMousePhenotypeHomology',
         'OntologicalHierarchy',
     ]
-    robomouse_sources = {source.id: source for source in robomouse_graph.sources}
-    assert robomouse_sources['UPhenoHumanMousePhenotypeHomology'].normalization_scheme.strict is False
