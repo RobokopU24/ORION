@@ -20,7 +20,7 @@ class MonarchKGBaseLoader(SourceDataLoader):
 
     source_id: str = None  # overridden by subclass
     provenance_id: str = 'infores:monarchinitiative'
-    parsing_version: str = '1.5'
+    parsing_version: str = '1.6'
 
     def __init__(self, test_mode: bool = False, source_data_dir: str = None):
         """
@@ -174,6 +174,7 @@ class MonarchKGLoader(MonarchKGBaseLoader):
         }
 
         self.knowledge_source_ignore_list = {
+            'infores:bgee',
             'infores:ctd',
             'infores:reactome',
             'infores:goa',

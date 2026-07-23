@@ -25,6 +25,7 @@ graphs:
         # conflation: False
         # strict_normalization: True (whether or not data should be discarded when it can not be normalized)
         # merge_strategy: default (used to specify alternative merge strategies)
+      - id: BgeeHuman
       - id: CCIDB
       - id: CHEBIProps
       - id: ClinGenDosageSensitivity
@@ -69,14 +70,20 @@ graphs:
 
   - graph_id: RoboMouseKG
     graph_name: RoboMouse KG
-    graph_description: 'RoboMouse KG extends ROBOKOP KG with mouse Gene Ontology annotations, Alliance of Genome Resources orthology relationships, and UPheno-derived human/mouse phenotype homology relationships.'
+    graph_description: 'RoboMouse KG extends ROBOKOP KG with mouse Gene Ontology annotations, Alliance of Genome Resources orthology relationships, UPheno-derived human/mouse phenotype homology relationships, and selected Mouse Genome Informatics phenotype, disease, and anatomy associations'
     graph_url: http://robokop.renci.org/
     conflation: True
     output_format: neo4j
+    edge_merging_attributes:
+      - taxon
     sources:
       - id: RobokopKG
+      - id: BgeeMouse
       - id: MouseGOA
       - id: GenomeAllianceOrthologs
+      - id: MGIGenePhenotypes
+      - id: MGIGeneDisease
+      - id: MGIPhenotypeAnatomy
       - id: UPhenoHumanMousePhenotypeHomology
       - id: OntologicalHierarchy
         merge_strategy: connected_edge_subset

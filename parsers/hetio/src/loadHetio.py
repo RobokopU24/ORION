@@ -15,7 +15,7 @@ class HetioLoader(SourceDataLoader):
 
     source_id: str = 'Hetio'
     provenance_id: str = 'infores:hetionet'
-    parsing_version: str = '1.5'
+    parsing_version: str = '1.6'
 
     def __init__(self, test_mode: bool = False, source_data_dir: str = None):
         """
@@ -27,6 +27,7 @@ class HetioLoader(SourceDataLoader):
         # set global variables
         self.hetio_retrieval_script_path = os.path.dirname(os.path.abspath(__file__))
         self.data_file: str = 'hetionet-v1.0.json.bz2'
+        self.knowledge_source_ignore_list = {'infores:bgee'}
 
         # look up table for CURIE prefixes
         self.node_type_to_curie_lookup = {
@@ -101,8 +102,15 @@ class HetioLoader(SourceDataLoader):
 
             # grab the relevant part of the json for edges
             edges_array = hetnet_json['edges'] if not self.test_mode else hetnet_json['edges'][:1000]
+            filtered_edges_array = []
+            skipped_filtered_counter = 0
+            for edge in edges_array:
+                if edge_has_ignored_knowledge_source(edge, self.knowledge_source_ignore_list):
+                    skipped_filtered_counter += 1
+                    continue
+                filtered_edges_array.append(edge)
 
-            extractor.json_extract(edges_array, # subject
+            extractor.json_extract(filtered_edges_array, # subject
                                    lambda edge: get_curie_from_hetio_node(edge['source_id'][1], edge['source_id'][0]),
                                    # object
                                    lambda edge: get_curie_from_hetio_node(edge['target_id'][1], edge['target_id'][0]),
@@ -115,7 +123,9 @@ class HetioLoader(SourceDataLoader):
             self.logger.debug(f'Parsing data file complete.')
 
             # return to the caller
-            return extractor.load_metadata
+            load_metadata = extractor.load_metadata
+            load_metadata['lines_skipped_due_to_filtering'] = skipped_filtered_counter
+            return load_metadata
 
 
 def get_curie_from_hetio_node(hetio_node_id, node_kind):
@@ -179,12 +189,7 @@ def get_predicate_from_edge(edge, kind_to_abbrev_lookup):
     # MEDLINE cooccurrence edges of this type get assigned "has phenotye" but often have the wrong directionality
     # throw them out
     if hetio_abbrev == 'DpS':
-        edge_sources = None
-        edge_data = edge['data']
-        if 'source' in edge_data:
-            edge_sources = [edge_data['source']]
-        elif 'sources' in edge_data:
-            edge_sources = edge_data['sources']
+        edge_sources = get_edge_sources(edge)
         if edge_sources and 'MEDLINE cooccurrence' in edge_sources:
             return None
 
@@ -205,16 +210,29 @@ hetio_source_to_provenance_lookup = {
 }
 
 
+def get_edge_sources(edge):
+    edge_data = edge['data']
+    if 'source' in edge_data:
+        return [edge_data['source']]
+    if 'sources' in edge_data:
+        return edge_data['sources']
+    return []
+
+
+def edge_has_ignored_knowledge_source(edge, knowledge_source_ignore_list):
+    for source in get_edge_sources(edge):
+        provenance = hetio_source_to_provenance_lookup.get(source)
+        if provenance in knowledge_source_ignore_list:
+            return True
+    return False
+
+
 def get_edge_properties(edge):
     edge_props = {
         KNOWLEDGE_LEVEL: NOT_PROVIDED,
         AGENT_TYPE: NOT_PROVIDED
     }
-    edge_data = edge['data']
-    if 'source' in edge_data:
-        edge_sources = [edge_data['source']]
-    elif 'sources' in edge_data:
-        edge_sources = edge_data['sources']
+    edge_sources = get_edge_sources(edge)
     for source in edge_sources:
         provenance = hetio_source_to_provenance_lookup.get(source, None)
         if provenance:
