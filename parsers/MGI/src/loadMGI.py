@@ -264,11 +264,11 @@ class MGIGenePhenotypesLoader(MGILoader):
                     edge_properties = _shared_edge_properties()
                     edge_properties.update(
                         {
-                            "mgi_allelic_composition": allelic_composition,
-                            "mgi_allele_symbols": allele_symbols,
-                            "mgi_allele_ids": allele_ids,
-                            "mgi_genetic_background": genetic_background,
-                            "mgi_genotype_id": genotype_id,
+                            "mgi_allelic_composition": [allelic_composition],
+                            "mgi_allele_symbols": [allele_symbols],
+                            "mgi_allele_ids": [allele_ids],
+                            "mgi_genetic_background": [genetic_background],
+                            "mgi_genotype_id": [genotype_id],
                         }
                     )
                     publications = _pubmed_ids_to_curies(pubmed_ids)
