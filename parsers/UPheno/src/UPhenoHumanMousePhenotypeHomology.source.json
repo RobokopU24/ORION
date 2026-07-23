@@ -1,0 +1,14 @@
+{
+  "@context": "https://schema.org",
+  "@type": "Dataset",
+  "identifier": "infores:upheno",
+  "name": "UPheno human/mouse phenotype homology",
+  "description": "Human-to-mouse phenotype homology relationships inferred from HP and MP classes that directly subclass the same species-independent UPheno phenotype.",
+  "url": "https://github.com/obophenotype/upheno",
+  "attribution": "https://github.com/obophenotype/upheno",
+  "citation": [
+    "https://doi.org/10.1093/genetics/iyaf027"
+  ],
+  "license": "https://github.com/obophenotype/upheno/blob/master/LICENSE",
+  "contentUrl": "https://purl.obolibrary.org/obo/upheno.obo"
+}
