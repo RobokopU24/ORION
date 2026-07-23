@@ -278,9 +278,9 @@ class GraphBuilder:
                                  release_version=release_version,
                                  node_property_ignore_list=node_property_ignore_list,
                                  edge_property_ignore_list=edge_property_ignore_list)
-            # We're intentionally not creating a dump distribution entry here for memgraph, 
-            # a memgraph dump is a whole set of files (a nodes csv, a per-predicate edge csv 
-            # for each relationship type, an index cypher, and a manifest) that a single distribution 
+            # We're intentionally not creating a dump distribution entry here for memgraph,
+            # a memgraph dump is a whole set of files (a nodes csv, a per-predicate edge csv
+            # for each relationship type, an index cypher, and a manifest) that a single distribution
             # contentUrl can't represent. We may want to make a tar of all the memgraph files and point
             # to that if we continue to support memgraph into the future.
 
@@ -579,11 +579,11 @@ class GraphBuilder:
         return config.BL_VERSION
 
     @staticmethod
-    def _graph_babel_version(graph_spec: GraphSpec):
+    def _graph_babel_version(graph_spec: GraphSpec) -> str:
         normalization_scheme = GraphBuilder._first_normalization_scheme(graph_spec)
         if normalization_scheme is not None:
-            return normalization_scheme.node_normalization_version
-        return None
+            return normalization_scheme.babel_version
+        return ""
 
     @staticmethod
     def _dump_distribution_entry(name: str, content_url: str) -> dict:
