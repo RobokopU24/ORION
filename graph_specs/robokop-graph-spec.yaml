@@ -74,6 +74,8 @@ graphs:
     graph_url: http://robokop.renci.org/
     conflation: True
     output_format: neo4j
+    edge_merging_attributes:
+      - taxon
     sources:
       - id: RobokopKG
       - id: BgeeMouse
