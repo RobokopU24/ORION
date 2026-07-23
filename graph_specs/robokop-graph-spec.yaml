@@ -78,7 +78,6 @@ graphs:
       - id: MouseGOA
       - id: GenomeAllianceOrthologs
       - id: UPhenoHumanMousePhenotypeHomology
-        strict_normalization: False
       - id: OntologicalHierarchy
         merge_strategy: connected_edge_subset
 
