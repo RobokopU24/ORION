@@ -69,7 +69,7 @@ graphs:
 
   - graph_id: RoboMouseKG
     graph_name: RoboMouse KG
-    graph_description: 'RoboMouse KG extends ROBOKOP KG with mouse Gene Ontology annotations, Alliance of Genome Resources orthology relationships, and selected Mouse Genome Informatics phenotype, disease, and anatomy associations.'
+    graph_description: 'RoboMouse KG extends ROBOKOP KG with mouse Gene Ontology annotations, Alliance of Genome Resources orthology relationships, UPheno-derived human/mouse phenotype homology relationships, and selected Mouse Genome Informatics phenotype, disease, and anatomy associations'
     graph_url: http://robokop.renci.org/
     conflation: True
     output_format: neo4j
@@ -83,6 +83,7 @@ graphs:
         strict_normalization: False
       - id: MGIPhenotypeAnatomy
         strict_normalization: False
+      - id: UPhenoHumanMousePhenotypeHomology
       - id: OntologicalHierarchy
         merge_strategy: connected_edge_subset
 

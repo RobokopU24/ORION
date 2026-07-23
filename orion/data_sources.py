@@ -55,6 +55,7 @@ TEXT_MINING_KP = 'textminingkp'
 UBERGRAPH_NONREDUNDANT = 'UbergraphNonredundant'
 UBERGRAPH_REDUNDANT = 'UbergraphRedundant'
 UNIREF = 'UniRef'
+UPHENO_HUMAN_MOUSE_PHENOTYPE_HOMOLOGY = 'UPhenoHumanMousePhenotypeHomology'
 VP = 'ViralProteome'
 YEAST_HISTONES = 'YeastHistoneMapping'
 YEAST_COSTANZA = 'Costanza2016Data'
@@ -119,6 +120,7 @@ SOURCE_DATA_LOADER_CLASS_IMPORTS = {
     UBERGRAPH_NONREDUNDANT: ("parsers.UberGraph.src.loadUG", "UGLoader"),
     UBERGRAPH_REDUNDANT: ("parsers.UberGraph.src.loadUG", "UGRedundantLoader"),
     UNIREF: ("parsers.ViralProteome.src.loadUniRef", "UniRefSimLoader"),
+    UPHENO_HUMAN_MOUSE_PHENOTYPE_HOMOLOGY: ("parsers.UPheno.src.loadUPheno", "UPhenoHumanMousePhenotypeHomologyLoader"),
     VP: ("parsers.ViralProteome.src.loadVP", "VPLoader"),
     YEAST_HISTONES: ("parsers.yeast.src.loadHistoneMap", "YeastHistoneMapLoader"),
     YEAST_COSTANZA: ("parsers.yeast.src.loadCostanza2016", "Costanza2016Loader"),

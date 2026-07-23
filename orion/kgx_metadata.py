@@ -8,6 +8,9 @@ from orion.biolink_utils import BiolinkUtils
 from orion.biolink_constants import *
 
 
+# encodingFormat marking a distribution entry as one of a graph's KGX bundle files (nodes/edges),
+KGX_ENCODING_FORMAT = 'biolink:KGX'
+
 # orion-namespaced keys used in published KGX metadata
 ORION_BUILD_VERSION = 'orion:buildVersion'
 ORION_BABEL_VERSION = 'orion:babelVersion'

@@ -44,6 +44,16 @@ orion:
     nfs_path:
     nfs_mount_subpath:
     size: 32Gi # if use_nfs is set to true size is ignored
+  # Optional volume mounted at /ORION_logs for ORION's rotating log files. When disabled ORION logs to
+  # stdout only, which is what you want when kubernetes is aggregating and writing logs ie with Grafana Loki.
+  # Note that when nfs_mount_subpath is set the directories must already exist.
+  logsVolume:
+    enabled: false
+    use_nfs: false
+    nfs_server:
+    nfs_path:
+    nfs_mount_subpath:
+    size: 4Gi # if use_nfs is set to true size is ignored
   extraVolume:
     use_extra_volume:
     nfs_server:

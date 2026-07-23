@@ -289,8 +289,13 @@ def test_build_graph_end_to_end_multi_source(tmp_path, monkeypatch):
         assert build_metadata_path.exists()
         with open(build_metadata_path) as f:
             build_metadata = json.load(f)
-        content_url = build_metadata['distribution'][0]['contentUrl']
-        assert content_url.endswith(f'/{source_id}/{build_metadata["version"]}/')
+
+        distribution_urls = {entry['contentUrl'] for entry in build_metadata['distribution']}
+        graph_dir_url_suffix = f'/{source_id}/{build_metadata["version"]}/'
+        assert any(url.endswith(f'{graph_dir_url_suffix}nodes.jsonl.gz') for url in distribution_urls)
+        assert any(url.endswith(f'{graph_dir_url_suffix}edges.jsonl.gz') for url in distribution_urls)
+        assert any(url.endswith(f'{graph_dir_url_suffix}graph-metadata.json') for url in distribution_urls)
+        assert any(url.endswith(f'{graph_dir_url_suffix}schema.json') for url in distribution_urls)
 
     # --- Parent metadata records both sources (single source of truth: graph-metadata.json) ---
     parent_meta_file = parent_dir / 'graph-metadata.json'
