@@ -111,7 +111,7 @@ def test_bgee_loader_filters_by_expression_and_fdr(tmp_path):
             'adjusted_p_value': 0.0001,
             'has_confidence_level': 'gold quality',
             'has_confidence_score': 95.5,
-            'has_quantitative_value': 120.0,
+            'bgee_expression_rank': 120.0,
             'original_subject': 'ENSG00000000001',
             'original_object': 'UBERON:0002107',
         }
