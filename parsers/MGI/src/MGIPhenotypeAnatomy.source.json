@@ -1,0 +1,14 @@
+{
+  "@context": "https://schema.org",
+  "@type": "Dataset",
+  "identifier": "infores:mgi",
+  "name": "MGI MP to EMAPA Associations",
+  "description": "Mouse Genome Informatics associations between Mammalian Phenotype terms and mouse anatomical entities from EMAPA.",
+  "url": "https://www.informatics.jax.org/",
+  "attribution": "Mouse Genome Informatics",
+  "citation": [
+    "https://www.informatics.jax.org/"
+  ],
+  "license": "CC BY 4.0",
+  "contentUrl": "https://www.informatics.jax.org/downloads/reports/MP_EMAPA.rpt"
+}

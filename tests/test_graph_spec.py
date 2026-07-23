@@ -301,6 +301,9 @@ def test_default_graph_spec_defines_robomouse(monkeypatch, test_graph_output_dir
         'RobokopKG',
         'MouseGOA',
         'GenomeAllianceOrthologs',
+        'MGIGenePhenotypes',
+        'MGIGeneDisease',
+        'MGIPhenotypeAnatomy',
         'UPhenoHumanMousePhenotypeHomology',
         'OntologicalHierarchy',
     ]
