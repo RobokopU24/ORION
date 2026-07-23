@@ -1,6 +1,7 @@
 import csv
 import gzip
 import os
+import time
 from pathlib import Path
 
 import requests
@@ -58,7 +59,10 @@ def _download_reports(report_names: tuple[str, ...], data_path: str) -> bool:
     return True
 
 
-def _download_report(report_name: str, data_path: str, max_attempts: int = 20) -> None:
+def _download_report(report_name: str, data_path: str, max_attempts: int = 5) -> None:
+    # MGI may have issues with intermittent download failures leading to truncated files.
+    # This download function attempts to avoid those issues, instead of using the typical GetData
+    # fetch utilities.
     os.makedirs(data_path, exist_ok=True)
     url = _report_url(report_name)
     output_path = os.path.join(data_path, report_name)
@@ -66,30 +70,34 @@ def _download_report(report_name: str, data_path: str, max_attempts: int = 20) -
     headers = {"User-Agent": "Mozilla/5.0 (compatible; ORION MGI ingest)"}
 
     try:
-        head_response = requests.head(url, headers=headers, timeout=30)
+        head_response = requests.head(url, headers=headers, timeout=30, allow_redirects=True)
         head_response.raise_for_status()
         expected_size = int(head_response.headers.get("content-length") or 0)
     except Exception as e:
         raise GetDataPullError(f"Error checking MGI report size for {url}: {repr(e)}-{e}")
 
+    # Without a content-length there is no way to tell a complete download from a truncated one,
+    # and no way to trust an existing file or resume a .part file. Right now MGI always sends
+    # content-length, so if we don't receive it fail loudly.
+    if not expected_size:
+        raise GetDataPullError(f"No content-length provided for MGI report {url}, "
+                               f"downloads can not be verified")
+
     if os.path.exists(output_path):
-        if not expected_size or os.path.getsize(output_path) == expected_size:
+        if os.path.getsize(output_path) == expected_size:
             return
         os.remove(output_path)
 
-    # A .part file can only be trusted as a resume point (or promoted directly) once its size is
-    # verified against a known expected_size. Without that signal we cannot tell a complete
-    # download from a truncated one, so discard it and start over rather than risk silently
-    # treating a stale/truncated file as complete.
-    if os.path.exists(part_path):
-        if not expected_size or os.path.getsize(part_path) > expected_size:
-            os.remove(part_path)
+    # A .part file bigger than the current expected size is stale (ie. left over from a previous,
+    # larger release) - resuming from it would request a range past the end of the resource.
+    if os.path.exists(part_path) and os.path.getsize(part_path) > expected_size:
+        os.remove(part_path)
 
     last_error = None
     for attempt in range(1, max_attempts + 1):
-        # Only resume from a .part file when expected_size lets us verify the eventual result;
-        # otherwise always start the attempt fresh (see the discard above and its docstring note).
-        existing_part_size = os.path.getsize(part_path) if (expected_size and os.path.exists(part_path)) else 0
+        if attempt > 1:
+            time.sleep(3 * (attempt - 1))
+        existing_part_size = os.path.getsize(part_path) if os.path.exists(part_path) else 0
         request_headers = dict(headers)
         file_mode = "wb"
         if existing_part_size:
@@ -106,7 +114,7 @@ def _download_report(report_name: str, data_path: str, max_attempts: int = 20) -
                         if chunk:
                             output_file.write(chunk)
             current_size = os.path.getsize(part_path)
-            if expected_size and current_size != expected_size:
+            if current_size != expected_size:
                 last_error = (
                     f"Downloaded {current_size} bytes for {url}, expected {expected_size} "
                     f"(attempt {attempt}/{max_attempts})"

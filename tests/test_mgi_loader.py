@@ -3,6 +3,9 @@ import json
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
+import pytest
+
+from orion.utils import GetDataPullError
 from parsers.MGI.src.loadMGI import (
     MGIGeneDiseaseLoader,
     MGIGenePhenotypesLoader,
@@ -85,11 +88,11 @@ def test_mgi_gene_phenotypes_filters_to_gene_markers_and_preserves_properties(tm
     assert first_edge["object"] == "MP:0000001"
     assert first_edge["primary_knowledge_source"] == "infores:mgi"
     assert first_edge["publications"] == ["PMID:12345"]
-    assert first_edge["mgi_allelic_composition"] == "a/a"
-    assert first_edge["mgi_allele_symbols"] == "Allele A"
-    assert first_edge["mgi_allele_ids"] == "MGI:allele1"
-    assert first_edge["mgi_genetic_background"] == "involves: C57BL/6J"
-    assert first_edge["mgi_genotype_id"] == "MGI:geno1"
+    assert first_edge["mgi_allelic_composition"] == ["a/a"]
+    assert first_edge["mgi_allele_symbols"] == ["Allele A"]
+    assert first_edge["mgi_allele_ids"] == ["MGI:allele1"]
+    assert first_edge["mgi_genetic_background"] == ["involves: C57BL/6J"]
+    assert first_edge["mgi_genotype_id"] == ["MGI:geno1"]
 
 
 def test_mgi_gene_disease_uses_mouse_gene_rows_only_and_omits_omim(tmp_path):
@@ -181,22 +184,37 @@ def _mock_get_response(body: bytes, status_code: int = 200):
     return response
 
 
-def test_download_report_discards_unverifiable_partial_file(tmp_path):
+def test_download_report_fails_without_content_length(tmp_path):
     # a stale/truncated .part file is left over from an earlier interrupted attempt
     part_path = tmp_path / "MGI_GenePheno.rpt.part"
     part_path.write_bytes(b"TRUNCATED-STALE-DATA")
 
-    real_body = b"a full, correct report body"
+    # without a Content-Length a download can not be verified, and neither the .part file nor
+    # anything we download can be trusted to be complete - fail instead of guessing
     with patch("parsers.MGI.src.loadMGI.requests.head", return_value=_mock_head_response(None)), \
-            patch("parsers.MGI.src.loadMGI.requests.get", return_value=_mock_get_response(real_body)) as mock_get:
-        _download_report("MGI_GenePheno.rpt", str(tmp_path), max_attempts=1)
+            patch("parsers.MGI.src.loadMGI.requests.get") as mock_get:
+        with pytest.raises(GetDataPullError):
+            _download_report("MGI_GenePheno.rpt", str(tmp_path), max_attempts=1)
 
-    # the server never reported a Content-Length, so the stale .part file must not have been
-    # trusted -- a real download must have happened and produced the real body
-    mock_get.assert_called_once()
-    assert (tmp_path / "MGI_GenePheno.rpt").read_bytes() == real_body
-    # and it must not have been resumed (no Range header) since size was unverifiable
-    assert "Range" not in mock_get.call_args.kwargs["headers"]
+    mock_get.assert_not_called()
+    assert not (tmp_path / "MGI_GenePheno.rpt").exists()
+
+
+def test_download_report_retries_truncated_download_after_a_backoff(tmp_path):
+    full_body = b"0123456789"
+
+    with patch("parsers.MGI.src.loadMGI.requests.head",
+               return_value=_mock_head_response(len(full_body))), \
+            patch("parsers.MGI.src.loadMGI.time.sleep") as mock_sleep, \
+            patch("parsers.MGI.src.loadMGI.requests.get",
+                  side_effect=[_mock_get_response(full_body[:4]),
+                               _mock_get_response(full_body[4:], status_code=206)]) as mock_get:
+        _download_report("MGI_DO.rpt", str(tmp_path), max_attempts=2)
+
+    # the first attempt came up short, so the second one waited and then resumed where it left off
+    assert mock_sleep.call_count == 1
+    assert mock_get.call_args_list[1].kwargs["headers"]["Range"] == "bytes=4-"
+    assert (tmp_path / "MGI_DO.rpt").read_bytes() == full_body
 
 
 def test_download_report_skips_redownload_when_output_matches_expected_size(tmp_path):
