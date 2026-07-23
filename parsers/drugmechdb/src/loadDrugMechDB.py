@@ -85,7 +85,6 @@ class DrugMechDBLoader(SourceDataLoader):
         """
         # call the super
         super().__init__(test_mode=test_mode, source_data_dir=source_data_dir)
-        self.drugmechdb_version = self.get_latest_source_version()
         self.drugmechdb_data_url = f"https://github.com/SuLab/DrugMechDB/raw/main/"
         self.drugmechdb_file_name = f"indication_paths.json"
         self.data_files = [self.drugmechdb_file_name]
@@ -103,10 +102,9 @@ class DrugMechDBLoader(SourceDataLoader):
         session = requests.Session()
         retries = Retry(total=5, backoff_factor=2)
         session.mount('https://', HTTPAdapter(max_retries=retries))
-        response = session.get('https://github.com/SuLab/DrugMechDB', timeout=30)
+        response = session.get('https://api.github.com/repos/SuLab/DrugMechDB/releases/latest', timeout=30)
         response.raise_for_status()
-        version_index = response.text.index('/SuLab/DrugMechDB/releases/tag/') + 31
-        return response.text[version_index:version_index + 5]
+        return response.json()['tag_name']
 
     def get_data(self) -> int:
         """
