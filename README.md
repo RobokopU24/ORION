@@ -47,7 +47,6 @@ The following commands are available (prefix with `uv run` if not using a uv-man
 | `orion-merge`         | Merge pairs of KGX node/edge files into one knowledge graph                                    |
 | `orion-meta-kg`       | Generate MetaKG and test data files                                                            |
 | `orion-redundant-kg`  | Generate edge files with redundant biolink predicates                                          |
-| `orion-ac`            | Generate AnswerCoalesce files                                                                  |
 | `orion-neo4j-dump`    | Generate Neo4j database dumps                                                                  |
 | `orion-memgraph-dump` | Generate Memgraph database dumps                                                               |
 
@@ -102,7 +101,7 @@ Graph Specs allow a number of options for customization. The following parameter
 
 The following can be set at the graph level:
 
-- **output_format** - which database/file formats to generate. Valid values: `jsonl` (the default KGX node/edge files, always produced), `neo4j`, `memgraph`, `redundant_jsonl`, `redundant_neo4j`, `collapsed_qualifiers_jsonl`, `collapsed_qualifiers_neo4j`, `answercoalesce`. Combine multiple with `+`, e.g. `neo4j+jsonl`. The `neo4j`/`memgraph` formats (and the Reactome ingest) require a Neo4j installation; the provided Docker image includes it. If Neo4j is not installed, the dump is logged as an error and skipped, but the rest of the graph still builds.
+- **output_format** - which database/file formats to generate. Valid values: `jsonl` (the default KGX node/edge files, always produced), `neo4j`, `memgraph`, `redundant_jsonl`, `redundant_neo4j`, `collapsed_qualifiers_jsonl`, `collapsed_qualifiers_neo4j`. Combine multiple with `+`, e.g. `neo4j+jsonl`. The `neo4j`/`memgraph` formats (and the Reactome ingest) require a Neo4j installation; the provided Docker image includes it. If Neo4j is not installed, the dump is logged as an error and skipped, but the rest of the graph still builds.
 - **add_edge_id** - whether to add unique identifiers to edges (true/false)
 - **edge_id_type** - if add_edge_id is true, the type of identifier can be specified (uuid or orion)
 - **base_release_version** - release version floor for the graph (e.g. `"2.0"` or `"2.1.0"`)
