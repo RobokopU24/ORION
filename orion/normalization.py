@@ -10,6 +10,7 @@ from orion.biolink_constants import *
 from orion.biolink_utils import BiolinkUtils, BIOLINK_MODEL_VERSION
 from orion.logging import get_orion_logger
 from orion.config import config, standardize_biolink_model_version
+from orion.utils import flatten_field_whitespace
 
 logger = get_orion_logger("orion.normalization")
 
@@ -282,7 +283,7 @@ class NodeNormalizer:
                 if 'information_content' in current_node_normalization:
                     current_node[INFORMATION_CONTENT] = current_node_normalization[INFORMATION_CONTENT]
                 if current_node_normalization.get('descriptions'):
-                    current_node[DESCRIPTION] = current_node_normalization['descriptions'][0]
+                    current_node[DESCRIPTION] = flatten_field_whitespace(current_node_normalization['descriptions'][0])
                 if current_node_normalization.get('taxa'):
                     current_node[TAXON] = current_node_normalization['taxa'][0]
 

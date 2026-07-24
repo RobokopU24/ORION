@@ -17,6 +17,18 @@ from orion.logging import get_orion_logger
 logger = get_orion_logger("orion.utils")
 
 
+def flatten_field_whitespace(value):
+    # Remove newline/tab characters from a value.
+    # These characters are usually valid in json outputs but break neo4j-admin 
+    # imports when present in csv import files and generally aren't intended.
+    s = str(value)
+    if '\n' in s or '\r' in s:
+        s = ''.join(part.strip() for part in s.splitlines())
+    if '\t' in s:
+        s = s.replace('\t', '')
+    return s
+
+
 class GetDataPullError(Exception):
     def __init__(self, error_message: str):
         self.error_message = error_message
