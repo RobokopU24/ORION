@@ -149,16 +149,23 @@ class GraphBuilder:
                                              babel_version=babel_version)
             logger.info(f'Building graph {graph_id} complete!')
 
-        # --- Additional artifacts (QC, schema, meta KG, dumps, alternate formats). These run
-        #     whether the core bundle was just built or already existed, backfilling anything
+        # --- Additional artifacts (QC, schema, meta KG, dumps, alternate formats). These can 
+        #     run whether the core bundle was just built or already existed, backfilling anything
         #     missing. ---
+        needs_qc = not kgx_bundle.has_qc_results()
+        needs_schema = not kgx_bundle.has_schema()
+        needs_meta_kg = not self.has_meta_kg(graph_directory=graph_output_dir)
+        needs_test_data = not self.has_test_data(graph_directory=graph_output_dir)
+        output_formats = graph_spec.graph_output_format.lower().split('+') if graph_spec.graph_output_format else []
+        needs_outputs = self._outputs_need_raw_jsonl(output_formats, graph_output_dir, graph_id, release_version)
 
-        # On re-runs of an already-built graph, the raw jsonl files may have been
-        # gzipped and removed by a previous run. Restore them so the trailing steps
-        # (QC, schema, neo4j/memgraph/AC dumps, etc.) can read raw jsonl.
-        kgx_bundle.decompress_nodes_and_edges()
+        # On re-runs of an already-built graph the raw jsonl files may have been gzipped and
+        # removed by a previous run. Restore them so the steps below can read raw jsonl - but
+        # only when something below actually needs them.
+        if needs_qc or needs_schema or needs_meta_kg or needs_test_data or needs_outputs:
+            kgx_bundle.decompress_nodes_and_edges()
 
-        if not kgx_bundle.has_qc_results():
+        if needs_qc:
             logger.info(f'Running QC for graph {graph_id}...')
             qc_results = validate_graph(nodes_file_path=kgx_bundle.nodes_path,
                                         edges_file_path=kgx_bundle.edges_path,
@@ -172,7 +179,7 @@ class GraphBuilder:
             else:
                 logger.warning(f'QC failed for graph {graph_id}.')
 
-        if not kgx_bundle.has_schema():
+        if needs_schema:
             logger.info(f'Generating KGX Schema for {graph_id}...')
             generate_kgx_schema_file(nodes_filepath=kgx_bundle.nodes_path,
                                      edges_filepath=kgx_bundle.edges_path,
@@ -185,19 +192,18 @@ class GraphBuilder:
         # Dump URLs produced below are recorded as distribution entries on graph-metadata.json.
         dump_distribution_entries = []
 
-        needs_meta_kg = not self.has_meta_kg(graph_directory=graph_output_dir)
-        needs_test_data = not self.has_test_data(graph_directory=graph_output_dir)
         if needs_meta_kg or needs_test_data:
             logger.info(f'Generating MetaKG and test data for {graph_id}...')
             self.generate_meta_kg_and_test_data(graph_directory=graph_output_dir,
                                                 generate_meta_kg=needs_meta_kg,
                                                 generate_test_data=needs_test_data)
 
-        output_formats = graph_spec.graph_output_format.lower().split('+') if graph_spec.graph_output_format else []
-
         # TODO allow these to be specified in the graph spec
         node_property_ignore_list = {'robokop_variant_id'}
         edge_property_ignore_list = None
+
+        redundant_edges_path = os.path.join(graph_output_dir, REDUNDANT_EDGES_FILENAME)
+        collapsed_edges_path = os.path.join(graph_output_dir, COLLAPSED_QUALIFIERS_FILENAME)
 
         # TODO revaluate how the output formats relate to each other, the combinations are getting unwieldy..
         #  For example, if redundant is requested should that be what is used for neo4j/memgraph etc? or do we output
@@ -207,19 +213,19 @@ class GraphBuilder:
         #  combinations, like:
         #  output_format: [['redundant', 'neo4j', 'answercoalesce'], ['collapsed_qualifiers'], ['neo4j']]
         if 'redundant_jsonl' in output_formats:
-            logger.info(f'Generating redundant edge KG for {graph_id}...')
-            redundant_filepath = kgx_bundle.edges_path.replace(KGXBundle.EDGES_FILENAME, REDUNDANT_EDGES_FILENAME)
-            generate_redundant_kg(kgx_bundle.edges_path, redundant_filepath)
+            if not (os.path.exists(redundant_edges_path) or os.path.exists(redundant_edges_path + '.gz')):
+                logger.info(f'Generating redundant edge KG for {graph_id}...')
+                generate_redundant_kg(kgx_bundle.edges_path, redundant_edges_path)
 
         if 'redundant_neo4j' in output_formats:
-            logger.info(f'Generating redundant edge KG for {graph_id}...')
-            redundant_filepath = kgx_bundle.edges_path.replace(KGXBundle.EDGES_FILENAME, REDUNDANT_EDGES_FILENAME)
-            if not os.path.exists(redundant_filepath):
-                generate_redundant_kg(kgx_bundle.edges_path, redundant_filepath)
-            logger.info(f'Starting Neo4j dump pipeline for redundant {graph_id}...')
             dump_filename = f'{graph_id}_{release_version}_redundant.db.dump'
+            if not os.path.exists(os.path.join(graph_output_dir, dump_filename)) \
+                    and not os.path.exists(redundant_edges_path):
+                logger.info(f'Generating redundant edge KG for {graph_id}...')
+                generate_redundant_kg(kgx_bundle.edges_path, redundant_edges_path)
+            logger.info(f'Starting Neo4j dump pipeline for redundant {graph_id}...')
             dump_success = create_neo4j_dump(nodes_filepath=kgx_bundle.nodes_path,
-                                             edges_filepath=redundant_filepath,
+                                             edges_filepath=redundant_edges_path,
                                              output_directory=graph_output_dir,
                                              graph_id=graph_id,
                                              release_version=release_version,
@@ -231,19 +237,19 @@ class GraphBuilder:
                     "neo4j_redundant", f'{graph_output_url}{dump_filename}'))
 
         if 'collapsed_qualifiers_jsonl' in output_formats:
-            logger.info(f'Generating collapsed qualifier predicates KG for {graph_id}...')
-            collapsed_qualifiers_filepath = kgx_bundle.edges_path.replace(KGXBundle.EDGES_FILENAME, COLLAPSED_QUALIFIERS_FILENAME)
-            generate_collapsed_qualifiers_kg(kgx_bundle.edges_path, collapsed_qualifiers_filepath)
+            if not (os.path.exists(collapsed_edges_path) or os.path.exists(collapsed_edges_path + '.gz')):
+                logger.info(f'Generating collapsed qualifier predicates KG for {graph_id}...')
+                generate_collapsed_qualifiers_kg(kgx_bundle.edges_path, collapsed_edges_path)
 
         if 'collapsed_qualifiers_neo4j' in output_formats:
-            logger.info(f'Generating collapsed qualifier predicates KG for {graph_id}...')
-            collapsed_qualifiers_filepath = kgx_bundle.edges_path.replace(KGXBundle.EDGES_FILENAME, COLLAPSED_QUALIFIERS_FILENAME)
-            if not os.path.exists(collapsed_qualifiers_filepath):
-                generate_collapsed_qualifiers_kg(kgx_bundle.edges_path, collapsed_qualifiers_filepath)
-            logger.info(f'Starting Neo4j dump pipeline for {graph_id} with collapsed qualifiers...')
             dump_filename = f'{graph_id}_{release_version}_collapsed_qualifiers.db.dump'
+            if not os.path.exists(os.path.join(graph_output_dir, dump_filename)) \
+                    and not os.path.exists(collapsed_edges_path):
+                logger.info(f'Generating collapsed qualifier predicates KG for {graph_id}...')
+                generate_collapsed_qualifiers_kg(kgx_bundle.edges_path, collapsed_edges_path)
+            logger.info(f'Starting Neo4j dump pipeline for {graph_id} with collapsed qualifiers...')
             dump_success = create_neo4j_dump(nodes_filepath=kgx_bundle.nodes_path,
-                                             edges_filepath=collapsed_qualifiers_filepath,
+                                             edges_filepath=collapsed_edges_path,
                                              output_directory=graph_output_dir,
                                              graph_id=graph_id,
                                              release_version=release_version,
@@ -302,19 +308,48 @@ class GraphBuilder:
         # Compress any other jsonl nodes/edges files
         jsonl_files_to_compress = []
         if 'redundant_jsonl' in output_formats or 'redundant_neo4j' in output_formats:
-            jsonl_files_to_compress.append(
-                kgx_bundle.edges_path.replace(KGXBundle.EDGES_FILENAME, REDUNDANT_EDGES_FILENAME))
+            jsonl_files_to_compress.append(redundant_edges_path)
         if ('collapsed_qualifiers_jsonl' in output_formats
                 or 'collapsed_qualifiers_neo4j' in output_formats):
-            jsonl_files_to_compress.append(
-                kgx_bundle.edges_path.replace(KGXBundle.EDGES_FILENAME, COLLAPSED_QUALIFIERS_FILENAME))
+            jsonl_files_to_compress.append(collapsed_edges_path)
         for jsonl_path in jsonl_files_to_compress:
-            kgx_bundle.compress_jsonl(jsonl_path)
+            if os.path.exists(jsonl_path):
+                kgx_bundle.compress_jsonl(jsonl_path)
 
         # Record any db dumps that were produced as distribution entries on graph-metadata.json.
         self._append_distribution_entries(kgx_bundle.graph_metadata_path, dump_distribution_entries)
         self._record_build_result(graph_spec, release_version, graph_output_dir)
         return True
+
+    @staticmethod
+    def _outputs_need_raw_jsonl(output_formats: list, graph_output_dir: str,
+                                graph_id: str, release_version: str) -> bool:
+        """Whether any requested output format has work that reads the raw nodes/edges jsonl.
+        A format whose final product already exists is skipped by its branch in merge_and_finalize,
+        so it doesn't need the jsonl restored. memgraph and answercoalesce have no reliable
+        already-built check, so when requested we conservatively assume the jsonl is needed."""
+        def dump_missing(suffix: str) -> bool:
+            return not os.path.exists(
+                os.path.join(graph_output_dir, f'{graph_id}_{release_version}{suffix}.db.dump'))
+
+        def edges_file_missing(filename: str) -> bool:
+            path = os.path.join(graph_output_dir, filename)
+            return not (os.path.exists(path) or os.path.exists(path + '.gz'))
+
+        for output_format in output_formats:
+            if output_format == 'neo4j' and dump_missing(''):
+                return True
+            elif output_format == 'redundant_neo4j' and dump_missing('_redundant'):
+                return True
+            elif output_format == 'collapsed_qualifiers_neo4j' and dump_missing('_collapsed_qualifiers'):
+                return True
+            elif output_format == 'redundant_jsonl' and edges_file_missing(REDUNDANT_EDGES_FILENAME):
+                return True
+            elif output_format == 'collapsed_qualifiers_jsonl' and edges_file_missing(COLLAPSED_QUALIFIERS_FILENAME):
+                return True
+            elif output_format in ('memgraph', 'answercoalesce'):
+                return True
+        return False
 
     # Determine the release_version and build_version for a graph.
     def determine_versions(self, graph_spec: GraphSpec):
