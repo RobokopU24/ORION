@@ -93,10 +93,19 @@ class KGXBundle:
 
     def decompress_nodes_and_edges(self):
         for f in [self.nodes_path, self.edges_path]:
-            if f.endswith('.gz'):
-                decompressed_path = f.removesuffix('.gz')
-                tmp_path = decompressed_path + '.tmp'
-                with gzip.open(f, 'rb') as src, open(tmp_path, 'wb') as dst:
-                    shutil.copyfileobj(src, dst, length=1024 * 1024)
-                os.replace(tmp_path, decompressed_path)
-                os.remove(f)
+            self.decompress_jsonl(f)
+
+    # Restore a jsonl file from its .gz and remove the .gz. Takes either the compressed or the
+    # uncompressed path, and does nothing if there is no .gz to restore from. Writes to a temp
+    # file and renames so a crash mid-decompression won't leave a truncated jsonl behind.
+    @staticmethod
+    def decompress_jsonl(jsonl_path: str):
+        gz_path = jsonl_path if jsonl_path.endswith('.gz') else jsonl_path + '.gz'
+        if not os.path.exists(gz_path):
+            return
+        decompressed_path = gz_path.removesuffix('.gz')
+        tmp_path = decompressed_path + '.tmp'
+        with gzip.open(gz_path, 'rb') as src, open(tmp_path, 'wb') as dst:
+            shutil.copyfileobj(src, dst, length=1024 * 1024)
+        os.replace(tmp_path, decompressed_path)
+        os.remove(gz_path)

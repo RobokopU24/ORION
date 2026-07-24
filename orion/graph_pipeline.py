@@ -213,6 +213,8 @@ class GraphBuilder:
             dump_filename = self._neo4j_dump_filename(graph_id, release_version, '_redundant')
             if not os.path.exists(os.path.join(graph_output_dir, dump_filename)):
                 kgx_bundle.decompress_nodes_and_edges()
+                # A previous build may have left these edges gzipped; restore rather than regenerate.
+                kgx_bundle.decompress_jsonl(redundant_edges_path)
                 if not os.path.exists(redundant_edges_path):
                     logger.info(f'Generating redundant edge KG for {graph_id}...')
                     generate_redundant_kg(kgx_bundle.edges_path, redundant_edges_path)
@@ -239,6 +241,8 @@ class GraphBuilder:
             dump_filename = self._neo4j_dump_filename(graph_id, release_version, '_collapsed_qualifiers')
             if not os.path.exists(os.path.join(graph_output_dir, dump_filename)):
                 kgx_bundle.decompress_nodes_and_edges()
+                # A previous build may have left these edges gzipped; restore rather than regenerate.
+                kgx_bundle.decompress_jsonl(collapsed_edges_path)
                 if not os.path.exists(collapsed_edges_path):
                     logger.info(f'Generating collapsed qualifier predicates KG for {graph_id}...')
                     generate_collapsed_qualifiers_kg(kgx_bundle.edges_path, collapsed_edges_path)
