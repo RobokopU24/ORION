@@ -22,7 +22,6 @@ CLI_ENTRY_POINTS = [
     ('orion.cli.merge_kgs', 'main'),
     ('orion.cli.generate_meta_kg', 'main'),
     ('orion.cli.generate_redundant_kg', 'main'),
-    ('orion.cli.generate_ac_files', 'main'),
     ('orion.cli.neo4j_dump', 'main'),
     ('orion.cli.memgraph_dump', 'main'),
 ]

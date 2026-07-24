@@ -30,7 +30,6 @@ from orion.source_resolution import SourceResolver
 from orion.supplementation import SequenceVariantSupplementation
 from orion.meta_kg import MetaKnowledgeGraphBuilder, META_KG_FILENAME, TEST_DATA_FILENAME, EXAMPLE_DATA_FILENAME
 from orion.redundant_kg import generate_redundant_kg
-from orion.answercoalesce_build import generate_ac_files
 from orion.collapse_qualifiers import generate_collapsed_qualifiers_kg
 from orion.kgx_metadata import (
     KGXGraphMetadata,
@@ -207,11 +206,10 @@ class GraphBuilder:
 
         # TODO revaluate how the output formats relate to each other, the combinations are getting unwieldy..
         #  For example, if redundant is requested should that be what is used for neo4j/memgraph etc? or do we output
-        #  multiple db dumps for each possible variant? As of now all desired outputs must be specified independently
-        #  except redundant graphs are always used for AC if present. It might be best to allow specification of
-        #  separate chains of transformations to be processed in order, so that it's easy to be explicit about the
-        #  combinations, like:
-        #  output_format: [['redundant', 'neo4j', 'answercoalesce'], ['collapsed_qualifiers'], ['neo4j']]
+        #  multiple db dumps for each possible variant? As of now all desired outputs must be specified independently.
+        #  It might be best to allow specification of separate chains of transformations to be processed in order,
+        #  so that it's easy to be explicit about the combinations, like:
+        #  output_format: [['redundant', 'neo4j'], ['collapsed_qualifiers'], ['neo4j']]
         if 'redundant_jsonl' in output_formats:
             if not (os.path.exists(redundant_edges_path) or os.path.exists(redundant_edges_path + '.gz')):
                 logger.info(f'Generating redundant edge KG for {graph_id}...')
@@ -290,16 +288,6 @@ class GraphBuilder:
             # contentUrl can't represent. We may want to make a tar of all the memgraph files and point
             # to that if we continue to support memgraph into the future.
 
-        if 'answercoalesce' in output_formats:
-            logger.info(f'Generating answercoalesce files for {graph_id}...')
-            if 'redundant_jsonl' in output_formats or 'redundant_neo4j' in output_formats:
-                edge_filepath_to_use = kgx_bundle.edges_path.replace(KGXBundle.EDGES_FILENAME, REDUNDANT_EDGES_FILENAME)
-            else:
-                edge_filepath_to_use = kgx_bundle.edges_path
-            ac_output_dir = os.path.join(graph_output_dir, "answercoalesce")
-            os.makedirs(ac_output_dir, exist_ok=True)
-            generate_ac_files(kgx_bundle.nodes_path, edge_filepath_to_use, ac_output_dir)
-
         # All processing is complete. Replace the final jsonl files with gzipped
         # versions so downloads are smaller/faster.
         logger.info(f'Compressing final jsonl files for {graph_id}...')
@@ -326,8 +314,8 @@ class GraphBuilder:
                                 graph_id: str, release_version: str) -> bool:
         """Whether any requested output format has work that reads the raw nodes/edges jsonl.
         A format whose final product already exists is skipped by its branch in merge_and_finalize,
-        so it doesn't need the jsonl restored. memgraph and answercoalesce have no reliable
-        already-built check, so when requested we conservatively assume the jsonl is needed."""
+        so it doesn't need the jsonl restored. memgraph has no reliable already-built check, so
+        when requested we conservatively assume the jsonl is needed."""
         def dump_missing(suffix: str) -> bool:
             return not os.path.exists(
                 os.path.join(graph_output_dir, f'{graph_id}_{release_version}{suffix}.db.dump'))
@@ -347,7 +335,7 @@ class GraphBuilder:
                 return True
             elif output_format == 'collapsed_qualifiers_jsonl' and edges_file_missing(COLLAPSED_QUALIFIERS_FILENAME):
                 return True
-            elif output_format in ('memgraph', 'answercoalesce'):
+            elif output_format == 'memgraph':
                 return True
         return False
 
