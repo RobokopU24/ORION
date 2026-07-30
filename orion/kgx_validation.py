@@ -25,8 +25,13 @@ def convert_spo_count_to_dict(spo_count_dict):
 def validate_graph(nodes_file_path: str,
                    edges_file_path: str,
                    graph_id: str = None,
-                   graph_version: str = None,
+                   release_version: str = None,
+                   build_version: str = None,
                    logger=None):
+
+    # for log messages only — graph builds have a release_version (semver); source ingest QC
+    # passes a build_version (hash) for the source's pipeline run.
+    version_label = release_version or build_version
 
     qc_metadata = {
         'pass': True,
@@ -172,7 +177,7 @@ def validate_graph(nodes_file_path: str,
         infores_status = bl_inforesources.get_infores_status(knowledge_source)
         if infores_status == INFORES_STATUS_DEPRECATED:
             deprecated_infores_ids.append(knowledge_source)
-            warning_message = f'QC for graph {graph_id} version {graph_version} ' \
+            warning_message = f'QC for graph {graph_id} ({version_label}) ' \
                               f'found a deprecated infores identifier: {knowledge_source}'
             if logger:
                 logger.warning(warning_message)
@@ -180,7 +185,7 @@ def validate_graph(nodes_file_path: str,
                 print(warning_message)
         elif infores_status == INFORES_STATUS_INVALID:
             invalid_infores_ids.append(knowledge_source)
-            warning_message = f'QC for graph {graph_id} version {graph_version} ' \
+            warning_message = f'QC for graph {graph_id} ({version_label}) ' \
                               f'found an invalid infores identifier: {knowledge_source}'
             if logger:
                 logger.warning(warning_message)

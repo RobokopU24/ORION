@@ -1,6 +1,6 @@
 # Public API
 from orion.kgx_file_merger import KGXFileMerger
-from orion.kgxmodel import GraphSpec, SubGraphSource
+from orion.kgxmodel import GraphSpec, GraphSource
 from orion.kgx_metadata import KGXGraphMetadata, KGXKnowledgeSource, generate_schema
 from orion.meta_kg import MetaKnowledgeGraphBuilder
 from orion.merging import MERGING_CODE_VERSION
@@ -9,7 +9,7 @@ from orion.normalization import NodeNormalizer, NormalizationScheme, NORMALIZATI
 
 __all__ = [
     "KGXFileMerger",
-    "GraphSpec", "SubGraphSource",
+    "GraphSpec", "GraphSource",
     "KGXGraphMetadata", "KGXKnowledgeSource", "generate_schema",
     "MetaKnowledgeGraphBuilder",
     "KGXFileNormalizer",

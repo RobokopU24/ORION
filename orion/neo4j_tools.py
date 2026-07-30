@@ -1,5 +1,6 @@
 import time
 import os
+import shutil
 import neo4j
 import subprocess
 import orion.kgx_file_converter as kgx_file_converter
@@ -10,6 +11,27 @@ from orion.config import config
 
 logger = get_orion_logger("orion.neo4j_tools")
 
+NEO4J_EXECUTABLES = ('neo4j-admin', 'neo4j')
+
+# neo4j-admin names the dump after the database it dumps and provides no way to override it,
+# so every dump lands here and create_neo4j_dump renames it to the name the caller asked for.
+NEO4J_ADMIN_DUMP_FILENAME = 'neo4j.dump'
+
+
+class Neo4jAvailabilityError(RuntimeError):
+    """Raised when the neo4j command line tools are needed but not installed/on PATH."""
+    pass
+
+
+def check_neo4j_available():
+    missing = [executable for executable in NEO4J_EXECUTABLES if shutil.which(executable) is None]
+    if missing:
+        raise Neo4jAvailabilityError(
+            f'Neo4j is required for this operation but the following were not found : {", ".join(missing)}.'
+            f'The Reactome ingest or any Graph Spec that produces a Neo4j dump require a Neo4j installation. '
+            f'It is recommended to run ORION via the provided Docker image which includes the appropriate '
+            f'Neo4j version.')
+
 
 class Neo4jTools:
 
@@ -19,6 +41,7 @@ class Neo4jTools:
                  https_port: int = 7473,
                  bolt_port: int = 7687,
                  password: str = None):
+        check_neo4j_available()
         self.host = neo4j_host
         self.http_port = http_port
         self.https_port = https_port
@@ -233,33 +256,37 @@ def create_neo4j_dump(nodes_filepath: str,
                       edges_filepath: str,
                       output_directory: str,
                       graph_id: str = 'graph',
-                      graph_version: str = '',
+                      release_version: str = '',
+                      dump_filename: str = NEO4J_ADMIN_DUMP_FILENAME,
                       node_property_ignore_list: set = None,
                       edge_property_ignore_list: set = None):
+    """Create a neo4j dump of the given KGX files at output_directory/dump_filename."""
+    graph_dump_file_path = os.path.join(output_directory, dump_filename)
+    if os.path.exists(graph_dump_file_path):
+        logger.info(f'Neo4j dump already exists for {graph_id}({release_version})')
+        return True
+
+    try:
+        check_neo4j_available()
+    except Neo4jAvailabilityError as e:
+        logger.error(f'Neo4j not available. Skipping Neo4j dump for {graph_id}({release_version}): {e}')
+        return False
+
     nodes_csv_filename = 'nodes.temp_csv'
     edges_csv_filename = 'edges.temp_csv'
     csv_nodes_file_path = os.path.join(output_directory, nodes_csv_filename)
     csv_edges_file_path = os.path.join(output_directory, edges_csv_filename)
     if os.path.exists(csv_nodes_file_path) and os.path.exists(csv_edges_file_path):
-        logger.info(f'CSV files were already created for {graph_id}({graph_version})')
+        logger.info(f'CSV files were already created for {graph_id}({release_version})')
     else:
-        logger.info(f'Creating CSV files for {graph_id}({graph_version})...')
+        logger.info(f'Creating CSV files for {graph_id}({release_version})...')
         kgx_file_converter.convert_jsonl_to_neo4j_csv(nodes_input_file=nodes_filepath,
                                                       edges_input_file=edges_filepath,
                                                       nodes_output_file=csv_nodes_file_path,
                                                       edges_output_file=csv_edges_file_path,
                                                       node_property_ignore_list=node_property_ignore_list,
                                                       edge_property_ignore_list=edge_property_ignore_list)
-        logger.info(f'CSV files created for {graph_id}({graph_version}).')
-
-    # would like to do the following, but apparently you can't specify a custom name for the dump now
-    # graph_dump_name = f'graph_{graph_version}.neo4j5.db.dump' if graph_version else 'graph.neo4j5.db.dump'
-    # graph_dump_file_path = os.path.join(output_directory, graph_dump_name)
-    graph_dump_name = 'neo4j.dump'
-    graph_dump_file_path = os.path.join(output_directory, graph_dump_name)
-    if os.path.exists(graph_dump_file_path):
-        logger.info(f'Neo4j dump already exists for {graph_id}({graph_version})')
-        return True
+        logger.info(f'CSV files created for {graph_id}({release_version}).')
 
     neo4j_access = Neo4jTools()
     try:
@@ -292,12 +319,20 @@ def create_neo4j_dump(nodes_filepath: str,
     finally:
         neo4j_access.close()
 
+    neo4j_admin_dump_path = os.path.join(output_directory, NEO4J_ADMIN_DUMP_FILENAME)
+    if neo4j_admin_dump_path != graph_dump_file_path:
+        if not os.path.exists(neo4j_admin_dump_path):
+            logger.error(f'Neo4j reported a successful dump for {graph_id}({release_version}) but '
+                         f'{neo4j_admin_dump_path} was not found.')
+            return False
+        os.replace(neo4j_admin_dump_path, graph_dump_file_path)
+
     # remove the temp csv files we made to do the neo4j import
     os.remove(csv_nodes_file_path)
     os.remove(csv_edges_file_path)
-    # remove the import.report neo4j generates, if successful it's typically empty
+    # remove the import.report neo4j generates, it's typically empty
     import_report_path = os.path.join(output_directory, 'import.report')
     if os.path.exists(import_report_path):
         os.remove(import_report_path)
-    logger.info(f'Success! Neo4j dump created with indexes for {graph_id}({graph_version})')
+    logger.info(f'Success! Neo4j dump created with indexes for {graph_id}({release_version})')
     return True

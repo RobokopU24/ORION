@@ -10,7 +10,7 @@ graphs:
       - abstract_id
     add_edge_id: True
     sources:
-      - source_id: LitCoin
+      - id: LitCoin
 
   - graph_id: LitCoin_ORION_BagelService
     graph_name: LitCoin ORION Bagel Service
@@ -22,4 +22,4 @@ graphs:
       - abstract_id
     add_edge_id: True
     sources:
-      - source_id: LitCoinBagelService
+      - id: LitCoinBagelService

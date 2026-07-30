@@ -2,6 +2,8 @@ from collections import defaultdict
 import importlib
 
 BINDING_DB = 'BINDING-DB'
+BGEE_HUMAN = 'BgeeHuman'
+BGEE_MOUSE = 'BgeeMouse'
 CAM_KP = 'CAM-KP'
 CCIDB = 'CCIDB'
 CEBS = 'CEBS'
@@ -28,6 +30,9 @@ HMDB = 'HMDB'
 HUMAN_GOA = 'HumanGOA'
 HPOA = 'HPOA'
 MOUSE_GOA = 'MouseGOA'
+MGI_GENE_PHENOTYPES = 'MGIGenePhenotypes'
+MGI_GENE_DISEASE = 'MGIGeneDisease'
+MGI_PHENOTYPE_ANATOMY = 'MGIPhenotypeAnatomy'
 INTACT = 'IntAct'
 LINCS = 'LINCS'
 LITCOIN = 'LitCoin'
@@ -55,6 +60,7 @@ TEXT_MINING_KP = 'textminingkp'
 UBERGRAPH_NONREDUNDANT = 'UbergraphNonredundant'
 UBERGRAPH_REDUNDANT = 'UbergraphRedundant'
 UNIREF = 'UniRef'
+UPHENO_HUMAN_MOUSE_PHENOTYPE_HOMOLOGY = 'UPhenoHumanMousePhenotypeHomology'
 VP = 'ViralProteome'
 YEAST_HISTONES = 'YeastHistoneMapping'
 YEAST_COSTANZA = 'Costanza2016Data'
@@ -62,11 +68,12 @@ YEAST_GSE61888 = 'YeastGSE61888'
 YEAST_GASCHDIAMIDE = 'YeastGaschDiamideGeneExpression'
 YEAST_STRING = 'STRING-DB-Yeast'
 
-RESOURCE_HOGS = [GTEX, GWAS_CATALOG, UNIREF, ONTOLOGICAL_HIERARCHY, UBERGRAPH_REDUNDANT,
-                 SGD, HUMAN_STRING]
+RESOURCE_HOGS = [GTEX, GWAS_CATALOG, UNIREF, ONTOLOGICAL_HIERARCHY, UBERGRAPH_REDUNDANT, SGD, HUMAN_STRING]
 
 SOURCE_DATA_LOADER_CLASS_IMPORTS = {
     BINDING_DB: ("parsers.BINDING.src.loadBINDINGDB", "BINDINGDBLoader"),
+    BGEE_HUMAN: ("parsers.Bgee.src.loadBgee", "BgeeHumanLoader"),
+    BGEE_MOUSE: ("parsers.Bgee.src.loadBgee", "BgeeMouseLoader"),
     CAM_KP: ("parsers.camkp.src.loadCAMKP", "CAMKPLoader"),
     CCIDB: ("parsers.CCIDB.src.loadCCIDB", "CCIDBLoader"),
     CEBS: ("parsers.CEBS.src.loadCEBS", "CEBSLoader"),
@@ -90,6 +97,9 @@ SOURCE_DATA_LOADER_CLASS_IMPORTS = {
     HUMAN_GOA: ("parsers.GOA.src.loadGOA", "HumanGOALoader"),
     HPOA: ("parsers.HPOA.src.loadHPOA", "HPOALoader"),
     MOUSE_GOA: ("parsers.GOA.src.loadGOA", "MouseGOALoader"),
+    MGI_GENE_PHENOTYPES: ("parsers.MGI.src.loadMGI", "MGIGenePhenotypesLoader"),
+    MGI_GENE_DISEASE: ("parsers.MGI.src.loadMGI", "MGIGeneDiseaseLoader"),
+    MGI_PHENOTYPE_ANATOMY: ("parsers.MGI.src.loadMGI", "MGIPhenotypeAnatomyLoader"),
     HUMAN_STRING: ("parsers.STRING.src.loadSTRINGDB", "HumanSTRINGDBLoader"),
     INTACT: ("parsers.IntAct.src.loadIA", "IALoader"),
     LINCS: ("parsers.LINCS.src.loadLINCS", "LINCSLoader"),
@@ -119,6 +129,7 @@ SOURCE_DATA_LOADER_CLASS_IMPORTS = {
     UBERGRAPH_NONREDUNDANT: ("parsers.UberGraph.src.loadUG", "UGLoader"),
     UBERGRAPH_REDUNDANT: ("parsers.UberGraph.src.loadUG", "UGRedundantLoader"),
     UNIREF: ("parsers.ViralProteome.src.loadUniRef", "UniRefSimLoader"),
+    UPHENO_HUMAN_MOUSE_PHENOTYPE_HOMOLOGY: ("parsers.UPheno.src.loadUPheno", "UPhenoHumanMousePhenotypeHomologyLoader"),
     VP: ("parsers.ViralProteome.src.loadVP", "VPLoader"),
     YEAST_HISTONES: ("parsers.yeast.src.loadHistoneMap", "YeastHistoneMapLoader"),
     YEAST_COSTANZA: ("parsers.yeast.src.loadCostanza2016", "Costanza2016Loader"),

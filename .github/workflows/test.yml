@@ -11,14 +11,6 @@ jobs:
       - name: Checkout the repository
         uses: actions/checkout@v4
 
-      - name: create env params
-        run: |
-          echo "ROBOKOP_HOME=$PWD" >> $GITHUB_ENV
-          mkdir -p $PWD/tests/workspace/storage
-          mkdir -p $PWD/tests/workspace/graphs
-          echo "ORION_STORAGE=$PWD/tests/workspace/storage" >> $GITHUB_ENV
-          echo "ORION_GRAPHS=$PWD/tests/workspace/graphs" >> $GITHUB_ENV
-
       - name: Install uv
         uses: astral-sh/setup-uv@v6
 

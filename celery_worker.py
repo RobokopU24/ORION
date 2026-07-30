@@ -24,12 +24,14 @@ celery_app.conf.update(
 @celery_app.task(name="orion.data_ingestion", queue="orion")
 def run_build_manager(task_data):
     print(f'task_data: {task_data}', flush=True)
-    # Run orion-build as a subprocess with the provided config
-    os.environ["ORION_GRAPH_SPEC"] = task_data["graph_spec_filename"]
+    # Resolve the additional graph spec path from the shared data directory and the supplied filename.
+    shared_data_dir = os.getenv('SHARED_SOURCE_DATA_PATH')
+    if not shared_data_dir:
+        raise RuntimeError('SHARED_SOURCE_DATA_PATH is not set; cannot locate the additional graph spec.')
+    additional_graph_spec = os.path.join(shared_data_dir, task_data["graph_spec_filename"])
     # no need to catch CalledProcessError exception, but rather let it propogate to Celery task handling
     result = subprocess.run(
-        ["orion-build", task_data["graph_id"], "--graph_specs_dir",
-         os.getenv('SHARED_SOURCE_DATA_PATH', None)],
+        ["orion-build", task_data["graph_id"], "--graph_spec", additional_graph_spec],
         capture_output=True,
         text=True,
         check=True
