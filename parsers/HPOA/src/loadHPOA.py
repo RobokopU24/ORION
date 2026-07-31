@@ -7,10 +7,13 @@ from orion.biolink_constants import (
     AGENT_TYPE,
     DATA_PIPELINE,
     DISEASE_CONTEXT_QUALIFIER,
+    FREQUENCY_QUALIFIER,
     KNOWLEDGE_ASSERTION,
     KNOWLEDGE_LEVEL,
     MANUAL_AGENT,
+    ONSET_QUALIFIER,
     PUBLICATIONS,
+    SEX_QUALIFIER,
     SUPPORTING_DATA_SOURCE,
 )
 from orion.kgxmodel import kgxedge
@@ -55,12 +58,23 @@ DISEASE_PREFIX_TO_SUPPORTING_SOURCE = {
     "ORPHA": "infores:orphanet",
 }
 
+DISEASE_CURIE_PREFIX_REMAP = {
+    "ORPHA": "Orphanet",
+}
+
 HAS_PHENOTYPE = "biolink:has_phenotype"
 
 
 def disease_supporting_source(disease_id: str) -> str | None:
     prefix = disease_id.split(":", maxsplit=1)[0].upper()
     return DISEASE_PREFIX_TO_SUPPORTING_SOURCE.get(prefix)
+
+
+def get_disease_curie(disease_id: str) -> str:
+    prefix, sep, local_id = disease_id.partition(":")
+    if not sep:
+        return disease_id
+    return f"{DISEASE_CURIE_PREFIX_REMAP.get(prefix.upper(), prefix)}:{local_id}"
 
 
 def is_zero_frequency(frequency: str) -> bool:
@@ -76,8 +90,30 @@ def is_zero_frequency(frequency: str) -> bool:
     return False
 
 
-def pmids_from_text(value: str) -> list[str]:
-    return [f"PMID:{pmid}" for pmid in re.findall(r"PMID:(\d+)", value or "")]
+ISBN_PATTERN = re.compile(r"^ISBN(?:-1[03])?:(.+)$")
+
+
+def publications_from_reference(value: str) -> list[str]:
+    """HPOA's reference column is a ';'-separated mix of PMIDs, ISBNs, bare URLs (e.g. NCBI
+    Bookshelf/GeneReviews chapter links), and disease-database self-citations (e.g.
+    "OMIM:107480;PMID:11478532", or just "OMIM:609153" citing itself). PMIDs, ISBNs, and URLs are
+    all valid `publications` entries (the biolink model's own GeneAffectsChemicalAssociation
+    example uses a bare URL alongside a CURIE in this slot); database self-citations carry no
+    information not already on the edge (the disease id) and are dropped.
+    """
+    publications = []
+    for part in (value or "").split(";"):
+        part = part.strip()
+        if part.startswith("PMID:"):
+            publications.append(part)
+            continue
+        isbn_match = ISBN_PATTERN.match(part)
+        if isbn_match:
+            publications.append(f"isbn:{isbn_match.group(1)}")
+            continue
+        if part.startswith("http://") or part.startswith("https://"):
+            publications.append(part)
+    return publications
 
 
 def hpoa_row_is_positive_phenotype(row: dict) -> bool:
@@ -124,39 +160,43 @@ def disease_phenotype_edge_properties(row: dict) -> dict:
     edge_properties = {
         KNOWLEDGE_LEVEL: KNOWLEDGE_ASSERTION,
         AGENT_TYPE: MANUAL_AGENT,
-        "hpoa_database_id": row.get("database_id", ""),
         "hpoa_disease_name": row.get("disease_name", ""),
-        "hpoa_qualifier": row.get("qualifier", ""),
-        "hpoa_reference": row.get("reference", ""),
         "hpoa_evidence": row.get("evidence", ""),
-        "hpoa_onset": row.get("onset", ""),
-        "hpoa_frequency": row.get("frequency", ""),
-        "hpoa_sex": row.get("sex", ""),
         "hpoa_modifier": row.get("modifier", ""),
-        "hpoa_aspect": row.get("aspect", ""),
         "hpoa_biocuration": row.get("biocuration", ""),
     }
+
+    onset = row.get("onset", "").strip()
+    if onset:
+        edge_properties[ONSET_QUALIFIER] = onset
+    frequency = row.get("frequency", "").strip()
+    if frequency:
+        edge_properties[FREQUENCY_QUALIFIER] = frequency
+    sex = row.get("sex", "").strip()
+    if sex:
+        edge_properties[SEX_QUALIFIER] = sex
     supporting_data_source = disease_supporting_source(row["database_id"])
     if supporting_data_source:
         edge_properties[SUPPORTING_DATA_SOURCE] = supporting_data_source
-    publications = pmids_from_text(row.get("reference", ""))
+    publications = publications_from_reference(row.get("reference", ""))
     if publications:
         edge_properties[PUBLICATIONS] = publications
     return edge_properties
 
 
 def gene_phenotype_edge_properties(row: dict) -> dict:
-    disease_id = row["disease_id"]
+    disease_id = get_disease_curie(row["disease_id"])
     edge_properties = {
         KNOWLEDGE_LEVEL: KNOWLEDGE_ASSERTION,
         AGENT_TYPE: DATA_PIPELINE,
         DISEASE_CONTEXT_QUALIFIER: disease_id,
-        "hpoa_disease_id": disease_id,
         "hpoa_gene_symbol": row.get("gene_symbol", ""),
         "hpoa_hpo_name": row.get("hpo_name", ""),
-        "hpoa_frequency": row.get("frequency", ""),
     }
-    supporting_data_source = disease_supporting_source(disease_id)
+    frequency = row.get("frequency", "").strip()
+    if frequency:
+        edge_properties[FREQUENCY_QUALIFIER] = frequency
+    supporting_data_source = disease_supporting_source(row["disease_id"])
     if supporting_data_source:
         edge_properties[SUPPORTING_DATA_SOURCE] = supporting_data_source
     return edge_properties
@@ -182,7 +222,10 @@ class HPOALoader(SourceDataLoader):
         try:
             response = requests.get(HPOA_DISEASE_PHENOTYPE_URL, stream=True, timeout=30)
             response.raise_for_status()
-            for line in response.iter_lines(decode_unicode=True):
+            # The server doesn't advertise a charset (Content-Type: application/octet-stream), so
+            # iter_lines(decode_unicode=True) silently yields raw bytes instead of decoding them.
+            for raw_line in response.iter_lines():
+                line = raw_line.decode("utf-8")
                 if not line:
                     continue
                 if line.startswith("#version:"):
@@ -244,7 +287,7 @@ class HPOALoader(SourceDataLoader):
                 rows_skipped += 1
                 continue
 
-            disease_id = row["database_id"]
+            disease_id = get_disease_curie(row["database_id"])
             hpo_id = row["hpo_id"]
             pair = (disease_id, hpo_id)
             if pair in kept_pairs:
@@ -280,7 +323,7 @@ class HPOALoader(SourceDataLoader):
 
         for row in iter_hpoa_tsv(gene_phenotype_path, HPOA_GENE_PHENOTYPE_COLUMNS):
             source_lines += 1
-            disease_id = row.get("disease_id", "").strip()
+            disease_id = get_disease_curie(row.get("disease_id", "").strip())
             hpo_id = row.get("hpo_id", "").strip()
             ncbi_gene_id = row.get("ncbi_gene_id", "").strip()
             if not (
