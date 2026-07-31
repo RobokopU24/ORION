@@ -1,6 +1,5 @@
 import csv
 import os
-from datetime import date
 from email.utils import parsedate_to_datetime
 
 import requests
@@ -14,7 +13,7 @@ from orion.biolink_constants import (
 )
 from orion.kgxmodel import kgxedge
 from orion.loader_interface import SourceDataLoader
-from orion.utils import GetData
+from orion.utils import GetData, GetDataPullError
 
 
 OMIM_INFORES = "infores:omim"
@@ -47,9 +46,9 @@ class OMIMLoader(SourceDataLoader):
             last_modified = response.headers.get("Last-Modified")
             if last_modified:
                 return parsedate_to_datetime(last_modified).strftime("%Y%m%d")
-        except Exception:
-            pass
-        return date.today().strftime("%Y%m%d")
+        except Exception as e:
+            raise GetDataPullError(f"Unable to determine latest OMIM version: {e}")
+        raise GetDataPullError("Unable to determine latest OMIM version: no Last-Modified header found")
 
     def get_data(self) -> bool:
         GetData().pull_via_http(

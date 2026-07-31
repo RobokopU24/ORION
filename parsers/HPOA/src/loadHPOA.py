@@ -124,7 +124,6 @@ def disease_phenotype_edge_properties(row: dict) -> dict:
     edge_properties = {
         KNOWLEDGE_LEVEL: KNOWLEDGE_ASSERTION,
         AGENT_TYPE: MANUAL_AGENT,
-        SUPPORTING_DATA_SOURCE: disease_supporting_source(row["database_id"]),
         "hpoa_database_id": row.get("database_id", ""),
         "hpoa_disease_name": row.get("disease_name", ""),
         "hpoa_qualifier": row.get("qualifier", ""),
@@ -137,6 +136,9 @@ def disease_phenotype_edge_properties(row: dict) -> dict:
         "hpoa_aspect": row.get("aspect", ""),
         "hpoa_biocuration": row.get("biocuration", ""),
     }
+    supporting_data_source = disease_supporting_source(row["database_id"])
+    if supporting_data_source:
+        edge_properties[SUPPORTING_DATA_SOURCE] = supporting_data_source
     publications = pmids_from_text(row.get("reference", ""))
     if publications:
         edge_properties[PUBLICATIONS] = publications
@@ -145,16 +147,19 @@ def disease_phenotype_edge_properties(row: dict) -> dict:
 
 def gene_phenotype_edge_properties(row: dict) -> dict:
     disease_id = row["disease_id"]
-    return {
+    edge_properties = {
         KNOWLEDGE_LEVEL: KNOWLEDGE_ASSERTION,
         AGENT_TYPE: DATA_PIPELINE,
-        SUPPORTING_DATA_SOURCE: disease_supporting_source(disease_id),
         DISEASE_CONTEXT_QUALIFIER: disease_id,
         "hpoa_disease_id": disease_id,
         "hpoa_gene_symbol": row.get("gene_symbol", ""),
         "hpoa_hpo_name": row.get("hpo_name", ""),
         "hpoa_frequency": row.get("frequency", ""),
     }
+    supporting_data_source = disease_supporting_source(disease_id)
+    if supporting_data_source:
+        edge_properties[SUPPORTING_DATA_SOURCE] = supporting_data_source
+    return edge_properties
 
 
 class HPOALoader(SourceDataLoader):

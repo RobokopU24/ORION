@@ -1,10 +1,16 @@
 import json
 from pathlib import Path
 
+import pytest
+
+from orion.biolink_constants import SUPPORTING_DATA_SOURCE
+from orion.utils import GetDataPullError
 from parsers.HPOA.src.loadHPOA import (
     HPOA_DISEASE_PHENOTYPE_COLUMNS,
     HPOA_GENE_PHENOTYPE_COLUMNS,
     HPOALoader,
+    disease_phenotype_edge_properties,
+    gene_phenotype_edge_properties,
 )
 from parsers.OMIM.src.loadOMIM import OMIMLoader
 from parsers.Orphanet.src.loadOrphanet import OrphanetLoader
@@ -187,3 +193,62 @@ def test_orphanet_keeps_assessed_supported_gene_disease_associations(tmp_path):
     assert edges[0]["orphanet_source_of_validation"] == "111[PMID]"
     assert edges[0]["orphanet_gene_symbol"] == "GENE1"
     assert edges[0]["publications"] == ["PMID:111"]
+
+
+def test_disease_phenotype_edge_omits_supporting_data_source_for_unknown_prefix():
+    row = {
+        "database_id": "XYZ:1",
+        "disease_name": "unknown source disease",
+        "qualifier": "",
+        "hpo_id": "HP:0000001",
+        "reference": "",
+        "evidence": "TAS",
+        "onset": "",
+        "frequency": "",
+        "sex": "",
+        "modifier": "",
+        "aspect": "P",
+        "biocuration": "",
+    }
+    edge_properties = disease_phenotype_edge_properties(row)
+    assert SUPPORTING_DATA_SOURCE not in edge_properties
+
+
+def test_gene_phenotype_edge_omits_supporting_data_source_for_unknown_prefix():
+    row = {
+        "ncbi_gene_id": "1",
+        "gene_symbol": "GENE1",
+        "hpo_id": "HP:0000001",
+        "hpo_name": "kept phenotype",
+        "frequency": "",
+        "disease_id": "XYZ:1",
+    }
+    edge_properties = gene_phenotype_edge_properties(row)
+    assert SUPPORTING_DATA_SOURCE not in edge_properties
+
+
+def test_omim_get_latest_source_version_raises_when_last_modified_missing(tmp_path, monkeypatch):
+    loader = OMIMLoader(source_data_dir=str(tmp_path))
+
+    class MockResponse:
+        headers = {}
+
+        def raise_for_status(self):
+            pass
+
+    monkeypatch.setattr("parsers.OMIM.src.loadOMIM.requests.head", lambda *args, **kwargs: MockResponse())
+
+    with pytest.raises(GetDataPullError):
+        loader.get_latest_source_version()
+
+
+def test_omim_get_latest_source_version_raises_on_request_failure(tmp_path, monkeypatch):
+    loader = OMIMLoader(source_data_dir=str(tmp_path))
+
+    def raise_error(*args, **kwargs):
+        raise ConnectionError("network down")
+
+    monkeypatch.setattr("parsers.OMIM.src.loadOMIM.requests.head", raise_error)
+
+    with pytest.raises(GetDataPullError):
+        loader.get_latest_source_version()

@@ -192,14 +192,6 @@ class MonarchKGLoader(MonarchKGBaseLoader):
         }
 
         self.replaced_hpoa_source = 'infores:hpo-annotations'
-        self.replaced_gene_disease_sources = {
-            'infores:omim',
-            'infores:orphanet',
-        }
-        self.replaced_gene_disease_predicates = {
-            'biolink:gene_associated_with_condition',
-            'biolink:gene_associated_with_disease',
-        }
         self.replaced_monarch_omim_gene_disease_predicates = {
             'biolink:causes',
             'biolink:contributes_to',
@@ -226,11 +218,6 @@ class MonarchKGLoader(MonarchKGBaseLoader):
             and primary_knowledge_source == self.provenance_id
             and monarch_edge
             and monarch_edge.get('provided_by') == self.replaced_monarch_omim_gene_disease_provided_by
-        ):
-            return True
-        if predicate in self.replaced_gene_disease_predicates and (
-            primary_knowledge_source in self.replaced_gene_disease_sources
-            or any(ks in self.replaced_gene_disease_sources for ks in aggregator_knowledge_sources)
         ):
             return True
         if predicate not in self.desired_predicates:
