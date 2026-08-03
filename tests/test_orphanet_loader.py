@@ -1,7 +1,7 @@
 import json
 from pathlib import Path
 
-from parsers.Orphanet.src.loadOrphanet import OrphanetLoader
+from parsers.Orphanet.src.loadOrphanet import OrphanetLoader, pmids_from_validation
 
 
 def read_jsonl(path: Path) -> list[dict]:
@@ -87,10 +87,31 @@ def test_orphanet_keeps_assessed_supported_gene_disease_associations(tmp_path):
     assert edges[0]["object"] == "Orphanet:123"
     assert edges[0]["primary_knowledge_source"] == "infores:orphanet"
     assert edges[0]["orphanet_association_type"] == "Disease-causing germline mutation(s) in"
-    assert edges[0]["orphanet_association_status"] == "Assessed"
-    assert edges[0]["orphanet_source_of_validation"] == "111[PMID]"
-    assert edges[0]["orphanet_gene_symbol"] == "GENE1"
     assert edges[0]["publications"] == ["PMID:111"]
+    # association_status is always "Assessed" (already filtered upstream), source_of_validation
+    # is redundant with publications, and gene_symbol is redundant with (or stale relative to)
+    # the subject node's own normalized name - all three dropped.
+    assert "orphanet_association_status" not in edges[0]
+    assert "orphanet_source_of_validation" not in edges[0]
+    assert "orphanet_gene_symbol" not in edges[0]
+
+
+def test_pmids_from_validation_tolerates_case_and_missing_bracket():
+    # both typos appear in real Orphadata source strings
+    assert pmids_from_validation("26769062[PMID]_28562391[PMId]_21834056[PMID]") == [
+        "PMID:21834056",
+        "PMID:26769062",
+        "PMID:28562391",
+    ]
+    assert pmids_from_validation("27264419[PMID]_22482805[PMID") == [
+        "PMID:22482805",
+        "PMID:27264419",
+    ]
+
+
+def test_pmids_from_validation_ignores_untagged_numbers():
+    # a bare number with no [PMID] tag at all is too ambiguous to assume it's a PMID
+    assert pmids_from_validation("27319779_27469900[PMID]") == ["PMID:27469900"]
 
 
 def test_orphanet_get_latest_source_version_decompresses_gzip_content(tmp_path, monkeypatch):

@@ -97,9 +97,7 @@ def publications_from_reference(value: str) -> list[str]:
     """HPOA's reference column is a ';'-separated mix of PMIDs, ISBNs, bare URLs (e.g. NCBI
     Bookshelf/GeneReviews chapter links), and disease-database self-citations (e.g.
     "OMIM:107480;PMID:11478532", or just "OMIM:609153" citing itself). PMIDs, ISBNs, and URLs are
-    all valid `publications` entries (the biolink model's own GeneAffectsChemicalAssociation
-    example uses a bare URL alongside a CURIE in this slot); database self-citations carry no
-    information not already on the edge (the disease id) and are dropped.
+    all valid `publications` entries
     """
     publications = []
     for part in (value or "").split(";"):
@@ -221,8 +219,6 @@ class HPOALoader(SourceDataLoader):
         try:
             response = requests.get(HPOA_DISEASE_PHENOTYPE_URL, stream=True, timeout=30)
             response.raise_for_status()
-            # The server doesn't advertise a charset (Content-Type: application/octet-stream), so
-            # iter_lines(decode_unicode=True) silently yields raw bytes instead of decoding them.
             for raw_line in response.iter_lines():
                 line = raw_line.decode("utf-8")
                 if not line:

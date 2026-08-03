@@ -48,9 +48,11 @@ class OrphanetLoader(SourceDataLoader):
         try:
             response = requests.get(ORPHADATA_PRODUCT6_URL, stream=True, timeout=30)
             response.raise_for_status()
-            root_chunk = response.raw.read(4096).decode("utf-8", errors="ignore")
-            date_match = re.search(r'date="([^"]+)"', root_chunk)
-            version_match = re.search(r'version="([^"]+)"', root_chunk)
+            root_chunk = response.raw.read(4096, decode_content=True).decode("utf-8", errors="ignore")
+            jdbor_tag_match = re.search(r"<JDBOR\b[^>]*>", root_chunk)
+            jdbor_attributes = jdbor_tag_match.group(0) if jdbor_tag_match else ""
+            date_match = re.search(r'date="([^"]+)"', jdbor_attributes)
+            version_match = re.search(r'version="([^"]+)"', jdbor_attributes)
             if date_match:
                 version = date_match.group(1)
                 if version_match:
@@ -79,7 +81,7 @@ class OrphanetLoader(SourceDataLoader):
             orpha_code = text(disorder, "OrphaCode")
             if not orpha_code:
                 continue
-            object_id = f"ORPHA:{orpha_code}"
+            object_id = f"Orphanet:{orpha_code}"
             disorder_metadata = {
                 "orphanet_disorder_name": text(disorder, "Name"),
                 "orphanet_disorder_type": text(disorder, "DisorderType/Name"),
@@ -109,7 +111,6 @@ class OrphanetLoader(SourceDataLoader):
                 edge_properties = orphanet_edge_properties(
                     association,
                     association_type,
-                    association_status,
                     disorder_metadata,
                 )
                 self.output_file_writer.write_node(hgnc_id)
@@ -162,15 +163,15 @@ def hgnc_identifier(gene: ET.Element | None) -> str | None:
 
 
 def pmids_from_validation(source_of_validation: str) -> list[str]:
-    pmids = [f"PMID:{pmid}" for pmid in re.findall(r"(\d+)\[PMID\]", source_of_validation)]
-    pmids.extend(f"PMID:{pmid}" for pmid in re.findall(r"PMID:(\d+)", source_of_validation))
+    # case-insensitive and tolerant of a missing closing bracket (observed in data)
+    pmids = [f"PMID:{pmid}" for pmid in re.findall(r"(\d+)\[PMID\]?", source_of_validation, re.IGNORECASE)]
+    pmids.extend(f"PMID:{pmid}" for pmid in re.findall(r"PMID:(\d+)", source_of_validation, re.IGNORECASE))
     return sorted(set(pmids))
 
 
 def orphanet_edge_properties(
     association: ET.Element,
     association_type: str,
-    association_status: str,
     disorder_metadata: dict,
 ) -> dict:
     source_of_validation = text(association, "SourceOfValidation")
@@ -178,9 +179,6 @@ def orphanet_edge_properties(
         KNOWLEDGE_LEVEL: KNOWLEDGE_ASSERTION,
         AGENT_TYPE: DATA_PIPELINE,
         "orphanet_association_type": association_type,
-        "orphanet_association_status": association_status,
-        "orphanet_source_of_validation": source_of_validation,
-        "orphanet_gene_symbol": text(association, "Gene/Symbol"),
         **disorder_metadata,
     }
     publications = pmids_from_validation(source_of_validation)
