@@ -4,7 +4,7 @@ import json
 import argparse
 from collections import defaultdict
 
-from orion.utils import quick_jsonl_file_iterator
+from orion.utils import quick_jsonl_file_iterator, flatten_field_whitespace
 from orion.biolink_constants import SUBJECT_ID, OBJECT_ID, PREDICATE, NAMED_THING
 
 
@@ -364,15 +364,14 @@ def __convert_to_csv(input_file: str,
                     # dump dict as compact JSON string since neo4j cannot handle dict as property
                     item[key] = json.dumps(item[key], separators=(',', ':'), ensure_ascii=False)
                 else:
-                    if key in properties_that_are_lists:
+                    if key in properties_that_are_lists and isinstance(item[key], list):
                         # convert lists into strings with an array delimiter
-                        if isinstance(item[key], list):  # need to doublecheck for cases of properties with mixed types
-                            # strip newline and \t characters to prevent neo4j import errors for input such as
-                            # "publications":["\nPMID:\n    18224415\t"]
-                            item[key] = array_delimiter.join(''.join([s.strip() for s in str(value).splitlines()]) for value in item[key])
+                        item[key] = array_delimiter.join(flatten_field_whitespace(value) for value in item[key])
                     elif key in properties_that_are_boolean:
                         # neo4j handles boolean with string 'true' being true and everything else false
                         item[key] = 'true' if item[key] is True else 'false'
+                    elif isinstance(item[key], str):
+                        item[key] = flatten_field_whitespace(item[key])
 
             csv_file_writer.writerow(item)
 

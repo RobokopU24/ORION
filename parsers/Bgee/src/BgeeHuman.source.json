@@ -1,0 +1,14 @@
+{
+  "@context": "https://schema.org",
+  "@type": "Dataset",
+  "identifier": "infores:bgee",
+  "name": "Bgee Human Gene Expression Calls",
+  "description": "Bgee provides calls of baseline presence or absence of gene expression from curated wild-type healthy samples. This source uses the Homo sapiens simple expression-call file.",
+  "url": "https://www.bgee.org/",
+  "attribution": "https://www.bgee.org/",
+  "citation": [
+    "https://doi.org/10.1093/nar/gkae1104"
+  ],
+  "license": "CC BY 4.0",
+  "contentUrl": "https://www.bgee.org/ftp/current/download/calls/expr_calls/Homo_sapiens_expr_simple.tsv.gz"
+}
