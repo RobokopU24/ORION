@@ -60,6 +60,14 @@ def test_monarchkg_skips_monarch_omim_gene_disease_edges(tmp_path, predicate):
         subject_id="HGNC:4061",
         object_id="MONDO:0009288",
         predicate=predicate,
+        primary_knowledge_source="infores:omim",
+        aggregator_knowledge_sources=[],
+        monarch_edge={"provided_by": "omim_gene_to_disease_edges"},
+    )
+    assert loader.filter_edge(
+        subject_id="HGNC:4061",
+        object_id="MONDO:0009288",
+        predicate=predicate,
         primary_knowledge_source="infores:monarchinitiative",
         aggregator_knowledge_sources=[],
         monarch_edge={"provided_by": "omim_gene_to_disease_edges"},
@@ -74,7 +82,7 @@ def test_monarchkg_keeps_other_monarch_gene_disease_edges(tmp_path, predicate):
         subject_id="HGNC:1",
         object_id="MONDO:1",
         predicate=predicate,
-        primary_knowledge_source="infores:monarchinitiative",
+        primary_knowledge_source="infores:omim",
         aggregator_knowledge_sources=[],
         monarch_edge={"provided_by": "some_other_monarch_source"},
     )
@@ -102,7 +110,7 @@ def test_monarchkg_full_does_not_apply_monarch_omim_gene_disease_filter(
         subject_id="HGNC:4061",
         object_id="MONDO:0009288",
         predicate=predicate,
-        primary_knowledge_source="infores:monarchinitiative",
+        primary_knowledge_source="infores:omim",
         aggregator_knowledge_sources=[],
         monarch_edge={"provided_by": "omim_gene_to_disease_edges"},
     )

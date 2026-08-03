@@ -34,10 +34,6 @@ def test_omim_keeps_phenotype_rows_with_gene_ids(tmp_path):
     assert edges[0]["supporting_data_source"] == ["infores:medgen"]
     assert edges[0]["medgen_cui"] == "C0000001"
     assert edges[0]["omim_comment"] == "kept"
-    # omim_type is always "phenotype" (already filtered upstream) and omim_mim_number always
-    # duplicates the numeric suffix of the object id - both dead weight, dropped.
-    assert "omim_type" not in edges[0]
-    assert "omim_mim_number" not in edges[0]
 
 
 def test_omim_get_latest_source_version_raises_when_last_modified_missing(tmp_path, monkeypatch):

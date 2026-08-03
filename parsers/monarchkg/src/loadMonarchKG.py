@@ -215,7 +215,6 @@ class MonarchKGLoader(MonarchKGBaseLoader):
             return True
         if (
             predicate in self.replaced_monarch_omim_gene_disease_predicates
-            and primary_knowledge_source == self.provenance_id
             and monarch_edge
             and monarch_edge.get('provided_by') == self.replaced_monarch_omim_gene_disease_provided_by
         ):
