@@ -198,6 +198,7 @@ class MonarchKGLoader(MonarchKGBaseLoader):
             'infores:uniprot',
             'infores:hgnc',
             'infores:uos-mcb',
+            'infores:mgi',
         }
 
         # Curie prefixes known not to normalize — edges where subject or object

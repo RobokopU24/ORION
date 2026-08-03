@@ -9,6 +9,7 @@ FILTERED_GOA_PRIMARY_SOURCES = (
     "infores:uniprot",
     "infores:hgnc",
     "infores:uos-mcb",
+    "infores:mgi",
 )
 
 
