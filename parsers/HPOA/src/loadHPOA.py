@@ -190,7 +190,6 @@ def gene_phenotype_edge_properties(row: dict) -> dict:
         KNOWLEDGE_LEVEL: KNOWLEDGE_ASSERTION,
         AGENT_TYPE: DATA_PIPELINE,
         DISEASE_CONTEXT_QUALIFIER: disease_id,
-        "hpoa_gene_symbol": row.get("gene_symbol", ""),
         "hpoa_hpo_name": row.get("hpo_name", ""),
     }
     frequency = row.get("frequency", "").strip()

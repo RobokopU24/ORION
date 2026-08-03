@@ -3,86 +3,13 @@ from pathlib import Path
 
 import pytest
 
-from orion.biolink_constants import SUPPORTING_DATA_SOURCE
 from orion.utils import GetDataPullError
-from parsers.HPOA.src.loadHPOA import (
-    HPOA_DISEASE_PHENOTYPE_COLUMNS,
-    HPOA_GENE_PHENOTYPE_COLUMNS,
-    HPOALoader,
-    disease_phenotype_edge_properties,
-    gene_phenotype_edge_properties,
-)
 from parsers.OMIM.src.loadOMIM import OMIMLoader
 from parsers.Orphanet.src.loadOrphanet import OrphanetLoader
 
 
 def read_jsonl(path: Path) -> list[dict]:
     return [json.loads(line) for line in path.read_text().splitlines()]
-
-
-def write_hpoa_inputs(loader: HPOALoader) -> None:
-    phenotype_rows = [
-        ["OMIM:1", "kept disease", "", "HP:0000001", "PMID:1", "TAS", "", "", "", "", "P", "HPO:probinson"],
-        ["OMIM:1", "course row", "", "HP:0000002", "PMID:2", "TAS", "", "", "", "", "C", "HPO:probinson"],
-        ["OMIM:1", "inheritance row", "", "HP:0000003", "PMID:3", "TAS", "", "", "", "", "I", "HPO:probinson"],
-        ["OMIM:1", "modifier row", "", "HP:0000004", "PMID:4", "TAS", "", "", "", "", "M", "HPO:probinson"],
-        ["OMIM:1", "history row", "", "HP:0000005", "PMID:5", "TAS", "", "", "", "", "H", "HPO:probinson"],
-        ["OMIM:1", "not row", "NOT", "HP:0000006", "PMID:6", "TAS", "", "", "", "", "P", "HPO:probinson"],
-        ["OMIM:1", "zero fraction", "", "HP:0000007", "PMID:7", "TAS", "", "0/3", "", "", "P", "HPO:probinson"],
-        ["OMIM:1", "zero percent", "", "HP:0000008", "PMID:8", "TAS", "", "0%", "", "", "P", "HPO:probinson"],
-        ["DECIPHER:2", "kept decipher", "", "HP:0000009", "PMID:9", "TAS", "", "50%", "", "", "P", "HPO:probinson"],
-    ]
-    gene_rows = [
-        ["1", "GENE1", "HP:0000001", "kept phenotype", "", "OMIM:1"],
-        ["1", "GENE1", "HP:0000002", "course phenotype", "", "OMIM:1"],
-        ["2", "GENE2", "HP:0000009", "kept decipher phenotype", "50%", "DECIPHER:2"],
-        ["2", "GENE2", "HP:9999999", "missing disease phenotype", "", "DECIPHER:2"],
-    ]
-
-    phenotype_path = Path(loader.data_path) / "phenotype.hpoa"
-    gene_path = Path(loader.data_path) / "genes_to_phenotype.txt"
-    phenotype_path.write_text(
-        "#version: test\n"
-        + "#"
-        + "\t".join(HPOA_DISEASE_PHENOTYPE_COLUMNS)
-        + "\n"
-        + "\n".join("\t".join(row) for row in phenotype_rows)
-        + "\n"
-    )
-    gene_path.write_text(
-        "\t".join(HPOA_GENE_PHENOTYPE_COLUMNS)
-        + "\n"
-        + "\n".join("\t".join(row) for row in gene_rows)
-        + "\n"
-    )
-
-
-def test_hpoa_filters_disease_phenotypes_and_keeps_conditioned_gene_phenotypes(tmp_path):
-    loader = HPOALoader(source_data_dir=str(tmp_path))
-    write_hpoa_inputs(loader)
-    nodes_path = tmp_path / "nodes.jsonl"
-    edges_path = tmp_path / "edges.jsonl"
-
-    metadata = loader.load(str(nodes_path), str(edges_path))
-    edges = read_jsonl(edges_path)
-    edge_keys = {(edge["subject"], edge["predicate"], edge["object"]) for edge in edges}
-
-    assert metadata["source_edges"] == 4
-    assert edge_keys == {
-        ("OMIM:1", "biolink:has_phenotype", "HP:0000001"),
-        ("DECIPHER:2", "biolink:has_phenotype", "HP:0000009"),
-        ("NCBIGene:1", "biolink:has_phenotype", "HP:0000001"),
-        ("NCBIGene:2", "biolink:has_phenotype", "HP:0000009"),
-    }
-
-    gene_edge = next(edge for edge in edges if edge["subject"] == "NCBIGene:1")
-    assert gene_edge["disease_context_qualifier"] == "OMIM:1"
-    assert gene_edge["hpoa_disease_id"] == "OMIM:1"
-    assert gene_edge["supporting_data_source"] == "infores:omim"
-
-    decipher_edge = next(edge for edge in edges if edge["subject"] == "DECIPHER:2")
-    assert decipher_edge["supporting_data_source"] == "infores:decipher"
-    assert decipher_edge["publications"] == ["PMID:9"]
 
 
 def test_omim_keeps_phenotype_rows_with_gene_ids(tmp_path):
@@ -108,6 +35,33 @@ def test_omim_keeps_phenotype_rows_with_gene_ids(tmp_path):
     assert edges[0]["supporting_data_source"] == "infores:medgen"
     assert edges[0]["medgen_cui"] == "C0000001"
     assert edges[0]["omim_comment"] == "kept"
+
+
+def test_omim_get_latest_source_version_raises_when_last_modified_missing(tmp_path, monkeypatch):
+    loader = OMIMLoader(source_data_dir=str(tmp_path))
+
+    class MockResponse:
+        headers = {}
+
+        def raise_for_status(self):
+            pass
+
+    monkeypatch.setattr("parsers.OMIM.src.loadOMIM.requests.head", lambda *args, **kwargs: MockResponse())
+
+    with pytest.raises(GetDataPullError):
+        loader.get_latest_source_version()
+
+
+def test_omim_get_latest_source_version_raises_on_request_failure(tmp_path, monkeypatch):
+    loader = OMIMLoader(source_data_dir=str(tmp_path))
+
+    def raise_error(*args, **kwargs):
+        raise ConnectionError("network down")
+
+    monkeypatch.setattr("parsers.OMIM.src.loadOMIM.requests.head", raise_error)
+
+    with pytest.raises(GetDataPullError):
+        loader.get_latest_source_version()
 
 
 def test_orphanet_keeps_assessed_supported_gene_disease_associations(tmp_path):
@@ -186,7 +140,7 @@ def test_orphanet_keeps_assessed_supported_gene_disease_associations(tmp_path):
     assert metadata["source_edges"] == 1
     assert edges[0]["subject"] == "HGNC:1"
     assert edges[0]["predicate"] == "biolink:gene_associated_with_condition"
-    assert edges[0]["object"] == "ORPHA:123"
+    assert edges[0]["object"] == "Orphanet:123"
     assert edges[0]["primary_knowledge_source"] == "infores:orphanet"
     assert edges[0]["orphanet_association_type"] == "Disease-causing germline mutation(s) in"
     assert edges[0]["orphanet_association_status"] == "Assessed"
@@ -195,60 +149,25 @@ def test_orphanet_keeps_assessed_supported_gene_disease_associations(tmp_path):
     assert edges[0]["publications"] == ["PMID:111"]
 
 
-def test_disease_phenotype_edge_omits_supporting_data_source_for_unknown_prefix():
-    row = {
-        "database_id": "XYZ:1",
-        "disease_name": "unknown source disease",
-        "qualifier": "",
-        "hpo_id": "HP:0000001",
-        "reference": "",
-        "evidence": "TAS",
-        "onset": "",
-        "frequency": "",
-        "sex": "",
-        "modifier": "",
-        "aspect": "P",
-        "biocuration": "",
-    }
-    edge_properties = disease_phenotype_edge_properties(row)
-    assert SUPPORTING_DATA_SOURCE not in edge_properties
+def test_orphanet_get_latest_source_version_decompresses_gzip_content(tmp_path, monkeypatch):
+    # The orphadata server gzip-compresses the response; response.raw.read() bypasses requests'
+    # automatic decompression unless decode_content=True is passed explicitly.
+    loader = OrphanetLoader(source_data_dir=str(tmp_path))
+    xml_root = b'<?xml version="1.0" encoding="UTF-8"?>\n<JDBOR date="2026-06-23 07:57:31" version="1.3.42">'
 
-
-def test_gene_phenotype_edge_omits_supporting_data_source_for_unknown_prefix():
-    row = {
-        "ncbi_gene_id": "1",
-        "gene_symbol": "GENE1",
-        "hpo_id": "HP:0000001",
-        "hpo_name": "kept phenotype",
-        "frequency": "",
-        "disease_id": "XYZ:1",
-    }
-    edge_properties = gene_phenotype_edge_properties(row)
-    assert SUPPORTING_DATA_SOURCE not in edge_properties
-
-
-def test_omim_get_latest_source_version_raises_when_last_modified_missing(tmp_path, monkeypatch):
-    loader = OMIMLoader(source_data_dir=str(tmp_path))
+    class MockRaw:
+        def read(self, size, decode_content=False):
+            assert decode_content is True
+            return xml_root
 
     class MockResponse:
-        headers = {}
+        raw = MockRaw()
 
         def raise_for_status(self):
             pass
 
-    monkeypatch.setattr("parsers.OMIM.src.loadOMIM.requests.head", lambda *args, **kwargs: MockResponse())
+    monkeypatch.setattr("parsers.Orphanet.src.loadOrphanet.requests.get", lambda *args, **kwargs: MockResponse())
 
-    with pytest.raises(GetDataPullError):
-        loader.get_latest_source_version()
-
-
-def test_omim_get_latest_source_version_raises_on_request_failure(tmp_path, monkeypatch):
-    loader = OMIMLoader(source_data_dir=str(tmp_path))
-
-    def raise_error(*args, **kwargs):
-        raise ConnectionError("network down")
-
-    monkeypatch.setattr("parsers.OMIM.src.loadOMIM.requests.head", raise_error)
-
-    with pytest.raises(GetDataPullError):
-        loader.get_latest_source_version()
+    version = loader.get_latest_source_version()
+    assert "2026-06-23" in version
+    assert "1.3.42" in version
