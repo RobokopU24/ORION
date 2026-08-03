@@ -103,13 +103,14 @@ def normalize_mim2gene_row(row: dict) -> dict:
 
 
 def omim_edge_properties(row: dict) -> dict:
-    return {
+    edge_properties = {
         KNOWLEDGE_LEVEL: KNOWLEDGE_ASSERTION,
         AGENT_TYPE: DATA_PIPELINE,
-        SUPPORTING_DATA_SOURCE: MEDGEN_INFORES,
-        "omim_mim_number": row.get("MIM number", ""),
-        "omim_type": row.get("type", ""),
+        SUPPORTING_DATA_SOURCE: [MEDGEN_INFORES],
         "omim_source": row.get("Source", ""),
         "medgen_cui": row.get("MedGenCUI", ""),
-        "omim_comment": row.get("Comment", ""),
     }
+    comment = row.get("Comment", "")
+    if comment and comment != "-":
+        edge_properties["omim_comment"] = comment
+    return edge_properties

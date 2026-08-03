@@ -87,13 +87,13 @@ def test_hpoa_loader_disease_phenotype_edges(tmp_path):
         "onset_qualifier": "HP:0003581",
         "frequency_qualifier": "50%",
         "sex_qualifier": "MALE",
-        "supporting_data_source": "infores:omim",
+        "supporting_data_source": ["infores:omim"],
         "publications": ["PMID:1"],
     }
 
     orphanet_edge = edges_by_object["HP:0005"]
     assert orphanet_edge["subject"] == "Orphanet:2"
-    assert orphanet_edge["supporting_data_source"] == "infores:orphanet"
+    assert orphanet_edge["supporting_data_source"] == ["infores:orphanet"]
     assert "publications" not in orphanet_edge
 
     assert edges_by_object["HP:0006"]["publications"] == ["PMID:6"]
@@ -143,12 +143,12 @@ def test_hpoa_loader_gene_phenotype_edges_require_a_kept_disease_phenotype_pair(
         "disease_context_qualifier": "OMIM:1",
         "hpoa_hpo_name": "phenotype one",
         "frequency_qualifier": "50%",
-        "supporting_data_source": "infores:omim",
+        "supporting_data_source": ["infores:omim"],
     }
 
     orphanet_gene_edge = edges_by_subject["NCBIGene:12"]
     assert orphanet_gene_edge["disease_context_qualifier"] == "Orphanet:2"
-    assert orphanet_gene_edge["supporting_data_source"] == "infores:orphanet"
+    assert orphanet_gene_edge["supporting_data_source"] == ["infores:orphanet"]
     assert "frequency_qualifier" not in orphanet_gene_edge
 
 

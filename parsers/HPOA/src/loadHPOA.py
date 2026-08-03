@@ -177,7 +177,7 @@ def disease_phenotype_edge_properties(row: dict) -> dict:
         edge_properties[SEX_QUALIFIER] = sex
     supporting_data_source = disease_supporting_source(row["database_id"])
     if supporting_data_source:
-        edge_properties[SUPPORTING_DATA_SOURCE] = supporting_data_source
+        edge_properties[SUPPORTING_DATA_SOURCE] = [supporting_data_source]
     publications = publications_from_reference(row.get("reference", ""))
     if publications:
         edge_properties[PUBLICATIONS] = publications
@@ -197,7 +197,7 @@ def gene_phenotype_edge_properties(row: dict) -> dict:
         edge_properties[FREQUENCY_QUALIFIER] = frequency
     supporting_data_source = disease_supporting_source(row["disease_id"])
     if supporting_data_source:
-        edge_properties[SUPPORTING_DATA_SOURCE] = supporting_data_source
+        edge_properties[SUPPORTING_DATA_SOURCE] = [supporting_data_source]
     return edge_properties
 
 
