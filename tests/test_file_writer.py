@@ -1,18 +1,17 @@
+import pytest
 
-import os
 from orion.utils import quick_jsonl_file_iterator
 from orion.kgx_file_writer import KGXFileWriter
 from orion.kgxmodel import kgxnode, kgxedge
 from orion.biolink_constants import *
 
-test_workspace_dir = os.path.dirname(os.path.abspath(__file__)) + '/workspace/'
-# TODO this is hacky and should be done with better design in pytest or somewhere else
-if not os.path.exists(test_workspace_dir):
-    os.mkdir(test_workspace_dir)
-nodes_file_path = test_workspace_dir + 'test_nodes.jsonl'
-edges_file_path = test_workspace_dir + 'test_edges.jsonl'
 
 TEST_BUFFER_SIZE = 475
+
+
+@pytest.fixture
+def kgx_file_paths(tmp_path):
+    return str(tmp_path / 'test_nodes.jsonl'), str(tmp_path / 'test_edges.jsonl')
 
 
 # TODO use kgx validation logic
@@ -58,15 +57,8 @@ def count_lines(file_path):
     return line_counter
 
 
-def remove_old_files():
-    if os.path.exists(nodes_file_path):
-        os.remove(nodes_file_path)
-    if os.path.exists(edges_file_path):
-        os.remove(edges_file_path)
-
-
-def test_writing_objects():
-    remove_old_files()
+def test_writing_objects(kgx_file_paths):
+    nodes_file_path, edges_file_path = kgx_file_paths
     with KGXFileWriter(nodes_file_path, edges_file_path) as test_file_writer:
 
         # write buffer size (475) + 25 nodes = 500 nodes of different types
@@ -112,12 +104,10 @@ def test_writing_objects():
     assert is_valid_edges_file(edges_file_path)
     assert has_valid_edge_properties(edges_file_path)
     assert count_lines(edges_file_path) == 500
-    remove_old_files()
 
 
-def test_writing_json_lines():
-
-    remove_old_files()
+def test_writing_json_lines(kgx_file_paths):
+    nodes_file_path, edges_file_path = kgx_file_paths
     with KGXFileWriter(nodes_file_path, edges_file_path) as test_file_writer:
 
         # write buffer size (475) + 25 nodes = 500 nodes of different types
@@ -165,11 +155,10 @@ def test_writing_json_lines():
     assert is_valid_edges_file(edges_file_path)
     assert has_valid_edge_properties(edges_file_path)
     assert count_lines(edges_file_path) == 500
-    remove_old_files()
 
 
-def test_writing_edge_keeps_zero_and_false_properties():
-    remove_old_files()
+def test_writing_edge_keeps_zero_and_false_properties(kgx_file_paths):
+    nodes_file_path, edges_file_path = kgx_file_paths
     with KGXFileWriter(nodes_file_path, edges_file_path) as test_file_writer:
         edge = kgxedge(subject_id='TEST:1',
                        object_id='TEST:2',
@@ -192,4 +181,3 @@ def test_writing_edge_keeps_zero_and_false_properties():
     assert 'empty_string' not in written_edge
     assert 'empty_list' not in written_edge
     assert 'empty_dict' not in written_edge
-    remove_old_files()

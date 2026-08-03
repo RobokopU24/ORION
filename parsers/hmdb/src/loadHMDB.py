@@ -45,17 +45,20 @@ class HMDBLoader(SourceDataLoader):
         :return:
         """
         # this grabs the html from the downloads page and searches for the Current Version on it
-        html_page: requests.Response = requests.get('https://hmdb.ca/downloads')
-        html_page.raise_for_status()
+        try:
+            html_page: requests.Response = requests.get('https://hmdb.ca/downloads')
+            html_page.raise_for_status()
 
-        resp: BeautifulSoup = BeautifulSoup(html_page.content, 'html.parser')
-        search_text = 'Current Version '
-        div_tag = resp.find('a', string=re.compile('Current Version'))
-        if div_tag:
-            latest_version = div_tag.text.split(search_text)[1].strip('() ')
-            return latest_version
-        else:
-            raise Exception(f"Version could not be determined from html parsing for HMDB.")
+            resp: BeautifulSoup = BeautifulSoup(html_page.content, 'html.parser')
+            search_text = 'Current Version '
+            div_tag = resp.find('a', string=re.compile('Current Version'))
+            if div_tag:
+                latest_version = div_tag.text.split(search_text)[1].strip('() ')
+                return latest_version
+        except Exception:
+            pass
+        self.logger.warning(f'Unable to determine latest version for HMDB, using last known version.')
+        return '5.0'
 
     def get_data(self) -> int:
         """

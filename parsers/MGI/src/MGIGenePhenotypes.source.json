@@ -1,0 +1,17 @@
+{
+  "@context": "https://schema.org",
+  "@type": "Dataset",
+  "identifier": "infores:mgi",
+  "name": "MGI Gene Phenotypes",
+  "description": "Mouse Genome Informatics genotype phenotype annotations filtered to rows involving mouse gene markers and transformed into mouse gene to Mammalian Phenotype term associations.",
+  "url": "https://www.informatics.jax.org/",
+  "attribution": "Mouse Genome Informatics",
+  "citation": [
+    "https://www.informatics.jax.org/"
+  ],
+  "license": "CC BY 4.0",
+  "contentUrl": [
+    "https://www.informatics.jax.org/downloads/reports/MGI_GenePheno.rpt",
+    "https://www.informatics.jax.org/downloads/reports/MRK_List2.rpt.gz"
+  ]
+}

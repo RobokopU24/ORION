@@ -1,0 +1,40 @@
+graphs:
+
+  - graph_id: CFDE_Automat
+    graph_name: CFDE KP
+    graph_description: 'Common Fund Data Ecosystem KG'
+    graph_url: https://github.com/NCATSTranslator/Translator-All/wiki/CFDE-KP
+    output_format: neo4j
+    edge_merging_attributes:
+      - taxon
+    sources:
+      - id: BINDING-DB
+      - id: CHEBIProps
+      - id: CTD
+      - id: DrugCentral
+      - id: DrugMechDB
+      - id: GtoPdb
+      - id: Hetio
+      - id: HGNC
+      - id: HMDB
+      - id: HumanGOA
+      - id: MouseGOA
+      - id: IntAct
+      - id: KinAce
+      - id: LINCS
+        strict_normalization: False
+      - id: MetabolomicsWorkbench
+        strict_normalization: False
+      - id: MonarchKG
+      - id: MONDOProps
+      - id: OntologicalHierarchy
+        merge_strategy: connected_edge_subset
+      - id: PANTHER
+      - id: PHAROS
+      - id: Reactome
+      - id: textminingkp
+      - id: SIGNOR
+      - id: STRING-DB-Human
+      - id: UbergraphNonredundant
+      - id: GWASCatalog
+      - id: GTEx

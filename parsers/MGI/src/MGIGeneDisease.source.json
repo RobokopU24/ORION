@@ -1,0 +1,17 @@
+{
+  "@context": "https://schema.org",
+  "@type": "Dataset",
+  "identifier": "infores:mgi",
+  "name": "MGI Disease Ontology Gene Associations",
+  "description": "Mouse Genome Informatics Disease Ontology associations filtered to mouse gene rows with Entrez Gene identifiers.",
+  "url": "https://www.informatics.jax.org/",
+  "attribution": "Mouse Genome Informatics",
+  "citation": [
+    "https://www.informatics.jax.org/"
+  ],
+  "license": "CC BY 4.0",
+  "contentUrl": [
+    "https://www.informatics.jax.org/downloads/reports/MGI_DO.rpt",
+    "https://www.informatics.jax.org/downloads/reports/MRK_List2.rpt.gz"
+  ]
+}
