@@ -259,7 +259,10 @@ def _document_reference(document: dict) -> dict:
     A schema.json names its graph with isPartOf; a graph-metadata.json holding an inline
     schema describes that graph itself, so both carry the same @id.
     """
-    graph = document['isPartOf'] if isinstance(document.get('isPartOf'), dict) else document
+    is_part_of = document.get('isPartOf')
+    if isinstance(is_part_of, str):
+        is_part_of = {'@id': is_part_of}
+    graph = is_part_of if isinstance(is_part_of, dict) else document
     return {
         'schema': {'@id': document.get('@id', '')},
         'graph': {'@id': graph.get('@id', '')},
