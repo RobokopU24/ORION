@@ -25,6 +25,8 @@ def main():
     if args.output:
         output_path = os.path.join(args.output, SCHEMA_DIFF_FILENAME) \
             if os.path.isdir(args.output) else args.output
+        if not os.path.isdir(os.path.dirname(output_path) or '.'):
+            ap.error(f'output directory does not exist: {os.path.dirname(output_path)}')
         if os.path.exists(output_path) and not args.overwrite:
             print(f'Schema diff already exists! Did not overwrite. ({output_path}) '
                   f'Use --overwrite to replace it.', file=sys.stderr)

@@ -29,6 +29,8 @@ def main():
     args = ap.parse_args()
 
     output_dir = args.output or os.path.dirname(args.nodes_filepath) or '.'
+    if not os.path.isdir(output_dir):
+        ap.error(f'output directory does not exist: {output_dir}')
     schema_filepath = os.path.join(output_dir, KGXBundle.SCHEMA_FILENAME)
     if os.path.exists(schema_filepath) and not args.overwrite:
         print(f'Schema already exists! Did not overwrite. ({schema_filepath}) '
