@@ -46,6 +46,7 @@ The following commands are available (prefix with `uv run` if not using a uv-man
 | `orion-ingest`        | Run the ingest pipeline to download and process individual data sources from scratch                                                                                  |
 | `orion-merge`         | Merge multiple pairs of KGX node/edge files into one knowledge graph                                                                                                  |
 | `orion-meta-kg`       | Generate MetaKG and test data files                                                                                                                                   |
+| `orion-schema`        | Generate a KGX schema describing the nodes, edges and attributes in a pair of KGX files                                                                               |
 | `orion-schema-diff`   | Compare two KGX schemas and report what changed between them                                                                                                          |
 | `orion-redundant-kg`  | Generate edge files with redundant biolink predicates                                                                                                                 |
 | `orion-neo4j-dump`    | Generate Neo4j database dumps                                                                                                                                         |

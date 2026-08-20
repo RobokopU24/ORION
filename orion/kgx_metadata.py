@@ -457,7 +457,8 @@ def generate_kgx_schema_file(nodes_filepath: str,
     kgx_schema = KGXSchema(
         id=f"{graph_output_url}schema.json",
         name=f"{graph_name} Schema" if graph_name else "Schema",
-        description=f"Schema describing the nodes, edges, and attributes in the {graph_name} knowledge graph",
+        description=f"Schema describing the nodes, edges, and attributes in the "
+                    f"{graph_name + ' ' if graph_name else ''}knowledge graph",
         graph_id=graph_output_url,
         graph_name=graph_name,
         schema=schema
