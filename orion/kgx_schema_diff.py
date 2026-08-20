@@ -237,6 +237,9 @@ def _schema_section(document: dict, label: str) -> dict:
     the document holds a reference to an external schema.json instead of a section, or
     isn't a schema at all.
     """
+    if not isinstance(document, dict):
+        raise ValueError(f'The {label} document is not a KGX schema: expected a json object, '
+                         f'found {type(document).__name__}.')
     if _is_schema_section(document):
         return document
     if _is_schema_section(document.get('schema')):
