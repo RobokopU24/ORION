@@ -226,7 +226,7 @@ _SCHEMA_SECTION_KEYS = ('nodes', 'nodes_summary', 'edges', 'edges_summary')
 
 
 def _is_schema_section(candidate) -> bool:
-    return isinstance(candidate, dict) and any(key in candidate for key in _SCHEMA_SECTION_KEYS)
+    return isinstance(candidate, dict) and all(key in candidate for key in _SCHEMA_SECTION_KEYS)
 
 
 def _schema_section(document: dict, label: str) -> dict:
@@ -250,7 +250,7 @@ def _schema_section(document: dict, label: str) -> dict:
         raise ValueError(f'The {label} document does not contain a schema, it references one at '
                          f'{referenced_schema["@id"]} — diff the referenced schema files instead.')
     raise ValueError(f'The {label} document is not a KGX schema and has no schema inlined: '
-                     f'expected any of {_SCHEMA_SECTION_KEYS}, found keys {sorted(document)[:10]}.')
+                     f'expected all of {_SCHEMA_SECTION_KEYS}, found keys {sorted(document)[:10]}.')
 
 
 def _document_reference(document: dict) -> dict:
