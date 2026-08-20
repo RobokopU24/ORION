@@ -302,8 +302,7 @@ def test_accepts_a_schema_inlined_in_a_graph_metadata_document():
     schema_diff = diff_schemas(old, new)
     assert schema_diff['diff']['nodes_summary']['total_count'] == count_diff(100, 150)
     # the graph-metadata document describes the graph itself — there is no isPartOf to follow
-    assert schema_diff['old']['graph'] == {'@id': 'https://example.org/graphs/TestKG/1.0.0/',
-                                           'name': 'Test KG', 'version': '1.0.0'}
+    assert schema_diff['old']['graph'] == {'@id': 'https://example.org/graphs/TestKG/1.0.0/'}
 
 
 def test_rejects_a_graph_metadata_document_that_only_references_a_schema():
@@ -327,9 +326,10 @@ def test_document_references_identify_both_sides():
     new = make_schema(graph_id='https://example.org/graphs/TestKG/1.1.0/')
 
     schema_diff = diff_schemas(old, new)
-    assert schema_diff['old']['@id'] == 'https://example.org/graphs/TestKG/1.0.0/schema.json'
+    assert schema_diff['old']['schema']['@id'] == 'https://example.org/graphs/TestKG/1.0.0/schema.json'
+    assert schema_diff['old']['graph']['@id'] == 'https://example.org/graphs/TestKG/1.0.0/'
+    assert schema_diff['new']['schema']['@id'] == 'https://example.org/graphs/TestKG/1.1.0/schema.json'
     assert schema_diff['new']['graph']['@id'] == 'https://example.org/graphs/TestKG/1.1.0/'
-    assert schema_diff['new']['graph']['name'] == 'Test KG'
 
 
 def test_diff_schema_files_reads_from_disk(tmp_path):

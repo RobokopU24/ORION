@@ -254,9 +254,8 @@ def _document_reference(document: dict) -> dict:
     graph = document['isPartOf'] if isinstance(document.get('isPartOf'), dict) else document
     return {
         '@id': document.get('@id', ''),
-        'graph': {'@id': graph.get('@id', ''),
-                  'name': graph.get('name', ''),
-                  'version': graph.get('version', '')},
+        'schema': {'@id': document.get('@id', '')},
+        'graph': {'@id': graph.get('@id', '')},
     }
 
 
