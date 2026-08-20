@@ -453,9 +453,13 @@ def generate_kgx_schema_file(nodes_filepath: str,
         biolink_version=biolink_version
     )
 
-    # Populate a KGXSchema with everything it needs
+    # Generate the id/url for the schema based on the graph output url
+    if graph_output_url and not graph_output_url.endswith('/'):
+        graph_output_url += '/'
+    schema_id = f"{graph_output_url}schema.json"
+
     kgx_schema = KGXSchema(
-        id=f"{graph_output_url}schema.json",
+        id=schema_id,
         name=f"{graph_name} Schema" if graph_name else "Schema",
         description=f"Schema describing the nodes, edges, and attributes in the "
                     f"{graph_name + ' ' if graph_name else ''}knowledge graph",
