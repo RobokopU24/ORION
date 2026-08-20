@@ -261,6 +261,11 @@ def create_neo4j_dump(nodes_filepath: str,
                       node_property_ignore_list: set = None,
                       edge_property_ignore_list: set = None):
     """Create a neo4j dump of the given KGX files at output_directory/dump_filename."""
+    graph_dump_file_path = os.path.join(output_directory, dump_filename)
+    if os.path.exists(graph_dump_file_path):
+        logger.info(f'Neo4j dump already exists for {graph_id}({release_version})')
+        return True
+
     try:
         check_neo4j_available()
     except Neo4jAvailabilityError as e:
@@ -282,11 +287,6 @@ def create_neo4j_dump(nodes_filepath: str,
                                                       node_property_ignore_list=node_property_ignore_list,
                                                       edge_property_ignore_list=edge_property_ignore_list)
         logger.info(f'CSV files created for {graph_id}({release_version}).')
-
-    graph_dump_file_path = os.path.join(output_directory, dump_filename)
-    if os.path.exists(graph_dump_file_path):
-        logger.info(f'Neo4j dump already exists for {graph_id}({release_version})')
-        return True
 
     neo4j_access = Neo4jTools()
     try:
