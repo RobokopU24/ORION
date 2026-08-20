@@ -3,8 +3,8 @@ import pytest
 from orion.biolink_constants import *
 from orion.config import Config, config
 from orion.normalization import NodeNormalizer, EdgeNormalizer, EdgeNormalizationResult, \
-    FALLBACK_EDGE_PREDICATE, CUSTOM_NODE_TYPES, NormalizationScheme
-from orion.kgx_file_normalizer import invert_edge
+    FALLBACK_EDGE_PREDICATE, CUSTOM_NODE_TYPES, NormalizationScheme, NormalizationFailedError
+from orion.kgx_file_normalizer import invert_edge, KGXFileNormalizer
 from orion.variant_norm_cache import VariantNormalizationCache, VariantNormalizationCacheError, \
     CACHED_NORMALIZATION_FAILURE, NORM_NODE_MAP_FILE_NAME, NORMALIZED_NODES_FILE_NAME
 
@@ -270,6 +270,48 @@ def test_variant_norm_cache_returns_copies(variant_norm_cache_dir):
 def test_variant_norm_cache_missing_files(tmp_path):
     with pytest.raises(VariantNormalizationCacheError):
         VariantNormalizationCache(str(tmp_path))
+
+
+def make_file_normalizer(**kwargs):
+    # predicates_pre_normalized keeps the constructor from reaching the edge normalization service
+    return KGXFileNormalizer('nodes.jsonl',
+                             'normalized_nodes.jsonl',
+                             'norm_node_map.json',
+                             'norm_node_failures.log',
+                             'edges.jsonl',
+                             'normalized_edges.jsonl',
+                             normalization_scheme=NormalizationScheme(node_normalization_version='2.3.0',
+                                                                      babel_version='2024jan',
+                                                                      edge_normalization_version='4.4.2'),
+                             predicates_pre_normalized=True,
+                             **kwargs)
+
+
+# an unusable cache should stop a source before it produces normalization output, otherwise the
+# failure arrives on the first chunk of variants and everything normalized until then is discarded
+def test_variant_norm_cache_validated_before_normalizing(monkeypatch, tmp_path):
+    monkeypatch.setattr(config, 'ORION_VARIANT_NORM_CACHE', str(tmp_path / 'not_a_cache'))
+    with pytest.raises(NormalizationFailedError):
+        make_file_normalizer(has_sequence_variants=True)
+
+
+# sources that never send variants to the genetics normalizer never look at the cache
+@pytest.mark.parametrize('has_sequence_variants,sequence_variants_pre_normalized',
+                         [(False, False), (True, True)])
+def test_variant_norm_cache_not_validated_when_unused(monkeypatch,
+                                                      tmp_path,
+                                                      has_sequence_variants,
+                                                      sequence_variants_pre_normalized):
+    monkeypatch.setattr(config, 'ORION_VARIANT_NORM_CACHE', str(tmp_path / 'not_a_cache'))
+    make_file_normalizer(has_sequence_variants=has_sequence_variants,
+                         sequence_variants_pre_normalized=sequence_variants_pre_normalized)
+
+
+# validating a cache reads none of its contents, the cache is still loaded on the first chunk of variants
+def test_variant_norm_cache_validation_does_not_load_cache(monkeypatch, variant_norm_cache_dir):
+    monkeypatch.setattr(config, 'ORION_VARIANT_NORM_CACHE', variant_norm_cache_dir)
+    file_normalizer = make_file_normalizer(has_sequence_variants=True)
+    assert file_normalizer.node_normalizer.variant_norm_cache is None
 
 
 def test_variant_norm_with_cache(monkeypatch, variant_norm_cache_dir, fake_genetics_normalizer):

@@ -23,6 +23,20 @@ class VariantNormalizationCacheError(Exception):
     pass
 
 
+def validate_cache_directory(cache_directory: str):
+    """
+    Check that a directory can be used as a variant normalization cache, without reading the files.
+    
+    :param cache_directory: the directory to check
+    :raises VariantNormalizationCacheError: if the directory can not be used as a cache
+    """
+    for file_name in (NORM_NODE_MAP_FILE_NAME, NORMALIZED_NODES_FILE_NAME):
+        file_path = os.path.join(cache_directory, file_name)
+        if not os.path.isfile(file_path):
+            raise VariantNormalizationCacheError(f'Could not initialize the variant normalization cache, '
+                                                 f'{file_path} does not exist.')
+
+
 class VariantNormalizationCache:
     """
     A lookup cache of previously normalized sequence variants, built from the KGX normalization output of a
@@ -46,13 +60,10 @@ class VariantNormalizationCache:
     """
 
     def __init__(self, cache_directory: str):
+        validate_cache_directory(cache_directory)
         self.cache_directory = cache_directory
         norm_map_file_path = os.path.join(cache_directory, NORM_NODE_MAP_FILE_NAME)
         normalized_nodes_file_path = os.path.join(cache_directory, NORMALIZED_NODES_FILE_NAME)
-        for file_path in (norm_map_file_path, normalized_nodes_file_path):
-            if not os.path.isfile(file_path):
-                raise VariantNormalizationCacheError(f'Could not initialize the variant normalization cache, '
-                                                     f'{file_path} does not exist.')
 
         logger.info(f'Loading variant normalization cache from {cache_directory}...')
 
