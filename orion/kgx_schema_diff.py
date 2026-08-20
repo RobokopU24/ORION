@@ -1,9 +1,11 @@
 """Diff two KGX schemas.
 
-The output mirrors the schema's layout — `nodes` / `nodes_summary` / `edges` / `edges_summary`.
+A schema diff only includes differences between schemas, it does not include node or edge types
+or attributes that did not change.
+
+The output mirrors the schema's layout: `nodes`, `nodes_summary`, `edges`, `edges_summary`.
 Each `*_summary` also carries `types`, tallying how many node or edge types were added,
-removed, changed or matched. Reach for the schemas named in `old` and `new` for the full
-contents of either graph; a diff covers the differences between them.
+removed, or changed.
 
 Every comparison has one of these two formats based on whether it's an integer count or a dict in the schema:
 
@@ -249,14 +251,15 @@ def _schema_section(document: dict, label: str) -> dict:
 
 
 def _document_reference(document: dict) -> dict:
-    """Identify one side of the diff. A schema.json names its graph with isPartOf; a
-    graph-metadata.json holding an inline schema describes that graph itself."""
+    """Identify one side of the diff: the schema that was read, and the graph it describes.
+
+    A schema.json names its graph with isPartOf; a graph-metadata.json holding an inline
+    schema describes that graph itself, so both carry the same @id.
+    """
     graph = document['isPartOf'] if isinstance(document.get('isPartOf'), dict) else document
     return {
-        '@id': document.get('@id', ''),
-        'graph': {'@id': graph.get('@id', ''),
-                  'name': graph.get('name', ''),
-                  'version': graph.get('version', '')},
+        'schema': {'@id': document.get('@id', '')},
+        'graph': {'@id': graph.get('@id', '')},
     }
 
 
