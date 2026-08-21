@@ -7,6 +7,8 @@ from orion.biolink_constants import (SEQUENCE_VARIANT, RETRIEVAL_SOURCES, PRIMAR
                                      SUBJECT_ID, PREDICATE, SUBCLASS_OF, ORIGINAL_OBJECT, ORIGINAL_SUBJECT)
 from orion.normalization import NormalizationScheme, NodeNormalizer, EdgeNormalizer, EdgeNormalizationResult, \
     NormalizationFailedError
+from orion.config import config
+from orion.variant_norm_cache import validate_cache_directory
 from orion.utils import chunk_iterator
 from orion.logging import get_orion_logger
 from orion.kgx_file_writer import KGXFileWriter
@@ -63,6 +65,9 @@ class KGXFileNormalizer:
         # instances of the normalization service wrappers
         # strict normalization flag tells normalizer to throw away any nodes that don't normalize
         try:
+            if config.ORION_VARIANT_NORM_CACHE and self.has_sequence_variants \
+                    and not self.sequence_variants_pre_normalized:
+                validate_cache_directory(config.ORION_VARIANT_NORM_CACHE)
             self.node_normalizer = NodeNormalizer(node_normalization_version=self.normalization_scheme.node_normalization_version,
                                                   strict_normalization=self.normalization_scheme.strict,
                                                   conflate_node_types=self.normalization_scheme.conflation,

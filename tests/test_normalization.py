@@ -1,9 +1,13 @@
+import json
+import os
 import pytest
 from orion.biolink_constants import *
-from orion.config import Config
+from orion.config import Config, config
 from orion.normalization import NodeNormalizer, EdgeNormalizer, EdgeNormalizationResult, \
-    FALLBACK_EDGE_PREDICATE, CUSTOM_NODE_TYPES, NormalizationScheme
-from orion.kgx_file_normalizer import invert_edge
+    FALLBACK_EDGE_PREDICATE, CUSTOM_NODE_TYPES, NormalizationScheme, NormalizationFailedError
+from orion.kgx_file_normalizer import invert_edge, KGXFileNormalizer
+from orion.variant_norm_cache import VariantNormalizationCache, VariantNormalizationCacheError, \
+    CACHED_NORMALIZATION_FAILURE, NORM_NODE_MAP_FILE_NAME, NORMALIZED_NODES_FILE_NAME
 
 INVALID_NODE_TYPE = "testing:Type1"
 
@@ -161,6 +165,230 @@ def test_variant_node_norm():
     assert bogus_node_after_normalization['name'] == 'BOGUS:rs999999999999'
     assert NAMED_THING in bogus_node_after_normalization[NODE_TYPES]
     assert SEQUENCE_VARIANT in bogus_node_after_normalization[NODE_TYPES]
+
+
+TEST_VARIANT_NODE_TYPES = [SEQUENCE_VARIANT, NAMED_THING]
+
+
+def make_cached_variant_node(node_id: str, name: str):
+    return {'id': node_id,
+            'name': name,
+            NODE_TYPES: TEST_VARIANT_NODE_TYPES,
+            SYNONYMS: [f'DBSNP:{name}'],
+            'hgvs': [f'HGVS:{node_id}'],
+            'robokop_variant_id': f'ROBO_VARIANT:{node_id}'}
+
+
+@pytest.fixture
+def variant_norm_cache_dir(strict_cache_dir):
+    return make_variant_norm_cache(strict_cache_dir)
+
+
+# a cache is a normalization output directory, and strict normalization output has a _strict suffix
+@pytest.fixture
+def strict_cache_dir(tmp_path):
+    cache_dir = tmp_path / 'normalized_2024jan_2.3.0_v4.4.2_1.4.0_strict'
+    cache_dir.mkdir()
+    return cache_dir
+
+
+def make_variant_norm_cache(tmp_path):
+    normalized_nodes = [
+        make_cached_variant_node('CAID:CA1', 'rs1'),
+        # rs2 split into two nodes
+        make_cached_variant_node('CAID:CA2', 'rs2'),
+        make_cached_variant_node('CAID:CA3', 'rs2'),
+        # rs3 also split into two, but one of them is missing from the nodes file
+        make_cached_variant_node('CAID:CA4', 'rs3'),
+        # a regular node, it should be ignored by the variant cache
+        {'id': 'MONDO:0005374', 'name': 'bone marrow neoplasm', NODE_TYPES: [DISEASE, NAMED_THING]},
+    ]
+    with open(tmp_path / NORMALIZED_NODES_FILE_NAME, 'w') as normalized_nodes_file:
+        for node in normalized_nodes:
+            normalized_nodes_file.write(f'{json.dumps(node)}\n')
+
+    normalization_map = {
+        'DBSNP:rs1': ['CAID:CA1'],
+        'DBSNP:rs2': ['CAID:CA2', 'CAID:CA3'],
+        'DBSNP:rs3': ['CAID:CA4', 'CAID:CA5'],  # CAID:CA5 is not in the nodes file
+        'DBSNP:rs4': None,  # failed to normalize
+        'EFO:0004251': ['MONDO:0005374'],
+    }
+    with open(tmp_path / NORM_NODE_MAP_FILE_NAME, 'w') as norm_map_file:
+        json.dump({'normalization_map': normalization_map}, norm_map_file)
+
+    return str(tmp_path)
+
+
+class FakeGeneticsNormalizer:
+    """Stands in for the genetics normalizer so tests can tell what was actually sent to it."""
+
+    def __init__(self, *args, **kwargs):
+        self.variant_ids_normalized = []
+
+    def get_sequence_variant_node_types(self):
+        return TEST_VARIANT_NODE_TYPES
+
+    def normalize_variants(self, variant_ids):
+        self.variant_ids_normalized.extend(variant_ids)
+        return {variant_id: [{'id': f'CAID:CA_{variant_id.split(":")[-1]}',
+                              'name': variant_id.split(':')[-1],
+                              'equivalent_identifiers': [variant_id],
+                              'hgvs': [],
+                              'robokop_variant_id': 'ROBO_VARIANT:testing'}]
+                for variant_id in variant_ids}
+
+
+@pytest.fixture
+def fake_genetics_normalizer(monkeypatch):
+    fake_normalizer = FakeGeneticsNormalizer()
+    monkeypatch.setattr('orion.normalization.GeneticsNormalizer', lambda *args, **kwargs: fake_normalizer)
+    return fake_normalizer
+
+
+def test_variant_norm_cache_contents(variant_norm_cache_dir):
+    variant_norm_cache = VariantNormalizationCache(variant_norm_cache_dir)
+
+    # rs1, rs2 and the rs4 failure, the other two entries should not be cached
+    assert len(variant_norm_cache) == 3
+
+    cached_nodes = variant_norm_cache.get_normalized_variant_nodes('DBSNP:rs1', TEST_VARIANT_NODE_TYPES)
+    assert cached_nodes == [make_cached_variant_node('CAID:CA1', 'rs1')]
+
+    # a split variant returns all of its nodes
+    cached_nodes = variant_norm_cache.get_normalized_variant_nodes('DBSNP:rs2', TEST_VARIANT_NODE_TYPES)
+    assert [node['id'] for node in cached_nodes] == ['CAID:CA2', 'CAID:CA3']
+
+    # a normalization failure is a hit, and an empty one, so that it doesn't get normalized again
+    assert variant_norm_cache.get_normalized_variant_nodes('DBSNP:rs4', TEST_VARIANT_NODE_TYPES) == []
+
+    # a variant missing any of its normalized nodes is a miss, serving it would drop part of the split
+    assert variant_norm_cache.get_normalized_variant_nodes('DBSNP:rs3', TEST_VARIANT_NODE_TYPES) is None
+
+    # regular nodes and anything else in the map are not in the variant cache
+    assert variant_norm_cache.get_normalized_variant_nodes('EFO:0004251', TEST_VARIANT_NODE_TYPES) is None
+    assert variant_norm_cache.get_normalized_variant_nodes('DBSNP:rs9999', TEST_VARIANT_NODE_TYPES) is None
+
+
+# cached nodes are handed off to the caller, which writes and mutates them,
+# so a second look up of the same variant must not see the first one's changes
+def test_variant_norm_cache_returns_copies(variant_norm_cache_dir):
+    variant_norm_cache = VariantNormalizationCache(variant_norm_cache_dir)
+    cached_node = variant_norm_cache.get_normalized_variant_nodes('DBSNP:rs1', TEST_VARIANT_NODE_TYPES)[0]
+    cached_node['name'] = 'mutated'
+    cached_node_again = variant_norm_cache.get_normalized_variant_nodes('DBSNP:rs1', TEST_VARIANT_NODE_TYPES)[0]
+    assert cached_node_again['name'] == 'rs1'
+
+
+def test_variant_norm_cache_missing_files(strict_cache_dir):
+    with pytest.raises(VariantNormalizationCacheError):
+        VariantNormalizationCache(str(strict_cache_dir))
+
+
+# a lenient run records a variant that failed to normalize the same way it records a successful one,
+# so serving those entries as normalized would silently keep variants a strict run has to discard
+def test_variant_norm_cache_rejects_lenient_cache(tmp_path):
+    lenient_cache_dir = tmp_path / 'normalized_2024jan_2.3.0_v4.4.2_1.4.0'
+    lenient_cache_dir.mkdir()
+    make_variant_norm_cache(lenient_cache_dir)
+    with pytest.raises(VariantNormalizationCacheError, match='is not a strict normalization output'):
+        VariantNormalizationCache(str(lenient_cache_dir))
+
+
+# a trailing separator on the configured path must not hide the suffix
+def test_variant_norm_cache_accepts_trailing_separator(strict_cache_dir):
+    make_variant_norm_cache(strict_cache_dir)
+    assert len(VariantNormalizationCache(f'{strict_cache_dir}{os.sep}')) == 3
+
+
+def make_file_normalizer(**kwargs):
+    # predicates_pre_normalized keeps the constructor from reaching the edge normalization service
+    return KGXFileNormalizer('nodes.jsonl',
+                             'normalized_nodes.jsonl',
+                             'norm_node_map.json',
+                             'norm_node_failures.log',
+                             'edges.jsonl',
+                             'normalized_edges.jsonl',
+                             normalization_scheme=NormalizationScheme(node_normalization_version='2.3.0',
+                                                                      babel_version='2024jan',
+                                                                      edge_normalization_version='4.4.2'),
+                             predicates_pre_normalized=True,
+                             **kwargs)
+
+
+# an unusable cache should stop a source before it produces normalization output, otherwise the
+# failure arrives on the first chunk of variants and everything normalized until then is discarded
+def test_variant_norm_cache_validated_before_normalizing(monkeypatch, tmp_path):
+    monkeypatch.setattr(config, 'ORION_VARIANT_NORM_CACHE', str(tmp_path / 'not_a_cache'))
+    with pytest.raises(NormalizationFailedError):
+        make_file_normalizer(has_sequence_variants=True)
+
+
+# sources that never send variants to the genetics normalizer never look at the cache
+@pytest.mark.parametrize('has_sequence_variants,sequence_variants_pre_normalized',
+                         [(False, False), (True, True)])
+def test_variant_norm_cache_not_validated_when_unused(monkeypatch,
+                                                      tmp_path,
+                                                      has_sequence_variants,
+                                                      sequence_variants_pre_normalized):
+    monkeypatch.setattr(config, 'ORION_VARIANT_NORM_CACHE', str(tmp_path / 'not_a_cache'))
+    make_file_normalizer(has_sequence_variants=has_sequence_variants,
+                         sequence_variants_pre_normalized=sequence_variants_pre_normalized)
+
+
+# validating a cache reads none of its contents, the cache is still loaded on the first chunk of variants
+def test_variant_norm_cache_validation_does_not_load_cache(monkeypatch, variant_norm_cache_dir):
+    monkeypatch.setattr(config, 'ORION_VARIANT_NORM_CACHE', variant_norm_cache_dir)
+    file_normalizer = make_file_normalizer(has_sequence_variants=True)
+    assert file_normalizer.node_normalizer.variant_norm_cache is None
+
+
+def test_variant_norm_with_cache(monkeypatch, variant_norm_cache_dir, fake_genetics_normalizer):
+    monkeypatch.setattr(config, 'ORION_VARIANT_NORM_CACHE', variant_norm_cache_dir)
+
+    variant_nodes = [{"id": variant_id, "name": "", NODE_TYPES: [SEQUENCE_VARIANT]}
+                     for variant_id in ['DBSNP:rs1', 'DBSNP:rs2', 'DBSNP:rs3', 'DBSNP:rs4', 'DBSNP:rs5']]
+
+    node_normalizer = NodeNormalizer(strict_normalization=True)
+    node_normalizer.normalize_sequence_variants(variant_nodes)
+
+    # only the variants that weren't in the cache should have been normalized
+    assert fake_genetics_normalizer.variant_ids_normalized == ['DBSNP:rs3', 'DBSNP:rs5']
+
+    assert node_normalizer.node_normalization_lookup['DBSNP:rs1'] == ['CAID:CA1']
+    assert node_normalizer.node_normalization_lookup['DBSNP:rs2'] == ['CAID:CA2', 'CAID:CA3']
+    assert node_normalizer.variant_node_splits == {'DBSNP:rs2': ['CAID:CA2', 'CAID:CA3']}
+
+    # the cached failure is treated the same way a fresh one would be
+    assert node_normalizer.node_normalization_lookup['DBSNP:rs4'] is None
+    assert node_normalizer.failed_to_normalize_variant_ids['DBSNP:rs4'] == CACHED_NORMALIZATION_FAILURE
+
+    # cached and freshly normalized nodes end up in the same list
+    assert [node['id'] for node in variant_nodes] == ['CAID:CA1', 'CAID:CA2', 'CAID:CA3',
+                                                      'CAID:CA_rs3', 'CAID:CA_rs5']
+    cached_node = get_node_from_list('CAID:CA1', variant_nodes)
+    assert cached_node[NODE_TYPES] == TEST_VARIANT_NODE_TYPES
+    assert cached_node['name'] == 'rs1'
+    assert cached_node['hgvs'] == ['HGVS:CAID:CA1']
+    assert cached_node['robokop_variant_id'] == 'ROBO_VARIANT:CAID:CA1'
+
+
+def test_variant_norm_with_cache_lenient(monkeypatch, variant_norm_cache_dir, fake_genetics_normalizer):
+    monkeypatch.setattr(config, 'ORION_VARIANT_NORM_CACHE', variant_norm_cache_dir)
+
+    variant_nodes = [{"id": "DBSNP:rs4", "name": "", NODE_TYPES: [SEQUENCE_VARIANT]}]
+
+    node_normalizer = NodeNormalizer(strict_normalization=False)
+    node_normalizer.normalize_sequence_variants(variant_nodes)
+
+    # with strict normalization off a cached failure is kept, just like a fresh one
+    assert not fake_genetics_normalizer.variant_ids_normalized
+    assert node_normalizer.node_normalization_lookup['DBSNP:rs4'] == ['DBSNP:rs4']
+    assert variant_nodes == [{'id': 'DBSNP:rs4',
+                              'name': 'DBSNP:rs4',
+                              NODE_TYPES: TEST_VARIANT_NODE_TYPES,
+                              SYNONYMS: [],
+                              'hgvs': []}]
 
 
 # The biolink-model GitHub tags and the bl-lookup /versions endpoint are both 'v'-prefixed, so a
