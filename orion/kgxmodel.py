@@ -149,11 +149,6 @@ class GraphFileSource:
     build_version: str = None
     kgx_graph_metadata: dict = None
 
-    @property
-    def version_identifier(self) -> str | None:
-        """release_version when set (built graphs / subgraphs), else build_version (raw parser output)."""
-        return self.release_version or self.build_version
-
     def get_node_file_paths(self):
         if self.file_paths is None:
             raise Exception(f'File paths were requested before they were established for GraphFileSource {self.id}')
