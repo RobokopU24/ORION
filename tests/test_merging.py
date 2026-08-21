@@ -1,4 +1,6 @@
 from orion.merging import GraphMerger, MemoryGraphMerger, DiskGraphMerger, NODE_ENTITY_TYPE, EDGE_ENTITY_TYPE
+from orion.kgx_file_merger import KGXFileMerger, MERGE_METADATA_FILENAME
+from orion.kgxmodel import GraphSpec, GraphFileSource
 from orion.biolink_constants import *
 import os
 import json
@@ -783,3 +785,62 @@ def test_dropped_property_counts_in_memory():
 
 def test_dropped_property_counts_on_disk(tmp_path):
     dropped_property_counts_test(DiskGraphMerger(temp_directory=str(tmp_path), chunk_size=4))
+
+
+def test_merge_metadata_records_each_source(tmp_path):
+    # KGXFileMerger describes every source it merged, including how that source joined the graph
+    input_dir = tmp_path / 'input'
+    output_dir = tmp_path / 'output'
+    input_dir.mkdir()
+    output_dir.mkdir()
+
+    def write_source(source_id, nodes, edges):
+        nodes_path = input_dir / f'{source_id}_nodes.jsonl'
+        edges_path = input_dir / f'{source_id}_edges.jsonl'
+        for path, rows in ((nodes_path, nodes), (edges_path, edges)):
+            with open(path, 'w') as f:
+                for row in rows:
+                    f.write(json.dumps(row) + '\n')
+        return [str(nodes_path), str(edges_path)]
+
+    primary_files = write_source('primary', [make_node(1), make_node(2)], [make_edge(1, 2)])
+    # a dont_merge source contributes its edges without them taking part in merging at all
+    unmerged_files = write_source('unmerged', [make_node(2), make_node(3)], [make_edge(2, 3)])
+
+    graph_spec = GraphSpec(graph_id='test_graph', graph_name='', graph_description='', graph_url='',
+                           graph_output_format='jsonl', sources=[],
+                           resolved_sources=[
+                               GraphFileSource(id='primary',
+                                               release_version='1.0.0',
+                                               build_version='abc123',
+                                               file_paths=primary_files),
+                               GraphFileSource(id='unmerged',
+                                               release_version='2.1.0',
+                                               build_version='def456',
+                                               file_paths=unmerged_files,
+                                               merge_strategy=KGXFileMerger.DONT_MERGE)])
+    file_merger = KGXFileMerger(graph_spec=graph_spec,
+                                output_directory=str(output_dir),
+                                nodes_output_filename='nodes.jsonl',
+                                edges_output_filename='edges.jsonl')
+    file_merger.merge()
+    file_merger.write_merge_metadata()
+
+    with open(output_dir / MERGE_METADATA_FILENAME) as f:
+        merge_metadata = json.load(f)
+
+    assert merge_metadata['sources']['primary'] == {'release_version': '1.0.0',
+                                                    'build_version': 'abc123',
+                                                    'merge_strategy': None,
+                                                    'node_count': 2,
+                                                    'edge_count': 1,
+                                                    'files': {'primary_nodes.jsonl': {'nodes': 2},
+                                                              'primary_edges.jsonl': {'edges': 1}}}
+    assert merge_metadata['sources']['unmerged']['merge_strategy'] == KGXFileMerger.DONT_MERGE
+    assert merge_metadata['sources']['unmerged']['release_version'] == '2.1.0'
+    # NODE:2 came from both sources, and the dont_merge source's edge was appended unmerged
+    assert merge_metadata['final_node_count'] == 3
+    assert merge_metadata['final_edge_count'] == 2
+    assert merge_metadata['unmerged_edge_count'] == 1
+    assert merge_metadata['pre_merge_nodes_merged'] == 2
+    assert merge_metadata['post_merge_nodes_merged'] == 1

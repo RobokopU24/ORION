@@ -51,9 +51,11 @@ class KGXFileMerger:
         secondary_sources = []
         dont_merge_sources = []
         for graph_source in resolved_sources:
+            source_metadata = graph_source.get_metadata_representation()
+            # the sources here are keyed by id, so the id in the source's own representation is redundant
+            source_metadata.pop('id')
             self.merge_metadata["sources"][graph_source.id] = {
-                'release_version': graph_source.release_version,
-                'build_version': graph_source.build_version,
+                **source_metadata,
                 'kgx_graph_metadata': graph_source.kgx_graph_metadata,
                 'node_count': 0,
                 'edge_count': 0,
