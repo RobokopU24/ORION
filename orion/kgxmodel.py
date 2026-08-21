@@ -136,12 +136,11 @@ class GraphFileSource:
     pulled from the registry, built as a subgraph, or just-materialized from
     an ingest pipeline run).
 
-    Exactly one of release_version / build_version is set, depending on what
-    this source represents:
-    - release_version (semver): for built graphs and subgraphs.
-    - build_version (hash):     for raw parser output coming straight from
-                                the ingest pipeline, or for a single-source
-                                graph matched by its source's build hash.
+    A build_version (hash) is always set. A release_version (semver) accompanies it
+    for anything resolved from a bundle, taken from the release the bundle
+    records for itself when the spec didn't pin one. Raw parser output coming
+    straight from the ingest pipeline has no release and carries only
+    build_version.
     """
     id: str
     file_paths: list

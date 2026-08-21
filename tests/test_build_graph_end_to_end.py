@@ -309,6 +309,10 @@ def test_build_graph_end_to_end_multi_source(tmp_path, monkeypatch):
         with open(build_metadata_path) as f:
             build_metadata = json.load(f)
 
+        # the parent's merge metadata identifies each source by both of the versions it was built as
+        assert merge_metadata['sources'][source_id]['build_version'] == source_resolved.build_version
+        assert merge_metadata['sources'][source_id]['release_version'] == build_metadata['version']
+
         distribution_urls = {entry['contentUrl'] for entry in build_metadata['distribution']}
         graph_dir_url_suffix = f'/{source_id}/{build_metadata["version"]}/'
         assert any(url.endswith(f'{graph_dir_url_suffix}nodes.jsonl.gz') for url in distribution_urls)
