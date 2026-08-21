@@ -11,6 +11,10 @@ logger = get_orion_logger("orion.variant_norm_cache")
 NORM_NODE_MAP_FILE_NAME = 'norm_node_map.json'
 NORMALIZED_NODES_FILE_NAME = 'normalized_nodes.jsonl'
 
+# kind of hacky but strict normalization output directories have a _strict suffix
+# and can be identified by checking for that
+STRICT_VERSION_SUFFIX = '_strict'
+
 # error message stored for variants that are known to have failed normalization previously
 CACHED_NORMALIZATION_FAILURE = 'cached_normalization_failure: this variant failed to normalize in the run ' \
                                'that produced the variant normalization cache'
@@ -26,7 +30,7 @@ class VariantNormalizationCacheError(Exception):
 def validate_cache_directory(cache_directory: str):
     """
     Check that a directory can be used as a variant normalization cache, without reading the files.
-    
+
     :param cache_directory: the directory to check
     :raises VariantNormalizationCacheError: if the directory can not be used as a cache
     """
@@ -35,6 +39,14 @@ def validate_cache_directory(cache_directory: str):
         if not os.path.isfile(file_path):
             raise VariantNormalizationCacheError(f'Could not initialize the variant normalization cache, '
                                                  f'{file_path} does not exist.')
+
+    directory_name = os.path.basename(os.path.normpath(cache_directory))
+    if not directory_name.endswith(STRICT_VERSION_SUFFIX):
+        raise VariantNormalizationCacheError(f'Could not initialize the variant normalization cache, '
+                                             f'{cache_directory} is not a strict normalization output '
+                                             f'which is required for a cache. If you copied the normalization '
+                                             f'results from a previous run to a different location, the directory '
+                                             f'needs to end in _strict to indicate this.')
 
 
 class VariantNormalizationCache:
@@ -53,10 +65,11 @@ class VariantNormalizationCache:
     remove_unconnected_nodes() prunes the nodes file after the map is written, so the two files are not
     guaranteed to agree, and serving a partial result would silently drop nodes of a split variant.
 
-    A cache should come from a run that used the same strict normalization setting. Under strict
-    normalization failures are recorded as None in the map, which is what this reads, but a lenient run
-    records them as a variant mapped to itself, which is indistinguishable from a successful normalization
-    and would be served as one.
+    A cache must come from a strict normalization run, which is checked against the cache directory name.
+    Strict normalization records failures as None in the map, which is what this reads. A lenient run
+    instead records them as a variant mapped to itself plus a placeholder node, which is indistinguishable
+    from a successful normalization. Output from a strict run is a valid cache for a lenient run too -
+    failures come back as an empty result and the caller applies its own strict or lenient handling.
     """
 
     def __init__(self, cache_directory: str):

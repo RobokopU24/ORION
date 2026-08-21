@@ -1,4 +1,5 @@
 import json
+import os
 import pytest
 from orion.biolink_constants import *
 from orion.config import Config, config
@@ -179,7 +180,19 @@ def make_cached_variant_node(node_id: str, name: str):
 
 
 @pytest.fixture
-def variant_norm_cache_dir(tmp_path):
+def variant_norm_cache_dir(strict_cache_dir):
+    return make_variant_norm_cache(strict_cache_dir)
+
+
+# a cache is a normalization output directory, and strict normalization output has a _strict suffix
+@pytest.fixture
+def strict_cache_dir(tmp_path):
+    cache_dir = tmp_path / 'normalized_2024jan_2.3.0_v4.4.2_1.4.0_strict'
+    cache_dir.mkdir()
+    return cache_dir
+
+
+def make_variant_norm_cache(tmp_path):
     normalized_nodes = [
         make_cached_variant_node('CAID:CA1', 'rs1'),
         # rs2 split into two nodes
@@ -267,9 +280,25 @@ def test_variant_norm_cache_returns_copies(variant_norm_cache_dir):
     assert cached_node_again['name'] == 'rs1'
 
 
-def test_variant_norm_cache_missing_files(tmp_path):
+def test_variant_norm_cache_missing_files(strict_cache_dir):
     with pytest.raises(VariantNormalizationCacheError):
-        VariantNormalizationCache(str(tmp_path))
+        VariantNormalizationCache(str(strict_cache_dir))
+
+
+# a lenient run records a variant that failed to normalize the same way it records a successful one,
+# so serving those entries as normalized would silently keep variants a strict run has to discard
+def test_variant_norm_cache_rejects_lenient_cache(tmp_path):
+    lenient_cache_dir = tmp_path / 'normalized_2024jan_2.3.0_v4.4.2_1.4.0'
+    lenient_cache_dir.mkdir()
+    make_variant_norm_cache(lenient_cache_dir)
+    with pytest.raises(VariantNormalizationCacheError, match='is not a strict normalization output'):
+        VariantNormalizationCache(str(lenient_cache_dir))
+
+
+# a trailing separator on the configured path must not hide the suffix
+def test_variant_norm_cache_accepts_trailing_separator(strict_cache_dir):
+    make_variant_norm_cache(strict_cache_dir)
+    assert len(VariantNormalizationCache(f'{strict_cache_dir}{os.sep}')) == 3
 
 
 def make_file_normalizer(**kwargs):
