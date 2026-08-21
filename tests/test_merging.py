@@ -53,7 +53,9 @@ def node_merging_counts_test(graph_merger: GraphMerger):
 
     merged_node_lines = list(graph_merger.get_merged_nodes_jsonl())
     assert len(merged_node_lines) == 25
+    # nodes 6 through 20 were each provided twice, so 15 sets of 2 nodes merged
     assert graph_merger.merged_node_counter == 15
+    assert graph_merger.merged_node_group_counter == 15
 
 
 def test_node_merging_counts_in_memory():
@@ -250,7 +252,45 @@ def edge_merging_counts_test(graph_merger: GraphMerger):
             assert len(edge['string_list_property']) == 1
         assert edge['int_property'] == int(edge[SUBJECT_ID].split(':')[1]) or edge['int_property'] == 999999
 
+    # edges 6 through 10 were provided twice for each of the two predicates, so 10 sets of 2 edges merged
     assert graph_merger.merged_edge_counter == 10
+    assert graph_merger.merged_edge_group_counter == 10
+
+
+def merged_group_counts_test(graph_merger: GraphMerger):
+    # merged sets of varying sizes - one set of 4 nodes/edges, one set of 2, and two that never merge
+    duplicated_4 = [make_node(1, **{'testing_prop': [i]}) for i in range(4)]
+    duplicated_2 = [make_node(2, **{'testing_prop': [i]}) for i in range(2)]
+    unique_nodes = [make_node(3), make_node(4)]
+    input_node_count = graph_merger.merge_nodes(duplicated_4 + duplicated_2 + unique_nodes)
+
+    duplicated_4 = [make_edge(1, 2, **{'testing_prop': [i]}) for i in range(4)]
+    duplicated_2 = [make_edge(3, 4, **{'testing_prop': [i]}) for i in range(2)]
+    unique_edges = [make_edge(5, 6), make_edge(7, 8)]
+    input_edge_count = graph_merger.merge_edges(duplicated_4 + duplicated_2 + unique_edges)
+
+    output_node_count = len(list(graph_merger.get_merged_nodes_jsonl()))
+    output_edge_count = len(list(graph_merger.get_merged_edges_jsonl()))
+    assert input_node_count == 8 and output_node_count == 4
+    assert input_edge_count == 8 and output_edge_count == 4
+
+    # 6 nodes/edges went in to a merge and 2 came out of one, the difference is what merging removed
+    for merged_counter, group_counter, input_count, output_count in (
+            (graph_merger.merged_node_counter, graph_merger.merged_node_group_counter,
+             input_node_count, output_node_count),
+            (graph_merger.merged_edge_counter, graph_merger.merged_edge_group_counter,
+             input_edge_count, output_edge_count)):
+        assert group_counter == 2
+        assert merged_counter + group_counter == 6
+        assert merged_counter == input_count - output_count
+
+
+def test_merged_group_counts_in_memory():
+    merged_group_counts_test(MemoryGraphMerger())
+
+
+def test_merged_group_counts_on_disk(tmp_path):
+    merged_group_counts_test(DiskGraphMerger(temp_directory=str(tmp_path), chunk_size=3))
 
 
 def test_edge_merging_counts_in_memory():
@@ -286,7 +326,9 @@ def test_qualifier_edge_merging():
 
     merged_edges = [json.loads(edge) for edge in graph_merger.get_merged_edges_jsonl()]
     assert len(merged_edges) == 3
+    # 30 edges merged down to 3 sets, distinguished by their qualifiers
     assert graph_merger.merged_edge_counter == 27
+    assert graph_merger.merged_edge_group_counter == 3
 
     passed_tests = 0
     for edge in merged_edges:

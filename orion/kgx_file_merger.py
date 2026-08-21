@@ -91,7 +91,18 @@ class KGXFileMerger:
             self.merge_metadata['unmerged_edge_count'] = unmerged_edges_written
             self.merge_metadata['final_node_count'] += merged_nodes_written
             self.merge_metadata['final_edge_count'] += merged_edges_written + unmerged_edges_written
+            # Merging is reported three ways: how many entities went in to a merge (pre_merge_*_merged),
+            # how many came out of one (post_merge_*_merged), and the difference between those, which is
+            # how many entities disappeared because of merging (*_diff).
+            merged_node_groups = self.node_graph_merger.merged_node_group_counter
+            merged_edge_groups = self.edge_graph_merger.merged_edge_group_counter
+            self.merge_metadata['pre_merge_nodes_merged'] += (self.node_graph_merger.merged_node_counter
+                                                              + merged_node_groups)
+            self.merge_metadata['post_merge_nodes_merged'] += merged_node_groups
             self.merge_metadata['nodes_diff'] += self.node_graph_merger.merged_node_counter
+            self.merge_metadata['pre_merge_edges_merged'] += (self.edge_graph_merger.merged_edge_counter
+                                                              + merged_edge_groups)
+            self.merge_metadata['post_merge_edges_merged'] += merged_edge_groups
             self.merge_metadata['edges_diff'] += self.edge_graph_merger.merged_edge_counter
             for merger in (self.node_graph_merger, self.edge_graph_merger):
                 for warning_type in ('mismatched_properties', 'dropped_properties'):
@@ -248,7 +259,11 @@ class KGXFileMerger:
     def init_merge_metadata():
         return {'sources': {},
                 'merging_code_version': MERGING_CODE_VERSION,
+                'pre_merge_nodes_merged': 0,
+                'post_merge_nodes_merged': 0,
                 'nodes_diff': 0,
+                'pre_merge_edges_merged': 0,
+                'post_merge_edges_merged': 0,
                 'edges_diff': 0,
                 'merge_warnings': {'mismatched_properties': [],
                                    'dropped_properties': []},

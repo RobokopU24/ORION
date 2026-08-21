@@ -190,8 +190,13 @@ class GraphMerger:
                  add_edge_id=False,
                  edge_id_type=None,
                  overwrite_edge_ids=True):
+        # merged_*_counter counts how many entities merged/disappeared into another one
         self.merged_node_counter = 0
         self.merged_edge_counter = 0
+        # merged_*_group_counter counts the number of sets of merged entities
+        # or, how many merged entities exist after merging
+        self.merged_node_group_counter = 0
+        self.merged_edge_group_counter = 0
         self.merge_warnings = {'mismatched_properties': set(), 'dropped_properties': set()}
         self.edge_merging_attributes = edge_merging_attributes
         self.add_edge_id = add_edge_id
@@ -390,8 +395,10 @@ class DiskGraphMerger(GraphMerger):
             return
         file_handlers = [open(file_path) for file_path in file_paths]
 
-        # store a string that can be used to reference the counter for the appropriate entity type
+        # store strings that can be used to reference the counters for the appropriate entity type
         merge_counter = 'merged_node_counter' if entity_type == NODE_ENTITY_TYPE else 'merged_edge_counter'
+        group_counter = 'merged_node_group_counter' if entity_type == NODE_ENTITY_TYPE \
+            else 'merged_edge_group_counter'
 
         # Here we use a min-heap to organize iterating through the entity files to compare their keys and merge entities
         # with matching keys. Members of the heap are tuples representing each line from a file:
@@ -459,6 +466,7 @@ class DiskGraphMerger(GraphMerger):
 
             # If we did a merge we need to convert back to a json string for writing, and apply a new id if desired
             if merged_entity is not None:
+                setattr(self, group_counter, getattr(self, group_counter) + 1)
                 if track_pre_merge_ids:
                     # It looks like we're overwriting all edge ids, but you don't get here without a merge occurring
                     merged_entity[EDGE_ID] = min_key
@@ -501,6 +509,9 @@ class MemoryGraphMerger(GraphMerger):
                          overwrite_edge_ids=overwrite_edge_ids)
         self.nodes = {}
         self.edges = {}
+        # store the keys of nodes/edges that are actually involved in mergers for metadata counts
+        self.merged_node_keys = set()
+        self.merged_edge_keys = set()
         self.pre_merge_edge_id_mapping = defaultdict(list)
         self.pre_merge_mapping_file_path = pre_merge_mapping_file_path
 
@@ -516,6 +527,7 @@ class MemoryGraphMerger(GraphMerger):
         node_key = node['id']
         if node_key in self.nodes:
             self.merged_node_counter += 1
+            self.merged_node_keys.add(node_key)
             previous_node = self.nodes[node_key]
             merged_node = entity_merging_function(previous_node,
                                                   node)
@@ -536,6 +548,7 @@ class MemoryGraphMerger(GraphMerger):
                                      edge_id_type=self.edge_id_type)
         if edge_key in self.edges:
             self.merged_edge_counter += 1
+            self.merged_edge_keys.add(edge_key)
             existing_edge = quick_json_loads(self.edges[edge_key])
             if self.add_edge_id and not self.overwrite_edge_ids:
                 mapping = self.pre_merge_edge_id_mapping
@@ -563,6 +576,7 @@ class MemoryGraphMerger(GraphMerger):
     def get_merged_nodes_jsonl(self):
         for node in self.nodes.values():
             yield f'{quick_json_dumps(node)}\n'
+        self.merged_node_group_counter = len(self.merged_node_keys)
         self._record_merge_warnings(flush_merge_warnings())
 
     def get_merged_edges_jsonl(self):
@@ -572,6 +586,7 @@ class MemoryGraphMerger(GraphMerger):
             with open(self.pre_merge_mapping_file_path, 'w') as f:
                 for post_merge_id, pre_merge_ids in self.pre_merge_edge_id_mapping.items():
                     f.write(f'{quick_json_dumps({"post_merge_id": post_merge_id, "pre_merge_ids": pre_merge_ids})}\n')
+        self.merged_edge_group_counter = len(self.merged_edge_keys)
         self._record_merge_warnings(flush_merge_warnings())
 
     def get_pre_merge_edge_id_mapping(self):
