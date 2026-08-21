@@ -67,9 +67,8 @@ class Config(BaseSettings):
     OPENAI_API_KEY: str | None = None
     OPENAI_API_ORGANIZATION: str | None = None
 
-    # Optional path to a directory of normalization output from a previous run.
-    # Sequence variants found there are used as-is instead of being sent to the
-    # genetics normalizer.
+    # Optional path to a directory of normalization outputs from a previous run.
+    # Normalized sequence variant nodes and normalization mappings found there are loaded and reused.
     ORION_VARIANT_NORM_CACHE: str | None = None
 
     # Tracks which fallback directories we've already announced so we log the resolved

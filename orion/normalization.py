@@ -124,15 +124,17 @@ class NodeNormalizer:
         # whether to include taxa/description in the responses and assign them to nodes
         self.include_taxa = include_taxa
         self.include_description = include_description
-        # storage for variant nodes that split into multiple new nodes in normalization
-        self.variant_node_splits = {}
         # normalization map for future look up of all normalized node IDs
         self.node_normalization_lookup = {}
+        # Sequence variant normalization objects are loaded lazily because they're not usually used
+        # GeneticsNormalizer for normalizing sequence variants, uses different functionality and APIs
         self.sequence_variant_normalizer = None
+        # biolink types applied to sequence variant nodes, they don't come from APIs, we need to handle them
         self.variant_node_types = None
-        # a cache of previously normalized variants (ORION_VARIANT_NORM_CACHE), loaded lazily because
-        # it's only needed for sources that have sequence variants
+        # VariantNormalizationCache for reusing previous sequence variant normalizations
         self.variant_norm_cache = None
+        # storage for ids of variant nodes that split into multiple new nodes in normalization
+        self.variant_node_splits = {}
         self.requests_session = self.get_normalization_requests_session()
 
     def hit_node_norm_service(self, curies):

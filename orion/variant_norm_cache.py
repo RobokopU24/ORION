@@ -16,8 +16,7 @@ NORMALIZED_NODES_FILE_NAME = 'normalized_nodes.jsonl'
 STRICT_VERSION_SUFFIX = '_strict'
 
 # error message stored for variants that are known to have failed normalization previously
-CACHED_NORMALIZATION_FAILURE = 'cached_normalization_failure: this variant failed to normalize in the run ' \
-                               'that produced the variant normalization cache'
+CACHED_NORMALIZATION_FAILURE = 'cached_normalization_failure'
 
 # used to tell a variant that isn't in the cache apart from one cached as a normalization failure
 _CACHE_MISS = object()
