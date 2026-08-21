@@ -133,7 +133,9 @@ class GraphBuilder:
                                   f'{merge_metadata["merge_error"]}')
                 # Leave the incomplete dir behind; the next run clears and retries it.
                 return False
-            
+
+            # Merge metadata is generated during the merge and cannot be recreated from plain KGX files
+            # so it has to written here and can't be generated after the fact like other metadata below.
             source_merger.write_merge_metadata()
 
             # ISO 8601 in UTC, the format graph metadata dates are recorded in

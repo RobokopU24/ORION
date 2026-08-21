@@ -24,7 +24,9 @@ MERGING_CODE_VERSION = '2.0.0'
 
 # how many times a property was a dict on one entity and another type on another entity.
 _mismatched_dict_properties = Counter()
-# how many times two entities had different values for a property that could not be reconciled.
+# how many values were discarded because two entities had a different value for a property that
+# could not be reconciled. A property whose value is a dictionary counts every conflicting
+# key inside it, so these are counts of values lost, not counts of merges affected.
 _dropped_properties = Counter()
 
 # Emit collected warnings, clear them, and return the collected counts for metadata capture.
