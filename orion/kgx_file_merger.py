@@ -1,6 +1,7 @@
 import os
 import gzip
 import json
+from collections import Counter
 from datetime import datetime
 from orion.utils import quick_jsonl_file_iterator
 from orion.logging import get_orion_logger
@@ -106,9 +107,9 @@ class KGXFileMerger:
             self.merge_metadata['edges_diff'] += self.edge_graph_merger.merged_edge_counter
             for merger in (self.node_graph_merger, self.edge_graph_merger):
                 for warning_type in ('mismatched_properties', 'dropped_properties'):
-                    existing = set(self.merge_metadata['merge_warnings'][warning_type])
+                    existing = Counter(self.merge_metadata['merge_warnings'][warning_type])
                     existing.update(merger.merge_warnings[warning_type])
-                    self.merge_metadata['merge_warnings'][warning_type] = sorted(existing)
+                    self.merge_metadata['merge_warnings'][warning_type] = dict(existing.most_common())
 
     def merge_primary_sources(self,
                               graph_sources: list):
@@ -265,8 +266,8 @@ class KGXFileMerger:
                 'pre_merge_edges_merged': 0,
                 'post_merge_edges_merged': 0,
                 'edges_diff': 0,
-                'merge_warnings': {'mismatched_properties': [],
-                                   'dropped_properties': []},
+                'merge_warnings': {'mismatched_properties': {},
+                                   'dropped_properties': {}},
                 'final_node_count': 0,
                 'final_edge_count': 0}
 

@@ -745,7 +745,7 @@ def truthy_scalar_collision_test(graph_merger: GraphMerger):
     # only the genuine truthy/truthy collision should be recorded as dropped;
     # falsy-vs-truthy and equal-value merges must not show up here
     dropped = graph_merger.merge_warnings['dropped_properties']
-    assert 'conflicting' in dropped
+    assert dropped['conflicting'] == 1
     for name in ('zero_then_int', 'empty_then_str', 'none_then_str',
                  'int_then_zero', 'str_then_empty', 'str_then_none', 'agreeing'):
         assert name not in dropped
@@ -757,3 +757,29 @@ def test_truthy_scalar_collision_in_memory():
 
 def test_truthy_scalar_collision_on_disk(tmp_path):
     truthy_scalar_collision_test(DiskGraphMerger(temp_directory=str(tmp_path), chunk_size=4))
+
+
+def dropped_property_counts_test(graph_merger: GraphMerger):
+    # every merge of these edges drops a conflicting value, so the counts should reflect
+    # how many times each property was affected, not just which properties were affected
+    test_edges = [make_edge(1, 2, **{'often_dropped': f'value_{i}', 'agreeing': 'same'})
+                  for i in range(5)]
+    test_edges += [make_edge(3, 4, **{'rarely_dropped': f'value_{i}'}) for i in range(2)]
+    # a dict on one edge and a scalar on another is a mismatch, not a drop
+    test_edges += [make_edge(5, 6, **{'mismatched': {'a': 1}}), make_edge(5, 6, **{'mismatched': 'not_a_dict'})]
+
+    graph_merger.merge_edges(test_edges)
+    merged_edges = [json.loads(edge) for edge in graph_merger.get_merged_edges_jsonl()]
+    assert len(merged_edges) == 3
+
+    # the first edge of each set isn't dropping anything, so 5 edges means 4 drops
+    assert graph_merger.merge_warnings['dropped_properties'] == {'often_dropped': 4, 'rarely_dropped': 1}
+    assert graph_merger.merge_warnings['mismatched_properties'] == {'mismatched': 1}
+
+
+def test_dropped_property_counts_in_memory():
+    dropped_property_counts_test(MemoryGraphMerger())
+
+
+def test_dropped_property_counts_on_disk(tmp_path):
+    dropped_property_counts_test(DiskGraphMerger(temp_directory=str(tmp_path), chunk_size=4))
