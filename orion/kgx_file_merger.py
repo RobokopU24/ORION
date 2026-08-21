@@ -282,13 +282,13 @@ class KGXFileMerger:
     # Write the merge metadata to MERGE_METADATA_FILENAME in output_directory.
     # kgx_graph_metadata is left out, that's the entire graph-metadata.json for the source
     # already included with graph outputs, not relevant for merging metadata
-    def write_merge_metadata(self, output_directory: str = None):
+    def write_merge_metadata(self):
         merge_metadata = dict(self.merge_metadata)
         merge_metadata['sources'] = {
             source_id: {key: value for key, value in source_metadata.items() if key != 'kgx_graph_metadata'}
             for source_id, source_metadata in merge_metadata['sources'].items()
         }
-        merge_metadata_path = os.path.join(output_directory or self.output_directory, MERGE_METADATA_FILENAME)
+        merge_metadata_path = os.path.join(self.output_directory, MERGE_METADATA_FILENAME)
         with open(merge_metadata_path, 'w') as merge_metadata_file:
             json.dump(merge_metadata, merge_metadata_file, indent=2)
         return merge_metadata_path

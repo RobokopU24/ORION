@@ -134,7 +134,7 @@ class GraphBuilder:
                 # Leave the incomplete dir behind; the next run clears and retries it.
                 return False
             
-            source_merger.write_merge_metadata(graph_output_dir)
+            source_merger.write_merge_metadata()
 
             # ISO 8601 in UTC, the format graph metadata dates are recorded in
             build_time = (datetime.datetime.now(datetime.timezone.utc)
