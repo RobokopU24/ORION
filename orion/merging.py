@@ -529,8 +529,8 @@ class MemoryGraphMerger(GraphMerger):
         node_key = node['id']
         if node_key in self.nodes:
             self.merged_node_counter += 1
-            self.merged_node_keys.add(node_key)
             previous_node = self.nodes[node_key]
+            self.merged_node_keys.add(previous_node['id'])
             merged_node = entity_merging_function(previous_node,
                                                   node)
             self.nodes[node_key] = merged_node
