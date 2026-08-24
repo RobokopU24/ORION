@@ -352,7 +352,7 @@ class GraphBuilder:
         except (GetDataPullError, DataVersionError) as e:
             raise GraphSpecError(error_message=e.error_message)
         composite_version_string = '_'.join(composite_parts)
-        build_version = xxh64_hexdigest(composite_version_string)
+        build_version = xxh64_hexdigest(composite_version_string.encode())
         graph_spec.build_version = build_version
         # Use the build version to determine the release version.
         release_version = self._select_release_version(graph_spec.graph_id, build_version, graph_spec.base_release_version)

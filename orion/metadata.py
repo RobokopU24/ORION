@@ -236,4 +236,4 @@ def get_source_build_version(source_id,
                             parsing_version,
                             normalization_version,
                             supplementation_version])
-    return xxh64_hexdigest(build_string)
+    return xxh64_hexdigest(build_string.encode())
