@@ -2,6 +2,7 @@
 from orion.kgx_file_merger import KGXFileMerger
 from orion.kgxmodel import GraphSpec, GraphSource
 from orion.kgx_metadata import KGXGraphMetadata, KGXKnowledgeSource, generate_schema
+from orion.kgx_schema_diff import diff_schemas
 from orion.meta_kg import MetaKnowledgeGraphBuilder
 from orion.merging import MERGING_CODE_VERSION
 from orion.kgx_file_normalizer import KGXFileNormalizer
@@ -10,7 +11,8 @@ from orion.normalization import NodeNormalizer, NormalizationScheme, NORMALIZATI
 __all__ = [
     "KGXFileMerger",
     "GraphSpec", "GraphSource",
-    "KGXGraphMetadata", "KGXKnowledgeSource", "generate_schema",
+    "KGXGraphMetadata", "KGXKnowledgeSource",
+    "generate_schema", "diff_schemas",
     "MetaKnowledgeGraphBuilder",
     "KGXFileNormalizer",
     "NodeNormalizer", "NormalizationScheme", "NORMALIZATION_CODE_VERSION",

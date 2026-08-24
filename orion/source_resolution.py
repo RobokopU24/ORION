@@ -102,13 +102,17 @@ class SourceResolver:
         bundle = KGXBundle(graph_dir)
         if not (bundle.has_nodes_and_edges() and bundle.has_graph_metadata()):
             return None
+        kgx_graph_metadata = bundle.load_graph_metadata()
         return GraphFileSource(
             id=source.id,
-            release_version=source.release_version,
+            # A source pinned to a release_version already has one. Otherwise, it was resolved by
+            # build_version, and the release that build belongs to is the one the bundle recorded
+            # for itself when it was built.
+            release_version=source.release_version or kgx_graph_metadata.get('version'),
             build_version=build_version,
             file_paths=[bundle.nodes_path, bundle.edges_path],
             merge_strategy=source.merge_strategy,
-            kgx_graph_metadata=bundle.load_graph_metadata(),
+            kgx_graph_metadata=kgx_graph_metadata,
         )
 
     def _resolve_registry(self, source: GraphSource) -> GraphFileSource | None:

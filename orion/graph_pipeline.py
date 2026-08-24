@@ -142,7 +142,13 @@ class GraphBuilder:
                 # Leave the incomplete dir behind; the next run clears and retries it.
                 return False
 
-            build_time = datetime.datetime.now().isoformat(timespec='seconds')
+            # Merge metadata is generated during the merge and cannot be recreated from plain KGX files
+            # so it has to written here and can't be generated after the fact like other metadata below.
+            source_merger.write_merge_metadata()
+
+            # ISO 8601 in UTC, the format graph metadata dates are recorded in
+            build_time = (datetime.datetime.now(datetime.timezone.utc)
+                          .isoformat(timespec='seconds').replace('+00:00', 'Z'))
             biolink_version = self._graph_biolink_version(graph_spec)
             babel_version = self._graph_babel_version(graph_spec)
 
@@ -156,7 +162,7 @@ class GraphBuilder:
                                              babel_version=babel_version)
             logger.info(f'Building graph {graph_id} complete!')
 
-        # --- Additional artifacts (QC, schema, meta KG, dumps, alternate formats). These can 
+        # --- Additional artifacts (QC, schema, meta KG, dumps, alternate formats). These can
         #     run whether the core bundle was just built or already existed, backfilling anything
         #     missing. ---
         if not kgx_bundle.has_qc_results():

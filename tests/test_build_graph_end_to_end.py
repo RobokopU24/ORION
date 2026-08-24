@@ -275,6 +275,24 @@ def test_build_graph_end_to_end_multi_source(tmp_path, monkeypatch):
         merged_edges = [json.loads(line) for line in f]
     assert len(merged_edges) == 3  # two HGNC + one CTD
 
+    # --- merge-metadata.json records what the merge did ---
+    with open(parent_dir / 'merge-metadata.json') as f:
+        merge_metadata = json.load(f)
+    assert set(merge_metadata['sources']) == {'HGNC', 'CTD'}
+    assert merge_metadata['sources']['HGNC']['node_count'] == 3
+    assert merge_metadata['sources']['CTD']['node_count'] == 2
+    assert merge_metadata['final_node_count'] == 4
+    assert merge_metadata['final_edge_count'] == 3
+    # HGNC:2 arrives from both sources, so two nodes merged into one and one node disappeared
+    assert merge_metadata['pre_merge_nodes_merged'] == 2
+    assert merge_metadata['post_merge_nodes_merged'] == 1
+    assert merge_metadata['nodes_diff'] == 1
+    # no edge is duplicated across the sources
+    assert merge_metadata['pre_merge_edges_merged'] == 0
+    assert merge_metadata['post_merge_edges_merged'] == 0
+    assert merge_metadata['edges_diff'] == 0
+    assert merge_metadata['merge_warnings'] == {'mismatched_properties': {}, 'dropped_properties': {}}
+
     # --- Each contributing source is itself a single-source graph bundle at
     # graphs_dir/<source_id>/<build_version>/, produced by the same build path as any graph and
     # consumed by the parent merger. ---
@@ -285,10 +303,15 @@ def test_build_graph_end_to_end_multi_source(tmp_path, monkeypatch):
         assert (source_build_dir / 'nodes.jsonl.gz').exists()
         assert (source_build_dir / 'edges.jsonl.gz').exists()
         assert (source_build_dir / 'qc-results.json').exists()
+        assert (source_build_dir / 'merge-metadata.json').exists()
         build_metadata_path = source_build_dir / 'graph-metadata.json'
         assert build_metadata_path.exists()
         with open(build_metadata_path) as f:
             build_metadata = json.load(f)
+
+        # the parent's merge metadata identifies each source by both of the versions it was built as
+        assert merge_metadata['sources'][source_id]['build_version'] == source_resolved.build_version
+        assert merge_metadata['sources'][source_id]['release_version'] == build_metadata['version']
 
         distribution_urls = {entry['contentUrl'] for entry in build_metadata['distribution']}
         graph_dir_url_suffix = f'/{source_id}/{build_metadata["version"]}/'
