@@ -8,6 +8,7 @@ logger = get_orion_logger(__name__)
 
 _STATUS_EMOJI = {
     'stable': ':large_green_circle:',
+    'up_to_date': ':white_circle:',
     'failed': ':red_circle:',
 }
 
@@ -32,7 +33,7 @@ def send_slack_notification(results_path: str) -> None:
 
 def _format_message(results: list) -> str:
     any_failed = any(
-        r.get('build_status') == 'failed' or
+        r.get('build_status') not in ('stable', 'up_to_date') or
         any(s.get('status') == 'failed' for s in r.get('sources', {}).values())
         for r in results
     )
@@ -45,10 +46,12 @@ def _format_message(results: list) -> str:
         status = graph.get('build_status', 'failed')
         emoji = _STATUS_EMOJI.get(status, ':white_circle:')
 
+        version = graph.get('release_version', '?')
+        build_v = (graph.get('build_version') or '')[:8]
         if status == 'stable':
-            version = graph.get('release_version', '?')
-            build_v = (graph.get('build_version') or '')[:8]
             lines.append(f'{emoji} *{graph_id}* `{build_v}` — built as v{version}')
+        elif status == 'up_to_date':
+            lines.append(f'{emoji} *{graph_id}* `{build_v}` — up to date (v{version})')
         else:
             reason = graph.get('reason', '')
             lines.append(f'{emoji} *{graph_id}* — failed ({reason})')

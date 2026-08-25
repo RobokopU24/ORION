@@ -121,6 +121,7 @@ class GraphBuilder:
 
         # A build is complete/STABLE when its bundle has nodes, edges, and graph-metadata.json.
         build_complete = kgx_bundle.has_nodes_and_edges() and kgx_bundle.has_graph_metadata()
+        newly_built = not build_complete
         if build_complete:
             logger.info(f'Graph {graph_id} release_version {release_version} was already built.')
         else:
@@ -324,7 +325,7 @@ class GraphBuilder:
 
         # Record any db dumps that were produced as distribution entries on graph-metadata.json.
         self._append_distribution_entries(kgx_bundle.graph_metadata_path, dump_distribution_entries)
-        self._record_build_result(graph_spec, release_version, graph_output_dir)
+        self._record_build_result(graph_spec, release_version, graph_output_dir, newly_built=newly_built)
         return True
 
     @staticmethod
@@ -876,7 +877,8 @@ class GraphBuilder:
     def _record_build_result(self,
                              graph_spec: GraphSpec,
                              release_version: str,
-                             graph_output_dir: str):
+                             graph_output_dir: str,
+                             newly_built: bool = True):
         bundle = KGXBundle(graph_output_dir)
         graph_metadata = KGXGraphMetadata.from_dict(bundle.load_graph_metadata() or {})
         self.build_results[graph_spec.graph_id] = {
@@ -884,7 +886,7 @@ class GraphBuilder:
             'release_version': release_version,
             'build_version': graph_spec.build_version,
             'graph_dir': graph_output_dir,
-            'build_status': Metadata.STABLE,
+            'build_status': Metadata.STABLE if newly_built else Metadata.UP_TO_DATE,
             'build_time': graph_metadata.get_build_time(),
         }
 

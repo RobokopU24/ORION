@@ -15,6 +15,7 @@ spec:
         spec:
           restartPolicy: Never
           securityContext:
+            runAsNonRoot: true
             runAsUser: {{ .Values.orion.securityContext.runAsUser }}
             runAsGroup: {{ .Values.orion.securityContext.runAsGroup }}
             fsGroup: {{ .Values.orion.securityContext.runAsGroup }}
@@ -22,21 +23,12 @@ spec:
             - name: orion-build
               image: {{ .Values.orion.image.repository }}:{{ .Values.orion.image.tag }}
               imagePullPolicy: {{ .Values.orion.image.pullPolicy }}
+              securityContext:
+                runAsNonRoot: true
+                runAsUser: {{ .Values.orion.securityContext.runAsUser }}
+                runAsGroup: {{ .Values.orion.securityContext.runAsGroup }}
               args: ["orion-build", {{ .Values.orion.graphID | quote }}]
               volumeMounts:
-                {{- if .Values.orion.basePVC.name }}
-                - name: ds-base-volume
-                  mountPath: /ORION_storage
-                  subPath: {{ .Values.orion.basePVC.storageSubPath }}
-                - name: ds-base-volume
-                  mountPath: /ORION_graphs
-                  subPath: {{ .Values.orion.basePVC.graphsSubPath }}
-                {{- if .Values.orion.basePVC.logsSubPath }}
-                - name: ds-base-volume
-                  mountPath: /ORION_logs
-                  subPath: {{ .Values.orion.basePVC.logsSubPath }}
-                {{- end }}
-                {{- else }}
                 - name: ds-sources-volume
                   mountPath: /ORION_storage
                   {{- if .Values.orion.sourcesVolume.nfs_mount_subpath }}
@@ -61,7 +53,6 @@ spec:
                   subPath: {{ .Values.orion.logsVolume.nfs_mount_subpath }}
                   {{- end }}
                 {{- end }}
-                {{- end }}
                 - mountPath: /ORION/.env
                   name: app-config
                   subPath: env-file
@@ -72,12 +63,7 @@ spec:
                   value: /ORION_storage
                 - name: ORION_GRAPHS
                   value: /ORION_graphs
-                {{- if .Values.orion.basePVC.name }}
-                {{- if .Values.orion.basePVC.logsSubPath }}
-                - name: ORION_LOGS
-                  value: /ORION_logs
-                {{- end }}
-                {{- else if .Values.orion.logsVolume.enabled }}
+                {{- if .Values.orion.logsVolume.enabled }}
                 - name: ORION_LOGS
                   value: /ORION_logs
                 {{- end }}
@@ -128,11 +114,6 @@ spec:
               resources:
                 {{- toYaml .Values.orion.resources | nindent 16 }}
           volumes:
-            {{- if .Values.orion.basePVC.name }}
-            - name: ds-base-volume
-              persistentVolumeClaim:
-                claimName: {{ .Values.orion.basePVC.name }}
-            {{- else }}
             {{- if .Values.orion.sourcesVolume.use_nfs }}
             - name: ds-sources-volume
               nfs:
@@ -169,7 +150,6 @@ spec:
             - name: ds-logs-volume
               persistentVolumeClaim:
                 claimName: ds-logs-pvc
-            {{- end }}
             {{- end }}
             {{- end }}
             - name: app-config

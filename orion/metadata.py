@@ -9,6 +9,7 @@ class Metadata:
 
     NOT_STARTED = 'not_started'
     STABLE = 'stable'
+    UP_TO_DATE = 'up_to_date'
     IN_PROGRESS = 'in_progress'
     BROKEN = 'broken'
     FAILED = 'failed'
