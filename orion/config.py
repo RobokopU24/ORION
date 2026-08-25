@@ -67,6 +67,14 @@ class Config(BaseSettings):
     OPENAI_API_KEY: str | None = None
     OPENAI_API_ORGANIZATION: str | None = None
 
+    # Defaults for orion-neptune-load, which can also take them as arguments. The S3 bucket must be
+    # in the same region as the cluster, and the IAM role must be attached to the cluster and able
+    # to read the bucket.
+    NEPTUNE_HOST: str | None = None
+    NEPTUNE_S3_URI: str | None = None
+    NEPTUNE_IAM_ROLE_ARN: str | None = None
+    NEPTUNE_REGION: str | None = None
+
     # Optional path to a directory of normalization outputs from a previous run.
     # Normalized sequence variant nodes and normalization mappings found there are loaded and reused.
     ORION_VARIANT_NORM_CACHE: str | None = None

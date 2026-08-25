@@ -51,6 +51,8 @@ The following commands are available (prefix with `uv run` if not using a uv-man
 | `orion-redundant-kg`  | Generate edge files with redundant biolink predicates                                                                                                                 |
 | `orion-neo4j-dump`    | Generate Neo4j database dumps                                                                                                                                         |
 | `orion-memgraph-dump` | Generate Memgraph database dumps                                                                                                                                      |
+| `orion-neptune-dump`  | Generate Amazon Neptune bulk loader CSV files                                                                                                                         |
+| `orion-neptune-load`  | Upload Neptune CSV files to S3 and bulk load them into a Neptune cluster                                                                                              |
 
 ### Graph Specs
 
@@ -103,7 +105,7 @@ Graph Specs allow a number of options for customization. The following parameter
 
 The following can be set at the graph level:
 
-- **output_format** - which database/file formats to generate. Valid values: `jsonl` (the default KGX node/edge files, always produced), `neo4j`, `memgraph`, `redundant_jsonl`, `redundant_neo4j`, `collapsed_qualifiers_jsonl`, `collapsed_qualifiers_neo4j`. Combine multiple with `+`, e.g. `neo4j+jsonl`. The `neo4j`/`memgraph` formats (and the Reactome ingest) require a Neo4j installation; the provided Docker image includes it. If Neo4j is not installed, the dump is logged as an error and skipped, but the rest of the graph still builds.
+- **output_format** - which database/file formats to generate. Valid values: `jsonl` (the default KGX node/edge files, always produced), `neo4j`, `memgraph`, `neptune`, `redundant_jsonl`, `redundant_neo4j`, `collapsed_qualifiers_jsonl`, `collapsed_qualifiers_neo4j`. Combine multiple with `+`, e.g. `neo4j+jsonl`. The `neo4j`/`memgraph` formats (and the Reactome ingest) require a Neo4j installation; the provided Docker image includes it. If Neo4j is not installed, the dump is logged as an error and skipped, but the rest of the graph still builds. The `neptune` format needs no database installed — see [Amazon Neptune](#amazon-neptune).
 - **add_edge_id** - whether to add unique identifiers to edges (true/false)
 - **edge_id_type** - if add_edge_id is true, the type of identifier can be specified (uuid or orion)
 - **base_release_version** - release version floor for the graph (e.g. `"2.0"` or `"2.1.0"`)
@@ -119,6 +121,32 @@ ORION picks the release version automatically. On a new build it checks existing
 
 See the `graph_specs/` directory for more examples.
 
+### Amazon Neptune
+
+The `neptune` output format writes CSV files for [Neptune's bulk loader](https://docs.aws.amazon.com/neptune/latest/userguide/bulk-load-tutorial-format-opencypher.html) in its openCypher format, so the resulting graph is queried with openCypher. Unlike the `neo4j` format there's no database involved in producing them and no dump file — the CSVs *are* what gets loaded — so no Neo4j installation is needed. A build produces a gzipped nodes file, a gzipped edges file, and a `neptune_load_manifest.json` describing them.
+
+Neptune's format differs from the neo4j import format in ways worth knowing before querying the result:
+
+- **Arrays are written as single delimited strings.** Neptune has no list property type. An array loaded into a property becomes a *multi-valued* property, and openCypher reads one of the values arbitrarily, so a query would silently return one publication out of twenty. Instead, list properties like `publications` and `equivalent_identifiers` are joined into one `String` using U+001F as the delimiter. Neptune's `split()` turns them back into a list at query time.
+- **Node categories become labels only.** They're written to Neptune's `:LABEL` column, `;`-separated, and are not also stored as a `category` property.
+- **`id` is both the node id and a property**, so `n.id` still resolves.
+- **Edge ids become the relationship `:ID` column** when the graph is built with `add_edge_id`. This is recommended: without relationship ids, a failed load can't resume and must reload every relationship, and the loader can't detect duplicates.
+
+To load a build into a cluster, install the extra that provides boto3 and run `orion-neptune-load` against the build's output directory:
+
+```bash
+pip install "robokop-orion[neptune]"
+orion-neptune-load /path/to/graphs/MyGraph/1.0.0 \
+  --s3_uri s3://my-bucket/graphs/MyGraph/1.0.0 \
+  --neptune_host my-cluster.cluster-abc123.us-east-1.neptune.amazonaws.com \
+  --iam_role_arn arn:aws:iam::123456789012:role/NeptuneLoadFromS3 \
+  --region us-east-1
+```
+
+It uploads nodes and edges to separate prefixes under the S3 uri, then submits two load jobs: nodes first, and edges queued behind it as a dependency. Neptune enforces that ordering itself, so edges never load ahead of the nodes they connect, and a failed nodes load cancels the edges load instead of producing a `FROM_OR_TO_VERTEX_ARE_MISSING` error per edge. Because only edge files live under the edges prefix, that job runs with `edgeOnlyLoad`, which skips the pass that scans every file to determine whether it holds nodes or edges.
+
+The bucket must be in the same region as the cluster, and the IAM role must be attached to the cluster and able to read the bucket. Each argument falls back to the matching `NEPTUNE_*` environment variable. Note that the bulk loader only ever adds data — Neptune has no equivalent of swapping in a dump — so loading a new release means either a fresh cluster or emptying the existing one with Neptune's fast reset API first.
+
 ### Configuration
 
 ORION can be configured via environment variables, which can be set directly or through an `.env` file. 
@@ -133,6 +161,10 @@ All variables are optional; the table below lists some that users typically over
 | `ORION_OUTPUT_URL` | Base URL recorded in graph metadata and distribution links | `https://localhost` |
 | `ORION_USE_GRAPH_REGISTRY` | Consult the remote graph registry for prebuilt dependencies and version discovery. Set `false` for fully offline/air-gapped builds. | `true` |
 | `ORION_GRAPH_REGISTRY_URL` | Base URL of the graph registry. | `https://robokop-graph-registry.apps.renci.org` |
+| `NEPTUNE_HOST` | Default Neptune cluster endpoint for `orion-neptune-load` | `None` |
+| `NEPTUNE_S3_URI` | Default S3 uri to upload Neptune CSV files to | `None` |
+| `NEPTUNE_IAM_ROLE_ARN` | Default IAM role the Neptune cluster assumes to read the bucket | `None` |
+| `NEPTUNE_REGION` | Default AWS region of the cluster and bucket | `None` |
 
 ORION will create `~/ORION-workspace/storage/` and `~/ORION-workspace/graphs/` on first use if the corresponding env vars aren't set.
 

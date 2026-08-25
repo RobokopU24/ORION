@@ -18,6 +18,7 @@ from orion.kgx_file_merger import KGXFileMerger
 from orion.kgx_validation import validate_graph
 from orion.neo4j_tools import create_neo4j_dump
 from orion.memgraph_tools import create_memgraph_dump
+from orion.neptune_tools import create_neptune_csvs
 from orion.kgx_bundle import KGXBundle
 from orion.graph_versioning import DEFAULT_BASE_RELEASE_VERSION, next_release_version, parse_semver
 from orion.kgxmodel import (
@@ -297,6 +298,20 @@ class GraphBuilder:
             # for each relationship type, an index cypher, and a manifest) that a single distribution
             # contentUrl can't represent. We may want to make a tar of all the memgraph files and point
             # to that if we continue to support memgraph into the future.
+
+        if 'neptune' in output_formats:
+            kgx_bundle.decompress_nodes_and_edges()
+            logger.info(f'Starting Neptune csv pipeline for {graph_id}...')
+            create_neptune_csvs(nodes_filepath=kgx_bundle.nodes_path,
+                                edges_filepath=kgx_bundle.edges_path,
+                                output_directory=graph_output_dir,
+                                graph_id=graph_id,
+                                release_version=release_version,
+                                node_property_ignore_list=node_property_ignore_list,
+                                edge_property_ignore_list=edge_property_ignore_list)
+            # As with memgraph, no distribution entry: a Neptune load is a nodes csv, an edges csv,
+            # and a manifest, which one contentUrl can't represent. Loading these into a cluster is
+            # a separate step, orion-neptune-load.
 
         # All processing is complete. Replace the final jsonl files with gzipped
         # versions so downloads are smaller/faster.

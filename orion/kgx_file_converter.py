@@ -1,4 +1,5 @@
 import csv
+import gzip
 import os
 import json
 import argparse
@@ -42,15 +43,14 @@ def convert_node_jsonl_to_memgraph_csv(nodes_input_file: str,
     if not output_file or not output_file.endswith('.csv'):
         raise Exception(f'Empty output file or invalid file extension (output file must be a csv file)')
 
-    node_properties = __determine_properties_and_types(nodes_input_file, REQUIRED_NODE_PROPERTIES)
+    node_properties = _determine_properties_and_types(nodes_input_file, REQUIRED_NODE_PROPERTIES)
 
-    __convert_to_csv(input_file=nodes_input_file,
-                     output_file=output_file,
-                     properties=node_properties,
-                     output_delimiter=output_delimiter,
-                     array_delimiter=array_delimiter,
-                     property_ignore_list=node_property_ignore_list,
-                     output_target='memgraph')
+    _convert_to_csv(input_file=nodes_input_file,
+                    output_file=output_file,
+                    properties=node_properties,
+                    output_delimiter=output_delimiter,
+                    array_delimiter=array_delimiter,
+                    property_ignore_list=node_property_ignore_list)
 
 
 def add_indexes_to_memgraph_cypher(nodes_input_file: str, output_cypher_file: str):
@@ -126,19 +126,18 @@ def convert_edge_jsonl_to_memgraph_csv(edges_input_file: str,
         for fh in file_handles.values():
             fh.close()
 
-    edge_properties = __determine_properties_and_types(edges_input_file, REQUIRED_EDGE_PROPERTIES)
+    edge_properties = _determine_properties_and_types(edges_input_file, REQUIRED_EDGE_PROPERTIES)
 
     all_file_names = []
     for rel_type in file_handles.keys():
         input_split_file = f"{out_base}_{rel_type}.jsonl"
         output_split_file = f"{out_base}_{rel_type}{out_ext}"
-        __convert_to_csv(input_file=input_split_file,
-                         output_file=output_split_file,
-                         properties=edge_properties,
-                         output_delimiter=output_delimiter,
-                         array_delimiter=array_delimiter,
-                         output_target='memgraph',
-                         property_ignore_list=edge_property_ignore_list)
+        _convert_to_csv(input_file=input_split_file,
+                        output_file=output_split_file,
+                        properties=edge_properties,
+                        output_delimiter=output_delimiter,
+                        array_delimiter=array_delimiter,
+                        property_ignore_list=edge_property_ignore_list)
         # remove the split edges file it's not needed after the csv is generated
         os.remove(input_split_file)
         all_file_names.append(os.path.basename(output_split_file))
@@ -162,22 +161,22 @@ def convert_jsonl_to_neo4j_csv(nodes_input_file: str,
     if not edges_output_file:
         edges_output_file = f'{edges_input_file.rsplit(".")[0]}.csv'
 
-    node_properties = __determine_properties_and_types(nodes_input_file, REQUIRED_NODE_PROPERTIES)
-    __convert_to_csv(input_file=nodes_input_file,
-                     output_file=nodes_output_file,
-                     properties=node_properties,
-                     output_delimiter=output_delimiter,
-                     array_delimiter=array_delimiter,
-                     property_ignore_list=node_property_ignore_list)
+    node_properties = _determine_properties_and_types(nodes_input_file, REQUIRED_NODE_PROPERTIES)
+    _convert_to_csv(input_file=nodes_input_file,
+                    output_file=nodes_output_file,
+                    properties=node_properties,
+                    output_delimiter=output_delimiter,
+                    array_delimiter=array_delimiter,
+                    property_ignore_list=node_property_ignore_list)
     # __verify_conversion(nodes_output_file, node_properties, array_delimiter, output_delimiter)
 
-    edge_properties = __determine_properties_and_types(edges_input_file, REQUIRED_EDGE_PROPERTIES)
-    __convert_to_csv(input_file=edges_input_file,
-                     output_file=edges_output_file,
-                     properties=edge_properties,
-                     output_delimiter=output_delimiter,
-                     array_delimiter=array_delimiter,
-                     property_ignore_list=edge_property_ignore_list)
+    edge_properties = _determine_properties_and_types(edges_input_file, REQUIRED_EDGE_PROPERTIES)
+    _convert_to_csv(input_file=edges_input_file,
+                    output_file=edges_output_file,
+                    properties=edge_properties,
+                    output_delimiter=output_delimiter,
+                    array_delimiter=array_delimiter,
+                    property_ignore_list=edge_property_ignore_list)
     # __verify_conversion(edges_output_file, edge_properties, array_delimiter, output_delimiter)
 
 """
@@ -221,7 +220,7 @@ def __verify_conversion(file_path: str,
               f'{[prop for prop in properties.keys() if prop not in verified_properties]}')
 """
 
-def __determine_properties_and_types(file_path: str, required_properties: dict):
+def _determine_properties_and_types(file_path: str, required_properties: dict):
     property_type_counts = defaultdict(lambda: defaultdict(int))
     for entity in quick_jsonl_file_iterator(file_path):
         for key, value in entity.items():
@@ -305,22 +304,33 @@ def __determine_properties_and_types(file_path: str, required_properties: dict):
     return properties
 
 
-def __convert_to_csv(input_file: str,
-                     output_file: str,
-                     properties: dict,  # dictionary of { node/edge property: property_type }
-                     array_delimiter: str,
-                     output_delimiter: str,
-                     output_target: str = 'neo4j',  # "neo4j" or "memgraph"
-                     property_ignore_list: set = None):
+def _default_header(prop: str, prop_type: str):
+    """Render the "{property name}:{type}" header that neo4j and memgraph both read.
 
-    if output_target.lower() == 'neo4j' or output_target.lower() == 'memgraph':
-        # generate the headers which for neo4j include the property name and the type
-        # for example:
-        # id:ID	name:string	category:LABEL	equivalent_identifiers:string[]	information_content:float
-        headers = {prop: f'{prop.removeprefix("biolink:")}:{prop_type}'
-                   for prop, prop_type in properties.items()}
-    else:
-        raise Exception(f'{output_target} is not supported - setting it to either neo4j or memgraph.')
+    For example: id:ID	name:string	category:LABEL	equivalent_identifiers:string[]
+    """
+    return f'{prop.removeprefix("biolink:")}:{prop_type}'
+
+
+def _open_csv_output(output_file: str):
+    """Open output_file for csv writing, gzipping it when the name says so."""
+    if output_file.endswith('.gz'):
+        return gzip.open(output_file, 'wt', newline='', encoding='utf-8')
+    return open(output_file, 'w', newline='', encoding='utf-8')
+
+
+def _convert_to_csv(input_file: str,
+                    output_file: str,
+                    properties: dict,  # dictionary of { node/edge property: property_type }
+                    array_delimiter: str,
+                    output_delimiter: str,
+                    header_renderer=_default_header,
+                    array_delimiter_overrides: dict = None,  # { property: delimiter } for properties
+                                                             # whose target dictates its own delimiter
+                    required_columns: set = None,  # properties the target requires a value for on every row
+                    property_ignore_list: set = None):
+
+    headers = {prop: header_renderer(prop, prop_type) for prop, prop_type in properties.items()}
 
     # if there is a property_ignore_list, remove them from the headers
     # also filter the list to include only properties that are actually present
@@ -328,7 +338,7 @@ def __convert_to_csv(input_file: str,
         ignored_props_present = set()
         for ignored_prop in property_ignore_list:
             if properties.pop(ignored_prop, 'PROP_NOT_FOUND') != 'PROP_NOT_FOUND':
-                del headers[ignored_prop.removeprefix("biolink:")]
+                del headers[ignored_prop]
                 ignored_props_present.add(ignored_prop)
         if not ignored_props_present:
             property_ignore_list = None
@@ -339,8 +349,11 @@ def __convert_to_csv(input_file: str,
     properties_that_are_lists = {prop for prop, prop_type in properties.items()
                                  if prop_type in {'LABEL', 'string[]', 'float[]', 'int[]'}}
     properties_that_are_boolean = {prop for prop, prop_type in properties.items() if prop_type == 'boolean'}
+    array_delimiters = {prop: array_delimiter for prop in properties}
+    if array_delimiter_overrides:
+        array_delimiters.update(array_delimiter_overrides)
 
-    with open(output_file, 'w', newline='', encoding='utf-8') as output_file_handler:
+    with _open_csv_output(output_file) as output_file_handler:
         csv_file_writer = csv.DictWriter(output_file_handler,
                                          delimiter=output_delimiter,
                                          fieldnames=properties,
@@ -366,12 +379,18 @@ def __convert_to_csv(input_file: str,
                 else:
                     if key in properties_that_are_lists and isinstance(item[key], list):
                         # convert lists into strings with an array delimiter
-                        item[key] = array_delimiter.join(flatten_field_whitespace(value) for value in item[key])
+                        item[key] = array_delimiters[key].join(
+                            flatten_field_whitespace(value) for value in item[key])
                     elif key in properties_that_are_boolean:
                         # neo4j handles boolean with string 'true' being true and everything else false
                         item[key] = 'true' if item[key] is True else 'false'
                     elif isinstance(item[key], str):
                         item[key] = flatten_field_whitespace(item[key])
+
+            if required_columns:
+                missing_columns = [column for column in required_columns if not item.get(column)]
+                if missing_columns:
+                    raise Exception(f'Required columns {missing_columns} had no value in {input_file}: {item}')
 
             csv_file_writer.writerow(item)
 

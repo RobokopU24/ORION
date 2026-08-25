@@ -628,3 +628,60 @@ def test_second_graph_reuses_existing_source_build(tmp_path, monkeypatch):
     assert builder.build_graph(builder.graph_specs['Second_Graph']) is True
     assert builder.ingest_pipeline.run_pipeline.call_count == 0
     assert builder.ingest_pipeline.get_final_file_paths.call_count == 0
+
+
+def test_build_graph_produces_neptune_csv_files(tmp_path, monkeypatch):
+    """A neptune build writes loadable csv files and a manifest, with no database involved."""
+    fixture_dir = tmp_path / 'parser_output'
+    fixture_dir.mkdir()
+    fixture_nodes = fixture_dir / 'normalized_nodes.jsonl'
+    fixture_edges = fixture_dir / 'normalized_edges.jsonl'
+    _write_jsonl(fixture_nodes, FIXTURE_NODES)
+    _write_jsonl(fixture_edges, FIXTURE_EDGES)
+
+    _patch_post_merge_heavy_steps(monkeypatch)
+
+    inline_spec = {
+        'graphs': [{
+            'graph_id': 'HGNC_Graph',
+            'graph_name': 'HGNC Test Graph',
+            'output_format': 'neptune',
+            'sources': [{'id': 'HGNC'}],
+        }]
+    }
+
+    graphs_dir = tmp_path / 'graphs'
+    graphs_dir.mkdir()
+    storage_dir = tmp_path / 'storage'
+    storage_dir.mkdir()
+    empty_spec_dir = tmp_path / 'specs'
+    empty_spec_dir.mkdir()
+
+    builder = GraphBuilder(graph_specs_dir=str(empty_spec_dir),
+                           inline_graph_spec=inline_spec,
+                           graph_output_dir=str(graphs_dir),
+                           ingest_pipeline=_build_mock_ingest_pipeline(storage_dir,
+                                                                       fixture_nodes,
+                                                                       fixture_edges))
+
+    graph_spec = builder.graph_specs['HGNC_Graph']
+    assert builder.build_graph(graph_spec) is True
+
+    output_dir = graphs_dir / 'HGNC_Graph' / graph_spec.build_version
+    with open(output_dir / 'neptune_load_manifest.json') as manifest_file:
+        manifest = json.load(manifest_file)
+    assert manifest['format'] == 'opencypher'
+    # these fixture edges have no ids, so the load has to let Neptune generate relationship ids
+    assert manifest['userProvidedEdgeIds'] is False
+
+    for filename in manifest['nodes'] + manifest['edges']:
+        assert (output_dir / filename).exists()
+
+    with gzip.open(output_dir / manifest['nodes'][0], 'rt') as nodes_csv:
+        node_lines = nodes_csv.read().splitlines()
+    assert node_lines[0].startswith('id:ID,')
+    assert ':LABEL' in node_lines[0]
+    assert len(node_lines) == len(FIXTURE_NODES) + 1
+
+    # the jsonl files are still gzipped at the end of the build
+    assert (output_dir / 'nodes.jsonl.gz').exists()

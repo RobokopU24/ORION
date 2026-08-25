@@ -39,6 +39,9 @@ robokop = [
     "pyoxigraph>=0.5.9",
     "redis>=5.2.1",
 ]
+neptune = [
+    "boto3>=1.40.0",
+]
 
 [project.scripts]
 orion-build = "orion.graph_pipeline:main"
@@ -50,6 +53,8 @@ orion-schema-diff = "orion.cli.schema_diff:main"
 orion-redundant-kg = "orion.cli.generate_redundant_kg:main"
 orion-neo4j-dump = "orion.cli.neo4j_dump:main"
 orion-memgraph-dump = "orion.cli.memgraph_dump:main"
+orion-neptune-dump = "orion.cli.neptune_dump:main"
+orion-neptune-load = "orion.cli.neptune_load:main"
 orion-publish = "orion.cli.publish_graphs:main"
 
 [dependency-groups]
