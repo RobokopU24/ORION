@@ -137,13 +137,15 @@ To load a build into a cluster, install the extra that provides boto3 and run `o
 ```bash
 pip install "robokop-orion[neptune]"
 orion-neptune-load /path/to/graphs/MyGraph/1.0.0 \
-  --s3_uri s3://my-bucket/graphs/MyGraph/1.0.0 \
+  --s3_uri s3://my-bucket/graphs \
   --neptune_host my-cluster.cluster-abc123.us-east-1.neptune.amazonaws.com \
   --iam_role_arn arn:aws:iam::123456789012:role/NeptuneLoadFromS3 \
   --region us-east-1
 ```
 
-It uploads nodes and edges to separate prefixes under the S3 uri, then submits two load jobs: nodes first, and edges queued behind it as a dependency. Neptune enforces that ordering itself, so edges never load ahead of the nodes they connect, and a failed nodes load cancels the edges load instead of producing a `FROM_OR_TO_VERTEX_ARE_MISSING` error per edge. Because only edge files live under the edges prefix, that job runs with `edgeOnlyLoad`, which skips the pass that scans every file to determine whether it holds nodes or edges.
+The S3 uri is a base to keep releases under: the files go to `s3://my-bucket/graphs/MyGraph/1.0.0`, named for the graph and version in the build's load manifest.
+
+It uploads nodes and edges to separate prefixes under that release's uri, then submits two load jobs: nodes first, and edges queued behind it as a dependency. Neptune enforces that ordering itself, so edges never load ahead of the nodes they connect, and a failed nodes load cancels the edges load instead of producing a `FROM_OR_TO_VERTEX_ARE_MISSING` error per edge. Because only edge files live under the edges prefix, that job runs with `edgeOnlyLoad`, which skips the pass that scans every file to determine whether it holds nodes or edges.
 
 The bucket must be in the same region as the cluster, and the IAM role must be attached to the cluster and able to read the bucket. Each argument falls back to the matching `NEPTUNE_*` environment variable. Note that the bulk loader only ever adds data — Neptune has no equivalent of swapping in a dump — so loading a new release means either a fresh cluster or emptying the existing one with Neptune's fast reset API first.
 
@@ -162,7 +164,7 @@ All variables are optional; the table below lists some that users typically over
 | `ORION_USE_GRAPH_REGISTRY` | Consult the remote graph registry for prebuilt dependencies and version discovery. Set `false` for fully offline/air-gapped builds. | `true` |
 | `ORION_GRAPH_REGISTRY_URL` | Base URL of the graph registry. | `https://robokop-graph-registry.apps.renci.org` |
 | `NEPTUNE_HOST` | Default Neptune cluster endpoint for `orion-neptune-load` | `None` |
-| `NEPTUNE_S3_URI` | Default S3 uri to upload Neptune CSV files to | `None` |
+| `NEPTUNE_S3_URI` | Default base S3 uri to upload Neptune CSV files to | `None` |
 | `NEPTUNE_IAM_ROLE_ARN` | Default IAM role the Neptune cluster assumes to read the bucket | `None` |
 | `NEPTUNE_REGION` | Default AWS region of the cluster and bucket | `None` |
 

@@ -73,6 +73,19 @@ def _entity_source_uris(s3_uri: str):
             for entity_type in ENTITY_S3_PREFIXES}
 
 
+def _release_s3_uri(s3_uri: str, manifest: dict):
+    """The uri one release's files live under, given the base uri to keep releases in.
+
+    The loader reads every object under the prefix it is given, and an upload replaces only the
+    files it writes, so each release gets a prefix of its own. Sharing one prefix between releases
+    would mean every load ingested every release ever uploaded to it, on top of a cluster the bulk
+    loader only ever adds to.
+    """
+    release_path = '/'.join(part for part in (manifest['graph_id'], manifest['release_version'])
+                            if part)
+    return f'{s3_uri.rstrip("/")}/{release_path}' if release_path else s3_uri
+
+
 def neptune_endpoint_url(neptune_host: str, port: int = NEPTUNE_DEFAULT_PORT):
     """Build the data plane url for a cluster from its hostname."""
     if neptune_host.startswith('http'):
@@ -186,12 +199,16 @@ def load_graph_into_neptune(csv_directory: str,
                             wait: bool = True):
     """Upload a graph's Neptune csv files and load them into a Neptune cluster.
 
+    s3_uri is the base uri releases are kept under. The files for this one go to a prefix named
+    for the graph and version in its manifest, which is also where a skip_upload load reads them.
+
     The S3 bucket must be in the same region as the cluster, and iam_role_arn must be a role that
     is attached to the cluster and can read the bucket.
     """
     manifest = read_neptune_manifest(csv_directory)
-    source_uris = _entity_source_uris(s3_uri) if skip_upload \
-        else upload_csvs_to_s3(csv_directory, s3_uri, region=region)
+    release_s3_uri = _release_s3_uri(s3_uri, manifest)
+    source_uris = _entity_source_uris(release_s3_uri) if skip_upload \
+        else upload_csvs_to_s3(csv_directory, release_s3_uri, region=region)
 
     neptune_client = _import_boto3().client('neptunedata',
                                             endpoint_url=neptune_endpoint_url(neptune_host),

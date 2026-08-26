@@ -16,8 +16,8 @@ def main():
                     help='Directory holding the CSV files and the neptune_load_manifest.json that '
                          'orion-neptune-dump wrote.')
     ap.add_argument('--s3_uri', default=config.NEPTUNE_S3_URI,
-                    help='S3 uri to upload the files to and load them from, e.g. '
-                         's3://my-bucket/graphs/RobokopKG/1.0.2. Defaults to NEPTUNE_S3_URI.')
+                    help='Base S3 uri to keep releases under, e.g. s3://my-bucket/graphs. '
+                         'Defaults to NEPTUNE_S3_URI.')
     ap.add_argument('--neptune_host', default=config.NEPTUNE_HOST,
                     help='Hostname of the Neptune cluster writer endpoint. Defaults to NEPTUNE_HOST.')
     ap.add_argument('--iam_role_arn', default=config.NEPTUNE_IAM_ROLE_ARN,

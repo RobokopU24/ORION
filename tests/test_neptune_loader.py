@@ -11,6 +11,7 @@ from unittest.mock import MagicMock
 import pytest
 
 from orion.neptune_loader import (NeptuneLoadError,
+                                  _release_s3_uri,
                                   _split_s3_uri,
                                   load_graph_into_neptune,
                                   neptune_endpoint_url,
@@ -51,6 +52,21 @@ def test_split_s3_uri():
 def test_split_s3_uri_rejects_non_s3_uris(bad_uri):
     with pytest.raises(NeptuneLoadError, match='s3://bucket/prefix'):
         _split_s3_uri(bad_uri)
+
+
+def test_release_s3_uri_gives_every_release_its_own_prefix():
+    # the loader reads every object under the prefix it is given, so two releases sharing one
+    # prefix would both be loaded
+    assert _release_s3_uri('s3://bucket/graphs',
+                           {'graph_id': 'MyGraph', 'release_version': '1.0.0'}) == \
+        's3://bucket/graphs/MyGraph/1.0.0'
+    assert _release_s3_uri('s3://bucket/graphs/',
+                           {'graph_id': 'MyGraph', 'release_version': '1.0.1'}) == \
+        's3://bucket/graphs/MyGraph/1.0.1'
+    # create_neptune_csvs() leaves the version out when it wasn't given one
+    assert _release_s3_uri('s3://bucket/graphs',
+                           {'graph_id': 'MyGraph', 'release_version': ''}) == \
+        's3://bucket/graphs/MyGraph'
 
 
 def test_neptune_endpoint_url():
@@ -126,12 +142,12 @@ def test_load_queues_edges_behind_nodes(csv_directory, monkeypatch):
     nodes_arguments, edges_arguments = [call.kwargs for call in
                                         neptune_client.start_loader_job.call_args_list]
 
-    assert nodes_arguments['source'] == 's3://my-bucket/graphs/nodes/'
+    assert nodes_arguments['source'] == 's3://my-bucket/graphs/TestGraph/1.0.0/nodes/'
     assert 'dependencies' not in nodes_arguments
     assert 'edgeOnlyLoad' not in nodes_arguments
 
     # the edges job waits on the nodes job, so Neptune enforces the ordering rather than this process
-    assert edges_arguments['source'] == 's3://my-bucket/graphs/edges/'
+    assert edges_arguments['source'] == 's3://my-bucket/graphs/TestGraph/1.0.0/edges/'
     assert edges_arguments['dependencies'] == ['nodes-load']
     assert edges_arguments['queueRequest'] is True
     # only edge files are under that prefix, so the loader can skip its file scanning pass
