@@ -330,21 +330,20 @@ def _convert_to_csv(input_file: str,
                     required_columns: set = None,  # properties the target requires a value for on every row
                     property_ignore_list: set = None):
 
-    headers = {prop: header_renderer(prop, prop_type) for prop, prop_type in properties.items()}
-
-    # if there is a property_ignore_list, remove them from the headers
+    # if there is a property_ignore_list, remove them from the properties
     # also filter the list to include only properties that are actually present
     if property_ignore_list:
         ignored_props_present = set()
         for ignored_prop in property_ignore_list:
             if properties.pop(ignored_prop, 'PROP_NOT_FOUND') != 'PROP_NOT_FOUND':
-                del headers[ignored_prop]
                 ignored_props_present.add(ignored_prop)
         if not ignored_props_present:
             property_ignore_list = None
         else:
             property_ignore_list = ignored_props_present
             print(f'Properties that should be ignored were found, ignoring: {property_ignore_list}')
+
+    headers = {prop: header_renderer(prop, prop_type) for prop, prop_type in properties.items()}
 
     properties_that_are_lists = {prop for prop, prop_type in properties.items()
                                  if prop_type in {'LABEL', 'string[]', 'float[]', 'int[]'}}
