@@ -210,3 +210,26 @@ def test_create_neptune_csvs_skips_work_when_already_done(tmp_path, kgx_files):
 
     create_neptune_csvs(nodes_filepath, edges_filepath, str(output_directory), graph_id='TestGraph')
     assert os.path.getmtime(nodes_csv) == modified_time
+
+
+def test_create_neptune_csvs_does_the_work_when_the_manifest_describes_something_else(tmp_path,
+                                                                                      kgx_files):
+    nodes_filepath, edges_filepath = kgx_files
+    output_directory = tmp_path / 'output'
+    output_directory.mkdir()
+
+    create_neptune_csvs(nodes_filepath, edges_filepath, str(output_directory), graph_id='GraphA')
+
+    # a different graph in the same directory is not the work this manifest describes
+    create_neptune_csvs(nodes_filepath, edges_filepath, str(output_directory), graph_id='GraphB')
+    manifest = read_neptune_manifest(str(output_directory))
+    assert manifest['graph_id'] == 'GraphB'
+    assert manifest['nodes'] == ['neptune_GraphB_nodes.csv.gz']
+    assert (output_directory / 'neptune_GraphB_nodes.csv.gz').exists()
+
+    # neither is the same graph written with a different compression setting
+    create_neptune_csvs(nodes_filepath, edges_filepath, str(output_directory), graph_id='GraphB',
+                        compress=False)
+    manifest = read_neptune_manifest(str(output_directory))
+    assert manifest['nodes'] == ['neptune_GraphB_nodes.csv']
+    assert (output_directory / 'neptune_GraphB_nodes.csv').exists()

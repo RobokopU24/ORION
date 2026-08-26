@@ -36,9 +36,19 @@ def create_neptune_csvs(nodes_filepath: str,
     output_edges_csv_file = os.path.join(output_directory, edges_csv_filename)
     output_manifest_file = os.path.join(output_directory, NEPTUNE_MANIFEST_FILENAME)
 
+    # The filenames carry the graph, the version, and the compression setting, so comparing them
+    # against the manifest tells us whether the existing files are the ones this call would write.
+    expected_files = {'nodes': [nodes_csv_filename], 'edges': [edges_csv_filename]}
     if os.path.exists(output_manifest_file):
-        logger.info(f'Neptune csv files already exist for {graph_id}({release_version})')
-        return True
+        existing_manifest = read_neptune_manifest(output_directory)
+        if all(existing_manifest[entity_type] == filenames
+               for entity_type, filenames in expected_files.items()):
+            logger.info(f'Neptune csv files already exist for {graph_id}({release_version})')
+            return True
+        logger.warning(f'{output_directory} holds Neptune csv files for '
+                       f'{existing_manifest["graph_id"]}({existing_manifest["release_version"]}), '
+                       f'writing a new manifest for {graph_id}({release_version}). The files it '
+                       f'listed are left in place.')
 
     logger.info(f'Creating Neptune csv files for {graph_id}({release_version})...')
     edge_ids_included = convert_jsonl_to_neptune_csv(
@@ -63,8 +73,7 @@ def create_neptune_csvs(nodes_filepath: str,
             'release_version': release_version,
             'format': 'opencypher',
             'userProvidedEdgeIds': edge_ids_included,
-            'nodes': [nodes_csv_filename],
-            'edges': [edges_csv_filename]
+            **expected_files
         }, manifest_file, indent=4)
 
     logger.info(f'Neptune csv files created for {graph_id}({release_version}).')
