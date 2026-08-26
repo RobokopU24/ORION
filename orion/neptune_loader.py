@@ -80,7 +80,7 @@ def neptune_endpoint_url(neptune_host: str, port: int = NEPTUNE_DEFAULT_PORT):
     return f'https://{neptune_host}:{port}'
 
 
-def upload_csvs_to_s3(csv_directory: str, s3_uri: str, s3_client=None):
+def upload_csvs_to_s3(csv_directory: str, s3_uri: str, region: str = None, s3_client=None):
     """Copy the csv files a graph's load manifest lists to s3_uri, nodes and edges kept apart.
 
     Only the files in the manifest are uploaded. The bulk loader reads every object under the
@@ -91,7 +91,8 @@ def upload_csvs_to_s3(csv_directory: str, s3_uri: str, s3_client=None):
     """
     manifest = read_neptune_manifest(csv_directory)
     bucket, prefix = _split_s3_uri(s3_uri)
-    s3_client = s3_client if s3_client is not None else _import_boto3().client('s3')
+    s3_client = s3_client if s3_client is not None else _import_boto3().client('s3',
+                                                                              region_name=region)
 
     source_uris = {}
     for entity_type in ENTITY_S3_PREFIXES:
@@ -190,10 +191,11 @@ def load_graph_into_neptune(csv_directory: str,
     """
     manifest = read_neptune_manifest(csv_directory)
     source_uris = _entity_source_uris(s3_uri) if skip_upload \
-        else upload_csvs_to_s3(csv_directory, s3_uri)
+        else upload_csvs_to_s3(csv_directory, s3_uri, region=region)
 
     neptune_client = _import_boto3().client('neptunedata',
-                                            endpoint_url=neptune_endpoint_url(neptune_host))
+                                            endpoint_url=neptune_endpoint_url(neptune_host),
+                                            region_name=region)
     load_arguments = {'neptune_client': neptune_client,
                       'iam_role_arn': iam_role_arn,
                       'region': region,
