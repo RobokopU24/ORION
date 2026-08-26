@@ -40,18 +40,14 @@ def create_neptune_csvs(nodes_filepath: str,
         logger.info(f'Neptune csv files already exist for {graph_id}({release_version})')
         return True
 
-    try:
-        logger.info(f'Creating Neptune csv files for {graph_id}({release_version})...')
-        edge_ids_included = convert_jsonl_to_neptune_csv(
-            nodes_input_file=nodes_filepath,
-            edges_input_file=edges_filepath,
-            nodes_output_file=output_nodes_csv_file,
-            edges_output_file=output_edges_csv_file,
-            node_property_ignore_list=node_property_ignore_list,
-            edge_property_ignore_list=edge_property_ignore_list)
-    except Exception as e:
-        logger.error(f'create_neptune_csvs() failed with exception: {e}')
-        return False
+    logger.info(f'Creating Neptune csv files for {graph_id}({release_version})...')
+    edge_ids_included = convert_jsonl_to_neptune_csv(
+        nodes_input_file=nodes_filepath,
+        edges_input_file=edges_filepath,
+        nodes_output_file=output_nodes_csv_file,
+        edges_output_file=output_edges_csv_file,
+        node_property_ignore_list=node_property_ignore_list,
+        edge_property_ignore_list=edge_property_ignore_list)
 
     if not edge_ids_included:
         logger.warning(f'The edges for {graph_id}({release_version}) have no ids, so the load will have to '

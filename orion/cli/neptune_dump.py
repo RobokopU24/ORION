@@ -21,12 +21,16 @@ def main():
                          'Neptune bulk loader reads directly.')
 
     args = ap.parse_args()
-    success = create_neptune_csvs(nodes_filepath=args.nodes_filepath,
-                                  edges_filepath=args.edges_filepath,
-                                  output_directory=args.output_directory,
-                                  graph_id=args.graph_id,
-                                  release_version=args.release_version,
-                                  compress=not args.no_compress)
+    try:
+        success = create_neptune_csvs(nodes_filepath=args.nodes_filepath,
+                                      edges_filepath=args.edges_filepath,
+                                      output_directory=args.output_directory,
+                                      graph_id=args.graph_id,
+                                      release_version=args.release_version,
+                                      compress=not args.no_compress)
+    except Exception as e:
+        print(f'Neptune csv conversion failed: {e}', file=sys.stderr)
+        sys.exit(1)
     sys.exit(0 if success else 1)
 
 
