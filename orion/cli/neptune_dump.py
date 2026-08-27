@@ -9,8 +9,8 @@ def main():
     configure_cli_logging()
 
     ap = argparse.ArgumentParser(description='Create Amazon Neptune bulk loader CSV files from KGX jsonl files.')
-    ap.add_argument('nodes_filepath')
-    ap.add_argument('edges_filepath')
+    ap.add_argument('nodes_filepath', help='KGX nodes file, .jsonl or .jsonl.gz.')
+    ap.add_argument('edges_filepath', help='KGX edges file, .jsonl or .jsonl.gz.')
     ap.add_argument('output_directory')
     ap.add_argument('--graph_id', default='graph',
                     help='Graph id used to name the output files.')

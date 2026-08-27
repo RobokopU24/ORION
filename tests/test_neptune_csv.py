@@ -172,6 +172,27 @@ def test_property_name_neptune_cannot_express_raises(tmp_path):
         convert(tmp_path, (nodes_filepath, edges_filepath))
 
 
+def test_gzipped_kgx_files_are_read_as_input(tmp_path):
+    nodes_filepath = str(tmp_path / 'nodes.jsonl.gz')
+    edges_filepath = str(tmp_path / 'edges.jsonl.gz')
+    for filepath, entities in ((nodes_filepath, TEST_NODES), (edges_filepath, TEST_EDGES)):
+        with gzip.open(filepath, 'wt') as jsonl_file:
+            for entity in entities:
+                jsonl_file.write(f'{json.dumps(entity)}\n')
+
+    nodes_output, edges_output, _ = convert(tmp_path, (nodes_filepath, edges_filepath))
+
+    for output_file in (nodes_output, edges_output):
+        _, rows = read_csv(output_file)
+        assert len(rows) == 2
+
+
+def test_input_files_that_are_not_kgx_jsonl_are_rejected(tmp_path, kgx_files):
+    nodes_filepath, _ = kgx_files
+    with pytest.raises(Exception, match='invalid file extension'):
+        convert(tmp_path, (nodes_filepath, str(tmp_path / 'edges.csv')))
+
+
 def test_create_neptune_csvs_writes_gzipped_files_and_manifest(tmp_path, kgx_files):
     nodes_filepath, edges_filepath = kgx_files
     output_directory = tmp_path / 'output'

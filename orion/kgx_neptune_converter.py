@@ -70,6 +70,9 @@ NEPTUNE_OUTPUT_DELIMITER = ','
 # only has to be a character that never appears in the values themselves.
 NEPTUNE_ARRAY_DELIMITER = chr(31)
 
+# quick_jsonl_file_iterator() gzip decodes a .jsonl.gz input as it reads it.
+VALID_INPUT_EXTENSIONS = ('.jsonl', '.jsonl.gz')
+
 VALID_OUTPUT_EXTENSIONS = ('.csv', '.csv.gz')
 
 
@@ -103,8 +106,9 @@ def _required_columns(properties: dict):
 
 
 def _validate_file_paths(input_file: str, output_file: str):
-    if not input_file or not input_file.endswith('jsonl'):
-        raise Exception(f'Empty input file or invalid file extension: {input_file}')
+    if not input_file or not input_file.endswith(VALID_INPUT_EXTENSIONS):
+        raise Exception(f'Empty input file or invalid file extension (must be one of '
+                        f'{VALID_INPUT_EXTENSIONS}): {input_file}')
     if not output_file or not output_file.endswith(VALID_OUTPUT_EXTENSIONS):
         raise Exception(f'Empty output file or invalid file extension (must be one of '
                         f'{VALID_OUTPUT_EXTENSIONS}): {output_file}')
