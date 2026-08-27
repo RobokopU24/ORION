@@ -13,6 +13,7 @@ from orion.data_sources import (
 )
 from orion.logging import get_orion_logger
 from orion.config import config
+from orion.exceptions import DataVersionError
 from orion.kgx_file_normalizer import KGXFileNormalizer
 from orion.kgx_validation import validate_graph
 from orion.normalization import NormalizationScheme, NodeNormalizer, EdgeNormalizer, NormalizationFailedError
@@ -22,6 +23,9 @@ from orion.supplementation import SequenceVariantSupplementation, Supplementatio
 
 
 SOURCE_DATA_LOADER_CLASSES = SourceDataLoaderClassFactory()
+
+# how many times to ask a loader for the latest source version before giving up
+MAX_SOURCE_VERSION_ATTEMPTS = 4
 
 logger = get_orion_logger("orion.ingest_pipeline")
 
@@ -131,16 +135,20 @@ class IngestPipeline:
         logger.info(f"Retrieving latest source version for {source_id}...")
         try:
             latest_source_version = loader.get_latest_source_version()
+            if not latest_source_version:
+                raise DataVersionError(error_message=f"{source_id} returned an empty latest source version.")
             logger.info(f"Found latest source version for {source_id}: {latest_source_version}")
             self.latest_source_version_lookup[source_id] = latest_source_version
             return latest_source_version
         except Exception as e:
             error_message = getattr(e, 'error_message', None) or f"{repr(e)}-{str(e)}"
             logger.error(f"Error while checking for latest source version for {source_id}: {error_message}")
-            if retries < 4:
+            if retries < MAX_SOURCE_VERSION_ATTEMPTS:
                 time.sleep(retries * 2)
                 return self.get_latest_source_version(source_id, retries=retries + 1)
-            return None
+            raise DataVersionError(error_message=f"Could not determine the latest source version for {source_id} "
+                                                 f"after {MAX_SOURCE_VERSION_ATTEMPTS} attempts, "
+                                                 f"last error: {error_message}") from e
 
     def fetch_source(self, source_id: str, source_version: str='latest', retries: int=1):
 
