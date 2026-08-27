@@ -12,7 +12,7 @@ orion:
   image:
     repository: ghcr.io/robokopu24/orion
     pullPolicy: IfNotPresent
-    tag: v2.0.4
+    tag: v2.0.5
   graphsVolume:
     use_nfs: true
     nfs_server: na-projects.edc.renci.org
