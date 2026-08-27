@@ -108,7 +108,7 @@ def _required_columns(properties: dict):
             if prop_type in NEPTUNE_REQUIRED_COLUMN_TYPES}
 
 
-def _drop_properties_with_commas(properties: dict, entity_type: str):
+def _drop_properties_with_bad_characters(properties: dict, entity_type: str):
     """Leave properties whose names contain a comma out of the csv files.
 
     TODO temporary - CHEBIProps builds its role property names out of ChEBI role labels and keeps the
@@ -116,12 +116,12 @@ def _drop_properties_with_commas(properties: dict, entity_type: str):
      rejects. Dropping them here loads the rest of the graph until those names are sanitized at the
      source, where the same commas make the properties awkward to query in neo4j too.
     """
-    properties_with_commas = [prop for prop in properties if ',' in prop]
-    for prop in properties_with_commas:
+    bad_props = [prop for prop in properties if 'CHEBI_' in prop]
+    for prop in bad_props:
         del properties[prop]
-    if properties_with_commas:
-        logger.warning(f'Dropped {len(properties_with_commas)} {entity_type} properties with commas in their '
-                       f'names, Neptune can not write them as column headers: {properties_with_commas}')
+    if bad_props:
+        logger.warning(f'Dropped {len(bad_props)} {entity_type} properties with bad characters in their '
+                       f'names, Neptune can not write them as column headers: {bad_props}')
     return properties
 
 
@@ -153,7 +153,7 @@ def convert_jsonl_to_neptune_csv(nodes_input_file: str,
 
     node_properties = _determine_properties_and_types(nodes_input_file,
                                                       REQUIRED_NEPTUNE_NODE_PROPERTIES)
-    _drop_properties_with_commas(node_properties, 'node')
+    _drop_properties_with_bad_characters(node_properties, 'node')
     _convert_to_csv(input_file=nodes_input_file,
                     output_file=nodes_output_file,
                     properties=node_properties,
@@ -166,7 +166,7 @@ def convert_jsonl_to_neptune_csv(nodes_input_file: str,
 
     edge_properties = _determine_properties_and_types(edges_input_file,
                                                       REQUIRED_NEPTUNE_EDGE_PROPERTIES)
-    _drop_properties_with_commas(edge_properties, 'edge')
+    _drop_properties_with_bad_characters(edge_properties, 'edge')
     # Edge ids are optional in KGX, they come from the graph spec's add_edge_id option. When they
     # are present they become Neptune's relationship :ID column, which lets a failed load resume
     # rather than reloading every relationship, and lets the loader detect duplicate relationships.
