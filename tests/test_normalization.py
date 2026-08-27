@@ -1,10 +1,12 @@
 import json
 import os
 import pytest
+import requests
 from orion.biolink_constants import *
 from orion.config import Config, config
 from orion.normalization import NodeNormalizer, EdgeNormalizer, EdgeNormalizationResult, \
-    FALLBACK_EDGE_PREDICATE, CUSTOM_NODE_TYPES, NormalizationScheme, NormalizationFailedError
+    FALLBACK_EDGE_PREDICATE, CUSTOM_NODE_TYPES, NormalizationScheme, NormalizationFailedError, \
+    get_node_norm_status, get_current_node_norm_version, get_current_babel_version
 from orion.kgx_file_normalizer import invert_edge, KGXFileNormalizer
 from orion.variant_norm_cache import VariantNormalizationCache, VariantNormalizationCacheError, \
     CACHED_NORMALIZATION_FAILURE, NORM_NODE_MAP_FILE_NAME, NORMALIZED_NODES_FILE_NAME
@@ -415,6 +417,100 @@ def test_edge_norm_version_spellings_produce_same_composite_version():
                                    edge_normalization_version=edge_normalization_version
                                    ).get_composite_normalization_version()
     assert composite_for('4.4.2') == composite_for('v4.4.2')
+
+
+class FakeNodeNormResponse:
+    def __init__(self, json_data):
+        self.json_data = json_data
+
+    def raise_for_status(self):
+        pass
+
+    def json(self):
+        return self.json_data
+
+
+# Stand in for the node normalizer, serving status_response from /status (raising it instead if it
+# is an exception) and openapi_response from /openapi.json. Requests to anything else fail the test.
+def fake_node_norm_requests(status_response=None, openapi_response=None, request_log=None):
+    def fake_get(url, *args, **kwargs):
+        if request_log is not None:
+            request_log.append(url)
+        if url.endswith('/status'):
+            if isinstance(status_response, Exception):
+                raise status_response
+            return FakeNodeNormResponse(status_response)
+        if url.endswith('/openapi.json'):
+            return FakeNodeNormResponse(openapi_response)
+        raise AssertionError(f'Unexpected node normalizer request: {url}')
+    return fake_get
+
+
+# The version lookups are cached for the lifetime of the process, clear them around every test that
+# fakes a node normalizer so real and faked versions never leak between tests.
+@pytest.fixture
+def node_norm_version_cache_cleared():
+    def clear_caches():
+        get_node_norm_status.cache_clear()
+        get_current_node_norm_version.cache_clear()
+        get_current_babel_version.cache_clear()
+    clear_caches()
+    yield
+    clear_caches()
+
+
+# The status endpoint reports the backend along with the version, and both are needed to identify a
+# deployment - version numbers of the redis and elasticsearch backends are unrelated to each other.
+@pytest.mark.parametrize('status_response,expected_version', [
+    ({'version': '2.5.1', 'backend': 'redis', 'babel_version': '2026jul22'}, 'redis-2.5.1'),
+    ({'version': '1.0.0', 'backend': 'elasticsearch', 'babel_version': '2025sep1'}, 'elasticsearch-1.0.0'),
+    ({'version': '2.5.1', 'babel_version': '2026jul22'}, '2.5.1'),
+])
+def test_node_norm_version_from_status(monkeypatch,
+                                       node_norm_version_cache_cleared,
+                                       status_response,
+                                       expected_version):
+    monkeypatch.setattr('orion.normalization.requests.get',
+                        fake_node_norm_requests(status_response=status_response))
+    assert get_current_node_norm_version() == expected_version
+    assert get_current_babel_version() == status_response['babel_version']
+
+
+# Deployments that predate the version/backend attributes on /status, and deployments that can not be
+# reached at all, still produce the version from the openapi spec that was used before /status had one.
+@pytest.mark.parametrize('status_response', [
+    {'status': 'running', 'babel_version': '2025sep1'},
+    requests.exceptions.ConnectionError('node normalizer is unreachable'),
+])
+def test_node_norm_version_falls_back_to_openapi(monkeypatch,
+                                                 node_norm_version_cache_cleared,
+                                                 status_response):
+    monkeypatch.setattr('orion.normalization.requests.get',
+                        fake_node_norm_requests(status_response=status_response,
+                                                openapi_response={'info': {'version': '2.3.0'}}))
+    assert get_current_node_norm_version() == '2.3.0'
+
+
+def test_babel_version_fails_without_status(monkeypatch, node_norm_version_cache_cleared):
+    monkeypatch.setattr('orion.normalization.requests.get',
+                        fake_node_norm_requests(
+                            status_response=requests.exceptions.ConnectionError('node normalizer is unreachable')))
+    with pytest.raises(NormalizationFailedError):
+        get_current_babel_version()
+
+
+# Every version that comes from /status must describe the same response, so it is fetched only once.
+def test_node_norm_status_fetched_once(monkeypatch, node_norm_version_cache_cleared):
+    request_log = []
+    monkeypatch.setattr('orion.normalization.requests.get',
+                        fake_node_norm_requests(status_response={'version': '2.5.1',
+                                                                 'backend': 'redis',
+                                                                 'babel_version': '2026jul22'},
+                                                request_log=request_log))
+    get_current_node_norm_version()
+    get_current_node_norm_version()
+    get_current_babel_version()
+    assert len([url for url in request_log if url.endswith('/status')]) == 1
 
 
 def test_edge_normalization():
