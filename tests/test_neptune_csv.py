@@ -174,17 +174,48 @@ def test_edges_without_ids_omit_the_id_column_when_generation_is_off(tmp_path,
     assert ':ID' not in headers
 
 
-def test_edge_missing_an_id_in_a_file_that_has_them_raises(tmp_path):
+@pytest.fixture
+def kgx_files_with_partial_edge_ids(tmp_path):
     nodes_filepath = str(tmp_path / 'nodes.jsonl')
     edges_filepath = str(tmp_path / 'edges.jsonl')
     write_jsonl(nodes_filepath, TEST_NODES)
-    # ids are generated for a file that has none, never for part of one - a generated id could
-    # collide with an id already in the file, and Neptune reads two rows sharing a relationship
-    # :ID as one relationship written twice.
     write_jsonl(edges_filepath, TEST_EDGES + [{'subject': 'CHEBI:1', 'object': 'NCBIGene:2',
                                                'predicate': 'biolink:affects'}])
-    with pytest.raises(Exception, match='Required columns'):
-        convert(tmp_path, (nodes_filepath, edges_filepath))
+    return nodes_filepath, edges_filepath
+
+
+def test_partially_populated_edge_ids_are_all_replaced(tmp_path, kgx_files_with_partial_edge_ids):
+    _, edges_output, edge_ids_included = convert(tmp_path, kgx_files_with_partial_edge_ids)
+
+    # the ids in the file cover only some rows, and a generated id could collide with one of them,
+    # so every edge is numbered instead of numbering the rows that have no id
+    assert edge_ids_included is True
+    _, edge_rows = read_csv(edges_output)
+    assert [row[':ID'] for row in edge_rows] == ['1', '2', '3']
+
+
+def test_an_empty_edge_id_counts_as_no_id(tmp_path):
+    nodes_filepath = str(tmp_path / 'nodes.jsonl')
+    edges_filepath = str(tmp_path / 'edges.jsonl')
+    write_jsonl(nodes_filepath, TEST_NODES)
+    write_jsonl(edges_filepath, [dict(TEST_EDGES[0], **{'id': ''}), TEST_EDGES[1]])
+    _, edges_output, _ = convert(tmp_path, (nodes_filepath, edges_filepath))
+
+    _, edge_rows = read_csv(edges_output)
+    assert [row[':ID'] for row in edge_rows] == ['1', '2']
+
+
+def test_partial_edge_ids_are_left_out_when_generation_is_off(tmp_path,
+                                                             kgx_files_with_partial_edge_ids):
+    _, edges_output, edge_ids_included = convert(tmp_path, kgx_files_with_partial_edge_ids,
+                                                 generate_edge_ids=False)
+
+    # Neptune takes a relationship :ID on every row or on none of them, so ids covering some of the
+    # rows have nowhere to go
+    assert edge_ids_included is False
+    headers, _ = read_csv(edges_output)
+    assert ':ID' not in headers
+    assert not any(header.startswith('id:') for header in headers)
 
 
 def test_edge_missing_a_required_column_raises(tmp_path):

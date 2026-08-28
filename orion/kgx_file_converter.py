@@ -220,10 +220,23 @@ def __verify_conversion(file_path: str,
               f'{[prop for prop in properties.keys() if prop not in verified_properties]}')
 """
 
-def _determine_properties_and_types(file_path: str, required_properties: dict):
+def _determine_properties_and_types(file_path: str, required_properties: dict,
+                                    complete_properties: set = None):
+    """Determine the type of every property in a KGX file.
+
+    complete_properties, when a set is passed in, is filled with the properties that had a value on
+    every entity in the file, which tells a caller a property it can rely on from one only some of
+    the entities carry.
+    """
     property_type_counts = defaultdict(lambda: defaultdict(int))
+    entities_with_a_value = defaultdict(int)
+    entity_count = 0
     for entity in quick_jsonl_file_iterator(file_path):
+        entity_count += 1
         for key, value in entity.items():
+            # an empty value is counted as no value, the csv writer treats the two the same
+            if value is not None and value != '':
+                entities_with_a_value[key] += 1
             if value is None:
                 property_type_counts[key]["None"] += 1
                 if key in required_properties and key != "name":
@@ -300,6 +313,10 @@ def _determine_properties_and_types(file_path: str, required_properties: dict):
         if prop not in properties and prop not in properties_to_remove:
             raise Exception(f'Property type could not be determined for: {prop}. {type_counts.items()}')
 
+    if complete_properties is not None:
+        complete_properties.update(prop for prop, count in entities_with_a_value.items()
+                                   if count == entity_count)
+
     # print(f'Found {len(properties)} properties:{properties.items()}')
     return properties
 
@@ -328,8 +345,8 @@ def _convert_to_csv(input_file: str,
                     array_delimiter_overrides: dict = None,  # { property: delimiter } for properties
                                                              # whose target dictates its own delimiter
                     required_columns: set = None,  # properties the target requires a value for on every row
-                    generated_columns: dict = None,  # { property: callable } supplying a value for the
-                                                     # rows that arrive without one
+                    generated_columns: dict = None,  # { property: callable } supplying the value for
+                                                     # every row, replacing whatever is in the input
                     property_ignore_list: set = None):
 
     # if there is a property_ignore_list, remove them from the properties
@@ -390,8 +407,7 @@ def _convert_to_csv(input_file: str,
 
             if generated_columns:
                 for column, generate_value in generated_columns.items():
-                    if not item.get(column):
-                        item[column] = generate_value()
+                    item[column] = generate_value()
 
             if required_columns:
                 missing_columns = [column for column in required_columns if not item.get(column)]
