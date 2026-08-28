@@ -671,11 +671,16 @@ def test_build_graph_produces_neptune_csv_files(tmp_path, monkeypatch):
     with open(output_dir / 'neptune_load_manifest.json') as manifest_file:
         manifest = json.load(manifest_file)
     assert manifest['format'] == 'opencypher'
-    # these fixture edges have no ids, so the load has to let Neptune generate relationship ids
-    assert manifest['userProvidedEdgeIds'] is False
+    # these fixture edges have no ids, so the build numbers them and the csv provides the
+    # relationship ids instead of leaving Neptune to generate them during the load
+    assert manifest['userProvidedEdgeIds'] is True
 
     for filename in manifest['nodes'] + manifest['edges']:
         assert (output_dir / filename).exists()
+
+    with gzip.open(output_dir / manifest['edges'][0], 'rt') as edges_csv:
+        edge_lines = edges_csv.read().splitlines()
+    assert ':ID' in edge_lines[0].split(',')
 
     with gzip.open(output_dir / manifest['nodes'][0], 'rt') as nodes_csv:
         node_lines = nodes_csv.read().splitlines()

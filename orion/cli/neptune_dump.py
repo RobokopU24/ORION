@@ -19,6 +19,10 @@ def main():
     ap.add_argument('--no_compress', action='store_true',
                     help='Write plain .csv files. By default the files are gzipped, which the '
                          'Neptune bulk loader reads directly.')
+    ap.add_argument('--no_generate_edge_ids', action='store_true',
+                    help='Leave the relationship :ID column out when the edges have no ids of '
+                         'their own, and let Neptune generate the ids during the load. By default '
+                         'edges without ids are numbered sequentially.')
 
     args = ap.parse_args()
     try:
@@ -27,7 +31,8 @@ def main():
                                       output_directory=args.output_directory,
                                       graph_id=args.graph_id,
                                       release_version=args.release_version,
-                                      compress=not args.no_compress)
+                                      compress=not args.no_compress,
+                                      generate_edge_ids=not args.no_generate_edge_ids)
     except Exception as e:
         print(f'Neptune csv conversion failed: {e}', file=sys.stderr)
         sys.exit(1)

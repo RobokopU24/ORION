@@ -125,6 +125,17 @@ def _drop_properties_with_bad_characters(properties: dict, entity_type: str):
     return properties
 
 
+class _SequentialEdgeIds:
+    """Hands out "1", "2", "3"... as relationship ids, and counts how many it handed out."""
+
+    def __init__(self):
+        self.count = 0
+
+    def __call__(self):
+        self.count += 1
+        return str(self.count)
+
+
 def _validate_file_paths(input_file: str, output_file: str):
     if not input_file or not input_file.endswith(VALID_INPUT_EXTENSIONS):
         raise Exception(f'Empty input file or invalid file extension (must be one of '
@@ -140,10 +151,14 @@ def convert_jsonl_to_neptune_csv(nodes_input_file: str,
                                  edges_output_file: str,
                                  array_delimiter: str = NEPTUNE_ARRAY_DELIMITER,
                                  node_property_ignore_list: set = None,
-                                 edge_property_ignore_list: set = None):
+                                 edge_property_ignore_list: set = None,
+                                 generate_edge_ids: bool = True):
     """Write Neptune openCypher csv files for a pair of KGX jsonl files.
 
     Output files named .csv.gz are gzipped, which the Neptune bulk loader reads directly.
+
+    With generate_edge_ids, edges that arrive without an id get a sequentially numbered one, so the
+    edges file always has a relationship :ID column.
 
     Returns whether the edges file has relationship ids, which determines the userProvidedEdgeIds
     setting the load has to use.
@@ -170,7 +185,16 @@ def convert_jsonl_to_neptune_csv(nodes_input_file: str,
     # Edge ids are optional in KGX, they come from the graph spec's add_edge_id option. When they
     # are present they become Neptune's relationship :ID column, which lets a failed load resume
     # rather than reloading every relationship, and lets the loader detect duplicate relationships.
+    # Edges that arrive without one are numbered here rather than left to Neptune, which generates
+    # relationship ids of its own when the :ID column is absent. Those ids exist only inside the
+    # cluster, so a load that fails and gets rerun can't tell which relationships it already wrote
+    # and reloads all of them. Numbering is not a substitute for add_edge_id: sequential ids are
+    # unique by construction, so they identify nothing about the edge and never collapse duplicates.
     edge_ids_included = EDGE_ID in edge_properties
+    generated_edge_ids = None
+    if not edge_ids_included and generate_edge_ids:
+        generated_edge_ids = {EDGE_ID: _SequentialEdgeIds()}
+        edge_ids_included = True
     if edge_ids_included:
         edge_properties[EDGE_ID] = 'EDGE_ID'
     _convert_to_csv(input_file=edges_input_file,
@@ -181,5 +205,8 @@ def convert_jsonl_to_neptune_csv(nodes_input_file: str,
                     header_renderer=_neptune_header,
                     array_delimiter_overrides=_label_delimiters(edge_properties),
                     required_columns=_required_columns(edge_properties),
+                    generated_columns=generated_edge_ids,
                     property_ignore_list=edge_property_ignore_list)
+    if generated_edge_ids:
+        logger.info(f'Generated sequential ids for {generated_edge_ids[EDGE_ID].count} edges.')
     return edge_ids_included

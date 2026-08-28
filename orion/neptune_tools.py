@@ -18,7 +18,8 @@ def create_neptune_csvs(nodes_filepath: str,
                         release_version: str = '',
                         node_property_ignore_list: set = None,
                         edge_property_ignore_list: set = None,
-                        compress: bool = True):
+                        compress: bool = True,
+                        generate_edge_ids: bool = True):
     """Write the csv files and load manifest for a Neptune bulk load of the given KGX files.
 
     Unlike a neo4j dump this doesn't produce a single artifact, and no database is involved: the
@@ -57,12 +58,14 @@ def create_neptune_csvs(nodes_filepath: str,
         nodes_output_file=output_nodes_csv_file,
         edges_output_file=output_edges_csv_file,
         node_property_ignore_list=node_property_ignore_list,
-        edge_property_ignore_list=edge_property_ignore_list)
+        edge_property_ignore_list=edge_property_ignore_list,
+        generate_edge_ids=generate_edge_ids)
 
     if not edge_ids_included:
         logger.warning(f'The edges for {graph_id}({release_version}) have no ids, so the load will have to '
-                       f'let Neptune generate relationship ids. Building the graph with add_edge_id lets a '
-                       f'failed load resume instead of reloading every relationship.')
+                       f'let Neptune generate relationship ids. Generating ids here, or building the graph '
+                       f'with add_edge_id, lets a failed load resume instead of reloading every '
+                       f'relationship.')
 
     # The manifest is written last so that its presence means both csv files finished.
     # Nodes and edges are listed separately because they are loaded as two jobs from two different

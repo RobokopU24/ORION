@@ -328,6 +328,8 @@ def _convert_to_csv(input_file: str,
                     array_delimiter_overrides: dict = None,  # { property: delimiter } for properties
                                                              # whose target dictates its own delimiter
                     required_columns: set = None,  # properties the target requires a value for on every row
+                    generated_columns: dict = None,  # { property: callable } supplying a value for the
+                                                     # rows that arrive without one
                     property_ignore_list: set = None):
 
     # if there is a property_ignore_list, remove them from the properties
@@ -385,6 +387,11 @@ def _convert_to_csv(input_file: str,
                         item[key] = 'true' if item[key] is True else 'false'
                     elif isinstance(item[key], str):
                         item[key] = flatten_field_whitespace(item[key])
+
+            if generated_columns:
+                for column, generate_value in generated_columns.items():
+                    if not item.get(column):
+                        item[column] = generate_value()
 
             if required_columns:
                 missing_columns = [column for column in required_columns if not item.get(column)]

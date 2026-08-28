@@ -138,19 +138,53 @@ def test_ignored_properties_are_not_written(tmp_path, kgx_files):
     assert not any(header.startswith('ignore_me') for header in headers)
 
 
-def test_edges_without_ids_omit_the_id_column(tmp_path):
+@pytest.fixture
+def kgx_files_without_edge_ids(tmp_path):
     nodes_filepath = str(tmp_path / 'nodes.jsonl')
     edges_filepath = str(tmp_path / 'edges.jsonl')
     write_jsonl(nodes_filepath, TEST_NODES)
     write_jsonl(edges_filepath, [{key: value for key, value in edge.items() if key != 'id'}
                                  for edge in TEST_EDGES])
-    _, edges_output, edge_ids_included = convert(tmp_path, (nodes_filepath, edges_filepath))
+    return nodes_filepath, edges_filepath
+
+
+def test_edges_without_ids_are_numbered_sequentially(tmp_path, kgx_files_without_edge_ids):
+    _, edges_output, edge_ids_included = convert(tmp_path, kgx_files_without_edge_ids)
+
+    assert edge_ids_included is True
+    _, edge_rows = read_csv(edges_output)
+    assert [row[':ID'] for row in edge_rows] == ['1', '2']
+
+
+def test_provided_edge_ids_are_kept_instead_of_generated_ones(tmp_path, kgx_files):
+    _, edges_output, _ = convert(tmp_path, kgx_files)
+    _, edge_rows = read_csv(edges_output)
+    assert [row[':ID'] for row in edge_rows] == ['edge_1', 'edge_2']
+
+
+def test_edges_without_ids_omit_the_id_column_when_generation_is_off(tmp_path,
+                                                                    kgx_files_without_edge_ids):
+    _, edges_output, edge_ids_included = convert(tmp_path, kgx_files_without_edge_ids,
+                                                 generate_edge_ids=False)
 
     # Neptune rejects a relationship file with an empty :ID column, so it has to be absent entirely
     # and the load has to run with userProvidedEdgeIds set to false.
     assert edge_ids_included is False
     headers, _ = read_csv(edges_output)
     assert ':ID' not in headers
+
+
+def test_edge_missing_an_id_in_a_file_that_has_them_raises(tmp_path):
+    nodes_filepath = str(tmp_path / 'nodes.jsonl')
+    edges_filepath = str(tmp_path / 'edges.jsonl')
+    write_jsonl(nodes_filepath, TEST_NODES)
+    # ids are generated for a file that has none, never for part of one - a generated id could
+    # collide with an id already in the file, and Neptune reads two rows sharing a relationship
+    # :ID as one relationship written twice.
+    write_jsonl(edges_filepath, TEST_EDGES + [{'subject': 'CHEBI:1', 'object': 'NCBIGene:2',
+                                               'predicate': 'biolink:affects'}])
+    with pytest.raises(Exception, match='Required columns'):
+        convert(tmp_path, (nodes_filepath, edges_filepath))
 
 
 def test_edge_missing_a_required_column_raises(tmp_path):
@@ -218,6 +252,18 @@ def test_create_neptune_csvs_writes_gzipped_files_and_manifest(tmp_path, kgx_fil
 
     # the manifest is not a data file, the loader would try to parse it as one
     assert NEPTUNE_MANIFEST_FILENAME not in manifest_files
+
+
+def test_create_neptune_csvs_records_generated_edge_ids_in_the_manifest(
+        tmp_path, kgx_files_without_edge_ids):
+    nodes_filepath, edges_filepath = kgx_files_without_edge_ids
+    output_directory = tmp_path / 'output'
+    output_directory.mkdir()
+
+    create_neptune_csvs(nodes_filepath, edges_filepath, str(output_directory), graph_id='TestGraph')
+
+    # the ids are in the csv either way, so the load provides them
+    assert read_neptune_manifest(str(output_directory))['userProvidedEdgeIds'] is True
 
 
 def test_create_neptune_csvs_skips_work_when_already_done(tmp_path, kgx_files):
