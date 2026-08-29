@@ -1,0 +1,364 @@
+import os
+import re
+
+import requests
+
+from orion.biolink_constants import (
+    AGENT_TYPE,
+    DATA_PIPELINE,
+    DISEASE_CONTEXT_QUALIFIER,
+    FREQUENCY_QUALIFIER,
+    KNOWLEDGE_ASSERTION,
+    KNOWLEDGE_LEVEL,
+    MANUAL_AGENT,
+    ONSET_QUALIFIER,
+    PUBLICATIONS,
+    SEX_QUALIFIER,
+    SUPPORTING_DATA_SOURCE,
+)
+from orion.kgxmodel import kgxedge
+from orion.loader_interface import SourceDataLoader
+from orion.utils import GetData, GetDataPullError
+
+
+HPOA_INFORES = "infores:hpo-annotations"
+HPOA_DISEASE_PHENOTYPE_FILE = "phenotype.hpoa"
+HPOA_GENE_PHENOTYPE_FILE = "genes_to_phenotype.txt"
+HPOA_DISEASE_PHENOTYPE_URL = f"https://purl.obolibrary.org/obo/hp/hpoa/{HPOA_DISEASE_PHENOTYPE_FILE}"
+HPOA_GENE_PHENOTYPE_URL = f"https://purl.obolibrary.org/obo/hp/hpoa/{HPOA_GENE_PHENOTYPE_FILE}"
+
+HPOA_DISEASE_PHENOTYPE_COLUMNS = [
+    "database_id",
+    "disease_name",
+    "qualifier",
+    "hpo_id",
+    "reference",
+    "evidence",
+    "onset",
+    "frequency",
+    "sex",
+    "modifier",
+    "aspect",
+    "biocuration",
+]
+
+HPOA_GENE_PHENOTYPE_COLUMNS = [
+    "ncbi_gene_id",
+    "gene_symbol",
+    "hpo_id",
+    "hpo_name",
+    "frequency",
+    "disease_id",
+]
+
+DISEASE_PREFIX_TO_SUPPORTING_SOURCE = {
+    "DECIPHER": "infores:decipher",
+    "MONDO": "infores:mondo",
+    "OMIM": "infores:omim",
+    "ORPHA": "infores:orphanet",
+}
+
+DISEASE_CURIE_PREFIX_REMAP = {
+    "ORPHA": "Orphanet",
+}
+
+HAS_PHENOTYPE = "biolink:has_phenotype"
+
+
+def disease_supporting_source(disease_id: str) -> str | None:
+    prefix = disease_id.split(":", maxsplit=1)[0].upper()
+    return DISEASE_PREFIX_TO_SUPPORTING_SOURCE.get(prefix)
+
+
+def get_disease_curie(disease_id: str) -> str:
+    prefix, sep, local_id = disease_id.partition(":")
+    if not sep:
+        return disease_id
+    return f"{DISEASE_CURIE_PREFIX_REMAP.get(prefix.upper(), prefix)}:{local_id}"
+
+
+def is_zero_frequency(frequency: str) -> bool:
+    frequency = frequency.strip()
+    if not frequency:
+        return False
+    if re.fullmatch(r"0+(\.0+)?", frequency):
+        return True
+    if re.fullmatch(r"0+(\.0+)?\s*%", frequency):
+        return True
+    if re.fullmatch(r"0+\s*/\s*\d+", frequency):
+        return True
+    return False
+
+
+ISBN_PATTERN = re.compile(r"^ISBN(?:-1[03])?:(.+)$")
+
+
+def publications_from_reference(value: str) -> list[str]:
+    """HPOA's reference column is a ';'-separated mix of PMIDs, ISBNs, bare URLs (e.g. NCBI
+    Bookshelf/GeneReviews chapter links), and disease-database self-citations (e.g.
+    "OMIM:107480;PMID:11478532", or just "OMIM:609153" citing itself). PMIDs, ISBNs, and URLs are
+    all valid `publications` entries
+    """
+    publications = []
+    for part in (value or "").split(";"):
+        part = part.strip()
+        if part.startswith("PMID:"):
+            publications.append(part)
+            continue
+        isbn_match = ISBN_PATTERN.match(part)
+        if isbn_match:
+            publications.append(f"isbn:{isbn_match.group(1)}")
+            continue
+        if part.startswith("http://") or part.startswith("https://"):
+            publications.append(part)
+    return publications
+
+
+def hpoa_row_is_positive_phenotype(row: dict) -> bool:
+    disease_id = row.get("database_id", "").strip()
+    hpo_id = row.get("hpo_id", "").strip()
+    aspect = row.get("aspect", "").strip()
+    qualifier = row.get("qualifier", "").strip()
+    frequency = row.get("frequency", "").strip()
+    return bool(
+        disease_id
+        and hpo_id
+        and aspect == "P"
+        and not qualifier
+        and not is_zero_frequency(frequency)
+    )
+
+
+def iter_hpoa_tsv(path: str, default_columns: list[str]) -> dict:
+    header = None
+    with open(path, "rt", encoding="utf-8") as source_file:
+        for raw_line in source_file:
+            line = raw_line.rstrip("\n")
+            if not line:
+                continue
+            if line.startswith("#"):
+                candidate_header = line[1:].split("\t")
+                if candidate_header == default_columns:
+                    header = candidate_header
+                continue
+
+            values = line.split("\t")
+            if header is None:
+                if values == default_columns:
+                    header = values
+                    continue
+                header = default_columns
+
+            if len(values) < len(header):
+                values.extend([""] * (len(header) - len(values)))
+            yield dict(zip(header, values))
+
+
+def disease_phenotype_edge_properties(row: dict) -> dict:
+    edge_properties = {
+        KNOWLEDGE_LEVEL: KNOWLEDGE_ASSERTION,
+        AGENT_TYPE: MANUAL_AGENT,
+        "hpoa_disease_name": row.get("disease_name", ""),
+        "hpoa_evidence": row.get("evidence", ""),
+        "hpoa_modifier": row.get("modifier", ""),
+        "hpoa_biocuration": row.get("biocuration", ""),
+    }
+
+    onset = row.get("onset", "").strip()
+    if onset:
+        edge_properties[ONSET_QUALIFIER] = onset
+    frequency = row.get("frequency", "").strip()
+    if frequency:
+        edge_properties[FREQUENCY_QUALIFIER] = frequency
+    sex = row.get("sex", "").strip()
+    if sex:
+        edge_properties[SEX_QUALIFIER] = sex
+    supporting_data_source = disease_supporting_source(row["database_id"])
+    if supporting_data_source:
+        edge_properties[SUPPORTING_DATA_SOURCE] = [supporting_data_source]
+    publications = publications_from_reference(row.get("reference", ""))
+    if publications:
+        edge_properties[PUBLICATIONS] = publications
+    return edge_properties
+
+
+def gene_phenotype_edge_properties(row: dict) -> dict:
+    disease_id = get_disease_curie(row["disease_id"])
+    edge_properties = {
+        KNOWLEDGE_LEVEL: KNOWLEDGE_ASSERTION,
+        AGENT_TYPE: DATA_PIPELINE,
+        DISEASE_CONTEXT_QUALIFIER: disease_id,
+        "hpoa_hpo_name": row.get("hpo_name", ""),
+    }
+    frequency = row.get("frequency", "").strip()
+    if frequency:
+        edge_properties[FREQUENCY_QUALIFIER] = frequency
+    supporting_data_source = disease_supporting_source(row["disease_id"])
+    if supporting_data_source:
+        edge_properties[SUPPORTING_DATA_SOURCE] = [supporting_data_source]
+    return edge_properties
+
+
+class HPOALoader(SourceDataLoader):
+    source_id = "HPOA"
+    provenance_id = HPOA_INFORES
+    parsing_version = "1.0"
+    source_data_url = HPOA_DISEASE_PHENOTYPE_URL
+    attribution = "https://hpo.jax.org/data/annotations"
+    description = (
+        "The Human Phenotype Ontology annotations provide curated disease-phenotype "
+        "annotations and derived disease-conditioned gene-phenotype annotations."
+    )
+    license = "https://hpo.jax.org/app/license"
+
+    def __init__(self, test_mode: bool = False, source_data_dir: str = None):
+        super().__init__(test_mode=test_mode, source_data_dir=source_data_dir)
+        self.data_files = [HPOA_DISEASE_PHENOTYPE_FILE, HPOA_GENE_PHENOTYPE_FILE]
+
+    def get_latest_source_version(self) -> str:
+        try:
+            response = requests.get(HPOA_DISEASE_PHENOTYPE_URL, stream=True, timeout=30)
+            response.raise_for_status()
+            for raw_line in response.iter_lines():
+                line = raw_line.decode("utf-8")
+                if not line:
+                    continue
+                if line.startswith("#version:"):
+                    return line.split(":", maxsplit=1)[1].strip()
+                if not line.startswith("#"):
+                    break
+        except Exception as e:
+            raise GetDataPullError(f"Unable to determine latest HPOA version: {e}")
+        raise GetDataPullError("Unable to determine latest HPOA version: #version line not found")
+
+    def get_data(self) -> bool:
+        data_puller = GetData()
+        data_puller.pull_via_http(
+            HPOA_DISEASE_PHENOTYPE_URL,
+            self.data_path,
+            saved_file_name=HPOA_DISEASE_PHENOTYPE_FILE,
+        )
+        data_puller.pull_via_http(
+            HPOA_GENE_PHENOTYPE_URL,
+            self.data_path,
+            saved_file_name=HPOA_GENE_PHENOTYPE_FILE,
+        )
+        return True
+
+    def parse_data(self) -> dict:
+        phenotype_path = os.path.join(self.data_path, HPOA_DISEASE_PHENOTYPE_FILE)
+        gene_phenotype_path = os.path.join(self.data_path, HPOA_GENE_PHENOTYPE_FILE)
+
+        disease_phenotype_metadata, kept_disease_phenotype_pairs = self.parse_disease_phenotypes(
+            phenotype_path
+        )
+        gene_phenotype_metadata = self.parse_gene_phenotypes(
+            gene_phenotype_path,
+            kept_disease_phenotype_pairs,
+        )
+
+        metadata = {}
+        metadata.update(disease_phenotype_metadata)
+        metadata.update(gene_phenotype_metadata)
+        metadata["num_source_lines"] = (
+            disease_phenotype_metadata["disease_phenotype_source_lines"]
+            + gene_phenotype_metadata["gene_phenotype_source_lines"]
+        )
+        metadata["unusable_source_lines"] = (
+            disease_phenotype_metadata["disease_phenotype_rows_skipped"]
+            + gene_phenotype_metadata["gene_phenotype_rows_skipped"]
+        )
+        return metadata
+
+    def parse_disease_phenotypes(self, phenotype_path: str) -> tuple[dict, set[tuple[str, str]]]:
+        source_lines = 0
+        rows_skipped = 0
+        duplicate_positive_rows = 0
+        kept_pairs = set()
+
+        for row in iter_hpoa_tsv(phenotype_path, HPOA_DISEASE_PHENOTYPE_COLUMNS):
+            source_lines += 1
+            if not hpoa_row_is_positive_phenotype(row):
+                rows_skipped += 1
+                continue
+
+            disease_id = get_disease_curie(row["database_id"])
+            hpo_id = row["hpo_id"]
+            pair = (disease_id, hpo_id)
+            if pair in kept_pairs:
+                duplicate_positive_rows += 1
+                continue
+
+            kept_pairs.add(pair)
+            self.write_edge(
+                subject_id=disease_id,
+                object_id=hpo_id,
+                predicate=HAS_PHENOTYPE,
+                edge_properties=disease_phenotype_edge_properties(row),
+            )
+
+        return (
+            {
+                "disease_phenotype_source_lines": source_lines,
+                "disease_phenotype_rows_skipped": rows_skipped,
+                "disease_phenotype_duplicate_positive_rows": duplicate_positive_rows,
+                "disease_phenotype_edges_written": len(kept_pairs),
+            },
+            kept_pairs,
+        )
+
+    def parse_gene_phenotypes(
+        self,
+        gene_phenotype_path: str,
+        kept_disease_phenotype_pairs: set[tuple[str, str]],
+    ) -> dict:
+        source_lines = 0
+        rows_skipped = 0
+        edges_written = 0
+
+        for row in iter_hpoa_tsv(gene_phenotype_path, HPOA_GENE_PHENOTYPE_COLUMNS):
+            source_lines += 1
+            disease_id = get_disease_curie(row.get("disease_id", "").strip())
+            hpo_id = row.get("hpo_id", "").strip()
+            ncbi_gene_id = row.get("ncbi_gene_id", "").strip()
+            if not (
+                disease_id
+                and hpo_id
+                and ncbi_gene_id
+                and (disease_id, hpo_id) in kept_disease_phenotype_pairs
+            ):
+                rows_skipped += 1
+                continue
+
+            self.write_edge(
+                subject_id=f"NCBIGene:{ncbi_gene_id}",
+                object_id=hpo_id,
+                predicate=HAS_PHENOTYPE,
+                edge_properties=gene_phenotype_edge_properties(row),
+            )
+            edges_written += 1
+
+        return {
+            "gene_phenotype_source_lines": source_lines,
+            "gene_phenotype_rows_skipped": rows_skipped,
+            "gene_phenotype_edges_written": edges_written,
+        }
+
+    def write_edge(
+        self,
+        subject_id: str,
+        object_id: str,
+        predicate: str,
+        edge_properties: dict,
+    ) -> None:
+        self.output_file_writer.write_node(subject_id)
+        self.output_file_writer.write_node(object_id)
+        self.output_file_writer.write_kgx_edge(
+            kgxedge(
+                subject_id=subject_id,
+                object_id=object_id,
+                predicate=predicate,
+                primary_knowledge_source=self.provenance_id,
+                edgeprops=edge_properties,
+            )
+        )

@@ -108,6 +108,7 @@ CONTEXT_QUALIFIER = 'context_qualifier'
 DERIVATIVE_QUALIFIER = 'derivative_qualifier'
 DISEASE_CONTEXT_QUALIFIER = 'disease_context_qualifier'
 FORM_OR_VARIANT_QUALIFIER = 'form_or_variant_qualifier'
+FREQUENCY_QUALIFIER = 'frequency_qualifier'
 OBJECT_ASPECT_QUALIFIER = 'object_aspect_qualifier'
 OBJECT_CONTEXT_QUALIFIER = 'object_context_qualifier'
 OBJECT_DERIVATIVE_QUALIFIER = 'object_derivative_qualifier'
@@ -115,6 +116,7 @@ OBJECT_DIRECTION_QUALIFIER = 'object_direction_qualifier'
 OBJECT_FORM_OR_VARIANT_QUALIFIER = 'object_form_or_variant_qualifier'
 OBJECT_PART_QUALIFIER = 'object_part_qualifier'
 OBJECT_SPECIALIZATION_QUALIFIER = 'object_specialization_qualifier'
+ONSET_QUALIFIER = 'onset_qualifier'
 POPULATION_CONTEXT_QUALIFIER = 'population_context_qualifier'
 QUALIFIED_PREDICATE = 'qualified_predicate'
 SEX_QUALIFIER = 'sex_qualifier'
@@ -188,11 +190,13 @@ BIOLINK_EDGE_PROPERTIES = [
     CAUSAL_MECHANISM_QUALIFIER,
     CONTEXT_QUALIFIER,
     DERIVATIVE_QUALIFIER,
+    FREQUENCY_QUALIFIER,
     OBJECT_ASPECT_QUALIFIER,
     OBJECT_DERIVATIVE_QUALIFIER,
     OBJECT_DIRECTION_QUALIFIER,
     OBJECT_FORM_OR_VARIANT_QUALIFIER,
     OBJECT_PART_QUALIFIER,
+    ONSET_QUALIFIER,
     QUALIFIED_PREDICATE,
     SEX_QUALIFIER,
     SPECIES_CONTEXT_QUALIFIER,
