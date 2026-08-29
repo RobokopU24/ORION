@@ -4,8 +4,16 @@ import tarfile
 from io import TextIOWrapper
 from orion.utils import GetData
 from orion.loader_interface import SourceDataLoader
-from orion.biolink_constants import KNOWLEDGE_LEVEL, AGENT_TYPE, KNOWLEDGE_ASSERTION, MANUAL_AGENT
+from orion.biolink_constants import KNOWLEDGE_LEVEL, AGENT_TYPE, KNOWLEDGE_ASSERTION, MANUAL_AGENT, ORIGINAL_PREDICATE
 from parsers.UberGraph.src.ubergraph import UberGraphTools
+
+
+RO_DISEASE_HAS_FEATURE = 'RO:0004029'
+RO_HAS_MODIFIER = 'RO:0002573'
+MONDO_DISEASE_HAS_MAJOR_FEATURE = 'MONDO:disease_has_major_feature'
+DISEASE_HAS_MAJOR_FEATURE = 'disease_has_major_feature'
+DISEASE_FEATURE_QUALIFIER = 'disease_feature_qualifier'
+MAJOR_FEATURE_QUALIFIER_VALUE = 'major'
 
 
 class UGLoader(SourceDataLoader):
@@ -52,6 +60,7 @@ class UGLoader(SourceDataLoader):
         # init the record counters
         record_counter: int = 0
         skipped_record_counter: int = 0
+        skipped_filtered_counter: int = 0
 
         ubergraph_archive_path = os.path.join(self.data_path, self.data_file)
         ubergraph_graph_path = self.data_file.split('.tgz')[0]
@@ -80,6 +89,11 @@ class UGLoader(SourceDataLoader):
                             (self.only_subclass_edges and predicate_curie != self.subclass_predicate):
                         skipped_record_counter += 1
                         continue
+                    if self.filter_edge(subject_curie, predicate_curie, object_curie):
+                        skipped_filtered_counter += 1
+                        continue
+
+                    predicate_curie, predicate_properties = self.transform_predicate(predicate_curie)
 
                     # we get these during normalization now, but this is how you would do it
                     # subject_description = ubergraph_tools.node_descriptions.get(subject_curie, None)
@@ -89,6 +103,7 @@ class UGLoader(SourceDataLoader):
 
                     edge_props = {KNOWLEDGE_LEVEL: KNOWLEDGE_ASSERTION,
                                   AGENT_TYPE: MANUAL_AGENT}
+                    edge_props.update(predicate_properties)
                     self.output_file_writer.write_node(node_id=subject_curie)
                     self.output_file_writer.write_node(node_id=object_curie)
                     self.output_file_writer.write_edge(subject_id=subject_curie,
@@ -102,11 +117,27 @@ class UGLoader(SourceDataLoader):
         # load up the metadata
         load_metadata: dict = {
             'num_source_lines': record_counter,
-            'unusable_source_lines': skipped_record_counter
+            'unusable_source_lines': skipped_record_counter,
+            'lines_skipped_due_to_filtering': skipped_filtered_counter
         }
 
         # return the split file names so they can be removed if desired
         return load_metadata
+
+    def filter_edge(self, subject_curie: str, predicate_curie: str, object_curie: str) -> bool:
+        return (
+            predicate_curie == RO_HAS_MODIFIER
+            and subject_curie.startswith('MONDO:')
+            and object_curie.startswith('HP:')
+        )
+
+    def transform_predicate(self, predicate_curie: str) -> tuple[str, dict]:
+        if predicate_curie in {MONDO_DISEASE_HAS_MAJOR_FEATURE, DISEASE_HAS_MAJOR_FEATURE}:
+            return RO_DISEASE_HAS_FEATURE, {
+                ORIGINAL_PREDICATE: predicate_curie,
+                DISEASE_FEATURE_QUALIFIER: MAJOR_FEATURE_QUALIFIER_VALUE,
+            }
+        return predicate_curie, {}
 
 
 class UGRedundantLoader(UGLoader):
@@ -151,6 +182,4 @@ class OHLoader(UGLoader):
         self.data_file = 'redundant-graph-table.tgz'
         self.data_url: str = f'{self.base_url}/downloads/current/'
         self.only_subclass_edges = True
-
-
 
