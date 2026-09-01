@@ -51,6 +51,8 @@ class IngestPipeline:
         # nested dict of source_id -> source_version -> SourceMetadata
         self.source_metadata = defaultdict(dict)
 
+        self.last_failure_reason = None
+
     def run_pipeline(self,
                      source_id: str,
                      source_version: str='latest',
@@ -59,17 +61,20 @@ class IngestPipeline:
                      supplementation_version: str='latest'):
 
         logger.info(f"Running pipeline on {source_id}...")
+        self.last_failure_reason = None
         self.init_source_output_dir(source_id)
 
         if source_version == 'latest':
             source_version = self.get_latest_source_version(source_id)
         if not self.run_fetch_stage(source_id, source_version):
+            self.last_failure_reason = 'fetch stage'
             logger.error(f"Pipeline for {source_id} aborted during fetch stage.")
             return False
 
         if parsing_version == 'latest':
             parsing_version = self.get_latest_parsing_version(source_id)
         if not self.run_parsing_stage(source_id, source_version, parsing_version=parsing_version):
+            self.last_failure_reason = 'parsing stage'
             logger.error(f"Pipeline for {source_id} aborted during parsing stage.")
             return False
 
@@ -81,6 +86,7 @@ class IngestPipeline:
                                             source_version,
                                             parsing_version=parsing_version,
                                             normalization_scheme=normalization_scheme):
+            self.last_failure_reason = 'normalization stage'
             logger.error(f"Pipeline for {source_id} aborted during normalization stage.")
             return False
 
@@ -91,6 +97,7 @@ class IngestPipeline:
                                               parsing_version=parsing_version,
                                               supplementation_version=supplementation_version,
                                               normalization_scheme=normalization_scheme):
+            self.last_failure_reason = 'supplementation stage'
             logger.error(f"Pipeline for {source_id} supplementation stage not successful.")
             return False
 
@@ -100,6 +107,7 @@ class IngestPipeline:
                                                        normalization_scheme=normalization_scheme,
                                                        supplementation_version=supplementation_version)
         if build_version is None:
+            self.last_failure_reason = 'QC/metadata stage'
             logger.warning(f"Pipeline for {source_id} failed quality control...")
             return False
         return build_version

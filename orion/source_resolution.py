@@ -199,8 +199,6 @@ class SourceResolver:
                 logger.error(self._last_error)
                 return None
             result = self._build_parser(source)
-            if result is None:
-                self._last_error = f'Ingest pipeline failed for {source.id}.'
             return result
 
         subgraph_spec = self.gb.graph_specs.get(source.id)
@@ -236,7 +234,9 @@ class SourceResolver:
                                             parsing_version=source.parsing_version,
                                             normalization_scheme=source.normalization_scheme,
                                             supplementation_version=source.supplementation_version):
-            logger.error(f'Ingest pipeline failed for {source.id}.')
+            stage = ingest_pipeline.last_failure_reason or 'unknown stage'
+            self._last_error = f'Ingest pipeline failed for {source.id} (failed at {stage}).'
+            logger.error(self._last_error)
             return None
         raw_file_paths = ingest_pipeline.get_final_file_paths(
             source.id,

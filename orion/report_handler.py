@@ -58,7 +58,6 @@ def _format_message(results: list) -> str:
 
         sources = graph.get('sources', {})
         if sources:
-            parts = []
             for src_id, src in sources.items():
                 src_status = src.get('status', 'failed')
                 label = _SOURCE_LABEL.get(src_status, src_status)
@@ -66,11 +65,10 @@ def _format_message(results: list) -> str:
                 version_str = f' {version}' if version else ''
                 if src_status == 'failed':
                     error = src.get('error') or ''
-                    short_error = error[:80] + '…' if len(error) > 80 else error
-                    parts.append(f'`{src_id}`: {label} — {short_error}' if short_error else f'`{src_id}`: {label}')
+                    short_error = error[:120] + '…' if len(error) > 120 else error
+                    lines.append(f'    `{src_id}`: {label} — {short_error}' if short_error else f'    `{src_id}`: {label}')
                 else:
-                    parts.append(f'`{src_id}`:{version_str} ({label})')
-            lines.append('    ' + ' | '.join(parts))
+                    lines.append(f'    `{src_id}`:{version_str} ({label})')
 
         lines.append('')
 
