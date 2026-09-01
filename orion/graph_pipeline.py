@@ -67,6 +67,8 @@ class GraphBuilder:
                               inline_graph_spec=inline_graph_spec)
         self._validate_specs()
         self.build_results = {}
+        self.source_outcomes = {}   # {graph_id: {source_id: {status, version, error}}}
+        self.graph_failures = {}    # {graph_id: {reason}}
 
         # The SourceResolver is used to locate or build the sources specified in a GraphSpec
         self.source_resolver = SourceResolver(graph_builder=self)
@@ -86,6 +88,12 @@ class GraphBuilder:
             if not self.build_dependencies(graph_spec):
                 logger.warning(f'Aborting graph {graph_id} release_version {graph_spec.release_version}, '
                                f'resolving dependencies failed.')
+                self.graph_failures[graph_id] = {
+                    'graph_id': graph_id,
+                    'build_version': graph_spec.build_version,
+                    'release_version': graph_spec.release_version,
+                    'reason': 'One or more sources failed to resolve.',
+                }
                 return False
         return self.merge_and_finalize(graph_spec, graph_output_dir, graph_output_url)
 
@@ -113,6 +121,7 @@ class GraphBuilder:
 
         # A build is complete/STABLE when its bundle has nodes, edges, and graph-metadata.json.
         build_complete = kgx_bundle.has_nodes_and_edges() and kgx_bundle.has_graph_metadata()
+        newly_built = not build_complete
         if build_complete:
             logger.info(f'Graph {graph_id} release_version {release_version} was already built.')
         else:
@@ -316,7 +325,7 @@ class GraphBuilder:
 
         # Record any db dumps that were produced as distribution entries on graph-metadata.json.
         self._append_distribution_entries(kgx_bundle.graph_metadata_path, dump_distribution_entries)
-        self._record_build_result(graph_spec, release_version, graph_output_dir)
+        self._record_build_result(graph_spec, release_version, graph_output_dir, newly_built=newly_built)
         return True
 
     @staticmethod
@@ -344,7 +353,7 @@ class GraphBuilder:
         except (GetDataPullError, DataVersionError) as e:
             raise GraphSpecError(error_message=e.error_message)
         composite_version_string = '_'.join(composite_parts)
-        build_version = xxh64_hexdigest(composite_version_string)
+        build_version = xxh64_hexdigest(composite_version_string.encode())
         graph_spec.build_version = build_version
         # Use the build version to determine the release version.
         release_version = self._select_release_version(graph_spec.graph_id, build_version, graph_spec.base_release_version)
@@ -411,13 +420,21 @@ class GraphBuilder:
     def build_dependencies(self, graph_spec: GraphSpec):
         graph_spec.resolved_sources = []
         all_resolved = True
+        source_outcomes = {}
         for source in graph_spec.sources or []:
-            resolved = self.source_resolver.resolve(source)
+            resolved, status, error = self.source_resolver.resolve_with_status(source)
+            source_outcomes[source.id] = {
+                'status': status,
+                'release_version': resolved.release_version if resolved else None,
+                'build_version': resolved.build_version if resolved else None,
+                'error': error,
+            }
             if resolved is None:
                 logger.info(f'Could not resolve source {source.id} for graph {graph_spec.graph_id}.')
                 all_resolved = False
                 continue
             graph_spec.resolved_sources.append(resolved)
+        self.source_outcomes[graph_spec.graph_id] = source_outcomes
         return all_resolved
 
     @staticmethod
@@ -860,7 +877,8 @@ class GraphBuilder:
     def _record_build_result(self,
                              graph_spec: GraphSpec,
                              release_version: str,
-                             graph_output_dir: str):
+                             graph_output_dir: str,
+                             newly_built: bool = True):
         bundle = KGXBundle(graph_output_dir)
         graph_metadata = KGXGraphMetadata.from_dict(bundle.load_graph_metadata() or {})
         self.build_results[graph_spec.graph_id] = {
@@ -868,22 +886,28 @@ class GraphBuilder:
             'release_version': release_version,
             'build_version': graph_spec.build_version,
             'graph_dir': graph_output_dir,
-            'build_status': Metadata.STABLE,
+            'build_status': Metadata.STABLE if newly_built else Metadata.UP_TO_DATE,
             'build_time': graph_metadata.get_build_time(),
         }
 
     # Write the build results from this invocation to graphs_dir/.build_results/<timestamp>.json.
     # Subsequent deployment stages read the most-recent file to discover what just built.
-    # Returns the file path written, or None if nothing was built.
+    # Returns the file path written, or None if nothing was built or attempted.
     def write_build_results(self) -> str | None:
-        if not self.build_results:
+        all_results = {}
+        for graph_id, result in self.build_results.items():
+            all_results[graph_id] = {**result, 'sources': self.source_outcomes.get(graph_id, {})}
+        for graph_id, failure in self.graph_failures.items():
+            all_results[graph_id] = {**failure, 'build_status': 'failed',
+                                     'sources': self.source_outcomes.get(graph_id, {})}
+        if not all_results:
             return None
         results_dir = os.path.join(self.graphs_dir, '.build_results')
         os.makedirs(results_dir, exist_ok=True)
         timestamp = datetime.datetime.now().strftime('%Y-%m-%dT%H%M%S')
         results_path = os.path.join(results_dir, f'{timestamp}.json')
         with open(results_path, 'w') as f:
-            json.dump(list(self.build_results.values()), f, indent=2)
+            json.dump(list(all_results.values()), f, indent=2)
         return results_path
 
 
@@ -904,6 +928,7 @@ def _generate_inline_graph_spec(graph_id: str, sources_arg: str, output_format: 
 def main():
     from orion.logging import configure_cli_logging
     configure_cli_logging()
+    logger.info(f'Running as uid={os.getuid()} gid={os.getgid()}')
 
     parser = argparse.ArgumentParser(description="Merge data sources into complete graphs.")
     parser.add_argument('graph_id',
@@ -954,6 +979,9 @@ def main():
     results_path = graph_builder.write_build_results()
     if results_path:
         print(f'Build results written to {results_path}')
+        if config.ORION_SLACK_WEBHOOK_URL:
+            from orion.report_handler import send_slack_notification
+            send_slack_notification(results_path)
     else:
         print('No graphs were built.')
 

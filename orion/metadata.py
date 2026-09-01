@@ -9,6 +9,7 @@ class Metadata:
 
     NOT_STARTED = 'not_started'
     STABLE = 'stable'
+    UP_TO_DATE = 'up_to_date'
     IN_PROGRESS = 'in_progress'
     BROKEN = 'broken'
     FAILED = 'failed'
@@ -236,4 +237,4 @@ def get_source_build_version(source_id,
                             parsing_version,
                             normalization_version,
                             supplementation_version])
-    return xxh64_hexdigest(build_string)
+    return xxh64_hexdigest(build_string.encode())

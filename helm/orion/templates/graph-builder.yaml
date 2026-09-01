@@ -9,11 +9,11 @@
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: ds-graph-job
+  name: {{ include "orion.fullname" . }}-graph-job
 spec:
   template:
     metadata:
-      name: ds-graph-job
+      name: {{ include "orion.fullname" . }}-graph-job
     spec:
       restartPolicy: Never
       securityContext:
@@ -25,6 +25,10 @@ spec:
         - name: ds-graph-analyzer
           image: {{ .Values.orion.image.repository }}:{{ .Values.orion.image.tag }}
           imagePullPolicy: {{ .Values.orion.image.pullPolicy }}
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: {{ .Values.orion.securityContext.runAsUser }}
+            runAsGroup: {{ .Values.orion.securityContext.runAsGroup }}
           command: ["bash"]
           stdin: True
           tty: True
@@ -128,6 +132,10 @@ spec:
         - name: ds-graph-builder
           image: {{ .Values.orion.image.repository }}:{{ .Values.orion.image.tag }}
           imagePullPolicy: {{ .Values.orion.image.pullPolicy }}
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: {{ .Values.orion.securityContext.runAsUser }}
+            runAsGroup: {{ .Values.orion.securityContext.runAsGroup }}
           args:
             - "orion-build"
             - {{ .Values.orion.graphID | quote }}

@@ -66,6 +66,7 @@ class Config(BaseSettings):
     BAGEL_SERVICE_PASSWORD: str | None = None
     OPENAI_API_KEY: str | None = None
     OPENAI_API_ORGANIZATION: str | None = None
+    ORION_SLACK_WEBHOOK_URL: str | None = None
 
     # Optional path to a directory of normalization outputs from a previous run.
     # Normalized sequence variant nodes and normalization mappings found there are loaded and reused.

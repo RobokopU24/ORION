@@ -1,0 +1,1 @@
+{{- /* basePVC removed — PVCs are managed outside Helm */ -}}

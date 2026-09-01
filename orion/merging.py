@@ -100,7 +100,7 @@ def edge_key_function(edge, custom_key_attributes=None, edge_id_type=None):
     if edge_id_type == 'uuid':
         return str(uuid.uuid5(ORION_UUID_NAMESPACE, key_input))
     else:
-        return xxh64_hexdigest(key_input)
+        return xxh64_hexdigest(key_input.encode())
 
 
 def entity_merging_function(entity_1, entity_2):
