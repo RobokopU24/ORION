@@ -3,6 +3,7 @@ import os
 import tarfile
 import orjson
 import requests
+import yaml
 
 from orion.loader_interface import SourceDataLoader
 from orion.kgxmodel import kgxedge
@@ -44,15 +45,12 @@ class MonarchKGBaseLoader(SourceDataLoader):
         """
         Gets the name of latest monarch kg version from metadata.
         """
-        latest_version = None
         try:
             metadata_yaml: requests.Response = requests.get(
                 'https://data.monarchinitiative.org/monarch-kg/latest/metadata.yaml'
             )
-            for line in metadata_yaml.text.split('\n'):
-                if line.startswith('version:'):
-                    latest_version = line.replace('version:', '').strip()
-                    break
+            metadata = yaml.safe_load(metadata_yaml.text)
+            latest_version = str(metadata['version']) if 'version' in metadata else None
             if latest_version is None:
                 raise ValueError("Cannot find 'version:' in Monarch KG metadata yaml.")
         except Exception as e:
