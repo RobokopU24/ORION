@@ -1,5 +1,6 @@
 import os
 import re
+from collections.abc import Iterator
 
 import requests
 
@@ -129,7 +130,7 @@ def hpoa_row_is_positive_phenotype(row: dict) -> bool:
     )
 
 
-def iter_hpoa_tsv(path: str, default_columns: list[str]) -> dict:
+def iter_hpoa_tsv(path: str, default_columns: list[str]) -> Iterator[dict[str, str]]:
     header = None
     with open(path, "rt", encoding="utf-8") as source_file:
         for raw_line in source_file:
