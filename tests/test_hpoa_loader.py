@@ -53,15 +53,17 @@ def test_hpoa_loader_disease_phenotype_edges(tmp_path):
     nodes_path = tmp_path / "nodes.jsonl"
     edges_path = tmp_path / "edges.jsonl"
     metadata = loader.load(str(nodes_path), str(edges_path))
-    edges_by_object = {edge["object"]: edge for edge in read_jsonl(edges_path)}
+    edges = read_jsonl(edges_path)
+    edges_by_object = {edge["object"]: edge for edge in edges}
 
     assert metadata["disease_phenotype_source_lines"] == 9
     assert metadata["disease_phenotype_rows_skipped"] == 3
-    assert metadata["disease_phenotype_duplicate_positive_rows"] == 1
-    assert metadata["disease_phenotype_edges_written"] == 5
+    assert metadata["disease_phenotype_edges_written"] == 6
     assert set(edges_by_object) == {"HP:0001", "HP:0005", "HP:0006", "HP:0007", "HP:0008"}
 
-    assert edges_by_object["HP:0001"] == {
+    repeated_pair_edges = [edge for edge in edges if edge["object"] == "HP:0001"]
+    assert len(repeated_pair_edges) == 2
+    assert repeated_pair_edges[0] == {
         "subject": "OMIM:1",
         "predicate": "biolink:has_phenotype",
         "object": "HP:0001",
@@ -78,6 +80,8 @@ def test_hpoa_loader_disease_phenotype_edges(tmp_path):
         "supporting_data_source": ["infores:omim"],
         "publications": ["PMID:1"],
     }
+    assert repeated_pair_edges[1]["publications"] == ["PMID:5"]
+    assert "frequency_qualifier" not in repeated_pair_edges[1]
 
     orphanet_edge = edges_by_object["HP:0005"]
     assert orphanet_edge["subject"] == "Orphanet:2"

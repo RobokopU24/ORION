@@ -249,12 +249,12 @@ class HPOALoader(SourceDataLoader):
         phenotype_path = os.path.join(self.data_path, HPOA_DISEASE_PHENOTYPE_FILE)
         gene_phenotype_path = os.path.join(self.data_path, HPOA_GENE_PHENOTYPE_FILE)
 
-        disease_phenotype_metadata, kept_disease_phenotype_pairs = self.parse_disease_phenotypes(
+        disease_phenotype_metadata, positive_disease_phenotype_pairs = self.parse_disease_phenotypes(
             phenotype_path
         )
         gene_phenotype_metadata = self.parse_gene_phenotypes(
             gene_phenotype_path,
-            kept_disease_phenotype_pairs,
+            positive_disease_phenotype_pairs,
         )
 
         metadata = {}
@@ -271,10 +271,15 @@ class HPOALoader(SourceDataLoader):
         return metadata
 
     def parse_disease_phenotypes(self, phenotype_path: str) -> tuple[dict, set[tuple[str, str]]]:
+        """Writes an edge for every positive phenotype row. Duplicate disease-phenotype pairs can appear on
+        several rows but with different onset, frequency, sex, or references; which result in different
+        edges in a meaningful way. Returns the set of positive (disease, phenotype) pairs,
+        which gates the gene-phenotype edges.
+        """
         source_lines = 0
         rows_skipped = 0
-        duplicate_positive_rows = 0
-        kept_pairs = set()
+        edges_written = 0
+        positive_pairs = set()
 
         for row in iter_hpoa_tsv(phenotype_path, HPOA_DISEASE_PHENOTYPE_COLUMNS):
             source_lines += 1
@@ -284,33 +289,28 @@ class HPOALoader(SourceDataLoader):
 
             disease_id = get_disease_curie(row["database_id"])
             hpo_id = row["hpo_id"]
-            pair = (disease_id, hpo_id)
-            if pair in kept_pairs:
-                duplicate_positive_rows += 1
-                continue
-
-            kept_pairs.add(pair)
+            positive_pairs.add((disease_id, hpo_id))
             self.write_edge(
                 subject_id=disease_id,
                 object_id=hpo_id,
                 predicate=HAS_PHENOTYPE,
                 edge_properties=disease_phenotype_edge_properties(row),
             )
+            edges_written += 1
 
         return (
             {
                 "disease_phenotype_source_lines": source_lines,
                 "disease_phenotype_rows_skipped": rows_skipped,
-                "disease_phenotype_duplicate_positive_rows": duplicate_positive_rows,
-                "disease_phenotype_edges_written": len(kept_pairs),
+                "disease_phenotype_edges_written": edges_written,
             },
-            kept_pairs,
+            positive_pairs,
         )
 
     def parse_gene_phenotypes(
         self,
         gene_phenotype_path: str,
-        kept_disease_phenotype_pairs: set[tuple[str, str]],
+        positive_disease_phenotype_pairs: set[tuple[str, str]],
     ) -> dict:
         source_lines = 0
         rows_skipped = 0
@@ -325,7 +325,7 @@ class HPOALoader(SourceDataLoader):
                 disease_id
                 and hpo_id
                 and ncbi_gene_id
-                and (disease_id, hpo_id) in kept_disease_phenotype_pairs
+                and (disease_id, hpo_id) in positive_disease_phenotype_pairs
             ):
                 rows_skipped += 1
                 continue
