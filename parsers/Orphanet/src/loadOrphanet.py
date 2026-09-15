@@ -38,7 +38,7 @@ class OrphanetLoader(SourceDataLoader):
         "Orphadata disease-gene associations, limited to assessed associations with HGNC "
         "gene identifiers."
     )
-    license = "https://www.orphadata.com/data/xml/en_product6.xml"
+    license = "https://creativecommons.org/licenses/by/4.0/"
 
     def __init__(self, test_mode: bool = False, source_data_dir: str = None):
         super().__init__(test_mode=test_mode, source_data_dir=source_data_dir)
