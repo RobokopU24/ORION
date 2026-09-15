@@ -167,6 +167,14 @@ def test_hpoa_get_latest_source_version_handles_undecoded_bytes(tmp_path, monkey
     loader = HPOALoader(source_data_dir=str(tmp_path))
 
     class MockResponse:
+        closed = False
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *exc_info):
+            self.closed = True
+
         def raise_for_status(self):
             pass
 
@@ -177,22 +185,34 @@ def test_hpoa_get_latest_source_version_handles_undecoded_bytes(tmp_path, monkey
                 b"#tracker: https://github.com/obophenotype/human-phenotype-ontology/issues",
             ])
 
-    monkeypatch.setattr("parsers.HPOA.src.loadHPOA.requests.get", lambda *args, **kwargs: MockResponse())
+    response = MockResponse()
+    monkeypatch.setattr("parsers.HPOA.src.loadHPOA.requests.get", lambda *args, **kwargs: response)
 
     assert loader.get_latest_source_version() == "2026-06-23"
+    assert response.closed
 
 
 def test_hpoa_get_latest_source_version_raises_when_version_line_missing(tmp_path, monkeypatch):
     loader = HPOALoader(source_data_dir=str(tmp_path))
 
     class MockResponse:
+        closed = False
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *exc_info):
+            self.closed = True
+
         def raise_for_status(self):
             pass
 
         def iter_lines(self):
             return iter([b"#description: no version line here"])
 
-    monkeypatch.setattr("parsers.HPOA.src.loadHPOA.requests.get", lambda *args, **kwargs: MockResponse())
+    response = MockResponse()
+    monkeypatch.setattr("parsers.HPOA.src.loadHPOA.requests.get", lambda *args, **kwargs: response)
 
     with pytest.raises(GetDataPullError):
         loader.get_latest_source_version()
+    assert response.closed

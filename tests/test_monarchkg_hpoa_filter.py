@@ -40,7 +40,7 @@ def test_monarchkg_keeps_non_hpoa_existing_edges(tmp_path):
     )
 
 
-def test_monarchkg_defensively_skips_replaced_gene_disease_edges(tmp_path):
+def test_monarchkg_skips_gene_associated_with_condition_edges(tmp_path):
     loader = MonarchKGLoader(source_data_dir=str(tmp_path))
 
     assert loader.filter_edge(

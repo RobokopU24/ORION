@@ -90,7 +90,7 @@ def test_orphanet_keeps_assessed_supported_gene_disease_associations(tmp_path):
     assert edges[0]["publications"] == ["PMID:111"]
 
 
-def test_orphanet_get_latest_source_version_decompresses_gzip_content(tmp_path, monkeypatch):
+def test_orphanet_get_latest_source_version_reads_jdbor_root_attributes(tmp_path, monkeypatch):
     loader = OrphanetLoader(source_data_dir=str(tmp_path))
     xml_root = b'<?xml version="1.0" encoding="UTF-8"?>\n<JDBOR date="2026-06-23 07:57:31" version="1.3.42">'
 
@@ -101,12 +101,21 @@ def test_orphanet_get_latest_source_version_decompresses_gzip_content(tmp_path, 
 
     class MockResponse:
         raw = MockRaw()
+        closed = False
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *exc_info):
+            self.closed = True
 
         def raise_for_status(self):
             pass
 
-    monkeypatch.setattr("parsers.Orphanet.src.loadOrphanet.requests.get", lambda *args, **kwargs: MockResponse())
+    response = MockResponse()
+    monkeypatch.setattr("parsers.Orphanet.src.loadOrphanet.requests.get", lambda *args, **kwargs: response)
 
     version = loader.get_latest_source_version()
     assert "2026-06-23" in version
     assert "1.3.42" in version
+    assert response.closed
