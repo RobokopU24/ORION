@@ -217,16 +217,16 @@ class HPOALoader(SourceDataLoader):
 
     def get_latest_source_version(self) -> str:
         try:
-            response = requests.get(HPOA_DISEASE_PHENOTYPE_URL, stream=True, timeout=30)
-            response.raise_for_status()
-            for raw_line in response.iter_lines():
-                line = raw_line.decode("utf-8")
-                if not line:
-                    continue
-                if line.startswith("#version:"):
-                    return line.split(":", maxsplit=1)[1].strip()
-                if not line.startswith("#"):
-                    break
+            with requests.get(HPOA_DISEASE_PHENOTYPE_URL, stream=True, timeout=30) as response:
+                response.raise_for_status()
+                for raw_line in response.iter_lines():
+                    line = raw_line.decode("utf-8")
+                    if not line:
+                        continue
+                    if line.startswith("#version:"):
+                        return line.split(":", maxsplit=1)[1].strip()
+                    if not line.startswith("#"):
+                        break
         except Exception as e:
             raise GetDataPullError(f"Unable to determine latest HPOA version: {e}")
         raise GetDataPullError("Unable to determine latest HPOA version: #version line not found")

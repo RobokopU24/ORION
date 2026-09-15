@@ -46,9 +46,9 @@ class OrphanetLoader(SourceDataLoader):
 
     def get_latest_source_version(self) -> str:
         try:
-            response = requests.get(ORPHADATA_PRODUCT6_URL, stream=True, timeout=30)
-            response.raise_for_status()
-            root_chunk = response.raw.read(4096, decode_content=True).decode("utf-8", errors="ignore")
+            with requests.get(ORPHADATA_PRODUCT6_URL, stream=True, timeout=30) as response:
+                response.raise_for_status()
+                root_chunk = response.raw.read(4096, decode_content=True).decode("utf-8", errors="ignore")
             jdbor_tag_match = re.search(r"<JDBOR\b[^>]*>", root_chunk)
             jdbor_attributes = jdbor_tag_match.group(0) if jdbor_tag_match else ""
             date_match = re.search(r'date="([^"]+)"', jdbor_attributes)
@@ -157,7 +157,7 @@ def hgnc_identifier(gene: ET.Element | None) -> str | None:
             continue
         reference = text(external_reference, "Reference")
         if not reference:
-            return None
+            continue
         return reference if reference.startswith("HGNC:") else f"HGNC:{reference}"
     return None
 
