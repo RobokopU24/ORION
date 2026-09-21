@@ -105,7 +105,7 @@ def test_hpoa_loader_gene_phenotype_edges_require_a_kept_disease_phenotype_pair(
         gene_rows=[
             ["10", "GENE1", "HP:0001", "phenotype one", "50%", "OMIM:1"],
             ["11", "GENE2", "HP:0003", "phenotype three", "", "OMIM:1"],
-            ["12", "GENE3", "HP:0005", "phenotype five", "", "ORPHA:2"],
+            ["12", "GENE3", "HP:0005", "phenotype five", "-", "ORPHA:2"],
         ],
     )
 

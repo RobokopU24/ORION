@@ -192,7 +192,8 @@ def gene_phenotype_edge_properties(row: dict) -> dict:
         "hpoa_hpo_name": row.get("hpo_name", ""),
     }
     frequency = row.get("frequency", "").strip()
-    if frequency:
+    # genes_to_phenotype.txt uses "-" for rows with no frequency
+    if frequency and frequency != "-":
         edge_properties[FREQUENCY_QUALIFIER] = frequency
     supporting_data_source = disease_supporting_source(row["disease_id"])
     if supporting_data_source:
