@@ -17,6 +17,7 @@ graphs:
       - id: Hetio
       - id: HGNC
       - id: HMDB
+      - id: HPOA
       - id: HumanGOA
       - id: MouseGOA
       - id: IntAct
@@ -27,8 +28,10 @@ graphs:
         strict_normalization: False
       - id: MonarchKG
       - id: MONDOProps
+      - id: OMIM
       - id: OntologicalHierarchy
         merge_strategy: connected_edge_subset
+      - id: Orphanet
       - id: PANTHER
       - id: PHAROS
       - id: Reactome
