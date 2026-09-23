@@ -327,6 +327,13 @@ def test_build_graph_end_to_end_multi_source(tmp_path, monkeypatch):
         parent_meta = json.load(f)
     assert parent_meta['version'] == graph_spec.release_version
     assert set(source_ids_from_graph_metadata(parent_meta)) == {'HGNC', 'CTD'}
+    # each hasPart entry records both versions of the source build it came from
+    for kg_source in parent_meta['hasPart']:
+        source_id = kg_source['@id'].rstrip('/').split('/')[-2]
+        with open(graphs_dir / source_id / kg_source['orion:buildVersion'] / 'graph-metadata.json') as f:
+            source_build_metadata = json.load(f)
+        assert kg_source['version'] == source_build_metadata['version']
+        assert kg_source['@id'].endswith(f'/{source_id}/{kg_source["version"]}/')
     assert not (parent_dir / 'Multi_Source_Test.meta.json').exists()
 
     # --- build_results records every bundle produced this run: the parent graph and each source

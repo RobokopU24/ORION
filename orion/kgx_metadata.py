@@ -99,6 +99,7 @@ class KGXKnowledgeGraphSource:
     parent graph's metadata, overriding the counts with the parent merge's own totals."""
     id: str = ""
     name: str = ""
+    release_version: str = ""
     build_version: str = ""
     node_count: int | None = None
     edge_count: int | None = None
@@ -108,6 +109,7 @@ class KGXKnowledgeGraphSource:
         return cls(
             id=data.get('@id', ''),
             name=data.get('name', ''),
+            release_version=data.get('version', ''),
             build_version=data.get(ORION_BUILD_VERSION, ''),
             node_count=data.get(ORION_NODE_COUNT),
             edge_count=data.get(ORION_EDGE_COUNT),
@@ -117,6 +119,7 @@ class KGXKnowledgeGraphSource:
         output_dict = {
             '@id': self.id,
             'name': self.name,
+            'version': self.release_version,
             ORION_BUILD_VERSION: self.build_version,
         }
         if self.node_count is not None:

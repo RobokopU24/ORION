@@ -228,7 +228,7 @@ class SourceResolver:
         release_version = self.gb._select_release_version(source.id, build_version, DEFAULT_BASE_RELEASE_VERSION)
         graph_output_dir = self.gb.get_graph_dir_path(source.id, build_version)
         graph_output_url = self.gb.get_graph_output_url(source.id, release_version)
-        carrier, graph_name = self._parser_source_carrier(source, build_version, graph_output_url)
+        carrier, graph_name = self._parser_source_carrier(source, release_version, build_version, graph_output_url)
 
         parser_graph_spec = GraphSpec(graph_id=source.id,
                                       graph_name=graph_name,
@@ -251,13 +251,15 @@ class SourceResolver:
     # and isBasedOn (its knowledge source, from the parser's source.json). generate_kgx_metadata_files
     # copies these into the finished bundle's graph-metadata.json; the merge overrides the placeholder
     # node/edge counts. Returns the carrier plus the derived graph name.
-    def _parser_source_carrier(self, source: GraphSource, build_version: str, source_url: str):
+    def _parser_source_carrier(self, source: GraphSource, release_version: str, build_version: str,
+                               source_url: str):
         parser_metadata = self.gb.ingest_pipeline.load_parser_metadata(source.id)
         graph_name = f'A ROBOKOP Knowledge Graph based on {parser_metadata.get("name", source.id)}'
         knowledge_source = KGXKnowledgeSource.from_dict(parser_metadata)
         knowledge_source.version = source.source_version
         kg_source = KGXKnowledgeGraphSource(id=source_url,
                                             name=graph_name,
+                                            release_version=release_version,
                                             build_version=build_version,
                                             node_count=0,
                                             edge_count=0)
