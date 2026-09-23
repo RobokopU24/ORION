@@ -544,24 +544,20 @@ class GraphBuilder:
     # it was loaded from the graph's own graph-metadata.json. When hasPart has exactly one entry we
     # override its node/edge counts with this build's merger counts, since the carrier's own counts
     # came from its internal merge and aren't right for this graph. When hasPart has many entries we
-    # pass them through unchanged — the merger only has an aggregate count for the carrier as a whole.
+    # keep their own counts — the merger only has an aggregate count for the carrier as a whole.
     @staticmethod
     def _kgx_metadata_from_contribution(source: dict):
         carrier = source.get('kgx_graph_metadata') or {}
         carrier_kg_sources = carrier.get('hasPart') or []
         carrier_knowledge_sources = carrier.get('isBasedOn') or []
 
-        kg_sources = []
-        if len(carrier_kg_sources) == 1:
-            kg_source = KGXKnowledgeGraphSource.from_dict(carrier_kg_sources[0])
+        kg_sources = [KGXKnowledgeGraphSource.from_dict(kgs_dict)
+                      for kgs_dict in carrier_kg_sources]
+        if len(kg_sources) == 1:
             if source.get('node_count') is not None:
-                kg_source.node_count = source.get('node_count')
+                kg_sources[0].node_count = source.get('node_count')
             if source.get('edge_count') is not None:
-                kg_source.edge_count = source.get('edge_count')
-            kg_sources.append(kg_source.to_dict())
-        else:
-            for kg_source_entry in carrier_kg_sources:
-                kg_sources.append(dict(kg_source_entry))
+                kg_sources[0].edge_count = source.get('edge_count')
 
         knowledge_sources = [KGXKnowledgeSource.from_dict(ks_dict)
                              for ks_dict in carrier_knowledge_sources]
