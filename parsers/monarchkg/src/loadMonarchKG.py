@@ -192,14 +192,6 @@ class MonarchKGLoader(MonarchKGBaseLoader):
         }
 
         self.replaced_go_annotation_provided_by = 'go_annotation_edges'
-        self.replaced_go_annotation_primary_sources = {
-            'infores:go',
-            'infores:ensembl',
-            'infores:uniprot',
-            'infores:hgnc',
-            'infores:uos-mcb',
-            'infores:mgi',
-        }
 
         # Curie prefixes known not to normalize — edges where subject or object
         # starts with any of these are discarded.
@@ -213,7 +205,6 @@ class MonarchKGLoader(MonarchKGBaseLoader):
                     monarch_edge: dict = None) -> bool:
         if (
             predicate == 'biolink:contributes_to'
-            and primary_knowledge_source in self.replaced_go_annotation_primary_sources
             and monarch_edge
             and monarch_edge.get('provided_by') == self.replaced_go_annotation_provided_by
         ):

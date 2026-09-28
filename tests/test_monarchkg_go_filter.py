@@ -10,6 +10,10 @@ FILTERED_GOA_PRIMARY_SOURCES = (
     "infores:hgnc",
     "infores:uos-mcb",
     "infores:mgi",
+    "infores:rgd",
+    "infores:sgd",
+    "infores:flybase",
+    "infores:zfin",
 )
 
 
@@ -40,19 +44,6 @@ def test_monarchkg_keeps_matching_primary_sources_from_other_monarch_blocks(
         primary_knowledge_source=primary_knowledge_source,
         aggregator_knowledge_sources=["infores:monarchinitiative"],
         monarch_edge={"provided_by": "some_other_monarch_source"},
-    )
-
-
-def test_monarchkg_keeps_go_annotation_edges_from_unselected_primary_sources(tmp_path):
-    loader = MonarchKGLoader(source_data_dir=str(tmp_path))
-
-    assert not loader.filter_edge(
-        subject_id="NCBIGene:10558",
-        object_id="GO:0004758",
-        predicate="biolink:contributes_to",
-        primary_knowledge_source="infores:monarchinitiative",
-        aggregator_knowledge_sources=["infores:monarchinitiative"],
-        monarch_edge={"provided_by": "go_annotation_edges"},
     )
 
 
