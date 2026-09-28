@@ -28,12 +28,12 @@ class OMIMLoader(SourceDataLoader):
     provenance_id = OMIM_INFORES
     parsing_version = "1.0"
     source_data_url = MIM2GENE_MEDGEN_URL
-    attribution = "https://ftp.ncbi.nlm.nih.gov/gene/DATA/"
+    attribution = "https://www.omim.org/"
     description = (
         "NCBI mim2gene_medgen mappings from OMIM phenotype MIM numbers to NCBI Gene IDs "
         "and MedGen identifiers."
     )
-    license = "https://www.ncbi.nlm.nih.gov/home/about/policies/"
+    license = "https://www.omim.org/help/agreement"
 
     def __init__(self, test_mode: bool = False, source_data_dir: str = None):
         super().__init__(test_mode=test_mode, source_data_dir=source_data_dir)
