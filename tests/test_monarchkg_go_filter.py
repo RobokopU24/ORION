@@ -27,7 +27,7 @@ def test_monarchkg_skips_replaced_go_annotation_edges(tmp_path, primary_knowledg
         predicate="biolink:contributes_to",
         primary_knowledge_source=primary_knowledge_source,
         aggregator_knowledge_sources=["infores:monarchinitiative"],
-        monarch_edge={"provided_by": "go_annotation_edges"},
+        provided_by="go_annotation_edges",
     )
 
 
@@ -43,7 +43,7 @@ def test_monarchkg_keeps_matching_primary_sources_from_other_monarch_blocks(
         predicate="biolink:contributes_to",
         primary_knowledge_source=primary_knowledge_source,
         aggregator_knowledge_sources=["infores:monarchinitiative"],
-        monarch_edge={"provided_by": "some_other_monarch_source"},
+        provided_by="some_other_monarch_source",
     )
 
 
@@ -56,7 +56,7 @@ def test_monarchkg_keeps_go_annotation_provider_for_other_predicates(tmp_path):
         predicate="biolink:has_phenotype",
         primary_knowledge_source="infores:go",
         aggregator_knowledge_sources=["infores:monarchinitiative"],
-        monarch_edge={"provided_by": "go_annotation_edges"},
+        provided_by="go_annotation_edges",
     )
 
 
@@ -72,5 +72,5 @@ def test_monarchkg_full_does_not_apply_go_annotation_filter(
         predicate="biolink:contributes_to",
         primary_knowledge_source=primary_knowledge_source,
         aggregator_knowledge_sources=["infores:monarchinitiative"],
-        monarch_edge={"provided_by": "go_annotation_edges"},
+        provided_by="go_annotation_edges",
     )
