@@ -16,12 +16,15 @@ graphs:
       - id: Hetio
       - id: HGNC
       - id: HMDB
+      - id: HPOA
       - id: IntAct
       - id: KinAce
       - id: MonarchKG
       - id: MONDOProps
+      - id: OMIM
       - id: OntologicalHierarchy
         merge_strategy: connected_edge_subset
+      - id: Orphanet
       - id: PANTHER
       - id: PHAROS
       - id: Reactome
