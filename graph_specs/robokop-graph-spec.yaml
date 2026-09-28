@@ -27,6 +27,7 @@ graphs:
         # merge_strategy: default (used to specify alternative merge strategies)
       - id: BgeeHuman
       - id: CCIDB
+      - id: CEBS
       - id: CHEBIProps
       - id: ClinGenDosageSensitivity
       - id: ClinGenGeneDiseaseValidity
@@ -37,6 +38,7 @@ graphs:
       - id: Hetio
       - id: HGNC
       - id: HMDB
+      - id: HPOA
       - id: HumanGOA
       - id: IntAct
       - id: KinAce
@@ -44,8 +46,10 @@ graphs:
       - id: MetabolomicsWorkbench
       - id: MonarchKG
       - id: MONDOProps
+      - id: OMIM
       - id: OntologicalHierarchy
         merge_strategy: connected_edge_subset
+      - id: Orphanet
       - id: PANTHER
       - id: PHAROS
       - id: Reactome

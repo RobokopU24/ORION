@@ -4,7 +4,7 @@ from orion.config import config
 
 BAGEL_ENDPOINT = f'{config.BAGEL_URL}/find_curies_openai'
 
-bagel_nameres_url = f'{config.NAMERES_URL}/lookup?autocomplete=false&offset=0&limit=10&string="'
+bagel_nameres_url = f'{config.NAMERES_URL}/lookup?autocomplete=false&offset=0&limit=10&string='
 
 bagel_sapbert_url = f'{config.SAPBERT_URL}/annotate/'
 

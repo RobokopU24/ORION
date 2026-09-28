@@ -81,25 +81,22 @@ class GtoPdbLoader(SourceDataLoader):
         :return:
         """
 
-        # load the web page for CTD
-        html_page: requests.Response = requests.get('https://www.guidetopharmacology.org/download.jsp')
+        # load the guide to pharmacology home page
+        html_page: requests.Response = requests.get('https://www.guidetopharmacology.org/')
 
         # get the html into a parsable object
         resp: BeautifulSoup = BeautifulSoup(html_page.content, 'html.parser')
 
-        # init the search text
-        search_text = 'Downloads are from the *'
+        # the page contains the string 'Current Release Version 2026.2 (15th June 2026).',
+        # this captures the version portion between the label and the release date
+        version_regex = re.compile(r'Current Release Version\s+(\S+)\s*\(')
 
-        # find the version string
-        b_tag: BeautifulSoup.Tag = resp.find('b', string=re.compile(search_text))
+        # the version text sits in a plain text node, so search the text of the whole page
+        version_match = version_regex.search(resp.get_text())
 
         # did we find version data
-        if len(b_tag) > 0:
-            # we expect the html to contain the string 'Downloads are from the XXX version.'
-            # this should extract the XXX portion
-            html_value = b_tag.text
-            html_value = html_value[len(search_text) - 1:] # remove the 'Downloads are from the' part
-            source_version = html_value.split(' version')[0] # remove the ' version.' part
+        if version_match:
+            source_version = version_match.group(1)
             return source_version
         else:
             raise SourceDataFailedError('Failed to parse guidetopharmacology html for the latest source version.')

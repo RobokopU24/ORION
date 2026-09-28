@@ -3,6 +3,7 @@ import os
 import tarfile
 import orjson
 import requests
+import yaml
 
 from orion.loader_interface import SourceDataLoader
 from orion.kgxmodel import kgxedge
@@ -44,15 +45,12 @@ class MonarchKGBaseLoader(SourceDataLoader):
         """
         Gets the name of latest monarch kg version from metadata.
         """
-        latest_version = None
         try:
             metadata_yaml: requests.Response = requests.get(
                 'https://data.monarchinitiative.org/monarch-kg/latest/metadata.yaml'
             )
-            for line in metadata_yaml.text.split('\n'):
-                if line.startswith('version:'):
-                    latest_version = line.replace('version:', '').strip()
-                    break
+            metadata = yaml.safe_load(metadata_yaml.text)
+            latest_version = str(metadata['version']) if 'version' in metadata else None
             if latest_version is None:
                 raise ValueError("Cannot find 'version:' in Monarch KG metadata yaml.")
         except Exception as e:
@@ -192,6 +190,12 @@ class MonarchKGLoader(MonarchKGBaseLoader):
         }
 
         self.replaced_go_annotation_provided_by = 'go_annotation_edges'
+        self.replaced_hpoa_source = 'infores:hpo-annotations'
+        self.replaced_monarch_omim_gene_disease_predicates = {
+            'biolink:causes',
+            'biolink:contributes_to',
+        }
+        self.replaced_monarch_omim_gene_disease_provided_by = 'omim_gene_to_disease_edges'
 
         # Curie prefixes known not to normalize — edges where subject or object
         # starts with any of these are discarded.
@@ -204,6 +208,16 @@ class MonarchKGLoader(MonarchKGBaseLoader):
                     primary_knowledge_source: str, aggregator_knowledge_sources: list,
                     provided_by: str = None) -> bool:
         if predicate == 'biolink:contributes_to' and provided_by == self.replaced_go_annotation_provided_by:
+            return True
+        if predicate == 'biolink:has_phenotype' and (
+            primary_knowledge_source == self.replaced_hpoa_source
+            or self.replaced_hpoa_source in aggregator_knowledge_sources
+        ):
+            return True
+        if (
+            predicate in self.replaced_monarch_omim_gene_disease_predicates
+            and provided_by == self.replaced_monarch_omim_gene_disease_provided_by
+        ):
             return True
         if predicate not in self.desired_predicates:
             return True

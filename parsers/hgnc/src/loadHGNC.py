@@ -1,9 +1,10 @@
 import csv
+import re
 import requests
 
 from pathlib import Path
 
-from orion.utils import GetData
+from orion.utils import GetData, GetDataPullError
 from orion.loader_interface import SourceDataLoader
 from orion.kgxmodel import kgxnode, kgxedge
 from orion.prefixes import HGNC, HGNC_FAMILY
@@ -32,33 +33,52 @@ class HGNCLoader(SourceDataLoader):
         self.source_db = 'HUGO Gene Nomenclature Committee'
         self.complete_set_file_name = 'hgnc_complete_set.txt'
         self.data_file = self.complete_set_file_name
-        self.data_url = "https://storage.googleapis.com/public-download-files/hgnc/tsv/tsv/"
+
+        # HGNC publishes dated monthly snapshots and frequent/daily updates to files.
+        # We used to use the daily builds but they caused unnecessary updates too frequently,
+        # here we use a (bi)monthly build.
+        self.archive_prefix = 'hgnc/archive/archive/monthly/tsv/hgnc_complete_set'
+        self.archive_listing_url = f'https://storage.googleapis.com/storage/v1/b/public-download-files/o' \
+                                   f'?prefix={self.archive_prefix}&fields=items(name)'
+        self.data_url = f'https://storage.googleapis.com/public-download-files/{self.archive_prefix}'
+
+        # lazy load the fetched date/version
+        self.latest_version = None
 
         self.member_of_predicate = "RO:0002350"
 
     def get_latest_source_version(self) -> str:
         """
-        gets the version of the data
+        gets the version of the data, the release date of the most recent monthly archive
 
         :return: the data version
         """
-        headers = {"Accept": "application/json"}
-        info_response = requests.get('https://www.genenames.org/rest/info', headers=headers)
-        info_response.raise_for_status()
+        if self.latest_version:
+            return self.latest_version
 
-        info_json = info_response.json()
-        modified_date = info_json['lastModified']
-        latest_version = modified_date.split('T')[0]
-        return latest_version
+        listing_response = requests.get(self.archive_listing_url)
+        listing_response.raise_for_status()
+
+        archive_file_pattern = re.compile(rf'{re.escape(self.archive_prefix)}_(\d{{4}}-\d{{2}}-\d{{2}})\.txt$')
+        release_dates = [match.group(1) for item in listing_response.json().get('items', [])
+                         if (match := archive_file_pattern.match(item['name']))]
+        if not release_dates:
+            raise GetDataPullError(f'Could not find any HGNC monthly archive releases at {self.archive_listing_url}')
+
+        # the dates sort correctly as strings, the most recent one is the latest release
+        self.latest_version = max(release_dates)
+        return self.latest_version
 
     def get_data(self) -> int:
         """
-        Gets the HGNC data from two sources.
+        Gets the HGNC data.
 
         """
         gd: GetData = GetData()
-        data_file_url = self.data_url + self.data_file
-        gd.pull_via_http(url=data_file_url, data_dir=self.data_path)
+        data_file_url = f'{self.data_url}_{self.get_latest_source_version()}.txt'
+        gd.pull_via_http(url=data_file_url,
+                         data_dir=self.data_path,
+                         saved_file_name=self.complete_set_file_name)
         return True
 
     def parse_data(self) -> dict:

@@ -19,14 +19,13 @@ ORION_NODE_COUNT = 'orion:nodeCount'
 ORION_EDGE_COUNT = 'orion:edgeCount'
 
 
-def _source_id_from_kg_source(kg_source: dict) -> str | None:
+def _source_id_from_kg_id(kg_id: str) -> str | None:
     """Pull the source_id out of a hasPart entry's @id.
 
     A bundle's content URL looks like '<...>/<id>/<release_version>/', so the id is the
     second-to-last path segment.
     """
-    kg_id = (kg_source.get('@id') or '').rstrip('/')
-    parts = kg_id.split('/')
+    parts = (kg_id or '').rstrip('/').split('/')
     if len(parts) >= 2:
         return parts[-2]
     return None
@@ -36,7 +35,7 @@ def source_ids_from_graph_metadata(graph_metadata: dict) -> list[str]:
     """The constituent source_ids represented by a graph-metadata.json dict's hasPart."""
     ids = []
     for entry in (graph_metadata.get('hasPart') or []):
-        source_id = _source_id_from_kg_source(entry)
+        source_id = _source_id_from_kg_id(entry.get('@id'))
         if source_id:
             ids.append(source_id)
     return ids
@@ -100,6 +99,7 @@ class KGXKnowledgeGraphSource:
     parent graph's metadata, overriding the counts with the parent merge's own totals."""
     id: str = ""
     name: str = ""
+    release_version: str = ""
     build_version: str = ""
     node_count: int | None = None
     edge_count: int | None = None
@@ -109,6 +109,7 @@ class KGXKnowledgeGraphSource:
         return cls(
             id=data.get('@id', ''),
             name=data.get('name', ''),
+            release_version=data.get('version', ''),
             build_version=data.get(ORION_BUILD_VERSION, ''),
             node_count=data.get(ORION_NODE_COUNT),
             edge_count=data.get(ORION_EDGE_COUNT),
@@ -118,6 +119,7 @@ class KGXKnowledgeGraphSource:
         output_dict = {
             '@id': self.id,
             'name': self.name,
+            'version': self.release_version,
             ORION_BUILD_VERSION: self.build_version,
         }
         if self.node_count is not None:
@@ -166,7 +168,7 @@ class KGXGraphMetadata:
     funder: list[dict] = field(default_factory=list)
     conforms_to: list[dict] = field(default_factory=list)
     schema: dict = field(default_factory=dict)
-    kg_sources: list[dict] = field(default_factory=list)
+    kg_sources: list[KGXKnowledgeGraphSource] = field(default_factory=list)
     knowledge_sources: list[KGXKnowledgeSource] = field(default_factory=list)
     distribution: list[dict] = field(default_factory=list)
 
@@ -188,7 +190,7 @@ class KGXGraphMetadata:
             ORION_BUILD_VERSION: self.build_version,
             ORION_BIOLINK_VERSION: self.biolink_version,
             ORION_BABEL_VERSION: self.babel_version,
-            "hasPart": self.kg_sources,
+            "hasPart": [source.to_dict() for source in self.kg_sources],
             "isBasedOn": [source.to_dict() for source in self.knowledge_sources],
             "schema": self.schema,
             "distribution": self.distribution,
@@ -224,7 +226,7 @@ class KGXGraphMetadata:
             funder=data.get('funder', []) or [],
             conforms_to=data.get('conformsTo', []) or [],
             schema=data.get('schema', {}) or {},
-            kg_sources=data.get('hasPart', []) or [],
+            kg_sources=[KGXKnowledgeGraphSource.from_dict(kgs) for kgs in (data.get('hasPart') or [])],
             knowledge_sources=[KGXKnowledgeSource.from_dict(ks) for ks in (data.get('isBasedOn') or [])],
             distribution=data.get('distribution', []) or [],
         )
@@ -251,8 +253,8 @@ class KGXGraphMetadata:
 
     def get_source_ids(self) -> list[str]:
         ids = []
-        for entry in self.kg_sources or []:
-            source_id = _source_id_from_kg_source(entry)
+        for kg_source in self.kg_sources or []:
+            source_id = _source_id_from_kg_id(kg_source.id)
             if source_id:
                 ids.append(source_id)
         return ids
@@ -453,11 +455,16 @@ def generate_kgx_schema_file(nodes_filepath: str,
         biolink_version=biolink_version
     )
 
-    # Populate a KGXSchema with everything it needs
+    # Generate the id/url for the schema based on the graph output url
+    if graph_output_url and not graph_output_url.endswith('/'):
+        graph_output_url += '/'
+    schema_id = f"{graph_output_url}schema.json"
+
     kgx_schema = KGXSchema(
-        id=f"{graph_output_url}schema.json",
+        id=schema_id,
         name=f"{graph_name} Schema" if graph_name else "Schema",
-        description=f"Schema describing the nodes, edges, and attributes in the {graph_name} knowledge graph",
+        description=f"Schema describing the nodes, edges, and attributes in the "
+                    f"{graph_name + ' ' if graph_name else ''}knowledge graph",
         graph_id=graph_output_url,
         graph_name=graph_name,
         schema=schema
