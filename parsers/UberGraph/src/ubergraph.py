@@ -7,11 +7,11 @@ from orion.biolink_utils import get_biolink_prefix_map
 OBO_MISSING_MAPPINGS = {
     'NCBIGene': 'http://purl.obolibrary.org/obo/NCBIGene_',
     'HGNC': 'http://purl.obolibrary.org/obo/HGNC_',
-    'SGD': 'http://purl.obolibrary.org/obo/SGD_'
-}
-
-EDGE_IRI_OVERRIDES = {
-    'http://purl.obolibrary.org/obo/mondo#disease_has_major_feature': 'MONDO:disease_has_major_feature',
+    'SGD': 'http://purl.obolibrary.org/obo/SGD_',
+    # MONDO relations use the mondo# namespace (e.g. mondo#disease_has_major_feature). Chained after the
+    # MONDO_ mapping, this becomes an alias: these IRIs compress to MONDO:<relation>, the form Biolink's
+    # predicate mappings use, while MONDO:<id> CURIEs still expand to the MONDO_ namespace.
+    'MONDO': 'http://purl.obolibrary.org/obo/mondo#'
 }
 
 
@@ -54,7 +54,7 @@ class UberGraphTools:
             with tar_files.extractfile(f'{self.graph_base_path}/edge-labels.tsv') as edge_labels_file:
                 for line in TextIOWrapper(edge_labels_file):
                     edge_id, edge_iri = tuple(line.rstrip().split('\t'))
-                    edge_curie = EDGE_IRI_OVERRIDES.get(edge_iri) or self.curie_to_iri_converter.compress(edge_iri)
+                    edge_curie = self.curie_to_iri_converter.compress(edge_iri)
                     if edge_curie is None:
                         edge_mapping_failures.append(edge_iri)
                         # print(f'No prefix mapping found for: {edge_iri}')

@@ -1,6 +1,9 @@
 import json
 import tarfile
 
+import curies
+
+from parsers.UberGraph.src import ubergraph
 from parsers.UberGraph.src.loadUG import (
     DISEASE_FEATURE_TYPE,
     MONDO_DISEASE_HAS_MAJOR_FEATURE,
@@ -19,6 +22,7 @@ class StubCurieConverter:
             "http://purl.obolibrary.org/obo/PATO_0000001": "PATO:0000001",
             "http://purl.obolibrary.org/obo/RO_0002573": RO_HAS_MODIFIER,
             "http://purl.obolibrary.org/obo/RO_0004029": RO_DISEASE_HAS_FEATURE,
+            "http://purl.obolibrary.org/obo/mondo#disease_has_major_feature": MONDO_DISEASE_HAS_MAJOR_FEATURE,
         }
 
     def compress(self, iri):
@@ -69,6 +73,22 @@ def write_ubergraph_archive(source_dir):
 def read_jsonl(path):
     with open(path) as lines:
         return [json.loads(line) for line in lines]
+
+
+def test_curie_converter_compresses_mondo_relations(monkeypatch):
+    monkeypatch.setattr(
+        ubergraph, "get_biolink_prefix_map", lambda: {"MONDO": "http://purl.obolibrary.org/obo/MONDO_"}
+    )
+    monkeypatch.setattr(ubergraph.curies, "get_obo_converter", lambda: curies.Converter.from_prefix_map({}))
+
+    converter = ubergraph.UberGraphTools.init_curie_converter(None)
+
+    assert converter.compress("http://purl.obolibrary.org/obo/mondo#disease_has_major_feature") == \
+        MONDO_DISEASE_HAS_MAJOR_FEATURE
+    assert converter.compress("http://purl.obolibrary.org/obo/mondo#predisposes_towards") == \
+        "MONDO:predisposes_towards"
+    assert converter.compress("http://purl.obolibrary.org/obo/MONDO_0000001") == "MONDO:0000001"
+    assert converter.expand("MONDO:0000001") == "http://purl.obolibrary.org/obo/MONDO_0000001"
 
 
 def test_ubergraph_maps_major_feature_and_scopes_modifier_filter(monkeypatch, tmp_path):
