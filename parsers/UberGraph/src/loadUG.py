@@ -13,8 +13,8 @@ RO_HAS_PHENOTYPE = 'RO:0002200'
 RO_HAS_MODIFIER = 'RO:0002573'
 MONDO_DISEASE_HAS_MAJOR_FEATURE = 'MONDO:disease_has_major_feature'
 DISEASE_HAS_MAJOR_FEATURE = 'disease_has_major_feature'
-DISEASE_FEATURE_QUALIFIER = 'disease_feature_qualifier'
-MAJOR_FEATURE_QUALIFIER_VALUE = 'major'
+DISEASE_FEATURE_TYPE = 'disease_feature_type'
+MAJOR_FEATURE_TYPE = 'major'
 
 
 class UGLoader(SourceDataLoader):
@@ -141,7 +141,7 @@ class UGLoader(SourceDataLoader):
         if predicate_curie in {MONDO_DISEASE_HAS_MAJOR_FEATURE, DISEASE_HAS_MAJOR_FEATURE}:
             return RO_HAS_PHENOTYPE, {
                 ORIGINAL_PREDICATE: predicate_curie,
-                DISEASE_FEATURE_QUALIFIER: MAJOR_FEATURE_QUALIFIER_VALUE,
+                DISEASE_FEATURE_TYPE: MAJOR_FEATURE_TYPE,
             }
         if predicate_curie == RO_DISEASE_HAS_FEATURE:
             return RO_HAS_PHENOTYPE, {ORIGINAL_PREDICATE: predicate_curie}

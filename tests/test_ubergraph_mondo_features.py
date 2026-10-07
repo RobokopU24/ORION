@@ -2,7 +2,7 @@ import json
 import tarfile
 
 from parsers.UberGraph.src.loadUG import (
-    DISEASE_FEATURE_QUALIFIER,
+    DISEASE_FEATURE_TYPE,
     MONDO_DISEASE_HAS_MAJOR_FEATURE,
     RO_DISEASE_HAS_FEATURE,
     RO_HAS_MODIFIER,
@@ -97,7 +97,7 @@ def test_ubergraph_maps_major_feature_and_scopes_modifier_filter(monkeypatch, tm
     ]
     assert len(major_feature_edges) == 1
     assert major_feature_edges[0]["predicate"] == RO_HAS_PHENOTYPE
-    assert major_feature_edges[0][DISEASE_FEATURE_QUALIFIER] == "major"
+    assert major_feature_edges[0][DISEASE_FEATURE_TYPE] == "major"
 
     modifier_edges = [edge for edge in edges if edge["predicate"] == RO_HAS_MODIFIER]
     assert modifier_edges == [
@@ -118,4 +118,4 @@ def test_ubergraph_maps_major_feature_and_scopes_modifier_filter(monkeypatch, tm
     ]
     assert len(ordinary_feature_edges) == 1
     assert ordinary_feature_edges[0]["predicate"] == RO_HAS_PHENOTYPE
-    assert DISEASE_FEATURE_QUALIFIER not in ordinary_feature_edges[0]
+    assert DISEASE_FEATURE_TYPE not in ordinary_feature_edges[0]
