@@ -26,7 +26,7 @@ class CTDLoader(SourceDataLoader):
 
     source_id = 'CTD'
     provenance_id = 'infores:ctd'
-    parsing_version: str = '1.6'
+    parsing_version: str = '1.7'
 
     # some CTD predicates no longer have mappings in the biolink model, convert them to something that will normalize
     predicate_conversion_map = {
@@ -492,7 +492,8 @@ class CTDLoader(SourceDataLoader):
         # check for invalid data
         if good_row:
             # get the standard properties
-            props: dict = {DESCRIPTION: r['interaction'], TAXON: f"{NCBITAXON}:{r['taxonID'].split(':')[1]}"}
+            props: dict = {DESCRIPTION: r['interaction'],
+                           SPECIES_CONTEXT_QUALIFIER: f"{NCBITAXON}:{r['taxonID'].split(':')[1]}"}
 
             # get the pubmed ids into a list
             pmids: list = r['PMID'].split('|')

@@ -7,8 +7,6 @@ graphs:
     graph_url: http://robokopkg.renci.org/browser/
     conflation: True
     output_format: neo4j
-    edge_merging_attributes:
-      - taxon
     sources:
       - id: BINDING-DB
       - id: CCIDB
