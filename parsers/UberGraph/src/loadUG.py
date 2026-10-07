@@ -4,15 +4,23 @@ import tarfile
 from io import TextIOWrapper
 from orion.utils import GetData
 from orion.loader_interface import SourceDataLoader
-from orion.biolink_constants import KNOWLEDGE_LEVEL, AGENT_TYPE, KNOWLEDGE_ASSERTION, MANUAL_AGENT
+from orion.biolink_constants import KNOWLEDGE_LEVEL, AGENT_TYPE, KNOWLEDGE_ASSERTION, MANUAL_AGENT, ORIGINAL_PREDICATE
 from parsers.UberGraph.src.ubergraph import UberGraphTools
+
+
+RO_DISEASE_HAS_FEATURE = 'RO:0004029'
+RO_HAS_PHENOTYPE = 'RO:0002200'
+RO_HAS_MODIFIER = 'RO:0002573'
+MONDO_DISEASE_HAS_MAJOR_FEATURE = 'MONDO:disease_has_major_feature'
+DISEASE_FEATURE_TYPE = 'disease_feature_type'
+MAJOR_FEATURE_TYPE = 'major'
 
 
 class UGLoader(SourceDataLoader):
 
     source_id = 'UbergraphNonredundant'
     provenance_id = 'infores:ubergraph'
-    parsing_version: str = '1.5'
+    parsing_version: str = '1.6'
 
     def __init__(self, test_mode: bool = False, source_data_dir: str = None):
         """
@@ -52,6 +60,7 @@ class UGLoader(SourceDataLoader):
         # init the record counters
         record_counter: int = 0
         skipped_record_counter: int = 0
+        skipped_filtered_counter: int = 0
 
         ubergraph_archive_path = os.path.join(self.data_path, self.data_file)
         ubergraph_graph_path = self.data_file.split('.tgz')[0]
@@ -80,6 +89,11 @@ class UGLoader(SourceDataLoader):
                             (self.only_subclass_edges and predicate_curie != self.subclass_predicate):
                         skipped_record_counter += 1
                         continue
+                    if self.filter_edge(subject_curie, predicate_curie, object_curie):
+                        skipped_filtered_counter += 1
+                        continue
+
+                    predicate_curie, predicate_properties = self.transform_predicate(predicate_curie)
 
                     # we get these during normalization now, but this is how you would do it
                     # subject_description = ubergraph_tools.node_descriptions.get(subject_curie, None)
@@ -89,6 +103,7 @@ class UGLoader(SourceDataLoader):
 
                     edge_props = {KNOWLEDGE_LEVEL: KNOWLEDGE_ASSERTION,
                                   AGENT_TYPE: MANUAL_AGENT}
+                    edge_props.update(predicate_properties)
                     self.output_file_writer.write_node(node_id=subject_curie)
                     self.output_file_writer.write_node(node_id=object_curie)
                     self.output_file_writer.write_edge(subject_id=subject_curie,
@@ -102,11 +117,34 @@ class UGLoader(SourceDataLoader):
         # load up the metadata
         load_metadata: dict = {
             'num_source_lines': record_counter,
-            'unusable_source_lines': skipped_record_counter
+            'unusable_source_lines': skipped_record_counter,
+            'lines_skipped_due_to_filtering': skipped_filtered_counter
         }
 
         # return the split file names so they can be removed if desired
         return load_metadata
+
+    def filter_edge(self, subject_curie: str, predicate_curie: str, object_curie: str) -> bool:
+        return (
+            predicate_curie == RO_HAS_MODIFIER
+            and subject_curie.startswith('MONDO:')
+            and object_curie.startswith('HP:')
+        )
+
+    # Disease feature edges are written as RO:0002200 (has phenotype) instead of RO:0004029 (disease has feature).
+    # Biolink currently lists RO:0004029 (disease has feature) as a narrow mapping of both biolink:has_phenotype
+    # and biolink:associated_with. Has_phenotype is better here so we bypass the potential for mapping to
+    # associated_with by setting them directly as has_phenotype. The source predicate is kept in original_predicate
+    # for clarity in the parser output, even though it may be overwritten in normalization later.
+    def transform_predicate(self, predicate_curie: str) -> tuple[str, dict]:
+        if predicate_curie == MONDO_DISEASE_HAS_MAJOR_FEATURE:
+            return RO_HAS_PHENOTYPE, {
+                ORIGINAL_PREDICATE: predicate_curie,
+                DISEASE_FEATURE_TYPE: MAJOR_FEATURE_TYPE,
+            }
+        if predicate_curie == RO_DISEASE_HAS_FEATURE:
+            return RO_HAS_PHENOTYPE, {ORIGINAL_PREDICATE: predicate_curie}
+        return predicate_curie, {}
 
 
 class UGRedundantLoader(UGLoader):
@@ -117,7 +155,7 @@ class UGRedundantLoader(UGLoader):
     source_data_url = "https://github.com/INCATools/ubergraph"
     license = "https://raw.githubusercontent.com/INCATools/ubergraph/master/LICENSE.txt"
     attribution = "https://github.com/INCATools/ubergraph"
-    parsing_version: str = '1.1'
+    parsing_version: str = '1.2'
 
     def __init__(self, test_mode: bool = False, source_data_dir: str = None):
         """
@@ -151,6 +189,4 @@ class OHLoader(UGLoader):
         self.data_file = 'redundant-graph-table.tgz'
         self.data_url: str = f'{self.base_url}/downloads/current/'
         self.only_subclass_edges = True
-
-
 

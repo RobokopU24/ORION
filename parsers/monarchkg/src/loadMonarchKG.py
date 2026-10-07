@@ -21,7 +21,7 @@ class MonarchKGBaseLoader(SourceDataLoader):
 
     source_id: str = None  # overridden by subclass
     provenance_id: str = 'infores:monarchinitiative'
-    parsing_version: str = '1.8'
+    parsing_version: str = '1.9'
 
     def __init__(self, test_mode: bool = False, source_data_dir: str = None):
         """
@@ -204,6 +204,14 @@ class MonarchKGLoader(MonarchKGBaseLoader):
             'PomBase', 'MMRRC', 'WBPhenotype', 'CAID', 'XPO', 'CUREID'
         }
 
+        self.replaced_mondo_phenio_edge_predicates = {
+            'biolink:causes',
+            'biolink:has_phenotype',
+        }
+        self.replaced_mondo_phenio_primary_source = 'infores:mondo'
+        self.replaced_mondo_phenio_aggregator = 'infores:phenio'
+        self.replaced_mondo_phenio_provided_by = 'phenio_edges'
+
     def filter_edge(self, subject_id: str, object_id: str, predicate: str,
                     primary_knowledge_source: str, aggregator_knowledge_sources: list,
                     provided_by: str = None) -> bool:
@@ -217,6 +225,13 @@ class MonarchKGLoader(MonarchKGBaseLoader):
         if (
             predicate in self.replaced_monarch_omim_gene_disease_predicates
             and provided_by == self.replaced_monarch_omim_gene_disease_provided_by
+        ):
+            return True
+        if (
+            predicate in self.replaced_mondo_phenio_edge_predicates
+            and primary_knowledge_source == self.replaced_mondo_phenio_primary_source
+            and self.replaced_mondo_phenio_aggregator in aggregator_knowledge_sources
+            and provided_by == self.replaced_mondo_phenio_provided_by
         ):
             return True
         if predicate not in self.desired_predicates:
