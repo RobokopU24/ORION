@@ -12,7 +12,6 @@ RO_DISEASE_HAS_FEATURE = 'RO:0004029'
 RO_HAS_PHENOTYPE = 'RO:0002200'
 RO_HAS_MODIFIER = 'RO:0002573'
 MONDO_DISEASE_HAS_MAJOR_FEATURE = 'MONDO:disease_has_major_feature'
-DISEASE_HAS_MAJOR_FEATURE = 'disease_has_major_feature'
 DISEASE_FEATURE_TYPE = 'disease_feature_type'
 MAJOR_FEATURE_TYPE = 'major'
 
@@ -138,7 +137,7 @@ class UGLoader(SourceDataLoader):
     # associated_with by setting them directly as has_phenotype. The source predicate is kept in original_predicate
     # for clarity in the parser output, even though it may be overwritten in normalization later.
     def transform_predicate(self, predicate_curie: str) -> tuple[str, dict]:
-        if predicate_curie in {MONDO_DISEASE_HAS_MAJOR_FEATURE, DISEASE_HAS_MAJOR_FEATURE}:
+        if predicate_curie == MONDO_DISEASE_HAS_MAJOR_FEATURE:
             return RO_HAS_PHENOTYPE, {
                 ORIGINAL_PREDICATE: predicate_curie,
                 DISEASE_FEATURE_TYPE: MAJOR_FEATURE_TYPE,
