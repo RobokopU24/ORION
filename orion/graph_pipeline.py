@@ -134,7 +134,13 @@ class GraphBuilder:
                 # Leave the incomplete dir behind; the next run clears and retries it.
                 return False
 
-            build_time = datetime.datetime.now().isoformat(timespec='seconds')
+            # Merge metadata is generated during the merge and cannot be recreated from plain KGX files
+            # so it has to written here and can't be generated after the fact like other metadata below.
+            source_merger.write_merge_metadata()
+
+            # ISO 8601 in UTC, the format graph metadata dates are recorded in
+            build_time = (datetime.datetime.now(datetime.timezone.utc)
+                          .isoformat(timespec='seconds').replace('+00:00', 'Z'))
             biolink_version = self._graph_biolink_version(graph_spec)
             babel_version = self._graph_babel_version(graph_spec)
 
@@ -148,7 +154,7 @@ class GraphBuilder:
                                              babel_version=babel_version)
             logger.info(f'Building graph {graph_id} complete!')
 
-        # --- Additional artifacts (QC, schema, meta KG, dumps, alternate formats). These can 
+        # --- Additional artifacts (QC, schema, meta KG, dumps, alternate formats). These can
         #     run whether the core bundle was just built or already existed, backfilling anything
         #     missing. ---
         if not kgx_bundle.has_qc_results():
@@ -538,24 +544,20 @@ class GraphBuilder:
     # it was loaded from the graph's own graph-metadata.json. When hasPart has exactly one entry we
     # override its node/edge counts with this build's merger counts, since the carrier's own counts
     # came from its internal merge and aren't right for this graph. When hasPart has many entries we
-    # pass them through unchanged — the merger only has an aggregate count for the carrier as a whole.
+    # keep their own counts — the merger only has an aggregate count for the carrier as a whole.
     @staticmethod
     def _kgx_metadata_from_contribution(source: dict):
         carrier = source.get('kgx_graph_metadata') or {}
         carrier_kg_sources = carrier.get('hasPart') or []
         carrier_knowledge_sources = carrier.get('isBasedOn') or []
 
-        kg_sources = []
-        if len(carrier_kg_sources) == 1:
-            kg_source = KGXKnowledgeGraphSource.from_dict(carrier_kg_sources[0])
+        kg_sources = [KGXKnowledgeGraphSource.from_dict(kgs_dict)
+                      for kgs_dict in carrier_kg_sources]
+        if len(kg_sources) == 1:
             if source.get('node_count') is not None:
-                kg_source.node_count = source.get('node_count')
+                kg_sources[0].node_count = source.get('node_count')
             if source.get('edge_count') is not None:
-                kg_source.edge_count = source.get('edge_count')
-            kg_sources.append(kg_source.to_dict())
-        else:
-            for kg_source_entry in carrier_kg_sources:
-                kg_sources.append(dict(kg_source_entry))
+                kg_sources[0].edge_count = source.get('edge_count')
 
         knowledge_sources = [KGXKnowledgeSource.from_dict(ks_dict)
                              for ks_dict in carrier_knowledge_sources]

@@ -1,4 +1,6 @@
 from orion.merging import GraphMerger, MemoryGraphMerger, DiskGraphMerger, NODE_ENTITY_TYPE, EDGE_ENTITY_TYPE
+from orion.kgx_file_merger import KGXFileMerger, MERGE_METADATA_FILENAME
+from orion.kgxmodel import GraphSpec, GraphFileSource
 from orion.biolink_constants import *
 import os
 import json
@@ -53,7 +55,9 @@ def node_merging_counts_test(graph_merger: GraphMerger):
 
     merged_node_lines = list(graph_merger.get_merged_nodes_jsonl())
     assert len(merged_node_lines) == 25
+    # nodes 6 through 20 were each provided twice, so 15 sets of 2 nodes merged
     assert graph_merger.merged_node_counter == 15
+    assert graph_merger.merged_node_group_counter == 15
 
 
 def test_node_merging_counts_in_memory():
@@ -250,7 +254,45 @@ def edge_merging_counts_test(graph_merger: GraphMerger):
             assert len(edge['string_list_property']) == 1
         assert edge['int_property'] == int(edge[SUBJECT_ID].split(':')[1]) or edge['int_property'] == 999999
 
+    # edges 6 through 10 were provided twice for each of the two predicates, so 10 sets of 2 edges merged
     assert graph_merger.merged_edge_counter == 10
+    assert graph_merger.merged_edge_group_counter == 10
+
+
+def merged_group_counts_test(graph_merger: GraphMerger):
+    # merged sets of varying sizes - one set of 4 nodes/edges, one set of 2, and two that never merge
+    duplicated_4 = [make_node(1, **{'testing_prop': [i]}) for i in range(4)]
+    duplicated_2 = [make_node(2, **{'testing_prop': [i]}) for i in range(2)]
+    unique_nodes = [make_node(3), make_node(4)]
+    input_node_count = graph_merger.merge_nodes(duplicated_4 + duplicated_2 + unique_nodes)
+
+    duplicated_4 = [make_edge(1, 2, **{'testing_prop': [i]}) for i in range(4)]
+    duplicated_2 = [make_edge(3, 4, **{'testing_prop': [i]}) for i in range(2)]
+    unique_edges = [make_edge(5, 6), make_edge(7, 8)]
+    input_edge_count = graph_merger.merge_edges(duplicated_4 + duplicated_2 + unique_edges)
+
+    output_node_count = len(list(graph_merger.get_merged_nodes_jsonl()))
+    output_edge_count = len(list(graph_merger.get_merged_edges_jsonl()))
+    assert input_node_count == 8 and output_node_count == 4
+    assert input_edge_count == 8 and output_edge_count == 4
+
+    # 6 nodes/edges went in to a merge and 2 came out of one, the difference is what merging removed
+    for merged_counter, group_counter, input_count, output_count in (
+            (graph_merger.merged_node_counter, graph_merger.merged_node_group_counter,
+             input_node_count, output_node_count),
+            (graph_merger.merged_edge_counter, graph_merger.merged_edge_group_counter,
+             input_edge_count, output_edge_count)):
+        assert group_counter == 2
+        assert merged_counter + group_counter == 6
+        assert merged_counter == input_count - output_count
+
+
+def test_merged_group_counts_in_memory():
+    merged_group_counts_test(MemoryGraphMerger())
+
+
+def test_merged_group_counts_on_disk(tmp_path):
+    merged_group_counts_test(DiskGraphMerger(temp_directory=str(tmp_path), chunk_size=3))
 
 
 def test_edge_merging_counts_in_memory():
@@ -286,7 +328,9 @@ def test_qualifier_edge_merging():
 
     merged_edges = [json.loads(edge) for edge in graph_merger.get_merged_edges_jsonl()]
     assert len(merged_edges) == 3
+    # 30 edges merged down to 3 sets, distinguished by their qualifiers
     assert graph_merger.merged_edge_counter == 27
+    assert graph_merger.merged_edge_group_counter == 3
 
     passed_tests = 0
     for edge in merged_edges:
@@ -703,7 +747,7 @@ def truthy_scalar_collision_test(graph_merger: GraphMerger):
     # only the genuine truthy/truthy collision should be recorded as dropped;
     # falsy-vs-truthy and equal-value merges must not show up here
     dropped = graph_merger.merge_warnings['dropped_properties']
-    assert 'conflicting' in dropped
+    assert dropped['conflicting'] == 1
     for name in ('zero_then_int', 'empty_then_str', 'none_then_str',
                  'int_then_zero', 'str_then_empty', 'str_then_none', 'agreeing'):
         assert name not in dropped
@@ -715,3 +759,88 @@ def test_truthy_scalar_collision_in_memory():
 
 def test_truthy_scalar_collision_on_disk(tmp_path):
     truthy_scalar_collision_test(DiskGraphMerger(temp_directory=str(tmp_path), chunk_size=4))
+
+
+def dropped_property_counts_test(graph_merger: GraphMerger):
+    # every merge of these edges drops a conflicting value, so the counts should reflect
+    # how many times each property was affected, not just which properties were affected
+    test_edges = [make_edge(1, 2, **{'often_dropped': f'value_{i}', 'agreeing': 'same'})
+                  for i in range(5)]
+    test_edges += [make_edge(3, 4, **{'rarely_dropped': f'value_{i}'}) for i in range(2)]
+    # a dict on one edge and a scalar on another is a mismatch, not a drop
+    test_edges += [make_edge(5, 6, **{'mismatched': {'a': 1}}), make_edge(5, 6, **{'mismatched': 'not_a_dict'})]
+
+    graph_merger.merge_edges(test_edges)
+    merged_edges = [json.loads(edge) for edge in graph_merger.get_merged_edges_jsonl()]
+    assert len(merged_edges) == 3
+
+    # the first edge of each set isn't dropping anything, so 5 edges means 4 drops
+    assert graph_merger.merge_warnings['dropped_properties'] == {'often_dropped': 4, 'rarely_dropped': 1}
+    assert graph_merger.merge_warnings['mismatched_properties'] == {'mismatched': 1}
+
+
+def test_dropped_property_counts_in_memory():
+    dropped_property_counts_test(MemoryGraphMerger())
+
+
+def test_dropped_property_counts_on_disk(tmp_path):
+    dropped_property_counts_test(DiskGraphMerger(temp_directory=str(tmp_path), chunk_size=4))
+
+
+def test_merge_metadata_records_each_source(tmp_path):
+    # KGXFileMerger describes every source it merged, including how that source joined the graph
+    input_dir = tmp_path / 'input'
+    output_dir = tmp_path / 'output'
+    input_dir.mkdir()
+    output_dir.mkdir()
+
+    def write_source(source_id, nodes, edges):
+        nodes_path = input_dir / f'{source_id}_nodes.jsonl'
+        edges_path = input_dir / f'{source_id}_edges.jsonl'
+        for path, rows in ((nodes_path, nodes), (edges_path, edges)):
+            with open(path, 'w') as f:
+                for row in rows:
+                    f.write(json.dumps(row) + '\n')
+        return [str(nodes_path), str(edges_path)]
+
+    primary_files = write_source('primary', [make_node(1), make_node(2)], [make_edge(1, 2)])
+    # a dont_merge source contributes its edges without them taking part in merging at all
+    unmerged_files = write_source('unmerged', [make_node(2), make_node(3)], [make_edge(2, 3)])
+
+    graph_spec = GraphSpec(graph_id='test_graph', graph_name='', graph_description='', graph_url='',
+                           graph_output_format='jsonl', sources=[],
+                           resolved_sources=[
+                               GraphFileSource(id='primary',
+                                               release_version='1.0.0',
+                                               build_version='abc123',
+                                               file_paths=primary_files),
+                               GraphFileSource(id='unmerged',
+                                               release_version='2.1.0',
+                                               build_version='def456',
+                                               file_paths=unmerged_files,
+                                               merge_strategy=KGXFileMerger.DONT_MERGE)])
+    file_merger = KGXFileMerger(graph_spec=graph_spec,
+                                output_directory=str(output_dir),
+                                nodes_output_filename='nodes.jsonl',
+                                edges_output_filename='edges.jsonl')
+    file_merger.merge()
+    file_merger.write_merge_metadata()
+
+    with open(output_dir / MERGE_METADATA_FILENAME) as f:
+        merge_metadata = json.load(f)
+
+    assert merge_metadata['sources']['primary'] == {'release_version': '1.0.0',
+                                                    'build_version': 'abc123',
+                                                    'merge_strategy': None,
+                                                    'node_count': 2,
+                                                    'edge_count': 1,
+                                                    'files': {'primary_nodes.jsonl': {'nodes': 2},
+                                                              'primary_edges.jsonl': {'edges': 1}}}
+    assert merge_metadata['sources']['unmerged']['merge_strategy'] == KGXFileMerger.DONT_MERGE
+    assert merge_metadata['sources']['unmerged']['release_version'] == '2.1.0'
+    # NODE:2 came from both sources, and the dont_merge source's edge was appended unmerged
+    assert merge_metadata['final_node_count'] == 3
+    assert merge_metadata['final_edge_count'] == 2
+    assert merge_metadata['unmerged_edge_count'] == 1
+    assert merge_metadata['pre_merge_nodes_merged'] == 2
+    assert merge_metadata['post_merge_nodes_merged'] == 1

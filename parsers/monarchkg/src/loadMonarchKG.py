@@ -3,6 +3,7 @@ import os
 import tarfile
 import orjson
 import requests
+import yaml
 
 from orion.loader_interface import SourceDataLoader
 from orion.kgxmodel import kgxedge
@@ -20,7 +21,7 @@ class MonarchKGBaseLoader(SourceDataLoader):
 
     source_id: str = None  # overridden by subclass
     provenance_id: str = 'infores:monarchinitiative'
-    parsing_version: str = '1.6'
+    parsing_version: str = '1.9'
 
     def __init__(self, test_mode: bool = False, source_data_dir: str = None):
         """
@@ -44,15 +45,12 @@ class MonarchKGBaseLoader(SourceDataLoader):
         """
         Gets the name of latest monarch kg version from metadata.
         """
-        latest_version = None
         try:
             metadata_yaml: requests.Response = requests.get(
                 'https://data.monarchinitiative.org/monarch-kg/latest/metadata.yaml'
             )
-            for line in metadata_yaml.text.split('\n'):
-                if line.startswith('version:'):
-                    latest_version = line.replace('version:', '').strip()
-                    break
+            metadata = yaml.safe_load(metadata_yaml.text)
+            latest_version = str(metadata['version']) if 'version' in metadata else None
             if latest_version is None:
                 raise ValueError("Cannot find 'version:' in Monarch KG metadata yaml.")
         except Exception as e:
@@ -67,7 +65,7 @@ class MonarchKGBaseLoader(SourceDataLoader):
 
     def filter_edge(self, subject_id: str, object_id: str, predicate: str,
                     primary_knowledge_source: str, aggregator_knowledge_sources: list,
-                    monarch_edge: dict = None) -> bool:
+                    provided_by: str = None) -> bool:
         """
         Returns True if the edge should be skipped.
         Subclasses override this to apply filtering.
@@ -115,7 +113,7 @@ class MonarchKGBaseLoader(SourceDataLoader):
 
                     if self.filter_edge(subject_id, object_id, predicate,
                                         primary_knowledge_source, aggregator_knowledge_sources,
-                                        monarch_edge=monarch_edge):
+                                        provided_by=monarch_edge.get('provided_by')):
                         skipped_filtered_counter += 1
                         continue
 
@@ -191,6 +189,14 @@ class MonarchKGLoader(MonarchKGBaseLoader):
             'infores:wb'
         }
 
+        self.replaced_go_annotation_provided_by = 'go_annotation_edges'
+        self.replaced_hpoa_source = 'infores:hpo-annotations'
+        self.replaced_monarch_omim_gene_disease_predicates = {
+            'biolink:causes',
+            'biolink:contributes_to',
+        }
+        self.replaced_monarch_omim_gene_disease_provided_by = 'omim_gene_to_disease_edges'
+
         # Curie prefixes known not to normalize — edges where subject or object
         # starts with any of these are discarded.
         self.non_normalizable_curie_prefixes = {
@@ -208,30 +214,36 @@ class MonarchKGLoader(MonarchKGBaseLoader):
 
     def filter_edge(self, subject_id: str, object_id: str, predicate: str,
                     primary_knowledge_source: str, aggregator_knowledge_sources: list,
-                    monarch_edge: dict = None) -> bool:
+                    provided_by: str = None) -> bool:
+        if predicate == 'biolink:contributes_to' and provided_by == self.replaced_go_annotation_provided_by:
+            return True
+        if predicate == 'biolink:has_phenotype' and (
+            primary_knowledge_source == self.replaced_hpoa_source
+            or self.replaced_hpoa_source in aggregator_knowledge_sources
+        ):
+            return True
+        if (
+            predicate in self.replaced_monarch_omim_gene_disease_predicates
+            and provided_by == self.replaced_monarch_omim_gene_disease_provided_by
+        ):
+            return True
+        if (
+            predicate in self.replaced_mondo_phenio_edge_predicates
+            and primary_knowledge_source == self.replaced_mondo_phenio_primary_source
+            and self.replaced_mondo_phenio_aggregator in aggregator_knowledge_sources
+            and provided_by == self.replaced_mondo_phenio_provided_by
+        ):
+            return True
         if predicate not in self.desired_predicates:
             return True
         if primary_knowledge_source in self.knowledge_source_ignore_list or \
                 any(ks in self.knowledge_source_ignore_list for ks in aggregator_knowledge_sources):
-            return True
-        if self.is_replaced_mondo_phenio_edge(
-                predicate, primary_knowledge_source, aggregator_knowledge_sources, monarch_edge):
             return True
         for curie in (subject_id, object_id):
             prefix = curie.split(':')[0]
             if prefix in self.non_normalizable_curie_prefixes:
                 return True
         return False
-
-    def is_replaced_mondo_phenio_edge(self, predicate: str, primary_knowledge_source: str,
-                                      aggregator_knowledge_sources: list, monarch_edge: dict = None) -> bool:
-        return (
-            predicate in self.replaced_mondo_phenio_edge_predicates
-            and primary_knowledge_source == self.replaced_mondo_phenio_primary_source
-            and self.replaced_mondo_phenio_aggregator in aggregator_knowledge_sources
-            and monarch_edge is not None
-            and monarch_edge.get('provided_by') == self.replaced_mondo_phenio_provided_by
-        )
 
 
 ##############

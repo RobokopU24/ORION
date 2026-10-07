@@ -1,6 +1,7 @@
 import os
 import gzip
 import json
+from collections import Counter
 from datetime import datetime
 from orion.utils import quick_jsonl_file_iterator
 from orion.logging import get_orion_logger
@@ -10,6 +11,9 @@ from orion.merging import GraphMerger, DiskGraphMerger, MemoryGraphMerger, MERGI
 from orion.data_sources import RESOURCE_HOGS
 
 logger = get_orion_logger("orion.kgx_file_merger")
+
+# metadata about what happened in a merge, to be written next to the graph it produced.
+MERGE_METADATA_FILENAME = 'merge-metadata.json'
 
 class KGXFileMerger:
 
@@ -47,9 +51,11 @@ class KGXFileMerger:
         secondary_sources = []
         dont_merge_sources = []
         for graph_source in resolved_sources:
+            source_metadata = graph_source.get_metadata_representation()
+            # the sources here are keyed by id, so the id in the source's own representation is redundant
+            source_metadata.pop('id')
             self.merge_metadata["sources"][graph_source.id] = {
-                'release_version': graph_source.release_version,
-                'build_version': graph_source.build_version,
+                **source_metadata,
                 'kgx_graph_metadata': graph_source.kgx_graph_metadata,
                 'node_count': 0,
                 'edge_count': 0,
@@ -91,13 +97,24 @@ class KGXFileMerger:
             self.merge_metadata['unmerged_edge_count'] = unmerged_edges_written
             self.merge_metadata['final_node_count'] += merged_nodes_written
             self.merge_metadata['final_edge_count'] += merged_edges_written + unmerged_edges_written
-            self.merge_metadata['merged_nodes'] += self.node_graph_merger.merged_node_counter
-            self.merge_metadata['merged_edges'] += self.edge_graph_merger.merged_edge_counter
+            # Merging is reported three ways: how many entities went in to a merge (pre_merge_*_merged),
+            # how many came out of one (post_merge_*_merged), and the difference between those, which is
+            # how many entities disappeared because of merging (*_diff).
+            merged_node_groups = self.node_graph_merger.merged_node_group_counter
+            merged_edge_groups = self.edge_graph_merger.merged_edge_group_counter
+            self.merge_metadata['pre_merge_nodes_merged'] += (self.node_graph_merger.merged_node_counter
+                                                              + merged_node_groups)
+            self.merge_metadata['post_merge_nodes_merged'] += merged_node_groups
+            self.merge_metadata['nodes_diff'] += self.node_graph_merger.merged_node_counter
+            self.merge_metadata['pre_merge_edges_merged'] += (self.edge_graph_merger.merged_edge_counter
+                                                              + merged_edge_groups)
+            self.merge_metadata['post_merge_edges_merged'] += merged_edge_groups
+            self.merge_metadata['edges_diff'] += self.edge_graph_merger.merged_edge_counter
             for merger in (self.node_graph_merger, self.edge_graph_merger):
                 for warning_type in ('mismatched_properties', 'dropped_properties'):
-                    existing = set(self.merge_metadata['merge_warnings'][warning_type])
+                    existing = Counter(self.merge_metadata['merge_warnings'][warning_type])
                     existing.update(merger.merge_warnings[warning_type])
-                    self.merge_metadata['merge_warnings'][warning_type] = sorted(existing)
+                    self.merge_metadata['merge_warnings'][warning_type] = dict(existing.most_common())
 
     def merge_primary_sources(self,
                               graph_sources: list):
@@ -248,15 +265,33 @@ class KGXFileMerger:
     def init_merge_metadata():
         return {'sources': {},
                 'merging_code_version': MERGING_CODE_VERSION,
-                'merged_nodes': 0,
-                'merged_edges': 0,
-                'merge_warnings': {'mismatched_properties': [],
-                                   'dropped_properties': []},
+                'pre_merge_nodes_merged': 0,
+                'post_merge_nodes_merged': 0,
+                'nodes_diff': 0,
+                'pre_merge_edges_merged': 0,
+                'post_merge_edges_merged': 0,
+                'edges_diff': 0,
+                'merge_warnings': {'mismatched_properties': {},
+                                   'dropped_properties': {}},
                 'final_node_count': 0,
                 'final_edge_count': 0}
 
     def get_merge_metadata(self):
         return self.merge_metadata
+
+    # Write the merge metadata to MERGE_METADATA_FILENAME in output_directory.
+    # kgx_graph_metadata is left out, that's the entire graph-metadata.json for the source
+    # already included with graph outputs, not relevant for merging metadata
+    def write_merge_metadata(self):
+        merge_metadata = dict(self.merge_metadata)
+        merge_metadata['sources'] = {
+            source_id: {key: value for key, value in source_metadata.items() if key != 'kgx_graph_metadata'}
+            for source_id, source_metadata in merge_metadata['sources'].items()
+        }
+        merge_metadata_path = os.path.join(self.output_directory, MERGE_METADATA_FILENAME)
+        with open(merge_metadata_path, 'w') as merge_metadata_file:
+            json.dump(merge_metadata, merge_metadata_file, indent=2)
+        return merge_metadata_path
 
 
 # This was moved over from the cli implementation - it's a hacky way to merge files without a graph spec

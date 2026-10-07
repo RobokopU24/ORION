@@ -17,6 +17,7 @@ spec:
     spec:
       restartPolicy: Never
       securityContext:
+        runAsNonRoot: true
         runAsUser: {{ .Values.orion.securityContext.runAsUser }}
         runAsGroup: {{ .Values.orion.securityContext.runAsGroup }}
         fsGroup: {{ .Values.orion.securityContext.runAsGroup }}

@@ -67,6 +67,10 @@ class Config(BaseSettings):
     OPENAI_API_KEY: str | None = None
     OPENAI_API_ORGANIZATION: str | None = None
 
+    # Optional path to a directory of normalization outputs from a previous run.
+    # Normalized sequence variant nodes and normalization mappings found there are loaded and reused.
+    ORION_VARIANT_NORM_CACHE: str | None = None
+
     # Tracks which fallback directories we've already announced so we log the resolved
     # path once per process instead of on every call.
     _announced_fallbacks: set[str] = PrivateAttr(default_factory=set)
