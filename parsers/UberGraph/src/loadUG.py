@@ -9,6 +9,7 @@ from parsers.UberGraph.src.ubergraph import UberGraphTools
 
 
 RO_DISEASE_HAS_FEATURE = 'RO:0004029'
+RO_HAS_PHENOTYPE = 'RO:0002200'
 RO_HAS_MODIFIER = 'RO:0002573'
 MONDO_DISEASE_HAS_MAJOR_FEATURE = 'MONDO:disease_has_major_feature'
 DISEASE_HAS_MAJOR_FEATURE = 'disease_has_major_feature'
@@ -131,12 +132,19 @@ class UGLoader(SourceDataLoader):
             and object_curie.startswith('HP:')
         )
 
+    # Disease feature edges are written as RO:0002200 (has phenotype) instead of RO:0004029 (disease has feature).
+    # Biolink currently lists RO:0004029 (disease has feature) as a narrow mapping of both biolink:has_phenotype
+    # and biolink:associated_with. Has_phenotype is better here so we bypass the potential for mapping to
+    # associated_with by setting them directly as has_phenotype. The source predicate is kept in original_predicate
+    # for clarity in the parser output, even though it may be overwritten in normalization later.
     def transform_predicate(self, predicate_curie: str) -> tuple[str, dict]:
         if predicate_curie in {MONDO_DISEASE_HAS_MAJOR_FEATURE, DISEASE_HAS_MAJOR_FEATURE}:
-            return RO_DISEASE_HAS_FEATURE, {
+            return RO_HAS_PHENOTYPE, {
                 ORIGINAL_PREDICATE: predicate_curie,
                 DISEASE_FEATURE_QUALIFIER: MAJOR_FEATURE_QUALIFIER_VALUE,
             }
+        if predicate_curie == RO_DISEASE_HAS_FEATURE:
+            return RO_HAS_PHENOTYPE, {ORIGINAL_PREDICATE: predicate_curie}
         return predicate_curie, {}
 
 
