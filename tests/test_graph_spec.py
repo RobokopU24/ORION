@@ -319,3 +319,52 @@ def test_default_graph_spec_adds_edge_ids(test_graph_output_dir):
 
     for graph_id in ('Baseline', 'RobokopKG', 'RoboMouseKG'):
         assert graph_builder.graph_specs[graph_id].add_edge_id is True
+
+
+# edge_id_type turns on edge ids only when add_edge_id is unset; an explicit add_edge_id is kept as is
+@pytest.mark.parametrize('edge_id_options,expected_add_edge_id', [
+    ({}, None),
+    ({'add_edge_id': True}, True),
+    ({'add_edge_id': False}, False),
+    ({'edge_id_type': 'uuid'}, True),
+    ({'add_edge_id': False, 'edge_id_type': 'uuid'}, False),
+])
+def test_graph_spec_add_edge_id_parsing(test_graph_spec_dir, test_graph_output_dir,
+                                        edge_id_options, expected_add_edge_id):
+    inline_spec = {
+        'graphs': [{
+            'graph_id': 'Edge_Id_Graph',
+            **edge_id_options,
+            'sources': [{'id': 'HGNC'}],
+        }]
+    }
+    graph_builder = GraphBuilder(graph_specs_dir=test_graph_spec_dir,
+                                 inline_graph_spec=inline_spec,
+                                 graph_output_dir=test_graph_output_dir)
+    assert graph_builder.graph_specs['Edge_Id_Graph'].add_edge_id is expected_add_edge_id
+
+
+def _dont_merge_spec(edge_id_options):
+    return {
+        'graphs': [{
+            'graph_id': 'Dont_Merge_Graph',
+            **edge_id_options,
+            'sources': [{'id': 'HGNC', 'merge_strategy': 'dont_merge_edges'}],
+        }]
+    }
+
+
+@pytest.mark.parametrize('edge_id_options', [{'add_edge_id': True}, {'edge_id_type': 'orion'}])
+def test_dont_merge_with_edge_ids_raises(test_graph_spec_dir, test_graph_output_dir, edge_id_options):
+    with pytest.raises(GraphSpecError):
+        GraphBuilder(graph_specs_dir=test_graph_spec_dir,
+                     inline_graph_spec=_dont_merge_spec(edge_id_options),
+                     graph_output_dir=test_graph_output_dir)
+
+
+@pytest.mark.parametrize('edge_id_options', [{}, {'add_edge_id': False}])
+def test_dont_merge_without_edge_ids_is_allowed(test_graph_spec_dir, test_graph_output_dir, edge_id_options):
+    graph_builder = GraphBuilder(graph_specs_dir=test_graph_spec_dir,
+                                 inline_graph_spec=_dont_merge_spec(edge_id_options),
+                                 graph_output_dir=test_graph_output_dir)
+    assert not graph_builder.graph_specs['Dont_Merge_Graph'].add_edge_id

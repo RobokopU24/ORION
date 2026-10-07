@@ -697,7 +697,7 @@ class GraphBuilder:
                     raise GraphSpecError(f'Invalid edge_id_type: {edge_id_type}, must be "orion" or "uuid".')
                 if type(overwrite_edge_ids) != bool:
                     raise GraphSpecError(f'Invalid type (overwrite_edge_ids: {overwrite_edge_ids}), must be true or false.')
-                if edge_id_type is not None and add_edge_id is None or add_edge_id is False:
+                if edge_id_type is not None and add_edge_id is None:
                     add_edge_id = True
                 if graph_wide_node_norm_version == 'latest':
                     graph_wide_node_norm_version = get_current_node_norm_version()
@@ -710,7 +710,7 @@ class GraphBuilder:
                 # at the source level. Pinned sources and graph dependencies carry no normalization
                 # scheme and are skipped.
                 for source in sources:
-                    if source.merge_strategy == KGXFileMerger.DONT_MERGE and add_edge_id is not None:
+                    if source.merge_strategy == KGXFileMerger.DONT_MERGE and add_edge_id:
                         raise GraphSpecError(f'Graph {graph_id}, source {source.id} has merge_strategy:'
                                              f' dont_merge, which is incompatible with add_edge_id.')
                     if source.normalization_scheme is None:
