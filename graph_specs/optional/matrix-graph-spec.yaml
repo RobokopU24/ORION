@@ -9,6 +9,7 @@ graphs:
     output_format: neo4j
     edge_merging_attributes:
       - taxon
+    add_edge_id: True
     sources:
       - id: BINDING-DB
       - id: CCIDB

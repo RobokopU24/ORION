@@ -7,6 +7,7 @@ graphs:
     output_format:
     edge_merging_attributes:
       - taxon
+    add_edge_id: True
     sources:
       - id: CHEBIProps
       - id: CTD

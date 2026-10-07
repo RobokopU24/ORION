@@ -310,3 +310,12 @@ def test_default_graph_spec_defines_robomouse(monkeypatch, test_graph_output_dir
         'UPhenoHumanMousePhenotypeHomology',
         'OntologicalHierarchy',
     ]
+
+
+def test_default_graph_spec_adds_edge_ids(test_graph_output_dir):
+    default_specs_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'graph_specs')
+    graph_builder = GraphBuilder(graph_specs_dir=default_specs_dir,
+                                 graph_output_dir=test_graph_output_dir)
+
+    for graph_id in ('Baseline', 'RobokopKG', 'RoboMouseKG'):
+        assert graph_builder.graph_specs[graph_id].add_edge_id is True

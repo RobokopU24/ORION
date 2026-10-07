@@ -15,6 +15,7 @@ graphs:
     output_format: neo4j
     edge_merging_attributes:
       - taxon
+    add_edge_id: True
     sources:
       - id: BINDING-DB
         # optional parameters for each data source - see README for more info
@@ -65,6 +66,7 @@ graphs:
     output_format: neo4j
     edge_merging_attributes:
       - taxon
+    add_edge_id: True
     sources:
       - id: Baseline
       - id: ClinGenVariantPathogenicity
@@ -79,6 +81,7 @@ graphs:
     output_format: neo4j
     edge_merging_attributes:
       - taxon
+    add_edge_id: True
     sources:
       - id: RobokopKG
       - id: BgeeMouse

@@ -9,6 +9,7 @@ graphs:
     output_format: redundant_jsonl
     edge_merging_attributes:
       - taxon
+    add_edge_id: True
     sources:
       - id: BINDING-DB
       - id: CHEBIProps
