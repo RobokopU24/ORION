@@ -19,7 +19,6 @@ graphs:
       - id: HPOA
       - id: IntAct
       - id: KinAce
-      - id: MonarchKG
       - id: MONDOProps
       - id: OMIM
       - id: OntologicalHierarchy

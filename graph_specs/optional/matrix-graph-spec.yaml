@@ -25,7 +25,6 @@ graphs:
       - id: KinAce
       - id: LINCS
       - id: MetabolomicsWorkbench
-      - id: MonarchKG
       - id: MONDOProps
       - id: PANTHER
       - id: PHAROS

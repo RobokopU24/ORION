@@ -23,7 +23,6 @@ graphs:
       - id: HumanGOA
       - id: MouseGOA
       - id: IntAct
-      - id: MonarchKG
       - id: MONDOProps
       - id: OMIM
       - id: OntologicalHierarchy

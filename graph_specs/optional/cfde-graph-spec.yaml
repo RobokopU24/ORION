@@ -26,7 +26,6 @@ graphs:
         strict_normalization: False
       - id: MetabolomicsWorkbench
         strict_normalization: False
-      - id: MonarchKG
       - id: MONDOProps
       - id: OMIM
       - id: OntologicalHierarchy
