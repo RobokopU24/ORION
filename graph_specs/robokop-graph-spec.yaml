@@ -13,8 +13,6 @@ graphs:
     graph_url: http://robokopkg.renci.org/browser/
     conflation: True
     output_format: neo4j
-    edge_merging_attributes:
-      - taxon
     sources:
       - id: BINDING-DB
         # optional parameters for each data source - see README for more info
@@ -64,8 +62,6 @@ graphs:
     graph_url: http://robokopkg.renci.org/browser/
     conflation: True
     output_format: neo4j
-    edge_merging_attributes:
-      - taxon
     sources:
       - id: Baseline
       - id: ClinGenVariantPathogenicity
@@ -78,8 +74,6 @@ graphs:
     graph_url: http://robokop.renci.org/
     conflation: True
     output_format: neo4j
-    edge_merging_attributes:
-      - taxon
     sources:
       - id: RobokopKG
       - id: BgeeMouse
