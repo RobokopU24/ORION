@@ -8,6 +8,7 @@ from orion.utils import GetData
 from orion.loader_interface import SourceDataLoader
 from orion.kgxmodel import kgxnode
 from orion.prefixes import CHEBI
+from orion.biolink_constants import HAS_CHEMICAL_ROLE
 
 RELATION_TYPE_ID_COLUMN = 1
 RELATION_INIT_ID_COLUMN = 3  # This mistake stemmed from the relation.tsv column swap
@@ -22,6 +23,9 @@ CHEBI_ROLES_TO_IGNORE = ["CHEBI:50906",  # role
                          "CHEBI:51086",  # chemical role
                          "CHEBI:33232"]  # application
 
+# not a biolink slot, holds the names of the roles in HAS_CHEMICAL_ROLE in the same order
+CHEMICAL_ROLE_NAMES = 'chemical_role_names'
+
 ##############
 # Class: Chebi-Properties loader
 #
@@ -33,7 +37,7 @@ class ChebiPropertiesLoader(SourceDataLoader):
 
     # Setting the class level variables for the source ID and provenance
     source_id: str = 'CHEBIProps'
-    parsing_version = '1.5'
+    parsing_version = '1.6'
     preserve_unconnected_nodes = True
 
     def __init__(self, test_mode: bool = False, source_data_dir: str = None):
@@ -105,18 +109,16 @@ class ChebiPropertiesLoader(SourceDataLoader):
             if self.test_mode and record_counter == 2000:
                 break
 
-            # remove roles we don't want in graphs
-            filtered_chebi_roles = [role for role in chebi_roles[chebi_id] if role not in CHEBI_ROLES_TO_IGNORE]
-
-            # convert the roles to properly formatted property names
-            role_properties = [self.fixname(names[x]) for x in filtered_chebi_roles]
+            # remove roles we don't want in graphs, sorted so the output is deterministic
+            filtered_chebi_roles = sorted(role for role in chebi_roles[chebi_id] if role not in CHEBI_ROLES_TO_IGNORE)
 
             # only include nodes that have roles
-            if not role_properties:
+            if not filtered_chebi_roles:
                 skipped_record_counter += 1
             else:
-                # create a node with the properties
-                node_properties = {role: True for role in role_properties}
+                # role curies and their names are parallel lists, index i of each refers to the same role
+                node_properties = {HAS_CHEMICAL_ROLE: filtered_chebi_roles,
+                                   CHEMICAL_ROLE_NAMES: [names[role] for role in filtered_chebi_roles]}
                 output_node = kgxnode(chebi_id,
                                       name=names[chebi_id],
                                       nodeprops=node_properties)
@@ -130,13 +132,6 @@ class ChebiPropertiesLoader(SourceDataLoader):
             }
 
         return load_metadata
-
-    @staticmethod
-    def fixname(n):
-        formatted_name = f'CHEBI_ROLE_{"_".join(n.split())}'
-        formatted_name = formatted_name.replace("(", "_").replace(")", "_").\
-            replace(".*", "").replace("-", "_").replace("__", "_").replace("__", "_")
-        return formatted_name
 
     # def has_html(self, text):
     #     return bool(re.search(r'<[^>]+>', str(text)))
