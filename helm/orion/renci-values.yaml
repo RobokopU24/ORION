@@ -4,11 +4,11 @@ replicaCount: 1
 
 # See the default values.yaml file for descriptions of options
 orion:
-  graphID: "Example_Graph"
+  graphID: ""
   graphSpecUrl: ""
   graphSpecYaml: ""
   optionalGraphSpec: ""
-  buildMode: true
+  buildMode: atlas
   image:
     repository: ghcr.io/robokopu24/orion
     pullPolicy: IfNotPresent

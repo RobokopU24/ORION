@@ -8,7 +8,7 @@ orion:
   graphSpecYaml: ""
   # Include the litcoin graph spec from graph_specs/optional/
   optionalGraphSpec: "litcoin-graph-spec.yaml"
-  buildMode: true
+  buildMode: graph
   image:
     repository: ghcr.io/robokopu24/orion
     pullPolicy: IfNotPresent

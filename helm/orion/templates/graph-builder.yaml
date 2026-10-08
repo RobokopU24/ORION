@@ -6,6 +6,9 @@
 {{- fail "orion.graphSpecUrl must be an http(s) URL. To use a local file or yaml text, use orion.graphSpecYaml." -}}
 {{- end }}
 {{- end }}
+{{- if not (has .Values.orion.buildMode (list "graph" "atlas" "none")) -}}
+{{- fail (printf "orion.buildMode must be graph, atlas or none, got: %v" .Values.orion.buildMode) -}}
+{{- end }}
 apiVersion: batch/v1
 kind: Job
 metadata:
@@ -123,12 +126,17 @@ spec:
               value: {{ .Values.pharos.db_name | quote }}
           resources:
             {{- toYaml .Values.orion.resources | nindent 12 }}
-      {{- if .Values.orion.buildMode }}
+      {{- if ne .Values.orion.buildMode "none" }}
       initContainers:
         - name: ds-graph-builder
           image: {{ .Values.orion.image.repository }}:{{ .Values.orion.image.tag }}
           imagePullPolicy: {{ .Values.orion.image.pullPolicy }}
           args:
+            {{- if eq .Values.orion.buildMode "atlas" }}
+            - "python"
+            - "-m"
+            - "orion.cli.build_for_atlas"
+            {{- else }}
             - "orion-build"
             - {{ .Values.orion.graphID | quote }}
             {{- if .Values.orion.graphSpecUrl }}
@@ -137,6 +145,7 @@ spec:
             {{- else if .Values.orion.optionalGraphSpec }}
             - "--graph_spec"
             - "/ORION/graph_specs/optional/{{ .Values.orion.optionalGraphSpec }}"
+            {{- end }}
             {{- end }}
           volumeMounts:
             - mountPath: /ORION_storage
