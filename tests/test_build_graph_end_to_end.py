@@ -18,7 +18,7 @@ import pytest
 
 from orion.graph_pipeline import GraphBuilder
 from orion.ingest_pipeline import IngestPipeline
-from orion.kgx_metadata import source_ids_from_graph_metadata
+from orion.kgx_metadata import KGXKnowledgeGraphSource, source_ids_from_graph_metadata
 from orion.kgxmodel import GraphSpec
 from orion.metadata import Metadata, get_source_build_version
 
@@ -330,7 +330,7 @@ def test_build_graph_end_to_end_multi_source(tmp_path, monkeypatch):
     assert set(source_ids_from_graph_metadata(parent_meta)) == {'HGNC', 'CTD'}
     # each hasPart entry records both versions of the source build it came from
     for kg_source in parent_meta['hasPart']:
-        source_id = kg_source['@id'].rstrip('/').split('/')[-2]
+        source_id = KGXKnowledgeGraphSource.from_dict(kg_source).get_source_id()
         with open(graphs_dir / source_id / kg_source['orion:buildVersion'] / 'graph-metadata.json') as f:
             source_build_metadata = json.load(f)
         assert kg_source['version'] == source_build_metadata['version']
@@ -435,7 +435,7 @@ def test_build_graph_end_to_end_with_subgraph_dependency(tmp_path, monkeypatch):
 
     # Each hasPart entry records how its source build was produced, including HGNC's, which
     # carries up through My_Subgraph unchanged. Conflation was only requested for CTD.
-    kg_sources_by_id = {kg_source['@id'].rstrip('/').split('/')[-2]: kg_source
+    kg_sources_by_id = {KGXKnowledgeGraphSource.from_dict(kg_source).get_source_id(): kg_source
                         for kg_source in parent_meta['hasPart']}
     for source_id, conflation in (('HGNC', False), ('CTD', True)):
         kg_source = kg_sources_by_id[source_id]
