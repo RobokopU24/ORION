@@ -241,7 +241,6 @@ class SourceResolver:
         parser_graph_spec.resolved_sources = [GraphFileSource(id=source.id,
                                                               build_version=build_version,
                                                               file_paths=raw_file_paths,
-                                                              merge_strategy=source.merge_strategy,
                                                               kgx_graph_metadata=carrier)]
         if not self.gb.merge_and_finalize(parser_graph_spec, graph_output_dir, graph_output_url):
             return None
