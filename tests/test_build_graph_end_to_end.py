@@ -379,7 +379,7 @@ def test_build_graph_end_to_end_with_subgraph_dependency(tmp_path, monkeypatch):
                 'graph_id': 'Parent_Graph',
                 'graph_name': 'Parent Graph',
                 'output_format': 'jsonl',
-                'sources': [{'id': 'My_Subgraph'}, {'id': 'CTD'}],
+                'sources': [{'id': 'My_Subgraph'}, {'id': 'CTD', 'conflation': True}],
             },
         ]
     }
@@ -431,6 +431,19 @@ def test_build_graph_end_to_end_with_subgraph_dependency(tmp_path, monkeypatch):
         parent_meta = json.load(f)
     assert parent_meta['version'] == parent_spec.release_version
     assert set(source_ids_from_graph_metadata(parent_meta)) == {'CTD', 'HGNC'}
+
+    # Each hasPart entry records how its source build was produced, including HGNC's, which
+    # carries up through My_Subgraph unchanged. Conflation was only requested for CTD.
+    kg_sources_by_id = {kg_source['@id'].rstrip('/').split('/')[-2]: kg_source
+                        for kg_source in parent_meta['hasPart']}
+    for source_id, conflation in (('HGNC', False), ('CTD', True)):
+        kg_source = kg_sources_by_id[source_id]
+        assert kg_source['orion:conflation'] is conflation
+        assert kg_source['orion:strictNormalization'] is True
+        assert kg_source['orion:transformVersion'] == f'{source_id}_pv1'
+        for key in ('orion:supplementationVersion', 'orion:nodeNormalizationVersion',
+                    'orion:biolinkVersion', 'orion:babelVersion', 'orion:normalizationCodeVersion'):
+            assert kg_source[key], f'{source_id} hasPart entry is missing {key}'
 
     # build_results records every bundle produced: the parent, the subgraph, and each source build
     # (HGNC via My_Subgraph, CTD directly) — all single-source or multi-source graphs now.

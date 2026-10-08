@@ -257,12 +257,22 @@ class SourceResolver:
         graph_name = f'A ROBOKOP Knowledge Graph based on {parser_metadata.get("name", source.id)}'
         knowledge_source = KGXKnowledgeSource.from_dict(parser_metadata)
         knowledge_source.version = source.source_version
-        kg_source = KGXKnowledgeGraphSource(id=source_url,
-                                            name=graph_name,
-                                            release_version=release_version,
-                                            build_version=build_version,
-                                            node_count=0,
-                                            edge_count=0)
+        normalization_scheme = source.normalization_scheme
+        kg_source = KGXKnowledgeGraphSource(
+            id=source_url,
+            name=graph_name,
+            release_version=release_version,
+            build_version=build_version,
+            node_count=0,
+            edge_count=0,
+            transform_version=source.parsing_version,
+            supplementation_version=source.supplementation_version,
+            node_normalization_version=normalization_scheme.node_normalization_version,
+            biolink_version=normalization_scheme.edge_normalization_version,
+            babel_version=normalization_scheme.babel_version,
+            normalization_code_version=normalization_scheme.normalization_code_version,
+            conflation=normalization_scheme.conflation,
+            strict_normalization=normalization_scheme.strict)
         carrier = {'hasPart': [kg_source.to_dict()],
                    'isBasedOn': [knowledge_source.to_dict()]}
         return carrier, graph_name

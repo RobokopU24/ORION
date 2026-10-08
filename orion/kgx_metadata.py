@@ -17,6 +17,12 @@ ORION_BABEL_VERSION = 'orion:babelVersion'
 ORION_BIOLINK_VERSION = 'orion:biolinkVersion'
 ORION_NODE_COUNT = 'orion:nodeCount'
 ORION_EDGE_COUNT = 'orion:edgeCount'
+ORION_TRANSFORM_VERSION = 'orion:transformVersion'
+ORION_SUPPLEMENTATION_VERSION = 'orion:supplementationVersion'
+ORION_NODE_NORMALIZATION_VERSION = 'orion:nodeNormalizationVersion'
+ORION_NORMALIZATION_CODE_VERSION = 'orion:normalizationCodeVersion'
+ORION_CONFLATION = 'orion:conflation'
+ORION_STRICT_NORMALIZATION = 'orion:strictNormalization'
 
 
 def _source_id_from_kg_id(kg_id: str) -> str | None:
@@ -96,13 +102,38 @@ class KGXKnowledgeGraphSource:
     """A single `hasPart` entry in a KGX graph's metadata: one knowledge graph (a source
     build, or a constituent of a subgraph) that contributed to the graph. The ingest pipeline
     produces these for source builds; the graph pipeline reads them back when assembling a
-    parent graph's metadata, overriding the counts with the parent merge's own totals."""
+    parent graph's metadata, overriding the counts with the parent merge's own totals.
+    The transform (parsing), supplementation, and normalization settings record how the source
+    build was produced. For subgraphs containing multiple sources those don't apply so they are 
+    optional """
     id: str = ""
     name: str = ""
     release_version: str = ""
     build_version: str = ""
     node_count: int | None = None
     edge_count: int | None = None
+    transform_version: str | None = None
+    supplementation_version: str | None = None
+    node_normalization_version: str | None = None
+    biolink_version: str | None = None
+    babel_version: str | None = None
+    normalization_code_version: str | None = None
+    conflation: bool | None = None
+    strict_normalization: bool | None = None
+
+    # metadata keys for the optional attributes, which are emitted only when set
+    _OPTIONAL_KEYS = {
+        'node_count': ORION_NODE_COUNT,
+        'edge_count': ORION_EDGE_COUNT,
+        'transform_version': ORION_TRANSFORM_VERSION,
+        'supplementation_version': ORION_SUPPLEMENTATION_VERSION,
+        'node_normalization_version': ORION_NODE_NORMALIZATION_VERSION,
+        'biolink_version': ORION_BIOLINK_VERSION,
+        'babel_version': ORION_BABEL_VERSION,
+        'normalization_code_version': ORION_NORMALIZATION_CODE_VERSION,
+        'conflation': ORION_CONFLATION,
+        'strict_normalization': ORION_STRICT_NORMALIZATION,
+    }
 
     @classmethod
     def from_dict(cls, data: dict) -> "KGXKnowledgeGraphSource":
@@ -111,8 +142,7 @@ class KGXKnowledgeGraphSource:
             name=data.get('name', ''),
             release_version=data.get('version', ''),
             build_version=data.get(ORION_BUILD_VERSION, ''),
-            node_count=data.get(ORION_NODE_COUNT),
-            edge_count=data.get(ORION_EDGE_COUNT),
+            **{attr: data.get(key) for attr, key in cls._OPTIONAL_KEYS.items()},
         )
 
     def to_dict(self) -> dict:
@@ -122,10 +152,10 @@ class KGXKnowledgeGraphSource:
             'version': self.release_version,
             ORION_BUILD_VERSION: self.build_version,
         }
-        if self.node_count is not None:
-            output_dict[ORION_NODE_COUNT] = self.node_count
-        if self.edge_count is not None:
-            output_dict[ORION_EDGE_COUNT] = self.edge_count
+        for attr, key in self._OPTIONAL_KEYS.items():
+            value = getattr(self, attr)
+            if value is not None:
+                output_dict[key] = value
         return output_dict
 
 
