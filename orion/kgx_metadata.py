@@ -110,29 +110,29 @@ class KGXKnowledgeGraphSource:
     name: str = ""
     release_version: str = ""
     build_version: str = ""
-    node_count: int | None = None
-    edge_count: int | None = None
     transform_version: str | None = None
-    supplementation_version: str | None = None
-    node_normalization_version: str | None = None
     biolink_version: str | None = None
     babel_version: str | None = None
+    node_normalization_version: str | None = None
     normalization_code_version: str | None = None
     conflation: bool | None = None
     strict_normalization: bool | None = None
+    supplementation_version: str | None = None
+    node_count: int | None = None
+    edge_count: int | None = None
 
     # metadata keys for the optional attributes, which are emitted only when set
     _OPTIONAL_KEYS = {
-        'node_count': ORION_NODE_COUNT,
-        'edge_count': ORION_EDGE_COUNT,
         'transform_version': ORION_TRANSFORM_VERSION,
-        'supplementation_version': ORION_SUPPLEMENTATION_VERSION,
-        'node_normalization_version': ORION_NODE_NORMALIZATION_VERSION,
         'biolink_version': ORION_BIOLINK_VERSION,
         'babel_version': ORION_BABEL_VERSION,
+        'node_normalization_version': ORION_NODE_NORMALIZATION_VERSION,
         'normalization_code_version': ORION_NORMALIZATION_CODE_VERSION,
         'conflation': ORION_CONFLATION,
         'strict_normalization': ORION_STRICT_NORMALIZATION,
+        'supplementation_version': ORION_SUPPLEMENTATION_VERSION,
+        'node_count': ORION_NODE_COUNT,
+        'edge_count': ORION_EDGE_COUNT,
     }
 
     @classmethod
