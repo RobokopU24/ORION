@@ -19,6 +19,7 @@ import pytest
 from orion.graph_pipeline import GraphBuilder
 from orion.ingest_pipeline import IngestPipeline
 from orion.kgx_metadata import source_ids_from_graph_metadata
+from orion.kgxmodel import GraphSpec
 from orion.metadata import Metadata, get_source_build_version
 
 
@@ -444,6 +445,8 @@ def test_build_graph_end_to_end_with_subgraph_dependency(tmp_path, monkeypatch):
         for key in ('orion:supplementationVersion', 'orion:nodeNormalizationVersion',
                     'orion:biolinkVersion', 'orion:babelVersion', 'orion:normalizationCodeVersion'):
             assert kg_source[key], f'{source_id} hasPart entry is missing {key}'
+    for key in ('orion:biolinkVersion', 'orion:babelVersion'):
+        assert parent_meta[key] == kg_sources_by_id['HGNC'][key] == kg_sources_by_id['CTD'][key]
 
     # build_results records every bundle produced: the parent, the subgraph, and each source build
     # (HGNC via My_Subgraph, CTD directly) — all single-source or multi-source graphs now.
@@ -648,3 +651,41 @@ def test_second_graph_reuses_existing_source_build(tmp_path, monkeypatch):
     assert builder.build_graph(builder.graph_specs['Second_Graph']) is True
     assert builder.ingest_pipeline.run_pipeline.call_count == 0
     assert builder.ingest_pipeline.get_final_file_paths.call_count == 0
+
+
+def test_graph_metadata_versions_from_has_part(tmp_path, caplog):
+    """The graph-level Biolink and Babel versions come from the hasPart entries. Mixed versions
+    are warned about: Biolink records the newest present, Babel is left empty. An entry from a
+    bundle that predates per-entry versions takes its carrier's graph-level versions."""
+    empty_spec_dir = tmp_path / 'specs'
+    empty_spec_dir.mkdir()
+    builder = GraphBuilder(graph_specs_dir=str(empty_spec_dir),
+                           graph_output_dir=str(tmp_path / 'graphs'),
+                           ingest_pipeline=IngestPipeline(storage_dir=str(tmp_path / 'storage')))
+
+    def _contribution(source_id, kg_source_versions, carrier_versions=None):
+        kg_source = {'@id': f'https://example.org/{source_id}/1.0.0/', 'name': source_id,
+                     'version': '1.0.0', 'orion:buildVersion': f'{source_id}_bv', **kg_source_versions}
+        return {'kgx_graph_metadata': {'hasPart': [kg_source], 'isBasedOn': [], **(carrier_versions or {})},
+                'node_count': 1, 'edge_count': 1}
+
+    merge_metadata = {'sources': {
+        'HGNC': _contribution('HGNC', {'orion:biolinkVersion': 'v4.2.0', 'orion:babelVersion': 'babel_a'}),
+        'CTD': _contribution('CTD', {'orion:biolinkVersion': 'v4.4.2', 'orion:babelVersion': 'babel_b'}),
+        'GO': _contribution('GO', {}, {'orion:biolinkVersion': 'v4.2.0', 'orion:babelVersion': 'babel_a'}),
+    }}
+    graph_spec = GraphSpec(graph_id='Mixed_Graph', graph_name='Mixed Graph', graph_description='', graph_url='')
+
+    with caplog.at_level('WARNING', logger='orion.graph_pipeline'):
+        builder.generate_kgx_metadata_files(graph_spec=graph_spec,
+                                            merge_metadata=merge_metadata,
+                                            graph_output_dir=str(tmp_path),
+                                            graph_output_url='https://example.org/Mixed_Graph/1.0.0/',
+                                            build_time='2026-01-01T00:00:00Z')
+
+    with open(tmp_path / 'graph-metadata.json') as f:
+        graph_metadata = json.load(f)
+    assert graph_metadata['orion:biolinkVersion'] == 'v4.4.2'
+    assert graph_metadata['orion:babelVersion'] == ''
+    assert 'different Biolink versions: v4.2.0 (GO, HGNC); v4.4.2 (CTD)' in caplog.text
+    assert 'different Babel versions: babel_a (GO, HGNC); babel_b (CTD)' in caplog.text

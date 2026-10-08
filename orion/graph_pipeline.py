@@ -6,6 +6,7 @@ import argparse
 import datetime
 import requests
 
+from collections import defaultdict
 from xxhash import xxh64_hexdigest
 
 from orion.utils import GetDataPullError
@@ -36,6 +37,8 @@ from orion.kgx_metadata import (
     KGXKnowledgeSource,
     KGXKnowledgeGraphSource,
     KGX_ENCODING_FORMAT,
+    ORION_BABEL_VERSION,
+    ORION_BIOLINK_VERSION,
     generate_kgx_schema_file,
 )
 
@@ -141,17 +144,13 @@ class GraphBuilder:
             # ISO 8601 in UTC, the format graph metadata dates are recorded in
             build_time = (datetime.datetime.now(datetime.timezone.utc)
                           .isoformat(timespec='seconds').replace('+00:00', 'Z'))
-            biolink_version = self._graph_biolink_version(graph_spec)
-            babel_version = self._graph_babel_version(graph_spec)
 
             logger.info(f'Generating KGX metadata for {graph_id}...')
             self.generate_kgx_metadata_files(graph_spec=graph_spec,
                                              merge_metadata=merge_metadata,
                                              graph_output_dir=graph_output_dir,
                                              graph_output_url=graph_output_url,
-                                             build_time=build_time,
-                                             biolink_version=biolink_version,
-                                             babel_version=babel_version)
+                                             build_time=build_time)
             logger.info(f'Building graph {graph_id} complete!')
 
         # --- Additional artifacts (QC, schema, meta KG, dumps, alternate formats). These can
@@ -175,12 +174,15 @@ class GraphBuilder:
         if not kgx_bundle.has_schema():
             kgx_bundle.decompress_nodes_and_edges()
             logger.info(f'Generating KGX Schema for {graph_id}...')
+            # Use the Biolink version the bundle recorded for itself, so a schema backfilled for an
+            # existing bundle matches the version it was built with.
+            graph_metadata = KGXGraphMetadata.from_dict(kgx_bundle.load_graph_metadata() or {})
             generate_kgx_schema_file(nodes_filepath=kgx_bundle.nodes_path,
                                      edges_filepath=kgx_bundle.edges_path,
                                      output_dir=graph_output_dir,
                                      graph_output_url=graph_output_url,
                                      graph_name=graph_spec.graph_name,
-                                     biolink_version=self._graph_biolink_version(graph_spec))
+                                     biolink_version=graph_metadata.get_biolink_version() or config.BL_VERSION)
             logger.info(f'KGX Schema generated for {graph_id}.')
 
         needs_meta_kg = not self.has_meta_kg(graph_directory=graph_output_dir)
@@ -454,9 +456,7 @@ class GraphBuilder:
                                     merge_metadata: dict,
                                     graph_output_dir: str,
                                     graph_output_url: str,
-                                    build_time: str,
-                                    biolink_version: str,
-                                    babel_version: str):
+                                    build_time: str):
 
         # Each merged source/subgraph contributes its kgx_graph_metadata (carrier) and the
         # merge's own node/edge counts; that's all _kgx_metadata_from_contribution needs.
@@ -464,10 +464,38 @@ class GraphBuilder:
 
         kg_sources = []
         knowledge_sources = []
+        # version -> source ids of the hasPart entries normalized with it
+        biolink_versions = defaultdict(set)
+        babel_versions = defaultdict(set)
         for source in all_sources:
             kg_sources_part, ks_part = self._kgx_metadata_from_contribution(source)
             kg_sources.extend(kg_sources_part)
             knowledge_sources.extend(ks_part)
+            # Bundles built before hasPart entries recorded their own versions only record them
+            # graph-wide, so those entries take their carrier's graph-level versions.
+            carrier = source.get('kgx_graph_metadata') or {}
+            for kg_source in kg_sources_part:
+                source_id = kg_source.get_source_id() or kg_source.id
+                biolink_version = kg_source.biolink_version or carrier.get(ORION_BIOLINK_VERSION)
+                if biolink_version:
+                    biolink_versions[biolink_version].add(source_id)
+                babel_version = kg_source.babel_version or carrier.get(ORION_BABEL_VERSION)
+                if babel_version:
+                    babel_versions[babel_version].add(source_id)
+
+        # The graph-wide Biolink and Babel versions are the ones every constituent was normalized
+        # with. Mixed versions get a warning. A mixed Biolink version is recorded as the newest present, 
+        # since the schema is generated against it; a mixed Babel version is left empty.
+        graph_id = graph_spec.graph_id
+        for label, versions in (('Biolink', biolink_versions), ('Babel', babel_versions)):
+            if len(versions) > 1:
+                version_sources = '; '.join(f'{version} ({", ".join(sorted(source_ids))})'
+                                            for version, source_ids in sorted(versions.items()))
+                logger.warning(f'Graph {graph_id} merges sources normalized with different {label} '
+                               f'versions: {version_sources}')
+        biolink_version = max(biolink_versions, key=lambda version: parse_semver(version) or (0, 0, 0),
+                              default=config.BL_VERSION)
+        babel_version = next(iter(babel_versions)) if len(babel_versions) == 1 else ''
 
         # Create KGXGraphMetadata
         kgx_graph_metadata = KGXGraphMetadata(
@@ -562,31 +590,6 @@ class GraphBuilder:
         knowledge_sources = [KGXKnowledgeSource.from_dict(ks_dict)
                              for ks_dict in carrier_knowledge_sources]
         return kg_sources, knowledge_sources
-
-    # Graph-wide biolink/babel versions, read off the first parser source's normalization scheme
-    # (the spec parser applies graph-wide values to every parser source when present). Graph
-    # dependencies carry no normalization scheme; a graph with only those (or no sources) falls
-    # back to the config default (biolink) / None (babel).
-    @staticmethod
-    def _first_normalization_scheme(graph_spec: GraphSpec) -> NormalizationScheme | None:
-        for source in graph_spec.sources or []:
-            if source.normalization_scheme is not None:
-                return source.normalization_scheme
-        return None
-
-    @staticmethod
-    def _graph_biolink_version(graph_spec: GraphSpec) -> str:
-        normalization_scheme = GraphBuilder._first_normalization_scheme(graph_spec)
-        if normalization_scheme is not None:
-            return normalization_scheme.edge_normalization_version
-        return config.BL_VERSION
-
-    @staticmethod
-    def _graph_babel_version(graph_spec: GraphSpec) -> str:
-        normalization_scheme = GraphBuilder._first_normalization_scheme(graph_spec)
-        if normalization_scheme is not None:
-            return normalization_scheme.babel_version
-        return ""
 
     @staticmethod
     def _dump_distribution_entry(name: str, content_url: str) -> dict:

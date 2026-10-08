@@ -145,6 +145,9 @@ class KGXKnowledgeGraphSource:
             **{attr: data.get(key) for attr, key in cls._OPTIONAL_KEYS.items()},
         )
 
+    def get_source_id(self) -> str | None:
+        return _source_id_from_kg_id(self.id)
+
     def to_dict(self) -> dict:
         output_dict = {
             '@id': self.id,
@@ -284,7 +287,7 @@ class KGXGraphMetadata:
     def get_source_ids(self) -> list[str]:
         ids = []
         for kg_source in self.kg_sources or []:
-            source_id = _source_id_from_kg_id(kg_source.id)
+            source_id = kg_source.get_source_id()
             if source_id:
                 ids.append(source_id)
         return ids
