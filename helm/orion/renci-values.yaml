@@ -4,15 +4,15 @@ replicaCount: 1
 
 # See the default values.yaml file for descriptions of options
 orion:
-  graphID: "Example_Graph"
+  graphID: ""
   graphSpecUrl: ""
   graphSpecYaml: ""
   optionalGraphSpec: ""
-  buildMode: true
+  buildMode: atlas
   image:
     repository: ghcr.io/robokopu24/orion
     pullPolicy: IfNotPresent
-    tag: v2.0.5
+    tag: v2.0.10
   graphsVolume:
     use_nfs: true
     nfs_server: na-projects.edc.renci.org

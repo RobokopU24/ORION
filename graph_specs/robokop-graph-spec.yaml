@@ -12,7 +12,8 @@ graphs:
     graph_description: 'The ROBOKOP Knowledge Graph (ROBOKOP KG) is an open-source biomedical KG that supports the ROBOKOP application and currently contains millions of biomedical relationships derived from dozens of integrated and harmonized biological knowledge sources and bio-ontologies. The ROBOKOP KG includes curated components of most of the Automat KGs, as well as other knowledge sources. Most of the ROBOKOP knowledge sources are curated. However, the ROBOKOP KG also includes text-mined assertions from PubMed and PubMed Central that have been derived from natural language processing (NLP). Note that text-based assertions, while providing valuable information, must be interpreted with caution, as NLP algorithms may introduce false assertions.'
     graph_url: http://robokopkg.renci.org/browser/
     conflation: True
-    output_format: neo4j
+    output_format:
+    add_edge_id: True
     sources:
       - id: BINDING-DB
         # optional parameters for each data source - see README for more info
@@ -42,7 +43,6 @@ graphs:
       - id: KinAce
       - id: LINCS
       - id: MetabolomicsWorkbench
-      - id: MonarchKG
       - id: MONDOProps
       - id: OMIM
       - id: OntologicalHierarchy
@@ -62,6 +62,7 @@ graphs:
     graph_url: http://robokopkg.renci.org/browser/
     conflation: True
     output_format: neo4j
+    add_edge_id: True
     sources:
       - id: Baseline
       - id: ClinGenVariantPathogenicity
@@ -74,6 +75,7 @@ graphs:
     graph_url: http://robokop.renci.org/
     conflation: True
     output_format: neo4j
+    add_edge_id: True
     sources:
       - id: RobokopKG
       - id: BgeeMouse

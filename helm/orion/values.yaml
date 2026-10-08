@@ -4,7 +4,7 @@ replicaCount: 1
 
 orion:
   # The id of the graph to build or "all" to build all available graphs
-  graphID: "all"
+  graphID: "Example_Graph"
   # Optional http(s) URL to an additional graph spec yaml file. Passed to orion-build via --graph_spec.
   graphSpecUrl: ""
   # Optionally include graph spec yaml content that will be rendered into a ConfigMap and mounted as
@@ -27,7 +27,13 @@ orion:
   # Example:
   # optionalGraphSpec: "litcoin-graph-spec.yaml"
   optionalGraphSpec: ""
-  buildMode: true
+  # What the init container runs before the pod opens:
+  #   graph - orion-build with graphID (and graphSpecUrl or optionalGraphSpec)
+  #   atlas - orion.cli.build_for_atlas, which builds the graphs listed in that module plus every
+  #           parser source under them as standalone unconflated graphs. graphID, graphSpecUrl and
+  #           optionalGraphSpec are not used.
+  #   none  - no build; the pod only runs the bash container for inspection
+  buildMode: graph
   image:
     repository: ghcr.io/robokopu24/orion
     pullPolicy: Always

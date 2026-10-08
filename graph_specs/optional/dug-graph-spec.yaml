@@ -5,6 +5,7 @@ graphs:
     graph_url:
     conflation: True
     output_format:
+    add_edge_id: True
     sources:
       - id: CHEBIProps
       - id: CTD
@@ -17,7 +18,6 @@ graphs:
       - id: HPOA
       - id: IntAct
       - id: KinAce
-      - id: MonarchKG
       - id: MONDOProps
       - id: OMIM
       - id: OntologicalHierarchy

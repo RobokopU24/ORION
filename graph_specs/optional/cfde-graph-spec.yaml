@@ -5,6 +5,7 @@ graphs:
     graph_description: 'Common Fund Data Ecosystem KG'
     graph_url: https://github.com/NCATSTranslator/Translator-All/wiki/CFDE-KP
     output_format: neo4j
+    add_edge_id: True
     sources:
       - id: BINDING-DB
       - id: CHEBIProps
@@ -24,7 +25,6 @@ graphs:
         strict_normalization: False
       - id: MetabolomicsWorkbench
         strict_normalization: False
-      - id: MonarchKG
       - id: MONDOProps
       - id: OMIM
       - id: OntologicalHierarchy
