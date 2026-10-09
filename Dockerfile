@@ -31,13 +31,26 @@ EXPOSE 7474 7473 7687
 # Install uv
 COPY --from=ghcr.io/astral-sh/uv:0.10.9 /uv /uvx /usr/local/bin/
 
-COPY . /ORION/.
+# Use the image's Python, skip dev dependencies, and keep the venv outside /ORION
+# so it isn't hidden when docker compose mounts the repo over /ORION
+ENV UV_PYTHON_DOWNLOADS=0 \
+    UV_LINK_MODE=copy \
+    UV_NO_DEV=1 \
+    UV_PROJECT_ENVIRONMENT=/opt/venv
 
-# Install project dependencies from pyproject.toml including optional robokop deps
-# uv pip doesn't read [tool.uv.sources], so install the intermine git fork explicitly
-RUN uv pip install --system git+https://github.com/EvanDietzMorris/intermine-ws-python.git
-RUN cd /ORION && uv pip install --system ".[robokop]"
+WORKDIR /ORION
+
+# Install the locked dependencies (including optional robokop deps) in their own layer
+RUN --mount=type=cache,target=/root/.cache/uv \
+    --mount=type=bind,source=uv.lock,target=uv.lock \
+    --mount=type=bind,source=pyproject.toml,target=pyproject.toml \
+    uv sync --frozen --extra robokop --no-install-project
+
+COPY . /ORION/.
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv sync --locked --extra robokop
 
 RUN chmod -R 777 /ORION
 
-ENV PYTHONPATH="$PYTHONPATH:/ORION"
+ENV PATH="/opt/venv/bin:${PATH}" \
+    PYTHONPATH="$PYTHONPATH:/ORION"
