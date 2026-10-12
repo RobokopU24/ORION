@@ -3,7 +3,7 @@ import json
 
 import pytest
 
-from orion.kgx_rdf_converter import convert_kgx_to_rdf, BIOLINK_NS, ORION_NS, RDF_NS, RDFS_NS
+from orion.kgx_rdf_converter import convert_kgx_to_rdf, BIOLINK_NS, ORION_NS, ORION_EDGE_NS, RDF_NS, RDFS_NS
 
 pyoxigraph = pytest.importorskip('pyoxigraph')
 
@@ -40,7 +40,7 @@ EDGES = [
     # same triple from a different source gets its own reifier
     {'subject': 'CHEBI:2', 'predicate': 'biolink:affects', 'object': 'HGNC:1',
      'primary_knowledge_source': 'infores:other', 'custom_flag': True},
-    {'subject': 'CHEBI:2', 'predicate': 'biolink:treats', 'object': 'HGNC:1',
+    {'subject': 'CHEBI:2', 'predicate': 'biolink:treats', 'object': 'HGNC:1', 'id': 'urn:uuid:a/b c',
      'primary_knowledge_source': 'infores:ctd', 'negated': True},
     {'subject': 'UNKNOWNPREFIX:3', 'predicate': 'biolink:related_to', 'object': 'HGNC:1',
      'primary_knowledge_source': 'infores:ctd'},
@@ -147,6 +147,23 @@ def test_edge_property_values(rdf_output):
     assert {v.value for v in values['id']} == {'edge-1'}
     (total,) = values['total_sample_size']
     assert total.datatype.value.endswith('#integer') and total.value == '40'
+
+
+def test_reifier_is_edge_id_iri_or_blank_node(rdf_output):
+    _, store, _, _ = rdf_output
+    rows = _select(store, '''
+        SELECT ?r ?ks WHERE {
+            ?r rdf:reifies <<( CHEBI:2 biolink:affects HGNC:1 )>> ;
+               biolink:primary_knowledge_source ?ks .
+        }''')
+    reifiers = {row['ks'].value.rsplit('/', 1)[-1]: row['r'] for row in rows}
+    assert reifiers['ctd'] == _iri(ORION_EDGE_NS, 'edge-1')
+    assert isinstance(reifiers['other'], pyoxigraph.BlankNode)
+    # the edge id is also kept as a literal so it can be queried without parsing the IRI
+    assert next(store.quads_for_pattern(reifiers['ctd'], _iri(BIOLINK_NS, 'id'), None)).object.value == 'edge-1'
+    # characters that aren't safe in an IRI path segment are percent-encoded
+    negated_reifier = _iri(ORION_EDGE_NS, 'urn:uuid:a%2Fb%20c')
+    assert list(store.quads_for_pattern(negated_reifier, _iri(RDF_NS, 'reifies'), None))
 
 
 def test_nested_sources(rdf_output):

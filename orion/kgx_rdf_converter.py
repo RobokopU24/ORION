@@ -3,12 +3,13 @@ import json
 import math
 import os
 from collections import Counter
+from urllib.parse import quote
 from typing import Callable
 
 from linkml_runtime.linkml_model.meta import SlotDefinition
 
 from orion.biolink_constants import (
-    NODE_ID, NODE_TYPES, NAME, SUBJECT_ID, PREDICATE, OBJECT_ID, NEGATED,
+    NODE_ID, NODE_TYPES, NAME, EDGE_ID, SUBJECT_ID, PREDICATE, OBJECT_ID, NEGATED,
     PRIMARY_KNOWLEDGE_SOURCE, AGGREGATOR_KNOWLEDGE_SOURCES, SUPPORTING_DATA_SOURCE, PUBLICATIONS, XREFS,
     SYNONYMS, QUALIFIED_PREDICATE, SPECIES_CONTEXT_QUALIFIER, ANATOMICAL_CONTEXT_QUALIFIER,
     DISEASE_CONTEXT_QUALIFIER, TAXON, RETRIEVAL_SOURCE_ID, ORIGINAL_SUBJECT, ORIGINAL_OBJECT,
@@ -19,8 +20,9 @@ from orion.utils import quick_jsonl_file_iterator
 
 logger = get_orion_logger("orion.kgx_rdf_converter")
 
-# Converts KGX jsonl nodes/edges into RDF 1.2 N-Triples. Each edge becomes an asserted triple plus a blank node
-# reifier (rdf:reifies <<( s p o )>>) that carries the edge properties. Negated edges are reified but not asserted.
+# Converts KGX jsonl nodes/edges into RDF 1.2 N-Triples. Each edge becomes an asserted triple plus a reifier
+# (rdf:reifies <<( s p o )>>) that carries the edge properties. The reifier is an IRI minted from the edge id when
+# the edge has one, and a blank node otherwise. Negated edges are reified but not asserted.
 
 # encodingFormat for the RDF distribution entry in graph-metadata.json
 RDF_ENCODING_FORMAT = 'application/n-triples'
@@ -31,6 +33,8 @@ XSD_NS = 'http://www.w3.org/2001/XMLSchema#'
 BIOLINK_NS = 'https://w3id.org/biolink/vocab/'
 # namespace for node and edge properties that are not Biolink slots
 ORION_NS = 'https://w3id.org/orion/vocab/'
+# namespace for edge reifier IRIs, followed by the percent-encoded edge id
+ORION_EDGE_NS = 'https://w3id.org/orion/edge/'
 
 RDF_TYPE = f'<{RDF_NS}type>'
 RDF_REIFIES = f'<{RDF_NS}reifies>'
@@ -182,11 +186,12 @@ def _write_edges(out, mapper: _TermMapper, edges_file: str, property_ignore_list
             negated += 1
         else:
             out.write(f'{triple} .\n')
-        reifier = f'_:e{edge_index}'
+        edge_id = edge.get(EDGE_ID)
+        reifier = f'<{ORION_EDGE_NS}{quote(str(edge_id), safe=":")}>' if edge_id else f'_:e{edge_index}'
         out.write(f'{reifier} {RDF_REIFIES} <<( {triple} )>> .\n')
         properties = {k: v for k, v in edge.items()
                       if k not in (SUBJECT_ID, PREDICATE, OBJECT_ID) and k not in property_ignore_list}
-        _write_properties(out, mapper, reifier, properties, reifier)
+        _write_properties(out, mapper, reifier, properties, f'_:e{edge_index}')
         written += 1
     return written, skipped, negated
 
