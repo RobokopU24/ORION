@@ -1,11 +1,11 @@
 import gzip
 import json
+import pyoxigraph
 
 import pytest
 
 from orion.kgx_rdf_converter import convert_kgx_to_rdf, BIOLINK_NS, ORION_NS, ORION_EDGE_NS, RDF_NS, RDFS_NS
 
-pyoxigraph = pytest.importorskip('pyoxigraph')
 
 PREFIX_MAP = {
     'biolink': BIOLINK_NS,
