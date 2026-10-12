@@ -50,6 +50,7 @@ orion-schema-diff = "orion.cli.schema_diff:main"
 orion-redundant-kg = "orion.cli.generate_redundant_kg:main"
 orion-neo4j-dump = "orion.cli.neo4j_dump:main"
 orion-memgraph-dump = "orion.cli.memgraph_dump:main"
+orion-rdf-dump = "orion.cli.rdf_dump:main"
 orion-publish = "orion.cli.publish_graphs:main"
 
 [dependency-groups]
