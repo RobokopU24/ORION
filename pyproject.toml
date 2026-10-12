@@ -27,7 +27,7 @@ dependencies = [
 robokop = [
     "beautifulsoup4>=4.12.3",
     "celery>=5.4.0",
-    "curies>=0.7.9",
+    "curies>=0.15.3",
     "intermine",
     "mysql-connector-python>=9.4.0",
     "neo4j>=5.28.0",
@@ -36,7 +36,7 @@ robokop = [
     "polars>=1.19.0",
     "prefixmaps>=0.2.6",
     "psycopg2-binary>=2.9.9",
-    "pyoxigraph>=0.5.9",
+    "pyoxigraph>=0.5.11",
     "redis>=5.2.1",
 ]
 
@@ -50,6 +50,7 @@ orion-schema-diff = "orion.cli.schema_diff:main"
 orion-redundant-kg = "orion.cli.generate_redundant_kg:main"
 orion-neo4j-dump = "orion.cli.neo4j_dump:main"
 orion-memgraph-dump = "orion.cli.memgraph_dump:main"
+orion-rdf-dump = "orion.cli.rdf_dump:main"
 orion-publish = "orion.cli.publish_graphs:main"
 
 [dependency-groups]

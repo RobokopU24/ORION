@@ -26,6 +26,7 @@ CLI_ENTRY_POINTS = [
     ('orion.cli.generate_redundant_kg', 'main'),
     ('orion.cli.neo4j_dump', 'main'),
     ('orion.cli.memgraph_dump', 'main'),
+    ('orion.cli.rdf_dump', 'main'),
 ]
 
 

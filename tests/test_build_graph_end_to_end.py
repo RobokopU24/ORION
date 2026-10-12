@@ -209,6 +209,62 @@ def test_build_graph_end_to_end(tmp_path, monkeypatch):
     }
 
 
+def test_build_graph_rdf_output_format(tmp_path, monkeypatch):
+    fixture_dir = tmp_path / 'parser_output'
+    fixture_dir.mkdir()
+    fixture_nodes = fixture_dir / 'normalized_nodes.jsonl'
+    fixture_edges = fixture_dir / 'normalized_edges.jsonl'
+    _write_jsonl(fixture_nodes, FIXTURE_NODES)
+    _write_jsonl(fixture_edges, FIXTURE_EDGES)
+
+    _patch_post_merge_heavy_steps(monkeypatch)
+    # replace the Biolink network lookups the RDF converter makes with a fixed prefix map and slot set
+    monkeypatch.setattr('orion.kgx_rdf_converter.load_rdf_prefix_map', lambda biolink_version: {
+        'biolink': 'https://w3id.org/biolink/vocab/',
+        'HGNC': 'http://identifiers.org/hgnc/',
+        'infores': 'https://w3id.org/information-resource-registry/'})
+    monkeypatch.setattr('orion.kgx_rdf_converter.biolink_slot_checker',
+                        lambda biolink_version: lambda prop: True)
+
+    inline_spec = {
+        'graphs': [{
+            'graph_id': 'HGNC_Graph',
+            'graph_name': 'HGNC Test Graph',
+            'output_format': 'rdf',
+            'sources': [{'id': 'HGNC'}],
+        }]
+    }
+    graphs_dir = tmp_path / 'graphs'
+    graphs_dir.mkdir()
+    storage_dir = tmp_path / 'storage'
+    storage_dir.mkdir()
+    empty_spec_dir = tmp_path / 'specs'
+    empty_spec_dir.mkdir()
+
+    builder = GraphBuilder(graph_specs_dir=str(empty_spec_dir),
+                           inline_graph_spec=inline_spec,
+                           graph_output_dir=str(graphs_dir),
+                           ingest_pipeline=_build_mock_ingest_pipeline(storage_dir,
+                                                                         fixture_nodes,
+                                                                         fixture_edges))
+    graph_spec = builder.graph_specs['HGNC_Graph']
+    assert builder.build_graph(graph_spec) is True
+
+    output_dir = graphs_dir / 'HGNC_Graph' / graph_spec.build_version
+    rdf_filename = f'HGNC_Graph_{graph_spec.release_version}.nt.gz'
+    with gzip.open(output_dir / rdf_filename, 'rt') as f:
+        rdf_lines = f.read().splitlines()
+    reifier_lines = [line for line in rdf_lines if 'rdf-syntax-ns#reifies> <<( ' in line]
+    assert len(reifier_lines) == len(FIXTURE_EDGES)
+
+    with open(output_dir / 'graph-metadata.json') as f:
+        distribution = json.load(f)['distribution']
+    rdf_entries = [d for d in distribution if d['name'] == 'rdf']
+    assert len(rdf_entries) == 1
+    assert rdf_entries[0]['contentUrl'].endswith(rdf_filename)
+    assert rdf_entries[0]['encodingFormat'] == 'application/n-triples'
+
+
 def test_build_graph_end_to_end_multi_source(tmp_path, monkeypatch):
     """This exercises the recursive _build_single_source_graph_dependency path:
     each data source is built as its own single-source artifact under

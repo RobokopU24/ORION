@@ -19,6 +19,7 @@ from orion.kgx_file_merger import KGXFileMerger
 from orion.kgx_validation import validate_graph
 from orion.neo4j_tools import create_neo4j_dump
 from orion.memgraph_tools import create_memgraph_dump
+from orion.kgx_rdf_converter import convert_kgx_to_rdf, RDF_ENCODING_FORMAT
 from orion.kgx_bundle import KGXBundle
 from orion.graph_versioning import DEFAULT_BASE_RELEASE_VERSION, next_release_version, parse_semver
 from orion.kgxmodel import (
@@ -300,6 +301,28 @@ class GraphBuilder:
             # contentUrl can't represent. We may want to make a tar of all the memgraph files and point
             # to that if we continue to support memgraph into the future.
 
+        if 'rdf' in output_formats:
+            rdf_filename = self._rdf_filename(graph_id, release_version)
+            rdf_path = os.path.join(graph_output_dir, rdf_filename)
+            rdf_success = True
+            if not os.path.exists(rdf_path):
+                kgx_bundle.decompress_nodes_and_edges()
+                logger.info(f'Starting RDF conversion for {graph_id}...')
+                graph_metadata = KGXGraphMetadata.from_dict(kgx_bundle.load_graph_metadata() or {})
+                try:
+                    convert_kgx_to_rdf(nodes_input_file=kgx_bundle.nodes_path,
+                                       edges_input_file=kgx_bundle.edges_path,
+                                       output_file=rdf_path,
+                                       biolink_version=graph_metadata.get_biolink_version() or config.BL_VERSION,
+                                       node_property_ignore_list=node_property_ignore_list,
+                                       edge_property_ignore_list=edge_property_ignore_list)
+                except Exception as e:
+                    logger.error(f'RDF conversion failed for {graph_id}: {e}')
+                    rdf_success = False
+            if rdf_success:
+                dump_distribution_entries.append(self._dump_distribution_entry(
+                    "rdf", f'{graph_output_url}{rdf_filename}', encoding_format=RDF_ENCODING_FORMAT))
+
         # All processing is complete. Replace the final jsonl files with gzipped
         # versions so downloads are smaller/faster.
         logger.info(f'Compressing final jsonl files for {graph_id}...')
@@ -324,6 +347,10 @@ class GraphBuilder:
     @staticmethod
     def _neo4j_dump_filename(graph_id: str, release_version: str, suffix: str = '') -> str:
         return f'{graph_id}_{release_version}{suffix}.db.dump'
+
+    @staticmethod
+    def _rdf_filename(graph_id: str, release_version: str) -> str:
+        return f'{graph_id}_{release_version}.nt.gz'
 
     # Determine the release_version and build_version for a graph.
     def determine_versions(self, graph_spec: GraphSpec):
@@ -592,8 +619,11 @@ class GraphBuilder:
         return kg_sources, knowledge_sources
 
     @staticmethod
-    def _dump_distribution_entry(name: str, content_url: str) -> dict:
-        return {"@type": "DataDownload", "name": name, "contentUrl": content_url}
+    def _dump_distribution_entry(name: str, content_url: str, encoding_format: str = None) -> dict:
+        entry = {"@type": "DataDownload", "name": name, "contentUrl": content_url}
+        if encoding_format:
+            entry["encodingFormat"] = encoding_format
+        return entry
 
     @staticmethod
     def _kgx_bundle_distribution_entries(graph_output_url: str) -> list[dict]:
