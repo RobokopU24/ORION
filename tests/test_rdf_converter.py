@@ -208,6 +208,29 @@ def test_unsafe_iri_chars_are_percent_encoded_and_unmapped_values_become_literal
     assert [row['pub'] for row in rows] == [pyoxigraph.Literal('DOI:not-in-map')]
 
 
+def test_local_ids_and_property_names_are_valid_iris(tmp_path):
+    nodes_path = tmp_path / 'nodes.jsonl'
+    edges_path = tmp_path / 'edges.jsonl'
+    _write_jsonl(nodes_path, [
+        {'id': 'HASH:a#b', 'category': ['biolink:Gene'], 'xref': ['HGNC:x[1]', 'HGNC:50%', 'HGNC:%zz'],
+         'weird[prop]': 1},
+        {'id': 'DOI:10.1000/xyz', 'category': ['biolink:Publication']},
+    ])
+    _write_jsonl(edges_path, [])
+    output_path = tmp_path / 'graph.nt.gz'
+    convert_kgx_to_rdf(str(nodes_path), str(edges_path), str(output_path),
+                       prefix_map={**PREFIX_MAP, 'HASH': 'http://example.org/vocab#', 'DOI': 'https://doi.org/'},
+                       is_biolink_slot=lambda prop: prop in BIOLINK_SLOTS | {'xref'})
+    with gzip.open(output_path, 'rb') as f:
+        store = pyoxigraph.Store()
+        store.load(f.read(), format=pyoxigraph.RdfFormat.N_TRIPLES)
+    node = _iri('http://example.org/vocab#', 'a%23b')
+    xrefs = {q.object for q in store.quads_for_pattern(node, _iri(BIOLINK_NS, 'xref'), None)}
+    assert xrefs == {_iri('http://identifiers.org/hgnc/', local) for local in ('x%5B1%5D', '50%25', '%25zz')}
+    assert list(store.quads_for_pattern(node, _iri(ORION_NS, 'weird%5Bprop%5D'), None))
+    assert list(store.quads_for_pattern(_iri('https://doi.org/', '10.1000/xyz'), None, None))
+
+
 def test_output_file_must_be_nt_gz(tmp_path):
     with pytest.raises(ValueError):
         convert_kgx_to_rdf('nodes.jsonl', 'edges.jsonl', str(tmp_path / 'graph.ttl'),

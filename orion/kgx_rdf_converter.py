@@ -69,7 +69,7 @@ CURIE_VALUED_PROPERTIES = frozenset({
     'has_supporting_study_result',
 })
 
-# Characters not allowed in an N-Triples IRIREF, percent-encoded when they appear in a CURIE local id.
+# Characters not allowed in an N-Triples IRIREF, percent-encoded when they appear in an http(s) value written as an IRI.
 _IRI_UNSAFE_CHARS = {c: f'%{ord(c):02X}' for c in '<>"{}|^`\\'}
 _IRI_UNSAFE_CHARS.update({chr(i): f'%{i:02X}' for i in range(0x21)})
 _IRI_ESCAPE_TABLE = str.maketrans(_IRI_UNSAFE_CHARS)
@@ -94,13 +94,13 @@ class _TermMapper:
         if namespace is None:
             self.unmapped_prefixes[prefix if sep else '(no prefix)'] += 1
             return None
-        return f'<{namespace}{local_id.translate(_IRI_ESCAPE_TABLE)}>'
+        return f'<{namespace}{quote(local_id, safe=":/")}>'
 
     def property_iri(self, prop: str):
         iri = self.property_iris.get(prop)
         if iri is None:
             namespace = BIOLINK_NS if self.is_biolink_slot(prop) else ORION_NS
-            iri = f'<{namespace}{prop.translate(_IRI_ESCAPE_TABLE)}>'
+            iri = f'<{namespace}{quote(prop, safe=":/")}>'
             self.property_iris[prop] = iri
         return iri
 
