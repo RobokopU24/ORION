@@ -343,16 +343,16 @@ wheels = [
 
 [[package]]
 name = "curies"
-version = "0.13.13"
+version = "0.15.3"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "pydantic" },
     { name = "pystow" },
     { name = "typing-extensions" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/80/66/20c0babb17c401dd9ddb57413eb9a11192528f11f856378587ba97d2e7b5/curies-0.13.13.tar.gz", hash = "sha256:aac8b3175680315566395ac754f6fa0878112d0fa6e8997cb65d9af91c66b778", size = 72376, upload-time = "2026-06-12T10:27:52.517Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/06/9a/10def0c00f9f75e21f696d33cae90a46dfb5a97f5bf2a8a812f869b43ad5/curies-0.15.3.tar.gz", hash = "sha256:6c613b63c3d3f485fcc42248309d011911cc1c51fc0c6a54a30311d4dc87a6aa", size = 74155, upload-time = "2026-10-08T17:50:22.744Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/72/97/db70517204cd8aec8cb0773036333407405f6552bf928234d68531b0acd2/curies-0.13.13-py3-none-any.whl", hash = "sha256:43051140cd1f089a832f139633b14d473c09fa48a2f36e1b9b94c1270812267e", size = 82043, upload-time = "2026-06-12T10:27:51.334Z" },
+    { url = "https://files.pythonhosted.org/packages/03/07/1e62b10fe0102b2702e8ee92e9169a29c340e32136e0ed0ba1c4ceb5ecfa/curies-0.15.3-py3-none-any.whl", hash = "sha256:7b83bc82798aac78711578fced0e99055371fbc3d43d3d4319a66e1e5598ce95", size = 83356, upload-time = "2026-10-08T17:50:21.225Z" },
 ]
 
 [[package]]
@@ -1276,16 +1276,16 @@ wheels = [
 
 [[package]]
 name = "pystow"
-version = "0.8.19"
+version = "0.10.2"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "backports-zstd", marker = "python_full_version < '3.14'" },
     { name = "tqdm" },
     { name = "typing-extensions" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/38/ae/ab4b8969de766b7eab335aba53b53de7542b682b5a7743982aa016215579/pystow-0.8.19.tar.gz", hash = "sha256:60dbad2360d6da38fbfa85d45f7d865fa5fbb49e343e27e836df5fb3b9f4f7de", size = 54537, upload-time = "2026-06-19T09:12:03.756Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/a1/ad/da2fd4b23ccf2fa81088a49bbc7d02f3fda7bd522d2f2a9ead77d474d2df/pystow-0.10.2.tar.gz", hash = "sha256:e30ff664a9099ab9356b25e4fa3c69a1612a32c2c5b81e8a23b4c8efc2fb8a6d", size = 58055, upload-time = "2026-10-08T08:53:44.245Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/81/72/81bb62fe4adab824b9e664a0096b16714341c892407658884111273a5993/pystow-0.8.19-py3-none-any.whl", hash = "sha256:7ba92e23e952e250dc5dc7b7b4e6797a4ab030f3dec88fc429286f78f186965f", size = 61817, upload-time = "2026-06-19T09:12:05.012Z" },
+    { url = "https://files.pythonhosted.org/packages/0f/05/6794a5d75724ca61afe81a1f1fe221cb018aaee5d20e42f756341fc0fee6/pystow-0.10.2-py3-none-any.whl", hash = "sha256:1f992aab1d20b8ba4b7942b3d0a0d4a84e48e0fcdb2b8781ebc7d41bf7648a2d", size = 65547, upload-time = "2026-10-08T08:53:43.008Z" },
 ]
 
 [[package]]
@@ -1524,7 +1524,7 @@ requires-dist = [
     { name = "beautifulsoup4", marker = "extra == 'robokop'", specifier = ">=4.12.3" },
     { name = "bmt", specifier = ">=1.4.8" },
     { name = "celery", marker = "extra == 'robokop'", specifier = ">=5.4.0" },
-    { name = "curies", marker = "extra == 'robokop'", specifier = ">=0.7.9" },
+    { name = "curies", marker = "extra == 'robokop'", specifier = ">=0.15.3" },
     { name = "intermine", marker = "extra == 'robokop'", git = "https://github.com/EvanDietzMorris/intermine-ws-python.git" },
     { name = "jsonlines", specifier = ">=4.0.0" },
     { name = "mysql-connector-python", marker = "extra == 'robokop'", specifier = ">=9.4.0" },

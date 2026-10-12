@@ -27,7 +27,7 @@ dependencies = [
 robokop = [
     "beautifulsoup4>=4.12.3",
     "celery>=5.4.0",
-    "curies>=0.7.9",
+    "curies>=0.15.3",
     "intermine",
     "mysql-connector-python>=9.4.0",
     "neo4j>=5.28.0",
