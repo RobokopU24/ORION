@@ -185,8 +185,9 @@ BIOLINK_MAPPING_CHANGES = {
 }
 
 
-def get_biolink_prefix_map():
-    response = requests.get(f'https://raw.githubusercontent.com/biolink/biolink-model/{BIOLINK_MODEL_VERSION}/project/prefixmap/biolink_model_prefix_map.json')
+def get_biolink_prefix_map(biolink_version: str = None):
+    version = standardize_biolink_model_version(biolink_version) if biolink_version else BIOLINK_MODEL_VERSION
+    response = requests.get(f'https://raw.githubusercontent.com/biolink/biolink-model/{version}/project/prefixmap/biolink_model_prefix_map.json')
     if response.status_code != 200:
         response.raise_for_status()
     biolink_prefix_map = response.json()
