@@ -11,7 +11,7 @@ PREFIX_MAP = {
     'biolink': BIOLINK_NS,
     'infores': 'https://w3id.org/information-resource-registry/',
     'HGNC': 'http://identifiers.org/hgnc/',
-    'NCBIGene': 'https://identifiers.org/ncbigene/',
+    'NCBIGene': 'http://identifiers.org/ncbigene/',
     'CHEBI': 'http://purl.obolibrary.org/obo/CHEBI_',
     'PMID': 'http://www.ncbi.nlm.nih.gov/pubmed/',
 }
@@ -104,7 +104,7 @@ def test_node_triples(rdf_output):
     label = next(store.quads_for_pattern(gene, _iri(RDFS_NS, 'label'), None)).object
     assert label.value == 'GeneA "alpha"\nline two \\ end'
     equivalents = {q.object for q in store.quads_for_pattern(gene, _iri(BIOLINK_NS, 'equivalent_identifiers'), None)}
-    assert equivalents == {gene, _iri('https://identifiers.org/ncbigene/', '100')}
+    assert equivalents == {gene, _iri('http://identifiers.org/ncbigene/', '100')}
     ic = next(store.quads_for_pattern(gene, _iri(BIOLINK_NS, 'information_content'), None)).object
     assert ic.datatype.value.endswith('#double') and float(ic.value) == 85.2
     custom = next(store.quads_for_pattern(gene, _iri(ORION_NS, 'custom_score'), None)).object

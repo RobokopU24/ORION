@@ -20,7 +20,7 @@ class UGLoader(SourceDataLoader):
 
     source_id = 'UbergraphNonredundant'
     provenance_id = 'infores:ubergraph'
-    parsing_version: str = '1.6'
+    parsing_version: str = '1.7'
 
     def __init__(self, test_mode: bool = False, source_data_dir: str = None):
         """
@@ -155,7 +155,7 @@ class UGRedundantLoader(UGLoader):
     source_data_url = "https://github.com/INCATools/ubergraph"
     license = "https://raw.githubusercontent.com/INCATools/ubergraph/master/LICENSE.txt"
     attribution = "https://github.com/INCATools/ubergraph"
-    parsing_version: str = '1.2'
+    parsing_version: str = '1.3'
 
     def __init__(self, test_mode: bool = False, source_data_dir: str = None):
         """
@@ -177,7 +177,7 @@ class OHLoader(UGLoader):
     source_data_url = "https://github.com/INCATools/ubergraph"
     license = "https://raw.githubusercontent.com/INCATools/ubergraph/master/LICENSE.txt"
     attribution = "https://github.com/INCATools/ubergraph"
-    parsing_version: str = '1.5'
+    parsing_version: str = '1.6'
 
     def __init__(self, test_mode: bool = False, source_data_dir: str = None):
         """
