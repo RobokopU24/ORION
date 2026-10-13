@@ -27,11 +27,10 @@ orion:
   # Example:
   # optionalGraphSpec: "litcoin-graph-spec.yaml"
   optionalGraphSpec: ""
-  # What the init container runs before the pod opens:
+  # buildMode is what the init container runs before the pod opens:
   #   graph - orion-build with graphID (and graphSpecUrl or optionalGraphSpec)
-  #   atlas - orion.cli.build_for_atlas, which builds the graphs listed in that module plus every
-  #           parser source under them as standalone unconflated graphs. graphID, graphSpecUrl and
-  #           optionalGraphSpec are not used.
+  #   atlas - orion.cli.build_for_atlas, which builds all graphs to be published to ROBOKOP Atlas. 
+  #           graphID, graphSpecUrl and optionalGraphSpec can not be used in atlas mode.
   #   none  - no build; the pod only runs the bash container for inspection
   buildMode: graph
   image:
