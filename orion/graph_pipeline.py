@@ -98,7 +98,7 @@ class GraphBuilder:
 
     # Materialize a parser source directly as a jsonl graph.
     # Used when orion-build is called with a parser id instead of a graph spec id.
-    # With additional_output_formats, the resolved bundle is finalized again to add those formats, 
+    # With additional_output_formats, the resolved bundle is finalized again to add those formats,
     # whether it was just built, already local, or downloaded from the registry.
     def build_source_graph(self, source_id: str, additional_output_formats: str = None) -> bool:
         logger.info(f'Building source graph {source_id}...')
@@ -112,18 +112,28 @@ class GraphBuilder:
             return False
         if not additional_output_formats:
             return True
-        source_graph_spec = GraphSpec(graph_id=source_id,
-                                      graph_name=resolved_source.kgx_graph_metadata.get('name', ''),
-                                      graph_description='',
-                                      graph_url='',
-                                      graph_output_format='jsonl',
-                                      sources=[source])
-        source_graph_spec.build_version = resolved_source.build_version
-        source_graph_spec.release_version = resolved_source.release_version
+        source_graph_spec = self.source_graph_spec(source,
+                                                   resolved_source.build_version,
+                                                   resolved_source.release_version)
         return self.merge_and_finalize(source_graph_spec,
                                        self.get_graph_dir_path(source_id, resolved_source.build_version),
                                        self.get_graph_output_url(source_id, resolved_source.release_version),
                                        additional_output_formats)
+
+    # The single-source GraphSpec a parser source is finalized under when materialized as its own graph,
+    # named after the parser's source.json so every build of the source graph gets the same spec.
+    def source_graph_spec(self, source: GraphSource, build_version: str, release_version: str) -> GraphSpec:
+        parser_metadata = self.ingest_pipeline.load_parser_metadata(source.id)
+        source_graph_spec = GraphSpec(graph_id=source.id,
+                                      graph_name=f'A ROBOKOP Knowledge Graph based on '
+                                                 f'{parser_metadata.get("name", source.id)}',
+                                      graph_description='',
+                                      graph_url='',
+                                      graph_output_format='jsonl',
+                                      sources=[source])
+        source_graph_spec.build_version = build_version
+        source_graph_spec.release_version = release_version
+        return source_graph_spec
 
     # Merge a graph_spec's already-resolved sources into a finished KGX bundle at graph_output_dir and
     # generate all of its artifacts (metadata, QC, schema, meta KG, requested db dumps). This is the one

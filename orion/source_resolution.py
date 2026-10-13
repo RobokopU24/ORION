@@ -19,7 +19,7 @@ from orion.graph_registry import GraphRegistryClient, GraphRegistryError
 from orion.graph_versioning import DEFAULT_BASE_RELEASE_VERSION
 from orion.kgx_bundle import KGXBundle
 from orion.kgx_metadata import KGXGraphMetadata, KGXKnowledgeSource, KGXKnowledgeGraphSource
-from orion.kgxmodel import GraphFileSource, GraphSource, GraphSpec
+from orion.kgxmodel import GraphFileSource, GraphSource
 from orion.logging import get_orion_logger
 
 logger = get_orion_logger(__name__)
@@ -228,16 +228,9 @@ class SourceResolver:
         release_version = self.gb._select_release_version(source.id, build_version, DEFAULT_BASE_RELEASE_VERSION)
         graph_output_dir = self.gb.get_graph_dir_path(source.id, build_version)
         graph_output_url = self.gb.get_graph_output_url(source.id, release_version)
-        carrier, graph_name = self._parser_source_carrier(source, release_version, build_version, graph_output_url)
-
-        parser_graph_spec = GraphSpec(graph_id=source.id,
-                                      graph_name=graph_name,
-                                      graph_description='',
-                                      graph_url='',
-                                      graph_output_format='jsonl',
-                                      sources=[source])
-        parser_graph_spec.build_version = build_version
-        parser_graph_spec.release_version = release_version
+        parser_graph_spec = self.gb.source_graph_spec(source, build_version, release_version)
+        carrier = self._parser_source_carrier(source, release_version, build_version, graph_output_url,
+                                              parser_graph_spec.graph_name)
         parser_graph_spec.resolved_sources = [GraphFileSource(id=source.id,
                                                               build_version=build_version,
                                                               file_paths=raw_file_paths,
@@ -249,11 +242,10 @@ class SourceResolver:
     # A provenance carrier for a parser's raw output: hasPart (this source as a knowledge-graph source)
     # and isBasedOn (its knowledge source, from the parser's source.json). generate_kgx_metadata_files
     # copies these into the finished bundle's graph-metadata.json; the merge overrides the placeholder
-    # node/edge counts. Returns the carrier plus the derived graph name.
+    # node/edge counts.
     def _parser_source_carrier(self, source: GraphSource, release_version: str, build_version: str,
-                               source_url: str):
+                               source_url: str, graph_name: str) -> dict:
         parser_metadata = self.gb.ingest_pipeline.load_parser_metadata(source.id)
-        graph_name = f'A ROBOKOP Knowledge Graph based on {parser_metadata.get("name", source.id)}'
         knowledge_source = KGXKnowledgeSource.from_dict(parser_metadata)
         knowledge_source.version = source.source_version
         normalization_scheme = source.normalization_scheme
@@ -272,6 +264,5 @@ class SourceResolver:
             supplementation_version=source.supplementation_version,
             node_count=0,
             edge_count=0)
-        carrier = {'hasPart': [kg_source.to_dict()],
-                   'isBasedOn': [knowledge_source.to_dict()]}
-        return carrier, graph_name
+        return {'hasPart': [kg_source.to_dict()],
+                'isBasedOn': [knowledge_source.to_dict()]}
