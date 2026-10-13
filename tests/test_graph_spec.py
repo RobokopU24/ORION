@@ -3,7 +3,7 @@ import pytest
 import requests.exceptions
 
 from unittest.mock import MagicMock, patch
-from orion.graph_pipeline import GraphBuilder, GraphSpecError, main as graph_pipeline_main
+from orion.graph_pipeline import GraphBuilder, GraphSpecError, parse_output_formats, main as graph_pipeline_main
 from orion.ingest_pipeline import IngestPipeline
 
 
@@ -214,6 +214,53 @@ def test_inline_graph_spec_collision_raises(test_graph_spec_dir, test_graph_outp
         GraphBuilder(graph_specs_dir=test_graph_spec_dir,
                      inline_graph_spec=inline_spec,
                      graph_output_dir=test_graph_output_dir)
+
+
+# output formats from every input are combined in order, deduplicated, and normalized
+def test_parse_output_formats_combines_and_dedupes():
+    assert parse_output_formats('neo4j+RDF', None, ' rdf + jsonl ', '') == ['neo4j', 'rdf', 'jsonl']
+    assert parse_output_formats(None) == []
+
+
+# an unknown output format in a graph spec is a hard error when the spec is loaded
+def test_graph_spec_invalid_output_format_raises(test_graph_spec_dir, test_graph_output_dir):
+    inline_spec = {
+        'graphs': [{
+            'graph_id': 'Bad_Format_Graph',
+            'output_format': 'neo4j+rfd',
+            'sources': [{'id': 'HGNC'}],
+        }]
+    }
+    with pytest.raises(GraphSpecError, match='Bad_Format_Graph.*rfd'):
+        GraphBuilder(graph_specs_dir=test_graph_spec_dir,
+                     inline_graph_spec=inline_spec,
+                     graph_output_dir=test_graph_output_dir)
+
+
+# unknown additional output formats are rejected before any dependency is resolved or built
+def test_build_invalid_additional_output_format_raises(test_graph_spec_dir, test_graph_output_dir):
+    graph_builder = GraphBuilder(graph_specs_dir=test_graph_spec_dir,
+                                 graph_output_dir=test_graph_output_dir)
+    graph_builder.ingest_pipeline = get_ingest_pipeline_mock()
+    graph_builder.source_resolver = MagicMock()
+    graph_builder.merge_and_finalize = MagicMock()
+
+    with pytest.raises(GraphSpecError, match='nt'):
+        graph_builder.build_graph(graph_builder.graph_specs['Testing_Graph'], additional_output_formats='rdf+nt')
+    with pytest.raises(GraphSpecError, match='nt'):
+        graph_builder.build_source_graph('HGNC', additional_output_formats='nt')
+    graph_builder.source_resolver.resolve.assert_not_called()
+    graph_builder.merge_and_finalize.assert_not_called()
+
+
+# an unknown --output_format is a usage error before any graph spec is loaded
+@pytest.mark.parametrize('extra_args', [[], ['--sources', 'HGNC']])
+def test_main_invalid_output_format_errors(monkeypatch, extra_args):
+    monkeypatch.setattr('sys.argv', ['orion-build', 'HGNC', '--output_format', 'rfd', *extra_args])
+    with patch('orion.graph_pipeline.GraphBuilder') as mock_graph_builder:
+        with pytest.raises(SystemExit):
+            graph_pipeline_main()
+    mock_graph_builder.assert_not_called()
 
 
 # the `base_release_version:` key in a graph spec sets the release_version floor

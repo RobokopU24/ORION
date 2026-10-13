@@ -49,6 +49,26 @@ logger = get_orion_logger("orion.graph_pipeline")
 REDUNDANT_EDGES_FILENAME = 'redundant_edges.jsonl'
 COLLAPSED_QUALIFIERS_FILENAME = 'collapsed_qualifier_edges.jsonl'
 
+# Every valid output format a graph can produce, in a graph spec or --output_format.
+OUTPUT_FORMATS = ('jsonl', 'neo4j', 'memgraph', 'rdf', 'redundant_jsonl', 'redundant_neo4j',
+                  'collapsed_qualifiers_jsonl', 'collapsed_qualifiers_neo4j')
+
+
+# Combine +-joined output format strings into one ordered, deduplicated list of formats.
+# Raises GraphSpecError naming any format not in OUTPUT_FORMATS.
+def parse_output_formats(*output_format_strings: str | None) -> list[str]:
+    output_formats = []
+    for output_format_string in output_format_strings:
+        for output_format in (output_format_string or '').lower().split('+'):
+            output_format = output_format.strip()
+            if output_format and output_format not in output_formats:
+                output_formats.append(output_format)
+    invalid_formats = [output_format for output_format in output_formats if output_format not in OUTPUT_FORMATS]
+    if invalid_formats:
+        raise GraphSpecError(f'Invalid output format(s): {", ".join(invalid_formats)}. '
+                             f'Valid formats: {", ".join(OUTPUT_FORMATS)}.')
+    return output_formats
+
 
 class GraphBuilder:
 
@@ -82,6 +102,9 @@ class GraphBuilder:
         graph_id = graph_spec.graph_id
         logger.info(f'Building graph {graph_id}...')
 
+        # here this just validates the additional_output_formats before doing real work
+        parse_output_formats(additional_output_formats)
+
         self.determine_versions(graph_spec)
         graph_output_dir = self.get_graph_dir_path(graph_id, graph_spec.build_version)
         graph_output_url = self.get_graph_output_url(graph_id, graph_spec.release_version)
@@ -101,6 +124,7 @@ class GraphBuilder:
     # With additional_output_formats, the resolved bundle is finalized again to add those formats,
     # whether it was just built, already local, or downloaded from the registry.
     def build_source_graph(self, source_id: str, additional_output_formats: str = None) -> bool:
+        parse_output_formats(additional_output_formats)
         logger.info(f'Building source graph {source_id}...')
         source = self.parse_source_spec({'id': source_id}, source_id)
         if source.normalization_scheme is not None and self.conflation:
@@ -227,11 +251,7 @@ class GraphBuilder:
 
         # Dump URLs produced below are recorded as distribution entries on graph-metadata.json.
         dump_distribution_entries = []
-        output_formats = []
-        for output_format in (graph_spec.graph_output_format, additional_output_formats):
-            for fmt in (output_format or '').lower().split('+'):
-                if fmt and fmt not in output_formats:
-                    output_formats.append(fmt)
+        output_formats = parse_output_formats(graph_spec.graph_output_format, additional_output_formats)
 
         # TODO allow these to be specified in the graph spec
         node_property_ignore_list = {'robokop_variant_id'}
@@ -800,6 +820,10 @@ class GraphBuilder:
                         f'be unique across included and user provided Graph Specs. Choose a different graph_id.')
 
                 graph_output_format = graph_yaml.get('output_format', '')
+                try:
+                    parse_output_formats(graph_output_format)
+                except GraphSpecError as e:
+                    raise GraphSpecError(f'Graph {graph_id}: {e}') from e
 
                 # Optional release_version floor (semver). Bare yaml numbers like
                 # `base_release_version: 2.0` parse as floats, so coerce to str before validating.
@@ -991,6 +1015,11 @@ def main():
     additional_graph_spec = args.graph_spec
     inline_graph_spec = None
     additional_output_formats = None
+
+    try:
+        parse_output_formats(args.output_format)
+    except GraphSpecError as e:
+        parser.error(str(e))
 
     if args.sources:
         inline_graph_spec = _generate_inline_graph_spec(graph_id_arg, args.sources, args.output_format)
