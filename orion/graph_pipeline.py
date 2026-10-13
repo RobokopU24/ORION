@@ -306,7 +306,6 @@ class GraphBuilder:
             rdf_path = os.path.join(graph_output_dir, rdf_filename)
             rdf_success = True
             if not os.path.exists(rdf_path):
-                kgx_bundle.decompress_nodes_and_edges()
                 logger.info(f'Starting RDF conversion for {graph_id}...')
                 graph_metadata = KGXGraphMetadata.from_dict(kgx_bundle.load_graph_metadata() or {})
                 try:
@@ -511,7 +510,7 @@ class GraphBuilder:
                     babel_versions[babel_version].add(source_id)
 
         # The graph-wide Biolink and Babel versions are the ones every constituent was normalized
-        # with. Mixed versions get a warning. A mixed Biolink version is recorded as the newest present, 
+        # with. Mixed versions get a warning. A mixed Biolink version is recorded as the newest present,
         # since the schema is generated against it; a mixed Babel version is left empty.
         graph_id = graph_spec.graph_id
         for label, versions in (('Biolink', biolink_versions), ('Babel', babel_versions)):
