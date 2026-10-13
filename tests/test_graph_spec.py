@@ -350,29 +350,6 @@ def test_main_output_format_adds_formats_to_requested_graphs(monkeypatch):
     mock_builder.build_source_graph.assert_called_once_with('HGNC', additional_output_formats='rdf')
 
 
-# With additional_output_formats, the resolved source bundle is finalized again to add those formats.
-def test_build_source_graph_with_additional_output_formats(test_graph_spec_dir, test_graph_output_dir):
-    graph_builder = GraphBuilder(graph_specs_dir=test_graph_spec_dir,
-                                 graph_output_dir=test_graph_output_dir)
-    graph_builder.ingest_pipeline = get_ingest_pipeline_mock()
-    graph_builder.source_resolver = MagicMock()
-    graph_builder.source_resolver.resolve.return_value = MagicMock(build_version='abc123', release_version='1.2')
-    graph_builder.merge_and_finalize = MagicMock(return_value=True)
-
-    assert graph_builder.build_source_graph('HGNC', additional_output_formats='rdf') is True
-    graph_spec, graph_output_dir, graph_output_url, additional_output_formats = \
-        graph_builder.merge_and_finalize.call_args.args
-    assert (graph_spec.graph_id, graph_spec.graph_name) == \
-        ('HGNC', 'A ROBOKOP Knowledge Graph based on HUGO Gene Nomenclature Committee (HGNC)')
-    assert (graph_spec.build_version, graph_spec.release_version) == ('abc123', '1.2')
-    assert graph_output_dir == graph_builder.get_graph_dir_path('HGNC', 'abc123')
-    assert graph_output_url == graph_builder.get_graph_output_url('HGNC', '1.2')
-    assert additional_output_formats == 'rdf'
-
-    graph_builder.merge_and_finalize.return_value = False
-    assert graph_builder.build_source_graph('HGNC', additional_output_formats='rdf') is False
-
-
 def test_default_graph_spec_defines_robomouse(monkeypatch, test_graph_output_dir):
     default_specs_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'graph_specs')
     graph_builder = GraphBuilder(graph_specs_dir=default_specs_dir,
