@@ -75,7 +75,10 @@ class GraphBuilder:
         # The SourceResolver is used to locate or build the sources specified in a GraphSpec
         self.source_resolver = SourceResolver(graph_builder=self)
 
-    def build_graph(self, graph_spec: GraphSpec):
+    # Build the graph specified by graph_spec and any of the sub-graphs or sources it depends on.
+    # additional_output_formats optionally produces more output formats (e.g. 'rdf' or 'neo4j+rdf') for this
+    # graph, but not for the graphs built as its dependencies.
+    def build_graph(self, graph_spec: GraphSpec, additional_output_formats: str = None):
         graph_id = graph_spec.graph_id
         logger.info(f'Building graph {graph_id}...')
 
@@ -91,26 +94,43 @@ class GraphBuilder:
                 logger.warning(f'Aborting graph {graph_id} release_version {graph_spec.release_version}, '
                                f'resolving dependencies failed.')
                 return False
-        return self.merge_and_finalize(graph_spec, graph_output_dir, graph_output_url)
+        return self.merge_and_finalize(graph_spec, graph_output_dir, graph_output_url, additional_output_formats)
 
-    # Materialize a parser source directly as a graph.
+    # Materialize a parser source directly as a jsonl graph.
     # Used when orion-build is called with a parser id instead of a graph spec id.
-    def build_source_graph(self, source_id: str) -> bool:
+    # With additional_output_formats, the resolved bundle is finalized again to add those formats, 
+    # whether it was just built, already local, or downloaded from the registry.
+    def build_source_graph(self, source_id: str, additional_output_formats: str = None) -> bool:
         logger.info(f'Building source graph {source_id}...')
         source = self.parse_source_spec({'id': source_id}, source_id)
         if source.normalization_scheme is not None and self.conflation:
             source.normalization_scheme.conflation = True
         self._source_build_version(source, source_id)
-        if self.source_resolver.resolve(source) is None:
+        resolved_source = self.source_resolver.resolve(source)
+        if resolved_source is None:
             logger.warning(f'Failed to build source graph {source_id}.')
             return False
-        return True
+        if not additional_output_formats:
+            return True
+        source_graph_spec = GraphSpec(graph_id=source_id,
+                                      graph_name=resolved_source.kgx_graph_metadata.get('name', ''),
+                                      graph_description='',
+                                      graph_url='',
+                                      graph_output_format='jsonl',
+                                      sources=[source])
+        source_graph_spec.build_version = resolved_source.build_version
+        source_graph_spec.release_version = resolved_source.release_version
+        return self.merge_and_finalize(source_graph_spec,
+                                       self.get_graph_dir_path(source_id, resolved_source.build_version),
+                                       self.get_graph_output_url(source_id, resolved_source.release_version),
+                                       additional_output_formats)
 
     # Merge a graph_spec's already-resolved sources into a finished KGX bundle at graph_output_dir and
     # generate all of its artifacts (metadata, QC, schema, meta KG, requested db dumps). This is the one
     # bundle producer: graph builds reach it with sources resolved by build_dependencies, parser builds
     # with a single raw parser-output source. Reuses an already-complete bundle, backfilling artifacts.
-    def merge_and_finalize(self, graph_spec: GraphSpec, graph_output_dir: str, graph_output_url: str) -> bool:
+    def merge_and_finalize(self, graph_spec: GraphSpec, graph_output_dir: str, graph_output_url: str,
+                           additional_output_formats: str = None) -> bool:
         graph_id = graph_spec.graph_id
         release_version = graph_spec.release_version
         kgx_bundle = KGXBundle(graph_output_dir)
@@ -197,7 +217,11 @@ class GraphBuilder:
 
         # Dump URLs produced below are recorded as distribution entries on graph-metadata.json.
         dump_distribution_entries = []
-        output_formats = graph_spec.graph_output_format.lower().split('+') if graph_spec.graph_output_format else []
+        output_formats = []
+        for output_format in (graph_spec.graph_output_format, additional_output_formats):
+            for fmt in (output_format or '').lower().split('+'):
+                if fmt and fmt not in output_formats:
+                    output_formats.append(fmt)
 
         # TODO allow these to be specified in the graph spec
         node_property_ignore_list = {'robokop_variant_id'}
@@ -946,8 +970,7 @@ def main():
     spec_group.add_argument('--sources', type=str, default=None,
                             help='Comma-separated list of data sources to include in a graph.')
     parser.add_argument('--output_format', type=str, default=None,
-                        help='Output format for a graph (e.g. jsonl, neo4j). '
-                             'Only valid when used with command line --sources.')
+                        help='Output formats joined with + (e.g. neo4j, jsonl+rdf).')
     parser.add_argument('-c', '--conflation',
                         action='store_true',
                         help='Apply conflation during normalization for all sources in the graph(s), '
@@ -957,26 +980,27 @@ def main():
     graph_id_arg = args.graph_id
     additional_graph_spec = args.graph_spec
     inline_graph_spec = None
+    additional_output_formats = None
 
     if args.sources:
         inline_graph_spec = _generate_inline_graph_spec(graph_id_arg, args.sources, args.output_format)
-    elif args.output_format:
-        parser.error('--output_format is only valid together with --sources.')
+    else:
+        additional_output_formats = args.output_format
 
     graph_builder = GraphBuilder(additional_graph_spec=additional_graph_spec,
                                  inline_graph_spec=inline_graph_spec,
                                  conflation=args.conflation)
     if graph_id_arg == "all":
         for graph_spec in graph_builder.graph_specs.values():
-            graph_builder.build_graph(graph_spec)
+            graph_builder.build_graph(graph_spec, additional_output_formats=additional_output_formats)
     else:
         for graph_id in (gid.strip() for gid in graph_id_arg.split(',') if gid.strip()):
             graph_spec = graph_builder.graph_specs.get(graph_id, None)
             if graph_spec:
-                graph_builder.build_graph(graph_spec)
+                graph_builder.build_graph(graph_spec, additional_output_formats=additional_output_formats)
             elif graph_builder.is_parser_source(graph_id):
                 # Not a graph spec id, but a parser id: materialize it directly as a source graph.
-                graph_builder.build_source_graph(graph_id)
+                graph_builder.build_source_graph(graph_id, additional_output_formats=additional_output_formats)
             else:
                 print(f'Invalid graph spec requested: {graph_id}')
     results_path = graph_builder.write_build_results()

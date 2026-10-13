@@ -283,8 +283,47 @@ def test_main_dispatches_comma_separated_ids(monkeypatch):
     with patch('orion.graph_pipeline.GraphBuilder', return_value=mock_builder):
         graph_pipeline_main()
 
-    mock_builder.build_graph.assert_called_once_with(testing_spec)
-    mock_builder.build_source_graph.assert_called_once_with('HGNC')
+    mock_builder.build_graph.assert_called_once_with(testing_spec, additional_output_formats=None)
+    mock_builder.build_source_graph.assert_called_once_with('HGNC', additional_output_formats=None)
+
+
+# Without --sources, --output_format adds formats to every requested graph id, spec or parser.
+def test_main_output_format_adds_formats_to_requested_graphs(monkeypatch):
+    mock_builder = MagicMock()
+    testing_spec = MagicMock()
+    mock_builder.graph_specs = {'Testing_Graph': testing_spec}
+    mock_builder.is_parser_source.side_effect = lambda gid: gid == 'HGNC'
+    mock_builder.write_build_results.return_value = None
+
+    monkeypatch.setattr('sys.argv', ['orion-build', 'Testing_Graph,HGNC', '--output_format', 'rdf'])
+    with patch('orion.graph_pipeline.GraphBuilder', return_value=mock_builder):
+        graph_pipeline_main()
+
+    mock_builder.build_graph.assert_called_once_with(testing_spec, additional_output_formats='rdf')
+    mock_builder.build_source_graph.assert_called_once_with('HGNC', additional_output_formats='rdf')
+
+
+# With additional_output_formats, the resolved source bundle is finalized again to add those formats.
+def test_build_source_graph_with_additional_output_formats(test_graph_spec_dir, test_graph_output_dir):
+    graph_builder = GraphBuilder(graph_specs_dir=test_graph_spec_dir,
+                                 graph_output_dir=test_graph_output_dir)
+    graph_builder.ingest_pipeline = get_ingest_pipeline_mock()
+    graph_builder.source_resolver = MagicMock()
+    graph_builder.source_resolver.resolve.return_value = MagicMock(
+        build_version='abc123', release_version='1.2', kgx_graph_metadata={'name': 'HGNC graph'})
+    graph_builder.merge_and_finalize = MagicMock(return_value=True)
+
+    assert graph_builder.build_source_graph('HGNC', additional_output_formats='rdf') is True
+    graph_spec, graph_output_dir, graph_output_url, additional_output_formats = \
+        graph_builder.merge_and_finalize.call_args.args
+    assert (graph_spec.graph_id, graph_spec.graph_name) == ('HGNC', 'HGNC graph')
+    assert (graph_spec.build_version, graph_spec.release_version) == ('abc123', '1.2')
+    assert graph_output_dir == graph_builder.get_graph_dir_path('HGNC', 'abc123')
+    assert graph_output_url == graph_builder.get_graph_output_url('HGNC', '1.2')
+    assert additional_output_formats == 'rdf'
+
+    graph_builder.merge_and_finalize.return_value = False
+    assert graph_builder.build_source_graph('HGNC', additional_output_formats='rdf') is False
 
 
 def test_default_graph_spec_defines_robomouse(monkeypatch, test_graph_output_dir):

@@ -73,6 +73,9 @@ orion-build LitCoin_ORION --graph_spec graph_specs/optional/litcoin-graph-spec.y
 
 # 4. Materialize a single data source directly as a graph (using its data source id).
 orion-build CTD
+
+# 5. Specify additional output formats to graphs or data sources at build time.
+orion-build CTD,HGNC --output_format rdf
 ```
 
 You can build several graphs (or sources) in one invocation by separating their ids with commas, e.g. `orion-build HGNC,CTD` or `orion-build My_Robokop_Graph,LitCoin_ORION`. Note that a `graph_id` cannot be the same as a data source id — the two share one namespace so every id maps to exactly one thing to build.

@@ -6,6 +6,8 @@ ORION can write a graph as gzipped [RDF 1.2](https://www.w3.org/TR/rdf12-concept
 
 Add `rdf` to a graph spec's `output_format` (e.g. `output_format: neo4j+rdf`). The build writes `{graph_id}_{release_version}.nt.gz` to the graph's output directory and lists it in `graph-metadata.json` as a distribution with `encodingFormat: application/n-triples`.
 
+To add RDF to a build without editing its spec, pass `--output_format rdf` to `orion-build`. This also works for data source ids built as their own graphs, e.g. `orion-build CTD --output_format rdf`.
+
 To convert existing KGX files directly:
 
 ```

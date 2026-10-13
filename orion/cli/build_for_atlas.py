@@ -2,7 +2,8 @@
 
 For each graph in ATLAS_GRAPH_IDS this builds the graph as its spec defines it, then builds every
 parser source underneath it (including sources of graph dependencies like Baseline) as its own
-standalone graph with default, unconflated normalization.
+standalone graph with default, unconflated normalization. Every graph and source graph except
+those in RDF_EXCLUDED_GRAPH_IDS also gets RDF output.
 
 Run with: python -m orion.cli.build_for_atlas
 """
@@ -18,6 +19,10 @@ ATLAS_GRAPH_IDS = ['RobokopKG',
                    'CAMKP_Automat',
                    'COHD_Automat',
                    'OHD_Carolina_Automat']
+
+# Output formats added to every graph and source graph the atlas build produces, except RDF_EXCLUDED_GRAPH_IDS.
+ATLAS_ADDITIONAL_OUTPUT_FORMATS = 'rdf'
+RDF_EXCLUDED_GRAPH_IDS = {'RobokopKG'}
 
 
 # Every parser source id a graph is built from, in spec order, recursing into graph dependencies.
@@ -42,14 +47,16 @@ def build_for_atlas(graph_builder: GraphBuilder, graph_ids: list[str] = None) ->
     failed = []
     source_ids = []
     for graph_id in graph_ids:
-        if not graph_builder.build_graph(graph_builder.graph_specs[graph_id]):
+        additional_output_formats = None if graph_id in RDF_EXCLUDED_GRAPH_IDS else ATLAS_ADDITIONAL_OUTPUT_FORMATS
+        if not graph_builder.build_graph(graph_builder.graph_specs[graph_id],
+                                         additional_output_formats=additional_output_formats):
             failed.append(graph_id)
         source_ids.extend(source_id for source_id in get_parser_source_ids(graph_builder, graph_id)
                           if source_id not in source_ids)
 
     logger.info(f'Building {len(source_ids)} source graphs for {", ".join(graph_ids)}: {", ".join(source_ids)}')
     for source_id in source_ids:
-        if not graph_builder.build_source_graph(source_id):
+        if not graph_builder.build_source_graph(source_id, additional_output_formats=ATLAS_ADDITIONAL_OUTPUT_FORMATS):
             failed.append(source_id)
     return failed
 
