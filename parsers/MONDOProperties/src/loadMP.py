@@ -37,7 +37,7 @@ class MPLoader(SourceDataLoader):
 
     source_id: str = 'MONDOProperties'
     provenance_id = 'infores:mondo'  # provenance doesn't apply to nodes/properties as of now, just a placeholder here
-    parsing_version: str = '1.2'
+    parsing_version: str = '1.3'
     preserve_unconnected_nodes = True
 
     def __init__(self, test_mode: bool = False, source_data_dir: str = None):
@@ -107,7 +107,8 @@ class MPLoader(SourceDataLoader):
             # For any mondo ID with a low Information Content, we want to make it a property
             # So we need to find those, and find their names, and find what other MONDOs are subclasses of that thing.
             # Then we can add those as properties to the subclasses and write everything out.
-            for ttl_triple in pyoxigraph.parse(nq_file, format=RdfFormat.N_QUADS):
+            # lenient parsing accepts UTF-16 surrogate pair escapes (e.g. 𝒜) currently found in ubergraph literals
+            for ttl_triple in pyoxigraph.parse(nq_file, format=RdfFormat.N_QUADS, lenient=True):
 
                 record_counter += 1
 
