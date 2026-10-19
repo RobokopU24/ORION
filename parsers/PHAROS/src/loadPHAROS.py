@@ -14,7 +14,7 @@ class PHAROSLoader(SourceDataLoader):
 
     source_id = 'PHAROS'
     provenance_id = 'infores:pharos'
-    parsing_version: str = '1.9'
+    parsing_version: str = '2.0'
 
     GENE_TO_DISEASE_QUERY: str = """select distinct x.value, d.did, d.name, p.sym, d.dtype, d.score
                                 from disease d 
@@ -26,8 +26,11 @@ class PHAROSLoader(SourceDataLoader):
                                 and d.did not like 'AmyCo%'
                                 and d.did not like 'ENSP%'"""
 
+    # cmpd_activity rows are assay results (IC50, Ki, EC50...), which say how strongly something binds, not what it
+    # does to the target, so pred is a constant that maps to RO:0002436 rather than the assay type. The assay type
+    # is still kept as the affinity_parameter.
     GENE_TO_CMPD_ACTIVITY_QUERY: str = """SELECT DISTINCT x.value, ca.cmpd_name_in_src as drug, ca.cmpd_id_in_src as cid, catype AS id_src,
-                                ca.act_value AS affinity, ca.act_type as affinity_parameter, ca.act_type AS pred, p.sym,
+                                ca.act_value AS affinity, ca.act_type as affinity_parameter, 'binding_agent' AS pred, p.sym,
                                 ca.pubmed_ids AS pubmed_ids, '' AS dtype
                                 FROM xref x
                                 JOIN cmpd_activity ca on x.protein_id = ca.target_id
