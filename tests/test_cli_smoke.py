@@ -28,6 +28,7 @@ CLI_ENTRY_POINTS = [
     ('orion.cli.memgraph_dump', 'main'),
     ('orion.cli.neptune_dump', 'main'),
     ('orion.cli.neptune_load', 'main'),
+    ('orion.cli.rdf_dump', 'main'),
 ]
 
 

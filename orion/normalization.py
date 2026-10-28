@@ -19,18 +19,45 @@ NORMALIZATION_CODE_VERSION = '1.4.0'
 
 
 @functools.lru_cache(maxsize=1)
+def get_node_norm_status():
+    """Retrieve the status of the Node Normalizer, returns an empty dictionary if it is not available."""
+    try:
+        resp = requests.get(f'{config.NODE_NORMALIZATION_URL}/status')
+        resp.raise_for_status()
+        return resp.json()
+    except requests.RequestException as e:
+        logger.warning(f'Could not retrieve the Node Normalizer status: {e}')
+        return {}
+
+
+@functools.lru_cache(maxsize=1)
 def get_current_node_norm_version():
-    """Retrieve the current version of the Node Normalizer API."""
+    """Retrieve the current version of the Node Normalizer API.
+
+    The status endpoint provides the version of the deployment as well as the backend it uses,
+    which are combined because the same version number means something different for each backend.
+    The openapi spec is used when the status endpoint is unavailable or does not include a version.
+    """
+    node_norm_status = get_node_norm_status()
+    node_norm_version = node_norm_status.get('version', None)
+    if node_norm_version:
+        backend = node_norm_status.get('backend', None)
+        return f'{backend}-{node_norm_version}' if backend else node_norm_version
+
+    logger.warning('Node Normalizer status did not provide a version, using the openapi spec instead.')
     resp = requests.get(f'{config.NODE_NORMALIZATION_URL}/openapi.json')
     resp.raise_for_status()
     return resp.json()['info']['version']
 
+
 @functools.lru_cache(maxsize=1)
 def get_current_babel_version():
     """Retrieve the version of Babel the Node Normalizer is currently backed by"""
-    resp = requests.get(f'{config.NODE_NORMALIZATION_URL}/status')
-    resp.raise_for_status()
-    return resp.json()['babel_version']
+    babel_version = get_node_norm_status().get('babel_version', None)
+    if not babel_version:
+        raise NormalizationFailedError(error_message='Could not determine the current Babel version, '
+                                                     'the Node Normalizer status was not available.')
+    return babel_version
 
 # node property name for node types that did not normalize
 CUSTOM_NODE_TYPES = 'custom_node_types'

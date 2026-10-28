@@ -4,7 +4,7 @@ build-backend = "uv_build"
 
 [project]
 name = "robokop-orion"
-version = "2.0.5"
+version = "2.0.13"
 description = "ORION ingests data from knowledge bases and converts it into interoperable Biolink Model knowledge graphs."
 license = "MIT"
 license-files = ["LICEN[CS]E*"]
@@ -27,7 +27,7 @@ dependencies = [
 robokop = [
     "beautifulsoup4>=4.12.3",
     "celery>=5.4.0",
-    "curies>=0.7.9",
+    "curies>=0.15.3",
     "intermine",
     "mysql-connector-python>=9.4.0",
     "neo4j>=5.28.0",
@@ -36,7 +36,7 @@ robokop = [
     "polars>=1.19.0",
     "prefixmaps>=0.2.6",
     "psycopg2-binary>=2.9.9",
-    "pyoxigraph>=0.5.9",
+    "pyoxigraph>=0.5.11",
     "redis>=5.2.1",
 ]
 neptune = [
@@ -55,6 +55,7 @@ orion-neo4j-dump = "orion.cli.neo4j_dump:main"
 orion-memgraph-dump = "orion.cli.memgraph_dump:main"
 orion-neptune-dump = "orion.cli.neptune_dump:main"
 orion-neptune-load = "orion.cli.neptune_load:main"
+orion-rdf-dump = "orion.cli.rdf_dump:main"
 orion-publish = "orion.cli.publish_graphs:main"
 
 [dependency-groups]

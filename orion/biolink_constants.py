@@ -35,6 +35,7 @@ NAME = 'name'
 SYNONYM = 'synonym'
 TRADE_NAME = 'trade_name'
 CHEMICAL_ROLE = 'chemical_role'
+HAS_CHEMICAL_ROLE = 'has_chemical_role'
 HAS_CHEMICAL_FORMULA = 'has_chemical_formula'
 TAXON = 'taxon'
 ROUTES_OF_DELIVERY = 'routes_of_delivery'
@@ -108,6 +109,7 @@ CONTEXT_QUALIFIER = 'context_qualifier'
 DERIVATIVE_QUALIFIER = 'derivative_qualifier'
 DISEASE_CONTEXT_QUALIFIER = 'disease_context_qualifier'
 FORM_OR_VARIANT_QUALIFIER = 'form_or_variant_qualifier'
+FREQUENCY_QUALIFIER = 'frequency_qualifier'
 OBJECT_ASPECT_QUALIFIER = 'object_aspect_qualifier'
 OBJECT_CONTEXT_QUALIFIER = 'object_context_qualifier'
 OBJECT_DERIVATIVE_QUALIFIER = 'object_derivative_qualifier'
@@ -115,6 +117,7 @@ OBJECT_DIRECTION_QUALIFIER = 'object_direction_qualifier'
 OBJECT_FORM_OR_VARIANT_QUALIFIER = 'object_form_or_variant_qualifier'
 OBJECT_PART_QUALIFIER = 'object_part_qualifier'
 OBJECT_SPECIALIZATION_QUALIFIER = 'object_specialization_qualifier'
+ONSET_QUALIFIER = 'onset_qualifier'
 POPULATION_CONTEXT_QUALIFIER = 'population_context_qualifier'
 QUALIFIED_PREDICATE = 'qualified_predicate'
 SEX_QUALIFIER = 'sex_qualifier'
@@ -142,6 +145,7 @@ BIOLINK_NODE_PROPERTIES = [
     SYNONYM,
     TRADE_NAME,
     CHEMICAL_ROLE,
+    HAS_CHEMICAL_ROLE,
     HAS_CHEMICAL_FORMULA,
     FDA_APPROVAL_STATUS,
     MECHANISM_OF_ACTION,
@@ -188,11 +192,13 @@ BIOLINK_EDGE_PROPERTIES = [
     CAUSAL_MECHANISM_QUALIFIER,
     CONTEXT_QUALIFIER,
     DERIVATIVE_QUALIFIER,
+    FREQUENCY_QUALIFIER,
     OBJECT_ASPECT_QUALIFIER,
     OBJECT_DERIVATIVE_QUALIFIER,
     OBJECT_DIRECTION_QUALIFIER,
     OBJECT_FORM_OR_VARIANT_QUALIFIER,
     OBJECT_PART_QUALIFIER,
+    ONSET_QUALIFIER,
     QUALIFIED_PREDICATE,
     SEX_QUALIFIER,
     SPECIES_CONTEXT_QUALIFIER,

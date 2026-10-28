@@ -6,6 +6,7 @@ import argparse
 import datetime
 import requests
 
+from collections import defaultdict
 from xxhash import xxh64_hexdigest
 
 from orion.utils import GetDataPullError
@@ -19,6 +20,7 @@ from orion.kgx_validation import validate_graph
 from orion.neo4j_tools import create_neo4j_dump
 from orion.memgraph_tools import create_memgraph_dump
 from orion.neptune_tools import create_neptune_csvs
+from orion.kgx_rdf_converter import convert_kgx_to_rdf, RDF_ENCODING_FORMAT
 from orion.kgx_bundle import KGXBundle
 from orion.graph_versioning import DEFAULT_BASE_RELEASE_VERSION, next_release_version, parse_semver
 from orion.kgxmodel import (
@@ -37,6 +39,8 @@ from orion.kgx_metadata import (
     KGXKnowledgeSource,
     KGXKnowledgeGraphSource,
     KGX_ENCODING_FORMAT,
+    ORION_BABEL_VERSION,
+    ORION_BIOLINK_VERSION,
     generate_kgx_schema_file,
 )
 
@@ -45,6 +49,26 @@ logger = get_orion_logger("orion.graph_pipeline")
 
 REDUNDANT_EDGES_FILENAME = 'redundant_edges.jsonl'
 COLLAPSED_QUALIFIERS_FILENAME = 'collapsed_qualifier_edges.jsonl'
+
+# Every valid output format a graph can produce, in a graph spec or --output_format.
+OUTPUT_FORMATS = ('jsonl', 'neo4j', 'memgraph', 'rdf', 'redundant_jsonl', 'redundant_neo4j',
+                  'collapsed_qualifiers_jsonl', 'collapsed_qualifiers_neo4j')
+
+
+# Combine +-joined output format strings into one ordered, deduplicated list of formats.
+# Raises GraphSpecError naming any format not in OUTPUT_FORMATS.
+def parse_output_formats(*output_format_strings: str | None) -> list[str]:
+    output_formats = []
+    for output_format_string in output_format_strings:
+        for output_format in (output_format_string or '').lower().split('+'):
+            output_format = output_format.strip()
+            if output_format and output_format not in output_formats:
+                output_formats.append(output_format)
+    invalid_formats = [output_format for output_format in output_formats if output_format not in OUTPUT_FORMATS]
+    if invalid_formats:
+        raise GraphSpecError(f'Invalid output format(s): {", ".join(invalid_formats)}. '
+                             f'Valid formats: {", ".join(OUTPUT_FORMATS)}.')
+    return output_formats
 
 
 class GraphBuilder:
@@ -72,9 +96,15 @@ class GraphBuilder:
         # The SourceResolver is used to locate or build the sources specified in a GraphSpec
         self.source_resolver = SourceResolver(graph_builder=self)
 
-    def build_graph(self, graph_spec: GraphSpec):
+    # Build the graph specified by graph_spec and any of the sub-graphs or sources it depends on.
+    # additional_output_formats optionally produces more output formats (e.g. 'rdf' or 'neo4j+rdf') for this
+    # graph, but not for the graphs built as its dependencies.
+    def build_graph(self, graph_spec: GraphSpec, additional_output_formats: str = None):
         graph_id = graph_spec.graph_id
         logger.info(f'Building graph {graph_id}...')
+
+        # here this just validates the additional_output_formats before doing real work
+        parse_output_formats(additional_output_formats)
 
         self.determine_versions(graph_spec)
         graph_output_dir = self.get_graph_dir_path(graph_id, graph_spec.build_version)
@@ -88,26 +118,54 @@ class GraphBuilder:
                 logger.warning(f'Aborting graph {graph_id} release_version {graph_spec.release_version}, '
                                f'resolving dependencies failed.')
                 return False
-        return self.merge_and_finalize(graph_spec, graph_output_dir, graph_output_url)
+        return self.merge_and_finalize(graph_spec, graph_output_dir, graph_output_url, additional_output_formats)
 
-    # Materialize a parser source directly as a graph.
+    # Materialize a parser source directly as a jsonl graph.
     # Used when orion-build is called with a parser id instead of a graph spec id.
-    def build_source_graph(self, source_id: str) -> bool:
+    # With additional_output_formats, the resolved bundle is finalized again to add those formats,
+    # whether it was just built, already local, or downloaded from the registry.
+    def build_source_graph(self, source_id: str, additional_output_formats: str = None) -> bool:
+        parse_output_formats(additional_output_formats)
         logger.info(f'Building source graph {source_id}...')
         source = self.parse_source_spec({'id': source_id}, source_id)
         if source.normalization_scheme is not None and self.conflation:
             source.normalization_scheme.conflation = True
         self._source_build_version(source, source_id)
-        if self.source_resolver.resolve(source) is None:
+        resolved_source = self.source_resolver.resolve(source)
+        if resolved_source is None:
             logger.warning(f'Failed to build source graph {source_id}.')
             return False
-        return True
+        if not additional_output_formats:
+            return True
+        source_graph_spec = self.source_graph_spec(source,
+                                                   resolved_source.build_version,
+                                                   resolved_source.release_version)
+        return self.merge_and_finalize(source_graph_spec,
+                                       self.get_graph_dir_path(source_id, resolved_source.build_version),
+                                       self.get_graph_output_url(source_id, resolved_source.release_version),
+                                       additional_output_formats)
+
+    # The single-source GraphSpec a parser source is finalized under when materialized as its own graph,
+    # named after the parser's source.json so every build of the source graph gets the same spec.
+    def source_graph_spec(self, source: GraphSource, build_version: str, release_version: str) -> GraphSpec:
+        parser_metadata = self.ingest_pipeline.load_parser_metadata(source.id)
+        source_graph_spec = GraphSpec(graph_id=source.id,
+                                      graph_name=f'A ROBOKOP Knowledge Graph based on '
+                                                 f'{parser_metadata.get("name", source.id)}',
+                                      graph_description='',
+                                      graph_url='',
+                                      graph_output_format='jsonl',
+                                      sources=[source])
+        source_graph_spec.build_version = build_version
+        source_graph_spec.release_version = release_version
+        return source_graph_spec
 
     # Merge a graph_spec's already-resolved sources into a finished KGX bundle at graph_output_dir and
     # generate all of its artifacts (metadata, QC, schema, meta KG, requested db dumps). This is the one
     # bundle producer: graph builds reach it with sources resolved by build_dependencies, parser builds
     # with a single raw parser-output source. Reuses an already-complete bundle, backfilling artifacts.
-    def merge_and_finalize(self, graph_spec: GraphSpec, graph_output_dir: str, graph_output_url: str) -> bool:
+    def merge_and_finalize(self, graph_spec: GraphSpec, graph_output_dir: str, graph_output_url: str,
+                           additional_output_formats: str = None) -> bool:
         graph_id = graph_spec.graph_id
         release_version = graph_spec.release_version
         kgx_bundle = KGXBundle(graph_output_dir)
@@ -142,17 +200,13 @@ class GraphBuilder:
             # ISO 8601 in UTC, the format graph metadata dates are recorded in
             build_time = (datetime.datetime.now(datetime.timezone.utc)
                           .isoformat(timespec='seconds').replace('+00:00', 'Z'))
-            biolink_version = self._graph_biolink_version(graph_spec)
-            babel_version = self._graph_babel_version(graph_spec)
 
             logger.info(f'Generating KGX metadata for {graph_id}...')
             self.generate_kgx_metadata_files(graph_spec=graph_spec,
                                              merge_metadata=merge_metadata,
                                              graph_output_dir=graph_output_dir,
                                              graph_output_url=graph_output_url,
-                                             build_time=build_time,
-                                             biolink_version=biolink_version,
-                                             babel_version=babel_version)
+                                             build_time=build_time)
             logger.info(f'Building graph {graph_id} complete!')
 
         # --- Additional artifacts (QC, schema, meta KG, dumps, alternate formats). These can
@@ -176,12 +230,15 @@ class GraphBuilder:
         if not kgx_bundle.has_schema():
             kgx_bundle.decompress_nodes_and_edges()
             logger.info(f'Generating KGX Schema for {graph_id}...')
+            # Use the Biolink version the bundle recorded for itself, so a schema backfilled for an
+            # existing bundle matches the version it was built with.
+            graph_metadata = KGXGraphMetadata.from_dict(kgx_bundle.load_graph_metadata() or {})
             generate_kgx_schema_file(nodes_filepath=kgx_bundle.nodes_path,
                                      edges_filepath=kgx_bundle.edges_path,
                                      output_dir=graph_output_dir,
                                      graph_output_url=graph_output_url,
                                      graph_name=graph_spec.graph_name,
-                                     biolink_version=self._graph_biolink_version(graph_spec))
+                                     biolink_version=graph_metadata.get_biolink_version() or config.BL_VERSION)
             logger.info(f'KGX Schema generated for {graph_id}.')
 
         needs_meta_kg = not self.has_meta_kg(graph_directory=graph_output_dir)
@@ -195,7 +252,7 @@ class GraphBuilder:
 
         # Dump URLs produced below are recorded as distribution entries on graph-metadata.json.
         dump_distribution_entries = []
-        output_formats = graph_spec.graph_output_format.lower().split('+') if graph_spec.graph_output_format else []
+        output_formats = parse_output_formats(graph_spec.graph_output_format, additional_output_formats)
 
         # TODO allow these to be specified in the graph spec
         node_property_ignore_list = {'robokop_variant_id'}
@@ -313,6 +370,27 @@ class GraphBuilder:
             # and a manifest, which one contentUrl can't represent. Loading these into a cluster is
             # a separate step, orion-neptune-load.
 
+        if 'rdf' in output_formats:
+            rdf_filename = self._rdf_filename(graph_id, release_version)
+            rdf_path = os.path.join(graph_output_dir, rdf_filename)
+            rdf_success = True
+            if not os.path.exists(rdf_path):
+                logger.info(f'Starting RDF conversion for {graph_id}...')
+                graph_metadata = KGXGraphMetadata.from_dict(kgx_bundle.load_graph_metadata() or {})
+                try:
+                    convert_kgx_to_rdf(nodes_input_file=kgx_bundle.nodes_path,
+                                       edges_input_file=kgx_bundle.edges_path,
+                                       output_file=rdf_path,
+                                       biolink_version=graph_metadata.get_biolink_version() or config.BL_VERSION,
+                                       node_property_ignore_list=node_property_ignore_list,
+                                       edge_property_ignore_list=edge_property_ignore_list)
+                except Exception as e:
+                    logger.error(f'RDF conversion failed for {graph_id}: {e}')
+                    rdf_success = False
+            if rdf_success:
+                dump_distribution_entries.append(self._dump_distribution_entry(
+                    "rdf", f'{graph_output_url}{rdf_filename}', encoding_format=RDF_ENCODING_FORMAT))
+
         # All processing is complete. Replace the final jsonl files with gzipped
         # versions so downloads are smaller/faster.
         logger.info(f'Compressing final jsonl files for {graph_id}...')
@@ -338,6 +416,10 @@ class GraphBuilder:
     def _neo4j_dump_filename(graph_id: str, release_version: str, suffix: str = '') -> str:
         return f'{graph_id}_{release_version}{suffix}.db.dump'
 
+    @staticmethod
+    def _rdf_filename(graph_id: str, release_version: str) -> str:
+        return f'{graph_id}_{release_version}.nt.gz'
+
     # Determine the release_version and build_version for a graph.
     def determine_versions(self, graph_spec: GraphSpec):
         # If a release_version was explicitly pinned on the spec, just return it
@@ -359,7 +441,7 @@ class GraphBuilder:
         except (GetDataPullError, DataVersionError) as e:
             raise GraphSpecError(error_message=e.error_message)
         composite_version_string = '_'.join(composite_parts)
-        build_version = xxh64_hexdigest(composite_version_string)
+        build_version = xxh64_hexdigest(composite_version_string.encode('utf-8'))
         graph_spec.build_version = build_version
         # Use the build version to determine the release version.
         release_version = self._select_release_version(graph_spec.graph_id, build_version, graph_spec.base_release_version)
@@ -469,9 +551,7 @@ class GraphBuilder:
                                     merge_metadata: dict,
                                     graph_output_dir: str,
                                     graph_output_url: str,
-                                    build_time: str,
-                                    biolink_version: str,
-                                    babel_version: str):
+                                    build_time: str):
 
         # Each merged source/subgraph contributes its kgx_graph_metadata (carrier) and the
         # merge's own node/edge counts; that's all _kgx_metadata_from_contribution needs.
@@ -479,10 +559,38 @@ class GraphBuilder:
 
         kg_sources = []
         knowledge_sources = []
+        # version -> source ids of the hasPart entries normalized with it
+        biolink_versions = defaultdict(set)
+        babel_versions = defaultdict(set)
         for source in all_sources:
             kg_sources_part, ks_part = self._kgx_metadata_from_contribution(source)
             kg_sources.extend(kg_sources_part)
             knowledge_sources.extend(ks_part)
+            # Bundles built before hasPart entries recorded their own versions only record them
+            # graph-wide, so those entries take their carrier's graph-level versions.
+            carrier = source.get('kgx_graph_metadata') or {}
+            for kg_source in kg_sources_part:
+                source_id = kg_source.get_source_id() or kg_source.id
+                biolink_version = kg_source.biolink_version or carrier.get(ORION_BIOLINK_VERSION)
+                if biolink_version:
+                    biolink_versions[biolink_version].add(source_id)
+                babel_version = kg_source.babel_version or carrier.get(ORION_BABEL_VERSION)
+                if babel_version:
+                    babel_versions[babel_version].add(source_id)
+
+        # The graph-wide Biolink and Babel versions are the ones every constituent was normalized
+        # with. Mixed versions get a warning. A mixed Biolink version is recorded as the newest present,
+        # since the schema is generated against it; a mixed Babel version is left empty.
+        graph_id = graph_spec.graph_id
+        for label, versions in (('Biolink', biolink_versions), ('Babel', babel_versions)):
+            if len(versions) > 1:
+                version_sources = '; '.join(f'{version} ({", ".join(sorted(source_ids))})'
+                                            for version, source_ids in sorted(versions.items()))
+                logger.warning(f'Graph {graph_id} merges sources normalized with different {label} '
+                               f'versions: {version_sources}')
+        biolink_version = max(biolink_versions, key=lambda version: parse_semver(version) or (0, 0, 0),
+                              default=config.BL_VERSION)
+        babel_version = next(iter(babel_versions)) if len(babel_versions) == 1 else ''
 
         # Create KGXGraphMetadata
         kgx_graph_metadata = KGXGraphMetadata(
@@ -559,57 +667,31 @@ class GraphBuilder:
     # it was loaded from the graph's own graph-metadata.json. When hasPart has exactly one entry we
     # override its node/edge counts with this build's merger counts, since the carrier's own counts
     # came from its internal merge and aren't right for this graph. When hasPart has many entries we
-    # pass them through unchanged — the merger only has an aggregate count for the carrier as a whole.
+    # keep their own counts — the merger only has an aggregate count for the carrier as a whole.
     @staticmethod
     def _kgx_metadata_from_contribution(source: dict):
         carrier = source.get('kgx_graph_metadata') or {}
         carrier_kg_sources = carrier.get('hasPart') or []
         carrier_knowledge_sources = carrier.get('isBasedOn') or []
 
-        kg_sources = []
-        if len(carrier_kg_sources) == 1:
-            kg_source = KGXKnowledgeGraphSource.from_dict(carrier_kg_sources[0])
+        kg_sources = [KGXKnowledgeGraphSource.from_dict(kgs_dict)
+                      for kgs_dict in carrier_kg_sources]
+        if len(kg_sources) == 1:
             if source.get('node_count') is not None:
-                kg_source.node_count = source.get('node_count')
+                kg_sources[0].node_count = source.get('node_count')
             if source.get('edge_count') is not None:
-                kg_source.edge_count = source.get('edge_count')
-            kg_sources.append(kg_source.to_dict())
-        else:
-            for kg_source_entry in carrier_kg_sources:
-                kg_sources.append(dict(kg_source_entry))
+                kg_sources[0].edge_count = source.get('edge_count')
 
         knowledge_sources = [KGXKnowledgeSource.from_dict(ks_dict)
                              for ks_dict in carrier_knowledge_sources]
         return kg_sources, knowledge_sources
 
-    # Graph-wide biolink/babel versions, read off the first parser source's normalization scheme
-    # (the spec parser applies graph-wide values to every parser source when present). Graph
-    # dependencies carry no normalization scheme; a graph with only those (or no sources) falls
-    # back to the config default (biolink) / None (babel).
     @staticmethod
-    def _first_normalization_scheme(graph_spec: GraphSpec) -> NormalizationScheme | None:
-        for source in graph_spec.sources or []:
-            if source.normalization_scheme is not None:
-                return source.normalization_scheme
-        return None
-
-    @staticmethod
-    def _graph_biolink_version(graph_spec: GraphSpec) -> str:
-        normalization_scheme = GraphBuilder._first_normalization_scheme(graph_spec)
-        if normalization_scheme is not None:
-            return normalization_scheme.edge_normalization_version
-        return config.BL_VERSION
-
-    @staticmethod
-    def _graph_babel_version(graph_spec: GraphSpec) -> str:
-        normalization_scheme = GraphBuilder._first_normalization_scheme(graph_spec)
-        if normalization_scheme is not None:
-            return normalization_scheme.babel_version
-        return ""
-
-    @staticmethod
-    def _dump_distribution_entry(name: str, content_url: str) -> dict:
-        return {"@type": "DataDownload", "name": name, "contentUrl": content_url}
+    def _dump_distribution_entry(name: str, content_url: str, encoding_format: str = None) -> dict:
+        entry = {"@type": "DataDownload", "name": name, "contentUrl": content_url}
+        if encoding_format:
+            entry["encodingFormat"] = encoding_format
+        return entry
 
     @staticmethod
     def _kgx_bundle_distribution_entries(graph_output_url: str) -> list[dict]:
@@ -716,7 +798,7 @@ class GraphBuilder:
                     raise GraphSpecError(f'Invalid edge_id_type: {edge_id_type}, must be "orion" or "uuid".')
                 if type(overwrite_edge_ids) != bool:
                     raise GraphSpecError(f'Invalid type (overwrite_edge_ids: {overwrite_edge_ids}), must be true or false.')
-                if edge_id_type is not None and add_edge_id is None or add_edge_id is False:
+                if edge_id_type is not None and add_edge_id is None:
                     add_edge_id = True
                 if graph_wide_node_norm_version == 'latest':
                     graph_wide_node_norm_version = get_current_node_norm_version()
@@ -729,7 +811,7 @@ class GraphBuilder:
                 # at the source level. Pinned sources and graph dependencies carry no normalization
                 # scheme and are skipped.
                 for source in sources:
-                    if source.merge_strategy == KGXFileMerger.DONT_MERGE and add_edge_id is not None:
+                    if source.merge_strategy == KGXFileMerger.DONT_MERGE and add_edge_id:
                         raise GraphSpecError(f'Graph {graph_id}, source {source.id} has merge_strategy:'
                                              f' dont_merge, which is incompatible with add_edge_id.')
                     if source.normalization_scheme is None:
@@ -753,6 +835,10 @@ class GraphBuilder:
                         f'be unique across included and user provided Graph Specs. Choose a different graph_id.')
 
                 graph_output_format = graph_yaml.get('output_format', '')
+                try:
+                    parse_output_formats(graph_output_format)
+                except GraphSpecError as e:
+                    raise GraphSpecError(f'Graph {graph_id}: {e}') from e
 
                 # Optional release_version floor (semver). Bare yaml numbers like
                 # `base_release_version: 2.0` parse as floats, so coerce to str before validating.
@@ -933,8 +1019,7 @@ def main():
     spec_group.add_argument('--sources', type=str, default=None,
                             help='Comma-separated list of data sources to include in a graph.')
     parser.add_argument('--output_format', type=str, default=None,
-                        help='Output format for a graph (e.g. jsonl, neo4j). '
-                             'Only valid when used with command line --sources.')
+                        help='Output formats joined with + (e.g. neo4j, jsonl+rdf).')
     parser.add_argument('-c', '--conflation',
                         action='store_true',
                         help='Apply conflation during normalization for all sources in the graph(s), '
@@ -944,26 +1029,32 @@ def main():
     graph_id_arg = args.graph_id
     additional_graph_spec = args.graph_spec
     inline_graph_spec = None
+    additional_output_formats = None
+
+    try:
+        parse_output_formats(args.output_format)
+    except GraphSpecError as e:
+        parser.error(str(e))
 
     if args.sources:
         inline_graph_spec = _generate_inline_graph_spec(graph_id_arg, args.sources, args.output_format)
-    elif args.output_format:
-        parser.error('--output_format is only valid together with --sources.')
+    else:
+        additional_output_formats = args.output_format
 
     graph_builder = GraphBuilder(additional_graph_spec=additional_graph_spec,
                                  inline_graph_spec=inline_graph_spec,
                                  conflation=args.conflation)
     if graph_id_arg == "all":
         for graph_spec in graph_builder.graph_specs.values():
-            graph_builder.build_graph(graph_spec)
+            graph_builder.build_graph(graph_spec, additional_output_formats=additional_output_formats)
     else:
         for graph_id in (gid.strip() for gid in graph_id_arg.split(',') if gid.strip()):
             graph_spec = graph_builder.graph_specs.get(graph_id, None)
             if graph_spec:
-                graph_builder.build_graph(graph_spec)
+                graph_builder.build_graph(graph_spec, additional_output_formats=additional_output_formats)
             elif graph_builder.is_parser_source(graph_id):
                 # Not a graph spec id, but a parser id: materialize it directly as a source graph.
-                graph_builder.build_source_graph(graph_id)
+                graph_builder.build_source_graph(graph_id, additional_output_formats=additional_output_formats)
             else:
                 print(f'Invalid graph spec requested: {graph_id}')
     results_path = graph_builder.write_build_results()

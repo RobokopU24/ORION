@@ -7,7 +7,8 @@ import json
 
 from orion.utils import GetData
 from orion.kgxmodel import kgxnode, kgxedge
-from orion.biolink_constants import XREFS, KNOWLEDGE_LEVEL, KNOWLEDGE_ASSERTION, AGENT_TYPE, MANUAL_AGENT
+from orion.biolink_constants import XREFS, KNOWLEDGE_LEVEL, KNOWLEDGE_ASSERTION, AGENT_TYPE, MANUAL_AGENT, \
+    ANATOMICAL_CONTEXT_QUALIFIER
 from orion.loader_interface import SourceDataLoader
 
 from gzip import GzipFile
@@ -32,7 +33,7 @@ class CAMKPLoader(SourceDataLoader):
     source_id: str = "CAMKP"
     provenance_id: str = "infores:go-cam"
     aggregator_knowledge_source: str = "infores:cam-kp"
-    parsing_version = "1.5"
+    parsing_version = "1.6"
 
     def __init__(self, test_mode: bool = False, source_data_dir: str = None):
         """
@@ -94,51 +95,34 @@ class CAMKPLoader(SourceDataLoader):
                 edge_provenance_id = line[CAMDATACOLS.PROVENANCE_ID.value]
                 edge_provenance_url = line[CAMDATACOLS.PROVENANCE_URL.value]
 
-                # The following qualifier section is hacky and bad.
-                # This is mostly because the source data can have multiple instances of the same qualifier
-                # on the same edge, this splits those into multiple edges.
-                # Request to change the source data has been made and this should be changed after.
-
-                # If it has enough columns to have a qualifier
+                # If it has enough columns to have qualifiers
                 if len(line) >= CAMDATACOLS.QUALIFIERS.value + 1:
-                    # qualifier format looks like:
-                    # (biolink:anatomical_context_qualifier=GO:0005634)&&(biolink:anatomical_context_qualifier=CL:0008019)
-                    # split on && then remove the parentheses
-                    qualifier_strings = [qualifier.strip("()") for qualifier in line[CAMDATACOLS.QUALIFIERS.value].split('&&')]
-
-                    # parse the strings which are like biolink:anatomical_context_qualifier=GO:0005634
-                    qualifiers = []
-                    for qualifier_string in qualifier_strings:
-                        qualifier_list = qualifier_string.split('=')
-                        q_key = qualifier_list[0].removeprefix("biolink:")
-                        if q_key != "anatomical_context_qualifier":
+                    # qualifiers are a JSON object like:
+                    # {"biolink:anatomical_context_qualifier": "GO:0005829"}
+                    raw_qualifiers = json.loads(line[CAMDATACOLS.QUALIFIERS.value])
+                    qualifiers = {}
+                    for q_key, q_value in raw_qualifiers.items():
+                        q_key = q_key.removeprefix("biolink:")
+                        if q_key != ANATOMICAL_CONTEXT_QUALIFIER:
                             raise RuntimeError(f'Unsupported qualifier: {q_key}')
-                        q_value = qualifier_list[1]
-                        qualifiers.append({q_key: q_value})
-
-                    # if the source data changes as mentioned above we could just do this and not split them up
-                    # make a dict of qualifier_key: qualifier_value, remove the biolink prefix
-                    # qualifiers = {qual[0].removeprefix("biolink:"): qual[1] for qual in
-                    #             [qualifier.split('=') for qualifier in qualifiers]}
-                    # edge_properties.update(qualifiers)
+                        qualifiers[q_key] = q_value
                 else:
-                    qualifiers = [{}]
+                    qualifiers = {}
 
-                for qualifier in qualifiers:
-                    edge_properties = {
-                        XREFS: [edge_provenance_url],
-                        KNOWLEDGE_LEVEL: KNOWLEDGE_ASSERTION,
-                        AGENT_TYPE: MANUAL_AGENT,
-                        **qualifier
-                    }
-                    new_edge = kgxedge(subject_id=subject_id,
-                                       object_id=object_id,
-                                       predicate=predicate,
-                                       primary_knowledge_source=edge_provenance_id,
-                                       aggregator_knowledge_sources=[self.aggregator_knowledge_source],
-                                       edgeprops=edge_properties)
-                    self.output_file_writer.write_kgx_edge(new_edge)
-                    record_counter += 1
+                edge_properties = {
+                    XREFS: [edge_provenance_url],
+                    KNOWLEDGE_LEVEL: KNOWLEDGE_ASSERTION,
+                    AGENT_TYPE: MANUAL_AGENT,
+                    **qualifiers
+                }
+                new_edge = kgxedge(subject_id=subject_id,
+                                   object_id=object_id,
+                                   predicate=predicate,
+                                   primary_knowledge_source=edge_provenance_id,
+                                   aggregator_knowledge_sources=[self.aggregator_knowledge_source],
+                                   edgeprops=edge_properties)
+                self.output_file_writer.write_kgx_edge(new_edge)
+                record_counter += 1
         
         load_metadata: dict = {'num_source_lines': record_counter,
                                'unusable_source_lines': skipped_record_counter}

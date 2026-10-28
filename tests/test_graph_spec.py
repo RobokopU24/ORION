@@ -3,7 +3,7 @@ import pytest
 import requests.exceptions
 
 from unittest.mock import MagicMock, patch
-from orion.graph_pipeline import GraphBuilder, GraphSpecError, main as graph_pipeline_main
+from orion.graph_pipeline import GraphBuilder, GraphSpecError, parse_output_formats, main as graph_pipeline_main
 from orion.ingest_pipeline import IngestPipeline
 
 
@@ -216,6 +216,53 @@ def test_inline_graph_spec_collision_raises(test_graph_spec_dir, test_graph_outp
                      graph_output_dir=test_graph_output_dir)
 
 
+# output formats from every input are combined in order, deduplicated, and normalized
+def test_parse_output_formats_combines_and_dedupes():
+    assert parse_output_formats('neo4j+RDF', None, ' rdf + jsonl ', '') == ['neo4j', 'rdf', 'jsonl']
+    assert parse_output_formats(None) == []
+
+
+# an unknown output format in a graph spec is a hard error when the spec is loaded
+def test_graph_spec_invalid_output_format_raises(test_graph_spec_dir, test_graph_output_dir):
+    inline_spec = {
+        'graphs': [{
+            'graph_id': 'Bad_Format_Graph',
+            'output_format': 'neo4j+rfd',
+            'sources': [{'id': 'HGNC'}],
+        }]
+    }
+    with pytest.raises(GraphSpecError, match='Bad_Format_Graph.*rfd'):
+        GraphBuilder(graph_specs_dir=test_graph_spec_dir,
+                     inline_graph_spec=inline_spec,
+                     graph_output_dir=test_graph_output_dir)
+
+
+# unknown additional output formats are rejected before any dependency is resolved or built
+def test_build_invalid_additional_output_format_raises(test_graph_spec_dir, test_graph_output_dir):
+    graph_builder = GraphBuilder(graph_specs_dir=test_graph_spec_dir,
+                                 graph_output_dir=test_graph_output_dir)
+    graph_builder.ingest_pipeline = get_ingest_pipeline_mock()
+    graph_builder.source_resolver = MagicMock()
+    graph_builder.merge_and_finalize = MagicMock()
+
+    with pytest.raises(GraphSpecError, match='nt'):
+        graph_builder.build_graph(graph_builder.graph_specs['Testing_Graph'], additional_output_formats='rdf+nt')
+    with pytest.raises(GraphSpecError, match='nt'):
+        graph_builder.build_source_graph('HGNC', additional_output_formats='nt')
+    graph_builder.source_resolver.resolve.assert_not_called()
+    graph_builder.merge_and_finalize.assert_not_called()
+
+
+# an unknown --output_format is a usage error before any graph spec is loaded
+@pytest.mark.parametrize('extra_args', [[], ['--sources', 'HGNC']])
+def test_main_invalid_output_format_errors(monkeypatch, extra_args):
+    monkeypatch.setattr('sys.argv', ['orion-build', 'HGNC', '--output_format', 'rfd', *extra_args])
+    with patch('orion.graph_pipeline.GraphBuilder') as mock_graph_builder:
+        with pytest.raises(SystemExit):
+            graph_pipeline_main()
+    mock_graph_builder.assert_not_called()
+
+
 # the `base_release_version:` key in a graph spec sets the release_version floor
 def test_graph_spec_base_release_version_parsed(test_graph_spec_dir, test_graph_output_dir, tmp_path):
     spec_path = tmp_path / "versioned-graph-spec.yaml"
@@ -283,8 +330,24 @@ def test_main_dispatches_comma_separated_ids(monkeypatch):
     with patch('orion.graph_pipeline.GraphBuilder', return_value=mock_builder):
         graph_pipeline_main()
 
-    mock_builder.build_graph.assert_called_once_with(testing_spec)
-    mock_builder.build_source_graph.assert_called_once_with('HGNC')
+    mock_builder.build_graph.assert_called_once_with(testing_spec, additional_output_formats=None)
+    mock_builder.build_source_graph.assert_called_once_with('HGNC', additional_output_formats=None)
+
+
+# Without --sources, --output_format adds formats to every requested graph id, spec or parser.
+def test_main_output_format_adds_formats_to_requested_graphs(monkeypatch):
+    mock_builder = MagicMock()
+    testing_spec = MagicMock()
+    mock_builder.graph_specs = {'Testing_Graph': testing_spec}
+    mock_builder.is_parser_source.side_effect = lambda gid: gid == 'HGNC'
+    mock_builder.write_build_results.return_value = None
+
+    monkeypatch.setattr('sys.argv', ['orion-build', 'Testing_Graph,HGNC', '--output_format', 'rdf'])
+    with patch('orion.graph_pipeline.GraphBuilder', return_value=mock_builder):
+        graph_pipeline_main()
+
+    mock_builder.build_graph.assert_called_once_with(testing_spec, additional_output_formats='rdf')
+    mock_builder.build_source_graph.assert_called_once_with('HGNC', additional_output_formats='rdf')
 
 
 def test_default_graph_spec_defines_robomouse(monkeypatch, test_graph_output_dir):
@@ -296,6 +359,7 @@ def test_default_graph_spec_defines_robomouse(monkeypatch, test_graph_output_dir
     assert 'BgeeHuman' in baseline_sources
     assert 'HumanGOA' in baseline_sources
     assert 'MouseGOA' not in baseline_sources
+    assert 'MonarchKG' not in baseline_sources
 
     robomouse_graph = graph_builder.graph_specs['RoboMouseKG']
     assert [source.id for source in robomouse_graph.sources] == [
@@ -309,3 +373,61 @@ def test_default_graph_spec_defines_robomouse(monkeypatch, test_graph_output_dir
         'UPhenoHumanMousePhenotypeHomology',
         'OntologicalHierarchy',
     ]
+
+
+def test_default_graph_spec_adds_edge_ids(test_graph_output_dir):
+    default_specs_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'graph_specs')
+    graph_builder = GraphBuilder(graph_specs_dir=default_specs_dir,
+                                 graph_output_dir=test_graph_output_dir)
+
+    for graph_id in ('Baseline', 'RobokopKG', 'RoboMouseKG'):
+        assert graph_builder.graph_specs[graph_id].add_edge_id is True
+
+
+# edge_id_type turns on edge ids only when add_edge_id is unset; an explicit add_edge_id is kept as is
+@pytest.mark.parametrize('edge_id_options,expected_add_edge_id', [
+    ({}, None),
+    ({'add_edge_id': True}, True),
+    ({'add_edge_id': False}, False),
+    ({'edge_id_type': 'uuid'}, True),
+    ({'add_edge_id': False, 'edge_id_type': 'uuid'}, False),
+])
+def test_graph_spec_add_edge_id_parsing(test_graph_spec_dir, test_graph_output_dir,
+                                        edge_id_options, expected_add_edge_id):
+    inline_spec = {
+        'graphs': [{
+            'graph_id': 'Edge_Id_Graph',
+            **edge_id_options,
+            'sources': [{'id': 'HGNC'}],
+        }]
+    }
+    graph_builder = GraphBuilder(graph_specs_dir=test_graph_spec_dir,
+                                 inline_graph_spec=inline_spec,
+                                 graph_output_dir=test_graph_output_dir)
+    assert graph_builder.graph_specs['Edge_Id_Graph'].add_edge_id is expected_add_edge_id
+
+
+def _dont_merge_spec(edge_id_options):
+    return {
+        'graphs': [{
+            'graph_id': 'Dont_Merge_Graph',
+            **edge_id_options,
+            'sources': [{'id': 'HGNC', 'merge_strategy': 'dont_merge_edges'}],
+        }]
+    }
+
+
+@pytest.mark.parametrize('edge_id_options', [{'add_edge_id': True}, {'edge_id_type': 'orion'}])
+def test_dont_merge_with_edge_ids_raises(test_graph_spec_dir, test_graph_output_dir, edge_id_options):
+    with pytest.raises(GraphSpecError):
+        GraphBuilder(graph_specs_dir=test_graph_spec_dir,
+                     inline_graph_spec=_dont_merge_spec(edge_id_options),
+                     graph_output_dir=test_graph_output_dir)
+
+
+@pytest.mark.parametrize('edge_id_options', [{}, {'add_edge_id': False}])
+def test_dont_merge_without_edge_ids_is_allowed(test_graph_spec_dir, test_graph_output_dir, edge_id_options):
+    graph_builder = GraphBuilder(graph_specs_dir=test_graph_spec_dir,
+                                 inline_graph_spec=_dont_merge_spec(edge_id_options),
+                                 graph_output_dir=test_graph_output_dir)
+    assert not graph_builder.graph_specs['Dont_Merge_Graph'].add_edge_id

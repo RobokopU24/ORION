@@ -7,7 +7,11 @@ from orion.biolink_utils import get_biolink_prefix_map
 OBO_MISSING_MAPPINGS = {
     'NCBIGene': 'http://purl.obolibrary.org/obo/NCBIGene_',
     'HGNC': 'http://purl.obolibrary.org/obo/HGNC_',
-    'SGD': 'http://purl.obolibrary.org/obo/SGD_'
+    'SGD': 'http://purl.obolibrary.org/obo/SGD_',
+    # MONDO relations use the mondo# namespace (e.g. mondo#disease_has_major_feature). Chained after the
+    # MONDO_ mapping, this becomes an alias: these IRIs compress to MONDO:<relation>, the form Biolink's
+    # predicate mappings use, while MONDO:<id> CURIEs still expand to the MONDO_ namespace.
+    'MONDO': 'http://purl.obolibrary.org/obo/mondo#'
 }
 
 

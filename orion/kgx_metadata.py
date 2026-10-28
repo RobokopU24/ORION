@@ -17,16 +17,21 @@ ORION_BABEL_VERSION = 'orion:babelVersion'
 ORION_BIOLINK_VERSION = 'orion:biolinkVersion'
 ORION_NODE_COUNT = 'orion:nodeCount'
 ORION_EDGE_COUNT = 'orion:edgeCount'
+ORION_TRANSFORM_VERSION = 'orion:transformVersion'
+ORION_SUPPLEMENTATION_VERSION = 'orion:supplementationVersion'
+ORION_NODE_NORMALIZATION_VERSION = 'orion:nodeNormalizationVersion'
+ORION_NORMALIZATION_CODE_VERSION = 'orion:normalizationCodeVersion'
+ORION_CONFLATION = 'orion:conflation'
+ORION_STRICT_NORMALIZATION = 'orion:strictNormalization'
 
 
-def _source_id_from_kg_source(kg_source: dict) -> str | None:
+def _source_id_from_kg_id(kg_id: str) -> str | None:
     """Pull the source_id out of a hasPart entry's @id.
 
     A bundle's content URL looks like '<...>/<id>/<release_version>/', so the id is the
     second-to-last path segment.
     """
-    kg_id = (kg_source.get('@id') or '').rstrip('/')
-    parts = kg_id.split('/')
+    parts = (kg_id or '').rstrip('/').split('/')
     if len(parts) >= 2:
         return parts[-2]
     return None
@@ -36,7 +41,7 @@ def source_ids_from_graph_metadata(graph_metadata: dict) -> list[str]:
     """The constituent source_ids represented by a graph-metadata.json dict's hasPart."""
     ids = []
     for entry in (graph_metadata.get('hasPart') or []):
-        source_id = _source_id_from_kg_source(entry)
+        source_id = _source_id_from_kg_id(entry.get('@id'))
         if source_id:
             ids.append(source_id)
     return ids
@@ -97,33 +102,63 @@ class KGXKnowledgeGraphSource:
     """A single `hasPart` entry in a KGX graph's metadata: one knowledge graph (a source
     build, or a constituent of a subgraph) that contributed to the graph. The ingest pipeline
     produces these for source builds; the graph pipeline reads them back when assembling a
-    parent graph's metadata, overriding the counts with the parent merge's own totals."""
+    parent graph's metadata, overriding the counts with the parent merge's own totals.
+    The transform (parsing), supplementation, and normalization settings record how the source
+    build was produced. For subgraphs containing multiple sources those don't apply so they are 
+    optional """
     id: str = ""
     name: str = ""
+    release_version: str = ""
     build_version: str = ""
+    transform_version: str | None = None
+    biolink_version: str | None = None
+    babel_version: str | None = None
+    node_normalization_version: str | None = None
+    normalization_code_version: str | None = None
+    conflation: bool | None = None
+    strict_normalization: bool | None = None
+    supplementation_version: str | None = None
     node_count: int | None = None
     edge_count: int | None = None
+
+    # metadata keys for the optional attributes, which are emitted only when set
+    _OPTIONAL_KEYS = {
+        'transform_version': ORION_TRANSFORM_VERSION,
+        'biolink_version': ORION_BIOLINK_VERSION,
+        'babel_version': ORION_BABEL_VERSION,
+        'node_normalization_version': ORION_NODE_NORMALIZATION_VERSION,
+        'normalization_code_version': ORION_NORMALIZATION_CODE_VERSION,
+        'conflation': ORION_CONFLATION,
+        'strict_normalization': ORION_STRICT_NORMALIZATION,
+        'supplementation_version': ORION_SUPPLEMENTATION_VERSION,
+        'node_count': ORION_NODE_COUNT,
+        'edge_count': ORION_EDGE_COUNT,
+    }
 
     @classmethod
     def from_dict(cls, data: dict) -> "KGXKnowledgeGraphSource":
         return cls(
             id=data.get('@id', ''),
             name=data.get('name', ''),
+            release_version=data.get('version', ''),
             build_version=data.get(ORION_BUILD_VERSION, ''),
-            node_count=data.get(ORION_NODE_COUNT),
-            edge_count=data.get(ORION_EDGE_COUNT),
+            **{attr: data.get(key) for attr, key in cls._OPTIONAL_KEYS.items()},
         )
+
+    def get_source_id(self) -> str | None:
+        return _source_id_from_kg_id(self.id)
 
     def to_dict(self) -> dict:
         output_dict = {
             '@id': self.id,
             'name': self.name,
+            'version': self.release_version,
             ORION_BUILD_VERSION: self.build_version,
         }
-        if self.node_count is not None:
-            output_dict[ORION_NODE_COUNT] = self.node_count
-        if self.edge_count is not None:
-            output_dict[ORION_EDGE_COUNT] = self.edge_count
+        for attr, key in self._OPTIONAL_KEYS.items():
+            value = getattr(self, attr)
+            if value is not None:
+                output_dict[key] = value
         return output_dict
 
 
@@ -166,7 +201,7 @@ class KGXGraphMetadata:
     funder: list[dict] = field(default_factory=list)
     conforms_to: list[dict] = field(default_factory=list)
     schema: dict = field(default_factory=dict)
-    kg_sources: list[dict] = field(default_factory=list)
+    kg_sources: list[KGXKnowledgeGraphSource] = field(default_factory=list)
     knowledge_sources: list[KGXKnowledgeSource] = field(default_factory=list)
     distribution: list[dict] = field(default_factory=list)
 
@@ -188,7 +223,7 @@ class KGXGraphMetadata:
             ORION_BUILD_VERSION: self.build_version,
             ORION_BIOLINK_VERSION: self.biolink_version,
             ORION_BABEL_VERSION: self.babel_version,
-            "hasPart": self.kg_sources,
+            "hasPart": [source.to_dict() for source in self.kg_sources],
             "isBasedOn": [source.to_dict() for source in self.knowledge_sources],
             "schema": self.schema,
             "distribution": self.distribution,
@@ -224,7 +259,7 @@ class KGXGraphMetadata:
             funder=data.get('funder', []) or [],
             conforms_to=data.get('conformsTo', []) or [],
             schema=data.get('schema', {}) or {},
-            kg_sources=data.get('hasPart', []) or [],
+            kg_sources=[KGXKnowledgeGraphSource.from_dict(kgs) for kgs in (data.get('hasPart') or [])],
             knowledge_sources=[KGXKnowledgeSource.from_dict(ks) for ks in (data.get('isBasedOn') or [])],
             distribution=data.get('distribution', []) or [],
         )
@@ -251,8 +286,8 @@ class KGXGraphMetadata:
 
     def get_source_ids(self) -> list[str]:
         ids = []
-        for entry in self.kg_sources or []:
-            source_id = _source_id_from_kg_source(entry)
+        for kg_source in self.kg_sources or []:
+            source_id = kg_source.get_source_id()
             if source_id:
                 ids.append(source_id)
         return ids

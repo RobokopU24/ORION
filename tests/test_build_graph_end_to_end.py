@@ -12,14 +12,18 @@ post-merge steps (QC, KGX schema generation, meta KG generation).
 
 import gzip
 import json
+import shutil
 from unittest.mock import MagicMock
 
 import pytest
 
 from orion.graph_pipeline import GraphBuilder
 from orion.ingest_pipeline import IngestPipeline
-from orion.kgx_metadata import source_ids_from_graph_metadata
+from orion.kgx_metadata import KGXKnowledgeGraphSource, source_ids_from_graph_metadata
+from orion.kgx_rdf_converter import convert_kgx_to_rdf
+from orion.kgxmodel import GraphSpec
 from orion.metadata import Metadata, get_source_build_version
+from orion.source_resolution import SourceResolver
 
 
 FIXTURE_NODES = [
@@ -208,6 +212,234 @@ def test_build_graph_end_to_end(tmp_path, monkeypatch):
     }
 
 
+def _patch_rdf_biolink_lookups(monkeypatch):
+    """Replace the Biolink network lookups the RDF converter makes with a fixed prefix map and slot set."""
+    monkeypatch.setattr('orion.kgx_rdf_converter.load_rdf_prefix_map', lambda biolink_version: {
+        'biolink': 'https://w3id.org/biolink/vocab/',
+        'HGNC': 'http://identifiers.org/hgnc/',
+        'infores': 'https://w3id.org/information-resource-registry/'})
+    monkeypatch.setattr('orion.kgx_rdf_converter.biolink_slot_checker',
+                        lambda biolink_version: lambda prop: True)
+
+
+def _rdf_reifier_line_count(rdf_path):
+    with gzip.open(rdf_path, 'rt') as f:
+        return sum(1 for line in f if 'rdf-syntax-ns#reifies> <<( ' in line)
+
+
+def _rdf_distribution_entries(bundle_dir):
+    with open(bundle_dir / 'graph-metadata.json') as f:
+        return [d for d in json.load(f).get('distribution', []) if d['name'] == 'rdf']
+
+
+class _FakeRegistryClient:
+    """Serves one published bundle directory as the only registry release of a single graph, with the
+    same method signatures SourceResolver calls on GraphRegistryClient."""
+
+    def __init__(self, graph_id, published_dir):
+        self.graph_id = graph_id
+        self.published_dir = published_dir
+        with open(published_dir / 'graph-metadata.json') as f:
+            self.graph_metadata = json.load(f)
+
+    def get_versions(self, graph_id):
+        if graph_id != self.graph_id:
+            return []
+        return [{'version': self.graph_metadata['version'],
+                 'build_version': self.graph_metadata['orion:buildVersion']}]
+
+    def release_version_for_build_version(self, graph_id, build_version):
+        for record in self.get_versions(graph_id):
+            if record['build_version'] == build_version:
+                return record['version']
+        return None
+
+    def get_graph_metadata(self, graph_id, release_version=None):
+        return self.graph_metadata if graph_id == self.graph_id else None
+
+    def list_files(self, graph_id, release_version):
+        return [{'file_path': f'{graph_id}/{release_version}/{path.name}'}
+                for path in self.published_dir.iterdir()]
+
+    def download_file(self, graph_id, filename, destination_path, graph_metadata):
+        shutil.copyfile(self.published_dir / filename, destination_path)
+        return destination_path
+
+
+def test_build_graph_rdf_output_format(tmp_path, monkeypatch):
+    fixture_dir = tmp_path / 'parser_output'
+    fixture_dir.mkdir()
+    fixture_nodes = fixture_dir / 'normalized_nodes.jsonl'
+    fixture_edges = fixture_dir / 'normalized_edges.jsonl'
+    _write_jsonl(fixture_nodes, FIXTURE_NODES)
+    _write_jsonl(fixture_edges, FIXTURE_EDGES)
+
+    _patch_post_merge_heavy_steps(monkeypatch)
+    _patch_rdf_biolink_lookups(monkeypatch)
+
+    inline_spec = {
+        'graphs': [{
+            'graph_id': 'HGNC_Graph',
+            'graph_name': 'HGNC Test Graph',
+            'output_format': 'rdf',
+            'sources': [{'id': 'HGNC'}],
+        }]
+    }
+    graphs_dir = tmp_path / 'graphs'
+    graphs_dir.mkdir()
+    storage_dir = tmp_path / 'storage'
+    storage_dir.mkdir()
+    empty_spec_dir = tmp_path / 'specs'
+    empty_spec_dir.mkdir()
+
+    builder = GraphBuilder(graph_specs_dir=str(empty_spec_dir),
+                           inline_graph_spec=inline_spec,
+                           graph_output_dir=str(graphs_dir),
+                           ingest_pipeline=_build_mock_ingest_pipeline(storage_dir,
+                                                                         fixture_nodes,
+                                                                         fixture_edges))
+    graph_spec = builder.graph_specs['HGNC_Graph']
+    assert builder.build_graph(graph_spec) is True
+
+    output_dir = graphs_dir / 'HGNC_Graph' / graph_spec.build_version
+    rdf_filename = f'HGNC_Graph_{graph_spec.release_version}.nt.gz'
+    with gzip.open(output_dir / rdf_filename, 'rt') as f:
+        rdf_lines = f.read().splitlines()
+    reifier_lines = [line for line in rdf_lines if 'rdf-syntax-ns#reifies> <<( ' in line]
+    assert len(reifier_lines) == len(FIXTURE_EDGES)
+
+    with open(output_dir / 'graph-metadata.json') as f:
+        distribution = json.load(f)['distribution']
+    rdf_entries = [d for d in distribution if d['name'] == 'rdf']
+    assert len(rdf_entries) == 1
+    assert rdf_entries[0]['contentUrl'].endswith(rdf_filename)
+    assert rdf_entries[0]['encodingFormat'] == 'application/n-triples'
+
+
+def test_build_source_graph_additional_output_formats(tmp_path, monkeypatch):
+    """A source graph built with additional output formats is built and finalized as jsonl first, then
+    finalized again to add the extra formats. A later run against the now-local bundle reuses it
+    without re-ingesting or regenerating the formats it already has."""
+    fixture_dir = tmp_path / 'parser_output'
+    fixture_dir.mkdir()
+    fixture_nodes = fixture_dir / 'normalized_nodes.jsonl'
+    fixture_edges = fixture_dir / 'normalized_edges.jsonl'
+    _write_jsonl(fixture_nodes, FIXTURE_NODES)
+    _write_jsonl(fixture_edges, FIXTURE_EDGES)
+
+    _patch_post_merge_heavy_steps(monkeypatch)
+    _patch_rdf_biolink_lookups(monkeypatch)
+    convert_spy = MagicMock(side_effect=convert_kgx_to_rdf)
+    monkeypatch.setattr('orion.graph_pipeline.convert_kgx_to_rdf', convert_spy)
+
+    graphs_dir = tmp_path / 'graphs'
+    graphs_dir.mkdir()
+    storage_dir = tmp_path / 'storage'
+    storage_dir.mkdir()
+    empty_spec_dir = tmp_path / 'specs'
+    empty_spec_dir.mkdir()
+    builder = GraphBuilder(graph_specs_dir=str(empty_spec_dir),
+                           graph_output_dir=str(graphs_dir),
+                           ingest_pipeline=_build_mock_ingest_pipeline(storage_dir, fixture_nodes, fixture_edges))
+
+    assert builder.build_source_graph('HGNC', additional_output_formats='rdf') is True
+    assert builder.ingest_pipeline.run_pipeline.call_count == 1
+
+    (source_dir,) = (graphs_dir / 'HGNC').iterdir()
+    # the second finalize leaves the bundle compressed, with no uncompressed copies behind
+    assert (source_dir / 'nodes.jsonl.gz').exists()
+    assert (source_dir / 'edges.jsonl.gz').exists()
+    assert not (source_dir / 'nodes.jsonl').exists()
+    assert not (source_dir / 'edges.jsonl').exists()
+
+    with open(source_dir / 'graph-metadata.json') as f:
+        graph_metadata = json.load(f)
+    release_version = graph_metadata['version']
+    assert graph_metadata['name'] == 'A ROBOKOP Knowledge Graph based on HUGO Gene Nomenclature Committee (HGNC)'
+    rdf_filename = f'HGNC_{release_version}.nt.gz'
+    assert _rdf_reifier_line_count(source_dir / rdf_filename) == len(FIXTURE_EDGES)
+    rdf_entries = _rdf_distribution_entries(source_dir)
+    assert len(rdf_entries) == 1
+    assert rdf_entries[0]['contentUrl'].endswith(f'/HGNC/{release_version}/{rdf_filename}')
+
+    assert builder.build_results['HGNC']['release_version'] == release_version
+    assert builder.build_results['HGNC']['graph_dir'] == str(source_dir)
+
+    # Running again resolves the local bundle: no ingest, no RDF regeneration, no duplicate entry.
+    builder.ingest_pipeline.run_pipeline.reset_mock()
+    convert_spy.reset_mock()
+    assert builder.build_source_graph('HGNC', additional_output_formats='rdf') is True
+    assert builder.ingest_pipeline.run_pipeline.call_count == 0
+    assert convert_spy.call_count == 0
+    assert len(_rdf_distribution_entries(source_dir)) == 1
+
+
+def test_build_source_graph_additional_output_formats_from_registry(tmp_path, monkeypatch):
+    """A source graph resolved by downloading a published release from the registry is finalized
+    locally to add the extra formats: the artifacts the download doesn't include are backfilled,
+    the extra formats are added to the local copy, and the release is recorded in build_results.
+    The published files themselves are left as they were."""
+    fixture_dir = tmp_path / 'parser_output'
+    fixture_dir.mkdir()
+    fixture_nodes = fixture_dir / 'normalized_nodes.jsonl'
+    fixture_edges = fixture_dir / 'normalized_edges.jsonl'
+    _write_jsonl(fixture_nodes, FIXTURE_NODES)
+    _write_jsonl(fixture_edges, FIXTURE_EDGES)
+
+    _patch_post_merge_heavy_steps(monkeypatch)
+    _patch_rdf_biolink_lookups(monkeypatch)
+    empty_spec_dir = tmp_path / 'specs'
+    empty_spec_dir.mkdir()
+
+    def _builder(name):
+        graphs_dir = tmp_path / name / 'graphs'
+        graphs_dir.mkdir(parents=True)
+        storage_dir = tmp_path / name / 'storage'
+        storage_dir.mkdir()
+        return graphs_dir, GraphBuilder(graph_specs_dir=str(empty_spec_dir),
+                                        graph_output_dir=str(graphs_dir),
+                                        ingest_pipeline=_build_mock_ingest_pipeline(storage_dir,
+                                                                                    fixture_nodes,
+                                                                                    fixture_edges))
+
+    # Publish a jsonl-only HGNC release.
+    published_graphs_dir, publisher = _builder('publisher')
+    assert publisher.build_source_graph('HGNC') is True
+    (published_dir,) = (published_graphs_dir / 'HGNC').iterdir()
+    with open(published_dir / 'graph-metadata.json') as f:
+        published_metadata = json.load(f)
+    assert not _rdf_distribution_entries(published_dir)
+
+    # A second builder with an empty graphs dir resolves the same build_version from the registry.
+    graphs_dir, builder = _builder('downloader')
+    builder.source_resolver = SourceResolver(graph_builder=builder,
+                                             client=_FakeRegistryClient('HGNC', published_dir))
+    qc_spy = MagicMock(return_value={'pass': True})
+    monkeypatch.setattr('orion.graph_pipeline.validate_graph', qc_spy)
+
+    assert builder.build_source_graph('HGNC', additional_output_formats='rdf') is True
+    assert builder.ingest_pipeline.run_pipeline.call_count == 0
+
+    downloaded_dir = graphs_dir / 'HGNC' / published_metadata['orion:buildVersion']
+    release_version = published_metadata['version']
+    # QC results aren't part of the download, so finalize regenerates them
+    assert qc_spy.call_count == 1
+    assert (downloaded_dir / 'qc-results.json').exists()
+    assert (downloaded_dir / 'nodes.jsonl.gz').exists()
+    assert not (downloaded_dir / 'nodes.jsonl').exists()
+
+    rdf_filename = f'HGNC_{release_version}.nt.gz'
+    assert _rdf_reifier_line_count(downloaded_dir / rdf_filename) == len(FIXTURE_EDGES)
+    with open(downloaded_dir / 'graph-metadata.json') as f:
+        assert json.load(f)['version'] == release_version
+    assert len(_rdf_distribution_entries(downloaded_dir)) == 1
+    assert builder.build_results['HGNC']['release_version'] == release_version
+    assert builder.build_results['HGNC']['graph_dir'] == str(downloaded_dir)
+
+    assert not _rdf_distribution_entries(published_dir)
+    assert not (published_dir / rdf_filename).exists()
+
+
 def test_build_graph_end_to_end_multi_source(tmp_path, monkeypatch):
     """This exercises the recursive _build_single_source_graph_dependency path:
     each data source is built as its own single-source artifact under
@@ -327,6 +559,13 @@ def test_build_graph_end_to_end_multi_source(tmp_path, monkeypatch):
         parent_meta = json.load(f)
     assert parent_meta['version'] == graph_spec.release_version
     assert set(source_ids_from_graph_metadata(parent_meta)) == {'HGNC', 'CTD'}
+    # each hasPart entry records both versions of the source build it came from
+    for kg_source in parent_meta['hasPart']:
+        source_id = KGXKnowledgeGraphSource.from_dict(kg_source).get_source_id()
+        with open(graphs_dir / source_id / kg_source['orion:buildVersion'] / 'graph-metadata.json') as f:
+            source_build_metadata = json.load(f)
+        assert kg_source['version'] == source_build_metadata['version']
+        assert kg_source['@id'].endswith(f'/{source_id}/{kg_source["version"]}/')
     assert not (parent_dir / 'Multi_Source_Test.meta.json').exists()
 
     # --- build_results records every bundle produced this run: the parent graph and each source
@@ -372,7 +611,7 @@ def test_build_graph_end_to_end_with_subgraph_dependency(tmp_path, monkeypatch):
                 'graph_id': 'Parent_Graph',
                 'graph_name': 'Parent Graph',
                 'output_format': 'jsonl',
-                'sources': [{'id': 'My_Subgraph'}, {'id': 'CTD'}],
+                'sources': [{'id': 'My_Subgraph'}, {'id': 'CTD', 'conflation': True}],
             },
         ]
     }
@@ -424,6 +663,21 @@ def test_build_graph_end_to_end_with_subgraph_dependency(tmp_path, monkeypatch):
         parent_meta = json.load(f)
     assert parent_meta['version'] == parent_spec.release_version
     assert set(source_ids_from_graph_metadata(parent_meta)) == {'CTD', 'HGNC'}
+
+    # Each hasPart entry records how its source build was produced, including HGNC's, which
+    # carries up through My_Subgraph unchanged. Conflation was only requested for CTD.
+    kg_sources_by_id = {KGXKnowledgeGraphSource.from_dict(kg_source).get_source_id(): kg_source
+                        for kg_source in parent_meta['hasPart']}
+    for source_id, conflation in (('HGNC', False), ('CTD', True)):
+        kg_source = kg_sources_by_id[source_id]
+        assert kg_source['orion:conflation'] is conflation
+        assert kg_source['orion:strictNormalization'] is True
+        assert kg_source['orion:transformVersion'] == f'{source_id}_pv1'
+        for key in ('orion:supplementationVersion', 'orion:nodeNormalizationVersion',
+                    'orion:biolinkVersion', 'orion:babelVersion', 'orion:normalizationCodeVersion'):
+            assert kg_source[key], f'{source_id} hasPart entry is missing {key}'
+    for key in ('orion:biolinkVersion', 'orion:babelVersion'):
+        assert parent_meta[key] == kg_sources_by_id['HGNC'][key] == kg_sources_by_id['CTD'][key]
 
     # build_results records every bundle produced: the parent, the subgraph, and each source build
     # (HGNC via My_Subgraph, CTD directly) — all single-source or multi-source graphs now.
@@ -690,3 +944,42 @@ def test_build_graph_produces_neptune_csv_files(tmp_path, monkeypatch):
 
     # the jsonl files are still gzipped at the end of the build
     assert (output_dir / 'nodes.jsonl.gz').exists()
+
+
+def test_graph_metadata_versions_from_has_part(tmp_path, caplog):
+    """The graph-level Biolink and Babel versions come from the hasPart entries. Mixed versions
+    are warned about: Biolink records the newest present, Babel is left empty. An entry from a
+    bundle that predates per-entry versions takes its carrier's graph-level versions."""
+    empty_spec_dir = tmp_path / 'specs'
+    empty_spec_dir.mkdir()
+    builder = GraphBuilder(graph_specs_dir=str(empty_spec_dir),
+                           graph_output_dir=str(tmp_path / 'graphs'),
+                           ingest_pipeline=IngestPipeline(storage_dir=str(tmp_path / 'storage')))
+
+    def _contribution(source_id, kg_source_versions, carrier_versions=None):
+        kg_source = {'@id': f'https://example.org/{source_id}/1.0.0/', 'name': source_id,
+                     'version': '1.0.0', 'orion:buildVersion': f'{source_id}_bv', **kg_source_versions}
+        return {'kgx_graph_metadata': {'hasPart': [kg_source], 'isBasedOn': [], **(carrier_versions or {})},
+                'node_count': 1, 'edge_count': 1}
+
+    merge_metadata = {'sources': {
+        'HGNC': _contribution('HGNC', {'orion:biolinkVersion': 'v4.2.0', 'orion:babelVersion': 'babel_a'}),
+        'CTD': _contribution('CTD', {'orion:biolinkVersion': 'v4.4.2', 'orion:babelVersion': 'babel_b'}),
+        'GO': _contribution('GO', {}, {'orion:biolinkVersion': 'v4.2.0', 'orion:babelVersion': 'babel_a'}),
+    }}
+    graph_spec = GraphSpec(graph_id='Mixed_Graph', graph_name='Mixed Graph', graph_description='', graph_url='')
+
+    with caplog.at_level('WARNING', logger='orion.graph_pipeline'):
+        builder.generate_kgx_metadata_files(graph_spec=graph_spec,
+                                            merge_metadata=merge_metadata,
+                                            graph_output_dir=str(tmp_path),
+                                            graph_output_url='https://example.org/Mixed_Graph/1.0.0/',
+                                            build_time='2026-01-01T00:00:00Z')
+
+    with open(tmp_path / 'graph-metadata.json') as f:
+        graph_metadata = json.load(f)
+    assert graph_metadata['orion:biolinkVersion'] == 'v4.4.2'
+    assert graph_metadata['orion:babelVersion'] == ''
+    assert 'different Biolink versions: v4.2.0 (GO, HGNC); v4.4.2 (CTD)' in caplog.text
+    assert 'different Babel versions: babel_a (GO, HGNC); babel_b (CTD)' in caplog.text
+
