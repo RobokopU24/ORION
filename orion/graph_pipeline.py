@@ -51,7 +51,7 @@ REDUNDANT_EDGES_FILENAME = 'redundant_edges.jsonl'
 COLLAPSED_QUALIFIERS_FILENAME = 'collapsed_qualifier_edges.jsonl'
 
 # Every valid output format a graph can produce, in a graph spec or --output_format.
-OUTPUT_FORMATS = ('jsonl', 'neo4j', 'memgraph', 'rdf', 'redundant_jsonl', 'redundant_neo4j',
+OUTPUT_FORMATS = ('jsonl', 'neo4j', 'memgraph', 'neptune', 'rdf', 'redundant_jsonl', 'redundant_neo4j',
                   'collapsed_qualifiers_jsonl', 'collapsed_qualifiers_neo4j')
 
 
