@@ -20,6 +20,12 @@ COPY --from=neo4j-source /startup /startup
 ENV NEO4J_HOME="/var/lib/neo4j" \
     PATH="/var/lib/neo4j/bin:${PATH}"
 
+# Containers run as UIDs with no passwd entry, so the JVM sets user.home to "?".
+# Neo4j's JNA then writes ?/.cache/JNA into the working directory,
+# which for neo4j-admin import is the graph output directory.
+# Pointing user.home at NEO4J_HOME keeps those files out of graph outputs.
+ENV JAVA_TOOL_OPTIONS="-Duser.home=/var/lib/neo4j"
+
 # Create data/logs directories with symlinks matching the official Neo4j image layout
 RUN mkdir -p /data /logs /var/lib/neo4j/run \
     && ln -sf /data /var/lib/neo4j/data \
