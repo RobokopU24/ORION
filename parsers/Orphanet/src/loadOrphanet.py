@@ -17,7 +17,7 @@ from orion.utils import GetData, GetDataPullError
 
 
 ORPHANET_INFORES = "infores:orphanet"
-ORPHADATA_PRODUCT6_URL = "http://www.orphadata.org/data/xml/en_product6.xml"
+ORPHADATA_PRODUCT6_URL = "https://www.orphadata.com/data/xml/en_product6.xml"
 ORPHADATA_PRODUCT6_FILE = "en_product6.xml"
 GENE_ASSOCIATED_WITH_CONDITION = "biolink:gene_associated_with_condition"
 
