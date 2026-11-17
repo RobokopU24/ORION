@@ -3,7 +3,7 @@
   "@type": "Dataset",
   "identifier": "infores:text-mining-provider-targeted",
   "name": "",
-  "description": "The Text Mining Provider KG contains subject-predicate-object assertions derived from the application of natural language processing (NLP) algorithms to the PubMedCentral Open Access collection of publications plus additional titles and abstracts from PubMed.",
+  "description": "The Text Mining Provider KG contains subject-predicate-object assertions derived from the application of natural language processing (NLP) algorithms to the PubMedCentral Open Access collection of publications plus additional titles and abstracts from PubMed. Its treats, chemical-to-protein and protein-to-protein edges are filtered and repaired with the lists from https://github.com/cbizon/tmkp-cleanup.",
   "url": "",
   "attribution": "",
   "citation": "",
