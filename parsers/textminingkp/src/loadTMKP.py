@@ -47,34 +47,37 @@ TMKP_QUALIFIER_ATTRIBUTES = {
 }
 
 # Cleanup of TMKP's text-mined edges. A typed-decision model (Jev) judged every supporting sentence of the treats,
-# chemical -> protein and protein -> protein edges; the results are fixed lists hosted on stars. The code, method and
+# chemical -> protein, protein -> protein and chemical -> disease contributes_to edges; the results are fixed lists
+# hosted on stars. The code, method and
 # validation are in https://github.com/cbizon/tmkp-cleanup; CLEANUP_VERSION is the tag that made these files.
 CLEANUP_URL = 'https://stars.renci.org/var/translator/ingests/tmkp/'
-CLEANUP_VERSION = 'v1'
+CLEANUP_VERSION = 'v2'
 # Treats edge ids none of whose sentences support the edge, one per line. TMKP edge ids aren't unique across
 # predicates (a treats and a contributes_to edge can share one), so the list applies only to treats predicates.
 TREATS_DROPPED_FILE = 'tmkp_treats_jev_v3_dropped_edges.txt.gz'
 TREATS_PREDICATES = frozenset({'biolink:treats', 'biolink:treats_or_applied_or_studied_to_treat'})
-# Regulation edges, per relation. TMKP's edge id also ignores the direction qualifier (an increased and a decreased
-# edge for the same pair share one), so these lists are keyed on (id, direction).
+# Edges judged sentence by sentence, per relation. TMKP's edge id also ignores the direction qualifier (an increased
+# and a decreased edge for the same pair share one), so these lists are keyed on (id, direction); contributes_to edges
+# have no direction, so theirs is "". The treats edges share chem_disease's relation and are kept apart by predicate.
 # - dropped: (id, direction) of edges none of whose sentences support them as mapped
 # - pruned: (id, direction, sentence id) of sentences removed from kept edges
-# - repaired: new edges, in the edges.tsv layout, for sentences whose regulator or target was mapped wrongly
+# - repaired: new edges, in the edges.tsv layout, for sentences whose subject or object was mapped wrongly
 GENE_REGULATION_RELATION = 'biolink:GeneRegulatoryRelationship'
-REGULATION_FAMILIES = {
+SENTENCE_FILTER_FAMILIES = {
     'biolink:ChemicalToGeneAssociation': 'chem_gene',
     GENE_REGULATION_RELATION: 'gene_gene',
+    'biolink:ChemicalToDiseaseOrPhenotypicFeatureAssociation': 'chem_disease',
 }
 REGULATES = 'biolink:regulates'
 
 
-def regulation_file(family: str, kind: str) -> str:
+def cleanup_file(family: str, kind: str) -> str:
     """
-    The cleanup file name for a regulation family.
+    The cleanup file name for a sentence-filtered family.
 
-    >>> regulation_file('gene_gene', 'repaired')
+    >>> cleanup_file('gene_gene', 'repaired')
     'tmkp_gene_gene_repaired_edges.tsv.gz'
-    >>> regulation_file('chem_gene', 'pruned_sentences')
+    >>> cleanup_file('chem_gene', 'pruned_sentences')
     'tmkp_chem_gene_pruned_sentences.txt.gz'
     """
     return f'tmkp_{family}_{kind}_edges.tsv.gz' if kind == 'repaired' else f'tmkp_{family}_{kind}.txt.gz'
@@ -111,8 +114,8 @@ class TMKPLoader(SourceDataLoader):
         self.textmine_data_url = 'https://storage.googleapis.com/translator-text-workflow-dev-public/kgx/UniProt/'
         self.edge_file_name: str = 'edges.tsv.gz'
         self.cleanup_files = [TREATS_DROPPED_FILE] + [
-            regulation_file(family, kind)
-            for family in REGULATION_FAMILIES.values()
+            cleanup_file(family, kind)
+            for family in SENTENCE_FILTER_FAMILIES.values()
             for kind in ('dropped_edges', 'pruned_sentences', 'repaired')]
 
         self.data_files = [self.edge_file_name] + self.cleanup_files
@@ -144,24 +147,25 @@ class TMKPLoader(SourceDataLoader):
             return os.path.join(self.data_path, name)
 
         self.treats_dropped_ids = frozenset(row[0] for row in read_gzip_rows(path(TREATS_DROPPED_FILE)))
-        self.regulation_dropped = {}
-        self.regulation_pruned = {}
-        for relation, family in REGULATION_FAMILIES.items():
-            self.regulation_dropped[relation] = frozenset(
+        self.filter_dropped = {}
+        self.filter_pruned = {}
+        for relation, family in SENTENCE_FILTER_FAMILIES.items():
+            self.filter_dropped[relation] = frozenset(
                 (edge_id, direction)
-                for edge_id, direction in read_gzip_rows(path(regulation_file(family, 'dropped_edges'))))
+                for edge_id, direction in read_gzip_rows(path(cleanup_file(family, 'dropped_edges'))))
             pruned = {}
-            for edge_id, direction, sentence_id in read_gzip_rows(path(regulation_file(family, 'pruned_sentences'))):
+            for edge_id, direction, sentence_id in read_gzip_rows(path(cleanup_file(family, 'pruned_sentences'))):
                 pruned.setdefault((edge_id, direction), set()).add(sentence_id)
-            self.regulation_pruned[relation] = pruned
+            self.filter_pruned[relation] = pruned
 
     def parse_data(self) -> dict:
         """
         Parses the data file for graph nodes/edges and writes them to the KGX csv files.
 
-        Treats and regulation edges are cleaned with the lists from https://github.com/cbizon/tmkp-cleanup: unsupported
-        edges are dropped, unsupporting sentences are pruned from kept regulation edges, and repaired regulation edges
-        are added. Gene regulation edges with a direction use biolink:regulates, as SIGNOR models them.
+        Treats, regulation and contributes_to edges are cleaned with the lists from
+        https://github.com/cbizon/tmkp-cleanup: unsupported edges are dropped, unsupporting sentences are pruned from
+        kept edges, and repaired edges are added. Gene regulation edges with a direction use biolink:regulates, as
+        SIGNOR models them.
 
         :return: ret_val: record counts
         """
@@ -170,13 +174,13 @@ class TMKPLoader(SourceDataLoader):
             'num_source_lines': 0,
             'unusable_source_lines': 0,
             'treats_edges_dropped_by_cleanup': 0,
-            'regulation_edges_dropped_by_cleanup': 0,
+            'sentence_filtered_edges_dropped_by_cleanup': 0,
             'sentences_pruned_by_cleanup': 0,
             'repaired_edges_added_by_cleanup': 0,
         }
 
         edge_files = [self.edge_file_name] + [
-            regulation_file(family, 'repaired') for family in REGULATION_FAMILIES.values()]
+            cleanup_file(family, 'repaired') for family in SENTENCE_FILTER_FAMILIES.values()]
         for edge_file_name in edge_files:
             repaired = edge_file_name != self.edge_file_name
             with GzipFile(os.path.join(self.data_path, edge_file_name), 'rb') as zf:
@@ -211,11 +215,11 @@ class TMKPLoader(SourceDataLoader):
             self.counts['treats_edges_dropped_by_cleanup'] += 1
             return False
         excluded_sentences = frozenset()
-        if relation in REGULATION_FAMILIES and predicate not in TREATS_PREDICATES:
-            if (edge_id, direction) in self.regulation_dropped[relation]:
-                self.counts['regulation_edges_dropped_by_cleanup'] += 1
+        if relation in SENTENCE_FILTER_FAMILIES and predicate not in TREATS_PREDICATES:
+            if (edge_id, direction) in self.filter_dropped[relation]:
+                self.counts['sentence_filtered_edges_dropped_by_cleanup'] += 1
                 return False
-            excluded_sentences = self.regulation_pruned[relation].get((edge_id, direction), frozenset())
+            excluded_sentences = self.filter_pruned[relation].get((edge_id, direction), frozenset())
             self.counts['sentences_pruned_by_cleanup'] += len(excluded_sentences)
         if relation == GENE_REGULATION_RELATION and direction:
             predicate = REGULATES
