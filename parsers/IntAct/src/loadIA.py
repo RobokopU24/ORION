@@ -71,7 +71,7 @@ class IALoader(SourceDataLoader):
 
     source_id: str = 'IntAct'
     provenance_id: str = 'infores:intact'
-    parsing_version: str = '1.2'
+    parsing_version: str = '1.3'
 
     def __init__(self, test_mode: bool = False, source_data_dir: str = None):
         """
@@ -287,7 +287,7 @@ class IALoader(SourceDataLoader):
                 for suffix in ['a', 'b']:
                     # if this is a uniprot gene get the taxon number node property
                     if prefix == 'u_':
-                        properties = {TAXON: NCBITAXON + item['t_' + suffix].split(':')[1]}
+                        properties = {TAXON: item['t_' + suffix]}
                     # else a taxon doesnt get a taxon property
                     else:
                         properties = None
